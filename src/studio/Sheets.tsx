@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import type { Recipe } from '../engine/recipe';
 import { ARCHETYPES } from '../random/archetypes';
 import { cleanSeed, freshSeed } from '../random/seeds';
@@ -8,7 +8,7 @@ import { downloadText } from './download';
 import { pickFile } from './files';
 import { Glossary } from './Glossary';
 import { HISTORY_WARN, historyLabel } from './history';
-import { IClose, IDice } from './icons';
+import { IDice } from './icons';
 import { mediaUsage } from './mediaStore';
 import { renderThumbs } from './offscreen';
 import { fmtSize, saveSession, sessionMediaSize, slug } from './packages';
@@ -19,31 +19,10 @@ import {
 } from './store';
 import { toast } from './toast';
 import { openWelcome } from './guide/state';
+import { Sheet } from './Sheet';
 import './css/data.css';
 
-export function Sheet({ open, title, sub, onClose, children, wide }: { open: boolean; title: string; sub?: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
-  return (
-    <dialog ref={ref} className="sheet" style={wide ? { width: 'min(1040px, calc(100vw - 24px))' } : undefined} onClose={onClose}
-      onClick={e => { if (e.target === ref.current) onClose(); }} aria-label={title}>
-      {open && (
-        <>
-          <div className="sheet-head">
-            <div className="grow"><h2>{title}</h2>{sub && <p>{sub}</p>}</div>
-            <button type="button" className="close" onClick={onClose} aria-label="Cerrar"><IClose /></button>
-          </div>
-          {children}
-        </>
-      )}
-    </dialog>
-  );
-}
+export { Sheet };
 
 const close = () => setUI({ sheet: 'none' });
 
