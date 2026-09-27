@@ -6,12 +6,12 @@
  */
 import type { MediaRef, Recipe } from '../engine/recipe';
 import { parseRecipe, publicRecipe, recipeFile } from './share';
+import { SITE_URL as SITE } from './site';
 import { zip, type ZipEntry } from './zip';
 
 export const PROJECT_RECIPE = 'receta.monotrama.json';
 export const PROJECT_README = 'LEEME.txt';
 export const MEDIA_DIR = 'medios/';
-const SITE = 'https://monotrama.vercel.app';
 
 export interface PackedMedia { name: string; type: string; data: Blob | Uint8Array }
 export interface UnpackedMedia { name: string; type: string; data: Uint8Array }
