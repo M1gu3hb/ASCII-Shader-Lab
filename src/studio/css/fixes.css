@@ -1,0 +1,12 @@
+/* Review fixes (lane: fix-studio). Tokens from studio.css. */
+
+/* ---------- when the browser keeps nothing, or another tab has the studio ---------- */
+.keep-chip .bm-tag i { background: #ffb08a; }
+.keep-chip .bm-line { color: var(--text); }
+dialog.sheet.tab-away { width: min(520px, calc(100vw - 24px)); }
+.tab-away h2 { margin: 0 0 12px; font: 700 17px/1.3 var(--font-display); }
+.tab-away p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+.tab-away .btn { min-height: 44px; margin: 6px 0 12px; }
+.tab-away .note { margin: 0; }
+.keep-warn { margin: 0 0 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 176, 138, .45); background: rgba(255, 91, 31, .08); font-size: 13px; line-height: 1.5; }
+.keep-warn .mini { margin-top: 8px; }

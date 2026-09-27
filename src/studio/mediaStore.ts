@@ -50,6 +50,28 @@ export type PutResult =
 
 const isQuota = (e: unknown) => e instanceof DOMException && e.name === 'QuotaExceededError';
 
+/** Files up to this size are identified by a hash of all their bytes; bigger ones (videos) by samples. */
+const FULL_HASH_MAX = 16 * 1024 * 1024;
+const SAMPLE = 2 * 1024 * 1024;
+
+/**
+ * Content id of a file. A big video is not read whole (with its copy for the hash that took several
+ * hundred MB at once, while the same video was being decoded): its size and three 2 MB samples (start,
+ * middle, end) name it, which still tells apart any two different videos and matches the same file.
+ */
+async function contentId(file: Blob): Promise<string> {
+  if (file.size <= FULL_HASH_MAX) return hashBytes(await file.arrayBuffer());
+  const mid = Math.floor(file.size / 2);
+  const parts = await Promise.all([[0, SAMPLE], [mid - SAMPLE / 2, mid + SAMPLE / 2], [file.size - SAMPLE, file.size]]
+    .map(([a, b]) => file.slice(a, b).arrayBuffer()));
+  const head = new TextEncoder().encode(`mt-muestras|${file.size}|`);
+  const all = new Uint8Array(head.length + parts.reduce((n, p) => n + p.byteLength, 0));
+  all.set(head, 0);
+  let at = head.length;
+  for (const p of parts) { all.set(new Uint8Array(p), at); at += p.byteLength; }
+  return hashBytes(all);
+}
+
 /**
  * Stores a file (original bytes) unless it is over the size limit.
  * Always returns an id: files too big to keep get one from their name, size and date instead of
@@ -57,19 +79,19 @@ const isQuota = (e: unknown) => e instanceof DOMException && e.name === 'QuotaEx
  */
 export async function put(file: Blob, meta: { kind: MediaKind; name: string; w: number; h: number; lastModified?: number }): Promise<PutResult> {
   const type = file.type || guessType(meta.name) || (meta.kind === 'image' ? 'image/*' : 'video/*');
-  if (file.size > MEDIA_LIMITS[meta.kind]) {
-    const id = await hashBytes(new TextEncoder().encode(`${meta.name}|${file.size}|${meta.lastModified ?? 0}|${type}`));
-    return { id, stored: false, reason: 'too-big' };
-  }
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const id = await hashBytes(bytes);
+  const byName = () => hashBytes(new TextEncoder().encode(`${meta.name}|${file.size}|${meta.lastModified ?? 0}|${type}`));
+  if (file.size > MEDIA_LIMITS[meta.kind]) return { id: await byName(), stored: false, reason: 'too-big' };
+  let id: string;
+  // the file may have changed or gone since it was picked: it still works in this tab if it decoded
+  try { id = await contentId(file); } catch { return { id: await byName(), stored: false, reason: 'unavailable' }; }
   try {
     const had = await get<StoredMedia>(id, store());
     // already kept: refresh its date so a collection running right now leaves it alone
     if (had) { await set(id, { ...had, added: Date.now() }, store()); return { id, stored: true }; }
     const rec: StoredMedia = {
       id, kind: meta.kind, name: meta.name.slice(0, 200), type, size: file.size, w: meta.w, h: meta.h, added: Date.now(),
-      blob: new Blob([bytes as BlobPart], { type }),
+      // the file itself (IndexedDB copies a Blob without reading it into memory), typed as the record says
+      blob: file.type === type ? file : file.slice(0, file.size, type),
     };
     await set(id, rec, store());
     return { id, stored: true };
@@ -107,12 +129,15 @@ export async function mediaUsage(ids?: Set<string>): Promise<{ count: number; by
   return { count: list.length, bytes: list.reduce((n, m) => n + m.size, 0) };
 }
 
-/** Deletes stored media that nothing refers to any more. Returns what was freed. */
-export async function gcMedia(referenced: Set<string>): Promise<{ count: number; bytes: number }> {
+/**
+ * Deletes stored media that nothing refers to any more. Files added within `grace` ms are kept (they
+ * may not be in a recipe yet); «Vaciar historial» passes 0. Returns what was freed.
+ */
+export async function gcMedia(referenced: Set<string>, grace = GRACE_MS): Promise<{ count: number; bytes: number }> {
   const now = Date.now();
   let count = 0, bytes = 0;
   for (const m of await listMedia()) {
-    if (referenced.has(m.id) || now - m.added < GRACE_MS) continue;
+    if (referenced.has(m.id) || now - m.added < grace) continue;
     await deleteMedia(m.id);
     count++; bytes += m.size;
   }

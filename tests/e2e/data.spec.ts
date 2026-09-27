@@ -61,7 +61,7 @@ test.describe('historial y medios locales', () => {
       rq.onerror = () => rej(rq.error);
     }));
     await page.reload();
-    await expect(prompt(page)).toContainText('Esta pieza usaba «foto-a.png» (64×40) y ya no está guardada en este navegador. Vuelve a elegirla o usa otra.');
+    await expect(prompt(page)).toContainText('Esta pieza usaba «foto-a.png» (64×40), que no está guardada en este navegador. Vuelve a elegirla o usa otra.');
     expect(errors).toEqual([]);
   });
 

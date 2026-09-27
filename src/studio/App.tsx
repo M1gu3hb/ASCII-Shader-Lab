@@ -8,6 +8,7 @@ import { SPACES } from '../random/spaces';
 import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary, type UIState } from './store';
 import { useToasts } from './toast';
 import { Welcome } from './guide/Welcome';
+import { TabAway } from './Keeping';
 import { openWelcome, useGuide } from './guide/state';
 import { loadComponents, loadExportSheet, loadSheets, warmCodeExporter } from './lazy';
 import './css/perf.css';
@@ -42,6 +43,7 @@ export function App() {
       <OnDemand sheet="seed" label="Cargando…"><SeedSheet /></OnDemand>
       <ShareSheet />
       <Welcome />
+      <TabAway />
       <Toasts />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>
@@ -112,7 +114,7 @@ function useKeys() {
         case 'ArrowLeft': if (t.closest('input[type=range]')) return; e.preventDefault(); back(); break;
         case 'v': case 'V': vary(); break;
         case 'x': case 'X': setUI({ sheet: 'explore' }); break;
-        case 's': case 'S': favorite(); break;
+        case 's': case 'S': void favorite(); break;
         case 'e': case 'E': setUI({ sheet: 'export' }); break;
         case 'l': case 'L': void copyLink(); break;
         case 'h': case 'H': setUI({ hideUI: !s.ui.hideUI }); break;
