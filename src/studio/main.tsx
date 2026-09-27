@@ -27,9 +27,13 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { hydrate } from './store';
 import { bootFromUrl } from './boot';
+import { DICE_HINT, openWelcome } from './guide/state';
 import { toast } from './toast';
 
 const first = await hydrate();
-await bootFromUrl();
+const opened = await bootFromUrl();
+// first visit: «¿Qué quieres hacer?», unless the address already chose (a shared piece, a seed,
+// a space or a guided path); set before the first render so the dialog opens with the page
+if (first && !opened) openWelcome(true);
 createRoot(document.getElementById('root')!).render(<App />);
-if (first) setTimeout(() => toast('Pulsa «Azar» (R) para tejer algo nuevo · ← → recorre tu historial · ★ guarda lo que te guste', undefined, 7000), 900);
+if (first && opened === 'space') setTimeout(() => toast(DICE_HINT, undefined, 7000), 900);

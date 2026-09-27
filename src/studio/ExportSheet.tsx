@@ -17,6 +17,7 @@ import { Glossary } from './Glossary';
 import { exportProject, fmtSize, projectMedia } from './packages';
 import { shareLink } from './ShareSheet';
 import './css/basic.css';
+import { takeExportTab } from './exportTab';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -28,7 +29,7 @@ export function ExportSheet() {
   const open = useStudio(s => s.ui.sheet === 'export');
   const space = useStudio(s => s.space);
   const [tab, setTab] = useState<Tab>('imagen');
-  useEffect(() => { if (open) setTab(space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen'); }, [open, space]);
+  useEffect(() => { if (open) setTab(takeExportTab() ?? (space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen')); }, [open, space]);
   return (
     <Sheet open={open} onClose={() => setUI({ sheet: 'none' })} wide title="Llevar la pieza fuera" sub="Todo se genera en tu navegador. Elige el formato según dónde la vayas a usar.">
       <div className="sheet-tabs" role="tablist">

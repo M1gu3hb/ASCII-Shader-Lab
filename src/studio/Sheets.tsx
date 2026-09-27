@@ -18,6 +18,7 @@ import {
   useStudio, variations,
 } from './store';
 import { toast } from './toast';
+import { openWelcome } from './guide/state';
 import './css/data.css';
 
 export function Sheet({ open, title, sub, onClose, children, wide }: { open: boolean; title: string; sub?: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
@@ -217,14 +218,19 @@ const KEYS: Array<[string, string]> = [
   ['R', 'Nueva combinación al azar'], ['→', 'Siguiente (o nueva al llegar al final)'], ['←', 'Resultado anterior'], ['V', 'Variar el actual'],
   ['X', 'Explorar variaciones'], ['S', 'Guardar en la colección'], ['E', 'Exportar'], ['Espacio', 'Pausar / reproducir'],
   ['Ctrl Z', 'Deshacer'], ['Ctrl Mayús Z', 'Rehacer'], ['H', 'Ocultar la interfaz'], ['F', 'Pantalla completa'], ['1 – 6', 'Cambiar de espacio'],
-  ['L', 'Copiar enlace'], ['?', 'Esta ayuda'], ['Esc', 'Cerrar'],
+  ['L', 'Copiar enlace'], ['G', 'Guías: empezar por un camino'], ['?', 'Esta ayuda'], ['Esc', 'Cerrar'],
 ];
 
 export function ShortcutsSheet() {
   const open = useStudio(s => s.ui.sheet === 'shortcuts');
   return (
     <Sheet open={open} onClose={close} title="Atajos de teclado" sub="Doble clic en el nombre de un ajuste lo devuelve a su valor inicial.">
-      <div className="sheet-body"><div className="keys">{KEYS.map(([k, d]) => <div key={k}><span>{d}</span><kbd>{k}</kbd></div>)}</div></div>
+      <div className="sheet-body">
+        <div className="keys">{KEYS.map(([k, d]) => <div key={k}><span>{d}</span><kbd>{k}</kbd></div>)}</div>
+        <p className="note" style={{ margin: '16px 0 0' }}>
+          ¿Empiezas? <button type="button" className="mini" onClick={() => { close(); setTimeout(() => openWelcome(), 60); }}>Abrir las guías</button> y convierte una foto, crea un fondo para tu web o anima una palabra, paso a paso.
+        </p>
+      </div>
     </Sheet>
   );
 }
