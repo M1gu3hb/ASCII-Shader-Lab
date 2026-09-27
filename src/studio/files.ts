@@ -4,6 +4,7 @@ import { loadFile, syncMedia } from './media';
 import { MEDIA_LIMITS } from './mediaStore';
 import { openPackage } from './packages';
 import { applyRecipe, edit, importFavorites, setSpace, useStudio } from './store';
+import { spaceForOpened } from './presets';
 import { toast } from './toast';
 
 let input: HTMLInputElement | null = null;
@@ -48,13 +49,13 @@ export async function handleFile(f: File) {
       const o = JSON.parse(text);
       if (o && o.monotrama === 'collection' && Array.isArray(o.items)) {
         const n = importFavorites(o.items);
-        toast(`${n} piezas añadidas a tu colección`);
+        toast(n === 1 ? '1 pieza añadida a tu colección' : `${n} piezas añadidas a tu colección`);
         return;
       }
     } catch { /* handled below */ }
     const r = parseRecipe(text);
     if (!r) { toast('Ese archivo no parece una receta de Monotrama.'); return; }
-    if (r.meta.space) useStudio.setState({ space: r.meta.space as never });
+    useStudio.setState({ space: spaceForOpened(r, useStudio.getState().space) });
     applyRecipe(r, 'importado', f.name.replace(/\.json$/i, '').replace(/\.monotrama$/i, ''));
     toast('Receta abierta');
     return;
@@ -77,6 +78,7 @@ export async function handleFile(f: File) {
   else if (st.reason === 'too-big') {
     toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero pesa más de ${MEDIA_LIMITS[kind] / 1024 / 1024} MB: es demasiado grande para guardarl${kind === 'image' ? 'a' : 'o'} en el navegador. Se verá mientras no cierres la pestaña; después tendrás que elegirl${kind === 'image' ? 'a' : 'o'} otra vez.`, undefined, 9000);
   } else {
-    toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero no se pudo guardar en el navegador (sin espacio o en modo privado). Se verá mientras no cierres la pestaña.`, undefined, 9000);
+    const why = st.reason === 'no-space' ? 'no queda espacio en el navegador' : 'el navegador no dejó guardarl' + (kind === 'image' ? 'a' : 'o');
+    toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero ${why}. Se verá mientras no cierres la pestaña.`, undefined, 9000);
   }
 }

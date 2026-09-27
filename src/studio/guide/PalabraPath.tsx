@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { F, Slider } from '../controls';
 import { downloadBlob } from '../download';
-import { exportGif, exportVideo, liveTime, loopSeconds, type Cancel } from '../exporting';
+import { exportGif, exportVideo, liveTime, loopSeconds, useStopOnLeave, type Cancel } from '../exporting';
 import { openExport } from '../exportTab';
 import { slug } from '../packages';
 import { PRESETS } from '../presets';
@@ -119,6 +119,7 @@ export function PalabraTake() {
   const [caps, setCaps] = useState<ClipCaps | null>(null);
   const [busy, setBusy] = useState<{ what: string; p: number; label?: string } | null>(null);
   const cancel = useRef<Cancel>({ cancelled: false });
+  useStopOnLeave(cancel);
   useDefaultLoop();
   useEffect(() => { let alive = true; void clipCaps(VIDEO.w, VIDEO.h).then(c => { if (alive) setCaps(c); }); return () => { alive = false; }; }, []);
   if (!recipe) return null;
@@ -126,7 +127,7 @@ export function PalabraTake() {
   const start = recipe.motion.loop > 0 ? 0 : liveTime();
   const base = 'monotrama-' + slug(recipe.text.content || 'palabra');
   const run = async (kind: 'gif' | 'mp4' | 'webm') => {
-    cancel.current = { cancelled: false };
+    const job: Cancel = cancel.current = { cancelled: false, active: true };
     setBusy({ what: kind, p: 0 });
     const progress = (p: number, label?: string) => setBusy({ what: kind, p, label });
     try {
@@ -137,6 +138,7 @@ export function PalabraTake() {
     } catch (err) {
       if ((err as Error).message !== 'cancelado') toast('No se pudo crear el archivo: ' + (err as Error).message);
     }
+    job.active = false;
     setBusy(null);
   };
   const stop = () => { cancel.current.cancelled = true; };

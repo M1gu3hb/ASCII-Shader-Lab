@@ -29,6 +29,20 @@ const G = useGuide.getState;
 const setG = useGuide.setState;
 
 export const DICE_HINT = 'Pulsa «Azar» (R) para tejer algo nuevo · ← → recorre tu historial · ★ guarda lo que te guste';
+/** The same, for touch screens (no keys to name). */
+export const DICE_HINT_TOUCH = 'Toca «Azar» para tejer algo nuevo · las flechas y las miniaturas recorren tu historial · ★ guarda lo que te guste';
+
+/**
+ * The first visit's hint about the dice, worded for how the person points (keys or touch). Not in
+ * Componentes: there is no dice, history or ★ there.
+ */
+export function diceHint(delay: number) {
+  setTimeout(() => {
+    if (useStudio.getState().space === 'componentes') return;
+    const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    toast(touch ? DICE_HINT_TOUCH : DICE_HINT, undefined, 7000);
+  }, delay);
+}
 
 /** Settings panel shown before the guide took its place (restored when the guide closes). */
 let panelBefore: boolean | null = null;
@@ -51,7 +65,7 @@ export function closeWelcome(how: 'close' | 'explore' | 'path' | 'silent' = 'clo
     const e = rollDice();
     announce(`Resultado nuevo: ${e.seed?.replace(/-/g, ' ') ?? ''}`);
   }
-  if ((how === 'close' || how === 'explore') && first) setTimeout(() => toast(DICE_HINT, undefined, 7000), 300);
+  if ((how === 'close' || how === 'explore') && first) diceHint(300);
 }
 
 /** Puts the studio where a path starts: its space and a piece of the right kind. */

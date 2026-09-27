@@ -39,7 +39,7 @@ export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes
     if (x.glyph.font !== 'system') notes.push('Tipografía cambiada a la mono del sistema: cero peticiones externas.');
     x.glyph.font = 'system';
   } else if (x.glyph.font !== 'system' && x.glyph.font !== 'courier') {
-    notes.push('La tipografía se carga desde Google Fonts. Actívala «sin dependencias» si prefieres la mono del sistema.');
+    notes.push('La tipografía se carga desde Google Fonts. Activa «Sin dependencias externas» si prefieres la mono del sistema.');
   }
   if (x.source === 'camera') { x.source = 'pattern'; notes.push('La cámara no se exporta: el código usa el patrón. Pide permiso de cámara en tu propia web si lo necesitas.'); }
   if ((x.source === 'image' || x.source === 'video') && !o.mediaUrl) notes.push(`Indica la URL de tu ${x.source === 'image' ? 'imagen' : 'video'} (mismo dominio o servida con CORS).`);

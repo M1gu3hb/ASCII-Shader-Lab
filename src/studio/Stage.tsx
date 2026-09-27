@@ -6,7 +6,9 @@ import { handleFile, pickFile } from './files';
 import { startCamera, useMedia } from './media';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
 import { useView } from './views/state';
-import { ViewBar, ViewStage, useStageInsets } from './views/Views';
+import { ViewBar, ViewStage, useStageInsets, type Insets } from './views/Views';
+import { StorageNote } from './Keeping';
+import { RecordingChip } from './Recording';
 
 export function Stage() {
   // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
@@ -47,11 +49,13 @@ export function Stage() {
     >
       <ViewStage view={view} host={host} ins={ins} />
       <StageFatal />
-      <MediaPrompt />
+      <MediaPrompt ins={ins} />
       <div className="stage-top" ref={top}>
         <ViewBar view={view} />
         <div className="stage-notes">
+          <RecordingChip />
           <EngineNotes />
+          <StorageNote />
           <MotionNote />
         </div>
       </div>
@@ -65,8 +69,10 @@ function describe(r: ReturnType<typeof useRecipe>): string {
   return `Pieza ASCII animada. Fuente: ${SOURCE_NAMES[r.source]}. Patrones: ${pats}. Colores: ${r.color.stops.join(', ')} sobre ${r.color.bg}.`;
 }
 
-function MediaPrompt() {
+function MediaPrompt({ ins }: { ins: Insets }) {
   const source = useStudio(s => s.entries[s.cursor]?.recipe.source);
+  // in the room between the bar at the top of the stage and the seed line (or the sheet on phones)
+  const area = { top: ins.top, bottom: ins.bottom };
   const media = useMedia();
   const need = (source === 'image' && !media.image) || (source === 'video' && !media.video) || (source === 'camera' && media.camera !== 'on');
   if (!need) return null;
@@ -78,7 +84,7 @@ function MediaPrompt() {
   const dims = miss && miss.ref.w > 0 && miss.ref.h > 0 ? `${miss.ref.w}×${miss.ref.h}` : '';
   if (miss?.state === 'restoring') {
     return (
-      <div className="prompt">
+      <div className="prompt" style={area}>
         <div className="card restoring" role="status">
           <p>Recuperando {name ? <>«{name}»</> : video ? 'el video' : 'la imagen'} de este navegador…</p>
         </div>
@@ -90,10 +96,16 @@ function MediaPrompt() {
     title = 'Tu cámara, en caracteres';
     text = 'La cámara sólo se activa cuando pulsas el botón. Puedes apagarla cuando quieras.';
   } else if (miss?.state === 'missing') {
+    // true whether the file was deleted here or never came (a recipe or collection from another computer)
     title = video ? 'Falta el video de esta pieza' : 'Falta la imagen de esta pieza';
-    text = video
-      ? <>Esta pieza usaba {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`} y ya no está guardado en este navegador. Vuelve a elegirlo o usa otro.</>
-      : <>Esta pieza usaba {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`} y ya no está guardada en este navegador. Vuelve a elegirla o usa otra.</>;
+    text = (
+      <>
+        {video
+          ? <>Esta pieza usaba {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`}, que no está guardado en este navegador. Vuelve a elegirlo o usa otro.</>
+          : <>Esta pieza usaba {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`}, que no está guardada en este navegador. Vuelve a elegirla o usa otra.</>}
+        <span className="dims">Una receta o una colección (.json) no lleva el archivo; una sesión o un proyecto (.zip), sí.</span>
+      </>
+    );
   } else if (miss?.state === 'unreadable') {
     title = video ? 'Este navegador no abre ese video' : 'Este navegador no abre esa imagen';
     text = video
@@ -114,7 +126,7 @@ function MediaPrompt() {
     text = 'O elige un archivo de tu equipo. Mientras tanto ves el patrón de fondo.';
   }
   return (
-    <div className="prompt">
+    <div className="prompt" style={area}>
       <div className="card" role="region" aria-label="Cargar fuente">
         <h2>{title}</h2>
         <p>{text}</p>

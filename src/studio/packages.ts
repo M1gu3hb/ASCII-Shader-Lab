@@ -7,7 +7,8 @@ import { downloadBlob } from './download';
 import { allRecipes, mediaIdsOf } from './history';
 import { mediaBlob, rememberFile, syncMedia } from './media';
 import { guessType, kindOfType, put } from './mediaStore';
-import { applyRecipe, importSession, onHistoryEvent, useStudio, type Entry, type Favorite } from './store';
+import { spaceForOpened } from './presets';
+import { applyRecipe, importSession, onHistoryEvent, planSession, useStudio, type Entry, type Favorite } from './store';
 import { toast } from './toast';
 
 /**
@@ -49,7 +50,7 @@ export async function exportProject(r: Recipe, fileBase: string) {
   try {
     const blob = await buildProject(r, m && ref ? { name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, data: m.blob } : null);
     downloadBlob(`${fileBase}.monotrama.zip`, blob);
-    if (ref && !m) toast(`El proyecto sale sin ${ref.kind === 'video' ? 'el video' : 'la imagen'}: ya no está guardado en este navegador.`, undefined, 6000);
+    if (ref && !m) toast(`El proyecto sale sin ${ref.kind === 'video' ? 'el video: no está guardado' : 'la imagen: no está guardada'} en este navegador.`, undefined, 6000);
   } catch (err) {
     toast('No se pudo crear el proyecto: ' + (err as Error).message);
   }
@@ -75,7 +76,7 @@ async function openProject(files: Awaited<ReturnType<typeof unzip>>, label: stri
         : ' · no queda espacio para guardar el archivo: se verá mientras no cierres la pestaña';
     }
   }
-  const space = spaceById(recipe.meta.space ?? useStudio.getState().space).id;
+  const space = spaceById(spaceForOpened(recipe, useStudio.getState().space)).id;
   useStudio.setState({ space });
   applyRecipe(recipe, 'importado', label || recipe.meta.name || 'Proyecto');
   toast('Proyecto abierto' + note, undefined, note ? 7000 : 3200);
@@ -140,10 +141,16 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
   const sess = await readSession(files);
   if (!sess) { toast('Esa sesión está dañada o no es de Monotrama.'); return; }
   const st = useStudio.getState();
-  const have = new Set(st.entries.map(e => e.id));
-  const incoming = sess.data.entries.filter(e => !have.has((e as { id?: string } | null)?.id ?? '')).length;
-  if (st.entries.length + incoming > st.histLimit
-    && !confirm(`Tu historial tiene ${st.entries.length} resultados y la sesión trae ${incoming} nuevos. Sólo se conservan los ${st.histLimit} más recientes (y todo lo guardado con ★). ¿Abrirla igualmente?`)) return;
+  // past the limit, say exactly what goes: the oldest by date, from here and from the session
+  const plan = planSession(sess.data);
+  if (plan.dropOwn + plan.dropIncoming > 0) {
+    const n = (k: number, one: string, many: string) => (k === 1 ? `1 ${one}` : `${k} ${many}`);
+    const from = [plan.dropOwn ? `${plan.dropOwn} de tu historial` : '', plan.dropIncoming ? `${plan.dropIncoming} de la sesión` : ''].filter(Boolean).join(' y ');
+    const total = plan.dropOwn + plan.dropIncoming;
+    if (!confirm(`Tu historial tiene ${n(plan.count, 'resultado', 'resultados')} y la sesión trae ${n(plan.added, 'nuevo', 'nuevos')}, pero guarda como mucho ${st.histLimit}. `
+      + `Al abrirla se ${total === 1 ? 'descarta el resultado más antiguo' : `descartan los ${total} resultados más antiguos`} por fecha (${from}); lo guardado con ★ se conserva.`
+      + `${plan.dropOwn ? ' Si quieres una copia de tu historial, cancela y usa antes «Guardar sesión».' : ''} ¿Abrirla igualmente?`)) return;
+  }
   // media first, so the pieces find their files as soon as they appear
   const remap = new Map<string, string>();
   let lost = 0;
@@ -163,10 +170,12 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
   });
   syncMedia(true);
   const parts = [`Sesión abierta: ${res.added} ${res.added === 1 ? 'resultado añadido' : 'resultados añadidos'}`];
-  if (res.skipped) parts.push(`${res.skipped} ya estaban`);
+  if (res.updated) parts.push(`${res.updated} ${res.updated === 1 ? 'actualizado' : 'actualizados'} con la versión más reciente de la sesión (en cada uno, Deshacer vuelve a la tuya)`);
+  if (res.skipped) parts.push(`${res.skipped} ya ${res.skipped === 1 ? 'estaba' : 'estaban'}`);
   if (res.favAdded) parts.push(`${res.favAdded} ${res.favAdded === 1 ? 'pieza nueva' : 'piezas nuevas'} en la colección`);
-  if (res.dropped) parts.push(`se descartaron ${res.dropped} resultados antiguos`);
-  if (lost) parts.push(`${lost} ${lost === 1 ? 'archivo no cabe' : 'archivos no caben'} en el navegador: se verán hasta que cierres la pestaña`);
+  if (res.favUpdated) parts.push(`${res.favUpdated} ${res.favUpdated === 1 ? 'pieza de tu colección actualizada' : 'piezas de tu colección actualizadas'} con la versión más reciente`);
+  if (res.dropped) parts.push(res.dropped === 1 ? 'se descartó el resultado más antiguo' : `se descartaron los ${res.dropped} resultados más antiguos`);
+  if (lost) parts.push(lost === 1 ? '1 archivo no cabe en el navegador: se verá hasta que cierres la pestaña' : `${lost} archivos no caben en el navegador: se verán hasta que cierres la pestaña`);
   toast(parts.join(' · '), undefined, 8000);
 }
 
