@@ -69,6 +69,19 @@ try {
   console.log(`\nMedia: r ${f2(mean('r'))} · Δlum ${mean('lumMad').toFixed(2)} · glifos ${pct(mean('glyphs'))} · visibles ${pct(mean('visibleGlyphs'))}`);
   console.log(`Mínimo r: ${rows.map(r => [r.id, Math.min(...r.res.map(c => c.r))]).sort((a, b) => a[1] - b[1]).slice(0, 5).map(([id, r]) => `${id} ${f2(r)}`).join(', ')}\n`);
 
+  // pointer effects: same pointer state injected into both engines, a few frames rendered
+  const pointer = [];
+  const modes = await page.evaluate(() => window.__basic.interactModes);
+  for (const [mode, id] of [...modes.map(m => [m, 'plasma']), ['erase', 'media/revelado']]) {
+    pointer.push({ ...(await page.evaluate(([m, id]) => window.__basic.comparePointer(m, 6, id), [mode, id])), mode, id });
+  }
+  console.log('## Interacción (puntero pulsado y en movimiento, 6 cuadros)\n');
+  console.log('| modo | sobre | r | Δlum | glifos | Δpx | celdas que cambia el puntero |');
+  console.log('|---|---|---|---|---|---|---|');
+  for (const c of pointer) console.log(`| ${c.mode} | ${c.id} | ${f2(c.r)} | ${c.lumMad.toFixed(2)} | ${pct(c.glyphs)} | ${c.pixelMad.toFixed(2)} | ${pct(c.touched)} |`);
+  console.log('');
+  if (pointer.some(c => c.r < 0.9 || c.touched < 0.01)) failed = true;
+
   const presets = [];
   if (!quick) {
     for (const key of info.presets) presets.push(await page.evaluate(k => window.__basic.comparePreset(k), key));
@@ -79,22 +92,47 @@ try {
     for (const c of presets) {
       console.log(`| ${c.id} | ${f2(c.r)} | ${c.lumMad.toFixed(2)} | ${pct(c.glyphs)} | ${pct(c.visibleGlyphs)} | ${c.rgbMad.toFixed(2)} | ${c.pixelMad.toFixed(2)} | ${c.gaps.join(', ') || '—'} |`);
     }
+    // transparent background (image and video exports): plate, cell fills, scanlines, vignette, CRT
+    const transparent = [];
+    for (const key of ['fondos/bruma', 'tipo/maquina', 'terminal/consola', 'arte/dona', 'media/bloques']) {
+      transparent.push(await page.evaluate(k => window.__basic.comparePreset(k, 3.3, true), key));
+    }
+    console.log('\n## Fondo transparente (exportaciones)\n');
+    console.log('| preset | r | glifos | Δpx (RGBA) |');
+    console.log('|---|---|---|---|');
+    for (const c of transparent) console.log(`| ${c.id} | ${f2(c.r)} | ${pct(c.glyphs)} | ${c.pixelMad.toFixed(2)} |`);
+    if (transparent.some(c => c.pixelMad > 8)) failed = true;
   }
 
-  const benches = [];
-  const cases = [['pattern', 'nube'], ['pattern', 'plasma'], ['pattern', 'marmol'], ['pattern', 'dona'], ['preset', 'fondos/bruma'], ['preset', 'arte/bermellon'], ['preset', 'terminal/consola'], ['preset', 'media/retrato']];
-  for (const [kind, id] of quick ? cases.slice(0, 2) : cases) {
-    const b = await page.evaluate(([kind, id]) => kind === 'pattern' ? window.__basic.benchPattern(id, { frames: 40 }) : window.__basic.benchPreset(id, { frames: 40 }), [kind, id]);
-    benches.push({ kind, id, ...b });
-  }
-  console.log('\n## Coste por cuadro del motor básico (1280×720 CSS, pixelRatio 1, 40 cuadros)\n');
-  console.log('| caso | rejilla | total (media / mediana / p90) | campo | selección | composición |');
-  console.log('|---|---|---|---|---|---|');
-  for (const b of benches) {
-    console.log(`| ${b.kind} ${b.id} | ${b.cols}×${b.rows} | ${b.total.toFixed(1)} / ${b.median.toFixed(1)} / ${b.p90.toFixed(1)} ms | ${b.field.toFixed(1)} | ${b.select.toFixed(1)} | ${b.compose.toFixed(1)} |`);
+  // cost per frame, in this browser (SwiftShader: the canvas is GPU-accelerated in software, slow for
+  // full-canvas overlays) and in one without GPU (CPU canvas, like a browser with acceleration off)
+  const cases = [['pattern', 'nube'], ['pattern', 'plasma'], ['pattern', 'marmol'], ['pattern', 'dona'], ['preset', 'fondos/bruma'], ['preset', 'tipo/maquina'], ['preset', 'arte/bermellon'], ['preset', 'terminal/consola'], ['preset', 'media/retrato']];
+  const runBenches = async pg => {
+    const out = [];
+    for (const [kind, id] of quick ? cases.slice(0, 2) : cases) {
+      const b = await pg.evaluate(([kind, id]) => kind === 'pattern' ? window.__basic.benchPattern(id, { frames: 40 }) : window.__basic.benchPreset(id, { frames: 40 }), [kind, id]);
+      out.push({ kind, id, ...b });
+    }
+    return out;
+  };
+  const benches = { swiftshader: await runBenches(page), cpu: [] };
+  const cpuBrowser = await chromium.launch({ args: ['--disable-gpu', '--disable-software-rasterizer'] });
+  try {
+    const cpuPage = await cpuBrowser.newPage({ viewport: { width: 1400, height: 900 } });
+    await cpuPage.goto(`http://127.0.0.1:${port}/dev/basic.html?parity`);
+    await cpuPage.waitForFunction(() => !!window.__basic, null, { timeout: 60_000 });
+    benches.cpu = await runBenches(cpuPage);
+  } finally { await cpuBrowser.close(); }
+  for (const [label, list] of [['navegador sin GPU (canvas por CPU)', benches.cpu], ['SwiftShader (canvas por GPU emulada)', benches.swiftshader]]) {
+    console.log(`\n## Coste por cuadro del motor básico: ${label} (1280×720 CSS, pixelRatio 1, 40 cuadros)\n`);
+    console.log('| caso | rejilla | total (media / mediana / p90) | campo | selección | composición y dibujo |');
+    console.log('|---|---|---|---|---|---|');
+    for (const b of list) {
+      console.log(`| ${b.kind} ${b.id} | ${b.cols}×${b.rows} | ${b.total.toFixed(1)} / ${b.median.toFixed(1)} / ${b.p90.toFixed(1)} ms | ${b.field.toFixed(1)} | ${b.select.toFixed(1)} | ${b.compose.toFixed(1)} |`);
+    }
   }
   if (errors.length) { console.log('\nErrores de la página:\n' + errors.join('\n')); failed = true; }
-  if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ probe: info.probe, checks, patterns: rows, presets, benches, errors }, null, 2));
+  if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ probe: info.probe, checks, patterns: rows, pointer, presets, benches, errors }, null, 2));
 } finally {
   await browser.close();
   await server.close();
