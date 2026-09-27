@@ -1,13 +1,27 @@
 import { CHARSETS, FONTS, PATTERNS, charsetById, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
 import { cloneRecipe, defaultRecipe, DEFAULT_LAYER, type Layer, type Recipe } from '../engine/recipe';
 import { hexToOklch } from '../engine/color';
-import { ARCHETYPES, archById, type Archetype } from './archetypes';
+import { ARCHETYPES, type Archetype } from './archetypes';
 import { ensureContrast, makePalette, rotateHue, soften } from './palettes';
 import { Rng, hash53, round } from './prng';
-import { spaceById, type LockGroup, type SpaceId } from './spaces';
+import { SPACES, type LockGroup, type SpaceId } from './spaces';
+import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
 
-/** Bump when the generator changes: stored recipes stay exact, only seeds re-roll differently. */
-export const GEN_VERSION = 1;
+/**
+ * Bump when the generator changes: stored recipes stay exact, only seeds re-roll differently. The previous
+ * versions stay reachable (a seed plus its version always gives the same piece): see GEN_VERSIONS.
+ *   1 — the first dice (12 styles, 3 solids).
+ *   2 — 13 solids spread over the styles, «Grabado 3D», flatter weights; 3D objects only as the lead
+ *       layer, framed, and not under a photo or inside letters (unless the chosen style has nothing else).
+ */
+export const GEN_VERSION = 2;
+/** Every version generate() can still reproduce, oldest first. */
+export const GEN_VERSIONS: readonly number[] = [1, 2];
+/** A version asked for by a link or a person: a known one, else the current one. */
+export const genOf = (v: unknown): number => {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && GEN_VERSIONS.includes(n) ? n : GEN_VERSION;
+};
 
 export interface GenInput {
   seed: string;
@@ -16,7 +30,16 @@ export interface GenInput {
   arch?: string;
   base: Recipe;
   locks?: LockGroup[];
+  /** generator version (default GEN_VERSION); unknown versions weave with the current one */
+  gen?: number;
 }
+
+/** What one generator version reads: its styles and each space's weights over them. */
+interface Tables { archs: readonly Archetype[]; spaces: Record<string, Record<string, number>> }
+const TABLES: Record<number, Tables> = {
+  1: { archs: ARCHETYPES_V1, spaces: SPACE_ARCHS_V1 },
+  2: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
+};
 
 const TIPO_WORDS = ['TRAMA', 'ECO', 'SEÑAL', 'LUZ', 'RUIDO', 'HOLA', 'ONDA', 'PULSO', 'GLIFO', 'TINTA', 'NOCHE', 'VIBRA', 'MAREA', 'FARO'];
 const TERMINAL_LINES = ['> hola, terminal', '$ ./tejer --luz', 'CONECTANDO...', '> sistema listo', 'SEÑAL RECIBIDA', 'ERROR 404: sueño no encontrado', '$ sudo apt install calma', '> compilando estrellas'];
@@ -24,43 +47,69 @@ const WORD_FILLS = ['TEJE LUZ CON CARACTERES · ', 'MONOTRAMA · ', '0101 SEÑAL
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-function pickArch(rng: Rng, space: SpaceId, forced?: string): Archetype {
-  const f = archById(forced);
+function pickArch(rng: Rng, space: SpaceId, T: Tables, forced?: string): Archetype {
+  const byId = (id?: string) => T.archs.find(a => a.id === id);
+  const f = byId(forced);
   if (f) return f;
-  const id = rng.weighted(spaceById(space).archs);
-  return archById(id) ?? ARCHETYPES[0];
+  const id = rng.weighted(T.spaces[space] ?? T.spaces.arte);
+  return byId(id) ?? T.archs[0];
 }
 
 export function generate(inp: GenInput): Recipe {
-  const root = new Rng(`mt${GEN_VERSION}|${inp.space}|${inp.arch ?? '*'}|${inp.seed}`);
-  const A = pickArch(root.fork('arch'), inp.space, inp.arch);
+  const gen = genOf(inp.gen ?? GEN_VERSION);
+  const T = TABLES[gen];
+  const root = new Rng(`mt${gen}|${inp.space}|${inp.arch ?? '*'}|${inp.seed}`);
+  const A = pickArch(root.fork('arch'), inp.space, T, inp.arch);
   const base = inp.base;
   const r = defaultRecipe();
   const light = genColor(r, root.fork('color'), A, inp.space);
-  genForma(r, root.fork('forma'), A, inp.space);
+  genForma(r, root.fork('forma'), A, inp.space, gen);
   genGlifos(r, root.fork('glifos'), A, inp.space, light);
   genMovimiento(r, root.fork('movimiento'), A, inp.space);
   genEfectos(r, root.fork('efectos'), A, inp.space, light);
   genFuente(r, root.fork('fuente'), A, inp.space, base);
   for (const g of inp.locks ?? []) copyGroup(r, base, g);
-  r.meta = { seed: inp.seed, arch: A.id, space: inp.space, gen: GEN_VERSION };
+  r.meta = { seed: inp.seed, arch: A.id, space: inp.space, gen };
   return r;
 }
 
 /* ------------------------------------------------------------------ */
 
-function genForma(r: Recipe, rng: Rng, A: Archetype, space: SpaceId) {
+const isSolid = (id: string) => patternById(id).family === 'solidos';
+/** The 3D objects that also work as a quiet web background (they fill the frame or sit low in it). */
+const BACKDROP_SOLIDS = new Set(['voxeles', 'planeta']);
+/** A pattern pool without the 3D objects, but `keep` (falls back to the whole pool if nothing else is in it). */
+function flat(w: Partial<Record<string, number>>, keep?: Set<string>): Partial<Record<string, number>> {
+  const out = Object.fromEntries(Object.entries(w).filter(([id]) => !isSolid(id) || keep?.has(id)));
+  return Object.keys(out).length ? out : w;
+}
+
+function genForma(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, gen: number) {
   let n = rng.int(A.layers[0], A.layers[1]);
   if (space === 'fondos' || space === 'terminal') n = Math.min(n, 2);
   const layers: Layer[] = [];
   let cost = 0;
-  const first = rng.weighted(A.patterns);
-  layers.push(makeLayer(rng.fork('l0'), first, A, true));
+  // v2: a 3D object is the subject of a piece: never stamped as a second layer, not under a photo or inside
+  // letters, and behind web content only when it can stay quiet (a style made only of objects keeps them)
+  const v2 = gen >= 2;
+  const leadPool = !v2 ? A.patterns
+    : space === 'media' || space === 'tipo' ? flat(A.patterns)
+    : space === 'fondos' ? flat(A.patterns, BACKDROP_SOLIDS) : A.patterns;
+  const rest = v2 ? flat(A.patterns) : A.patterns;
+  const first = rng.weighted(leadPool);
+  const lead = makeLayer(rng.fork('l0'), first, A, true);
+  if (v2 && isSolid(first)) {
+    // framed: the object keeps to the canvas; a slight tilt at most
+    const sr = rng.fork('solid');
+    lead.scale = round(sr.range(0.85, 1.2));
+    lead.rot = sr.chance(0.3) ? Math.round(sr.range(-25, 25)) : 0;
+  }
+  layers.push(lead);
   cost += patternById(first).cost;
   for (let i = 1; i < n; i++) {
     const lr = rng.fork('l' + i);
-    let id = lr.weighted(A.overlays ?? A.patterns);
-    if (id === first && lr.chance(0.6)) id = lr.weighted(A.patterns);
+    let id = lr.weighted(v2 ? flat(A.overlays ?? A.patterns) : A.overlays ?? A.patterns);
+    if (id === first && lr.chance(0.6)) id = lr.weighted(rest);
     const c = patternById(id).cost;
     if (cost + c > 5) break;
     cost += c;
@@ -213,6 +262,9 @@ export function copyGroup(r: Recipe, base: Recipe, g: LockGroup) {
 /* Mutation                                                            */
 /* ------------------------------------------------------------------ */
 
+/** Patterns a variation may put on a layer above the first (no 3D object stamped over a piece). */
+const OVERLAY_POOL = PATTERNS.filter(p => p.family !== 'solidos');
+
 export function mutate(r: Recipe, amount: number, seed: string, locks: LockGroup[] = []): Recipe {
   const rng = new Rng(`mut${GEN_VERSION}|${seed}`);
   const k = clamp(amount, 0.02, 1);
@@ -228,13 +280,13 @@ export function mutate(r: Recipe, amount: number, seed: string, locks: LockGroup
       if (rng.chance(k * 0.3)) {
         const fam = patternById(l.pattern).family;
         const pool = PATTERNS.filter(p => p.family === fam && p.id !== l.pattern);
-        n.pattern = (rng.chance(0.65) && pool.length ? rng.pick(pool) : rng.pick(PATTERNS)).id;
+        n.pattern = (rng.chance(0.65) && pool.length ? rng.pick(pool) : rng.pick(i === 0 ? PATTERNS : OVERLAY_POOL)).id;
       }
       if (i > 0 && rng.chance(k * 0.25)) n.blend = rng.pick(['multiply', 'screen', 'overlay', 'difference', 'add', 'lighten', 'mask'] as const);
       return n;
     });
     if (out.layers.length < 3 && rng.chance(k * 0.18)) {
-      out.layers.push({ ...DEFAULT_LAYER, pattern: rng.pick(PATTERNS).id, blend: rng.pick(['multiply', 'screen', 'overlay'] as const), mix: round(rng.range(0.3, 0.7)), scale: round(rng.range(0.6, 1.6)), phase: round(rng.range(0, 50)) });
+      out.layers.push({ ...DEFAULT_LAYER, pattern: rng.pick(OVERLAY_POOL).id, blend: rng.pick(['multiply', 'screen', 'overlay'] as const), mix: round(rng.range(0.3, 0.7)), scale: round(rng.range(0.6, 1.6)), phase: round(rng.range(0, 50)) });
     } else if (out.layers.length > 1 && rng.chance(k * 0.12)) {
       out.layers.splice(1 + rng.int(0, out.layers.length - 2), 1);
     }
