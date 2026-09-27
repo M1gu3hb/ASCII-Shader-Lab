@@ -86,7 +86,8 @@ function brailleDots(chr: string): Array<[number, number]> | null {
 
 const hex = (g: GridSnapshot, i: number) => '#' + [0, 1, 2].map(k => g.rgb[i * 3 + k].toString(16).padStart(2, '0')).join('');
 const n = (v: number) => +v.toFixed(2);
-const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// XML 1.0 forbids C0 control characters (a piece name could carry one): drop them
+const escXml = (s: string) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export interface SvgResult { svg: string; notes: string[]; textFallback: number }
 

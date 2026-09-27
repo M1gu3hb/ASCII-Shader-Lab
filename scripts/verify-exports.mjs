@@ -565,13 +565,14 @@ async function videoChecks(key, page, files, dir, cw, chh) {
   await pumping(page, webmBtn.isEnabled());
   await pump(page, 300);
   const avc = await page.evaluate(async () => (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 640, height: 360 })).supported);
-  const mp4Enabled = await mp4Btn.isEnabled();
-  const sheetText = (await sh.locator('.ex-card').first().locator('.warn').allTextContents()).join(' ');
-  await check('mp4', `${key}: botón MP4 coherente con lo que el navegador codifica`, () => {
-    if (avc) { assert(mp4Enabled, 'H.264 disponible pero el botón está desactivado'); return 'H.264 disponible y botón activo'; }
+  // an MP4 the browser cannot encode is not a (disabled) button but an explanation row
+  const mp4Enabled = (await mp4Btn.count()) > 0 && await mp4Btn.isEnabled();
+  const sheetText = (await sh.locator('.ex-na').allTextContents()).join(' ');
+  await check('mp4', `${key}: MP4 coherente con lo que el navegador codifica`, () => {
+    if (avc) { assert(mp4Enabled, 'H.264 disponible pero no hay botón MP4 activo'); return 'H.264 disponible y botón activo'; }
     assert(!mp4Enabled, 'el navegador no codifica H.264 pero el botón MP4 está activo');
-    assert(/H\.264|MP4/i.test(sheetText) && /no puede|no codifica|no está disponible/i.test(sheetText), 'la interfaz no explica por qué no hay MP4: «' + sheetText.slice(0, 200) + '»');
-    return 'VideoEncoder.isConfigSupported(avc1) = false → botón desactivado y aviso: «' + sheetText.trim() + '»';
+    assert(/H\.264|MP4/i.test(sheetText) && /no puede|no codifica|no disponible/i.test(sheetText), 'la interfaz no explica por qué no hay MP4: «' + sheetText.slice(0, 200) + '»');
+    return 'VideoEncoder.isConfigSupported(avc1) = false → sin botón MP4 y aviso: «' + sheetText.trim() + '»';
   });
   if (await webmBtn.isEnabled()) {
     files.webm = await download(page, dir, () => webmBtn.click());
