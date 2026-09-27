@@ -451,7 +451,7 @@ function TermTab() {
   return (
     <>
       {inTerm
-        ? <Note>La vista reproduce una terminal de <b>{t.cols}×{t.rows}</b>. Lo que ves es exactamente lo que exportas como texto, ANSI o animación para la consola.</Note>
+        ? <Note>La vista reproduce una terminal de <b>{t.cols}×{t.rows}</b>: las columnas y filas que exportas como texto, ANSI o animación para la consola. Los efectos de pantalla (barrido, curvatura, bloom…) se ven aquí, pero no van en el texto ni en el ANSI.</Note>
         : <button type="button" className="btn" onClick={() => setView('terminal')}>Ver la ventana de terminal ({t.cols}×{t.rows})</button>}
       <div className="ctl">
         <span className="lbl">Tamaño</span>

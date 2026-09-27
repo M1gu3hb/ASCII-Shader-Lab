@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { COMPONENTS, compById, type CompDef, type Values } from '../components/catalog';
 import { copyText, downloadText } from './download';
 import { setSpace, setUI, useStudio } from './store';
+import { thumbBg } from './history';
 
 /** Live mount of a component demo. Re-mounts when its values change. */
 function Demo({ def, values, big }: { def: CompDef; values: Values; big?: boolean }) {
@@ -21,8 +22,26 @@ function Demo({ def, values, big }: { def: CompDef; values: Values; big?: boolea
 export function ComponentsSpace() {
   const sel = useStudio(s => s.ui.component);
   const def = compById(sel);
+  const wrap = useRef<HTMLDivElement>(null);
+  const galleryTop = useRef(0);
+  const opened = useRef<string | null>(null);
+  // the gallery and a piece's page share this scroller: a piece opens at its top (not at the gallery's
+  // scroll, clamped to its end), and going back returns to where the gallery was, on the same card
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    if (def) {
+      opened.current = def.id;
+      el.scrollTop = 0;
+      el.querySelector<HTMLElement>('.comp-detail h1')?.focus({ preventScroll: true });
+    } else {
+      el.scrollTop = galleryTop.current;
+      const back = opened.current && COMPONENTS.find(c => c.id === opened.current);
+      if (back) el.querySelector<HTMLElement>(`.comp-open[aria-label$=": ${back.name}"]`)?.focus({ preventScroll: true });
+    }
+  }, [def]);
   return (
-    <div className="comp-wrap">
+    <div className="comp-wrap" ref={wrap} onScroll={e => { if (!def) galleryTop.current = e.currentTarget.scrollTop; }}>
       {def ? <Detail def={def} /> : <Gallery />}
     </div>
   );
@@ -62,7 +81,7 @@ function Gallery() {
         title="Fondo animado" action="Diseñar en Fondos"
         blurb="El motor completo como fondo, portada o bloque. Diséñalo en «Fondos» y exporta HTML, Web Component o React."
         onOpen={() => { setSpace('fondos'); setUI({ sheet: 'export' }); }}
-        demoStyle={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        demoStyle={thumb ? { ...thumbBg(thumb), backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
       />
       <Card
         title="Imagen ASCII" action="Abrir Imagen"
@@ -89,7 +108,7 @@ function Detail({ def }: { def: CompDef }) {
     <div className="comp-detail">
       <button type="button" className="back-link" onClick={() => setUI({ component: null })}>← Todas las piezas</button>
       <div className="row" style={{ alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-        <h1 style={{ font: '700 26px/1.1 var(--font-display)', letterSpacing: '-.03em', margin: 0 }}>{def.name}</h1>
+        <h1 tabIndex={-1} style={{ font: '700 26px/1.1 var(--font-display)', letterSpacing: '-.03em', margin: 0 }}>{def.name}</h1>
         <span className="note" style={{ margin: 0 }}>{def.tags.join(' · ')}</span>
       </div>
       <p className="note" style={{ maxWidth: '70ch' }}>{def.blurb}</p>

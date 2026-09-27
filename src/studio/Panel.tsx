@@ -4,10 +4,12 @@ import { TABS, TabContent } from './panels';
 import { presetsFor } from './presets';
 import { applyRecipe, currentRecipe, setUI, useStudio } from './store';
 import { IClose } from './icons';
-import { useGuide } from './guide/state';
+import { exitGuide, useGuide } from './guide/state';
+import { LoadBoundary } from './Boundary';
+import { loadGuide } from './lazy';
 
 // the guided paths load when one starts (the welcome itself is in the main bundle)
-const Guide = lazy(() => import('./guide/Guide').then(m => ({ default: m.Guide })));
+const Guide = lazy(() => loadGuide().then(m => ({ default: m.Guide })));
 
 export function Panel() {
   const space = useStudio(s => s.space);
@@ -20,7 +22,13 @@ export function Panel() {
   useEffect(() => { document.querySelector('.pane')?.scrollTo(0, 0); }, [tab, space]);
   const drag = useDragToClose();
   // a guided path takes the place of the settings while it lasts
-  if (guiding) return <aside className="panel guide-panel" aria-labelledby="guide-title"><Suspense fallback={null}><Guide /></Suspense></aside>;
+  if (guiding) {
+    return (
+      <aside className="panel guide-panel" aria-labelledby="guide-title">
+        <LoadBoundary where="la guía" onClose={() => exitGuide('close')}><Suspense fallback={null}><Guide /></Suspense></LoadBoundary>
+      </aside>
+    );
+  }
   if (!tabs.length) return null;
   const setTab = (id: string) => setUI({ tab: { ...useStudio.getState().ui.tab, [space]: id } });
   return (

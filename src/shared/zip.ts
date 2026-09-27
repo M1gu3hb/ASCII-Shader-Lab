@@ -1,3 +1,5 @@
+import { inflateRaw } from './inflate';
+
 /**
  * Minimal ZIP support, no dependency.
  * Writer: "store" method only (the media we pack is already compressed and the JSON is small),
@@ -141,11 +143,6 @@ function decodeName(raw: Uint8Array, utf8: boolean): string {
   return s.replace(/\\/g, '/');
 }
 
-async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  if (typeof DecompressionStream === 'undefined') throw new Error('Este navegador no puede descomprimir ese .zip.');
-  const s = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(s).arrayBuffer());
-}
 
 /** Lists the files of a ZIP archive (folders are skipped). Contents are read lazily. */
 export async function unzip(input: Blob | Uint8Array): Promise<ZipEntry[]> {
@@ -190,8 +187,10 @@ export async function unzip(input: Blob | Uint8Array): Promise<ZipEntry[]> {
       const start = lho + 30 + lv.getUint16(26, true) + lv.getUint16(28, true);
       if (start + csize > blob.size) throw damaged('datos fuera de rango');
       const raw = await bytesOf(blob, start, start + csize);
-      const data = method === 8 ? await inflateRaw(raw) : raw;
-      if (data.length !== usize || crc32(data) !== crc) throw damaged('CRC');
+      if (method === 8 && typeof DecompressionStream === 'undefined') throw new Error('Este navegador no puede descomprimir ese .zip.');
+      // never more than the size the archive declares: a crafted entry cannot expand to gigabytes
+      const data = method === 8 ? await inflateRaw(raw, usize) : raw;
+      if (!data || data.length !== usize || crc32(data) !== crc) throw damaged('CRC');
       return data;
     };
     out.push({ name, size: usize, read, text: async () => new TextDecoder().decode(await read()) });

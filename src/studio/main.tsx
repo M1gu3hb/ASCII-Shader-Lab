@@ -27,11 +27,17 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { hydrate } from './store';
 import { bootFromUrl } from './boot';
-import { DICE_HINT, openWelcome } from './guide/state';
+import { diceHint, openWelcome } from './guide/state';
 import { prefetchLater } from './lazy';
-import { toast } from './toast';
+import { claimStudio, tabsReady } from './tabs';
 
+// one tab at a time keeps the history and the collection: the newest takes over (tabs.ts)
+await claimStudio(() => {
+  const line = document.querySelector('.boot-load');
+  if (line) line.lastChild!.textContent = 'Monotrama está abierto en otra pestaña: esperando a que guarde lo suyo…';
+});
 const first = await hydrate();
+tabsReady();
 const opened = await bootFromUrl();
 // first visit: «¿Qué quieres hacer?», unless the address already chose (a shared piece, a seed,
 // a space or a guided path); set before the first render so the dialog opens with the page
@@ -39,4 +45,4 @@ if (first && !opened) openWelcome(true);
 createRoot(document.getElementById('root')!).render(<App />);
 // the export sheet, the other sheets and the Componentes space: fetched once the studio is idle
 prefetchLater();
-if (first && opened === 'space') setTimeout(() => toast(DICE_HINT, undefined, 7000), 900);
+if (first && opened === 'space') diceHint(900);

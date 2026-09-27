@@ -46,6 +46,20 @@ describe('history limit', () => {
   });
 });
 
+describe('the limit discards by date, not by place in the list', () => {
+  it('an older session opened into a full history loses its own oldest results, not today\'s', () => {
+    const day = 86_400_000, now = 1_800_000_000_000;
+    const today = Array.from({ length: 10 }, (_, i) => entry('hoy' + i, { created: now - (10 - i) * 1000 }));
+    const old = Array.from({ length: 4 }, (_, i) => entry('viejo' + i, { created: now - 30 * day + i }));
+    const m = mergeSession({ entries: today, cursor: 9, favorites: [] }, { entries: old, cursor: 3, favorites: [] });
+    const p = pruneHistory(m.entries, m.cursor, 10, () => false);
+    // the session's current entry stays (the cursor moves there); the other three month-old ones go first
+    expect(ids(p.dropped)).toEqual(['hoy0', 'viejo0', 'viejo1', 'viejo2']);
+    expect(p.entries[p.cursor].id).toBe('viejo3');
+    expect(ids(p.entries).filter(id => id.startsWith('hoy'))).toHaveLength(9);
+  });
+});
+
 describe('sessions merge into the history', () => {
   it('appends after the current history, skips ids already there and moves to the session cursor', () => {
     const cur = { entries: [entry('a'), entry('b')], cursor: 0, favorites: [fav('F1')] };
@@ -55,6 +69,26 @@ describe('sessions merge into the history', () => {
     expect(m.entries[m.cursor].id).toBe('c');
     expect([m.added, m.skipped, m.favAdded]).toEqual([2, 1, 1]);
     expect(ids(m.favorites)).toEqual(['F1', 'F2']);
+  });
+
+  it('a round trip to another computer brings back the edits and renamed favourites made there', () => {
+    const edited = defaultRecipe(); edited.glyph.cell = 22;
+    const here = { entries: [entry('e1', { created: 10 }), entry('e2', { created: 11 })], cursor: 1, favorites: [{ ...fav('f1'), name: 'Mi pieza', updated: 10 }] };
+    const there = {
+      entries: [entry('e1', { created: 10, updated: 99, recipe: edited, edited: true }), entry('e2', { created: 11 })], cursor: 0,
+      favorites: [{ ...fav('f1'), name: 'Mi pieza (final)', recipe: edited, updated: 99 }],
+    };
+    const m = mergeSession(here, there);
+    expect(m.entries[0].recipe.glyph.cell).toBe(22);
+    expect(m.entries[0].id).toBe('e1');
+    expect(m.replaced.map(e => e.recipe.glyph.cell)).toEqual([defaultRecipe().glyph.cell]);
+    expect(m.favorites[0].name).toBe('Mi pieza (final)');
+    expect([m.added, m.updated, m.skipped, m.favAdded, m.favUpdated]).toEqual([0, 1, 1, 0, 1]);
+    // the other way round (an older copy comes back), what is here is newer and stays
+    const back = mergeSession(m, here);
+    expect(back.entries[0].recipe.glyph.cell).toBe(22);
+    expect(back.favorites[0].name).toBe('Mi pieza (final)');
+    expect([back.updated, back.favUpdated]).toEqual([0, 0]);
   });
 
   it('importing the same session twice adds nothing', () => {
@@ -83,6 +117,9 @@ describe('stored and imported entries', () => {
     expect(e.favId).toBe('F');
     expect(normalizeEntry({ recipe: {}, thumb: 'data:image/webp;base64,AAAA' })!.thumb).toBe('data:image/webp;base64,AAAA');
     expect(normalizeFavorite({ name: 7, recipe: {} })!.name).toBe('Importado');
+    // a crafted thumbnail cannot smuggle another url() into the CSS it is used in
+    expect(normalizeFavorite({ recipe: {}, thumb: 'data:image/png;base64,AA), url(https://tracker.example/p' })!.thumb).toBeUndefined();
+    expect(normalizeEntry({ recipe: {}, thumb: 'data:image/svg+xml,<svg onload=x>' })!.thumb).toBeUndefined();
   });
 
   it('collects the media ids used by history (current and original) and collection', () => {

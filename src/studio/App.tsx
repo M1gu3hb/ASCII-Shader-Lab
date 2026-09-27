@@ -8,8 +8,10 @@ import { SPACES } from '../random/spaces';
 import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary, type UIState } from './store';
 import { useToasts } from './toast';
 import { Welcome } from './guide/Welcome';
+import { TabAway } from './Keeping';
 import { openWelcome, useGuide } from './guide/state';
 import { loadComponents, loadExportSheet, loadSheets, warmCodeExporter } from './lazy';
+import { LoadBoundary } from './Boundary';
 import './css/perf.css';
 
 // not needed for the first piece: loaded when first opened (and prefetched once the studio is idle, see lazy.ts)
@@ -31,7 +33,9 @@ export function App() {
     <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '') + (guide ? ' ' + guide : '')}>
       <TopBar />
       <main className="stage-wrap" aria-label="Escenario">
-        {comps ? <Suspense fallback={<Wait label="Cargando las piezas…" />}><ComponentsSpace /></Suspense> : <Stage />}
+        {comps
+          ? <LoadBoundary where="el espacio de piezas"><Suspense fallback={<Wait label="Cargando las piezas…" />}><ComponentsSpace /></Suspense></LoadBoundary>
+          : <Stage />}
       </main>
       {!comps && <Panel />}
       {!comps && <Deck />}
@@ -42,6 +46,7 @@ export function App() {
       <OnDemand sheet="seed" label="Cargando…"><SeedSheet /></OnDemand>
       <ShareSheet />
       <Welcome />
+      <TabAway />
       <Toasts />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>
@@ -57,7 +62,13 @@ function OnDemand({ sheet, label, onFirstOpen, children }: { sheet: UIState['she
   const [wanted, setWanted] = useState(open);
   if (open && !wanted) setWanted(true);
   useEffect(() => { if (wanted) onFirstOpen?.(); }, [wanted, onFirstOpen]);
-  return wanted ? <Suspense fallback={open ? <Wait label={label} /> : null}>{children}</Suspense> : null;
+  if (!wanted) return null;
+  // a part that cannot be fetched says so and closes; the rest of the studio stays
+  return (
+    <LoadBoundary hidden={!open} onClose={() => setUI({ sheet: 'none' })}>
+      <Suspense fallback={open ? <Wait label={label} /> : null}>{children}</Suspense>
+    </LoadBoundary>
+  );
 }
 
 /** What shows while an on-demand part arrives (only on a first open before the idle prefetch finished). */
@@ -112,7 +123,7 @@ function useKeys() {
         case 'ArrowLeft': if (t.closest('input[type=range]')) return; e.preventDefault(); back(); break;
         case 'v': case 'V': vary(); break;
         case 'x': case 'X': setUI({ sheet: 'explore' }); break;
-        case 's': case 'S': favorite(); break;
+        case 's': case 'S': void favorite(); break;
         case 'e': case 'E': setUI({ sheet: 'export' }); break;
         case 'l': case 'L': void copyLink(); break;
         case 'h': case 'H': setUI({ hideUI: !s.ui.hideUI }); break;

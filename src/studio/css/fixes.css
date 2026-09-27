@@ -1,0 +1,62 @@
+/* Review fixes (lane: fix-studio). Tokens from studio.css. This file can load before studio.css:
+   rules that override it are prefixed with .app. */
+
+/* ---------- when the browser keeps nothing, or another tab has the studio ---------- */
+.keep-chip .bm-tag i { background: #ffb08a; }
+.keep-chip .bm-line { color: var(--text); }
+dialog.sheet.tab-away { width: min(520px, calc(100vw - 24px)); }
+.tab-away h2 { margin: 0 0 12px; font: 700 17px/1.3 var(--font-display); }
+.tab-away p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+.tab-away .btn { min-height: 44px; margin: 6px 0 12px; }
+.tab-away .note { margin: 0; }
+.keep-warn { margin: 0 0 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 176, 138, .45); background: rgba(255, 91, 31, .08); font-size: 13px; line-height: 1.5; }
+.keep-warn .mini { margin-top: 8px; }
+
+/* ---------- live recording in progress (stays visible when the interface is hidden) ---------- */
+.rec-chip .bm-tag i { background: #ff3b30; animation: rec-blink 1.2s steps(2) infinite; }
+.rec-chip .rec-t { flex: 0 0 auto; font: 500 12px/1 var(--font-mono); color: var(--text); font-variant-numeric: tabular-nums; }
+.app.ui-off .stage-notes .bm-chip.rec-chip { opacity: 1; pointer-events: auto; }
+@keyframes rec-blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .rec-chip .bm-tag i { animation: none; } }
+
+/* ---------- a part of the studio that could not be fetched (Boundary.tsx) ---------- */
+.load-fail {
+  position: fixed; z-index: 100; left: 50%; top: calc(var(--top-h) + 12px); transform: translateX(-50%);
+  width: min(460px, calc(100vw - 24px)); padding: 14px; border-radius: 14px; border: 1px solid var(--line-2);
+  background: var(--panel); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); font-size: 13.5px; line-height: 1.5; color: var(--muted);
+}
+.load-fail p { margin: 0 0 12px; }
+.load-fail b { color: var(--text); }
+.load-fail .btn { margin: 0; min-height: 44px; }
+.guide-panel .load-fail, .comp-wrap .load-fail { position: static; transform: none; width: auto; margin: 14px; box-shadow: none; }
+
+/* ---------- destination previews on short stages ---------- */
+/* Vertical 9:16: the box has the scaled size, the frame scales from its corner (scaled from its centre
+   inside a grid row as tall as the unscaled frame, its lower part was cut) */
+.vw-phone-box { position: relative; flex: none; }
+.vw-phone-box > .vw-phone { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* Phones during a guide: the room above the guide's sheet is small. The view bar keeps only its
+   selector (the step already shows the contrast estimate; «Opciones» still unfolds the rest), and the
+   «Fondo web» test page shrinks to fit a short window, so headline and buttons stay in view. */
+@media (max-width: 900px) {
+  .app.guide-on .vbar-what, .app.guide-on .vbar-legib { display: none; }
+  .app.guide-on .vbar-more:not(:has(.vbar-opts.open)) { display: none; }
+}
+/* (.app: this file may load before studio.css) */
+@container (max-height: 170px) {
+  .app .preview-content { padding: 8px 6cqw 8px; }
+  .app .preview-content .pc-nav { font-size: 11px; }
+  .app .preview-content .pc-hero { padding-top: 4px; }
+  .app .preview-content h1 { font-size: clamp(15px, 4.6cqw, 22px); margin-bottom: 6px; }
+  .app .preview-content .pc-btns { gap: 6px; }
+  .app .preview-content .pc-btn { padding: 5px 9px; font-size: 11.5px; border-radius: 7px; }
+}
+
+/* ---------- the media prompt sits between the stage's top bar and the seed line (Stage.tsx) ---------- */
+.app .prompt { padding: 8px 12px; }
+.app .prompt .card { max-height: 100%; overflow: auto; overscroll-behavior: contain; }
+@media (max-width: 900px) {
+  .app .prompt .card { padding: 14px 16px; }
+  .app .prompt .card p { margin-bottom: 12px; }
+}

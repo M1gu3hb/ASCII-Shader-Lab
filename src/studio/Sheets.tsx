@@ -7,7 +7,7 @@ import { recipeFile } from '../shared/share';
 import { downloadText } from './download';
 import { pickFile } from './files';
 import { Glossary } from './Glossary';
-import { HISTORY_WARN, historyLabel } from './history';
+import { HISTORY_WARN, historyLabel, thumbBg } from './history';
 import { IDice } from './icons';
 import { mediaUsage } from './mediaStore';
 import { renderThumbs } from './offscreen';
@@ -19,6 +19,7 @@ import {
 } from './store';
 import { toast } from './toast';
 import { openWelcome } from './guide/state';
+import { storageProblem } from './Keeping';
 import { Sheet, trapTab } from './Sheet';
 import './css/data.css';
 
@@ -32,13 +33,27 @@ const close = () => setUI({ sheet: 'none' });
 export function CollectionSheet() {
   const open = useStudio(s => s.ui.sheet === 'collection');
   const favs = useStudio(s => s.favorites);
+  const storage = useStudio(s => s.storage);
   const exportAll = () => {
     const json = JSON.stringify({ monotrama: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
     downloadText(`monotrama-coleccion-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
+    // the .json carries recipes only: say so when some piece needs its own image or video
+    const media = favs.filter(f => (f.recipe.source === 'image' || f.recipe.source === 'video') && f.recipe.media.ref).length;
+    if (media) {
+      toast(`La colección (.json) lleva las recetas, no las imágenes ni los videos: ${media === 1 ? '1 pieza pedirá su archivo' : `${media} piezas pedirán su archivo`} en otro equipo. Para llevarlos, guarda la sesión.`,
+        { label: 'Guardar sesión', run: () => void saveSession(true) }, 9000);
+    }
   };
+  const kept = storage === 'ok';
   return (
-    <Sheet open={open} onClose={close} wide title="Colección e historial" sub={`${favs.length} ${favs.length === 1 ? 'pieza guardada' : 'piezas guardadas'} con ★ · todo se queda en este navegador`}>
+    <Sheet open={open} onClose={close} wide title="Colección e historial" sub={`${favs.length} ${favs.length === 1 ? 'pieza guardada' : 'piezas guardadas'} con ★ · ${kept ? 'todo se queda en este navegador' : 'sólo mientras no cierres la pestaña'}`}>
       <div className="sheet-body">
+        {!kept && (
+          <div className="keep-warn" role="status">
+            {storageProblem(storage)} Guarda la sesión para tener una copia.
+            <div><button type="button" className="mini" onClick={() => void saveSession(true)}>Guardar sesión</button></div>
+          </div>
+        )}
         {open && <HistoryBox />}
         <h3 className="data-h">Tu colección</h3>
         <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
@@ -48,13 +63,13 @@ export function CollectionSheet() {
         {!favs.length ? (
           <div className="empty-state">
             <div className="big">{' .:-=+*#%@\n  aquí vivirán\n  tus piezas'}</div>
-            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; guarda la sesión o exporta la colección para llevarla a otro equipo.</p>
+            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; para llevarlo a otro equipo, guarda la sesión (lleva también tus imágenes y videos).</p>
           </div>
         ) : (
           <div className="card-grid">
             {favs.map(f => (
               <div key={f.id} className="fav-card">
-                <button type="button" className="img" style={f.thumb ? { backgroundImage: `url(${f.thumb})` } : undefined} onClick={() => { openFavorite(f.id); close(); }} aria-label={`Abrir ${f.name}`} />
+                <button type="button" className="img" style={f.thumb ? thumbBg(f.thumb) : undefined} onClick={() => { openFavorite(f.id); close(); }} aria-label={`Abrir ${f.name}`} />
                 <div className="meta">
                   <input defaultValue={f.name} aria-label="Nombre" onBlur={e => renameFavorite(f.id, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
                   <small>{spaceById(f.space).name} · {new Date(f.updated).toLocaleDateString()}{f.recipe.media.ref && (f.recipe.source === 'image' || f.recipe.source === 'video') ? ` · con ${f.recipe.source === 'video' ? 'video' : 'imagen'}` : ''}</small>
@@ -62,7 +77,7 @@ export function CollectionSheet() {
                 <div className="ops">
                   <button type="button" onClick={() => { openFavorite(f.id); close(); }}>Abrir</button>
                   <button type="button" onClick={() => duplicateFavorite(f.id)}>Duplicar</button>
-                  <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile(f.recipe), 'application/json')}>.json</button>
+                  <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }), 'application/json')}>.json</button>
                   <button type="button" onClick={() => void shareLink(f.recipe, f.space)}>Enlace</button>
                   <button type="button" onClick={() => { if (confirm(`¿Borrar «${f.name}» de tu colección?`)) removeFavorite(f.id); }} aria-label={`Borrar ${f.name}`}>✕</button>
                 </div>
@@ -98,7 +113,7 @@ function HistoryBox() {
         <div className={'data-meter' + (count >= limit * HISTORY_WARN ? ' near' : '')} aria-hidden="true"><i style={{ '--v': pct + '%' } as React.CSSProperties} /></div>
         <p className="note">
           Guarda tus últimos {limit} resultados; al pasar de ahí se descartan los más antiguos.
-          {pruned > 0 && <> En esta sesión {pruned === 1 ? 'se descartó 1 resultado' : `se descartaron ${pruned} resultados`}.</>}
+          {pruned > 0 && <> En esta visita {pruned === 1 ? 'se descartó 1 resultado' : `se descartaron ${pruned} resultados`}.</>}
         </p>
       </div>
       <div className="data-acts">
@@ -181,7 +196,7 @@ export function ExploreSheet() {
         </div>
         <div className="explore-grid">
           {cands.map((c, i) => (
-            <button key={i} type="button" style={c.url ? { backgroundImage: `url(${c.url})` } : undefined} aria-label={`Variación ${i + 1}`}
+            <button key={i} type="button" style={c.url ? thumbBg(c.url) : undefined} aria-label={`Variación ${i + 1}`}
               onClick={() => { applyRecipe(c.r, 'variación', 'Variación'); close(); }}>
               <span>{c.url ? `variación ${i + 1}` : 'tejiendo…'}</span>
             </button>

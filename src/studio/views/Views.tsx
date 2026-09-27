@@ -6,6 +6,7 @@ import { captureGrid } from '../exporting';
 import { openExport } from '../exportTab';
 import { IDownload, IMore } from '../icons';
 import { setUI, useRecipe, useStudio } from '../store';
+import type { Recipe } from '../../engine/recipe';
 import { useGuide } from '../guide/state';
 import { VERDICT, inkFor, useLegibility, useLegibilityMeter } from './legibility';
 import { setView, setViewOpts } from './state';
@@ -107,6 +108,20 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
 
 const areaStyle = (ins: Insets): CSSProperties => ({ top: ins.top, bottom: ins.bottom });
 
+const PHONE = '(max-width: 900px)';
+/** True on phone-sized screens (the layout's own breakpoint). */
+function usePhone() {
+  const [phone, setPhone] = useState(() => typeof matchMedia === 'function' && matchMedia(PHONE).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const mq = matchMedia(PHONE);
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return phone;
+}
+
 /* ------------------------------------------------------------------ */
 /* The stage in each view                                               */
 /* ------------------------------------------------------------------ */
@@ -118,8 +133,22 @@ export function ViewStage({ view, host, ins }: { view: ViewId; host: HTMLElement
     case 'vertical': return <VerticalView host={host} ins={ins} />;
     case 'readme': return <ReadmeView host={host} ins={ins} />;
     case 'terminal': return <TerminalView host={host} ins={ins} />;
-    default: return <Slot host={host} className="vw-fill" />;
+    default: return <FreeView host={host} ins={ins} />;
   }
+}
+
+/* Libre -------------------------------------------------------------------- */
+
+/**
+ * The whole stage, behind the deck and the panel. Except on a phone during a guide: the guide's sheet
+ * covers the lower half of the screen and cannot be lowered, so the piece goes in the room above it
+ * (the word and the photo's centre sat right under the sheet).
+ */
+function FreeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
+  const phone = usePhone();
+  const guiding = useGuide(s => s.path !== null);
+  if (phone && guiding) return <div className="vw-area vw-free" style={areaStyle(ins)}><Slot host={host} className="vw-fill" /></div>;
+  return <Slot host={host} className="vw-fill" />;
 }
 
 /* Fondo web ------------------------------------------------------------ */
@@ -196,10 +225,12 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const size = useSize(ref);
   const caption = useStudio(s => s.ui.viewOpts.caption);
   const f = verticalFrame(size.w, size.h);
-  // on a very short stage the frame keeps its CSS size (what the export composes) and is shown smaller
-  const k = size.h && f.h > size.h ? size.h / f.h : 1;
+  // on a very short stage the frame keeps its CSS size (what the export composes) and is shown smaller;
+  // the box around it takes the smaller size, so it is centred and nothing of it is cut
+  const k = size.h && size.w ? Math.min(1, size.h / f.h, size.w / f.w) : 1;
   return (
     <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>
+      <div className="vw-phone-box" style={{ width: f.w * k, height: f.h * k }}>
       <div className="vw-phone" style={{ width: f.w, height: f.h, transform: k < 1 ? `scale(${k})` : undefined }} data-frame={`${f.w}x${f.h}`}>
         <Slot host={host} className="vw-fill" />
         <div className="vw-safe vw-safe-top" style={{ height: SAFE_TOP * 100 + '%' }} aria-hidden="true"><span>interfaz de la app</span></div>
@@ -213,6 +244,7 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
           <span>interfaz de la app</span>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -222,23 +254,44 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
 /** The README text version, shared by the page mock (which renders it) and the bar (which copies it). */
 export const useReadme = create<{ text: string; cols: number; rows: number; gifW: number }>(() => ({ text: '', cols: 80, rows: 0, gifW: 640 }));
 
-/** Captures the text version (80 columns) when the piece changes, at most every 700 ms. */
+/**
+ * Captures the text version (80 columns) when the piece changes: one capture at a time, at least 700 ms
+ * after the previous one ended, always of the latest piece. (Timed from when captures started, a slow
+ * one, with software WebGL, let every nudge of a slider start another offscreen engine.)
+ */
 function useReadmeText(img: { w: number; h: number }) {
   const recipe = useRecipe();
-  const last = useRef(0);
+  const q = useRef<{ want: { r: Recipe; cols: number; rows: number } | null; busy: boolean; last: number; t: number; alive: boolean }>(
+    { want: null, busy: false, last: 0, t: 0, alive: true });
+  const schedule = useRef(() => {
+    const s = q.current;
+    if (s.busy || !s.want) return; // the capture on its way takes the latest piece when it ends
+    clearTimeout(s.t);
+    s.t = window.setTimeout(async () => {
+      const w = s.want;
+      if (!w || !s.alive) return;
+      s.want = null;
+      s.busy = true;
+      try {
+        const g = await captureGrid(w.r, w.cols, w.rows);
+        if (s.alive) useReadme.setState({ text: gridToText(g), cols: w.cols, rows: w.rows });
+      } catch { /* the next change tries again */ }
+      s.busy = false;
+      s.last = performance.now();
+      if (s.alive) schedule.current();
+    }, Math.max(120, 700 - (performance.now() - s.last)));
+  });
   useEffect(() => {
     if (!recipe || !img.w) return;
-    let alive = true;
     const { cols, rows } = readmeGrid(img.w, img.h, recipe.glyph.cell, recipe.glyph.aspect);
-    const wait = Math.max(120, 700 - (performance.now() - last.current));
-    const t = setTimeout(() => {
-      last.current = performance.now();
-      void captureGrid(recipe, cols, rows)
-        .then(g => { if (alive) useReadme.setState({ text: gridToText(g), cols, rows }); })
-        .catch(() => undefined);
-    }, wait);
-    return () => { alive = false; clearTimeout(t); };
+    q.current.want = { r: recipe, cols, rows };
+    schedule.current();
   }, [recipe, img.w, img.h]);
+  useEffect(() => {
+    const s = q.current;
+    s.alive = true;
+    return () => { s.alive = false; clearTimeout(s.t); };
+  }, []);
 }
 
 function ReadmeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
@@ -277,7 +330,8 @@ function TerminalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const term = useStudio(s => s.ui.terminal);
   const cell = useStudio(s => s.entries[s.cursor]?.recipe.glyph.cell ?? 10);
   const aspect = useStudio(s => s.entries[s.cursor]?.recipe.glyph.aspect ?? 2);
-  const win = terminalWindow(term.cols, term.rows, cell, aspect);
+  const pr = useStudio(s => s.stats.pr);
+  const win = terminalWindow(term.cols, term.rows, cell, aspect, pr);
   const k = size.w ? Math.min(1, size.w / win.w, (size.h - 30) / win.h) : 1;
   return (
     <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>

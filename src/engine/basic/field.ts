@@ -246,8 +246,10 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
         const sx = B.ppx[i] * (H / W) + 0.5, sy = 0.5 - B.ppy[i];
         if (media) {
           ACC[0] = ACC[1] = ACC[2] = 0;
-          mediaTap(media, sx - csx, sy - csy); mediaTap(media, sx + csx, sy - csy);
-          mediaTap(media, sx - csx, sy + csy); mediaTap(media, sx + csx, sy + csy);
+          // a cell cut by the canvas edge samples up to the edge (as the WebGL engine does)
+          const x0 = clamp(sx - csx, 0, 1), x1 = clamp(sx + csx, 0, 1), y0 = clamp(sy - csy, 0, 1), y1 = clamp(sy + csy, 0, 1);
+          mediaTap(media, x0, y0); mediaTap(media, x1, y0);
+          mediaTap(media, x0, y1); mediaTap(media, x1, y1);
           cr = ACC[0] * 0.25; cg = ACC[1] * 0.25; cb = ACC[2] * 0.25;
           const ml = cr * 0.299 + cg * 0.587 + cb * 0.114;
           l = f.mediaMix > 0 ? blendf(ml, pv, f.mediaBlend, f.mediaMix) : ml;
