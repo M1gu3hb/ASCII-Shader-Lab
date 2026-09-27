@@ -10,15 +10,18 @@ import { TopBar, toggleFullscreen } from './TopBar';
 import { SPACES } from '../random/spaces';
 import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary } from './store';
 import { useToasts } from './toast';
+import { Welcome } from './guide/Welcome';
+import { openWelcome, useGuide } from './guide/state';
 
 export function App() {
   const space = useStudio(s => s.space);
   const panel = useStudio(s => s.ui.panel);
   const hideUI = useStudio(s => s.ui.hideUI);
+  const guide = useGuide(s => (s.path ? `guide-on guide-${s.path}-${s.step}` : ''));
   useKeys();
   const comps = space === 'componentes';
   return (
-    <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '')}>
+    <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '') + (guide ? ' ' + guide : '')}>
       <TopBar />
       <main className="stage-wrap" aria-label="Escenario">
         {comps ? <ComponentsSpace /> : <Stage />}
@@ -31,6 +34,7 @@ export function App() {
       <ShortcutsSheet />
       <SeedSheet />
       <ShareSheet />
+      <Welcome />
       <Toasts />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>
@@ -75,6 +79,7 @@ function useKeys() {
       const k = e.key;
       if (k >= '1' && k <= '6') { setSpace(SPACES[+k - 1].id); return; }
       if (k === '?') { setUI({ sheet: 'shortcuts' }); return; }
+      if (k === 'g' || k === 'G') { openWelcome(); return; }
       if (k === 'Escape') { if (s.ui.hideUI) setUI({ hideUI: false }); return; }
       if (comps) return;
       switch (k) {

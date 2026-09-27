@@ -150,3 +150,14 @@ export function captureThumb(w: number, h: number): string | null {
     return null;
   }
 }
+
+/**
+ * Shows a recipe on stage without touching the history (hold-to-compare: «ver original»);
+ * null returns to the current piece. Any history change while it shows also returns to it.
+ */
+export function previewRecipe(r: ReturnType<typeof currentRecipe> | null) {
+  if (!engine) return;
+  engine.set(r ?? currentRecipe(), { transition: false });
+  // a thumbnail taken while the original showed would label the edited piece with it: take it again
+  if (!r) scheduleThumb();
+}

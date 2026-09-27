@@ -1,9 +1,13 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { spaceById } from '../random/spaces';
 import { TABS, TabContent } from './panels';
 import { presetsFor } from './presets';
 import { applyRecipe, currentRecipe, setUI, useStudio } from './store';
 import { IClose } from './icons';
+import { useGuide } from './guide/state';
+
+// the guided paths load when one starts (the welcome itself is in the main bundle)
+const Guide = lazy(() => import('./guide/Guide').then(m => ({ default: m.Guide })));
 
 export function Panel() {
   const space = useStudio(s => s.space);
@@ -12,7 +16,10 @@ export function Panel() {
   const tabs = TABS[space];
   const tab = tabs.find(t => t[0] === tabSel)?.[0] ?? tabs[0]?.[0];
   const presets = presetsFor(space);
+  const guiding = useGuide(s => s.path !== null);
   useEffect(() => { document.querySelector('.pane')?.scrollTo(0, 0); }, [tab, space]);
+  // a guided path takes the place of the settings while it lasts
+  if (guiding) return <aside className="panel guide-panel" aria-labelledby="guide-title"><Suspense fallback={null}><Guide /></Suspense></aside>;
   if (!tabs.length) return null;
   const setTab = (id: string) => setUI({ tab: { ...useStudio.getState().ui.tab, [space]: id } });
   return (

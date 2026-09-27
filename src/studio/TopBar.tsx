@@ -2,6 +2,8 @@ import { logoMark } from '../shared/brand';
 import { SPACES, type SpaceId } from '../random/spaces';
 import { IDownload, IFull, IGrid, IKeys, IPause, IPlay, ISliders } from './icons';
 import { setPlaying, setSpace, setUI, useStudio } from './store';
+import { IGuide } from './guide/Welcome';
+import { openWelcome, useGuide } from './guide/state';
 
 export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
@@ -19,6 +21,7 @@ export function TopBar() {
   const stats = useStudio(s => s.stats);
   const favs = useStudio(s => s.favorites.length);
   const panel = useStudio(s => s.ui.panel);
+  const guiding = useGuide(s => s.path !== null);
   return (
     <header className="topbar">
       <a className="brand" href="/" aria-label="Monotrama, volver a la portada" dangerouslySetInnerHTML={{ __html: logoMark(26) + '<span class="brand-word">monotrama</span><span class="brand-sub">estudio</span>' }} />
@@ -39,6 +42,9 @@ export function TopBar() {
         )}
         <button type="button" className="ib hide-sm" onClick={toggleFullscreen} title="Pantalla completa (F)" aria-label="Pantalla completa"><IFull /></button>
         <button type="button" className="ib hide-sm" onClick={() => setUI({ sheet: 'shortcuts' })} title="Atajos de teclado (?)" aria-label="Atajos de teclado"><IKeys /></button>
+        <button type="button" className="ib guides-btn" onClick={() => openWelcome()} data-on={guiding || undefined} aria-label="Guías" title="Guías: una foto en ASCII, un fondo para tu web o una palabra animada (G)">
+          <IGuide /><span className="lbl">Guías</span>
+        </button>
         <button type="button" className="ib" onClick={() => setUI({ sheet: 'collection' })} title="Tu colección" aria-label={`Colección, ${favs} piezas`}>
           <IGrid /><span className="lbl">Colección</span>{favs > 0 && <span className="count">{favs}</span>}
         </button>

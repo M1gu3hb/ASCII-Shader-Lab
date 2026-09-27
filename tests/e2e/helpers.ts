@@ -6,7 +6,20 @@ export async function openStudio(page: Page, hash = '') {
   await page.goto('/studio/' + hash);
   await expect(page.locator('.stage canvas').first()).toBeVisible();
   await expect(page.locator('.seedline')).toBeVisible();
+  await dismissWelcome(page);
   return errors;
+}
+
+/**
+ * A first visit opens «¿Qué quieres hacer?» (it opens with the page, so it is there once the studio
+ * shows): close it to reach the studio as it is. Nothing happens on later visits.
+ */
+export async function dismissWelcome(page: Page) {
+  const welcome = page.locator('dialog.welcome[open]');
+  if (await welcome.count()) {
+    await page.keyboard.press('Escape');
+    await expect(welcome).toHaveCount(0);
+  }
 }
 
 export async function seedText(page: Page) {
