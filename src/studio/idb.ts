@@ -45,14 +45,18 @@ export async function idbRead(keys: string[]): Promise<unknown[]> {
 
 const range = (prefix: string) => IDBKeyRange.bound(prefix, prefix + '￿');
 
-/** Keys that start with each prefix, read together. */
-export async function idbKeys(prefixes: string[]): Promise<string[][]> {
+/** Some values and the keys that start with each prefix, from one snapshot (one transaction). */
+export async function idbKeys(keys: string[], prefixes: string[]): Promise<{ values: unknown[]; keys: string[][] }> {
   const d = await openDb();
   return new Promise((res, rej) => {
     const tx = d.transaction(STORE, 'readonly');
     const st = tx.objectStore(STORE);
+    const vals = keys.map(k => st.get(k));
     const reqs = prefixes.map(p => st.getAllKeys(range(p)));
-    tx.oncomplete = () => res(reqs.map(r => (r.result as IDBValidKey[]).filter((k): k is string => typeof k === 'string')));
+    tx.oncomplete = () => res({
+      values: vals.map(r => r.result),
+      keys: reqs.map(r => (r.result as IDBValidKey[]).filter((k): k is string => typeof k === 'string')),
+    });
     tx.onabort = () => rej(tx.error ?? aborted());
   });
 }

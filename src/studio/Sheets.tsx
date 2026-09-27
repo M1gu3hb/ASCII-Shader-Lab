@@ -50,7 +50,7 @@ export function CollectionSheet() {
       <div className="sheet-body">
         {!kept && (
           <div className="keep-warn" role="status">
-            {storageProblem(storage)} Guarda la sesión para conservarlos.
+            {storageProblem(storage)} Guarda la sesión para tener una copia.
             <div><button type="button" className="mini" onClick={() => void saveSession(true)}>Guardar sesión</button></div>
           </div>
         )}

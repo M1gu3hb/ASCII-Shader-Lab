@@ -78,6 +78,7 @@ export async function handleFile(f: File) {
   else if (st.reason === 'too-big') {
     toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero pesa más de ${MEDIA_LIMITS[kind] / 1024 / 1024} MB: es demasiado grande para guardarl${kind === 'image' ? 'a' : 'o'} en el navegador. Se verá mientras no cierres la pestaña; después tendrás que elegirl${kind === 'image' ? 'a' : 'o'} otra vez.`, undefined, 9000);
   } else {
-    toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero no se pudo guardar en el navegador (sin espacio o en modo privado). Se verá mientras no cierres la pestaña.`, undefined, 9000);
+    const why = st.reason === 'no-space' ? 'no queda espacio en el navegador' : 'el navegador no dejó guardarl' + (kind === 'image' ? 'a' : 'o');
+    toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero ${why}. Se verá mientras no cierres la pestaña.`, undefined, 9000);
   }
 }

@@ -64,11 +64,12 @@ test.describe('en pantallas de escritorio', () => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await openStudio(page, '#space=fondos');
     await page.getByRole('button', { name: 'Vertical 9:16' }).click();
-    const area = await page.locator('.vw-center').boundingBox();
-    const frame = await page.locator('.vw-phone').boundingBox();
-    expect(frame!.y).toBeGreaterThanOrEqual(area!.y - 1);
-    expect(frame!.y + frame!.height).toBeLessThanOrEqual(area!.y + area!.height + 1);
-    // centred: the same room above and below
-    expect(Math.abs((frame!.y - area!.y) - (area!.y + area!.height - frame!.y - frame!.height))).toBeLessThan(3);
+    // once the frame has taken the room it has (sizes settle over a couple of frames): inside, and centred
+    await expect.poll(async () => {
+      const area = (await page.locator('.vw-center').boundingBox())!;
+      const frame = (await page.locator('.vw-phone').boundingBox())!;
+      const above = frame.y - area.y, below = area.y + area.height - frame.y - frame.height;
+      return above >= -1 && below >= -1 && Math.abs(above - below) < 3 ? 'ok' : `arriba ${Math.round(above)}, abajo ${Math.round(below)}`;
+    }).toBe('ok');
   });
 });

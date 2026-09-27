@@ -75,7 +75,7 @@ export interface Cancel { cancelled: boolean; active?: boolean }
 export function useStopOnLeave(cancel: RefObject<Cancel>) {
   useEffect(() => () => {
     const c = cancel.current;
-    if (c?.active && !c.cancelled) { c.cancelled = true; toast('Exportación cancelada: la cerraste antes de que terminara.'); }
+    if (c?.active && !c.cancelled) { c.cancelled = true; toast('Exportación cancelada: saliste antes de que terminara.'); }
   }, [cancel]);
 }
 

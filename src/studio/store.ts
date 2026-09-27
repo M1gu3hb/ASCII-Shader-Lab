@@ -232,10 +232,13 @@ async function collectMedia() {
 
 /** Entry and thumbnail records no index lists (left by an interrupted save of an earlier version). */
 async function sweepOrphans() {
-  const [[idx], [eKeys, tKeys]] = await Promise.all([idbRead([K_INDEX]), idbKeys([P_ENTRY, P_THUMB])]);
+  // the index and the record keys from the same snapshot: a save in between cannot make a new record look orphaned
+  const { values: [idx], keys: [eKeys, tKeys] } = await idbKeys([K_INDEX], [P_ENTRY, P_THUMB]);
   const listed = (idx as { ids?: unknown } | undefined)?.ids;
   if (!Array.isArray(listed)) return;
   const keep = new Set(listed.filter((x): x is string => typeof x === 'string'));
+  // and whatever this tab has now (e.g. a session opened meanwhile, whose save may be on its way)
+  for (const e of S().entries) keep.add(e.id);
   const orphans = [
     ...eKeys.filter(k => !keep.has(k.slice(P_ENTRY.length))),
     ...tKeys.filter(k => !keep.has(k.slice(P_THUMB.length))),
