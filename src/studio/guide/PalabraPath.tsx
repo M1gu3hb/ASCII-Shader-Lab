@@ -35,7 +35,6 @@ export function PalabraWord() {
           onKeyDown={e => { if (e.key === 'Enter' && validWord(raw)) goStep(1); }} />
       </div>
       <p className="note" id={id + '-h'}>De 1 a {WORD_MAX} caracteres. Las palabras cortas y en mayúsculas se leen mejor hechas de caracteres.</p>
-      {!validWord(raw) && <p className="warn" role="status">Escribe al menos un carácter para seguir.</p>}
     </>
   );
 }

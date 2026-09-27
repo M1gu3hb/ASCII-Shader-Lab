@@ -43,6 +43,16 @@ export function Welcome() {
     }
   }, [open]);
 
+  // Tab and Shift+Tab wrap around inside the dialog (it never hands focus to the browser's toolbar)
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab' || !ref.current) return;
+    const all = [...ref.current.querySelectorAll<HTMLElement>('button:not(:disabled)')];
+    if (!all.length) return;
+    const first = all[0], last = all[all.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+
   const onDrop = (e: React.DragEvent) => {
     const f = e.dataTransfer.files?.[0];
     e.preventDefault();
@@ -60,6 +70,7 @@ export function Welcome() {
       onClick={e => { if (e.target === ref.current) closeWelcome('close'); }}
       onDragOver={e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
       onDrop={onDrop}
+      onKeyDown={onKeyDown}
     >
       {open && (
         <>
