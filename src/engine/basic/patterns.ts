@@ -8,7 +8,8 @@
  * points, blob centres); the field pass calls it once per layer before the cell loop.
  */
 import {
-  TAU, V2, clamp, fbm, fbm3, fract, gnoise, gpow, hard, hash11, hash12, hash22, mix, mod, rotXY, sat, smoothstep, step, voro,
+  PI, TAU, V2, clamp, fbm, fbm3, fract, gnoise, gpow, hard, hash11, hash12, hash13, hash22, mix, mod, rotXY, sat, smoothstep, step, vnoise,
+  voro,
 } from './core';
 
 export type PatternFn = (x: number, y: number, t: number, a: number, b: number) => number;
@@ -538,6 +539,565 @@ const cubo: BasicPattern = {
   },
 };
 
+/*
+ * More solids (same camera: eye R·(0, 0, -3), ray R·normalize(p, f); the light is fixed to the camera).
+ * Shared scratch: RAY holds the object-space eye and direction of the current cell, N3 the last normal.
+ */
+const RAY = new Float64Array(6);
+const N3 = new Float64Array(3);
+const LGT = new Float64Array(3);
+/** Object-space ray for screen point (x, y): RAY = (R·eye, R·normalize(x, y, f)). */
+function camRay(M: Float64Array, x: number, y: number, f: number) {
+  const l = Math.sqrt(x * x + y * y + f * f), cx = x / l, cy = y / l, cz = f / l;
+  RAY[0] = M[2] * -3; RAY[1] = M[5] * -3; RAY[2] = M[8] * -3;
+  RAY[3] = M[0] * cx + M[1] * cy + M[2] * cz; RAY[4] = M[3] * cx + M[4] * cy + M[5] * cz; RAY[5] = M[6] * cx + M[7] * cy + M[8] * cz;
+}
+/** LGT = normalize(R·v): a light fixed to the camera, in object space. */
+function camLight(M: Float64Array, vx: number, vy: number, vz: number) {
+  const x = M[0] * vx + M[1] * vy + M[2] * vz, y = M[3] * vx + M[4] * vy + M[5] * vz, z = M[6] * vx + M[7] * vy + M[8] * vz;
+  const l = Math.sqrt(x * x + y * y + z * z);
+  LGT[0] = x / l; LGT[1] = y / l; LGT[2] = z / l;
+}
+/** GLSL: normalize(k.xyy·f(p + k.xyy·e) + k.yyx·f(p + k.yyx·e) + k.yxy·f(p + k.yxy·e) + k.xxx·f(p + k.xxx·e)), k = (1, -1). */
+function tetraNormal(sd: (x: number, y: number, z: number) => number, px: number, py: number, pz: number, e: number) {
+  const a = sd(px + e, py - e, pz - e), b = sd(px - e, py - e, pz + e), c = sd(px - e, py + e, pz - e), d = sd(px + e, py + e, pz + e);
+  const nx = a - b - c + d, ny = -a - b + c + d, nz = -a + b - c + d;
+  const l = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  N3[0] = nx / l; N3[1] = ny / l; N3[2] = nz / l;
+}
+/** pow(max(dot(reflect(-L, n), -rd), 0), k) for the current RAY, LGT and N3. */
+function specular(k: number): number {
+  const ndl = N3[0] * LGT[0] + N3[1] * LGT[1] + N3[2] * LGT[2];
+  const rx = -LGT[0] + 2 * ndl * N3[0], ry = -LGT[1] + 2 * ndl * N3[1], rz = -LGT[2] + 2 * ndl * N3[2];
+  return Math.pow(Math.max(-(rx * RAY[3] + ry * RAY[4] + rz * RAY[5]), 0), k);
+}
+const diffuse = () => Math.max(N3[0] * LGT[0] + N3[1] * LGT[1] + N3[2] * LGT[2], 0);
+/** max(dot(n, -rd), 0): a light at the eye, so what faces the viewer reads bright and the silhouette dark. */
+const headlight = () => Math.max(-(N3[0] * RAY[3] + N3[1] * RAY[4] + N3[2] * RAY[5]), 0);
+/** Entry and exit distances of RAY through a sphere of radius² r2 at the origin; false when it misses. */
+const SPAN = new Float64Array(2);
+function sphereSpan(r2: number): boolean {
+  const bb = RAY[0] * RAY[3] + RAY[1] * RAY[4] + RAY[2] * RAY[5];
+  let h = bb * bb - (RAY[0] * RAY[0] + RAY[1] * RAY[1] + RAY[2] * RAY[2]) + r2;
+  if (h < 0) return false;
+  h = Math.sqrt(h);
+  SPAN[0] = -bb - h; SPAN[1] = -bb + h;
+  return true;
+}
+
+// nudo: a (P, Q) torus knot; in the torus' cross-section plane the tube leans, so its offset along the lean shrinks
+const MNU = new Float64Array(9);
+let nuP = 2, nuQ = 3, nuTh = 0.1, nuT = 0;
+function nuSd(px: number, py: number, pz: number): number {
+  const an = Math.atan2(pz, px);
+  const cx = Math.sqrt(px * px + pz * pz) - 0.46;
+  let d = 1e3;
+  for (let k = 0; k < nuP; k++) {
+    const s = (an + TAU * k) / nuP;
+    const c0 = Math.cos(nuQ * s), c1 = Math.sin(nuQ * s);
+    const vx = cx - 0.22 * c0, vy = py - 0.22 * c1;
+    const sp = nuP * (0.46 + 0.22 * c0), sq = nuQ * 0.22;
+    const dn = vx * c0 + vy * c1, dt = (vx * -c1 + vy * c0) * sp / Math.sqrt(sp * sp + sq * sq);
+    d = Math.min(d, Math.sqrt(dn * dn + dt * dt));
+  }
+  return d - nuTh;
+}
+const nudo: BasicPattern = {
+  prep(t, a, b) {
+    rotXY(0.7 + 0.25 * Math.sin(t * 0.21), t * 0.32, MNU);
+    const k = Math.floor(b * 5.999);
+    if (k < 1) { nuP = 2; nuQ = 3; } else if (k < 2) { nuP = 3; nuQ = 2; } else if (k < 3) { nuP = 2; nuQ = 5; }
+    else if (k < 4) { nuP = 3; nuQ = 4; } else if (k < 5) { nuP = 5; nuQ = 2; } else { nuP = 3; nuQ = 5; }
+    nuTh = 0.06 + a * 0.07;
+    nuT = t;
+  },
+  f(x, y) {
+    camRay(MNU, x, y, 1.6);
+    if (!sphereSpan(0.81)) return 0;
+    let d = SPAN[0];
+    const dmax = SPAN[1];
+    let hit = false, px = 0, py = 0, pz = 0;
+    for (let i = 0; i < 80; i++) {
+      px = RAY[0] + RAY[3] * d; py = RAY[1] + RAY[4] * d; pz = RAY[2] + RAY[5] * d;
+      const s = nuSd(px, py, pz);
+      if (s < 0.002) { hit = true; break; }
+      d += s * 0.85; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    tetraNormal(nuSd, px, py, pz, 0.002);
+    const an = Math.atan2(pz, px), cx = Math.sqrt(px * px + pz * pz) - 0.46;
+    let best = 1e3, ss = 0, psi = 0;
+    for (let j = 0; j < nuP; j++) {
+      const s = (an + TAU * j) / nuP;
+      const dx = cx - 0.22 * Math.cos(nuQ * s), dy = py - 0.22 * Math.sin(nuQ * s);
+      const dl = Math.sqrt(dx * dx + dy * dy);
+      if (dl < best) { best = dl; ss = s; psi = Math.atan2(dy, dx); }
+    }
+    const stripe = smoothstep(-0.35, 0.35, Math.sin(psi * 2 - ss * nuQ * 3 + nuT * 2.5));
+    camLight(MNU, -0.5, 0.65, -0.55);
+    const dif = diffuse(), hl = headlight(), spec = specular(28);
+    return sat(0.04 + (0.5 * dif + 0.42 * hl) * mix(0.4, 1, stripe) + 0.4 * spec);
+  },
+};
+
+// poliedro: convex polyhedra as the max of plane pairs (octahedron … truncated icosahedron)
+const PO_N = new Float64Array([
+  0.57735027, 0.57735027, 0.57735027, -0.57735027, 0.57735027, 0.57735027, 0.57735027, -0.57735027, 0.57735027, 0.57735027, 0.57735027, -0.57735027,
+  0, 0.35682209, 0.93417236, 0, -0.35682209, 0.93417236, 0.93417236, 0, 0.35682209, -0.93417236, 0, 0.35682209, 0.35682209, 0.93417236, 0, -0.35682209, 0.93417236, 0,
+  0, 0.85065081, 0.52573111, 0, -0.85065081, 0.52573111, 0.52573111, 0, 0.85065081, -0.52573111, 0, 0.85065081, 0.85065081, 0.52573111, 0, -0.85065081, 0.52573111, 0,
+  0.70710678, 0.70710678, 0, 0.70710678, -0.70710678, 0, 0.70710678, 0, 0.70710678, 0.70710678, 0, -0.70710678, 0, 0.70710678, 0.70710678, 0, 0.70710678, -0.70710678,
+].map(Math.fround));
+const MPO = new Float64Array(9);
+let poKind = 0, poI0 = 0, poI1 = 4, poR = 0.44, poGap = 0, poNx = 0, poNy = 0, poNz = 0;
+function poSd(px: number, py: number, pz: number): number {
+  let m1 = -1e3, m2 = -1e3;
+  for (let i = poI0; i < poI1; i++) {
+    const nx = PO_N[i * 3], ny = PO_N[i * 3 + 1], nz = PO_N[i * 3 + 2];
+    const dp = px * nx + py * ny + pz * nz;
+    const v = Math.abs(dp) - (poKind > 3.5 && i >= 10 ? poR * 1.0266 : poR);
+    if (v > m1) { m2 = m1; m1 = v; const sg = Math.sign(dp); poNx = nx * sg; poNy = ny * sg; poNz = nz * sg; } else if (v > m2) m2 = v;
+  }
+  poGap = m1 - m2;
+  return m1;
+}
+const poliedro: BasicPattern = {
+  prep(t, a) {
+    rotXY(t * 0.31 + 0.5, t * 0.47, MPO);
+    const k = Math.floor(a * 4.999);
+    poKind = k;
+    poI0 = k < 1 ? 0 : k < 2 ? 16 : k < 3 ? 10 : 0;
+    poI1 = k < 1 ? 4 : k < 2 ? 22 : k < 3 ? 16 : k < 4 ? 10 : 16;
+    poR = k < 1 ? 0.44 : k < 2 ? 0.53 : k < 4 ? 0.6 : 0.68;
+  },
+  f(x, y, _t, _a, b) {
+    camRay(MPO, x, y, 1.6);
+    if (!sphereSpan(0.64)) return 0;
+    let d = SPAN[0];
+    const dmax = SPAN[1];
+    let hit = false;
+    for (let i = 0; i < 48; i++) {
+      const s = poSd(RAY[0] + RAY[3] * d, RAY[1] + RAY[4] * d, RAY[2] + RAY[5] * d);
+      if (s < 0.001) { hit = true; break; }
+      d += s; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    N3[0] = poNx; N3[1] = poNy; N3[2] = poNz;
+    camLight(MPO, -0.45, 0.7, -0.55);
+    const dif = diffuse(), spec = specular(20);
+    const face = 0.08 + 0.62 * dif + 0.22 * hash13(Math.floor(poNx * 7 + 7.5), Math.floor(poNy * 7 + 7.5), Math.floor(poNz * 7 + 7.5))
+      + 0.18 * headlight() + 0.3 * spec;
+    const edge = 1 - smoothstep(PX * 0.5, PX * 1.6, poGap);
+    return sat(mix(face * (1 - 0.6 * edge), Math.max(edge * (0.55 + 0.45 * dif), 0.05 + 0.12 * dif), b));
+  },
+};
+
+// giroide: the solid side of a gyroid, carved out of a ball; its tunnels let the background through
+const MGY = new Float64Array(9);
+let gyK = 10, gyC = 0, gyPh = 0;
+function gySd(px: number, py: number, pz: number): number {
+  const qx = px * gyK, qy = py * gyK, qz = pz * gyK + gyPh;
+  const g = (Math.sin(qx) * Math.cos(qy) + Math.sin(qy) * Math.cos(qz) + Math.sin(qz) * Math.cos(qx) - gyC) / gyK * 0.55;
+  return Math.max(g, Math.sqrt(px * px + py * py + pz * pz) - 0.66);
+}
+const giroide: BasicPattern = {
+  prep(t, a, b) {
+    rotXY(t * 0.17 + 0.4, t * 0.23, MGY);
+    gyK = 5 + a * 7; gyC = -0.7 + b * 1.4; gyPh = t * 0.5;
+  },
+  f(x, y) {
+    camRay(MGY, x, y, 1.6);
+    if (!sphereSpan(0.4356)) return 0;
+    let d = SPAN[0];
+    const dmax = SPAN[1];
+    let hit = false, px = 0, py = 0, pz = 0, it = 0;
+    for (let i = 0; i < 72; i++) {
+      px = RAY[0] + RAY[3] * d; py = RAY[1] + RAY[4] * d; pz = RAY[2] + RAY[5] * d;
+      const s = gySd(px, py, pz);
+      if (s < 0.0015) { hit = true; break; }
+      d += s; it += 1; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    tetraNormal(gySd, px, py, pz, 0.0015);
+    camLight(MGY, -0.4, 0.75, -0.5);
+    const dif = diffuse(), hl = headlight(), spec = specular(16);
+    const depth = smoothstep(0.2, 0.66, Math.sqrt(px * px + py * py + pz * pz));
+    return sat((0.05 + 0.55 * dif + 0.4 * hl + 0.25 * spec) * mix(0.2, 1, depth) * (1 - 0.4 * it / 72));
+  },
+};
+
+// moebius: a thin band whose cross-section turns half a turn (or 3, 5) per lap
+const MMO = new Float64Array(9);
+let moW = 0.2, moTw = 1, moT = 0;
+function moSd(px: number, py: number, pz: number): number {
+  const an = Math.atan2(pz, px);
+  const lx = Math.sqrt(px * px + pz * pz) - 0.5, ang = an * moTw * 0.5, c = Math.cos(ang), s = Math.sin(ang);
+  const dx = Math.abs(c * lx + s * py) - moW, dy = Math.abs(-s * lx + c * py) - 0.03;
+  const ox = Math.max(dx, 0), oy = Math.max(dy, 0);
+  return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(dx, dy), 0);
+}
+const moebius: BasicPattern = {
+  prep(t, a, b) {
+    rotXY(1 + 0.3 * Math.sin(t * 0.23), t * 0.3, MMO);
+    moW = 0.12 + a * 0.2; moTw = 1 + 2 * Math.floor(b * 2.999); moT = t;
+  },
+  f(x, y) {
+    camRay(MMO, x, y, 1.6);
+    const rb = 0.55 + moW;
+    if (!sphereSpan(rb * rb)) return 0;
+    let d = SPAN[0];
+    const dmax = SPAN[1];
+    let hit = false, px = 0, py = 0, pz = 0;
+    for (let i = 0; i < 90; i++) {
+      px = RAY[0] + RAY[3] * d; py = RAY[1] + RAY[4] * d; pz = RAY[2] + RAY[5] * d;
+      const s = moSd(px, py, pz);
+      if (s < 0.0015) { hit = true; break; }
+      d += s * 0.6; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    tetraNormal(moSd, px, py, pz, 0.0015);
+    if (N3[0] * RAY[3] + N3[1] * RAY[4] + N3[2] * RAY[5] > 0) { N3[0] = -N3[0]; N3[1] = -N3[1]; N3[2] = -N3[2]; }
+    const an = Math.atan2(pz, px);
+    const lx = Math.sqrt(px * px + pz * pz) - 0.5, ang = an * moTw * 0.5;
+    const u = (Math.cos(ang) * lx + Math.sin(ang) * py) / moW;
+    const line = 1 - smoothstep(0.1, 0.22, Math.abs(u));
+    const bars = smoothstep(0.35, 0.5, Math.abs(fract(an * 12 / TAU - moT * 0.6) - 0.5)) * step(0.4, Math.abs(u));
+    camLight(MMO, -0.5, 0.7, -0.5);
+    const dif = diffuse(), hl = headlight(), spec = specular(24);
+    return sat(0.06 + (0.55 * dif + 0.4 * hl) * (1 - 0.55 * Math.max(line, bars)) + 0.35 * spec);
+  },
+};
+
+// adn: a double helix with its rungs, leaning across the frame
+const MDN = new Float64Array(9);
+rotXY(0.35, 0, MDN);
+const DN_C = Math.cos(0.5), DN_S = Math.sin(0.5);
+let dnK = 7, dnKK = 0.5, dnSp = 0.1, dnPh = 0, dnM = 0;
+function dnSd(px: number, py: number, pz: number): number {
+  const a1 = py * dnK + dnPh, a2 = a1 + 2.3;
+  const c1x = Math.cos(a1), c1y = Math.sin(a1), c2x = Math.cos(a2), c2y = Math.sin(a2);
+  const v1x = px - 0.3 * c1x, v1y = pz - 0.3 * c1y, v2x = px - 0.3 * c2x, v2y = pz - 0.3 * c2y;
+  const r1 = v1x * c1x + v1y * c1y, t1 = (v1x * -c1y + v1y * c1x) * dnKK;
+  const r2 = v2x * c2x + v2y * c2y, t2 = (v2x * -c2y + v2y * c2x) * dnKK;
+  const s1 = Math.sqrt(r1 * r1 + t1 * t1) - 0.065, s2 = Math.sqrt(r2 * r2 + t2 * t2) - 0.065;
+  const yi = (Math.floor(py / dnSp) + 0.5) * dnSp;
+  const b1 = yi * dnK + dnPh, b2 = b1 + 2.3;
+  const ax = 0.3 * Math.cos(b1), az = 0.3 * Math.sin(b1), bx = 0.3 * Math.cos(b2), bz = 0.3 * Math.sin(b2);
+  const pax = px - ax, pay = py - yi, paz = pz - az, bax = bx - ax, baz = bz - az;
+  const hh = clamp((pax * bax + paz * baz) / (bax * bax + baz * baz), 0, 1);
+  const ex = pax - bax * hh, ez = paz - baz * hh;
+  const rg = Math.sqrt(ex * ex + pay * pay + ez * ez) - 0.03;
+  const s = Math.min(s1, s2);
+  dnM = rg < s ? (hh < 0.5 ? 1 : 2) : 0;
+  return Math.min(s, rg);
+}
+const adn: BasicPattern = {
+  prep(t, a, b) {
+    dnK = 3.5 + a * 5; dnKK = 1 / Math.sqrt(1 + 0.09 * dnK * dnK); dnSp = 0.2 - b * 0.12; dnPh = t * 1.1;
+  },
+  f(x, y) {
+    camRay(MDN, DN_C * x + DN_S * y, -DN_S * x + DN_C * y, 1.6);
+    const ox = RAY[0], oz = RAY[2], vx = RAY[3], vz = RAY[5];
+    const A2 = vx * vx + vz * vz, B2 = ox * vx + oz * vz;
+    let h = B2 * B2 - A2 * (ox * ox + oz * oz - 0.1521);
+    if (h < 0) return 0;
+    h = Math.sqrt(h);
+    let d = (-B2 - h) / A2;
+    const dmax = (-B2 + h) / A2;
+    let hit = false, px = 0, py = 0, pz = 0;
+    for (let i = 0; i < 80; i++) {
+      px = RAY[0] + RAY[3] * d; py = RAY[1] + RAY[4] * d; pz = RAY[2] + RAY[5] * d;
+      const s = dnSd(px, py, pz);
+      if (s < 0.002) { hit = true; break; }
+      d += s * 0.8; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    const m = dnM;
+    tetraNormal(dnSd, px, py, pz, 0.002);
+    camLight(MDN, -0.5, 0.6, -0.6);
+    const dif = diffuse(), hl = headlight(), spec = specular(30);
+    const tone = m < 0.5 ? 1 : m < 1.5 ? 0.75 : 0.45;
+    return sat(0.04 + (0.55 * dif + 0.42 * hl) * tone + 0.4 * spec * step(m, 0.5));
+  },
+};
+
+// planeta: a banded planet with rings, both analytic (no marching), with the shadows they cast on each other
+const MPL = new Float64Array(9);
+let plA = 0.5, plT = 0;
+function plRing(rr: number, an: number): number {
+  const r0 = 0.56, r1 = 0.66 + plA * 0.36;
+  const x = (rr - r0) / (r1 - r0);
+  const band = smoothstep(0, 0.04, x) * smoothstep(1, 0.94, x);
+  let dens = 0.35 + 0.65 * vnoise(x * 36, 3.7);
+  dens *= 1 - 0.9 * Math.exp(-(x - 0.62) * (x - 0.62) * 480);
+  dens *= 0.82 + 0.18 * vnoise(an * 5 - plT * 0.15, x * 6);
+  return band * dens;
+}
+const planeta: BasicPattern = {
+  prep(t, a, b) {
+    rotXY(0.12 + b * 0.75 + 0.04 * Math.sin(t * 0.17), -0.5 + t * 0.03, MPL);
+    plA = a; plT = t;
+  },
+  f(x, y, t) {
+    camRay(MPL, x, y, 1.7);
+    camLight(MPL, -0.75, 0.35, -0.45);
+    const ox = RAY[0], oy = RAY[1], oz = RAY[2], dx = RAY[3], dy = RAY[4], dz = RAY[5];
+    const Lx = LGT[0], Ly = LGT[1], Lz = LGT[2];
+    const bb = ox * dx + oy * dy + oz * dz, h = bb * bb - (ox * ox + oy * oy + oz * oz) + 0.1521;
+    const ts = h > 0 ? -bb - Math.sqrt(h) : 1e3;
+    let col = 0;
+    if (ts < 1e3) {
+      const sx = ox + dx * ts, sy = oy + dy * ts, sz = oz + dz * ts;
+      const nx = sx / 0.39, ny = sy / 0.39, nz = sz / 0.39;
+      const lon = Math.atan2(nz, nx) + t * 0.12;
+      const tex = 0.5 + 0.5 * Math.sin(ny * 15 + 2.6 * fbm(lon * 1.3, ny * 4));
+      let dif = Math.max(nx * Lx + ny * Ly + nz * Lz, 0);
+      const sr = -sy / Ly;
+      if (sr > 0) { const qx = sx + Lx * sr, qz = sz + Lz * sr; dif *= 1 - 0.75 * plRing(Math.sqrt(qx * qx + qz * qz), Math.atan2(qz, qx)); }
+      col = 0.03 + dif * (0.45 + 0.55 * tex) + 0.2 * Math.pow(1 - Math.max(-(nx * dx + ny * dy + nz * dz), 0), 2) * dif;
+    } else {
+      const ex = ox - dx * bb, ey = oy - dy * bb, ez = oz - dz * bb;
+      col = 0.12 * Math.exp(-(Math.sqrt(ex * ex + ey * ey + ez * ez) - 0.39) * 22);
+    }
+    const tr = -oy / dy;
+    if (tr > 0 && tr < ts) {
+      const qx = ox + dx * tr, qy = oy + dy * tr, qz = oz + dz * tr;
+      const den = plRing(Math.sqrt(qx * qx + qz * qz), Math.atan2(qz, qx));
+      if (den > 0) {
+        const b2 = qx * Lx + qy * Ly + qz * Lz, h2 = b2 * b2 - (qx * qx + qy * qy + qz * qz) + 0.1521;
+        const lit = h2 > 0 && -b2 - Math.sqrt(h2) > 0 ? 0.15 : 1;
+        col = mix(col, (0.35 + 0.6 * den) * lit, Math.min(den * 1.3, 0.95));
+      }
+    }
+    return sat(col);
+  },
+};
+
+// voxeles: a flight over columns of blocks, traced cell by cell (2D DDA over a height map)
+const VX_CP = 0.9004471, VX_SP = 0.4349655;
+let vxLv = 5, vxB = 0.5, vxT = 0, vxCy = 1, vxSy = 0;
+function vxH(cx: number, cz: number): number {
+  const k = 0.05 + vxB * 0.12, qx = cx * k, qz = cz * k;
+  const v = vnoise(qx, qz) * 0.7 + vnoise(qx * 2.7 + 5.3, qz * 2.7 + 5.3) * 0.3;
+  return Math.floor(v * v * vxLv * 1.6) + step(0.985, hash12(cx, cz)) * (2 + Math.floor(hash12(cx + 7, cz + 7) * 3));
+}
+/*
+ * Neighbouring rays cross the same columns: their heights are kept in a direct-mapped table for the frame
+ * (keyed by the exact column and the prep call), so a hit returns exactly what vxH would.
+ */
+const VX_BITS = 12, VX_N = 1 << VX_BITS;
+const VX_KX = new Float64Array(VX_N), VX_KZ = new Float64Array(VX_N), VX_V = new Float64Array(VX_N), VX_ST = new Uint32Array(VX_N);
+let vxStamp = 0;
+function vxHc(cx: number, cz: number): number {
+  const s = (Math.imul(cx | 0, 0x9e3779b1) ^ Math.imul(cz | 0, 0x85ebca77)) >>> (32 - VX_BITS);
+  if (VX_ST[s] === vxStamp && VX_KX[s] === cx && VX_KZ[s] === cz) return VX_V[s];
+  const v = vxH(cx, cz);
+  VX_ST[s] = vxStamp; VX_KX[s] = cx; VX_KZ[s] = cz; VX_V[s] = v;
+  return v;
+}
+const voxeles: BasicPattern = {
+  prep(t, a, b) {
+    vxStamp = (vxStamp + 1) >>> 0 || 1;
+    vxLv = 2 + Math.floor(a * 7); vxB = b; vxT = t;
+    const yw = 0.3 * Math.sin(t * 0.11);
+    vxCy = Math.cos(yw); vxSy = Math.sin(yw);
+  },
+  f(x, y) {
+    const lv = vxLv, rox = vxT * 0.35, roy = lv + 1.5, roz = vxT * 1.4;
+    const l = Math.sqrt(x * x + y * y + 1.21);
+    let rx = x / l, ry = y / l, rz = 1.1 / l;
+    const ty = ry * VX_CP - rz * VX_SP, tz = ry * VX_SP + rz * VX_CP;
+    ry = ty; rz = tz;
+    const nx = rx * vxCy + rz * vxSy, nz = rz * vxCy - rx * vxSy;
+    rx = nx; rz = nz;
+    let cx = Math.floor(rox), cz = Math.floor(roz);
+    const sx = Math.sign(rx), sz = Math.sign(rz), dlx = Math.abs(1 / rx), dlz = Math.abs(1 / rz);
+    let tmx = (sx * (cx - rox) + sx * 0.5 + 0.5) * dlx, tmz = (sz * (cz - roz) + sz * 0.5 + 0.5) * dlz;
+    let tc = 0, face = 0, hh = -1;
+    for (let i = 0; i < 72; i++) {
+      const hc = vxHc(cx, cz);
+      const tn = Math.min(tmx, tmz);
+      if (roy + ry * tc < hc) { hh = hc; break; }
+      if (roy + ry * tn < hc) { tc = (hc - roy) / ry; face = 0; hh = hc; break; }
+      if (tmx < tmz) { tc = tmx; tmx += dlx; cx += sx; face = 1; } else { tc = tmz; tmz += dlz; cz += sz; face = 2; }
+      if (tc > 60) break;
+    }
+    if (hh < 0) return 0.05 * Math.exp(-Math.max(ry, 0) * 10);
+    const fade = Math.exp(-tc * 0.07);
+    let lum: number;
+    if (face < 0.5) {
+      const fx = fract(rox + rx * tc), fz = fract(roz + rz * tc);
+      const e = Math.min(Math.min(fx, 1 - fx), Math.min(fz, 1 - fz));
+      lum = 0.95 - 0.45 * fade * (1 - smoothstep(0.05, 0.12, e));
+    } else {
+      lum = face < 1.5 ? (sx > 0 ? 0.62 : 0.4) : 0.28;
+    }
+    lum *= 0.6 + 0.4 * sat(hh / (lv * 1.2));
+    return sat(lum * Math.exp(-tc * 0.018));
+  },
+};
+
+// metabolas: five drops of liquid metal that merge (smooth union) and mirror a studio
+const MB_C = new Float64Array(15), MB_F = new Float64Array(5);
+for (let i = 0; i < 5; i++) MB_F[i] = 0.8 + 0.25 * Math.sin(i * 1.7);
+let mbR = 0.2, mbK = 0.2;
+function mbSd(px: number, py: number, pz: number): number {
+  let d = 1e3;
+  for (let i = 0; i < 5; i++) {
+    const dx = px - MB_C[i * 3], dy = py - MB_C[i * 3 + 1], dz = pz - MB_C[i * 3 + 2];
+    const s = Math.sqrt(dx * dx + dy * dy + dz * dz) - mbR * MB_F[i];
+    const hh = Math.max(mbK - Math.abs(d - s), 0) / mbK;
+    d = Math.min(d, s) - hh * hh * mbK * 0.25;
+  }
+  return d;
+}
+const MB_ID = new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+/** The studio's softbox (GLSL: vec3(-.49, .64, -.59), used as is). */
+const MB_BOX = [-0.49, 0.64, -0.59];
+const metabolas: BasicPattern = {
+  prep(t, a, b) {
+    for (let i = 0; i < 5; i++) {
+      MB_C[i * 3] = 0.42 * Math.sin(t * (0.41 + i * 0.11) + i * 2.1);
+      MB_C[i * 3 + 1] = 0.24 * Math.cos(t * (0.37 + i * 0.09) + i * 1.3);
+      MB_C[i * 3 + 2] = 0.28 * Math.sin(t * (0.29 + i * 0.07) + i * 0.7);
+    }
+    mbR = 0.2 + a * 0.14; mbK = 0.12 + b * 0.36;
+  },
+  f(x, y) {
+    camRay(MB_ID, x, y, 1.6);
+    if (!sphereSpan(1)) return 0;
+    let d = SPAN[0];
+    const dmax = SPAN[1];
+    let hit = false, px = 0, py = 0, pz = 0;
+    for (let i = 0; i < 64; i++) {
+      px = RAY[0] + RAY[3] * d; py = RAY[1] + RAY[4] * d; pz = RAY[2] + RAY[5] * d;
+      const s = mbSd(px, py, pz);
+      if (s < 0.002) { hit = true; break; }
+      d += s; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    tetraNormal(mbSd, px, py, pz, 0.002);
+    const nx = N3[0], ny = N3[1], nz = N3[2], dx = RAY[3], dy = RAY[4], dz = RAY[5];
+    const ndi = nx * dx + ny * dy + nz * dz;
+    const fx = dx - 2 * ndi * nx, fy = dy - 2 * ndi * ny, fz = dz - 2 * ndi * nz;
+    const env = mix(0.12, 0.5 + 0.4 * fy, smoothstep(-0.15, 0.15, fy)) + 0.8 * Math.exp(-Math.abs(fy + 0.05) * 12) + 0.45 * Math.exp(-Math.abs(fy - 0.5) * 18);
+    const box = smoothstep(0.72, 0.9, fx * MB_BOX[0] + fy * MB_BOX[1] + fz * MB_BOX[2]);
+    const fres = 0.45 + 0.55 * Math.pow(1 - Math.max(-ndi, 0), 3);
+    const dif = Math.max(nx * MB_BOX[0] + ny * MB_BOX[1] + nz * MB_BOX[2], 0);
+    return sat(0.08 + 0.3 * dif + 0.7 * env * fres + 0.6 * box);
+  },
+};
+
+// engranajes: two meshed gears, extruded, seen at an angle
+const MGE = new Float64Array(9);
+let geNA = 15, geNB = 8, geRA = 0.55, geRB = 0.3, geS = 4, geAngA = 0, geAngB = 0, geAx = 0, geBx = 0;
+function geGear(px: number, py: number, pz: number, cx: number, R: number, N: number, ang: number): number {
+  const qx = px - cx, qy = py;
+  const r = Math.sqrt(qx * qx + qy * qy), an = Math.atan2(qy, qx) - ang;
+  const hg = 2.3 * R / N;
+  const tooth = clamp(Math.cos(an * N) * 2.2, -1, 1) * 0.5 + 0.5;
+  let d = (r - (R - hg * 0.5 + hg * tooth)) * 0.7;
+  d = Math.max(d, 0.05 - r);
+  const sec = TAU / geS;
+  const ar = mod(an, sec) - sec * 0.5;
+  const wx = r * Math.cos(ar) - R * 0.55, wy = r * Math.sin(ar);
+  const win = Math.sqrt(wx * wx + wy * wy) - R * (0.13 + 0.48 / geS);
+  d = Math.max(d, -win);
+  const w2 = Math.abs(pz) - 0.09;
+  const o1 = Math.max(d, 0), o2 = Math.max(w2, 0);
+  return Math.min(Math.max(d, w2), 0) + Math.sqrt(o1 * o1 + o2 * o2);
+}
+const geA = (px: number, py: number, pz: number) => geGear(px, py, pz, geAx, geRA, geNA, geAngA);
+const geB = (px: number, py: number, pz: number) => geGear(px, py, pz, geBx, geRB, geNB, geAngB);
+const geSd = (px: number, py: number, pz: number) => Math.min(geA(px, py, pz), geB(px, py, pz));
+const engranajes: BasicPattern = {
+  prep(t, a, b) {
+    geNA = 10 + Math.floor(a * 10); geNB = Math.max(6, Math.floor(geNA * 0.55));
+    geRA = 0.55; geRB = geRA * geNB / geNA; geS = 3 + Math.floor(b * 3.999);
+    const D = geRA + geRB, sh = (geRA - geRB) * 0.5;
+    geAx = -D * 0.5 + sh; geBx = D * 0.5 + sh;
+    geAngA = t * 0.4; geAngB = -geAngA * geNA / geNB + PI - PI / geNB;
+    rotXY(0.38 + 0.08 * Math.sin(t * 0.2), -0.25 + 0.1 * Math.sin(t * 0.13), MGE);
+  },
+  f(x, y) {
+    camRay(MGE, x, y, 1.6);
+    if (!sphereSpan(1)) return 0;
+    let d = SPAN[0];
+    const dmax = SPAN[1];
+    let hit = false, px = 0, py = 0, pz = 0;
+    for (let i = 0; i < 80; i++) {
+      px = RAY[0] + RAY[3] * d; py = RAY[1] + RAY[4] * d; pz = RAY[2] + RAY[5] * d;
+      const s = geSd(px, py, pz);
+      if (s < 0.0015) { hit = true; break; }
+      d += s * 0.8; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    tetraNormal(geSd, px, py, pz, 0.0015);
+    const onA = step(geA(px, py, pz), geB(px, py, pz));
+    const cx = mix(geBx, geAx, onA);
+    const rr = Math.sqrt((px - cx) * (px - cx) + py * py);
+    const front = smoothstep(0.6, 0.9, Math.abs(N3[2]));
+    const tex = mix(0.45, 0.9 + 0.1 * Math.sin(rr * 90), front);
+    camLight(MGE, -0.5, 0.65, -0.6);
+    const dif = diffuse(), hl = headlight(), spec = specular(18);
+    return sat(0.04 + (0.58 * dif + 0.5 * hl) * tex + 0.3 * spec);
+  },
+};
+
+// cristales: hexagonal prisms with six-sided points, rooted around a rock
+const CR_D = [0.059964, 0.998201, 0, 0.619408, 0.751806, 0.226102, -0.541688, 0.710914, 0.448527, -0.25202, 0.777573, -0.576079, 0.193155, 0.471328, 0.860547, -0.811904, 0.523366, -0.25865, 0.550397, 0.380925, -0.74294, 0.378189, 0.913089, -0.152452, 0.928233, 0.286715, 0.237017];
+const CR_U = [0.996404, -0.059856, -0.059964, 0.687084, -0.379801, -0.619408, 0.797432, 0.265852, 0.541688, 0.959701, 0.124336, -0.25202, 0.979947, -0.048931, -0.193155, 0.476274, 0.337602, -0.811904, 0.826192, -0.120291, 0.550397, 0.875893, -0.29964, 0.378189, 0.303472, -0.215146, -0.928233];
+const CR_V = [-0.059856, 0.003596, -0.998201, -0.379801, 0.539017, -0.751806, 0.265852, 0.651095, -0.710914, -0.124336, -0.616377, -0.777573, -0.048931, 0.880599, -0.471328, -0.337602, -0.782376, -0.523366, 0.120291, -0.916748, -0.380925, 0.29964, -0.276559, -0.913089, -0.215146, 0.933545, -0.286715];
+const CR_L = [1, 0.78, 0.72, 0.76, 0.55, 0.53, 0.47, 0.66, 0.42];
+const CR_R = [0.13, 0.11, 0.105, 0.11, 0.09, 0.095, 0.085, 0.09, 0.08];
+const MCR = new Float64Array(9);
+let crN = 6, crLk = 0.9, crId = -1;
+function crSd(px: number, py: number, pz: number): number {
+  const qx = px, qy = py + 0.5, qz = pz;
+  const ry = qy * 1.6;
+  let d = (Math.sqrt(qx * qx + ry * ry + qz * qz) - 0.22) * 0.62;
+  crId = -1;
+  for (let i = 0; i < crN; i++) {
+    const k = i * 3;
+    const ix = qx - CR_D[k] * 0.14, iz = qz - CR_D[k + 2] * 0.14;
+    const y = ix * CR_D[k] + qy * CR_D[k + 1] + iz * CR_D[k + 2];
+    const wx = Math.abs(ix * CR_U[k] + qy * CR_U[k + 1] + iz * CR_U[k + 2]), wy = Math.abs(ix * CR_V[k] + qy * CR_V[k + 1] + iz * CR_V[k + 2]);
+    const r = CR_R[i];
+    const hx = Math.max(wx * 0.866025 + wy * 0.5, wy) - r;
+    const tip = (y - CR_L[i] * crLk + (hx + r) * 1.4) * 0.58;
+    const c = Math.max(Math.max(hx, tip), -y);
+    if (c < d) { d = c; crId = i; }
+  }
+  return d;
+}
+const cristales: BasicPattern = {
+  prep(t, a, b) {
+    rotXY(-0.18 + 0.05 * Math.sin(t * 0.21), t * 0.22, MCR);
+    crN = 4 + Math.floor(a * 5.999); crLk = 0.65 + b * 0.5;
+  },
+  f(x, y) {
+    camRay(MCR, x, y + 0.05, 1.9);
+    RAY[1] -= 0.05;
+    if (!sphereSpan(0.9025)) return 0;
+    let d = SPAN[0];
+    const dmax = SPAN[1];
+    let hit = false, px = 0, py = 0, pz = 0;
+    for (let i = 0; i < 72; i++) {
+      px = RAY[0] + RAY[3] * d; py = RAY[1] + RAY[4] * d + 0.05; pz = RAY[2] + RAY[5] * d;
+      const s = crSd(px, py, pz);
+      if (s < 0.0015) { hit = true; break; }
+      d += s * 0.8; if (d > dmax) break;
+    }
+    if (!hit) return 0;
+    const id = crId;
+    tetraNormal(crSd, px, py, pz, 0.0015);
+    camLight(MCR, -0.45, 0.7, -0.55);
+    const dif = diffuse(), hl = headlight(), spec = specular(40);
+    const fres = Math.pow(1 - hl, 2);
+    const tone = id < 0 ? 0.4 : 0.7 + 0.3 * fract(id * 0.618);
+    return sat(0.04 + (0.5 * dif + 0.35 * hl) * tone + 0.45 * spec + 0.3 * fres * step(0, id));
+  },
+};
+
 /* ------------------------------------------------------------------ */
 /* Mathematical                                                       */
 /* ------------------------------------------------------------------ */
@@ -675,7 +1235,7 @@ export const BASIC_PATTERNS: Record<string, BasicPattern> = {
   ondas: P(ondas), interferencia: P(interferencia), plasma: P(plasma), lissajous, ecualizador: P(ecualizador),
   horizonte, radar: P(radar),
   tunel: P(tunel), espiral: P(espiral), estrellas: P(estrellas), hiper: P(hiper), galaxia: P(galaxia), rejilla: P(rejilla),
-  dona, esfera, cubo,
+  dona, esfera, cubo, nudo, poliedro, giroide, moebius, adn, planeta, voxeles, metabolas, engranajes, cristales,
   julia, rosa: P(rosa), degradado: P(degradado),
   forma: P(forma), estrella: P(estrella), latido: P(latido),
   lluvia: P(lluvia), glitch: P(glitch), ruido: P(ruido),
@@ -683,7 +1243,7 @@ export const BASIC_PATTERNS: Record<string, BasicPattern> = {
 
 /**
  * Patterns the basic engine draws with a stand-in instead of a faithful port (id → stand-in id).
- * Empty: all 45 patterns are ported. Kept so callers can report approximations if one is ever added
+ * Empty: every pattern is ported. Kept so callers can report approximations if one is ever added
  * to the GLSL library before it gets a CPU twin (unknown ids fall back to 'nube', see basicPattern()).
  */
 export const BASIC_APPROX: ReadonlyMap<string, string> = new Map();
