@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ARCHETYPES } from '../../src/random/archetypes';
 import { GUIDES, MORPHIQ, PAGES, SITE_URL } from '../../src/shared/site';
 import { cleanVerification, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, sitemapXml } from '../../scripts/seo';
 
@@ -18,6 +19,12 @@ describe('site pages', () => {
       expect(p.description.length, p.description).toBeLessThanOrEqual(160);
       expect(existsSync(join(root, 'public', p.image.path)), p.image.path).toBe(true);
     }
+  });
+
+  it('the landing counts the dice\'s art styles right', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const words: Record<number, string> = { 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis' };
+    expect(html).toContain(`con ${words[ARCHETYPES.length]} estilos de arte`);
   });
 
   it('guide posters and the Morphiq logo files exist', () => {
