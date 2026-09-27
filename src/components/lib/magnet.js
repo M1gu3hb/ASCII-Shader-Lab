@@ -1,3 +1,4 @@
+// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Imán — las letras se fragmentan en caracteres y huyen del cursor; al alejarse, se recomponen.
  * Monotrama · sin dependencias.

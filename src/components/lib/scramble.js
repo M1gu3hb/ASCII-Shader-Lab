@@ -1,3 +1,4 @@
+// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Descifrar — el texto aparece a partir de caracteres aleatorios que se van «resolviendo».
  * Monotrama · sin dependencias.
