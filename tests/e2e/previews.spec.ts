@@ -154,7 +154,9 @@ test.describe('vistas de destino', () => {
     await page.getByRole('button', { name: 'Copiar bloque Markdown' }).click();
     await expect(page.locator('.toast').last()).toContainText('Bloque Markdown copiado');
     const md = await page.evaluate(() => navigator.clipboard.readText());
-    expect(md).toBe('```text\n' + text + '\n```\n');
+    // the fence grows when the art itself contains backticks (as markdownBlock does)
+    const fence = '`'.repeat(Math.max(3, ...(text.match(/`+/g) ?? []).map(m => m.length + 1)));
+    expect(md).toBe(`${fence}text\n${text}\n${fence}\n`);
   });
 
   test('README avisa cuando el juego de caracteres no es ASCII', async ({ page }) => {
