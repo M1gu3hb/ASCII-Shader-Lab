@@ -1,0 +1,225 @@
+/**
+ * Build-time HTML for the public site, generated from src/shared/site.ts: head tags, JSON-LD,
+ * sitemap, robots.txt and the shared header, footer and guide cards. Pure functions (unit tested);
+ * scripts/seo-plugin.ts wires them into Vite.
+ *
+ * HTML sources use comment directives that are replaced at build (and in dev):
+ *   <!-- @head -->              title, description, canonical, Open Graph, Twitter, JSON-LD
+ *   <!-- @header -->            top bar of the guide pages
+ *   <!-- @footer -->            footer with the guides, links and the Morphiq credit (`@footer paper` on light pages)
+ *   <!-- @guides -->            cards for the five guides (`@guides others` leaves out the current one)
+ *   <!-- @guide-links -->       plain list of links to the guides
+ *   <!-- @mark -->              the Monotrama logo mark (inline SVG)
+ *   <!-- @include:ex/x.txt -->  HTML-escaped contents of public/ex/x.txt
+ */
+import { logoMark } from '../src/shared/brand.ts';
+import {
+  GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
+} from '../src/shared/site.ts';
+
+export const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** JSON that is safe inside <script type="application/ld+json"> (no "</script>" can appear). */
+export const jsonForScript = (data: unknown) => JSON.stringify(data).replace(/</g, '\\u003c');
+
+/** Search Console tokens are short base64url-like strings; anything else is ignored (never injected). */
+export function cleanVerification(token: string | undefined): string | null {
+  const t = (token ?? '').trim();
+  return /^[A-Za-z0-9_-]{10,100}$/.test(t) ? t : null;
+}
+
+/* ---------------------------------------------------------------- head */
+
+export function headTags(p: SitePage, o: { verification?: string | null } = {}): string {
+  const url = absUrl(p.path);
+  const img = absUrl(p.image.path);
+  const e = escapeHtml;
+  const tags = [
+    `<title>${e(p.title)}</title>`,
+    `<meta name="description" content="${e(p.description)}">`,
+  ];
+  if (p.kind === 'error') tags.push('<meta name="robots" content="noindex">');
+  else tags.push(`<link rel="canonical" href="${url}">`);
+  tags.push(
+    '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
+    '<meta name="theme-color" content="#0c0b0a">',
+  );
+  if (p.kind !== 'error') {
+    tags.push(
+      `<meta property="og:type" content="website">`,
+      `<meta property="og:site_name" content="${SITE_NAME}">`,
+      `<meta property="og:locale" content="${SITE_LOCALE}">`,
+      `<meta property="og:url" content="${url}">`,
+      `<meta property="og:title" content="${e(p.title)}">`,
+      `<meta property="og:description" content="${e(p.description)}">`,
+      `<meta property="og:image" content="${img}">`,
+      `<meta property="og:image:width" content="${p.image.width}">`,
+      `<meta property="og:image:height" content="${p.image.height}">`,
+      `<meta property="og:image:alt" content="${e(p.image.alt)}">`,
+      '<meta name="twitter:card" content="summary_large_image">',
+      `<meta name="twitter:title" content="${e(p.title)}">`,
+      `<meta name="twitter:description" content="${e(p.description)}">`,
+      `<meta name="twitter:image" content="${img}">`,
+      `<meta name="twitter:image:alt" content="${e(p.image.alt)}">`,
+    );
+  }
+  if (o.verification) tags.push(`<meta name="google-site-verification" content="${e(o.verification)}">`);
+  const ld = jsonLd(p);
+  if (ld) tags.push(`<script type="application/ld+json">${jsonForScript(ld)}</script>`);
+  return tags.join('\n');
+}
+
+/* ---------------------------------------------------------------- JSON-LD */
+
+const ID = {
+  website: `${SITE_URL}/#website`,
+  org: `${SITE_URL}/#morphiq`,
+  app: `${SITE_URL}/studio/#app`,
+};
+const page = (id: string) => PAGES.find(p => p.id === id)!;
+
+function organization() {
+  return {
+    '@type': 'Organization', '@id': ID.org, name: MORPHIQ.name, alternateName: MORPHIQ.alternateName, url: MORPHIQ.url,
+    logo: { '@type': 'ImageObject', url: absUrl(MORPHIQ.logo.path), width: MORPHIQ.logo.width, height: MORPHIQ.logo.height },
+  };
+}
+
+function website() {
+  return {
+    '@type': 'WebSite', '@id': ID.website, name: SITE_NAME, alternateName: 'ASCII Shader Lab', url: `${SITE_URL}/`,
+    inLanguage: 'es', description: page('main').description, creator: { '@id': ID.org }, publisher: { '@id': ID.org },
+  };
+}
+
+function webApplication() {
+  const studio = page('studio');
+  return {
+    '@type': 'WebApplication', '@id': ID.app, name: 'Estudio Monotrama', url: absUrl(studio.path), description: studio.description,
+    applicationCategory: 'DesignApplication', operatingSystem: 'Web',
+    browserRequirements: 'Requiere JavaScript; WebGL 2 para el motor completo',
+    isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'MXN' },
+    inLanguage: 'es', license: absUrl('/licencia/'), image: absUrl(studio.image.path),
+    isPartOf: { '@id': ID.website }, creator: { '@id': ID.org }, publisher: { '@id': ID.org },
+  };
+}
+
+function webPage(p: SitePage) {
+  const url = absUrl(p.path);
+  return [
+    {
+      '@type': 'WebPage', '@id': `${url}#webpage`, url, name: p.title, description: p.description, inLanguage: 'es',
+      isPartOf: { '@id': ID.website }, publisher: { '@id': ID.org }, breadcrumb: { '@id': `${url}#breadcrumb` },
+      primaryImageOfPage: { '@type': 'ImageObject', url: absUrl(p.image.path), width: p.image.width, height: p.image.height },
+    },
+    {
+      '@type': 'BreadcrumbList', '@id': `${url}#breadcrumb`,
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: p.crumb, item: url },
+      ],
+    },
+  ];
+}
+
+/** Structured data per page kind. Describes what is on the page; it does not ask for any rich result. */
+export function jsonLd(p: SitePage): object | null {
+  const graph = (nodes: object[]) => ({ '@context': 'https://schema.org', '@graph': nodes });
+  switch (p.kind) {
+    case 'home': return graph([website(), organization(), webApplication()]);
+    case 'app': return graph([webApplication(), website(), organization()]);
+    case 'guide':
+    case 'doc': return graph([...webPage(p), website(), organization()]);
+    default: return null;
+  }
+}
+
+/* ---------------------------------------------------------------- sitemap & robots */
+
+export function sitemapXml(date: string): string {
+  const urls = PAGES.filter(p => p.sitemap).map(p => `  <url><loc>${absUrl(p.path)}</loc><lastmod>${date}</lastmod></url>`);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
+}
+
+export function robotsTxt(): string {
+  return `User-agent: *\nAllow: /\n\nSitemap: ${SITE_URL}/sitemap.xml\n`;
+}
+
+/* ---------------------------------------------------------------- shared markup */
+
+const mark = (size: number) => logoMark(size);
+
+export function siteHeader(p: SitePage): string {
+  const links = GUIDES.map(g => `<a href="${g.path}"${g.path === p.path ? ' aria-current="page"' : ''}>${g.short}</a>`).join('\n    ');
+  return `<a class="skip" href="#contenido">Saltar al contenido</a>
+<header class="nav solid" id="top">
+  <a class="nav-brand" href="/" aria-label="Monotrama, inicio"><span class="logo">${mark(24)}</span><span class="word">monotrama</span></a>
+  <nav class="nav-links" aria-label="Guías">
+    ${links}
+  </nav>
+  <a class="btn-cta small" href="/studio/">Abrir el estudio <span aria-hidden="true">→</span></a>
+</header>`;
+}
+
+export function morphiqCredit(): string {
+  const { display: d } = MORPHIQ;
+  const set = (ext: string) => d.files.map((w, i) => `/brand/morphiq/morphiq-logo-${w}.${ext} ${i + 1}x`).join(', ');
+  return `<p class="foot-credit"><span class="foot-credit-by">Desarrollado por</span>
+    <a class="morphiq" href="${MORPHIQ.url}"><picture><source type="image/webp" srcset="${set('webp')}"><img src="/brand/morphiq/morphiq-logo-${d.files[0]}.png" srcset="${set('png')}" width="${d.width}" height="${d.height}" alt="${escapeHtml(MORPHIQ.alt)}" loading="lazy" decoding="async"></picture></a></p>`;
+}
+
+export function siteFooter(tone: 'ink' | 'paper' = 'ink'): string {
+  const guides = GUIDES.map(g => `<li><a href="${g.path}">${g.name}</a></li>`).join('');
+  return `<footer class="foot${tone === 'paper' ? ' paper' : ''}">
+  <div class="foot-grid">
+    <div class="foot-about">
+      <a class="foot-brand" href="/"><span class="logo">${mark(24)}</span><span>monotrama</span></a>
+      <p>Teje luz con caracteres. Un estudio de arte ASCII en tiempo real, gratis y en tu navegador: lo que haces es tuyo.</p>
+    </div>
+    <nav class="foot-col" aria-labelledby="foot-guias"><p class="foot-h" id="foot-guias">Qué puedes hacer</p><ul>${guides}</ul></nav>
+    <nav class="foot-col" aria-labelledby="foot-mt"><p class="foot-h" id="foot-mt">Monotrama</p><ul><li><a href="/studio/">Estudio</a></li><li><a href="/licencia/">Licencia y uso</a></li><li><a href="${REPO_URL}">Código fuente</a></li></ul></nav>
+  </div>
+  <div class="foot-base">
+    <p class="foot-small">Monotrama nace del ASCII Shader Lab · motor WebGL2 propio · tipografías con licencia OFL · <a href="#top">Volver arriba ↑</a></p>
+    ${morphiqCredit()}
+  </div>
+</footer>`;
+}
+
+export function guideCards(exceptPath?: string): string {
+  const items = GUIDES.filter(g => g.path !== exceptPath).map(g => `<li><a class="guide-card" href="${g.path}">
+      <img src="${g.poster}-640.webp" width="640" height="400" alt="" loading="lazy" decoding="async">
+      <span class="gc-txt"><b>${g.name}</b><span>${g.blurb}</span></span></a></li>`);
+  return `<ul class="guides" role="list">\n    ${items.join('\n    ')}\n  </ul>`;
+}
+
+export function guideLinks(): string {
+  return `<ul>${GUIDES.map(g => `<li><a href="${g.path}">${g.name}</a></li>`).join('')}</ul>`;
+}
+
+/* ---------------------------------------------------------------- directives */
+
+const DIRECTIVE = /<!--\s*@([a-z-]+)(?::([\w./-]+))?(?:\s+(\w+))?\s*-->/g;
+
+/** Expands the directives of one page. `readPublic` returns a file from public/ (for @include). */
+export function renderPage(html: string, p: SitePage, o: { verification?: string | null; readPublic: (path: string) => string }): string {
+  return html.replace(DIRECTIVE, (_m, name: string, arg: string | undefined, opt: string | undefined) => {
+    switch (name) {
+      case 'head': return headTags(p, o);
+      case 'header': return siteHeader(p);
+      case 'footer': return siteFooter(opt === 'paper' ? 'paper' : 'ink');
+      case 'guides': return guideCards(opt === 'others' ? p.path : undefined);
+      case 'guide-links': return guideLinks();
+      case 'mark': return mark(24);
+      case 'include': {
+        if (!arg || !/^ex\/[\w.-]+\.txt$/.test(arg)) throw new Error(`[mt-seo] @include only reads public/ex/*.txt (got "${arg}")`);
+        // Meant for <pre>: keep every row (drop only the file's final newline) and protect a leading blank
+        // row from the parser, which ignores one newline right after <pre>.
+        const text = o.readPublic(arg).replace(/\r\n/g, '\n').replace(/\n$/, '');
+        return (text.startsWith('\n') ? '\n' : '') + escapeHtml(text);
+      }
+      default: throw new Error(`[mt-seo] unknown directive @${name} in ${p.file}`);
+    }
+  });
+}

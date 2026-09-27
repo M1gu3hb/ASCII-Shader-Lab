@@ -35,6 +35,23 @@ export interface Layer {
   phase: number;    // time offset, seconds
 }
 
+/**
+ * A local image or video a piece was made with. The file never goes into the recipe: it stays in
+ * this browser's media store and only travels inside an exported project or session.
+ * Share links drop `id` and `name` (file names can be personal) but keep kind and size, so whoever
+ * opens the link is told what is missing.
+ */
+export interface MediaRef {
+  /** Content hash of the file (16 hex chars). Absent when the file did not travel with the recipe. */
+  id?: string;
+  kind: 'image' | 'video';
+  name?: string;
+  type?: string;     // MIME type
+  size?: number;     // bytes
+  w: number;         // original pixel size
+  h: number;
+}
+
 export interface Recipe {
   v: 2;
   source: SourceKind;
@@ -58,6 +75,7 @@ export interface Recipe {
     blend: BlendMode;
     reveal: number;    // show the original picture through the ASCII (0..1)
     rate: number;      // video playback rate
+    ref?: MediaRef;    // which local file the piece was made with (never the file itself)
   };
   text: {
     content: string;
@@ -219,6 +237,24 @@ function obj(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 }
 
+const MEDIA_ID = /^[0-9a-f]{16}$/;
+
+/** Validates a media reference. Keys come out in a fixed order so recipe comparisons stay stable. */
+export function normMediaRef(v: unknown): MediaRef | undefined {
+  const o = obj(v);
+  if (o.kind !== 'image' && o.kind !== 'video') return undefined;
+  const size = typeof o.size === 'number' && Number.isFinite(o.size) && o.size >= 0 ? Math.round(o.size) : undefined;
+  return {
+    ...(typeof o.id === 'string' && MEDIA_ID.test(o.id) ? { id: o.id } : {}),
+    kind: o.kind,
+    ...(typeof o.name === 'string' && o.name.trim() ? { name: o.name.slice(0, 200) } : {}),
+    ...(typeof o.type === 'string' && o.type ? { type: o.type.slice(0, 100) } : {}),
+    ...(size !== undefined ? { size } : {}),
+    w: Math.round(num(o.w, 0, 0, 100000)),
+    h: Math.round(num(o.h, 0, 0, 100000)),
+  };
+}
+
 export function normLayer(v: unknown, knownPatterns?: Set<string>): Layer {
   const o = obj(v), d = DEFAULT_LAYER;
   let pattern = str(o.pattern, d.pattern, 40);
@@ -250,6 +286,7 @@ export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Re
   const layers = layersIn.length ? layersIn.map(l => normLayer(l, knownPatterns)) : d.layers;
   const stopsIn = Array.isArray(c.stops) ? c.stops.slice(0, 6) : [];
   const stops = stopsIn.map(s => normHex(s, '')).filter(Boolean);
+  const ref = normMediaRef(me.ref);
   const r: Recipe = {
     v: RECIPE_VERSION,
     source: oneOf(o.source, SOURCES, d.source),
@@ -273,6 +310,7 @@ export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Re
       blend: oneOf(me.blend, BLENDS, d.media.blend),
       reveal: num(me.reveal, 0, 0, 1),
       rate: num(me.rate, 1, 0.1, 4),
+      ...(ref ? { ref } : {}),
     },
     text: {
       content: str(tx.content, d.text.content, 600),

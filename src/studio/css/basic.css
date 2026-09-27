@@ -1,0 +1,67 @@
+/* Basic mode and capability-aware exports (lane: basic-mode). Tokens from studio.css. */
+
+/* the stage canvas lives in a container owned by engineBridge.ts */
+.cv-host { position: absolute; inset: 0; }
+
+/* ---------- notes over the stage (engine chip, software hint, reduced motion) ---------- */
+.stage-notes {
+  position: absolute; z-index: 7; top: 12px; left: 12px; right: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  pointer-events: none;
+}
+.stage-notes > * { pointer-events: auto; max-width: 100%; }
+.stage-notes .motion-note { position: static; transform: none; }
+.app.ui-off .stage-notes .bm-chip { opacity: 0; pointer-events: none; }
+
+.bm-chip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: fit-content; max-width: min(620px, 100%);
+  padding: 5px 5px 5px 12px; border-radius: 14px; background: rgba(20, 19, 17, .94); border: 1px solid var(--line-2);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .4); font-size: 12.5px; line-height: 1.4; color: var(--muted);
+}
+.bm-tag { display: inline-flex; align-items: center; gap: 7px; font: 700 11px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--text); white-space: nowrap; }
+.bm-tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.bm-line { flex: 1 1 200px; min-width: 0; }
+.bm-acts { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+.bm-chip button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 30px; border-radius: 9px; font-size: 12px; font-weight: 600;
+}
+.bm-why { border: 1px solid var(--line-2); background: var(--field); padding: 0 10px; white-space: nowrap; }
+.bm-why:hover { border-color: var(--bone); }
+.bm-x { width: 30px; border: 0; background: none; color: var(--muted); padding: 0; }
+.bm-x:hover { color: var(--text); background: var(--field); }
+.bm-x svg { width: 14px; height: 14px; }
+@media (max-width: 900px), (pointer: coarse) {
+  .bm-chip button { min-height: 40px; }
+  .bm-x { width: 40px; }
+  .bm-chip { font-size: 12px; }
+}
+
+/* ---------- explanation sheet ---------- */
+dialog.sheet:has(.bm-sheet) { width: min(620px, calc(100vw - 24px)); }
+.bm-sheet p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+.bm-sheet h3 { margin: 18px 0 8px; font: 600 11px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.bm-sheet ul, .bm-sheet ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.bm-sheet li b { color: var(--text); font-weight: 600; }
+.bm-sheet code { font: 500 11.5px/1.4 var(--font-mono); color: var(--text); word-break: break-word; }
+.bm-sheet-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+.bm-sheet-acts .btn { margin: 0; min-height: 44px; }
+.bm-msg:empty { display: none; }
+.bm-msg { margin-top: 10px !important; }
+@media (max-width: 480px) { .bm-sheet-acts { grid-template-columns: 1fr; } }
+
+/* ---------- export sheet: options this browser cannot produce ---------- */
+.ex-na {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 10px; padding: 9px 11px; border-radius: 10px;
+  border: 1px dashed var(--line-2); background: rgba(0, 0, 0, .18); font-size: 12.5px; line-height: 1.5; color: var(--muted);
+}
+.ex-na.info { border-style: solid; background: var(--panel-2); margin-bottom: 12px; }
+.ex-na p { flex: 1 1 220px; margin: 0; }
+.ex-na b { color: var(--text); font-weight: 600; }
+.ex-na .btn { width: auto; margin: 0; padding: 7px 12px; font-size: 12.5px; min-height: 36px; }
+.ex-clip { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin: 0 0 14px; }
+.ex-clip .ctl { margin: 0; }
+.ex-clip .ctl input, .ex-clip .ctl select { width: 110px; }
+.ex-clip .note { margin: 0 0 6px; flex: 1 1 220px; }
+.ex-copy { margin: 10px 0 0; }
+.ex-copy p { margin: 0 0 6px; font-size: 12.5px; color: #ffcf9e; }
+.ex-copy .code { height: 120px; }
+@media (max-width: 900px) { .ex-na .btn { min-height: 40px; } }

@@ -126,7 +126,10 @@ void main(){
   vec2 s = vec2(pp.x * uRes.y + .5 * uRes.x, .5 * uRes.y - pp.y * uRes.y) / uRes;
   vec2 cs = uCell / uRes * .25;
   ${src === 'media' ? `
-  vec4 c4 = (media(s + vec2(-cs.x, -cs.y)) + media(s + vec2(cs.x, -cs.y)) + media(s + vec2(-cs.x, cs.y)) + media(s + cs)) * .25;
+  // a cell cut by the canvas edge (the last row or column) samples up to the edge, not the empty space
+  // past it (that made a black band along the bottom of some exports)
+  vec2 m0 = clamp(s - cs, 0., 1.), m1 = clamp(s + cs, 0., 1.);
+  vec4 c4 = (media(m0) + media(vec2(m1.x, m0.y)) + media(vec2(m0.x, m1.y)) + media(m1)) * .25;
   col = c4.rgb;
   float ml = dot(col, vec3(.299, .587, .114));
   l = uMediaMix > 0. ? blendf(ml, pv, uMediaBlend, uMediaMix) : ml;` : ''}

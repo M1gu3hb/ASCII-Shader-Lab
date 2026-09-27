@@ -289,5 +289,7 @@ export function fingerprint(r: Recipe): string {
     Object.entries(r.fx).filter(([, v]) => v > 0.2).map(([k]) => k).join(','),
     r.interact.mode, r.motion.hold > 0 ? 'h' : '', r.msg.on ? 'm' : '', r.tone.levels > 0 ? 'L' : '', r.glyph.edge > 0.2 ? 'e' : '',
   ];
+  // a different local image or video makes a different piece (appended only then: other fingerprints stay as they were)
+  if ((r.source === 'image' || r.source === 'video') && r.media.ref?.id) parts.push(r.media.ref.id);
   return hash53(parts.join('|')).toString(36);
 }

@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { dismissWelcome } from './helpers';
 
 test('en móvil: el dado, el historial y el panel funcionan con el pulgar', async ({ page }) => {
   await page.goto('/studio/');
   await expect(page.locator('.deck')).toBeVisible();
+  await dismissWelcome(page);
   await expect(page.locator('.panel')).not.toBeInViewport();
   await page.locator('.act.dice').tap();
   await expect(page.locator('.seedline')).toContainText('2/2');

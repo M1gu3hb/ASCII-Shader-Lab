@@ -93,6 +93,18 @@ export function spaceAccepts(space: SpaceId, r: Recipe): boolean {
   }
 }
 
+/**
+ * Where a piece opened from a file goes: the space it records; else the current one if it fits there;
+ * else Imagen for a photo, a video or the camera (the next «Azar» elsewhere would drop the file).
+ */
+export function spaceForOpened(r: Recipe, current: SpaceId): SpaceId {
+  const recorded = r.meta.space as SpaceId | undefined;
+  if (recorded && recorded !== 'componentes' && PRESETS[recorded]) return recorded;
+  if (current !== 'componentes' && spaceAccepts(current, r)) return current;
+  if (spaceAccepts('media', r)) return 'media';
+  return current === 'componentes' ? 'arte' : current;
+}
+
 export function starterFor(space: SpaceId): Recipe {
   return presetsFor(space)[0].make();
 }

@@ -1,42 +1,30 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import type { Recipe } from '../engine/recipe';
 import { ARCHETYPES } from '../random/archetypes';
 import { cleanSeed, freshSeed } from '../random/seeds';
 import { spaceById } from '../random/spaces';
-import { recipeFile, shareUrl } from '../shared/share';
+import { recipeFile } from '../shared/share';
 import { downloadText } from './download';
 import { pickFile } from './files';
-import { IClose, IDice } from './icons';
+import { Glossary } from './Glossary';
+import { HISTORY_WARN, historyLabel, thumbBg } from './history';
+import { IDice } from './icons';
+import { mediaUsage } from './mediaStore';
 import { renderThumbs } from './offscreen';
+import { fmtSize, saveSession, sessionMediaSize, slug } from './packages';
+import { shareLink } from './ShareSheet';
 import {
   applyRecipe, clearHistory, duplicateFavorite, openFavorite, removeFavorite, renameFavorite, rollDice, setArch, setUI,
   useStudio, variations,
 } from './store';
 import { toast } from './toast';
+import { openWelcome } from './guide/state';
+import { storageProblem } from './Keeping';
+import { Sheet, trapTab } from './Sheet';
+import './css/data.css';
 
-export function Sheet({ open, title, sub, onClose, children, wide }: { open: boolean; title: string; sub?: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
-  return (
-    <dialog ref={ref} className="sheet" style={wide ? { width: 'min(1040px, calc(100vw - 24px))' } : undefined} onClose={onClose}
-      onClick={e => { if (e.target === ref.current) onClose(); }} aria-label={title}>
-      {open && (
-        <>
-          <div className="sheet-head">
-            <div className="grow"><h2>{title}</h2>{sub && <p>{sub}</p>}</div>
-            <button type="button" className="close" onClick={onClose} aria-label="Cerrar"><IClose /></button>
-          </div>
-          {children}
-        </>
-      )}
-    </dialog>
-  );
-}
+export { Sheet, trapTab };
+
 
 const close = () => setUI({ sheet: 'none' });
 
@@ -45,43 +33,62 @@ const close = () => setUI({ sheet: 'none' });
 export function CollectionSheet() {
   const open = useStudio(s => s.ui.sheet === 'collection');
   const favs = useStudio(s => s.favorites);
-  const count = useStudio(s => s.entries.length);
+  const storage = useStudio(s => s.storage);
   const exportAll = () => {
     const json = JSON.stringify({ monotrama: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
     downloadText(`monotrama-coleccion-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
+    // the .json carries recipes only: say so when some piece needs its own image or video
+    const media = favs.filter(f => (f.recipe.source === 'image' || f.recipe.source === 'video') && f.recipe.media.ref).length;
+    if (media) {
+      toast(`La colección (.json) lleva las recetas, no las imágenes ni los videos: ${media === 1 ? '1 pieza pedirá su archivo' : `${media} piezas pedirán su archivo`} en otro equipo. Para llevarlos, guarda la sesión.`,
+        { label: 'Guardar sesión', run: () => void saveSession(true) }, 9000);
+    }
   };
+  const kept = storage === 'ok';
   return (
-    <Sheet open={open} onClose={close} wide title="Tu colección" sub={`${favs.length} ${favs.length === 1 ? 'pieza guardada' : 'piezas guardadas'} en este navegador · historial: ${count} resultados`}>
+    <Sheet open={open} onClose={close} wide title="Colección e historial" sub={`${favs.length} ${favs.length === 1 ? 'pieza guardada' : 'piezas guardadas'} con ★ · ${kept ? 'todo se queda en este navegador' : 'sólo mientras no cierres la pestaña'}`}>
       <div className="sheet-body">
+        {!kept && (
+          <div className="keep-warn" role="status">
+            {storageProblem(storage)} Guarda la sesión para tener una copia.
+            <div><button type="button" className="mini" onClick={() => void saveSession(true)}>Guardar sesión</button></div>
+          </div>
+        )}
+        {open && <HistoryBox />}
+        <h3 className="data-h">Tu colección</h3>
         <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
           <button type="button" className="mini" onClick={exportAll} disabled={!favs.length}>Exportar colección (.json)</button>
-          <button type="button" className="mini" onClick={() => pickFile('recipe')}>Importar receta o colección</button>
-          <span style={{ flex: 1 }} />
-          <button type="button" className="mini" onClick={() => { if (confirm('¿Vaciar el historial? Tu colección no se toca.')) { clearHistory(); toast('Historial vaciado'); } }}>Vaciar historial</button>
+          <button type="button" className="mini" onClick={() => pickFile('recipe')}>Importar receta, colección o proyecto</button>
         </div>
         {!favs.length ? (
           <div className="empty-state">
             <div className="big">{' .:-=+*#%@\n  aquí vivirán\n  tus piezas'}</div>
-            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; exporta la colección para llevarla a otro equipo.</p>
+            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; para llevarlo a otro equipo, guarda la sesión (lleva también tus imágenes y videos).</p>
           </div>
         ) : (
           <div className="card-grid">
             {favs.map(f => (
               <div key={f.id} className="fav-card">
-                <button type="button" className="img" style={f.thumb ? { backgroundImage: `url(${f.thumb})` } : undefined} onClick={() => { openFavorite(f.id); close(); }} aria-label={`Abrir ${f.name}`} />
+                <button type="button" className="img" style={f.thumb ? thumbBg(f.thumb) : undefined} onClick={() => { openFavorite(f.id); close(); }} aria-label={`Abrir ${f.name}`} />
                 <div className="meta">
                   <input defaultValue={f.name} aria-label="Nombre" onBlur={e => renameFavorite(f.id, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
-                  <small>{spaceById(f.space).name} · {new Date(f.updated).toLocaleDateString()}</small>
+                  <small>{spaceById(f.space).name} · {new Date(f.updated).toLocaleDateString()}{f.recipe.media.ref && (f.recipe.source === 'image' || f.recipe.source === 'video') ? ` · con ${f.recipe.source === 'video' ? 'video' : 'imagen'}` : ''}</small>
                 </div>
                 <div className="ops">
                   <button type="button" onClick={() => { openFavorite(f.id); close(); }}>Abrir</button>
                   <button type="button" onClick={() => duplicateFavorite(f.id)}>Duplicar</button>
-                  <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile(f.recipe), 'application/json')}>.json</button>
-                  <button type="button" onClick={async () => { const u = await shareUrl(f.recipe); try { await navigator.clipboard.writeText(u); toast('Enlace copiado'); } catch { prompt('Enlace:', u); } }}>Enlace</button>
+                  <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }), 'application/json')}>.json</button>
+                  <button type="button" onClick={() => void shareLink(f.recipe, f.space)}>Enlace</button>
                   <button type="button" onClick={() => { if (confirm(`¿Borrar «${f.name}» de tu colección?`)) removeFavorite(f.id); }} aria-label={`Borrar ${f.name}`}>✕</button>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {open && (
+          <div className="data-foot">
+            <StorageBox />
+            <Glossary />
           </div>
         )}
       </div>
@@ -89,7 +96,76 @@ export function CollectionSheet() {
   );
 }
 
-export const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'monotrama';
+/** History counter, session file and clearing. */
+function HistoryBox() {
+  const count = useStudio(s => s.entries.length);
+  const limit = useStudio(s => s.histLimit);
+  const pruned = useStudio(s => s.pruned);
+  const [withMedia, setWithMedia] = useState(true);
+  const [media, setMedia] = useState<{ count: number; bytes: number; missing: number } | null>(null);
+  useEffect(() => { let alive = true; void sessionMediaSize().then(m => { if (alive) setMedia(m); }); return () => { alive = false; }; }, [count]);
+  const pct = Math.min(100, Math.round((count / limit) * 100));
+  return (
+    <section className="data-hist" aria-labelledby="data-hist-h">
+      <div className="data-count">
+        <h3 id="data-hist-h">Historial</h3>
+        <p className="count-line" role="status">{historyLabel(count, limit)}</p>
+        <div className={'data-meter' + (count >= limit * HISTORY_WARN ? ' near' : '')} aria-hidden="true"><i style={{ '--v': pct + '%' } as React.CSSProperties} /></div>
+        <p className="note">
+          Guarda tus últimos {limit} resultados; al pasar de ahí se descartan los más antiguos.
+          {pruned > 0 && <> En esta visita {pruned === 1 ? 'se descartó 1 resultado' : `se descartaron ${pruned} resultados`}.</>}
+        </p>
+      </div>
+      <div className="data-acts">
+        <button type="button" className="mini" onClick={() => void saveSession(withMedia)}>Guardar sesión</button>
+        <button type="button" className="mini" onClick={() => pickFile('session')}>Abrir sesión</button>
+        <button type="button" className="mini" onClick={() => { if (confirm('¿Vaciar el historial? Se queda sólo la pieza actual. Tu colección no se toca; las imágenes y videos que sólo usaba el historial se borran de este navegador.')) { clearHistory(); toast('Historial vaciado'); } }}>Vaciar historial</button>
+      </div>
+      {media && media.count > 0 && (
+        <label className="toggle">
+          <span>Incluir en la sesión las imágenes y videos ({media.count}, {fmtSize(media.bytes)})</span>
+          <span className="switch"><input type="checkbox" role="switch" checked={withMedia} onChange={e => setWithMedia(e.target.checked)} /><span /></span>
+        </label>
+      )}
+      {media && media.missing > 0 && (
+        <p className="note" style={{ gridColumn: '1 / -1', margin: 0 }}>
+          {media.missing === 1 ? 'Una imagen o video del historial ya no está' : `${media.missing} imágenes o videos del historial ya no están`} en este navegador: esas piezas pedirán el archivo al abrirlas.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** How much this browser holds, and the plain truth about clearing it. */
+function StorageBox() {
+  const [info, setInfo] = useState<{ usage?: number; quota?: number; persisted?: boolean; media: { count: number; bytes: number } } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const st = typeof navigator !== 'undefined' ? navigator.storage : undefined;
+      const [est, persisted, media] = await Promise.all([
+        st?.estimate?.().catch(() => undefined), st?.persisted?.().catch(() => undefined), mediaUsage(),
+      ]);
+      if (alive) setInfo({ usage: est?.usage, quota: est?.quota, persisted, media });
+    })();
+    return () => { alive = false; };
+  }, []);
+  return (
+    <section className="data-storage" aria-labelledby="data-storage-h">
+      <h3 id="data-storage-h">En este navegador</h3>
+      {info && (
+        <p>
+          {info.usage != null ? <>Monotrama ocupa <b>{fmtSize(info.usage)}</b>{info.quota ? <> de {fmtSize(info.quota)} disponibles</> : null}</> : 'Este navegador no informa del espacio que usa'}
+          {info.media.count > 0 ? <>, de ellos {fmtSize(info.media.bytes)} en {info.media.count} {info.media.count === 1 ? 'imagen o video' : 'imágenes y videos'}.</> : '.'}
+          {' '}{info.persisted ? 'El navegador aceptó no borrarlo por su cuenta si le falta espacio.' : 'Si al navegador le falta espacio, podría borrarlo por su cuenta.'}
+        </p>
+      )}
+      <p className="plain">Si borras los datos de navegación de este sitio, se borran el historial, la colección y las imágenes y videos guardados. Guarda la sesión para tener una copia.</p>
+    </section>
+  );
+}
+
+export { slug };
 
 /* ------------------------------------------------------------------ */
 
@@ -120,7 +196,7 @@ export function ExploreSheet() {
         </div>
         <div className="explore-grid">
           {cands.map((c, i) => (
-            <button key={i} type="button" style={c.url ? { backgroundImage: `url(${c.url})` } : undefined} aria-label={`Variación ${i + 1}`}
+            <button key={i} type="button" style={c.url ? thumbBg(c.url) : undefined} aria-label={`Variación ${i + 1}`}
               onClick={() => { applyRecipe(c.r, 'variación', 'Variación'); close(); }}>
               <span>{c.url ? `variación ${i + 1}` : 'tejiendo…'}</span>
             </button>
@@ -137,14 +213,19 @@ const KEYS: Array<[string, string]> = [
   ['R', 'Nueva combinación al azar'], ['→', 'Siguiente (o nueva al llegar al final)'], ['←', 'Resultado anterior'], ['V', 'Variar el actual'],
   ['X', 'Explorar variaciones'], ['S', 'Guardar en la colección'], ['E', 'Exportar'], ['Espacio', 'Pausar / reproducir'],
   ['Ctrl Z', 'Deshacer'], ['Ctrl Mayús Z', 'Rehacer'], ['H', 'Ocultar la interfaz'], ['F', 'Pantalla completa'], ['1 – 6', 'Cambiar de espacio'],
-  ['L', 'Copiar enlace'], ['?', 'Esta ayuda'], ['Esc', 'Cerrar'],
+  ['L', 'Copiar enlace'], ['G', 'Guías: empezar por un camino'], ['?', 'Esta ayuda'], ['Esc', 'Cerrar'],
 ];
 
 export function ShortcutsSheet() {
   const open = useStudio(s => s.ui.sheet === 'shortcuts');
   return (
     <Sheet open={open} onClose={close} title="Atajos de teclado" sub="Doble clic en el nombre de un ajuste lo devuelve a su valor inicial.">
-      <div className="sheet-body"><div className="keys">{KEYS.map(([k, d]) => <div key={k}><span>{d}</span><kbd>{k}</kbd></div>)}</div></div>
+      <div className="sheet-body">
+        <div className="keys">{KEYS.map(([k, d]) => <div key={k}><span>{d}</span><kbd>{k}</kbd></div>)}</div>
+        <p className="note" style={{ margin: '16px 0 0' }}>
+          ¿Empiezas? <button type="button" className="mini" onClick={() => { close(); setTimeout(() => openWelcome(), 60); }}>Abrir las guías</button> y convierte una foto, crea un fondo para tu web o anima una palabra, paso a paso.
+        </p>
+      </div>
     </Sheet>
   );
 }

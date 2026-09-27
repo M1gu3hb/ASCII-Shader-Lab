@@ -3,6 +3,7 @@
   "private": true,
   "version": "2.0.0",
   "description": "Monotrama — estudio de arte ASCII en tiempo real (repositorio ASCII Shader Lab).",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run typecheck && npm run test && npm run build"
+    "check": "npm run typecheck && npm run test && npm run build",
+    "verify:exports": "node scripts/verify-exports.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -38,6 +40,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "1.56.1",
     "@types/node": "^22.20.4",
     "@types/react": "^19.3.0",

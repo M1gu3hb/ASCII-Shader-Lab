@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- @head -->
+<style>html,body{background:#0c0b0a;margin:0}</style>
+</head>
+<body class="g">
+<!-- @header -->
+
+<main id="contenido">
+  <section class="g-hero" aria-labelledby="titulo">
+    <div>
+      <nav class="crumbs" aria-label="Ruta de navegación"><ol><li><a href="/">Monotrama</a></li><li aria-current="page">Video y cámara a ASCII</li></ol></nav>
+      <p class="eyebrow">Guía · Video y cámara</p>
+      <h1 id="titulo">Video y cámara a ASCII, <em>en tiempo real</em></h1>
+      <p class="g-lead">Carga un video o enciende tu cámara y míralos convertidos en caracteres mientras se mueven. Cambia el estilo en vivo y exporta un clip sin saltos, fotograma a fotograma.</p>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/#space=media&amp;source=video">Convertir un video <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="#como">Cómo funciona</a>
+      </div>
+      <p class="g-note">Gratis · sin cuenta · el video y la cámara se procesan en tu equipo</p>
+    </div>
+    <figure class="example" data-demo="video">
+      <div class="ex-frame">
+        <img src="/ex/video-a-ascii.webp" srcset="/ex/video-a-ascii-640.webp 640w, /ex/video-a-ascii.webp 1280w" sizes="(max-width: 900px) calc(100vw - 36px), min(52vw, 660px)" width="1280" height="800" alt="Fotograma de un paisaje en movimiento convertido en caracteres verdes de fósforo, con líneas de barrido" fetchpriority="high">
+      </div>
+      <figcaption>Render real del motor: una escena en movimiento con el estilo «Fósforo» (monitor de tubo, barrido y curvatura).<span class="ex-live-note"> En vivo: la escena se genera en tu navegador y se convierte a cada fotograma.</span></figcaption>
+    </figure>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="que-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Qué puedes hacer</p>
+        <h2 id="que-title">Imagen en movimiento, tejida con letras.</h2>
+      </div>
+      <div class="principles">
+        <article><span class="glyph" aria-hidden="true">▶</span><h3>Tus videos</h3><p>MP4 (H.264), WebM y, si tu navegador lo reproduce, MOV. Pausa, silencia o cambia la velocidad de 0,25× a 2×.</p></article>
+        <article><span class="glyph" aria-hidden="true">◉</span><h3>Tu cámara, en vivo</h3><p>Pulsa «Activar cámara» y verás tu imagen en caracteres al instante, con los mismos estilos y efectos.</p></article>
+        <article><span class="glyph" aria-hidden="true">▣</span><h3>Estilos que se mueven</h3><p>Fósforo de monitor antiguo, periódico, bloques de color, contornos o el color original de cada zona.</p></article>
+        <article><span class="glyph" aria-hidden="true">≋</span><h3>Efectos de pantalla</h3><p>Barrido, curvatura de tubo, bloom, resplandor, grano y aberración cromática, dosificados a tu gusto.</p></article>
+        <article><span class="glyph" aria-hidden="true">⌖</span><h3>Encuadre</h3><p>Cubrir, contener o estirar, con zoom, para que el sujeto quede centrado en la rejilla.</p></article>
+        <article><span class="glyph" aria-hidden="true">∞</span><h3>Clips sin saltos</h3><p>El render fotograma a fotograma no pierde cuadros aunque tu equipo sea modesto.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec" id="como" aria-labelledby="como-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Cómo funciona</p>
+        <h2 id="como-title">Tres pasos, sin instalar nada.</h2>
+      </div>
+      <ol class="steps">
+        <li><h3>Elige la fuente</h3><p>En el espacio Imagen, elige «Video» y suelta tu archivo, o elige «Cámara» y pulsa «Activar cámara».</p></li>
+        <li><h3>Dale estilo</h3><p>Prueba los estilos de partida o pulsa «Azar» (R). Ajusta caracteres, color y efectos mientras el video corre.</p></li>
+        <li><h3>Expórtalo</h3><p>En «Exportar», pestaña «Video y GIF»: render fotograma a fotograma o grabación en directo.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="formatos-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Formatos y límites</p>
+        <h2 id="formatos-title">Qué te llevas, y qué no.</h2>
+      </div>
+      <dl class="outputs">
+        <div><dt>MP4 (H.264)</dt><dd>Render fotograma a fotograma, de 1 a 60 s, en tamaños como 1920×1080, 4K, cuadrado o vertical.<span class="limit"><b>Límite:</b> depende del codificador H.264 de tu navegador (WebCodecs). Si no lo tiene, en lugar del botón verás un aviso que lo explica: usa WebM o la grabación en directo.</span></dd></div>
+        <div><dt>WebM</dt><dd>El mismo render, con VP9 o VP8.<span class="limit"><b>Límite:</b> algunos editores y redes sociales prefieren MP4.</span></dd></div>
+        <div><dt>GIF</dt><dd>Para README, chats y correos, de 320 a 800 px de ancho.<span class="limit"><b>Límite:</b> hasta 25 fps y 128 colores por fotograma; mejor corto y pequeño.</span></dd></div>
+        <div><dt>Grabación en directo</dt><dd>Graba el lienzo tal como lo ves, con tu cursor. Es la única forma de grabar la cámara.<span class="limit"><b>Límite:</b> la fluidez depende de tu equipo, y el formato (MP4 o WebM) de lo que tu navegador sepa grabar.</span></dd></div>
+        <div><dt>Sonido</dt><dd>Puedes escuchar el video mientras trabajas.<span class="limit"><b>Límite:</b> los videos exportados no llevan audio; añádelo después en tu editor.</span></dd></div>
+        <div><dt>Enlace y receta</dt><dd>Guardan el estilo para reabrirlo.<span class="limit"><b>Límite:</b> no llevan tu video: quien abra el enlace verá el patrón hasta cargar uno suyo. Para enviarlo completo, exporta el proyecto (.zip).</span></dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="g-sec" aria-labelledby="privacidad-title">
+    <div class="wrap">
+      <div class="privacy-box">
+        <span class="glyph" aria-hidden="true">▣</span>
+        <div>
+          <h2 id="privacidad-title">Tu video y tu cámara se quedan contigo</h2>
+          <p>El video se reproduce y se convierte en tu navegador: no se sube a ningún servidor y no necesitas cuenta. Para reabrir tus piezas, este navegador guarda una copia del video (hasta 200 MB); se borra cuando ya ninguna pieza lo usa (por ejemplo, al vaciar el historial) o si borras los datos de este sitio.</p>
+          <p>La cámara sólo se pide cuando pulsas «Activar cámara», sin micrófono, y se apaga al cambiar de fuente. Nada de lo que graba sale de tu equipo salvo que tú exportes y compartas el archivo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Preguntas frecuentes</p>
+        <h2 id="faq-title">Antes de empezar.</h2>
+      </div>
+      <div class="faq">
+        <div><h3>¿Por qué no puedo exportar MP4?</h3><p>Tu navegador no ofrece un codificador H.264 a ese tamaño. Prueba un tamaño menor, exporta WebM o usa la grabación en directo.</p></div>
+        <div><h3>¿Puedo exportar la cámara fotograma a fotograma?</h3><p>No: la cámara ocurre en tiempo real y no se puede rebobinar. Usa «Empezar a grabar» para guardarla tal como la ves.</p></div>
+        <div><h3>¿Qué pasa si el video es más corto que el clip?</h3><p>El render vuelve al principio del video y sigue, así que el clip puede durar más que el original.</p></div>
+        <div><h3>¿Puedo usarlo en un proyecto comercial?</h3><p>Sí. Lo que creas es tuyo. Asegúrate de tener derechos sobre el video original. Más en <a href="/licencia/">Licencia y uso</a>.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec g-final" aria-labelledby="final-title">
+    <div class="wrap">
+      <h2 id="final-title">Dale cuerpo de letras a tu video.</h2>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/#space=media&amp;source=video">Convertir un video <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="/">Conocer Monotrama</a>
+      </div>
+      <p class="more-title">Otras guías</p>
+      <!-- @guides others -->
+    </div>
+  </section>
+</main>
+
+<!-- @footer -->
+<script type="module" src="/src/pages/main.ts"></script>
+</body>
+</html>

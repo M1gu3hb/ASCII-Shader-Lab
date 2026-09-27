@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ARCHETYPES, archById } from '../random/archetypes';
 import { LOCK_GROUPS, LOCK_NAMES, spaceById } from '../random/spaces';
-import { shareUrl } from '../shared/share';
 import { IDice, IExplore, ILock, INext, IPrev, IRedo, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH } from './icons';
 import {
   back, canRedo, canUndo, forward, go, redo, restoreOrigin, rollDice, saveFavorite, setAmount, setArch, setUI, toggleLock, undo,
-  useStudio, vary, type Entry,
+  useStudio, vary, whenSaved, type Entry,
 } from './store';
+import { saveSession } from './packages';
 import { announce, toast } from './toast';
 import { setAuto, useLive } from './live';
+import { historyLabel, thumbBg } from './history';
+import { shareLink } from './ShareSheet';
+import { HoldCompare } from './guide/HoldCompare';
 
 export function dice() {
   const e = rollDice();
@@ -16,21 +19,29 @@ export function dice() {
   announce(`Resultado ${s.cursor + 1}: ${e.seed?.replace(/-/g, ' ') ?? ''}, estilo ${archById(e.arch)?.name ?? ''}`);
 }
 
-export function favorite() {
+export async function favorite() {
   const s = useStudio.getState();
   const e = s.entries[s.cursor];
   const had = !!e?.favId;
   const f = saveFavorite();
-  if (f) toast(had ? `Actualizado en tu colección: «${f.name}»` : `Guardado en tu colección: «${f.name}»`, { label: 'Ver', run: () => setUI({ sheet: 'collection' }) });
+  if (!f) return;
+  // the star is saved at once: say «guardado» only once the browser has kept it
+  await whenSaved();
+  const storage = useStudio.getState().storage;
+  if (storage !== 'ok') {
+    toast(`«${f.name}» está en tu colección sólo hasta que cierres la pestaña: ${storage === 'full' ? 'el navegador no tiene espacio para guardarla' : 'este navegador no deja guardar'}. Guarda la sesión para conservarla.`,
+      { label: 'Guardar sesión', run: () => void saveSession(true) }, 9000);
+    return;
+  }
+  toast(had ? `Actualizado en tu colección: «${f.name}»` : `Guardado en tu colección: «${f.name}»`, { label: 'Ver', run: () => setUI({ sheet: 'collection' }) });
 }
 
+/** Copies a link to the current piece (pieces with a local image or video ask first: the file does not travel). */
 export async function copyLink() {
   const s = useStudio.getState();
   const e = s.entries[s.cursor];
   if (!e) return;
-  const url = await shareUrl({ ...e.recipe, meta: { ...e.recipe.meta, space: e.space } });
-  try { await navigator.clipboard.writeText(url); toast('Enlace copiado: quien lo abra verá exactamente esta pieza'); }
-  catch { prompt('Copia este enlace:', url); }
+  await shareLink(e.recipe, e.space);
 }
 
 export function Deck() {
@@ -38,10 +49,13 @@ export function Deck() {
   const cursor = useStudio(s => s.cursor);
   const e = entries[cursor];
   const favs = useStudio(s => s.favorites);
-  const fav = !!e?.favId && favs.some(f => f.id === e.favId);
+  const favIds = useMemo(() => new Set(favs.map(f => f.id)), [favs]);
+  const fav = !!e?.favId && favIds.has(e.favId);
   const [pop, setPop] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
   const panel = useStudio(s => s.ui.panel);
+  const limit = useStudio(s => s.histLimit);
+  const counter = historyLabel(entries.length, limit);
 
   useEffect(() => {
     const el = strip.current?.querySelector('[aria-current="true"]') as HTMLElement | null;
@@ -56,13 +70,13 @@ export function Deck() {
           <button type="button" onClick={back} disabled={cursor <= 0} aria-label="Resultado anterior (←)" title="Anterior (←)"><IPrev /></button>
           <button type="button" onClick={forward} aria-label={cursor < entries.length - 1 ? 'Resultado siguiente (→)' : 'Nuevo resultado al azar (→)'} title={cursor < entries.length - 1 ? 'Siguiente (→)' : 'Nuevo al azar (→)'}><INext /></button>
         </div>
-        <div className="strip" ref={strip} role="list" aria-label="Historial de resultados">
-          {entries.map((x, i) => <Thumb key={x.id} e={x} i={i} current={i === cursor} fav={!!x.favId && favs.some(f => f.id === x.favId)} />)}
+        <div className="strip" ref={strip} role="list" aria-label={counter} title={counter}>
+          {entries.map((x, i) => <Thumb key={x.id} e={x} i={i} current={i === cursor} fav={!!x.favId && favIds.has(x.favId)} />)}
         </div>
         <div className="acts">
           <button type="button" className="act" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
           <button type="button" className="act hide-md" onClick={() => setUI({ sheet: 'explore' })} title="Explorar variaciones (X)" aria-label="Explorar variaciones"><IExplore /></button>
-          <button type="button" className="act fav" aria-pressed={fav} onClick={favorite} title="Guardar en la colección (S)" aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
+          <button type="button" className="act fav" aria-pressed={fav} onClick={() => void favorite()} title="Guardar en la colección (S)" aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
           <button type="button" className="act dice" onClick={dice} title="Nueva combinación al azar (R)"><IDice /><span className="lbl">Azar</span><kbd>R</kbd></button>
           <div style={{ position: 'relative' }}>
             <button type="button" className="act" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
@@ -75,12 +89,41 @@ export function Deck() {
   );
 }
 
-function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; fav: boolean }) {
+/** One observer per strip: which thumbnails are within a few widths of its visible part. */
+const nearWatchers = new WeakMap<Element, { io: IntersectionObserver; cbs: Map<Element, () => void> }>();
+
+function watchNear(el: Element, onNear: () => void): () => void {
+  const root = el.parentElement;
+  if (!root || typeof IntersectionObserver === 'undefined') { onNear(); return () => undefined; }
+  let w = nearWatchers.get(root);
+  if (!w) {
+    const cbs = new Map<Element, () => void>();
+    const io = new IntersectionObserver(es => {
+      for (const x of es) if (x.isIntersecting) { cbs.get(x.target)?.(); cbs.delete(x.target); io.unobserve(x.target); }
+    }, { root, rootMargin: '0px 400px' });
+    w = { io, cbs };
+    nearWatchers.set(root, w);
+  }
+  const { io, cbs } = w;
+  cbs.set(el, onNear);
+  io.observe(el);
+  return () => { cbs.delete(el); io.unobserve(el); };
+}
+
+/**
+ * Memoised: with up to a thousand results, an edit re-renders only the thumbnail that changed. Each
+ * picture (an inline data URL) is set once the thumbnail comes near the visible part of the strip:
+ * setting a thousand of them at load took most of a second on a phone-speed CPU.
+ */
+const Thumb = memo(function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; fav: boolean }) {
   const label = `${i + 1}. ${e.label ?? e.seed?.replace(/-/g, ' ') ?? e.kind}${e.edited ? ', editado' : ''}${fav ? ', en la colección' : ''}`;
+  const ref = useRef<HTMLButtonElement>(null);
+  const [near, setNear] = useState(false);
+  useEffect(() => (near || !ref.current ? undefined : watchNear(ref.current, () => setNear(true))), [near]);
   return (
     <button
-      type="button" role="listitem" className="thumb" aria-current={current} aria-label={label} title={label}
-      style={e.thumb ? { backgroundImage: `url(${e.thumb})` } : undefined}
+      ref={ref} type="button" role="listitem" className="thumb" aria-current={current} aria-label={label} title={label}
+      style={near && e.thumb ? thumbBg(e.thumb) : undefined}
       onClick={() => go(i)}
     >
       <span className="n">{i + 1}</span>
@@ -88,7 +131,7 @@ function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; 
       {e.edited && <span className="dot" />}
     </button>
   );
-}
+});
 
 function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
   useStudio(s => s.undoTick);
@@ -97,16 +140,24 @@ function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
   const title = e.seed ? e.seed : e.label ?? spaceById(e.space).name;
   return (
     <div className="seedline" role="status" aria-live="off">
-      <span>N.º <b>{n}</b>/{total}</span>
-      <span className="sep">·</span>
-      <b className="ell" title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
-      {arch && <><span className="sep arch">·</span><span className="arch">{arch}</span></>}
-      {e.edited && <><span className="sep">·</span><span>editado</span></>}
-      <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
-      <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
-      {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió">original</button>}
-      <button type="button" onClick={() => void copyLink()} title="Copiar un enlace a esta pieza">enlace</button>
-      <button type="button" onClick={() => setUI({ sheet: 'seed' })} title="Escribir una semilla">semilla</button>
+      {/* one pill on wide screens; on phones, what it is (with undo / redo) and then its actions */}
+      <span className="seed-info">
+        <span>N.º <b>{n}</b>/{total}</span>
+        <span className="sep">·</span>
+        <b className="ell" title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
+        {arch && <><span className="sep arch">·</span><span className="arch">{arch}</span></>}
+        {e.edited && <><span className="sep">·</span><span>editado</span></>}
+      </span>
+      <span className="seed-hist">
+        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
+        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
+      </span>
+      <span className="seed-acts">
+        {e.edited && <HoldCompare origin={e.origin} />}
+        {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió (se puede deshacer)">restaurar</button>}
+        <button type="button" onClick={() => void copyLink()} title="Copiar un enlace a esta pieza">enlace</button>
+        <button type="button" onClick={() => setUI({ sheet: 'seed' })} title="Escribir una semilla">semilla</button>
+      </span>
     </div>
   );
 }
