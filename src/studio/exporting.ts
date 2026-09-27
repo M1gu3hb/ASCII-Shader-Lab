@@ -1,6 +1,7 @@
 import type { GridSnapshot } from '../engine/engine';
 import type { Recipe } from '../engine/recipe';
 import { gridToAnsi, gridToText, type ColorDepth, type Frames } from '../exporters/text';
+import { codecsAt, pickRecorderMime, recorderCaps, videoSupportAt, type VideoSupport } from './caps';
 import { getEngine } from './engineBridge';
 import { mediaElement } from './media';
 import { offscreenEngine, stageSize, type OffscreenSize } from './offscreen';
@@ -48,7 +49,10 @@ export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: b
   const eng = await offscreenEngine(r, size, { transparent: o.transparent && o.format !== 'jpeg' });
   try {
     eng.renderAt(liveTime());
-    return await canvasBlob(eng.canvas, 'image/' + o.format, o.format === 'png' ? undefined : 0.92);
+    const blob = await canvasBlob(eng.canvas, 'image/' + o.format, o.format === 'png' ? undefined : 0.92);
+    // a browser without that encoder silently returns a PNG: never save it under the wrong name
+    if (blob.type && blob.type !== 'image/' + o.format) throw new Error(`este navegador no codifica ${o.format.toUpperCase()}; usa PNG`);
+    return blob;
   } finally { eng.destroy(); }
 }
 
@@ -59,17 +63,24 @@ export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: b
 export interface Progress { (p: number, label?: string): void }
 export interface Cancel { cancelled: boolean }
 
-export const hasWebCodecs = () => typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
+/** What WebCodecs can encode at W×H (cached per size, see caps.ts). */
+export const videoSupport = (W: number, H: number): Promise<VideoSupport> => videoSupportAt(W, H);
 
-export async function videoSupport(W: number, H: number): Promise<{ mp4: boolean; webm: boolean }> {
-  if (!hasWebCodecs()) return { mp4: false, webm: false };
-  const mb = await import('mediabunny');
-  const [avc, vp9, vp8] = await Promise.all([
-    mb.canEncodeVideo('avc', { width: W, height: H }).catch(() => false),
-    mb.canEncodeVideo('vp9', { width: W, height: H }).catch(() => false),
-    mb.canEncodeVideo('vp8', { width: W, height: H }).catch(() => false),
-  ]);
-  return { mp4: avc, webm: vp9 || vp8 };
+/**
+ * The largest size preset below W×H at which this browser can encode `need` (any video when omitted),
+ * for the «use a smaller size» suggestion. Null when no smaller preset works either.
+ */
+export async function smallerEncodable(W: number, H: number, need?: 'mp4' | 'webm'): Promise<{ id: string; name: string; W: number; H: number } | null> {
+  const options = new Map<string, { id: string; name: string; W: number; H: number }>();
+  for (const p of SIZE_PRESETS) {
+    const s = resolveSize(p.spec, true);
+    if (s.W * s.H < W * H && !options.has(`${s.W}x${s.H}`)) options.set(`${s.W}x${s.H}`, { id: p.id, name: p.name, W: s.W, H: s.H });
+  }
+  for (const p of [...options.values()].sort((a, b) => b.W * b.H - a.W * a.H)) {
+    const s = await videoSupportAt(p.W, p.H);
+    if (need ? s[need] : s.mp4 || s.webm) return p;
+  }
+  return null;
 }
 
 async function seekVideo(v: HTMLVideoElement, t: number) {
@@ -88,7 +99,9 @@ async function seekVideo(v: HTMLVideoElement, t: number) {
 export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
   const mb = await import('mediabunny');
   const size = resolveSize(spec, true);
-  const codec = o.format === 'mp4' ? 'avc' : (await mb.canEncodeVideo('vp9', { width: size.W, height: size.H })) ? 'vp9' : 'vp8';
+  const can = await codecsAt(size.W, size.H);
+  if (o.format === 'mp4' ? !can.avc : !can.vp9 && !can.vp8) throw new Error(`este navegador no codifica ${o.format === 'mp4' ? 'H.264' : 'VP9 ni VP8'} a ${size.W}×${size.H}`);
+  const codec = o.format === 'mp4' ? 'avc' : can.vp9 ? 'vp9' : 'vp8';
   const eng = await offscreenEngine(r, size);
   const video = r.source === 'video' ? (mediaElement('video') as HTMLVideoElement | null) : null;
   const wasPaused = video?.paused ?? true;
@@ -122,16 +135,12 @@ export class LiveRecorder {
   private rec: MediaRecorder | null = null;
   private chunks: Blob[] = [];
   mime = '';
-  static supported() {
-    return typeof MediaRecorder !== 'undefined' && typeof HTMLCanvasElement.prototype.captureStream === 'function';
-  }
+  static supported() { return recorderCaps().ok; }
   start(fps = 30): boolean {
     const c = getEngine()?.canvas;
     if (!c || !LiveRecorder.supported()) return false;
-    // .mp4 only with H.264 inside (what editors and social networks expect); plain 'video/mp4' last,
-    // for browsers that record MP4 but no WebM (Safari)
-    this.mime = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4']
-      .find(t => MediaRecorder.isTypeSupported(t)) ?? '';
+    // the same choice the export sheet announces before recording (caps.ts: MP4 only with H.264 inside)
+    this.mime = pickRecorderMime();
     if (!this.mime) return false;
     this.chunks = [];
     this.rec = new MediaRecorder(c.captureStream(fps), { mimeType: this.mime, videoBitsPerSecond: 16e6 });
