@@ -11,6 +11,7 @@ import { Color, F, Note, Seg, Select, Slider, Sub, Text, Toggle, useField, type 
 import { IDice, IDown, IEye, IEyeOff, IPlus, ITrash, IUp } from './icons';
 import { toggleMute, toggleVideo, useMedia, setVideoRate, startCamera, stopCamera } from './media';
 import { edit, setUI, useStudio } from './store';
+import { startMic, stopMic, useLive } from './live';
 import { pickFile } from './files';
 
 export const TABS: Record<SpaceId, Array<[string, string]>> = {
@@ -227,6 +228,7 @@ function MovTab({ space }: { space: SpaceId }) {
           <Sub>Ritmo</Sub>
           <Slider f={F('motion.pulse')} label="Pulso" min={0} max={1} />
           <Slider f={F('motion.bpm')} label="Tempo" min={40} max={180} step={1} fmt={v => v + ' bpm'} />
+          <SoundControl />
         </>
       )}
       <Sub>Cursor y tacto</Sub>
@@ -246,6 +248,29 @@ function MovTab({ space }: { space: SpaceId }) {
         </>
       )}
       {mode === 'erase' && <Note>Con una imagen, el borrador revela la foto original bajo los caracteres.</Note>}
+    </>
+  );
+}
+
+function SoundControl() {
+  const mic = useLive(s => s.mic);
+  const level = useLive(s => s.level);
+  const gain = useLive(s => s.gain);
+  return (
+    <>
+      {mic === 'on'
+        ? <button type="button" className="btn primary" onClick={stopMic}>Dejar de escuchar</button>
+        : <button type="button" className="btn" onClick={() => void startMic()}>{mic === 'starting' ? 'Esperando permiso…' : 'Reaccionar al sonido (micrófono)'}</button>}
+      {mic === 'on' && (
+        <>
+          <div className="progress" aria-hidden="true"><i style={{ '--v': Math.round(level * 100) + '%', transition: 'none' } as React.CSSProperties} /></div>
+          <div className="ctl">
+            <label className="lbl" htmlFor="mic-gain">Sensibilidad</label><output>{gain.toFixed(1)}</output>
+            <input id="mic-gain" type="range" min={0.3} max={4} step={0.1} value={gain} style={{ '--p': ((gain - 0.3) / 3.7) * 100 + '%' } as React.CSSProperties} onChange={e => useLive.setState({ gain: parseFloat(e.target.value) })} />
+          </div>
+        </>
+      )}
+      <Note>Con el micrófono, el volumen marca el pulso en lugar del tempo. Se analiza en tu navegador; nada se graba ni se envía.</Note>
     </>
   );
 }

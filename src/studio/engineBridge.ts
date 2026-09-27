@@ -61,6 +61,7 @@ export function mountStudioEngine(canvas: HTMLCanvasElement): string | null {
 
 export function destroyStudioEngine() {
   unsub?.(); unsub = null;
+  if (engine) engine.externalPulse = 0;
   attachEngine(null);
   engine?.destroy();
   engine = null;

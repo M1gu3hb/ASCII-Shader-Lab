@@ -27,7 +27,9 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { hydrate } from './store';
 import { bootFromUrl } from './boot';
+import { toast } from './toast';
 
-await hydrate();
+const first = await hydrate();
 await bootFromUrl();
 createRoot(document.getElementById('root')!).render(<App />);
+if (first) setTimeout(() => toast('Pulsa «Azar» (R) para tejer algo nuevo · ← → recorre tu historial · ★ guarda lo que te guste', undefined, 7000), 900);
