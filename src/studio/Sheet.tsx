@@ -15,10 +15,11 @@ export function Sheet({ open, title, sub, onClose, children, wide }: { open: boo
   }, [open]);
   return (
     <dialog ref={ref} className={'sheet' + (wide ? ' wide' : '')}
-      // Escape: 'cancel' comes at once; 'close' may come late on a busy page, when another sheet may
-      // already be open: only a sheet that is still open closes itself
+      // Escape: 'cancel' comes at once; 'close' may come late on a busy page, when another sheet (or this
+      // one again, reopened at once) may already be open: only a sheet whose dialog really is closed now
+      // closes itself
       onCancel={() => { if (open) onClose(); }}
-      onClose={() => { if (open) onClose(); }}
+      onClose={() => { if (open && !ref.current?.open) onClose(); }}
       onClick={e => { if (e.target === ref.current) onClose(); }} onKeyDown={e => trapTab(e, ref.current)} aria-label={title}>
       {open && (
         <>

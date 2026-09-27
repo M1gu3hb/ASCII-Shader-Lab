@@ -77,3 +77,6 @@ figure.vw-browser, figure.vw-handset { margin: 0; }
   position: absolute; z-index: 8; top: calc(100% + 6px); right: 0; width: min(560px, 100%); padding: 12px 14px;
   background: rgba(20, 19, 17, .96); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
 }
+
+/* text over the moving art keeps its contrast whatever passes behind it (worst case: white glyphs) */
+.app .seedline { background: rgba(12, 11, 10, .92); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }

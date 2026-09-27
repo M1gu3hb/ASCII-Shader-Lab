@@ -29,7 +29,7 @@ export const PATHS: Record<PathId, PathInfo> = {
   },
   fondo: {
     id: 'fondo', space: 'fondos', title: 'Crear un fondo para tu web',
-    gets: 'Un fondo animado que deja leer tu contenido, con el código para pegarlo en tu web.',
+    gets: 'Un fondo animado pensado para ir detrás de tu contenido, con una estimación de si se lee y el código para pegarlo en tu web.',
     steps: ['Elige un estilo', 'Que se lea el contenido', 'Movimiento', 'Llévalo a tu web'],
   },
   palabra: {

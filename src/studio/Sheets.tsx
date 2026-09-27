@@ -279,7 +279,7 @@ export function SeedSheet() {
   useEffect(() => { if (open) setV(cur); }, [open, cur]);
   const go = () => { const s = cleanSeed(v); if (!s) return; rollDice(s); close(); toast(`Semilla «${s}» en ${spaceById(space).name}`); };
   return (
-    <Sheet open={open} onClose={close} title="Semilla" sub="Cualquier palabra o frase sirve. La misma semilla, en el mismo espacio y con el mismo estilo, da siempre la misma pieza.">
+    <Sheet open={open} onClose={close} title="Semilla" sub="Cualquier palabra o frase sirve. La misma semilla, en el mismo espacio y con el mismo estilo, da la misma pieza (con esta versión del generador).">
       <div className="sheet-body">
         <div className="ctl">
           <label className="lbl" htmlFor="seed-in">Semilla</label>

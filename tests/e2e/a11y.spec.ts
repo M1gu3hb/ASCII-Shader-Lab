@@ -39,6 +39,35 @@ function nestedInteractive(page: Page) {
   });
 }
 
+/**
+ * Whether the focused element shows where the keyboard is: its own outline or ring, the studio's range
+ * track ring, or the visible part of a switch (the checkbox itself is transparent over it).
+ */
+const FOCUS_RING = () => {
+  const has = (s: CSSStyleDeclaration) => (s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0) || (s.boxShadow !== 'none' && s.boxShadow !== '');
+  (window as unknown as { focusRing: (a: HTMLElement) => boolean }).focusRing = (a: HTMLElement) => {
+    if (has(getComputedStyle(a))) return true;
+    if (a instanceof HTMLInputElement && a.type === 'range') return has(getComputedStyle(a, '::-webkit-slider-runnable-track'));
+    const next = a.nextElementSibling as HTMLElement | null;
+    return !!next && a instanceof HTMLInputElement && has(getComputedStyle(next));
+  };
+};
+declare function focusRing(a: HTMLElement): boolean;
+
+/**
+ * For focus styles drawn on parts the computed style does not show (a slider's track and thumb): the
+ * focused element looks different from the same element unfocused.
+ */
+async function looksFocused(page: Page): Promise<boolean> {
+  const h = (await page.evaluateHandle(() => document.activeElement)).asElement();
+  if (!h) return false;
+  const on = await h.screenshot();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  const off = await h.screenshot();
+  await h.focus();
+  return !on.equals(off);
+}
+
 test.describe('accesibilidad', () => {
   test('el estudio: vista inicial, pestañas del panel, vistas de destino y hojas, sin fallos graves', async ({ page }) => {
     await openStudio(page);
@@ -207,6 +236,136 @@ test.describe('accesibilidad', () => {
     await expect(pop.getByRole('button', { name: 'Forma' })).toHaveAttribute('aria-pressed', 'true');
     await page.keyboard.press('Escape');
     await expect(pop).toBeHidden();
+  });
+
+  test('legibilidad y zona protegida: detalles, ajustes finos y guía del fondo, sin fallos graves', async ({ page }) => {
+    await openStudio(page);
+    await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Fondo web', exact: true }).click();
+    await page.getByRole('group', { name: 'Zona protegida' }).getByRole('button', { name: 'Suave', exact: true }).click();
+    const more = page.locator('.vbar .legib-more');
+    await more.click();
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('slider', { name: 'Opacidad' })).toBeVisible();
+    await serious(page, 'legibilidad con detalles', '.stage-top');
+    expect(await nestedInteractive(page)).toEqual([]);
+    await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Pantalla de móvil', exact: true }).click();
+    await serious(page, 'pantalla de móvil con zona', '.stage-top');
+    // the fondo guide, step 2, with the estimate and the zone in the step
+    await page.goto('/studio/?camino=fondo');
+    await page.locator('aside.guide-panel').getByRole('button', { name: 'Siguiente' }).click();
+    await expect(page.locator('#guide-title')).toContainText('Que se lea el contenido');
+    await expect(page.locator('aside.guide-panel .legib-report')).toBeVisible();
+    await serious(page, 'guía del fondo, paso 2', 'aside.guide-panel');
+    expect(await nestedInteractive(page)).toEqual([]);
+  });
+
+  test('con el teclado: cada parada tiene nombre y foco visible, y nunca cae en una vista previa', async ({ page }) => {
+    test.setTimeout(240_000);
+    await page.addInitScript(FOCUS_RING);
+    await openStudio(page);
+    await page.getByRole('button', { name: 'Pausar animación' }).click();
+    await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Fondo web', exact: true }).click();
+    await page.locator('body').click({ position: { x: 2, y: 2 } }).catch(() => undefined);
+    const seen = new Set<string>();
+    const problems: string[] = [];
+    for (let i = 0; i < 140; i++) {
+      await page.keyboard.press('Tab');
+      const f = await page.evaluate(() => {
+        const a = document.activeElement as HTMLElement | null;
+        if (!a || a === document.body) return null;
+        const by = a.getAttribute('aria-labelledby');
+        const name = (a.getAttribute('aria-label') || (by && by.split(' ').map(id => document.getElementById(id)?.textContent ?? '').join(' ')) || (a as HTMLInputElement).labels?.[0]?.textContent || a.getAttribute('title') || a.textContent || '').trim();
+        const ring = focusRing(a);
+        const inPreview = !!a.closest('[inert], [aria-hidden="true"]');
+        return { id: `${a.tagName.toLowerCase()}.${a.className}`, name, ring, inPreview };
+      });
+      if (!f) continue;
+      const key = f.id + '|' + f.name;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (!f.name) problems.push(`sin nombre: ${f.id}`);
+      if (!f.ring && !(await looksFocused(page))) problems.push(`sin foco visible: ${f.id} «${f.name}»`);
+      if (f.inPreview) problems.push(`foco dentro de algo oculto: ${f.id}`);
+    }
+    expect(seen.size).toBeGreaterThan(25);
+    expect(problems).toEqual([]);
+  });
+
+  test('con el teclado dentro de las hojas: cada parada tiene nombre y foco visible', async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.addInitScript(FOCUS_RING);
+    await openStudio(page);
+    // a still stage keeps screenshots quick (software GPU)
+    await page.getByRole('button', { name: 'Pausar animación' }).click();
+    const walk = async (what: string, n: number) => {
+      const problems: string[] = [];
+      const seen = new Set<string>();
+      for (let i = 0; i < n; i++) {
+        await page.keyboard.press('Tab');
+        const f = await page.evaluate(() => {
+          const a = document.activeElement as HTMLElement | null;
+          if (!a || a === document.body) return null;
+          const by = a.getAttribute('aria-labelledby');
+          const name = (a.getAttribute('aria-label') || (by && by.split(' ').map(id => document.getElementById(id)?.textContent ?? '').join(' ')) || (a as HTMLInputElement).labels?.[0]?.textContent || a.getAttribute('title') || a.textContent || '').trim();
+          return { id: `${a.tagName.toLowerCase()}.${a.className}`, name, ring: focusRing(a), inDialog: !!a.closest('dialog[open]') };
+        });
+        if (!f || seen.has(f.id + f.name)) continue;
+        seen.add(f.id + f.name);
+        if (!f.name) problems.push(`${what}: sin nombre ${f.id}`);
+        if (!f.ring && !(await looksFocused(page))) problems.push(`${what}: sin foco visible ${f.id} «${f.name}»`);
+        if (!f.inDialog) problems.push(`${what}: el foco salió de la hoja (${f.id})`);
+      }
+      expect(problems).toEqual([]);
+      expect(seen.size).toBeGreaterThan(5);
+    };
+    await page.keyboard.press('s');
+    await page.getByRole('button', { name: /^Colección/ }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'Colección e historial' })).toBeVisible();
+    await walk('colección', 30);
+    await page.keyboard.press('Escape');
+    for (const tab of ['Vector', 'Código', 'Receta']) {
+      await page.keyboard.press('e');
+      await expect(page.getByRole('dialog', { name: 'Llevar la pieza fuera' })).toBeVisible();
+      await page.getByRole('tab', { name: tab }).click();
+      await page.getByRole('tab', { name: tab }).focus();
+      await walk('exportar ' + tab, 25);
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: 'Llevar la pieza fuera' })).toBeHidden();
+    }
+  });
+
+  test('el texto pequeño sobre la pieza conserva el contraste aunque pase algo blanco detrás', async ({ page }) => {
+    await openStudio(page);
+    await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Fondo web', exact: true }).click();
+    await page.locator('.vbar .legib-more').click();
+    const worst = await page.evaluate(() => {
+      const lin = (c: number) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      const lum = (r: number, g: number, b: number) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+      const rgba = (s: string) => { const m = (s.match(/[\d.]+/g) ?? []).map(Number); return [m[0] ?? 0, m[1] ?? 0, m[2] ?? 0, m.length > 3 ? m[3] : 1]; };
+      const out: Array<{ sel: string; ratio: number }> = [];
+      for (const sel of ['.seedline', '.vbar-sel', '.vbar-more', '.vbar .legib-detail']) {
+        const el = document.querySelector<HTMLElement>(sel);
+        if (!el) continue;
+        // the element's own background over pure white (the worst glyph behind it)
+        const [r, g, b, a] = rgba(getComputedStyle(el).backgroundColor);
+        const bg = [r * a + 255 * (1 - a), g * a + 255 * (1 - a), b * a + 255 * (1 - a)];
+        const yb = lum(bg[0], bg[1], bg[2]);
+        let min = 21;
+        for (const t of el.querySelectorAll<HTMLElement>('*')) {
+          if (!t.childNodes.length || ![...t.childNodes].some(n => n.nodeType === 3 && n.textContent!.trim())) continue;
+          const s = getComputedStyle(t);
+          if (s.visibility === 'hidden' || s.display === 'none' || t.closest('button')) continue;
+          const [tr, tg, tb] = rgba(s.color);
+          const yt = lum(tr, tg, tb);
+          min = Math.min(min, (Math.max(yt, yb) + 0.05) / (Math.min(yt, yb) + 0.05));
+        }
+        out.push({ sel, ratio: Math.round(min * 10) / 10 });
+      }
+      return out;
+    });
+    expect(worst.length).toBeGreaterThanOrEqual(3);
+    for (const w of worst) expect(w.ratio, w.sel).toBeGreaterThanOrEqual(4.5);
   });
 
   test('portada, una guía y la licencia, sin fallos graves', async ({ page }) => {

@@ -214,7 +214,7 @@ function ImageTab({ req }: { req: ExportRequest | null }) {
       <div className="ex-card">
         <h3>Consejos</h3>
         <p>«Vista ×2» y «×3» mantienen la composición que ves (con la pantalla a una escala intermedia, como 125 %, puede variar en una o dos columnas). Los tamaños fijos (cuadrado, vertical) reencuadran la escena conservando la densidad de caracteres.</p>
-        <p>Para imprimir o escalar sin límite, usa la pestaña <b>Vector</b>.</p>
+        <p>Para imprimir o escalar sin perder nitidez, usa la pestaña <b>Vector</b> (sin efectos de píxel).</p>
       </div>
     </div>
   );
@@ -523,7 +523,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
       <div className="ex-grid">
         <div className="ex-card">
           <h3>Fotograma</h3>
-          <p>{cols}×{rows} caracteres · ANSI {est}. «256» es el más compatible; «Color real» se ve perfecto en terminales modernas.</p>
+          <p>{cols}×{rows} caracteres · ANSI {est}. «256» es el más compatible; «Color real» es el más fiel, en terminales que lo admiten (truecolor).</p>
           <div className="row2">
             <button type="button" className="btn primary" onClick={() => preview && void copy(preview.text, 'Texto copiado')}>Copiar texto</button>
             <button type="button" className="btn" onClick={() => preview && downloadText(name + '.txt', preview.text)}>.txt</button>

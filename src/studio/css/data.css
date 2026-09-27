@@ -44,6 +44,9 @@ dialog.sheet:has(.share-body) { width: min(520px, calc(100vw - 24px)); }
 .data-coll .note { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; }
 .data-coll-acts { justify-content: flex-start; margin-bottom: 8px; }
 
+/* the piece's name is edited in place: where the keyboard is must show (a faint underline did not) */
+.app .fav-card .meta input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
 /* collection cards: five or six actions must fit (or wrap) in a narrow card */
 .fav-card .ops { flex-wrap: wrap; }
 .fav-card .ops button { min-width: 0; }

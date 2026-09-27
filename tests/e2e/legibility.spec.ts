@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openStudio } from './helpers';
+import { readFileSync } from 'node:fs';
+import { download, openStudio } from './helpers';
 
 /**
  * Legibility of the page previews: the estimate reads the real text regions over several frames and never
@@ -107,6 +108,9 @@ test.describe('legibilidad de las vistas con contenido', () => {
     const html = await code.inputValue();
     await dlg.getByRole('button', { name: 'Web Component' }).click();
     await expect(code).toHaveValue(/scrim="gradient" scrim-color="#[0-9a-f]{6}" scrim-opacity="0.5" scrim-blur="2"/);
+    const usage = await code.inputValue();
+    const wcFile = await download(page, () => dlg.getByRole('button', { name: 'Descargar monotrama-field.js' }).click());
+    const wcJs = readFileSync(wcFile.path, 'utf8');
     await dlg.getByRole('button', { name: 'React' }).click();
     await expect(code).toHaveValue(/const SCRIM = \{"color":"#[0-9a-f]{6}","opacity":0.5,"blur":2,"shape":"gradient"\}/);
     // block: a class for the person's own blocks
@@ -132,6 +136,17 @@ test.describe('legibilidad de las vistas con contenido', () => {
     expect(st.mask).toContain('linear-gradient');
     expect(st.bg).toMatch(/rgba\(\d+, \d+, \d+, 0\.5\)/);
     await other.close();
+
+    // the Web Component, with its file, in another page: the same layer inside its shadow root
+    const wc = await context.newPage();
+    await wc.setContent(`<!doctype html><html><body style="margin:0">${usage.replace(/<script src="monotrama-field.js" defer><\/script>/, '')}</body></html>`);
+    await wc.addScriptTag({ content: wcJs });
+    await expect.poll(() => wc.evaluate(() => {
+      const el = document.querySelector('monotrama-field');
+      const layer = el?.shadowRoot?.querySelector('div[aria-hidden="true"]') as HTMLElement | null;
+      return layer ? getComputedStyle(layer).backdropFilter : null;
+    })).toContain('blur(2px)');
+    await wc.close();
   });
 });
 
