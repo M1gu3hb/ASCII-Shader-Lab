@@ -55,10 +55,15 @@ test.describe('bienvenida', () => {
     }
     // focus starts on the first choice and Tab stays inside the dialog
     await expect(welcome(page).getByRole('button', { name: 'Convertir una foto en ASCII' })).toBeFocused();
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       await page.keyboard.press('Tab');
-      expect(await page.evaluate(() => !document.activeElement || document.activeElement === document.body || !!document.activeElement.closest('dialog.welcome'))).toBe(true);
+      expect(await page.evaluate(() => !!document.activeElement?.closest('dialog.welcome'))).toBe(true);
     }
+    await welcome(page).getByRole('button', { name: 'Cerrar' }).focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(welcome(page).getByRole('button', { name: 'Explorar libremente' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(welcome(page).getByRole('button', { name: 'Cerrar' })).toBeFocused();
     // the studio behind is inert: the dice key does nothing
     await page.keyboard.press('r');
     await expect(page.locator('.seedline')).toContainText('1/1');
