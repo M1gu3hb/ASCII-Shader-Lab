@@ -255,11 +255,13 @@ async function download(page, dir, click) {
   return path;
 }
 async function openSheet(page, tab) {
-  if (!(await page.getByRole('tab', { name: tab }).isVisible().catch(() => false))) {
+  const t = page.getByRole('tab', { name: tab });
+  if (!(await t.isVisible().catch(() => false))) {
     await page.keyboard.press('e');
-    await pump(page, 200);
+    // the export sheet loads on demand and its loading line runs on timers: keep the fake clock moving
+    for (let i = 0; i < 150 && !(await t.isVisible().catch(() => false)); i++) await pump(page, 100);
   }
-  await page.getByRole('tab', { name: tab }).click();
+  await t.click();
   await pump(page, 200);
 }
 async function closeSheet(page) { await page.keyboard.press('Escape'); await pump(page, 200); }
@@ -1302,13 +1304,16 @@ async function componentsFlow() {
   sp.on('pageerror', e => errors.push(e.message));
   await sp.goto(`${BASE}/studio/`);
   await sp.locator('.seedline').waitFor();
+  // a first visit opens «¿Qué quieres hacer?»: close it to reach the studio
+  if (await sp.locator('dialog.welcome[open]').count()) { await sp.keyboard.press('Escape'); await sp.locator('dialog.welcome[open]').waitFor({ state: 'detached' }); }
   await sp.getByRole('button', { name: 'Componentes', exact: true }).first().click();
-  const cards = await sp.locator('.comp-card h3').allTextContents();
+  await sp.locator('.comp-card').first().waitFor();
+  const cards = (await sp.locator('.comp-card h2').allTextContents()).map(t => t.trim());
   const tabsById = {};
   const names = { scramble: 'Descifrar', typewriter: 'Máquina de escribir', magnet: 'Imán', trail: 'Estela', halo: 'Halo', spinners: 'Indicadores', progress: 'Barra de progreso', banner: 'Rótulo' };
   for (const [id, name] of Object.entries(names)) {
     if (!cards.includes(name)) { record('componentes', `${id}: tarjeta en la galería`, 'FAIL', 'no aparece'); continue; }
-    await sp.locator('.comp-card', { hasText: name }).first().click();
+    await sp.locator('.comp-card', { has: sp.locator('h2', { hasText: name }) }).first().locator('.comp-open').click();
     await sp.getByRole('button', { name: '← Todas las piezas' }).waitFor();
     const tabs = {};
     for (const tab of await sp.locator('.comp-detail [role="tab"]').all()) {
