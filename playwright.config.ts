@@ -7,6 +7,8 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const remote = process.env.BASE_URL;
 const extraArgs = (process.env.PW_ARGS ?? '').split(' ').filter(Boolean);
+/** PW_PORT lets several checkouts (worktrees) run the suite at the same time. */
+const port = Number(process.env.PW_PORT ?? 4173);
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -16,7 +18,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: remote ?? 'http://localhost:4173',
+    baseURL: remote ?? `http://localhost:${port}`,
     acceptDownloads: true,
     proxy: process.env.PW_PROXY ? { server: process.env.PW_PROXY } : undefined,
     launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', ...extraArgs] },
@@ -26,8 +28,8 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec/ },
   ],
   webServer: remote ? undefined : {
-    command: 'npm run build && npx vite preview --port 4173 --strictPort',
-    port: 4173,
+    command: `npm run build && npx vite preview --port ${port} --strictPort`,
+    port,
     reuseExistingServer: true,
     timeout: 180_000,
   },
