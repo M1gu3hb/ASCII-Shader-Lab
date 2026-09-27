@@ -33,8 +33,7 @@ un fotograma de video con un PNG de **ese mismo instante**. Las comparaciones de
 1 = opuestas); «desenfocado» es la misma medida tras un desenfoque gaussiano σ = 2 px, que compara composición y color sin
 castigar el antialiasing de cada glifo.
 
-**Resultado de la última ejecución completa:** 360 comprobaciones, **360 PASS, 0 FAIL, 0 SKIP** (con `VERIFY_CA`, ver abajo);
-después se añadieron 3 comprobaciones de «reducir movimiento» en los componentes, también en PASS.
+**Resultado de la última ejecución completa** (versión final de la segunda pasada, con `VERIFY_CA`, ver abajo): 363 comprobaciones, **361 PASS, 2 FAIL, 0 SKIP**. Los 2 FAIL eran de medición, no de exportación: la captura de referencia del lienzo en la ventana de terminal (centrada en coordenadas fraccionarias) salía 1 px más alta; alineadas, el PNG coincide con el lienzo (RMSE 0,0010 y 0,0012). Con la captura corregida en el verificador, los grupos `imagen` y `terminal` dan **104 PASS, 0 FAIL**.
 Las 26 pruebas unitarias y las 13 e2e existentes (exportar, historial, sitio, móvil) también pasan.
 
 ## Matriz de compatibilidad
