@@ -118,11 +118,47 @@ describe('text exports on a real terminal', () => {
     expect(py).toContain('except BrokenPipeError');
   });
 
+  it('a piece name from a shared link stays inside the players\' header comment', async () => {
+    // U+2028/U+2029 end a line in JavaScript (not in Python): left in a `//` comment, the rest would run as code
+    const f = { cols: 4, rows: 1, fps: 2, frames: ['abcd'] };
+    for (const sep of ['\u2028', '\u2029', '\r', '\n', '\x85']) {
+      const node = await toNodePlayer(f, `Pieza${sep}process.exit(7)//`);
+      const header = node.split('\n')[2];
+      expect(header).toMatch(/^\/\/ Pieza +process\.exit\(7\)\/\/ · 4×1/);
+      expect(header).not.toMatch(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/);
+      const py = await toPythonPlayer(f, `Pieza${sep}raise SystemExit(7)#`);
+      expect(py.split('\n')[2]).not.toMatch(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/);
+    }
+    const { spawnSync } = await import('node:child_process');
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const file = join(mkdtempSync(join(tmpdir(), 'mt-')), 'p.mjs');
+    writeFileSync(file, await toNodePlayer(f, 'Pieza\u2028process.exit(7)//'));
+    const r = spawnSync(process.execPath, [file], { encoding: 'utf8', timeout: 5000 });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('abcd\x1b[0m\n');
+  });
+
   it('shell greeting only prints in interactive shells; the CLI snippet drops colours when redirected', async () => {
     expect(toShellBanner('hola\n')).toMatch(/^# Hecho con Monotrama[^\n]*\n# [^\n]*\ncase \$- in \*i\*\)\ncat <<'MONOTRAMA'\nhola\nMONOTRAMA\n;; esac\n$/);
     const { spawnSync } = await import('node:child_process');
     const r = spawnSync(process.execPath, ['--input-type=module', '-e', toJsString('\x1b[38;5;208mhola\x1b[0m\n')], { encoding: 'utf8' });
     expect(r.stdout).toBe('hola\n');
+  });
+
+  it.skipIf(process.platform === 'win32')('shell greeting: a line of the art never closes the heredoc early', async () => {
+    // a shared piece can write any text over the art (the message overlay), including the delimiter itself
+    const art = 'hola\nMONOTRAMA\necho INYECTADO\nMONOTRAMA_1\n: <<\'MONOTRAMA\'';
+    const sh = toShellBanner(art + '\n');
+    const delim = /^cat <<'([^']+)'$/m.exec(sh)![1];
+    expect(art.split('\n').some(l => l.trim() === delim)).toBe(false);
+    expect(sh).toContain(`\n${art}\n${delim}\n;; esac\n`);
+    const { spawnSync } = await import('node:child_process');
+    // run it as an interactive shell would (the guard only lets interactive shells through)
+    const r = spawnSync('bash', ['--noprofile', '--norc', '-c', sh.replace('case $- in', 'case i in')], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe(art + '\n');
   });
 });
 
