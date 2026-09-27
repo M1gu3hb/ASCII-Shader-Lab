@@ -34,7 +34,7 @@ un fotograma de video con un PNG de **ese mismo instante**. Las comparaciones de
 castigar el antialiasing de cada glifo.
 
 **Resultado de la última ejecución completa** (versión final de la segunda pasada, con `VERIFY_CA`, ver abajo): 363 comprobaciones, **361 PASS, 2 FAIL, 0 SKIP**. Los 2 FAIL eran de medición, no de exportación: la captura de referencia del lienzo en la ventana de terminal (centrada en coordenadas fraccionarias) salía 1 px más alta; alineadas, el PNG coincide con el lienzo (RMSE 0,0010 y 0,0012). Con la captura corregida en el verificador, los grupos `imagen` y `terminal` dan **104 PASS, 0 FAIL**.
-Las 26 pruebas unitarias y las 13 e2e existentes (exportar, historial, sitio, móvil) también pasan.
+Con esa misma versión pasan también las 179 pruebas unitarias y las 105 e2e (escritorio y móvil).
 
 ## Matriz de compatibilidad
 
