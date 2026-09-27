@@ -180,8 +180,30 @@ function scheduleGc(ms = 3000) {
 
 function bump(kind: ChangeKind) { return { kind, n: S().change.n + 1 }; }
 
+/* ------------------------------------------------------------------ */
+/* Link with the local media (media.ts registers; the store stays independent of it) */
+/* ------------------------------------------------------------------ */
+
+interface MediaLink {
+  /** Reference of the file loaded for a kind, if any. */
+  refFor(kind: 'image' | 'video'): Recipe['media']['ref'];
+  /** True while the stage cannot show this entry's media (a thumbnail now would show only the pattern). */
+  holdThumb(e: Entry): boolean;
+}
+let mediaLink: MediaLink | null = null;
+export function linkMedia(l: MediaLink) { mediaLink = l; }
+
+/** A piece that turns to an image or video without naming one takes the file on stage (what the person sees). */
+function nameLoadedMedia(r: Recipe) {
+  if ((r.source === 'image' || r.source === 'video') && r.media.ref?.kind !== r.source) {
+    const ref = mediaLink?.refFor(r.source);
+    if (ref) r.media.ref = { ...ref };
+  }
+}
+
 function pushEntry(e: Omit<Entry, 'id' | 'created' | 'edited' | 'origin'> & { origin?: Recipe }, kind: ChangeKind = 'roll') {
   const s = S();
+  nameLoadedMedia(e.recipe);
   const entry: Entry = { ...e, origin: cloneRecipe(e.origin ?? e.recipe), id: uid(), created: Date.now(), edited: false };
   const all = [...s.entries, entry];
   const p = limitHistory(all, all.length - 1);
@@ -244,6 +266,7 @@ export function edit(fn: (r: Recipe) => void, key = '') {
   if (!e) return;
   const next = cloneRecipe(e.recipe);
   fn(next);
+  if (next.source !== e.recipe.source) nameLoadedMedia(next);
   if (sameRecipe(next, e.recipe) && JSON.stringify(next.meta) === JSON.stringify(e.recipe.meta)) return;
   const st = stackOf(e.id), now = performance.now();
   if (!(key && st.key === key && now - st.t < 900)) {
@@ -283,7 +306,7 @@ export function restoreOrigin() {
 export function setThumb(entryId: string, thumb: string) {
   const s = S();
   const i = s.entries.findIndex(e => e.id === entryId);
-  if (i < 0) return;
+  if (i < 0 || (s.entries[i].thumb && mediaLink?.holdThumb(s.entries[i]))) return;
   const entries = s.entries.slice();
   entries[i] = { ...entries[i], thumb };
   set({ entries });

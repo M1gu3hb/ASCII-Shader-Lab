@@ -64,7 +64,9 @@ export async function put(file: Blob, meta: { kind: MediaKind; name: string; w: 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const id = await hashBytes(bytes);
   try {
-    if (await get(id, store())) return { id, stored: true };
+    const had = await get<StoredMedia>(id, store());
+    // already kept: refresh its date so a collection running right now leaves it alone
+    if (had) { await set(id, { ...had, added: Date.now() }, store()); return { id, stored: true }; }
     const rec: StoredMedia = {
       id, kind: meta.kind, name: meta.name.slice(0, 200), type, size: file.size, w: meta.w, h: meta.h, added: Date.now(),
       blob: new Blob([bytes as BlobPart], { type }),

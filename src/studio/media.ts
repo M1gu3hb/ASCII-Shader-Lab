@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { normMediaRef, type MediaRef } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 import { getMedia, guessType, kindOfType, put, type MediaKind, type PutResult } from './mediaStore';
-import { currentRecipe, useStudio } from './store';
+import { currentRecipe, linkMedia, useStudio } from './store';
 
 /**
  * Local media. Files are decoded in the browser and never uploaded anywhere.
@@ -11,7 +11,7 @@ import { currentRecipe, useStudio } from './store';
  * back in the history, opening a favourite or a project brings its own image back.
  * The camera is only requested when the person presses "Activar cámara" and is never stored.
  */
-export interface MediaInfo { name: string; w: number; h: number; size: number; id?: string }
+export interface MediaInfo { name: string; w: number; h: number; size: number; id?: string; type?: string }
 
 /**
  * What the current piece is missing: its file is being brought back from the store ('restoring'),
@@ -146,7 +146,7 @@ async function restore(kind: MediaKind, ref: MediaRef) {
     if (wanted(kind) === id) setNeed({ state: 'missing', ref });
     return;
   }
-  const info: MediaInfo = { id, name: ref.name ?? found.name ?? '', w: ref.w, h: ref.h, size: found.blob.size };
+  const info: MediaInfo = { id, name: ref.name ?? found.name ?? '', w: ref.w, h: ref.h, size: found.blob.size, type: ref.type ?? found.type };
   const ok = kind === 'image' ? await decodeImage(found.blob, info, g) : await openVideo(found.blob, info, g);
   if (gen[kind] !== g) return;
   restoring[kind] = '';
@@ -161,6 +161,16 @@ function wanted(kind: MediaKind): string | undefined {
 
 /** Starts following the current piece. Call once, after the store is hydrated. */
 export function startMediaSync() {
+  linkMedia({
+    refFor: kind => {
+      const i = (kind === 'image' ? image : video)?.info;
+      return i?.id ? normMediaRef({ id: i.id, kind, name: i.name, type: i.type, size: i.size, w: i.w, h: i.h }) : undefined;
+    },
+    holdThumb: e => {
+      const src = e.recipe.source;
+      return (src === 'image' && !shown.image) || (src === 'video' && !shown.video) || (src === 'camera' && !camEl);
+    },
+  });
   syncMedia(true);
   useStudio.subscribe((st, prev) => { if (st.entries !== prev.entries || st.cursor !== prev.cursor) syncMedia(); });
 }
@@ -280,7 +290,7 @@ export async function loadFile(file: File): Promise<Loaded | null> {
   }
   const stored = await put(file, { kind, name: file.name, w, h, lastModified: file.lastModified });
   const ref = normMediaRef({ id: stored.id, kind, name: file.name, type: file.type || guessType(file.name), size: file.size, w, h })!;
-  const info: MediaInfo = { id: stored.id, name: file.name, w, h, size: file.size };
+  const info: MediaInfo = { id: stored.id, name: file.name, w, h, size: file.size, type: ref.type };
   rememberFile(stored.id, file, file.name);
   if (gen[kind] !== g) { if (img && 'close' in img.el) img.el.close(); return null; }
   if (img) useImage({ el: img.el, info: { ...info } });
