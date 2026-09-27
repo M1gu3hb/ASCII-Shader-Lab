@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- @head -->
+<style>html,body{background:#0c0b0a;margin:0}</style>
+</head>
+<body class="g">
+<!-- @header -->
+
+<main id="contenido">
+  <section class="g-hero" aria-labelledby="titulo">
+    <div>
+      <nav class="crumbs" aria-label="Ruta de navegación"><ol><li><a href="/">Monotrama</a></li><li aria-current="page">Texto animado en ASCII</li></ol></nav>
+      <p class="eyebrow">Guía · Texto</p>
+      <h1 id="titulo">Texto animado hecho de <em>caracteres</em></h1>
+      <p class="g-lead">Escribe una palabra y rellénala con un patrón que se mueve, o haz que un mensaje se escriba, se borre y se descifre letra por letra. Para portadas, pantallas de carga, videos y redes.</p>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/?camino=palabra">Animar una palabra <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="#como">Cómo funciona</a>
+      </div>
+      <p class="g-note">Gratis · sin cuenta · acentos y eñes incluidos</p>
+    </div>
+    <figure class="example" data-demo="texto">
+      <div class="ex-frame">
+        <img src="/ex/texto-animado-ascii.webp" srcset="/ex/texto-animado-ascii-640.webp 640w, /ex/texto-animado-ascii.webp 1280w" sizes="(max-width: 900px) calc(100vw - 36px), min(52vw, 660px)" width="1280" height="800" alt="La palabra SEÑAL rellena de un patrón de plasma en caracteres rosas y cian" fetchpriority="high">
+      </div>
+      <figcaption>Render real del motor: la palabra «SEÑAL» con el estilo «Neón» (relleno de plasma, bloom y resplandor).<span class="ex-live-note"> En vivo: pasa el cursor para hacer ondas en las letras.</span></figcaption>
+    </figure>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="que-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Qué puedes hacer</p>
+        <h2 id="que-title">Palabras como materia.</h2>
+      </div>
+      <div class="principles">
+        <article><span class="glyph" aria-hidden="true">A</span><h3>Tu palabra, tu tipografía</h3><p>Martian Mono, JetBrains Mono, Instrument Serif, VT323, Press Start y más, con grosor, tamaño, espaciado, varias líneas y cursiva.</p></article>
+        <article><span class="glyph" aria-hidden="true">▒</span><h3>Relleno de patrón</h3><p>Las letras se llenan de plasma, franjas, nubes o cáusticas en movimiento, con tu paleta y tus caracteres.</p></article>
+        <article><span class="glyph" aria-hidden="true">_</span><h3>Mensajes que se animan</h3><p>Fijo, máquina de escribir, descifrar o marquesina, con velocidad, pausa antes de borrar, posición y cursor de bloque.</p></article>
+        <article><span class="glyph" aria-hidden="true">≈</span><h3>Disolver en el patrón</h3><p>Cada cierto tiempo, la palabra se deshace en el fondo y vuelve a formarse.</p></article>
+        <article><span class="glyph" aria-hidden="true">¶</span><h3>Dibujar con palabras</h3><p>El modo «Palabras» construye la imagen repitiendo la frase que elijas en lugar de símbolos sueltos.</p></article>
+        <article><span class="glyph" aria-hidden="true">◉</span><h3>Reacciona al cursor</h3><p>Ondas, lupa, empuje, remolino o caos: las letras responden cuando pasas por encima.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec" id="como" aria-labelledby="como-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Cómo funciona</p>
+        <h2 id="como-title">Tres pasos, sin instalar nada.</h2>
+      </div>
+      <ol class="steps">
+        <li><h3>Escribe</h3><p>En el espacio Tipo, pestaña «Texto», escribe tu palabra (Enter para otra línea) y elige tipografía.</p></li>
+        <li><h3>Anímala</h3><p>Elige un relleno en «Relleno», un mensaje en «Mensaje» o pulsa «Azar» (R) para que el estudio proponga.</p></li>
+        <li><h3>Llévatela</h3><p>Pulsa «Exportar» (E): imagen, vector, video, GIF o código para tu web.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="formatos-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Formatos y límites</p>
+        <h2 id="formatos-title">Qué te llevas, y qué no.</h2>
+      </div>
+      <dl class="outputs">
+        <div><dt>MP4, WebM y GIF</dt><dd>Clips renderizados fotograma a fotograma; con «Bucle perfecto», se repiten sin corte.<span class="limit"><b>Límite:</b> MP4 depende del codificador H.264 de tu navegador; el GIF llega a 25 fps y 128 colores.</span></dd></div>
+        <div><dt>PNG y SVG</dt><dd>Un fotograma en alta resolución, o en vector con el contorno real de cada carácter.<span class="limit"><b>Límite:</b> el SVG deja fuera los efectos de píxel, como el bloom y el resplandor.</span></dd></div>
+        <div><dt>HTML, Web Component y React</dt><dd>La palabra animada viva en tu web, con el motor incluido.<span class="limit"><b>Límite:</b> se dibuja en un lienzo: para buscadores y lectores de pantalla, añade también el texto real (por ejemplo, un título visualmente oculto).</span></dd></div>
+        <div><dt>Piezas de interfaz</dt><dd>Si quieres el efecto sobre texto HTML de verdad, seleccionable y accesible, el espacio Piezas tiene «Descifrar» y «Máquina de escribir» listos para copiar.<span class="limit"><b>Límite:</b> son efectos sobre letras, no rellenos de patrón.</span></dd></div>
+        <div><dt>Enlace y receta</dt><dd>Guardan la palabra y todos los ajustes para reabrirla tal cual.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="g-sec" aria-labelledby="privacidad-title">
+    <div class="wrap">
+      <div class="privacy-box">
+        <span class="glyph" aria-hidden="true">▣</span>
+        <div>
+          <h2 id="privacidad-title">Todo ocurre en tu navegador</h2>
+          <p>Tus textos no se envían a ningún servidor y no necesitas cuenta. El historial y la colección se guardan en este navegador; exporta la colección para llevarla contigo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Preguntas frecuentes</p>
+        <h2 id="faq-title">Antes de empezar.</h2>
+      </div>
+      <div class="faq">
+        <div><h3>¿Admite acentos, eñes y signos?</h3><p>Sí: la palabra se dibuja con la tipografía elegida, así que «SEÑAL», «¿Qué?» o «Él» salen tal cual.</p></div>
+        <div><h3>¿Puedo usar la animación en un logo o una campaña?</h3><p>Sí. Lo que creas es tuyo, y las tipografías que trae el estudio tienen licencia OFL, que permite usarlas para crear imágenes y videos. Más en <a href="/licencia/">Licencia y uso</a>.</p></div>
+        <div><h3>¿Por qué mi frase larga se ve pequeña?</h3><p>La palabra se ajusta al lienzo. Usa varias líneas, sube el tamaño o baja el tamaño de celda para ganar detalle.</p></div>
+        <div><h3>¿Puedo animar un texto largo?</h3><p>Para párrafos, usa «Mensaje» con máquina de escribir o marquesina: se escribe sobre el patrón, con placa detrás para que se lea.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec g-final" aria-labelledby="final-title">
+    <div class="wrap">
+      <h2 id="final-title">Dale movimiento a una palabra.</h2>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/?camino=palabra">Animar una palabra <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="/">Conocer Monotrama</a>
+      </div>
+      <p class="more-title">Otras guías</p>
+      <!-- @guides others -->
+    </div>
+  </section>
+</main>
+
+<!-- @footer -->
+<script type="module" src="/src/pages/main.ts"></script>
+</body>
+</html>
