@@ -1,24 +1,56 @@
-import { AsciiEngine } from '../engine/engine';
+import { createRenderer, loadBasicEngine, type CreatedRenderer } from '../engine/create';
 import { createFontLoader } from '../engine/fonts';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
+import type { Recipe } from '../engine/recipe';
+import type { Renderer } from '../engine/renderer';
+import { probeWebGL } from '../engine/support';
+import { useCaps } from './caps';
 import { attachEngine, pauseVideo, resumeVideo, stopCamera } from './media';
 import { currentEntry, currentRecipe, setStats, setThumb, useStudio } from './store';
 import { toast } from './toast';
 
-/** One live engine drives the studio stage; the store is the single source of truth. */
-let engine: AsciiEngine | null = null;
+/**
+ * One live renderer drives the studio stage; the store is the single source of truth.
+ * The bridge owns the stage canvas: it creates it inside the container the Stage renders, because
+ * createRenderer may swap it for a fresh one when WebGL fails late, and React must never hold that node.
+ */
+let engine: Renderer | null = null;
+let host: HTMLElement | null = null;
 let unsub: (() => void) | null = null;
 let thumbT = 0;
+let lostT = 0;
+let unwatch: (() => void) | null = null;
+/** Bumped by every mount and destroy: a mount still waiting for the basic engine's chunk knows it is stale. */
+let mountGen = 0;
 
 export const getEngine = () => engine;
 export const studioFonts = createFontLoader({ google: false });
 
-export function mountStudioEngine(canvas: HTMLCanvasElement): string | null {
+// the probe already knows when the stage will need the basic engine: fetch its chunk while the store hydrates
+if (probeWebGL().reason !== 'ok') void loadBasicEngine().catch(() => undefined);
+
+const NO_CANVAS = 'Este navegador no puede dibujar en un lienzo (ni WebGL ni Canvas 2D), así que el estudio no tiene dónde mostrar la pieza. Ábrelo en otro navegador, o actualiza este.';
+const NO_BASIC = 'No se pudo descargar el motor básico, el que dibuja la pieza sin WebGL (quizá se cortó la conexión o hay una versión nueva del estudio). Recarga la página para seguir: tu historial y tu colección se quedan.';
+
+/** Only the basic engine itself throwing 'canvas2d' means there is no canvas at all; anything else is its download. */
+const noCanvas = (e: unknown) => e instanceof Error && e.message === 'canvas2d';
+
+/**
+ * Mounts the live renderer in `container`: the WebGL 2 engine when it works, the basic engine otherwise.
+ * Only when not even Canvas 2D is available does the stage stay empty (caps.fatal says why).
+ */
+export async function mountStudioEngine(container: HTMLElement, o: { force?: 'basic' } = {}): Promise<void> {
   destroyStudioEngine();
+  const gen = ++mountGen;
+  host = container;
   const s = useStudio.getState();
-  let lastErr = 0;
-  try {
-    engine = new AsciiEngine(canvas, currentRecipe(s), {
+  let lastErr = 0, mounting = true;
+  let created: CreatedRenderer;
+  // a fresh canvas for each try (a canvas keeps the first kind of context it gave)
+  const make = () => {
+    const canvas = document.createElement('canvas');
+    container.replaceChildren(canvas);
+    return createRenderer(canvas, currentRecipe(), {
       library: PATTERN_GLSL,
       fonts: studioFonts,
       interactive: true,
@@ -27,44 +59,100 @@ export function mountStudioEngine(canvas: HTMLCanvasElement): string | null {
       maxPixelRatio: 2,
       autoplay: s.playing,
       reducedMotion: false,
-      onStats: st => setStats({ cols: st.cols, rows: st.rows, fps: st.fps }),
+      onStats: st => setStats({ cols: st.cols, rows: st.rows, fps: st.fps, pr: st.pixelRatio }),
       onError: m => {
         console.error('[monotrama]', m);
-        if (performance.now() - lastErr > 4000) { lastErr = performance.now(); toast('El motor no pudo compilar esa combinación. Prueba otra.'); }
+        // a WebGL failure while starting is not the piece's fault: the stage fell back to the basic engine
+        if (mounting) return;
+        if (performance.now() - lastErr > 4000) {
+          lastErr = performance.now();
+          toast(engine?.kind === 'basic' ? 'El motor básico no pudo dibujar esa combinación. Prueba otra.' : 'El motor no pudo compilar esa combinación. Prueba otra.');
+        }
       },
-    });
-  } catch (e) {
-    return (e as Error).message === 'webgl2'
-      ? 'Tu navegador no tiene WebGL 2 activo. Abre Monotrama en Chrome, Edge, Firefox o Safari actualizados.'
-      : 'No se pudo iniciar el motor gráfico: ' + (e as Error).message;
-  }
-  attachEngine(engine);
-  let prevSource = currentRecipe(s).source;
-  unsub = useStudio.subscribe((st, prev) => {
-    if (!engine) return;
-    if (st.change.n !== prev.change.n || st.cursor !== prev.cursor) {
-      const r = currentRecipe(st);
-      engine.set(r, { transition: st.change.kind !== 'edit' && !st.reducedMotion });
-      if (r.source !== prevSource) {
-        if (prevSource === 'camera') stopCamera();
-        if (prevSource === 'video') pauseVideo();
-        if (r.source === 'video') resumeVideo();
-        prevSource = r.source;
-      }
-      scheduleThumb();
+    }, o);
+  };
+  try {
+    // the WebGL engine is ready when this resolves (a microtask later); the basic one after its chunk loads
+    try { created = await make(); } catch (err) {
+      // the basic engine's chunk did not arrive: once more after a moment (a dropped connection)
+      if (noCanvas(err) || gen !== mountGen) throw err;
+      await new Promise(r => setTimeout(r, 1000));
+      if (gen !== mountGen) return;
+      created = await make();
     }
-    if (st.playing !== prev.playing) { if (st.playing) engine.play(); else engine.pause(); }
+  } catch (err) {
+    mounting = false;
+    if (gen !== mountGen) return;
+    container.replaceChildren();
+    useCaps.setState(noCanvas(err) ? { renderer: null, fatal: NO_CANVAS, fatalReload: false } : { renderer: null, fatal: NO_BASIC, fatalReload: true });
+    return;
+  }
+  mounting = false;
+  const e = created.renderer;
+  // the stage went away (or mounted again) while the renderer was on its way
+  if (gen !== mountGen) { e.destroy(); e.canvas.remove(); return; }
+  engine = e;
+  e.canvas.setAttribute('aria-hidden', 'true');
+  useCaps.setState({ renderer: e.kind, gl: created.status, fatal: null, ...(o.force ? {} : { lost: false }) });
+  if (e.kind === 'webgl2') watchContext(e.canvas);
+  attachEngine(e);
+  let prevSource = currentRecipe(s).source;
+  const follow = (r: Recipe, transition: boolean) => {
+    e.set(r, { transition });
+    if (r.source !== prevSource) {
+      if (prevSource === 'camera') stopCamera();
+      if (prevSource === 'video') pauseVideo();
+      if (r.source === 'video') resumeVideo();
+      prevSource = r.source;
+    }
+    scheduleThumb();
+  };
+  // the history may have moved while the basic engine's chunk was loading
+  const now = useStudio.getState();
+  if (currentRecipe(now) !== currentRecipe(s)) follow(currentRecipe(now), false);
+  if (now.playing !== s.playing) { if (now.playing) e.play(); else e.pause(); }
+  unsub = useStudio.subscribe((st, prev) => {
+    if (engine !== e) return;
+    if (st.change.n !== prev.change.n || st.cursor !== prev.cursor) follow(currentRecipe(st), st.change.kind !== 'edit' && !st.reducedMotion);
+    if (st.playing !== prev.playing) { if (st.playing) e.play(); else e.pause(); }
   });
   scheduleThumb();
-  return null;
+}
+
+/**
+ * A GPU reset takes the WebGL context away; the browser usually hands it back within a moment. If it
+ * does not, switch the stage to the basic engine instead of leaving it black.
+ */
+function watchContext(canvas: HTMLCanvasElement) {
+  const onLost = () => {
+    clearTimeout(lostT);
+    lostT = window.setTimeout(() => {
+      if (!host || engine?.canvas !== canvas) return;
+      const time = engine.time;
+      const gl = useCaps.getState().gl;
+      void mountStudioEngine(host, { force: 'basic' }).then(() => {
+        if (engine) engine.time = time;
+        useCaps.setState({ lost: true, gl: { ...gl, reason: 'blocked', detail: undefined } });
+      });
+    }, 3000);
+  };
+  const onRestored = () => clearTimeout(lostT);
+  canvas.addEventListener('webglcontextlost', onLost);
+  canvas.addEventListener('webglcontextrestored', onRestored);
+  unwatch = () => { canvas.removeEventListener('webglcontextlost', onLost); canvas.removeEventListener('webglcontextrestored', onRestored); };
 }
 
 export function destroyStudioEngine() {
+  mountGen++;
+  clearTimeout(lostT);
+  unwatch?.(); unwatch = null;
   unsub?.(); unsub = null;
   if (engine) engine.externalPulse = 0;
   attachEngine(null);
   engine?.destroy();
+  engine?.canvas.remove();
   engine = null;
+  host = null;
 }
 
 function scheduleThumb() {
@@ -93,4 +181,15 @@ export function captureThumb(w: number, h: number): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Shows a recipe on stage without touching the history (hold-to-compare: «ver original»);
+ * null returns to the current piece. Any history change while it shows also returns to it.
+ */
+export function previewRecipe(r: ReturnType<typeof currentRecipe> | null) {
+  if (!engine) return;
+  engine.set(r ?? currentRecipe(), { transition: false });
+  // a thumbnail taken while the original showed would label the edited piece with it: take it again
+  if (!r) scheduleThumb();
 }

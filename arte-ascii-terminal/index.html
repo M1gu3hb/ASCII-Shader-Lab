@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- @head -->
+<style>html,body{background:#0c0b0a;margin:0}</style>
+</head>
+<body class="g">
+<!-- @header -->
+
+<main id="contenido">
+  <section class="g-hero" aria-labelledby="titulo">
+    <div>
+      <nav class="crumbs" aria-label="Ruta de navegación"><ol><li><a href="/">Monotrama</a></li><li aria-current="page">Arte ASCII para terminal</li></ol></nav>
+      <p class="eyebrow">Guía · Terminal</p>
+      <h1 id="titulo">Arte ASCII para tu <em>terminal</em></h1>
+      <p class="g-lead">Piezas pensadas para la consola: rejillas de 80 columnas y ASCII puro. Cópialas como texto, en color ANSI, o como una animación que corre con Node o Python sin instalar nada.</p>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/#space=terminal">Abrir el espacio Terminal <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="#como">Cómo funciona</a>
+      </div>
+      <p class="g-note">Gratis · sin cuenta · scripts sin dependencias</p>
+    </div>
+    <figure class="example" data-demo="terminal">
+      <div class="ex-frame term">
+        <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>donut.c — 80×24</span></div>
+        <pre role="img" aria-label="Una dona girando dibujada con caracteres ASCII, 80 por 24 caracteres"><!-- @include:ex/terminal-donut.txt --></pre>
+      </div>
+      <figcaption>Fotograma real exportado como TXT (80×24, estilo «donut.c»). <a href="/ex/terminal-donut.txt">Descárgalo</a> y pruébalo con <code>cat</code>.<span class="ex-live-note"> En vivo: el motor dibuja cada fotograma y lo imprime como texto.</span></figcaption>
+    </figure>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="que-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Qué puedes hacer</p>
+        <h2 id="que-title">Lo que ves es lo que imprime tu consola.</h2>
+      </div>
+      <div class="principles">
+        <article><span class="glyph" aria-hidden="true">▦</span><h3>Tamaños de terminal</h3><p>80×24 por defecto, 100×30, 120×36, 132×43 o las columnas y filas que quieras. La vista muestra exactamente esa rejilla.</p></article>
+        <article><span class="glyph" aria-hidden="true">$</span><h3>Seis puntos de partida</h3><p>Consola, donut.c, Radar, Ecualizador, Ámbar y Cubo, o «Azar» con estilos retro, sólidos y fractales.</p></article>
+        <article><span class="glyph" aria-hidden="true">▚</span><h3>Color ANSI</h3><p>Sin color, 16 o 256 colores o color real de 24 bits, con o sin fondo pintado.</p></article>
+        <article><span class="glyph" aria-hidden="true">~</span><h3>Saludo de shell</h3><p>Copia un bloque listo para el final de tu <code>~/.bashrc</code> o <code>~/.zshrc</code> y te recibirá al abrir la terminal.</p></article>
+        <article><span class="glyph" aria-hidden="true">{}</span><h3>Para tu CLI</h3><p>Una cadena de JavaScript con los códigos ANSI, lista para imprimir desde tu herramienta de línea de comandos.</p></article>
+        <article><span class="glyph" aria-hidden="true">▶</span><h3>Animaciones</h3><p>De 1 a 30 s, de 8 a 24 fotogramas por segundo, como script de Node o Python o como grabación de asciinema.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec" id="como" aria-labelledby="como-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Cómo funciona</p>
+        <h2 id="como-title">Tres pasos, y a tu shell.</h2>
+      </div>
+      <ol class="steps">
+        <li><h3>Elige una pieza</h3><p>Abre el espacio Terminal y prueba los puntos de partida o pulsa «Azar» (R).</p></li>
+        <li><h3>Ajusta la rejilla</h3><p>En la pestaña «Terminal», fija columnas y filas; en «Glifos» y «Color», los caracteres y la paleta.</p></li>
+        <li><h3>Cópiala o descárgala</h3><p>En «Exportar», pestaña «Texto y terminal»: copia el texto, descarga el .ans o genera el script.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="formatos-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Formatos y límites</p>
+        <h2 id="formatos-title">Qué te llevas, y qué no.</h2>
+      </div>
+      <dl class="outputs">
+        <div><dt>Texto (.txt)</dt><dd>Los caracteres exactos del fotograma, para pegar en un README, un correo o un comentario de código.<span class="limit"><b>Límite:</b> sin color; se ve bien sólo con una fuente monoespaciada.</span></dd></div>
+        <div><dt>ANSI (.ans)</dt><dd>El mismo fotograma con códigos de color: <code>cat pieza.ans</code> y listo.<span class="limit"><b>Límite:</b> el color real (24 bits) necesita una terminal moderna; en 16 o 256 colores, la paleta se aproxima.</span></dd></div>
+        <div><dt>Node (.mjs) y Python (.py)</dt><dd>Scripts autónomos que reproducen la animación: <code>node pieza.mjs</code> o <code>python3 pieza.py</code>. Se detienen con Ctrl+C y restauran la terminal.<span class="limit"><b>Límite:</b> reproducen fotogramas ya calculados (hasta 30 s): no generan nada nuevo, y el archivo crece con la duración y el color.</span></dd></div>
+        <div><dt>asciinema (.cast)</dt><dd>Una grabación que se reproduce con <code>asciinema play</code> o se incrusta en la web.<span class="limit"><b>Límite:</b> igual que los scripts, es una secuencia fija de fotogramas.</span></dd></div>
+        <div><dt>HTML</dt><dd>El fotograma en color como página, para compartirlo fuera de la terminal.</dd></div>
+        <div><dt>Efectos</dt><dd>El barrido, la curvatura o el bloom se ven en el estudio y en las exportaciones de imagen y video.<span class="limit"><b>Límite:</b> no existen en una terminal: el texto y el ANSI llevan sólo caracteres y color.</span></dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="g-sec" aria-labelledby="privacidad-title">
+    <div class="wrap">
+      <div class="privacy-box">
+        <span class="glyph" aria-hidden="true">▣</span>
+        <div>
+          <h2 id="privacidad-title">Scripts que puedes leer</h2>
+          <p>Los scripts de Node y Python no instalan paquetes ni se conectan a internet: sólo imprimen fotogramas. Ábrelos antes de ejecutarlos; son texto plano.</p>
+          <p>Como el resto del estudio, todo se genera en tu navegador y nada se sube a ningún servidor.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Preguntas frecuentes</p>
+        <h2 id="faq-title">Antes de empezar.</h2>
+      </div>
+      <div class="faq">
+        <div><h3>¿Por qué 80 columnas?</h3><p>Es el ancho clásico de una terminal y cabe en casi cualquier ventana. Si la tuya es más ancha, sube las columnas: la vista del estudio se ajusta.</p></div>
+        <div><h3>¿Por qué las celdas son altas?</h3><p>Los caracteres de una terminal miden cerca del doble de alto que de ancho; por eso la proporción de celda está en 2 y la pieza no sale aplastada.</p></div>
+        <div><h3>¿Qué necesito para el script?</h3><p>Node.js o Python 3, que ya vienen en muchos sistemas. No hace falta instalar ninguna librería.</p></div>
+        <div><h3>¿Puedo usarlo en mi herramienta comercial?</h3><p>Sí. Lo que creas es tuyo y el código exportado es MIT-0, sin atribución obligatoria. Más en <a href="/licencia/">Licencia y uso</a>.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec g-final" aria-labelledby="final-title">
+    <div class="wrap">
+      <h2 id="final-title">Que tu consola también tenga arte.</h2>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/#space=terminal">Abrir el espacio Terminal <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="/">Conocer Monotrama</a>
+      </div>
+      <p class="more-title">Otras guías</p>
+      <!-- @guides others -->
+    </div>
+  </section>
+</main>
+
+<!-- @footer -->
+<script type="module" src="/src/pages/main.ts"></script>
+</body>
+</html>

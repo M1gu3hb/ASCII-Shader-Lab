@@ -1,43 +1,36 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { luminance } from '../engine/color';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SOURCE_NAMES } from '../engine/catalog';
+import { EngineNotes, StageFatal } from './BasicMode';
 import { mountStudioEngine, destroyStudioEngine } from './engineBridge';
 import { handleFile, pickFile } from './files';
 import { startCamera, useMedia } from './media';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
+import { useView } from './views/state';
+import { ViewBar, ViewStage, useStageInsets, type Insets } from './views/Views';
+import { StorageNote } from './Keeping';
+import { RecordingChip } from './Recording';
 
 export function Stage() {
-  const canvas = useRef<HTMLCanvasElement>(null);
+  // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
+  // inside it if WebGL fails late) and moved into the slot of the destination preview shown
+  const host = useMemo(() => {
+    const el = document.createElement('div');
+    el.className = 'cv-host';
+    el.setAttribute('role', 'img');
+    return el;
+  }, []);
   const wrap = useRef<HTMLDivElement>(null);
-  const [fatal, setFatal] = useState<string | null>(null);
+  const top = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState(false);
-  const space = useStudio(s => s.space);
-  const term = useStudio(s => s.ui.terminal);
   const recipe = useRecipe();
-  const terminal = space === 'terminal';
-  const [fit, setFit] = useState({ w: 800, h: 480, k: 1 });
+  const view = useView() ?? 'libre';
+  const ins = useStageInsets(wrap, top);
 
   useEffect(() => {
-    if (!canvas.current) return;
-    const err = mountStudioEngine(canvas.current);
-    if (err) setFatal(err);
+    void mountStudioEngine(host);
     return () => destroyStudioEngine();
-  }, []);
-
-  // terminal window: exact cols×rows in CSS pixels, scaled to fit the stage
-  useLayoutEffect(() => {
-    if (!terminal || !recipe || !wrap.current) return;
-    const measure = () => {
-      const el = wrap.current!;
-      const w = term.cols * recipe.glyph.cell, h = Math.round(term.rows * recipe.glyph.cell * recipe.glyph.aspect);
-      const aw = el.clientWidth - 36, ah = el.clientHeight - (window.innerWidth < 900 ? 190 : 150);
-      setFit({ w, h, k: Math.min(1, aw / w, (ah - 30) / h) });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(wrap.current);
-    return () => ro.disconnect();
-  }, [terminal, term.cols, term.rows, recipe?.glyph.cell, recipe?.glyph.aspect]);
+  }, [host]);
+  useEffect(() => { host.setAttribute('aria-label', describe(recipe)); }, [host, recipe]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -49,23 +42,23 @@ export function Stage() {
   return (
     <div
       ref={wrap}
-      className={'stage' + (drag ? ' dragging' : '')}
+      className={'stage view-' + view + (drag ? ' dragging' : '')}
       onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrag(true); } }}
       onDragLeave={e => { if (e.currentTarget === e.target) setDrag(false); }}
       onDrop={onDrop}
     >
-      <div className={terminal ? 'term-frame' : 'stage'}>
-        <div className={terminal ? 'term-win' : 'stage'} style={terminal ? { transform: `scale(${fit.k})` } : undefined}>
-          {terminal && <div className="term-bar" aria-hidden="true"><i /><i /><i /><span>monotrama — {term.cols}×{term.rows}</span></div>}
-          <div key="cv" className={terminal ? 'term-canvas' : 'stage'} style={terminal ? { width: fit.w, height: fit.h } : undefined}>
-            <canvas ref={canvas} role="img" aria-label={describe(recipe)} />
-          </div>
+      <ViewStage view={view} host={host} ins={ins} />
+      <StageFatal />
+      <MediaPrompt ins={ins} />
+      <div className="stage-top" ref={top}>
+        <ViewBar view={view} />
+        <div className="stage-notes">
+          <RecordingChip />
+          <EngineNotes />
+          <StorageNote />
+          <MotionNote />
         </div>
       </div>
-      {fatal && <div className="fatal"><div><p>{fatal}</p></div></div>}
-      <MediaPrompt />
-      <ContentPreview />
-      <MotionNote />
     </div>
   );
 }
@@ -76,44 +69,78 @@ function describe(r: ReturnType<typeof useRecipe>): string {
   return `Pieza ASCII animada. Fuente: ${SOURCE_NAMES[r.source]}. Patrones: ${pats}. Colores: ${r.color.stops.join(', ')} sobre ${r.color.bg}.`;
 }
 
-function MediaPrompt() {
+function MediaPrompt({ ins }: { ins: Insets }) {
   const source = useStudio(s => s.entries[s.cursor]?.recipe.source);
+  // in the room between the bar at the top of the stage and the seed line (or the sheet on phones)
+  const area = { top: ins.top, bottom: ins.bottom };
   const media = useMedia();
   const need = (source === 'image' && !media.image) || (source === 'video' && !media.video) || (source === 'camera' && media.camera !== 'on');
   if (!need) return null;
   const cam = source === 'camera';
+  const video = source === 'video';
+  // what is missing: the piece's own file (no longer stored here, or it never travelled), or nothing chosen yet
+  const miss = !cam && media.need?.ref.kind === source ? media.need : null;
+  const name = miss?.ref.name;
+  const dims = miss && miss.ref.w > 0 && miss.ref.h > 0 ? `${miss.ref.w}×${miss.ref.h}` : '';
+  if (miss?.state === 'restoring') {
+    return (
+      <div className="prompt" style={area}>
+        <div className="card restoring" role="status">
+          <p>Recuperando {name ? <>«{name}»</> : video ? 'el video' : 'la imagen'} de este navegador…</p>
+        </div>
+      </div>
+    );
+  }
+  let title: string, text: React.ReactNode;
+  if (cam) {
+    title = 'Tu cámara, en caracteres';
+    text = 'La cámara sólo se activa cuando pulsas el botón. Puedes apagarla cuando quieras.';
+  } else if (miss?.state === 'missing') {
+    // true whether the file was deleted here or never came (a recipe or collection from another computer)
+    title = video ? 'Falta el video de esta pieza' : 'Falta la imagen de esta pieza';
+    text = (
+      <>
+        {video
+          ? <>Esta pieza usaba {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`}, que no está guardado en este navegador. Vuelve a elegirlo o usa otro.</>
+          : <>Esta pieza usaba {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`}, que no está guardada en este navegador. Vuelve a elegirla o usa otra.</>}
+        <span className="dims">Una receta o una colección (.json) no lleva el archivo; una sesión o un proyecto (.zip), sí.</span>
+      </>
+    );
+  } else if (miss?.state === 'unreadable') {
+    title = video ? 'Este navegador no abre ese video' : 'Este navegador no abre esa imagen';
+    text = video
+      ? <>Esta pieza usa {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`}, pero este navegador no puede reproducirlo. Elígelo en MP4 (H.264) o WebM, o usa otro.</>
+      : <>Esta pieza usa {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`}, pero este navegador no puede abrirla. Elígela en JPG, PNG o WebP, o usa otra.</>;
+  } else if (miss?.state === 'foreign') {
+    title = video ? 'Pon aquí un video tuyo' : 'Pon aquí una imagen tuya';
+    text = (
+      <>
+        {video
+          ? 'Esta pieza se hizo con un video propio que no viaja en los enlaces. Elige uno tuyo para verla; mientras tanto ves el patrón de fondo.'
+          : 'Esta pieza se hizo con una imagen propia que no viaja en los enlaces. Elige una tuya para verla; mientras tanto ves el patrón de fondo.'}
+        {dims && <span className="dims">{video ? 'El video' : 'La imagen'} original medía {dims} px.</span>}
+      </>
+    );
+  } else {
+    title = video ? 'Suelta aquí un video' : 'Suelta aquí una imagen';
+    text = 'O elige un archivo de tu equipo. Mientras tanto ves el patrón de fondo.';
+  }
   return (
-    <div className="prompt">
+    <div className="prompt" style={area}>
       <div className="card" role="region" aria-label="Cargar fuente">
-        <h2>{cam ? 'Tu cámara, en caracteres' : source === 'video' ? 'Suelta aquí un video' : 'Suelta aquí una imagen'}</h2>
-        <p>{cam ? 'La cámara sólo se activa cuando pulsas el botón. Puedes apagarla cuando quieras.' : 'O elige un archivo de tu equipo. Mientras tanto ves el patrón de fondo.'}</p>
+        <h2>{title}</h2>
+        <p>{text}</p>
         {cam
           ? <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>
           : (
             <div className="row2">
-              <button type="button" className="btn primary" onClick={() => pickFile(source === 'video' ? 'video' : 'image')}>{source === 'video' ? 'Elegir video' : 'Elegir imagen'}</button>
+              <button type="button" className="btn primary" onClick={() => pickFile(video ? 'video' : 'image')}>{video ? 'Elegir video' : 'Elegir imagen'}</button>
               <button type="button" className="btn" onClick={() => { const p = startCamera(); edit(r => { r.source = 'camera'; }, 'cam'); void p; }}>Usar cámara</button>
             </div>
           )}
         {media.error && <p className="warn" style={{ marginTop: 12 }}>{media.error}</p>}
         <p className="privacy">Se procesa en tu navegador. Nada se sube a ningún servidor.</p>
       </div>
-    </div>
-  );
-}
-
-function ContentPreview() {
-  const on = useStudio(s => s.ui.preview && s.space === 'fondos');
-  const bg = useStudio(s => s.entries[s.cursor]?.recipe.color.bg ?? '#000');
-  if (!on) return null;
-  const light = luminance(bg) > 0.4;
-  const style = { '--pc': light ? '#111' : '#fff', '--pcb': light ? '#fff' : '#111' } as React.CSSProperties;
-  return (
-    <div className="preview-content" style={style} aria-hidden="true">
-      <div className="pc-nav"><span>Tu marca</span><span>Proyectos · Estudio · Contacto</span></div>
-      <h1>Un titular que se lee sin esfuerzo</h1>
-      <p>Así se verá tu fondo detrás de contenido real. Si cuesta leer, baja el contraste o sube el tamaño de celda.</p>
-      <span className="pc-btn">Botón principal</span>
     </div>
   );
 }

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QA · motor básico</title>
+<style>
+body{margin:0;background:#111;color:#ddd;font:12px/1.4 system-ui}
+header{padding:10px 12px;border-bottom:1px solid #333;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+header b{font-size:14px}
+h2{font-size:13px;margin:16px 12px 6px;color:#fff}
+.note{margin:0 12px;color:#999}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(500px,1fr));gap:10px;padding:8px 12px}
+figure{margin:0;background:#181818;padding:6px;border-radius:4px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.pair canvas{width:100%;aspect-ratio:16/9;display:block;background:#000}
+figcaption{padding:4px 0 0;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.bad{color:#ff8a65}.ok{color:#9ccc65}
+#live{display:block;width:1280px;height:720px;max-width:100%;background:#000}
+#livebar{margin:6px 12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+select,button{font:inherit}
+table{border-collapse:collapse;margin:6px 12px}td,th{border:1px solid #333;padding:2px 6px;text-align:right}th{text-align:left}
+</style></head>
+<body>
+<header><b>Motor básico (Canvas 2D) frente a WebGL 2</b><span id="probe"></span><span id="status">cargando…</span></header>
+<p class="note">Cada par: izquierda WebGL 2 (AsciiEngine), derecha básico (BasicEngine), mismo tamaño fijo y mismo tiempo. r = correlación de la luminancia por celda, glifos = celdas con el mismo carácter, ms = coste del cuadro.</p>
+<h2>En vivo (1280×720 CSS, motor básico)</h2>
+<div id="livebar"><select id="pick"></select><span id="livestats"></span></div>
+<canvas id="live"></canvas>
+<h2>Patrones</h2>
+<div class="grid" id="patterns"></div>
+<h2>Presets</h2>
+<div class="grid" id="presets"></div>
+<script type="module" src="./basic.ts"></script>
+</body></html>

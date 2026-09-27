@@ -36,6 +36,10 @@ export interface CompDef {
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 const js = (v: unknown) => JSON.stringify(v, null, 2);
+/** Single-quoted shell word. */
+const sq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+/** MIT-0 header of every exported file that contains code. */
+const LICENSE = 'Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.';
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function el(tag: string, style: string, text = ''): HTMLElement {
@@ -57,7 +61,8 @@ ${call}
 </script>`;
   const usage = `import { ${fn} } from './${file}';\n\n${call}`;
   const Comp = fn[0].toUpperCase() + fn.slice(1);
-  const react = `import { useEffect, useRef } from 'react';
+  const react = `// ${LICENSE}
+import { useEffect, useRef } from 'react';
 import { ${fn} } from './${file}';
 
 const OPTIONS = ${js(opts)};
@@ -216,40 +221,56 @@ export const COMPONENTS: CompDef[] = [
       const tabs = standardCode('spinner', 'spinners.js', spinnersSrc,
         `<span class="cargando" aria-label="${esc(String(v.label))}"></span> ${esc(String(v.label))}…`, '.cargando', v.name as never, `<span ref={ref} aria-label="Cargando" />`);
       const frames = JSON.stringify(s.frames);
+      const label = String(v.label) + '…';
       tabs.push({
-        id: 'node', label: 'Node CLI', lang: 'js', file: 'spinner.mjs', code: `// Indicador para tu CLI de Node. Ejecuta: node spinner.mjs
+        id: 'node', label: 'Node CLI', lang: 'js', file: 'spinner.mjs', code: `// ${LICENSE}
+// Indicador para tu CLI de Node. Ejecuta: node spinner.mjs
 const frames = ${frames};
+const label = ${JSON.stringify(label)};
+const out = process.stdout, tty = out.isTTY; // redirigido a un archivo sólo escribe el resultado
 let i = 0;
-process.stdout.write('\\x1b[?25l');
-const id = setInterval(() => process.stdout.write('\\r' + frames[i = (i + 1) % frames.length] + ' ${String(v.label).replace(/'/g, "\\'")}…'), ${s.interval});
+if (tty) out.write('\\x1b[?25l');
+const id = setInterval(() => { if (tty) out.write('\\r' + frames[i = (i + 1) % frames.length] + ' ' + label); }, ${s.interval});
+const stop = msg => { clearInterval(id); out.write((tty ? '\\r\\x1b[2K' : '') + msg + '\\n' + (tty ? '\\x1b[?25h' : '')); };
+process.on('SIGINT', () => { stop('✖ Cancelado'); process.exit(130); });
 // ...tu trabajo...
-setTimeout(() => { clearInterval(id); process.stdout.write('\\r\\x1b[2K✔ Listo\\n\\x1b[?25h'); }, 3000);
+setTimeout(() => stop('✔ Listo'), 3000);
 `,
       });
       tabs.push({
-        id: 'python', label: 'Python', lang: 'py', file: 'spinner.py', code: `# Indicador para tus scripts de Python
+        id: 'python', label: 'Python', lang: 'py', file: 'spinner.py', code: `# ${LICENSE}
+# Indicador para tus scripts de Python (sólo biblioteca estándar)
 import itertools, sys, time
 frames = ${frames}
-for f in itertools.islice(itertools.cycle(frames), 40):
-    sys.stdout.write("\\r" + f + " ${String(v.label).replace(/"/g, '\\"')}…")
-    sys.stdout.flush()
-    time.sleep(${s.interval / 1000})
-sys.stdout.write("\\r\\x1b[2K✔ Listo\\n")
+label = ${JSON.stringify(label)}
+tty = sys.stdout.isatty()  # redirigido a un archivo sólo escribe el resultado
+clear = "\\r\\x1b[2K" if tty else ""
+try:
+    for f in itertools.islice(itertools.cycle(frames), 40):  # ...tu trabajo...
+        if tty:
+            sys.stdout.write("\\r" + f + " " + label)
+            sys.stdout.flush()
+        time.sleep(${s.interval / 1000})
+    sys.stdout.write(clear + "✔ Listo\\n")
+except KeyboardInterrupt:
+    sys.stdout.write(clear + "✖ Cancelado\\n")
 `,
       });
       tabs.push({
         id: 'bash', label: 'Bash', lang: 'bash', file: 'spinner.sh', code: `#!/usr/bin/env bash
+# ${LICENSE}
 # Indicador para scripts de shell: spin <pid>
 spin() {
-  local frames=(${s.frames.map(f => `'${f.replace(/'/g, "'\\''")}'`).join(' ')})
+  local frames=(${s.frames.map(f => sq(f)).join(' ')})
   local i=0
-  tput civis
+  if [ -t 1 ]; then printf '\\033[?25l'; trap 'printf "\\r\\033[2K\\033[?25h"; exit 130' INT TERM; fi
   while kill -0 "$1" 2>/dev/null; do
-    printf '\\r%s ${String(v.label).replace(/'/g, '')}…' "\${frames[i++ % \${#frames[@]}]}"
+    if [ -t 1 ]; then printf '\\r%s %s' "\${frames[i++ % \${#frames[@]}]}" ${sq(label)}; fi
     sleep ${(s.interval / 1000).toFixed(2)}
   done
-  printf '\\r\\033[2K✔ Listo\\n'
-  tput cnorm
+  if [ -t 1 ]; then printf '\\r\\033[2K'; fi
+  printf '✔ Listo\\n'
+  if [ -t 1 ]; then printf '\\033[?25h'; trap - INT TERM; fi
 }
 sleep 3 & spin $!
 `,
@@ -282,13 +303,15 @@ sleep 3 & spin $!
     code: v => {
       const tabs = standardCode('progress', 'spinners.js', spinnersSrc, `<pre class="progreso"></pre>`, '.progreso', { value: 0.42, width: v.width, style: v.style }, `<pre ref={ref} />`);
       tabs.push({
-        id: 'node', label: 'Node CLI', lang: 'js', file: 'progress.mjs', code: `${spinnersSrc.slice(spinnersSrc.indexOf('export const BAR_STYLES')).split('export function progress(')[0].replace(/export /g, '')}
-// Ejemplo
+        id: 'node', label: 'Node CLI', lang: 'js', file: 'progress.mjs', code: `// ${LICENSE}
+${spinnersSrc.slice(spinnersSrc.indexOf('export const BAR_STYLES')).split('export function progress(')[0].replace(/export /g, '')}
+// Ejemplo (redirigido a un archivo sólo escribe la barra final)
+const tty = process.stdout.isTTY;
 let v = 0;
 const id = setInterval(() => {
   v = Math.min(1, v + 0.03);
-  process.stdout.write('\\r' + progressText(v, ${v.width}, ${JSON.stringify(v.style)}));
-  if (v >= 1) { clearInterval(id); process.stdout.write('\\n'); }
+  if (tty) process.stdout.write('\\r' + progressText(v, ${v.width}, ${JSON.stringify(v.style)}));
+  if (v >= 1) { clearInterval(id); process.stdout.write((tty ? '' : progressText(v, ${v.width}, ${JSON.stringify(v.style)})) + '\\n'); }
 }, 60);
 `,
       });
@@ -318,8 +341,8 @@ const id = setInterval(() => {
       return [
         { id: 'text', label: 'Texto', code: txt + '\n', lang: 'txt', file: 'rotulo.txt' },
         { id: 'md', label: 'README', code: '```\n' + txt + '\n```\n', lang: 'md', file: 'rotulo.md' },
-        { id: 'bash', label: 'Saludo de shell', code: `# Pega al final de ~/.bashrc o ~/.zshrc\ncat <<'EOF'\n${txt}\nEOF\n`, lang: 'bash', file: 'saludo.sh' },
-        { id: 'js', label: 'Para tu CLI (JS)', code: `console.log(${JSON.stringify(txt)});\n`, lang: 'js', file: 'rotulo.js' },
+        { id: 'bash', label: 'Saludo de shell', code: `# ${LICENSE}\n# Pega al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).\ncase $- in *i*)\ncat <<'MONOTRAMA'\n${txt}\nMONOTRAMA\n;; esac\n`, lang: 'bash', file: 'saludo.sh' },
+        { id: 'js', label: 'Para tu CLI (JS)', code: `// ${LICENSE}\nconsole.log(${JSON.stringify(txt)});\n`, lang: 'js', file: 'rotulo.js' },
         { id: 'module', label: 'Módulo ES', code: `// banner.js — genera rótulos en el navegador\n${bannerSrc.trim()}\n`, lang: 'js', file: 'banner.js' },
       ];
     },

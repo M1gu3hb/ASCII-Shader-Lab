@@ -1,3 +1,4 @@
+// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Indicadores de carga y barras de progreso ASCII, para la web y para la terminal.
  * Monotrama · sin dependencias.

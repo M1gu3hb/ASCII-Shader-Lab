@@ -7,6 +7,7 @@ import { compileProgram, createTex, fboFor, halfFloatRenderable, loc, resizeTex,
 import { BLUR_FS, COMPOSE_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
 import type { PatternLibrary } from './glsl/patterns';
 import { drawTextSource, layoutMessage, messageState, type MsgLayout } from './text';
+import type { Renderer } from './renderer';
 
 export type MediaKind = 'image' | 'video' | 'camera';
 type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
@@ -52,7 +53,8 @@ export interface GridSnapshot {
 const SRC_OF = (r: Recipe, hasMedia: boolean): FieldSource =>
   r.source === 'text' ? 'text' : r.source === 'pattern' ? 'pattern' : hasMedia ? 'media' : 'pattern';
 
-export class AsciiEngine {
+export class AsciiEngine implements Renderer {
+  readonly kind = 'webgl2' as const;
   readonly canvas: HTMLCanvasElement;
   private gl!: WebGL2RenderingContext;
   private o: EngineOptions;

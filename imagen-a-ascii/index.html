@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- @head -->
+<style>html,body{background:#0c0b0a;margin:0}</style>
+</head>
+<body class="g">
+<!-- @header -->
+
+<main id="contenido">
+  <section class="g-hero" aria-labelledby="titulo">
+    <div>
+      <nav class="crumbs" aria-label="Ruta de navegación"><ol><li><a href="/">Monotrama</a></li><li aria-current="page">Imagen a ASCII</li></ol></nav>
+      <p class="eyebrow">Guía · Imagen</p>
+      <h1 id="titulo">Convierte tu foto en <em>arte ASCII</em></h1>
+      <p class="g-lead">Suelta una imagen en el estudio y mírala tejida con letras al instante. Ajusta la celda, los caracteres y el color, y llévatela como imagen, vector, texto o video.</p>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/?camino=foto">Convertir mi foto <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="#como">Cómo funciona</a>
+      </div>
+      <p class="g-note">Gratis · sin cuenta · tu imagen no sale de tu equipo</p>
+    </div>
+    <figure class="example" data-demo="imagen">
+      <div class="ex-frame">
+        <img src="/ex/imagen-a-ascii.webp" srcset="/ex/imagen-a-ascii-640.webp 640w, /ex/imagen-a-ascii.webp 1280w" sizes="(max-width: 900px) calc(100vw - 36px), min(52vw, 660px)" width="1280" height="800" alt="Paisaje al atardecer convertido en caracteres de colores con el estilo Retrato" fetchpriority="high">
+      </div>
+      <figcaption>Render real del motor: un paisaje sintético con el estilo «Retrato» (color de la imagen, celda de 8 px).<span class="ex-live-note"> En vivo: pasa el cursor para mover la lupa.</span></figcaption>
+    </figure>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="que-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Qué puedes hacer</p>
+        <h2 id="que-title">Tu foto, hecha de letras, a tu manera.</h2>
+      </div>
+      <div class="principles">
+        <article><span class="glyph" aria-hidden="true">▣</span><h3>Seis estilos de partida</h3><p>Retrato, Periódico, Fósforo, Bloques, Contornos y Revelado. O pulsa «Azar»: cada resultado queda en tu historial.</p></article>
+        <article><span class="glyph" aria-hidden="true">◐</span><h3>Su color o tu paleta</h3><p>Usa el color original de cada zona o una rampa de colores propia, con brillo, contraste, gamma y posterizado.</p></article>
+        <article><span class="glyph" aria-hidden="true">#</span><h3>Caracteres a tu medida</h3><p>Cambia el tamaño de celda, el juego de caracteres y la tipografía. Dibuja sólo los contornos o añade tramado.</p></article>
+        <article><span class="glyph" aria-hidden="true">◉</span><h3>Lupa y borrador</h3><p>Pasa el cursor para ampliar con una lupa o para borrar los caracteres y revelar la foto original debajo.</p></article>
+        <article><span class="glyph" aria-hidden="true">⌖</span><h3>Encuadre</h3><p>Cubrir, contener o estirar, con zoom de 0,5× a 4×, para que la parte importante quede donde la quieres.</p></article>
+        <article><span class="glyph" aria-hidden="true">⇲</span><h3>Exporta en grande</h3><p>Hasta 4K, vuelto a dibujar a ese tamaño (no ampliado), y con fondo transparente si lo necesitas.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec" id="como" aria-labelledby="como-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Cómo funciona</p>
+        <h2 id="como-title">Tres pasos, sin instalar nada.</h2>
+      </div>
+      <ol class="steps">
+        <li><h3>Elige tu foto</h3><p>Abre el estudio y, en el espacio Imagen, suelta el archivo sobre el lienzo o pulsa «Elegir imagen».</p></li>
+        <li><h3>Encuentra el estilo</h3><p>Prueba los estilos de partida o pulsa «Azar» (R). Afina celda, caracteres y color en el panel; ← y → recorren tu historial.</p></li>
+        <li><h3>Llévatela</h3><p>Pulsa «Exportar» (E) y elige imagen, vector, texto o video. Todo se genera en tu navegador.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="formatos-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Formatos y límites</p>
+        <h2 id="formatos-title">Qué te llevas, y qué no.</h2>
+      </div>
+      <dl class="outputs">
+        <div><dt>PNG, WebP y JPEG</dt><dd>Vueltos a dibujar al tamaño que elijas, hasta 3840×2160 (4K).<span class="limit"><b>Límite:</b> el fondo transparente sólo existe en PNG y WebP.</span></dd></div>
+        <div><dt>SVG</dt><dd>Cada letra con su contorno real: se amplía sin perder nitidez y se edita en Figma o Illustrator.<span class="limit"><b>Límite:</b> deja fuera los efectos de píxel (resplandor, bloom, barrido, grano, viñeta), porque no existen como vector.</span></dd></div>
+        <div><dt>Texto: TXT, ANSI y HTML</dt><dd>Los caracteres exactos, con las columnas y filas que elijas, sin color o con color ANSI.<span class="limit"><b>Límite:</b> en 16 o 256 colores, el color de la foto se aproxima a la paleta de la terminal; sólo «color real» lo conserva.</span></dd></div>
+        <div><dt>MP4, WebM y GIF</dt><dd>Si tu pieza tiene movimiento (patrón mezclado, efectos o interacción automática), se renderiza fotograma a fotograma.<span class="limit"><b>Límite:</b> MP4 depende del codificador H.264 de tu navegador; si no lo tiene, usa WebM o la grabación en directo. El GIF llega a 25 fps y 128 colores.</span></dd></div>
+        <div><dt>Enlace y receta</dt><dd>Guardan todos los ajustes para reabrir la pieza tal cual.<span class="limit"><b>Límite:</b> no llevan tu imagen: quien abra el enlace verá el patrón hasta cargar una suya. Para enviarla completa, exporta el proyecto (.zip).</span></dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="g-sec" aria-labelledby="privacidad-title">
+    <div class="wrap">
+      <div class="privacy-box">
+        <span class="glyph" aria-hidden="true">▣</span>
+        <div>
+          <h2 id="privacidad-title">Tu foto no sale de tu equipo</h2>
+          <p>La imagen se abre y se procesa en tu navegador: no se sube a ningún servidor y no necesitas cuenta. Lo que guardas (historial y colección) se queda en este navegador, y también una copia de la foto (hasta 40 MB) para reabrir tus piezas. Esa copia se borra cuando ya ninguna pieza la usa (por ejemplo, al vaciar el historial) o si borras los datos de este sitio.</p>
+          <p>Las fotos muy grandes se reducen a 2400 px por lado para trabajar con fluidez; al exportar, la pieza se vuelve a dibujar a la resolución que elijas.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec paper" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Preguntas frecuentes</p>
+        <h2 id="faq-title">Antes de empezar.</h2>
+      </div>
+      <div class="faq">
+        <div><h3>¿Qué imágenes puedo usar?</h3><p>JPG, PNG y WebP, y cualquier otro formato que tu navegador sepa abrir, como AVIF. También puedes soltar la imagen directamente sobre el lienzo.</p></div>
+        <div><h3>¿Puedo usar el resultado en un proyecto comercial?</h3><p>Sí. Lo que creas es tuyo y Monotrama no reclama nada sobre ello. Sólo asegúrate de tener derechos sobre la foto original. Más en <a href="/licencia/">Licencia y uso</a>.</p></div>
+        <div><h3>¿Funciona en el móvil?</h3><p>Sí, en navegadores móviles actuales: el panel se convierte en una hoja inferior. El motor completo necesita WebGL 2.</p></div>
+        <div><h3>¿Por qué el SVG se ve distinto del PNG?</h3><p>El SVG guarda las letras como vectores, y los efectos de píxel no existen como vector, así que se omiten. Si los quieres, exporta PNG o WebP.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g-sec g-final" aria-labelledby="final-title">
+    <div class="wrap">
+      <h2 id="final-title">Tu foto, en letras, en un minuto.</h2>
+      <div class="g-actions">
+        <a class="btn-cta" href="/studio/?camino=foto">Convertir mi foto <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="/">Conocer Monotrama</a>
+      </div>
+      <p class="more-title">Otras guías</p>
+      <!-- @guides others -->
+    </div>
+  </section>
+</main>
+
+<!-- @footer -->
+<script type="module" src="/src/pages/main.ts"></script>
+</body>
+</html>

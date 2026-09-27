@@ -3,15 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Estudio · Monotrama</title>
-<meta name="description" content="Estudio de arte ASCII en tiempo real: fondos animados, composiciones, imagen y cámara, tipografía y piezas para terminal. Todo en tu navegador.">
-<meta name="theme-color" content="#0c0b0a">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<style>html,body{background:#0c0b0a;margin:0}</style>
+<!-- @head -->
+<style>
+html,body{background:#0c0b0a;margin:0}
+/* Loading splash: fills the app area (the app is position:fixed inset:0 too), so React replaces it without a layout shift.
+   System fonts only: a web-font swap here would move the text while the studio loads. */
+.boot{position:fixed;inset:0;overflow:auto;display:grid;justify-items:center;align-content:start;padding:clamp(48px,14vh,160px) 20px 40px;box-sizing:border-box;background:#0c0b0a;color:#ede6da;font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.boot-in{max-width:640px}
+.boot-brand{display:flex;align-items:center;gap:10px;margin:0 0 28px;font:700 15px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:-.02em}
+.boot-brand svg{display:block}
+.boot h1{margin:0 0 16px;font:800 clamp(26px,4vw,40px)/1.08 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:-.04em}
+.boot p{margin:0 0 12px;color:#c9c2b6}
+.boot .boot-nojs{margin:24px 0 28px;color:#ffb08a}
+.boot-load{display:flex;align-items:center;gap:12px;margin:24px 0 28px!important;font:500 12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#8c857a!important}
+.boot-bar{position:relative;width:96px;height:2px;overflow:hidden;background:rgba(237,230,218,.14)}
+.boot-bar::after{content:"";position:absolute;inset:0;width:40%;background:#ff5b1f;animation:boot 1.1s cubic-bezier(.7,0,.2,1) infinite alternate}
+@keyframes boot{to{transform:translateX(150%)}}
+.boot nav p{margin:0 0 8px;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.16em;text-transform:uppercase;color:#6f695f}
+.boot ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 18px}
+.boot ul a{display:inline-block;padding:9px 0;color:#c9c2b6;text-underline-offset:3px}
+.boot a:focus-visible{outline:2px solid #ffb08a;outline-offset:3px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){.boot-bar::after{animation:none;width:100%;opacity:.5}}
+</style>
+<noscript><style>.boot-load{display:none!important}</style></noscript>
 </head>
 <body>
-<div id="root"></div>
-<noscript><p style="color:#ede6da;font:16px system-ui;padding:24px">El estudio necesita JavaScript y WebGL 2.</p></noscript>
+<div id="root">
+  <main class="boot">
+    <div class="boot-in">
+      <p class="boot-brand"><!-- @mark -->monotrama</p>
+      <h1>Estudio Monotrama: generador de arte ASCII en tu navegador</h1>
+      <p>Teje patrones, fotos, video, cámara y tipografía con caracteres, en tiempo real. Pulsa «Azar» para descubrir piezas, ajusta color, glifos y movimiento, y exporta a PNG, SVG, MP4, GIF, ANSI o código para tu web.</p>
+      <p>Todo ocurre en tu navegador: tus archivos no se suben a ningún servidor y no necesitas cuenta.</p>
+      <p class="boot-load" role="status"><span class="boot-bar" aria-hidden="true"></span>Cargando el estudio…</p>
+      <noscript><p class="boot-nojs">El estudio necesita JavaScript. Mientras tanto, las guías explican qué puedes hacer.</p></noscript>
+      <nav aria-labelledby="boot-guias"><p id="boot-guias">Guías</p><!-- @guide-links --></nav>
+    </div>
+  </main>
+</div>
 <script type="module" src="/src/studio/main.tsx"></script>
 </body>
 </html>

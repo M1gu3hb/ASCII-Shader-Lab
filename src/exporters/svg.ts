@@ -44,7 +44,8 @@ const FILES: Record<string, Record<number, string>> = {
 
 interface OFont {
   unitsPerEm: number; ascender: number; descender: number;
-  hasChar(c: string): boolean;
+  /** 0 = not in the font (.notdef). opentype's hasChar() is true for every character, so it can't be used. */
+  charToGlyphIndex(c: string): number;
   charToGlyph(c: string): { advanceWidth?: number; getPath(x: number, y: number, size: number): { toPathData(d: number): string } };
 }
 
@@ -75,16 +76,29 @@ const BLOCKS: Record<string, Array<[number, number, number, number, number]>> = 
   '▆': [[0, 2 / 8, 1, 6 / 8, 1]], '▇': [[0, 1 / 8, 1, 7 / 8, 1]],
 };
 
+/** Braille U+2800–28FF: dots 1-3 and 7 in the left column, 4-6 and 8 in the right one (bit order). */
+const BRAILLE_DOTS: Array<[number, number]> = [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [0, 3], [1, 3]];
+function brailleDots(chr: string): Array<[number, number]> | null {
+  const cp = chr.codePointAt(0) ?? 0;
+  if (cp < 0x2800 || cp > 0x28ff) return null;
+  return BRAILLE_DOTS.filter((_, b) => (cp - 0x2800) & (1 << b));
+}
+
 const hex = (g: GridSnapshot, i: number) => '#' + [0, 1, 2].map(k => g.rgb[i * 3 + k].toString(16).padStart(2, '0')).join('');
 const n = (v: number) => +v.toFixed(2);
-const escXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// XML 1.0 forbids C0 control characters (a piece name could carry one): drop them
+const escXml = (s: string) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export interface SvgResult { svg: string; notes: string[]; textFallback: number }
 
-export async function gridToSvg(g: GridSnapshot, r: Recipe, opts: { mode: 'outline' | 'text'; transparent?: boolean }): Promise<SvgResult> {
+/**
+ * `g.width`/`g.height` (the rendered canvas, when known) size the SVG like the PNG of the same frame:
+ * the last column and row are cut exactly where the canvas cuts them.
+ */
+export async function gridToSvg(g: GridSnapshot & { width?: number; height?: number }, r: Recipe, opts: { mode: 'outline' | 'text'; transparent?: boolean }): Promise<SvgResult> {
   const notes: string[] = [];
   const { cw, ch } = g;
-  const W = g.cols * cw, H = g.rows * ch;
+  const W = Math.min(g.cols * cw, g.width ?? Infinity), H = Math.min(g.rows * ch, g.height ?? Infinity);
   const info = fontById(r.glyph.font);
   const fs = Math.max(1, Math.min(ch * 0.82, cw * 1.55) * r.glyph.scale * (info.fit ?? 1));
   const pixelFx = (['glow', 'bloom', 'scan', 'curve', 'chroma', 'grain', 'flicker', 'vig'] as const).filter(k => r.fx[k] > 0.02);
@@ -100,7 +114,7 @@ export async function gridToSvg(g: GridSnapshot, r: Recipe, opts: { mode: 'outli
   const paths: string[] = [];
   const groups = new Map<string, string[]>();
   const rects: string[] = [];
-  let textFallback = 0;
+  let textFallback = 0, geometric = 0;
   const k = font ? fs / font.unitsPerEm : 0;
   const baseline = font ? ch / 2 + fs * 0.04 + ((font.ascender + font.descender) / 2) * k : 0;
   const push = (key: string, s: string) => { let a = groups.get(key); if (!a) { a = []; groups.set(key, a); } a.push(s); };
@@ -117,12 +131,21 @@ export async function gridToSvg(g: GridSnapshot, r: Recipe, opts: { mode: 'outli
       if (chr === ' ' || a < 0.16) continue;
       const op = a < 0.98 ? n(a) : 1;
       const key = `${c}|${op}`;
+      // block elements and braille are drawn as exact cell geometry: the embeddable font subsets don't have them
       const block = BLOCKS[chr];
       if (block) {
+        geometric++;
         for (const [bx, by, bw, bh, bo] of block) push(key, `<rect x="${n(x0 + bx * cw)}" y="${n(y0 + by * ch)}" width="${n(bw * cw)}" height="${n(bh * ch)}"${bo < 1 ? ` opacity="${bo}"` : ''}/>`);
         continue;
       }
-      if (font && font.hasChar(chr)) {
+      const dots = brailleDots(chr);
+      if (dots) {
+        geometric++;
+        const rad = n(Math.min(cw * 0.13, ch * 0.075));
+        for (const [dx, dy] of dots) push(key, `<circle cx="${n(x0 + (0.3 + dx * 0.4) * cw)}" cy="${n(y0 + (0.2 + dy * 0.2) * ch)}" r="${rad}"/>`);
+        continue;
+      }
+      if (font && font.charToGlyphIndex(chr) > 0) {
         let d = defs.get(chr);
         if (!d) {
           const gl = font.charToGlyph(chr);
@@ -131,13 +154,14 @@ export async function gridToSvg(g: GridSnapshot, r: Recipe, opts: { mode: 'outli
           defs.set(chr, d = { id, adv });
           paths.push(`<path id="${id}" d="${gl.getPath(0, 0, fs).toPathData(2)}"/>`);
         }
-        push(key, `<use href="#${d.id}" x="${n(x0 + (cw - d.adv) / 2)}" y="${n(y0 + baseline)}"/>`);
+        push(key, `<use xlink:href="#${d.id}" x="${n(x0 + (cw - d.adv) / 2)}" y="${n(y0 + baseline)}"/>`);
       } else {
         textFallback++;
         push(key, `<text x="${n(x0 + cw / 2)}" y="${n(y0 + ch / 2)}">${escXml(chr)}</text>`);
       }
     }
   }
+  if (geometric) notes.push('Bloques (█ ▓ ▒ ░ ▀ ▄…) y braille van como formas exactas de celda; en la vista dependen de la fuente de tu sistema y pueden verse algo distintos.');
   if (textFallback && opts.mode === 'outline') notes.push(`${textFallback} caracteres no están en la fuente incrustable y quedan como texto (dependen de las fuentes instaladas).`);
   const textAttrs = `font-family="${escXml(info.stack)}" font-size="${n(fs)}" font-weight="${r.glyph.weight}" text-anchor="middle" dominant-baseline="central"`;
   const body = [...groups.entries()].map(([key, items]) => {

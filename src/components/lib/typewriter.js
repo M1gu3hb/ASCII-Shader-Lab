@@ -1,3 +1,4 @@
+// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Máquina de escribir — escribe frases, las sostiene y las borra; el borrado puede «marchitar»
  * cada letra por una rampa de densidad (@ # * + - . ) en vez de retroceder.
@@ -24,19 +25,20 @@ export function typewriter(el, options = {}) {
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   el.textContent = '';
   const sr = document.createElement('span');
-  sr.textContent = phrases.join('. ');
+  sr.textContent = phrases.map(p => (/[.!?…:;]$/.test(p) ? p : p + '.')).join(' ');
   sr.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
   const vis = document.createElement('span');
   vis.setAttribute('aria-hidden', 'true');
   vis.style.whiteSpace = 'pre-wrap';
   const cur = document.createElement('span');
   cur.setAttribute('aria-hidden', 'true');
+  cur.className = 'mt-tw-cursor';
   cur.textContent = CURSORS[o.cursor] ?? '';
   cur.style.cssText = 'display:inline-block;margin-left:.04em;animation:mt-blink 1s steps(2,start) infinite';
   if (!document.getElementById('mt-blink-style')) {
     const st = document.createElement('style');
     st.id = 'mt-blink-style';
-    st.textContent = '@keyframes mt-blink{to{visibility:hidden}}@media (prefers-reduced-motion:reduce){[aria-hidden] {animation:none!important}}';
+    st.textContent = '@keyframes mt-blink{to{visibility:hidden}}@media (prefers-reduced-motion:reduce){.mt-tw-cursor{animation:none!important}}';
     document.head.appendChild(st);
   }
   el.append(sr, vis, cur);

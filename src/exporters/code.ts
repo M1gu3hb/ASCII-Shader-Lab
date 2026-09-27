@@ -1,10 +1,12 @@
 /**
  * Code exporters: a background or component that works when pasted into any website.
  * The runtime (engine) is inlined, plus only the GLSL of the patterns this recipe uses.
+ * Everything exported here carries the MIT-0 header: people can use, change and sell it without attribution.
  */
 import RUNTIME from 'virtual:mt-runtime';
 import { cloneRecipe, type Recipe } from '../engine/recipe';
 import { pickPatterns } from '../engine/glsl/patterns';
+import { LICENSE_LINE } from './text';
 
 export type Placement = 'fixed' | 'block' | 'hero';
 
@@ -14,22 +16,30 @@ export interface CodeOptions {
   systemFont: boolean;
   height: number;      // for 'block'
   mediaUrl: string;    // for image / video sources
+  /** Image shown instead when the visitor's browser has no WebGL 2 ('' = only the background colour). */
+  poster?: string;
 }
 
-export const DEFAULT_CODE: CodeOptions = { placement: 'fixed', interactive: true, systemFont: false, height: 420, mediaUrl: '' };
+export const DEFAULT_CODE: CodeOptions = { placement: 'fixed', interactive: true, systemFont: false, height: 420, mediaUrl: '', poster: '' };
 
 const safeRuntime = () => RUNTIME.replace(/<\/(script)/gi, '<\\/$1');
 const json = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
+/** Text that can sit inside an HTML comment (piece names come from shared links). */
+const inComment = (s: string) => s.replace(/-{2,}/g, '–').replace(/[<>]/g, '').replace(/[\r\n]+/g, ' ');
+/** Text that can sit inside a double-quoted / single-quoted HTML attribute. */
+const attr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const attr1 = (s: string) => s.replace(/&/g, '&amp;').replace(/'/g, '&#39;');
 
 export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes: string[] } {
   const x = cloneRecipe(r);
   const notes: string[] = [];
   x.meta = { name: r.meta.name, seed: r.meta.seed };
+  delete x.media.ref; // the local file's name and id stay in the studio (privacy); the code takes a media URL
   if (o.systemFont) {
     if (x.glyph.font !== 'system') notes.push('Tipografía cambiada a la mono del sistema: cero peticiones externas.');
     x.glyph.font = 'system';
   } else if (x.glyph.font !== 'system' && x.glyph.font !== 'courier') {
-    notes.push('La tipografía se carga desde Google Fonts. Actívala «sin dependencias» si prefieres la mono del sistema.');
+    notes.push('La tipografía se carga desde Google Fonts. Activa «Sin dependencias externas» si prefieres la mono del sistema.');
   }
   if (x.source === 'camera') { x.source = 'pattern'; notes.push('La cámara no se exporta: el código usa el patrón. Pide permiso de cámara en tu propia web si lo necesitas.'); }
   if ((x.source === 'image' || x.source === 'video') && !o.mediaUrl) notes.push(`Indica la URL de tu ${x.source === 'image' ? 'imagen' : 'video'} (mismo dominio o servida con CORS).`);
@@ -41,9 +51,12 @@ export function patternsFor(r: Recipe) {
   return pickPatterns(r.layers.filter(l => l.on).map(l => l.pattern));
 }
 
+const mediaOf = (r: Recipe, o: CodeOptions, root = '') => o.mediaUrl || (r.source === 'image' ? root + 'tu-imagen.jpg' : root + 'tu-video.mp4');
+
 function mountCall(r: Recipe, o: CodeOptions, target: string) {
   const opts: Record<string, unknown> = { patterns: '__P__', interactive: o.interactive, pointer: o.placement === 'fixed' ? 'window' : 'canvas' };
-  if ((r.source === 'image' || r.source === 'video')) opts.media = o.mediaUrl || (r.source === 'image' ? 'tu-imagen.jpg' : 'tu-video.mp4');
+  if ((r.source === 'image' || r.source === 'video')) opts.media = mediaOf(r, o);
+  opts.poster = o.poster ?? '';
   return `Monotrama.mount(${target}, ${json(r)}, ${json(opts).replace('"__P__"', json(patternsFor(r)))});`;
 }
 
@@ -60,12 +73,15 @@ export function htmlSnippet(src: Recipe, o: CodeOptions): { code: string; notes:
   const hero = o.placement === 'hero'
     ? `\n  <div style="position:relative;z-index:1;text-align:center;color:#fff;padding:24px">\n    <h1>Tu titular</h1>\n  </div>`
     : '';
-  const code = `<!-- Monotrama · ${title} · ${new Date().toISOString().slice(0, 10)}
-     Fondo ASCII animado. Sin librerías. Respeta «reducir movimiento» y se pausa fuera de pantalla. -->
+  const code = `<!-- ${LICENSE_LINE}
+     Monotrama · ${inComment(title)} · ${new Date().toISOString().slice(0, 10)}
+     Fondo ASCII animado, sin librerías. Se pausa fuera de pantalla y respeta «reducir movimiento».
+     Sin WebGL 2 muestra el color de fondo, o tu póster si pones su URL en "poster". -->
 <div class="monotrama" style="${wrapperStyle(r, o)}">
   <canvas style="position:absolute;inset:0;width:100%;height:100%;display:block" aria-hidden="true"></canvas>${hero}
 </div>
 <script>
+/* ${LICENSE_LINE} */
 ${safeRuntime()}
 ${mountCall(r, o, 'document.currentScript.previousElementSibling.querySelector("canvas")')}
 </script>`;
@@ -80,7 +96,7 @@ export function htmlPage(src: Recipe, o: CodeOptions): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title.replace(/</g, '')}</title>
+<title>${title.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>
 <style>html,body{margin:0;min-height:100%;background:${src.color.bg};color:#fff;font-family:system-ui,sans-serif}</style>
 </head>
 <body>
@@ -93,18 +109,19 @@ ${code}
 /** A standalone file that defines <monotrama-field>. */
 export function webComponent(src: Recipe, o: CodeOptions): { file: string; usage: string; notes: string[] } {
   const { recipe: r, notes } = exportRecipe(src, o);
-  const file = `/*! Monotrama <monotrama-field> · https://github.com/M1gu3hb/ASCII-Shader-Lab */
+  const file = `/*! ${LICENSE_LINE}
+    <monotrama-field recipe='{…}'> · atributos: src (imagen o video), pointer="window", static, paused, poster (imagen si no hay WebGL 2) */
 ${RUNTIME}
 Monotrama.register(${json(patternsFor(r))});
 `;
-  const attrJson = JSON.stringify(r).replace(/'/g, '&#39;');
-  const media = r.source === 'image' || r.source === 'video' ? ` src="${o.mediaUrl || (r.source === 'image' ? 'tu-imagen.jpg' : 'tu-video.mp4')}"` : '';
+  const media = r.source === 'image' || r.source === 'video' ? ` src="${attr(mediaOf(r, o))}"` : '';
   const style = o.placement === 'fixed' ? 'position:fixed;inset:0;z-index:-1' : o.placement === 'hero' ? 'min-height:100vh' : `height:${o.height}px`;
-  const usage = `<script src="monotrama-field.js" defer></script>
+  const usage = `<!-- ${LICENSE_LINE} -->
+<script src="monotrama-field.js" defer></script>
 
-<monotrama-field${media}${o.placement === 'fixed' ? ' pointer="window"' : ''}${o.interactive ? '' : ' static'}
+<monotrama-field${media}${o.placement === 'fixed' ? ' pointer="window"' : ''}${o.interactive ? '' : ' static'} poster="${attr(o.poster ?? '')}"
   style="${style};background:${r.color.bg}"
-  recipe='${attrJson}'>
+  recipe='${attr1(JSON.stringify(r))}'>
 </monotrama-field>`;
   return { file, usage, notes };
 }
@@ -113,9 +130,11 @@ Monotrama.register(${json(patternsFor(r))});
 export function reactComponent(src: Recipe, o: CodeOptions, name = 'MonotramaBackground'): { code: string; notes: string[] } {
   const { recipe: r, notes } = exportRecipe(src, o);
   const fixed = o.placement === 'fixed';
-  const media = r.source === 'image' || r.source === 'video' ? `media: ${JSON.stringify(o.mediaUrl || (r.source === 'image' ? '/tu-imagen.jpg' : '/tu-video.mp4'))}, ` : '';
+  const media = r.source === 'image' || r.source === 'video' ? `media: ${JSON.stringify(mediaOf(r, o, '/'))}, ` : '';
   const code = `'use client';
-// ${name}.jsx — generado con Monotrama (ASCII Shader Lab). Sin dependencias.
+// ${LICENSE_LINE}
+// ${name}.jsx — fondo ASCII animado de Monotrama. Sin dependencias.
+// Props: className, style, interactive, poster (imagen que se ve si el navegador no tiene WebGL 2), children.
 import { useEffect, useRef } from 'react';
 
 const RECIPE = ${json(r)};
@@ -129,20 +148,22 @@ ${RUNTIME}
   return window.Monotrama;
 }
 
-export default function ${name}({ className, style, interactive = ${o.interactive}, children }) {
-  const canvas = useRef(null);
+export default function ${name}({ className, style, interactive = ${o.interactive}, poster = ${JSON.stringify(o.poster ?? '')}, children }) {
+  const box = useRef(null);
   useEffect(() => {
     const M = runtime();
-    if (!M || !canvas.current) return;
-    const ctl = M.mount(canvas.current, RECIPE, { patterns: PATTERNS, interactive, ${media}pointer: ${fixed ? "'window'" : "'canvas'"} });
+    if (!M || !box.current) return;
+    // mount() creates its own canvas and destroy() removes it: a released WebGL context can't be reused,
+    // and React (StrictMode) may mount twice
+    const ctl = M.mount(box.current, RECIPE, { patterns: PATTERNS, interactive, ${media}poster, pointer: ${fixed ? "'window'" : "'canvas'"} });
     return () => ctl && ctl.destroy();
-  }, [interactive]);
+  }, [interactive, poster]);
   return (
     <div
       className={className}
       style={{ ${fixed ? "position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none'" : o.placement === 'hero' ? "position: 'relative', minHeight: '100vh', overflow: 'hidden'" : `position: 'relative', height: ${o.height}, overflow: 'hidden'`}, background: RECIPE.color.bg, ...style }}
     >
-      <canvas ref={canvas} aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
+      <div ref={box} aria-hidden="true" style={{ position: 'absolute', inset: 0 }} />
       {children && <div style={{ position: 'relative' }}>{children}</div>}
     </div>
   );

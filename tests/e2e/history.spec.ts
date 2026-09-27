@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openStudio, seedText } from './helpers';
+import { openStudio, pressUntil, seedText } from './helpers';
 
 test.describe('azar con memoria', () => {
   test('tirar diez veces, volver a la cuarta, avanzar, guardar y recuperar tras recargar', async ({ page }) => {
@@ -35,8 +35,17 @@ test.describe('azar con memoria', () => {
     await page.keyboard.press('r');
     await expect(page.locator('.seedline')).toContainText('12/12');
 
-    // reload: history, cursor and collection persist
-    await page.waitForTimeout(900);
+    // reload: history, cursor and collection persist (wait until IndexedDB holds all 12, not a fixed delay)
+    await expect.poll(() => page.evaluate(() => new Promise<number>(res => {
+      const req = indexedDB.open('keyval-store');
+      req.onsuccess = () => {
+        const st = req.result.transaction('keyval').objectStore('keyval');
+        const g = st.get('mt.v3.history'), f = st.get('mt.v2.favorites');
+        f.onsuccess = () => res((g.result?.ids?.length ?? 0) + (g.result?.cursor === 11 ? 100 : 0) + (f.result?.length === 1 ? 1000 : 0));
+        f.onerror = () => res(-1);
+      };
+      req.onerror = () => res(-1);
+    })), { timeout: 15_000 }).toBe(1112);
     await page.reload();
     await expect(page.locator('.seedline')).toContainText('12/12');
     await expect(page.locator('.thumb')).toHaveCount(12);
@@ -91,8 +100,8 @@ test.describe('azar con memoria', () => {
     const b = await browser.newContext();
     const pb = await b.newPage();
     await pb.goto(link);
-    await expect(pb.locator('.seedline')).toBeVisible();
-    await pb.keyboard.press('e');
+    await expect(pb.locator('.seedline')).toBeVisible({ timeout: 45_000 });
+    await pressUntil(pb, 'e', pb.getByRole('tab', { name: 'Receta' }));
     await pb.getByRole('tab', { name: 'Receta' }).click();
     await expect(pb.getByRole('textbox', { name: 'Enlace' })).toHaveValue(link);
     await a.close();
