@@ -21,6 +21,7 @@ import { toast } from './toast';
 import { openWelcome } from './guide/state';
 import { storageProblem } from './Keeping';
 import { Sheet, trapTab } from './Sheet';
+import { Picker } from './ui/Picker';
 import './css/data.css';
 
 export { Sheet, trapTab };
@@ -247,12 +248,10 @@ export function SeedSheet() {
           <label className="lbl" htmlFor="seed-in">Semilla</label>
           <input id="seed-in" type="text" className="mono" value={v} onChange={e => setV(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') go(); }} autoFocus placeholder="faro-lunar-417" />
         </div>
-        <div className="ctl">
-          <label className="lbl" htmlFor="seed-arch">Estilo</label>
-          <select id="seed-arch" value={arch ?? ''} onChange={e => setArch(e.target.value || null)}>
-            <option value="">Cualquiera (según el espacio)</option>
-            {ARCHETYPES.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+        <div className="ctl cx">
+          <span className="lbl" id="seed-arch-l">Estilo</span>
+          <Picker id="seed-arch" value={arch ?? ''} label="Estilo" labelId="seed-arch-l" minWidth={280} onChange={v => setArch(v || null)}
+            options={[{ value: '', label: 'Cualquiera (según el espacio)', desc: 'El dado elige entre los estilos de este espacio.' }, ...ARCHETYPES.map(a => ({ value: a.id, label: a.name, desc: a.blurb }))]} />
         </div>
         <div className="row2">
           <button type="button" className="btn" onClick={() => setV(freshSeed())}>Inventar una</button>

@@ -4,6 +4,7 @@ import { IDownload, IFull, IGrid, IKeys, IPause, IPlay, ISliders } from './icons
 import { setPlaying, setSpace, setUI, useStudio } from './store';
 import { IGuide } from './guide/Welcome';
 import { openWelcome, useGuide } from './guide/state';
+import { Picker } from './ui/Picker';
 
 export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
@@ -30,9 +31,8 @@ export function TopBar() {
           <button key={s.id} type="button" aria-pressed={space === s.id} title={s.blurb} onClick={() => setSpace(s.id)}>{s.name}</button>
         ))}
       </nav>
-      <select className="space-select" aria-label="Espacio" value={space} onChange={e => setSpace(e.target.value as SpaceId)}>
-        {SPACES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-      </select>
+      <Picker<SpaceId> className="space-select" value={space} label="Espacio" minWidth={260} onChange={setSpace}
+        options={SPACES.map(s => ({ value: s.id, label: s.name, desc: s.blurb }))} />
       <div className="tb-right">
         {space !== 'componentes' && <span className="stats" aria-hidden="true">{stats.cols}×{stats.rows} · {stats.fps} fps</span>}
         {space !== 'componentes' && (

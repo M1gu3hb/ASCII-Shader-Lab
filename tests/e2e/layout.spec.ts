@@ -46,7 +46,7 @@ test.describe('en pantallas de escritorio', () => {
       } as typeof get;
     });
     await openStudio(page);
-    await page.getByRole('button', { name: 'README' }).click();
+    await page.getByRole('radio', { name: 'README' }).click();
     await expect(page.locator('.gh-pre code')).not.toHaveText(/Tejiendo/, { timeout: 30_000 });
     await page.waitForTimeout(1000);
     const before = await page.evaluate(() => (window as unknown as { gl2: number }).gl2);
@@ -60,10 +60,10 @@ test.describe('en pantallas de escritorio', () => {
     expect(made).toBeLessThanOrEqual(7);
   });
 
-  test('en una ventana baja, la vista vertical 9:16 se achica sin cortarse', async ({ page }) => {
+  test('en una ventana baja, la vista Historia / Reel 9:16 se achica sin cortarse', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await openStudio(page, '#space=fondos');
-    await page.getByRole('button', { name: 'Vertical 9:16' }).click();
+    await page.getByRole('radio', { name: 'Historia / Reel 9:16' }).click();
     // once the frame has taken the room it has (sizes settle over a couple of frames): inside, and centred
     await expect.poll(async () => {
       const area = (await page.locator('.vw-center').boundingBox())!;

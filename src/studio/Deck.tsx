@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { ARCHETYPES, archById } from '../random/archetypes';
+import { archById } from '../random/archetypes';
 import { LOCK_GROUPS, LOCK_NAMES, spaceById } from '../random/spaces';
 import { IDice, IExplore, ILock, INext, IPrev, IRedo, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH } from './icons';
 import {
@@ -12,6 +12,8 @@ import { setAuto, useLive } from './live';
 import { historyLabel, thumbBg } from './history';
 import { shareLink } from './ShareSheet';
 import { HoldCompare } from './guide/HoldCompare';
+import { Picker } from './ui/Picker';
+import { archetypeOptions } from './ui/options';
 
 export function dice() {
   const e = rollDice();
@@ -187,15 +189,9 @@ function DicePop({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </div>
-      <h3>Estilo del azar</h3>
-      <div className="ctl">
-        <select aria-label="Estilo del azar" value={arch ?? ''} onChange={e => setArch(e.target.value || null)} style={{ gridColumn: '1 / -1' }}>
-          <option value="">Cualquiera (según el espacio)</option>
-          {ARCHETYPES.filter(a => pool.includes(a.id)).map(a => <option key={a.id} value={a.id}>{a.name} — {a.blurb}</option>)}
-          <optgroup label="Otros estilos">
-            {ARCHETYPES.filter(a => !pool.includes(a.id)).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </optgroup>
-        </select>
+      <h3 id="dice-arch-l">Estilo del azar</h3>
+      <div className="ctl cx">
+        <Picker value={arch ?? ''} label="Estilo del azar" labelId="dice-arch-l" minWidth={280} options={archetypeOptions(pool)} onChange={v => setArch(v || null)} />
       </div>
       <h3>Variar</h3>
       <div className="ctl">

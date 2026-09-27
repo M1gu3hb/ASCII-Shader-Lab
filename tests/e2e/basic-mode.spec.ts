@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { contextOf, drawn, openExport } from './canvas';
 import { download, openStudio } from './helpers';
+import { choose } from './clip';
 
 /**
  * Honest exports: the export sheet never shows a button for a file this browser cannot produce.
@@ -21,7 +22,7 @@ test.describe('capacidades de exportación', () => {
     await expect(page.getByRole('button', { name: 'WebM', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Empezar a grabar' })).toBeEnabled();
     await page.getByLabel('Duración (s)').fill('1');
-    await page.locator('#gif-w').selectOption('320');
+    await page.getByRole('radio', { name: '320 px' }).click();
     const gif = await download(page, () => page.getByRole('button', { name: 'Descargar GIF' }).click());
     expect(readFileSync(gif.path).subarray(0, 6).toString()).toBe('GIF89a');
   });
@@ -46,12 +47,12 @@ test.describe('capacidades de exportación', () => {
     });
     await openStudio(page);
     await openExport(page, 'Video y GIF');
-    await page.locator('#v-size').selectOption('4k');
+    await choose(page, '#v-size', /^3840×2160/);
     const row = page.locator('.ex-na', { hasText: 'Video a 3840×2160: no disponible.' });
     await expect(row).toBeVisible();
     await expect(page.getByRole('button', { name: 'WebM', exact: true })).toHaveCount(0);
     await row.getByRole('button', { name: /^Usar / }).click();
-    await expect(page.locator('#v-size')).not.toHaveValue('4k');
+    await expect(page.locator('#v-size')).not.toHaveAttribute('data-value', '4k');
     await expect(page.getByRole('button', { name: 'WebM', exact: true })).toBeEnabled();
   });
 

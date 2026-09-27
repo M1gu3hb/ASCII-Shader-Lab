@@ -37,7 +37,7 @@ test.describe('exportaciones largas', () => {
     await openStudio(page);
     await openVideoTab(page);
     await page.getByLabel('Duración (s)').fill('2');
-    await page.getByLabel('Ancho').selectOption('320');
+    await page.getByRole('radio', { name: '320 px' }).click();
     let downloads = 0;
     page.on('download', () => { downloads++; });
     await page.getByRole('button', { name: 'Descargar GIF' }).click();
@@ -121,8 +121,8 @@ test.describe('exportaciones largas', () => {
     await expect.poll(() => page.evaluate(() => { const v = [...document.querySelectorAll('video')].find(x => x.duration > 5); return v ? !v.paused : false; })).toBe(true);
     await openVideoTab(page);
     await page.getByLabel('Duración (s)').fill('1');
-    await page.getByLabel('Fotogramas/s').selectOption('24');
-    await page.getByLabel('Ancho').selectOption('320');
+    await page.getByRole('radiogroup', { name: 'Fotogramas por segundo' }).getByRole('radio', { name: '24', exact: true }).click();
+    await page.getByRole('radio', { name: '320 px' }).click();
     // watch the video while the GIF is made: it is paused and moved to each frame's time, within the clip's second
     await page.evaluate(() => {
       const v = [...document.querySelectorAll('video')].find(x => x.duration > 5)!;
