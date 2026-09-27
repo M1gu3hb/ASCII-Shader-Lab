@@ -352,7 +352,7 @@ export function edit(fn: (r: Recipe) => void, key = '') {
 function replaceCurrent(e: Entry, kind: ChangeKind) {
   const s = S();
   const entries = s.entries.slice();
-  entries[s.cursor] = e;
+  entries[s.cursor] = { ...e, updated: Date.now() };
   set({ entries, change: bump(kind), undoTick: s.undoTick + 1 });
   persistSoon();
 }
@@ -394,22 +394,50 @@ export function clearHistory() {
   scheduleGc(3000, false);
 }
 
-/**
- * Adds the entries and favourites of a saved session after the current history (entries and
- * favourites already here, by id, are skipped) and moves to the session's current entry.
- */
-export function importSession(inc: { entries: unknown[]; favorites: unknown[]; cursor: number }) {
+type SessionInput = { entries: unknown[]; favorites: unknown[]; cursor: number };
+
+function mergeInput(inc: SessionInput) {
   const entries = inc.entries.map(normalizeEntry).filter((e): e is Entry => !!e);
   const favorites = inc.favorites.map(normalizeFavorite).filter((f): f is Favorite => !!f);
+  const m = mergeSession(S(), { entries, favorites, cursor: Math.max(0, Math.min(entries.length - 1, inc.cursor | 0)) });
+  return { entries, m };
+}
+
+/**
+ * What opening a session would do, without doing it: how many results it adds, and how many the
+ * history limit would then discard (the oldest by date), from the history here and from the session.
+ */
+export function planSession(inc: SessionInput): { added: number; count: number; dropOwn: number; dropIncoming: number } {
+  const { m } = mergeInput(inc);
+  const favIds = new Set(m.favorites.map(f => f.id));
+  const p = pruneHistory(m.entries, m.cursor, S().histLimit, e => !!e.favId && favIds.has(e.favId));
+  const own = new Set(S().entries.map(e => e.id));
+  const dropOwn = p.dropped.filter(e => own.has(e.id)).length;
+  return { added: m.added, count: S().entries.length, dropOwn, dropIncoming: p.dropped.length - dropOwn };
+}
+
+/**
+ * Adds the entries and favourites of a saved session to the history (see mergeSession: nothing is
+ * duplicated, and the newer version of an entry or favourite that is in both wins) and moves to the
+ * session's current entry. A local entry that gave way keeps its version one undo step away.
+ */
+export function importSession(inc: SessionInput) {
+  const { entries, m } = mergeInput(inc);
   const s = S();
-  const m = mergeSession(s, { entries, favorites, cursor: Math.max(0, Math.min(entries.length - 1, inc.cursor | 0)) });
+  for (const old of m.replaced) {
+    const st = stackOf(old.id);
+    st.past.push(old.recipe);
+    if (st.past.length > 100) st.past.shift();
+    st.future = []; st.key = '';
+  }
   const p = limitHistory(m.entries, m.cursor, m.favorites);
   const cur = p.entries[p.cursor];
-  set({ entries: p.entries, cursor: p.cursor, favorites: m.favorites, space: cur?.space ?? s.space, change: bump('load'), pruned: s.pruned + p.dropped.length });
+  set({ entries: p.entries, cursor: p.cursor, favorites: m.favorites, space: cur?.space ?? s.space, change: bump('load'), pruned: s.pruned + p.dropped.length, undoTick: s.undoTick + 1 });
   for (const e of entries) seen.add(fingerprint(e.recipe));
   persistSoon();
+  if (m.favAdded || m.favUpdated) saveNow();
   if (m.favAdded || p.entries.length > 50) askPersist();
-  return { added: m.added, skipped: m.skipped, favAdded: m.favAdded, dropped: p.dropped.length };
+  return { added: m.added, updated: m.updated, skipped: m.skipped, favAdded: m.favAdded, favUpdated: m.favUpdated, dropped: p.dropped.length };
 }
 
 /* ------------------------------------------------------------------ */
@@ -550,8 +578,9 @@ let savedIds: string[] = [];
 let savedCursor = -2;
 let savedFavs: Favorite[] | null = null;
 let savedSeen = -1;
-/** This tab's owner token (tabs.ts), written when it takes the studio data. */
+/** This tab's owner token (tabs.ts), written when it takes the studio data (again on the next save if that failed). */
 let token = '';
+let tokenStored = false;
 /** Set once another tab owns the data: nothing is written from here any more. */
 let paused = false;
 
@@ -626,13 +655,15 @@ async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Pr
   if (favs !== savedFavs) puts.push([K_FAV, favs]);
   const nSeen = seen.size;
   if (nSeen !== savedSeen) puts.push([K_SEEN, [...seen].slice(-6000)]);
-  if (kind === 'claim') puts.push([K_OWNER, token]);
+  const claim = kind === 'claim' || !tokenStored;
+  if (claim) puts.push([K_OWNER, token]);
   if (dropV2) dels.push(K_HIST_V2);
   if (!puts.length && !dels.length) { if (at === edits) guardUnload(false); return; }
   try {
     // one transaction: the records, the index that points to them and what nothing points to any more
-    const r = await idbWrite(puts, dels, kind === 'now' ? { fence: [K_OWNER, token] } : { commit: kind === 'leave' });
+    const r = await idbWrite(puts, dels, kind === 'now' && !claim ? { fence: [K_OWNER, token] } : { commit: kind === 'leave' });
     if (r === 'fenced') { lose(); return; }
+    if (claim) tokenStored = true;
     saved = next;
     if (index) { savedIds = ids; savedCursor = s.cursor; }
     savedFavs = favs;
@@ -738,6 +769,8 @@ export async function hydrate(): Promise<boolean> {
   };
   if (typeof innerWidth === 'number' && innerWidth < 900) ui.panel = false;
   const space = spaceById(String(prefs.space ?? entries[cursor]?.space ?? 'arte')).id;
+  // this tab owns the data now (tabs.ts): its token goes in with the first save, below
+  token = uid() + uid();
   set({
     entries, cursor, favorites, ready: true, ui, histLimit, storage,
     space: entries[cursor]?.space ?? space,
@@ -751,8 +784,7 @@ export async function hydrate(): Promise<boolean> {
     set({ space: 'arte' });
     pushEntry({ recipe: p.make(), kind: 'inicio', label: p.name, space: 'arte' }, 'load');
   }
-  // this tab owns the data now (tabs.ts): its token goes in first, with what the load had to move
-  token = uid() + uid();
+  // the token, with what the load had to move (a v2 history) and the first piece of a first visit
   if (storage === 'ok') await writeChanges('claim', dropV2);
   // pagehide alone is unreliable on phones (tabs are often frozen or discarded without it)
   addEventListener('pagehide', flush);
