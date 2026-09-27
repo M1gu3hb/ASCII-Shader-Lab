@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ASCII Shader Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --panel:rgba(244,246,250,.92); --panel-solid:#f4f6fa; --text:#141b2b; --muted:#566174;
+  --line:rgba(20,27,43,.13); --field:rgba(20,27,43,.06); --accent:#b25f00; --accent-ink:#ffffff;
+  --rec:#d0342c;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --panel:rgba(11,19,33,.86); --panel-solid:#0b1321; --text:#e8edf5; --muted:#93a0b6;
+    --line:rgba(232,237,245,.12); --field:rgba(232,237,245,.07); --accent:#ffb547; --accent-ink:#1d1200;
+    --rec:#ff5a4f; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --panel:rgba(11,19,33,.86); --panel-solid:#0b1321; --text:#e8edf5; --muted:#93a0b6;
+  --line:rgba(232,237,245,.12); --field:rgba(232,237,245,.07); --accent:#ffb547; --accent-ink:#1d1200;
+  --rec:#ff5a4f; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:#05060a;color:var(--text);font:14px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+#stage{position:fixed;inset:0;background:#05060a}
+#cv{display:block;width:100%;height:100%;touch-action:none}
+body.dragging #stage::after{content:"";position:absolute;inset:12px;border:2px dashed var(--accent);border-radius:16px;pointer-events:none}
+
+.bar{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:8px;
+  padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 0;pointer-events:none}
+.bar>*{pointer-events:auto}
+.brand{display:flex;align-items:baseline;gap:10px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:0}
+.brand strong{font:600 14px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:-.01em;white-space:nowrap}
+#stats{font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+.ib{height:38px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);cursor:pointer;font-weight:500;white-space:nowrap}
+.ib:hover{border-color:var(--accent)}
+.ib svg{width:17px;height:17px;flex:none}
+
+#panel{position:fixed;z-index:4;top:calc(env(safe-area-inset-top,0px) + 62px);right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  width:348px;display:flex;flex-direction:column;background:var(--panel);backdrop-filter:blur(18px) saturate(1.15);-webkit-backdrop-filter:blur(18px) saturate(1.15);
+  border:1px solid var(--line);border-radius:16px;overflow:hidden}
+body.panel-off #panel{display:none}
+.presets{display:flex;gap:6px;overflow-x:auto;padding:12px 12px 10px;scrollbar-width:none;flex:none}
+.presets::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--field);cursor:pointer;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.tabs{display:flex;padding:0 6px;border-bottom:1px solid var(--line);flex:none}
+.tab{flex:1;padding:10px 2px 9px;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-weight:500;font-size:13px}
+.tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--accent)}
+.panes{flex:1;overflow-y:auto;padding:14px 14px 22px;overscroll-behavior:contain}
+
+.ctl{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px;margin:0 0 13px}
+.ctl .lbl{font-size:13px;color:var(--muted)}
+.ctl output{font:500 12px "IBM Plex Mono",ui-monospace,monospace;color:var(--text);font-variant-numeric:tabular-nums}
+.ctl input[type=range]{grid-column:1/-1;width:100%;margin:0;accent-color:var(--accent);height:20px}
+.ctl select,.ctl textarea,.ctl input[type=text]{grid-column:1/-1;width:100%;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.ctl textarea{resize:vertical;min-height:64px}
+.ctl input[type=text]{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px}
+select option{background:var(--panel-solid);color:var(--text)}
+.ctl.toggle input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+.ctl.color .sw{display:flex;align-items:center;gap:8px}
+.ctl.color input{width:40px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer}
+.seg{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:3px;background:var(--field);padding:3px;border-radius:10px}
+.seg button{flex:1 1 auto;border:0;background:none;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:500}
+.sub{font-size:13px;font-weight:600;margin:20px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+.note{font-size:12.5px;color:var(--muted);margin:-3px 0 13px}
+.btn{display:flex;width:100%;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+  background:var(--field);cursor:pointer;font-weight:500;margin:0 0 8px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.rec{background:var(--rec);color:#fff;border-color:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+#empty{position:fixed;inset:0;z-index:3;display:grid;place-items:center;pointer-events:none;padding:20px}
+body:not(.panel-off) #empty{padding-right:372px}
+.card{pointer-events:auto;background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line);
+  border-radius:14px;padding:18px;text-align:center;max-width:300px}
+.card p{margin:0 0 12px}
+.card .btn{margin:0}
+
+#toast{position:fixed;z-index:9;left:50%;top:calc(env(safe-area-inset-top,0px) + 62px);transform:translateX(-50%);max-width:min(440px,calc(100vw - 32px));
+  background:var(--panel-solid);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.on{opacity:1}
+
+dialog{background:var(--panel-solid);color:var(--text);border:1px solid var(--line);border-radius:14px;width:min(680px,94vw);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h2{font-size:16px;margin:0 0 6px}
+dialog textarea{width:100%;height:min(46vh,420px);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:10px;
+  font:12px/1.5 "IBM Plex Mono",ui-monospace,monospace;resize:vertical;margin:4px 0 12px}
+.dlgrow{display:flex;gap:8px;flex-wrap:wrap}
+.dlgrow .btn{width:auto;flex:1;margin:0}
+
+@media (max-width:760px){
+  #panel{top:auto;left:0;right:0;bottom:0;width:auto;height:min(50vh,470px);border-radius:18px 18px 0 0;border-bottom:0;
+    padding-bottom:env(safe-area-inset-bottom,0px)}
+  body:not(.panel-off) #empty{padding-right:20px;padding-bottom:min(50vh,470px)}
+  .ib span{display:none}
+  .ib{padding:0 10px}
+}
+@media (max-width:430px){ #stats{display:none} }
+@media (prefers-reduced-motion: reduce){ #toast{transition:none} }
+</style>
+</head>
+<body>
+<main id="stage"><canvas id="cv" role="img" aria-label="Vista previa del fondo ASCII"></canvas></main>
+
+<header class="bar">
+  <div class="brand"><strong>ASCII Shader Lab</strong><span id="stats"></span></div>
+  <div class="spacer"></div>
+  <button class="ib" id="bRand" type="button" title="Combinación aleatoria (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg><span>Aleatorio</span></button>
+  <button class="ib" id="bPause" type="button" title="Pausar animación (Espacio)"></button>
+  <button class="ib" id="bPanel" type="button" title="Mostrar u ocultar panel (H)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M4 12h16M4 18h7"/><circle cx="17" cy="6" r="2"/><circle cx="14" cy="18" r="2"/></svg><span>Panel</span></button>
+  <button class="ib" id="bFull" type="button" title="Pantalla completa (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Pantalla completa</span></button>
+</header>
+
+<aside id="panel" aria-label="Controles">
+  <div class="presets" id="presets" role="group" aria-label="Estilos listos"></div>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+  <div class="panes" id="panes"></div>
+</aside>
+
+<div id="empty" hidden><div class="card"><p id="emptyMsg"></p><button class="btn primary" id="emptyBtn" type="button"></button></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="file" hidden>
+
+<dialog id="dlg">
+  <h2 id="dlgTitle"></h2>
+  <p class="note" id="dlgNote"></p>
+  <textarea id="dlgText" spellcheck="false"></textarea>
+  <div class="dlgrow">
+    <button class="btn primary" id="dlgCopy" type="button">Copiar</button>
+    <button class="btn" id="dlgAlt" type="button"></button>
+    <button class="btn" id="dlgClose" type="button">Cerrar</button>
+  </div>
+</dialog>
+
+<script>
+/* ====================== Motor ASCII (autónomo, se exporta tal cual) ====================== */
+function ASCIIEngine(canvas, init, hooks){
+  hooks = hooks || {};
+  var DEF = {source:'pattern', patA:0, patB:-1, blend:0, mix:.5, scale:1, scaleB:1, speed:1, speedB:1, rot:0, warp:0, mouse:.4,
+    mediaBlend:2, mediaMix:0, fit:0, zoom:1, panX:0, panY:0, mirror:false, text:'MORPHIQ', textSize:1,
+    cell:10, aspect:1.4, dpr:1.5, charset:' .:-=+*#%@', sortDensity:true, font:'mono', weight:500, glyph:1,
+    bright:0, contrast:1, gamma:1, invert:false, dither:0, edge:0,
+    colorMode:0, colA:'#ffffff', colB:'#14142a', bg:'#05060a', sat:1, hue:0, vivid:.5, cycle:0,
+    cellBg:0, glow:0, scan:0, vig:0, paused:false, mediaSrc:''};
+  var FONTS = {mono:'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    jetbrains:'"JetBrains Mono", monospace', plex:'"IBM Plex Mono", monospace', space:'"Space Mono", monospace',
+    fira:'"Fira Code", monospace', vt:'"VT323", monospace', courier:'"Courier New", Courier, monospace'};
+  var GF = {jetbrains:'JetBrains+Mono:wght@100..800', plex:'IBM+Plex+Mono:wght@100;200;300;400;500;600;700',
+    space:'Space+Mono:wght@400;700', fira:'Fira+Code:wght@300..700', vt:'VT323'};
+  var SANS = '"Helvetica Neue", Arial, system-ui, sans-serif';
+  var S = {}, k;
+  for (k in DEF) S[k] = DEF[k];
+  if (init) for (k in init) if (k in DEF) S[k] = init[k];
+
+  var gl = canvas.getContext('webgl', {antialias:false, alpha:false, premultipliedAlpha:false, preserveDrawingBuffer:false, powerPreference:'high-performance'}) || canvas.getContext('experimental-webgl');
+  if (!gl) { if (hooks.onError) hooks.onError('webgl'); return null; }
+
+  var HEAD = '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n';
+  var LIB = `
+float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+float h11(float x){ return fract(sin(x*127.1)*43758.5453); }
+float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.-2.*f);
+  return mix(mix(h21(i),h21(i+vec2(1.,0.)),u.x), mix(h21(i+vec2(0.,1.)),h21(i+vec2(1.,1.)),u.x), u.y); }
+float fbm(vec2 p){ float v=0., a=.5; mat2 m=mat2(1.6,1.2,-1.2,1.6);
+  for(int i=0;i<5;i++){ v+=a*vnoise(p); p=m*p; a*=.5; } return v; }
+vec2 rot2(vec2 p, float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c)*p; }
+float pattern(int id, vec2 p, float t){
+  float v=0.;
+  if(id==0){ v=fbm(p*1.8+vec2(t*.25,-t*.18)); v=smoothstep(.2,.8,v); }
+  else if(id==1){ v=.5+.5*sin(p.x*6.+sin(p.y*3.2+t*.9)*1.6+t*1.4); }
+  else if(id==2){ v=sin(p.x*4.+t)+sin(p.y*4.5+t*1.3)+sin((p.x+p.y)*3.+t*.7)+sin(length(p*5.+vec2(sin(t*.3),cos(t*.4)))-t*1.2); v=.5+.125*v; }
+  else if(id==3){ v=.5+.5*sin(length(p)*16.-t*3.); }
+  else if(id==4){ float a=atan(p.y,p.x); v=.5+.5*sin(a*3.+length(p)*12.-t*2.5); }
+  else if(id==5){ float r=max(length(p),.001); float a=atan(p.y,p.x)/6.28318;
+    v=.5+.5*sin(a*6.28318*6.)*sin((.35/r+t*.6)*6.28318); v*=smoothstep(0.,.45,r); }
+  else if(id==6){ vec2 g=p*3.5; vec2 i=floor(g); vec2 f=fract(g); float md=8.;
+    for(int y=-1;y<=1;y++){ for(int x=-1;x<=1;x++){ vec2 o=vec2(float(x),float(y));
+      vec2 r=vec2(h21(i+o),h21(i+o+17.3)); r=.5+.4*sin(t*.7+6.28318*r); md=min(md,length(o+r-f)); } }
+    v=clamp(md*1.15,0.,1.); }
+  else if(id==7){ float c=floor(p.x*22.); float sp=.35+h11(c)*1.1; float y=p.y*.9+t*sp+h11(c+7.)*13.;
+    v=pow(fract(y),5.)*step(.15,h11(c+3.1)); }
+  else if(id==8){ float s=0.; for(int i=0;i<6;i++){ float fi=float(i);
+      vec2 c=.65*vec2(sin(t*(.45+fi*.13)+fi*1.7),cos(t*(.38+fi*.17)+fi*2.3)); vec2 d=p-c; s+=.035/(dot(d,d)+.001); }
+    v=smoothstep(.5,2.4,s); }
+  else if(id==9){ v=clamp(.5+.45*p.x+.12*sin(p.y*2.+t),0.,1.); }
+  else if(id==10){ v=.5+.5*sin(p.x*7.+t)*sin(p.y*7.-t*.6); }
+  else if(id==11){ float a=atan(p.y,p.x); v=.5+.5*sin(a*10.+t*1.4); v*=clamp(1.15-length(p)*.6,0.,1.); }
+  else if(id==12){ vec2 o=vec2(.45*sin(t*.5),.2*cos(t*.4)); v=.5+.25*(sin(length(p-o)*28.-t*2.)+sin(length(p+o)*28.-t*2.)); }
+  else if(id==13){ for(int k=0;k<2;k++){ float fk=float(k); vec2 g=p*(14.+fk*9.)+vec2(0.,t*(.6+fk*.9)); vec2 i=floor(g);
+      float h=h21(i+fk*31.); vec2 f=fract(g)-.5-(vec2(h21(i+3.1),h21(i+9.7))-.5)*.5;
+      v+=smoothstep(.3,0.,length(f))*step(.86,h)*(.55+.45*sin(t*3.+h*60.)); }
+    v=clamp(v,0.,1.); }
+  else if(id==14){ float n=fbm(vec2(p.x*2.6,p.y*1.8-t*1.4)); v=clamp(n*1.5-(p.y+.35)*.9,0.,1.); }
+  else { v=.5+.5*sin(max(abs(p.x),abs(p.y))*18.-t*3.); }
+  return v;
+}
+float blendf(float a, float b, int m, float k){
+  float r=b;
+  if(m==1) r=a+b; else if(m==2) r=a*b; else if(m==3) r=abs(a-b); else if(m==4) r=max(a,b);
+  else if(m==5) r=min(a,b); else if(m==6) r=1.-(1.-a)*(1.-b);
+  else if(m==7) r=a<.5?2.*a*b:1.-2.*(1.-a)*(1.-b);
+  return clamp(mix(a,r,k),0.,1.);
+}`;
+  var FS1 = HEAD + `
+uniform vec2 uRes, uCell, uMediaSize, uPan, uMouse;
+uniform float uTime, uZoom, uMirror, uMix, uScale, uScaleB, uSpeedB, uWarp, uRot, uMediaMix, uMouseAmt;
+uniform int uSource, uFit, uPatA, uPatB, uBlend, uMediaBlend;
+uniform sampler2D uMedia;
+` + LIB + `
+vec3 media(vec2 s){
+  float ca=uRes.x/uRes.y; float ma=uMediaSize.x/max(uMediaSize.y,1.);
+  vec2 k=vec2(1.);
+  if(uFit==0){ k = ca>ma ? vec2(1.,ma/ca) : vec2(ca/ma,1.); }
+  else if(uFit==1){ k = ca>ma ? vec2(ca/ma,1.) : vec2(1.,ma/ca); }
+  vec2 uv=(s-.5)*k/uZoom+.5+uPan;
+  if(uMirror>.5) uv.x=1.-uv.x;
+  if(uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.) return vec3(0.);
+  return texture2D(uMedia,uv).rgb;
+}
+void main(){
+  vec2 px=gl_FragCoord.xy*uCell;
+  vec2 p=(px-.5*uRes)/uRes.y;
+  vec2 m=(uMouse-.5*uRes)/uRes.y;
+  float t=uTime;
+  vec2 q=rot2(p,uRot)*uScale;
+  if(uWarp>0.) q+=uWarp*(vec2(fbm(q*1.2+t*.15),fbm(q*1.2+vec2(5.2,1.3)-t*.15))-.5)*2.;
+  float v=pattern(uPatA,q,t);
+  if(uPatB>=0){ float b=pattern(uPatB,q*uScaleB,t*uSpeedB); v=blendf(v,b,uBlend,uMix); }
+  vec3 col=vec3(v); float l=v;
+  if(uSource==1){
+    vec2 s=px/uRes; s.y=1.-s.y;
+    vec2 cs=uCell/uRes*.25;
+    vec3 c=(media(s+vec2(-cs.x,-cs.y))+media(s+vec2(cs.x,-cs.y))+media(s+vec2(-cs.x,cs.y))+media(s+cs))*.25;
+    col=c; float ml=dot(c,vec3(.299,.587,.114));
+    l = uMediaMix>0. ? blendf(ml,v,uMediaBlend,uMediaMix) : ml;
+  }
+  float d=length(p-m);
+  l=clamp(l+uMouseAmt*exp(-d*d*10.)*(.7+.3*sin(d*40.-t*6.)),0.,1.);
+  gl_FragColor=vec4(col,l);
+}`;
+  var FS2 = HEAD + `
+uniform vec2 uRes, uCell, uGrid, uAtlasGrid;
+uniform sampler2D uData, uAtlas;
+uniform float uN, uEdgeBase, uBright, uContrast, uGamma, uInvert, uDither, uEdge, uSat, uHue, uVivid, uCycle, uTime, uCellBg, uGlow, uGlyph, uScan, uVig;
+uniform int uMode, uIsMedia;
+uniform vec3 uColA, uColB, uBg;
+float bayer2(vec2 a){ a=floor(a); return fract(dot(a,vec2(.5,a.y*.75))); }
+float bayer4(vec2 a){ return bayer2(.5*a)*.25+bayer2(a); }
+vec3 hueShift(vec3 c, float a){ vec3 k=vec3(.57735); float ca=cos(a); return c*ca+cross(k,c)*sin(a)+k*dot(k,c)*(1.-ca); }
+float tone(float l){ l=(l-.5)*uContrast+.5+uBright; l=clamp(l,0.,1.); l=pow(l,uGamma); return mix(l,1.-l,uInvert); }
+float L(vec2 c){ return tone(texture2D(uData,(c+.5)/uGrid).a); }
+void main(){
+  vec2 fc=gl_FragCoord.xy;
+  vec2 cell=floor(fc/uCell);
+  vec2 lc=fract(fc/uCell);
+  vec4 d=texture2D(uData,(cell+.5)/uGrid);
+  float l=tone(d.a);
+  float lq=clamp(l+(bayer4(cell)-.5)*uDither/max(uN-1.,1.),0.,1.);
+  float idx=floor(lq*(uN-1.)+.5);
+  if(uEdge>0.){
+    float tl=L(cell+vec2(-1.,1.)), tc=L(cell+vec2(0.,1.)), tr=L(cell+vec2(1.,1.));
+    float ml=L(cell+vec2(-1.,0.)), mr=L(cell+vec2(1.,0.));
+    float bl=L(cell+vec2(-1.,-1.)), bc=L(cell+vec2(0.,-1.)), br=L(cell+vec2(1.,-1.));
+    float gx=(tr+2.*mr+br)-(tl+2.*ml+bl);
+    float gy=(tl+2.*tc+tr)-(bl+2.*bc+br);
+    if(length(vec2(gx,gy))>mix(2.2,.12,uEdge)){
+      float a=atan(gy,gx); if(a<0.) a+=3.14159265;
+      idx=uEdgeBase+mod(floor(a/.7853982+.5),4.);
+    }
+  }
+  vec2 g=(lc-.5)/uGlyph+.5;
+  float glyph=0.;
+  if(g.x>0.&&g.y>0.&&g.x<1.&&g.y<1.){
+    vec2 ac=vec2(floor(mod(idx+.5,uAtlasGrid.x)),floor((idx+.5)/uAtlasGrid.x));
+    glyph=texture2D(uAtlas,(ac+vec2(g.x,1.-g.y))/uAtlasGrid).a;
+  }
+  vec3 pal=.5+.5*cos(6.28318*(vec3(0.,.33,.67)+l*.85+uHue+uTime*uCycle));
+  vec3 base;
+  if(uMode==0) base=uColA;
+  else if(uMode==1) base=mix(uColB,uColA,l);
+  else if(uMode==2) base=pal;
+  else {
+    if(uIsMedia==1){ base=d.rgb; float mx=max(max(base.r,base.g),base.b); base=mix(base,base/max(mx,.04),uVivid); base=hueShift(base,uHue*6.28318); }
+    else base=pal;
+  }
+  if(uMode>=2){ float gr=dot(base,vec3(.299,.587,.114)); base=clamp(mix(vec3(gr),base,uSat),0.,1.); }
+  vec3 bgc=mix(uBg,base*l,uCellBg);
+  vec2 cc=lc-.5;
+  vec3 glow=base*l*uGlow*exp(-dot(cc,cc)*7.)*.55;
+  vec3 col=mix(bgc+glow,base,glyph);
+  col*=1.-uScan*.4*(.5+.5*cos(fc.y*1.5708));
+  vec2 vv=fc/uRes-.5; col*=1.-uVig*dot(vv,vv)*2.2;
+  gl_FragColor=vec4(clamp(col,0.,1.),1.);
+}`;
+  var VS = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+  function compile(type, src){
+    var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { var log = gl.getShaderInfoLog(s); if (hooks.onError) hooks.onError(log); throw new Error(log); }
+    return s;
+  }
+  function program(fs){
+    var p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { var log = gl.getProgramInfoLog(p); if (hooks.onError) hooks.onError(log); throw new Error(log); }
+    p.u = {}; return p;
+  }
+  var P1, P2;
+  try { P1 = program(FS1); P2 = program(FS2); } catch (e) { return null; }
+
+  var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,3,-1,-1,3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  function mkTex(filter){
+    var t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0,0,0,0]));
+    return t;
+  }
+  var atlasTex = mkTex(gl.LINEAR), mediaTex = mkTex(gl.LINEAR), dataTex = mkTex(gl.NEAREST), fbo = gl.createFramebuffer();
+
+  var W=1, H=1, cw=8, ch=8, cols=1, rows=1;
+  var needResize=true, atlasDirty=true, textDirty=true, mediaDirty=true, mediaOK=false;
+  var atlas = {cols:1, rows:1, n:1, edge:1};
+  var slots = {image:null, video:null, camera:null}, mW=1, mH=1;
+  var tcv = document.createElement('canvas'), tctx = tcv.getContext('2d');
+  var mouse=[-5000,-5000], mt=[-5000,-5000];
+  var tt=0, last=0, raf=0, alive=true, frames=0, fps=0, fpsT=0;
+
+  function rgb(h){ h = String(h||'#000').replace('#',''); if (h.length===3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    var n = parseInt(h,16)||0; return [(n>>16&255)/255, (n>>8&255)/255, (n&255)/255]; }
+  function U(p,n){ if (!(n in p.u)) p.u[n] = gl.getUniformLocation(p,n); return p.u[n]; }
+  function f1(p,n,a){ gl.uniform1f(U(p,n),a); }
+  function f2(p,n,a,b){ gl.uniform2f(U(p,n),a,b); }
+  function f3(p,n,c){ gl.uniform3f(U(p,n),c[0],c[1],c[2]); }
+  function i1(p,n,a){ gl.uniform1i(U(p,n),a); }
+  function stack(){ return FONTS[S.font] || FONTS.mono; }
+
+  function ensureFont(){
+    var f = S.font; if (!GF[f]) return;
+    var fam = FONTS[f].split(',')[0];
+    var go = function(){ if (document.fonts && document.fonts.load) document.fonts.load(S.weight+' 40px '+fam).then(function(){ atlasDirty=true; }, function(){}); };
+    var l = document.querySelector('link[data-ascii-font="'+f+'"]');
+    if (!l) { l = document.createElement('link'); l.rel='stylesheet'; l.href='https://fonts.googleapis.com/css2?family='+GF[f]+'&display=block';
+      l.setAttribute('data-ascii-font', f); l.onload = go; document.head.appendChild(l); }
+    else go();
+  }
+
+  function buildAtlas(){
+    atlasDirty = false;
+    var seen = {}, chars = [];
+    Array.from(String(S.charset||'')).forEach(function(c){ if (c==='\n'||c==='\r'||c==='\t') return; if (!seen[c]) { seen[c]=1; chars.push(c); } });
+    if (!chars.length) chars = [' ', '#'];
+    var G = 48, GH = Math.max(16, Math.round(G*S.aspect));
+    var fs = Math.round(Math.min(GH*.82, G*1.55));
+    var font = S.weight+' '+fs+'px '+stack();
+    var cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
+    function draw(list){
+      var n = list.length, ac = Math.min(16, n), ar = Math.ceil(n/ac);
+      cv.width = ac*G; cv.height = ar*GH;
+      cx.clearRect(0,0,cv.width,cv.height); cx.font = font; cx.fillStyle='#fff'; cx.textAlign='center'; cx.textBaseline='middle';
+      list.forEach(function(c,i){ cx.fillText(c, (i%ac)*G+G/2, Math.floor(i/ac)*GH+GH/2+fs*.04); });
+      return {ac:ac, ar:ar};
+    }
+    if (S.sortDensity && chars.length > 1) {
+      var g = draw(chars), data = cx.getImageData(0,0,cv.width,cv.height).data;
+      var dens = chars.map(function(c,i){ var x0=(i%g.ac)*G, y0=Math.floor(i/g.ac)*GH, s=0;
+        for (var y=y0; y<y0+GH; y+=2) for (var x=x0; x<x0+G; x+=2) s += data[(y*cv.width+x)*4+3]; return s; });
+      chars = chars.map(function(c,i){ return [c,dens[i],i]; }).sort(function(a,b){ return a[1]-b[1] || a[2]-b[2]; }).map(function(a){ return a[0]; });
+    }
+    var list = chars.concat(['|','\\','-','/']);
+    var g2 = draw(list);
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    atlas = {cols:g2.ac, rows:g2.ar, n:chars.length, edge:chars.length};
+  }
+
+  function buildText(){
+    textDirty = false;
+    var w = Math.max(64, Math.min(1600, W)), h = Math.max(32, Math.round(w*H/Math.max(W,1)));
+    tcv.width = w; tcv.height = h;
+    var c = tctx; c.fillStyle='#000'; c.fillRect(0,0,w,h);
+    var lines = String(S.text||'').split('\n');
+    c.font = '900 100px '+SANS; var mw = 1;
+    lines.forEach(function(l){ mw = Math.max(mw, c.measureText(l).width); });
+    var fs = Math.min(100*w*.9/mw, h*.86/(lines.length*1.02)) * S.textSize;
+    c.font = '900 '+fs+'px '+SANS; c.fillStyle='#fff'; c.textAlign='center'; c.textBaseline='middle';
+    var lh = fs*1.02, y0 = h/2-(lines.length-1)*lh/2;
+    lines.forEach(function(l,i){ c.fillText(l, w/2, y0+i*lh); });
+    mediaDirty = true;
+  }
+
+  function current(){ if (S.source==='text') return tcv; return slots[S.source] || null; }
+  function uploadMedia(){
+    var el = current(); if (!el) { mediaOK = false; return; }
+    var vid = (typeof HTMLVideoElement !== 'undefined') && (el instanceof HTMLVideoElement);
+    if (vid) { if (el.readyState < 2 || !el.videoWidth) return; mW = el.videoWidth; mH = el.videoHeight; }
+    else { if (!mediaDirty && mediaOK) return; mW = el.naturalWidth || el.width || 1; mH = el.naturalHeight || el.height || 1; }
+    gl.bindTexture(gl.TEXTURE_2D, mediaTex);
+    try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, el); mediaOK = true; mediaDirty = false; }
+    catch (e) { mediaOK = false; }
+  }
+
+  function resize(){
+    needResize = false;
+    var d = Math.min(S.dpr, Math.max(1, window.devicePixelRatio || 1));
+    var cw0 = canvas.clientWidth || 300, ch0 = canvas.clientHeight || 150;
+    W = Math.max(1, Math.round(cw0*d)); H = Math.max(1, Math.round(ch0*d));
+    if (canvas.width !== W) canvas.width = W; if (canvas.height !== H) canvas.height = H;
+    cw = Math.max(2, Math.round(S.cell*d)); ch = Math.max(2, Math.round(S.cell*S.aspect*d));
+    cols = Math.ceil(W/cw); rows = Math.ceil(H/ch);
+    gl.bindTexture(gl.TEXTURE_2D, dataTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cols, rows, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dataTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    textDirty = true;
+  }
+
+  function render(){
+    if (needResize) resize();
+    if (atlasDirty) buildAtlas();
+    if (S.source === 'text' && textDirty) buildText();
+    uploadMedia();
+    var useM = S.source !== 'pattern' && mediaOK;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0,0,cols,rows); gl.useProgram(P1);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, mediaTex); i1(P1,'uMedia',0);
+    f2(P1,'uRes',W,H); f2(P1,'uCell',cw,ch); f1(P1,'uTime',tt);
+    i1(P1,'uSource',useM?1:0); f2(P1,'uMediaSize',mW,mH); i1(P1,'uFit',+S.fit); f1(P1,'uZoom',S.zoom);
+    f2(P1,'uPan',S.panX,S.panY); f1(P1,'uMirror',S.mirror?1:0);
+    i1(P1,'uPatA',+S.patA); i1(P1,'uPatB',+S.patB); i1(P1,'uBlend',+S.blend); f1(P1,'uMix',S.mix);
+    f1(P1,'uScale',S.scale); f1(P1,'uScaleB',S.scaleB); f1(P1,'uSpeedB',S.speedB); f1(P1,'uWarp',S.warp); f1(P1,'uRot',S.rot*Math.PI/180);
+    i1(P1,'uMediaBlend',+S.mediaBlend); f1(P1,'uMediaMix',S.mediaMix);
+    f2(P1,'uMouse',mouse[0],mouse[1]); f1(P1,'uMouseAmt',S.mouse);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0,0,W,H); gl.useProgram(P2);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dataTex); i1(P2,'uData',0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, atlasTex); i1(P2,'uAtlas',1);
+    f2(P2,'uRes',W,H); f2(P2,'uCell',cw,ch); f2(P2,'uGrid',cols,rows); f2(P2,'uAtlasGrid',atlas.cols,atlas.rows);
+    f1(P2,'uN',atlas.n); f1(P2,'uEdgeBase',atlas.edge);
+    f1(P2,'uBright',S.bright); f1(P2,'uContrast',S.contrast); f1(P2,'uGamma',S.gamma); f1(P2,'uInvert',S.invert?1:0);
+    f1(P2,'uDither',S.dither); f1(P2,'uEdge',S.edge);
+    i1(P2,'uMode',+S.colorMode); i1(P2,'uIsMedia',useM?1:0);
+    f3(P2,'uColA',rgb(S.colA)); f3(P2,'uColB',rgb(S.colB)); f3(P2,'uBg',rgb(S.bg));
+    f1(P2,'uSat',S.sat); f1(P2,'uHue',S.hue); f1(P2,'uVivid',S.vivid); f1(P2,'uCycle',S.cycle); f1(P2,'uTime',tt);
+    f1(P2,'uCellBg',S.cellBg); f1(P2,'uGlow',S.glow); f1(P2,'uGlyph',S.glyph); f1(P2,'uScan',S.scan); f1(P2,'uVig',S.vig);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  function frame(now){
+    if (!alive) return;
+    raf = requestAnimationFrame(frame);
+    var dt = last ? Math.min(.1, (now-last)/1000) : 0; last = now;
+    if (!S.paused) tt += dt*S.speed;
+    var dx = mt[0]-mouse[0], dy = mt[1]-mouse[1];
+    if (Math.abs(dx) > W*1.5 || Math.abs(dy) > H*1.5) { mouse[0]=mt[0]; mouse[1]=mt[1]; }
+    else { var a = Math.min(1, dt*9); mouse[0]+=dx*a; mouse[1]+=dy*a; }
+    render();
+    frames++; if (now-fpsT > 500) { fps = Math.round(frames*1000/(now-fpsT)); frames = 0; fpsT = now; }
+  }
+
+  function onMove(e){ var r = canvas.getBoundingClientRect(); if (!r.width) return;
+    mt = [(e.clientX-r.left)*W/r.width, (r.bottom-e.clientY)*H/r.height]; }
+  function onOut(e){ if (!e.relatedTarget) mt = [-5000,-5000]; }
+  function onBlur(){ mt = [-5000,-5000]; }
+  function onWinResize(){ needResize = true; }
+  window.addEventListener('pointermove', onMove, {passive:true});
+  window.addEventListener('pointerdown', onMove, {passive:true});
+  document.addEventListener('mouseout', onOut);
+  window.addEventListener('blur', onBlur);
+  var ro = (typeof ResizeObserver !== 'undefined') ? new ResizeObserver(onWinResize) : null;
+  if (ro) ro.observe(canvas); else window.addEventListener('resize', onWinResize);
+
+  if (S.mediaSrc && (S.source === 'image' || S.source === 'video')) {
+    if (S.source === 'image') { var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function(){ slots.image = im; mediaDirty = true; mediaOK = false; }; im.src = S.mediaSrc; }
+    else { var v = document.createElement('video'); v.crossOrigin = 'anonymous'; v.muted = true; v.loop = true; v.playsInline = true;
+      v.setAttribute('playsinline',''); v.autoplay = true; v.src = S.mediaSrc; var pr = v.play && v.play(); if (pr && pr.catch) pr.catch(function(){}); slots.video = v; }
+  }
+
+  var api = {
+    set: function(p){
+      var rs=false, at=false, tx=false, ft=false;
+      for (var k in p) {
+        if (!(k in DEF) || S[k] === p[k]) continue;
+        S[k] = p[k];
+        if (k==='cell'||k==='aspect'||k==='dpr') rs = true;
+        if (k==='charset'||k==='font'||k==='weight'||k==='sortDensity'||k==='aspect') at = true;
+        if (k==='text'||k==='textSize'||k==='source') tx = true;
+        if (k==='source') { mediaDirty = true; mediaOK = false; }
+        if (k==='font'||k==='weight') ft = true;
+      }
+      if (rs) needResize = true; if (at) atlasDirty = true; if (tx) textDirty = true; if (ft) ensureFont();
+    },
+    get: function(){ var o = {}; for (var k in S) o[k] = S[k]; return o; },
+    defaults: function(){ var o = {}; for (var k in DEF) o[k] = DEF[k]; return o; },
+    setMedia: function(el, kind){ slots[kind] = el; if (S.source === kind) { mediaDirty = true; mediaOK = false; } },
+    hasMedia: function(kind){ return !!slots[kind]; },
+    info: function(){ return {cols:cols, rows:rows, fps:fps}; },
+    snapshot: function(cb){ render(); canvas.toBlob(cb, 'image/png'); },
+    destroy: function(){ alive = false; cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerdown', onMove);
+      document.removeEventListener('mouseout', onOut); window.removeEventListener('blur', onBlur); if (ro) ro.disconnect(); else window.removeEventListener('resize', onWinResize); }
+  };
+  ensureFont();
+  raf = requestAnimationFrame(frame);
+  return api;
+}
+
+/* ====================== App ====================== */
+(function(){
+const $ = id => document.getElementById(id);
+const KEY = 'ascii-shader-lab-v1';
+
+const CHARSETS = {
+  clasico: ' .:-=+*#%@',
+  detallado: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+  bloques: ' ░▒▓█',
+  puntos: ' ·•●',
+  binario: ' 01',
+  matrix: ' ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ0123456789Z:.=*+-<>',
+  hex: ' 0123456789ABCDEF',
+  lineas: ' -=≡',
+  simbolos: ' .+x*#'
+};
+const CHARSET_OPTS = [['clasico','Clásico'],['detallado','Detallado (70)'],['bloques','Bloques'],['puntos','Puntos'],['binario','Binario'],
+  ['matrix','Matrix'],['hex','Hexadecimal'],['lineas','Líneas'],['simbolos','Símbolos'],['custom','Personalizado']];
+const PATTERNS = ['Ruido fluido','Ondas','Plasma','Anillos','Espiral','Túnel','Células','Lluvia digital','Metaballs','Degradado',
+  'Tablero','Rayos','Interferencia','Estrellas','Fuego','Cuadros concéntricos'].map((n,i)=>[i,n]);
+const BLENDS = ['Normal','Sumar','Multiplicar','Diferencia','Aclarar','Oscurecer','Trama','Superponer'].map((n,i)=>[i,n]);
+const FONT_OPTS = [['mono','Monoespaciada del sistema'],['jetbrains','JetBrains Mono'],['plex','IBM Plex Mono'],['space','Space Mono'],
+  ['fira','Fira Code'],['vt','VT323 (terminal retro)'],['courier','Courier']];
+
+const PRESET_BASE = {patB:-1, blend:0, mix:.5, scale:1, scaleB:1, speed:1, speedB:1, rot:0, warp:0, mouse:.4, cell:10, aspect:1.4,
+  charset:CHARSETS.clasico, sortDensity:true, font:'mono', weight:500, glyph:1, bright:0, contrast:1, gamma:1, invert:false, dither:0, edge:0,
+  colorMode:0, colA:'#ffffff', colB:'#14142a', bg:'#05060a', sat:1, hue:0, vivid:.5, cycle:0, cellBg:0, glow:0, scan:0, vig:0};
+const PRESETS = [
+  {name:'Nebulosa', s:{patA:0,patB:8,blend:6,mix:.65,scale:1.1,scaleB:.9,speed:.6,warp:.55,colorMode:2,hue:.55,cycle:.02,charset:CHARSETS.detallado,cell:9,glow:.35,contrast:1.15,dither:.35,vig:.45,bg:'#04050c'}},
+  {name:'Matrix', s:{patA:7,patB:0,blend:2,mix:.45,scaleB:1.4,speedB:.4,colorMode:1,colA:'#c8ffd8',colB:'#0a5a26',bg:'#000000',charset:CHARSETS.matrix,cell:14,aspect:1.3,glow:.6,contrast:1.35,vig:.5,scan:.2}},
+  {name:'Océano', s:{patA:1,patB:2,blend:7,mix:.6,scale:1.3,speed:.7,warp:.3,colorMode:1,colA:'#c4f7ff',colB:'#06335a',bg:'#010b16',glow:.2}},
+  {name:'Vórtice', s:{patA:4,patB:3,blend:3,mix:1,scaleB:.6,speed:.9,warp:.15,colorMode:0,colA:'#eef3ff',bg:'#08090d',cell:8,edge:.55,contrast:1.2}},
+  {name:'Fuego', s:{patA:14,scale:1.3,speed:1.1,warp:.25,colorMode:1,colA:'#ffe38a',colB:'#8a1200',bg:'#0b0200',cell:9,glow:.5,contrast:1.2}},
+  {name:'Terminal', s:{patA:2,patB:0,blend:2,mix:.6,scale:.8,speed:.5,warp:.4,colorMode:0,colA:'#ffb547',bg:'#140b00',charset:CHARSETS.detallado,font:'vt',weight:400,cell:12,aspect:1.5,scan:.7,vig:.7,glow:.45}},
+  {name:'Túnel', s:{patA:5,patB:10,blend:2,mix:.5,scaleB:2,colorMode:2,cycle:.06,charset:CHARSETS.bloques,cell:10,aspect:1,bg:'#000000',glow:.2}},
+  {name:'Estrellas', s:{patA:13,patB:0,blend:4,mix:.2,speed:.6,colorMode:0,colA:'#dfe8ff',bg:'#02030a',charset:CHARSETS.puntos,cell:8,aspect:1,glow:.6,contrast:1.1}},
+  {name:'Hipnosis', s:{patA:15,patB:12,blend:3,mix:.7,speed:.8,colorMode:1,colA:'#ffffff',colB:'#3b1cff',bg:'#07031a',charset:CHARSETS.binario,cell:9,aspect:1.2}},
+  {name:'Minimal web', s:{patA:0,scale:.7,speed:.25,warp:.3,colorMode:1,colA:'#9aa3bb',colB:'#12141c',bg:'#0c0e14',charset:' .·:+',cell:14,aspect:1.3,contrast:.9,vig:.3,mouse:.7}}
+];
+
+function loadSaved(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+const saved = loadSaved();
+let initState = saved.engine ? Object.assign({}, saved.engine) : Object.assign({}, PRESET_BASE, PRESETS[0].s);
+if (['image','video','camera'].includes(initState.source)) initState.source = 'pattern';
+initState.paused = false;
+
+const engine = ASCIIEngine($('cv'), initState, {onError: e => console.error('[ASCII]', e)});
+if (!engine) {
+  $('empty').hidden = false; $('emptyMsg').textContent = 'Este navegador no tiene WebGL activo. Ábrelo en Chrome, Edge, Firefox o Safari actualizados.';
+  $('emptyBtn').hidden = true; return;
+}
+let state = engine.get();
+const presetFor = cs => { const k = Object.keys(CHARSETS).find(k => CHARSETS[k] === cs); return k || 'custom'; };
+const ui = Object.assign({charsetPreset: presetFor(state.charset), videoMuted:true, videoRate:1, tab:'fuente', preset: saved.engine ? null : 'Nebulosa'}, saved.ui || {});
+const UIKEYS = new Set(['videoRate','videoMuted']);
+const mediaNames = {};
+let videoEl = null, camStream = null, camEl = null, rec = null, recStart = 0, recTimer = 0;
+
+/* ---------- utilidades ---------- */
+let toastT;
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800); }
+const stamp = () => new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+function el(tag, attrs, kids){
+  const e = document.createElement(tag);
+  if (attrs) for (const a in attrs) { if (a === 'class') e.className = attrs[a]; else if (a === 'text') e.textContent = attrs[a]; else e.setAttribute(a, attrs[a]); }
+  (kids || []).forEach(k => k && e.appendChild(k)); return e;
+}
+function hsl(h,s,l){ s/=100; l/=100; const k = n => (n+h/30)%12, a = s*Math.min(l,1-l);
+  const f = n => l - a*Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+  const x = v => Math.round(v*255).toString(16).padStart(2,'0'); return '#'+x(f(0))+x(f(8))+x(f(4)); }
+function hiddenMount(v){ v.style.cssText = 'position:fixed;width:2px;height:2px;opacity:0;pointer-events:none;left:0;top:0'; document.body.appendChild(v); }
+
+let downloadsP = null;
+function getDownloads(){ if (!downloadsP) downloadsP = (window.claude && window.claude.use) ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null); return downloadsP; }
+setTimeout(getDownloads, 0);
+async function saveFile(name, data){
+  const dl = await getDownloads();
+  if (!dl) {
+    try { const a = document.createElement('a'); a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data])); a.download = name; a.click(); toast('Descarga iniciada: '+name); }
+    catch(e){ toast('Las descargas no están disponibles en esta vista'); }
+    return;
+  }
+  try { await dl.save({filename:name, data}); toast('Guardado: '+name); }
+  catch(e){
+    const c = e && e.code;
+    if (c === 'declined') toast('Descarga cancelada');
+    else if (c === 'rate_limited') toast('Ya hay una descarga pendiente. Espera un momento.');
+    else if (c === 'too_large') toast('El archivo es demasiado grande. Graba un clip más corto.');
+    else toast('No se pudo guardar el archivo');
+  }
+}
+
+/* ---------- estado ---------- */
+let saveT;
+function persist(){
+  clearTimeout(saveT);
+  saveT = setTimeout(() => { try { const s = engine.get(); delete s.mediaSrc; s.paused = false;
+    localStorage.setItem(KEY, JSON.stringify({engine:s, ui:{charsetPreset:ui.charsetPreset, videoMuted:ui.videoMuted, videoRate:ui.videoRate, tab:ui.tab, preset:ui.preset}})); } catch(e){} }, 400);
+}
+const get = k => (k in ui && !(k in state)) ? ui[k] : state[k];
+function setVal(k, v){
+  const prev = state[k];
+  if (k === 'charsetPreset') { ui.charsetPreset = v; if (v !== 'custom') engine.set({charset: CHARSETS[v]}); }
+  else if (UIKEYS.has(k)) { ui[k] = v; if (k === 'videoRate' && videoEl) videoEl.playbackRate = v; }
+  else { engine.set({[k]: v}); if (k === 'charset') ui.charsetPreset = presetFor(v); }
+  state = engine.get();
+  if (!['paused','source','videoRate','videoMuted'].includes(k)) ui.preset = null;
+  if (k === 'source' && v !== prev) onSourceChange(v, prev);
+  refresh(); persist();
+}
+function applyPatch(p, presetName){
+  engine.set(p); state = engine.get(); ui.charsetPreset = presetFor(state.charset); ui.preset = presetName || null; refresh(); persist();
+}
+const isMedia = s => s.source !== 'pattern';
+const isFileMedia = s => ['image','video','camera'].includes(s.source);
+
+/* ---------- fuentes ---------- */
+function pickFile(kind){ const f = $('file'); f.accept = kind === 'video' ? 'video/*' : kind === 'image' ? 'image/*' : 'image/*,video/*'; f.value = ''; f.click(); }
+$('file').addEventListener('change', e => loadFile(e.target.files[0]));
+function loadFile(f){
+  if (!f) return;
+  if (f.type.startsWith('video/')) loadVideo(f);
+  else if (f.type.startsWith('image/')) loadImage(f);
+  else toast('Usa una imagen (JPG, PNG, WebP) o un video (MP4, WebM, MOV)');
+}
+function afterMediaLoad(kind, name){
+  mediaNames[kind] = name;
+  const patch = {source: kind};
+  if (state.colorMode === 2) patch.colorMode = 3;
+  const prev = state.source; engine.set(patch); state = engine.get();
+  if (prev !== kind) onSourceChange(kind, prev, true);
+  refresh(); persist();
+}
+async function loadImage(f){
+  try { const bmp = await createImageBitmap(f); engine.setMedia(bmp, 'image'); afterMediaLoad('image', f.name); toast('Imagen cargada'); }
+  catch(e){
+    const r = new FileReader();
+    r.onload = () => { const im = new Image(); im.onload = () => { engine.setMedia(im, 'image'); afterMediaLoad('image', f.name); toast('Imagen cargada'); };
+      im.onerror = () => toast('No se pudo abrir esa imagen. Prueba con JPG, PNG o WebP.'); im.src = r.result; };
+    r.readAsDataURL(f);
+  }
+}
+function loadVideo(f){
+  if (videoEl) { videoEl.pause(); if (videoEl._url) URL.revokeObjectURL(videoEl._url); videoEl.remove(); }
+  const v = document.createElement('video');
+  v.muted = ui.videoMuted; v.loop = true; v.playsInline = true; v.setAttribute('playsinline',''); v.preload = 'auto';
+  let triedData = false;
+  v.addEventListener('loadeddata', () => {
+    engine.setMedia(v, 'video'); v.playbackRate = ui.videoRate;
+    v.play().catch(() => { v.muted = true; ui.videoMuted = true; v.play().catch(() => {}); });
+    afterMediaLoad('video', f.name); toast('Video cargado');
+  }, {once:true});
+  v.addEventListener('play', refresh); v.addEventListener('pause', refresh);
+  v.addEventListener('error', () => {
+    if (!triedData && f.size < 150e6) { triedData = true; const r = new FileReader(); r.onload = () => { v.src = r.result; v.load(); }; r.readAsDataURL(f); }
+    else toast('No se pudo reproducir ese video. Prueba con MP4 (H.264) o WebM.');
+  });
+  v._url = URL.createObjectURL(f); v.src = v._url; hiddenMount(v); videoEl = v;
+}
+async function startCamera(){
+  if (camStream) { engine.setMedia(camEl, 'camera'); return; }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:{ideal:1280}}, audio:false});
+    camEl = document.createElement('video'); camEl.muted = true; camEl.playsInline = true; camEl.setAttribute('playsinline','');
+    camEl.srcObject = camStream; hiddenMount(camEl); await camEl.play();
+    engine.setMedia(camEl, 'camera'); mediaNames.camera = 'Cámara';
+    if (!state.mirror) { engine.set({mirror:true}); state = engine.get(); }
+    refresh();
+  } catch(e){
+    camStream = null;
+    toast('No se pudo abrir la cámara. Revisa el permiso del navegador; en esta vista puede estar bloqueada.');
+    refresh();
+  }
+}
+function stopCamera(){ if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; if (camEl) { camEl.remove(); camEl = null; } engine.setMedia(null, 'camera'); }
+function onSourceChange(v, prev, fromLoad){
+  if (prev === 'camera' && v !== 'camera') stopCamera();
+  if (prev === 'video' && v !== 'video' && videoEl) videoEl.pause();
+  if (v === 'video' && videoEl && videoEl.paused) videoEl.play().catch(() => {});
+  if (v === 'camera') startCamera();
+  if (!fromLoad && (v === 'image' || v === 'video') && !engine.hasMedia(v)) pickFile(v);
+}
+
+/* ---------- export ---------- */
+function exportPNG(){ engine.snapshot(blob => { if (!blob) { toast('No se pudo capturar la imagen'); return; } saveFile('ascii-'+stamp()+'.png', blob); }); }
+function toggleRec(){
+  if (rec) { rec.stop(); return; }
+  const cv = $('cv');
+  if (!cv.captureStream || !window.MediaRecorder) { toast('Este navegador no permite grabar el lienzo'); return; }
+  const mt = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+  if (!mt) { toast('Este navegador no permite grabar el lienzo'); return; }
+  const chunks = [];
+  try { rec = new MediaRecorder(cv.captureStream(30), {mimeType:mt, videoBitsPerSecond:12e6}); }
+  catch(e){ rec = null; toast('No se pudo iniciar la grabación'); return; }
+  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  rec.onstop = () => { clearInterval(recTimer); const blob = new Blob(chunks, {type:mt}); rec = null; refresh();
+    saveFile('ascii-'+stamp()+'.'+(mt.includes('mp4') ? 'mp4' : 'webm'), blob); };
+  rec.start(250); recStart = Date.now(); recTimer = setInterval(refresh, 1000); refresh();
+  toast('Grabando. Pulsa “Detener grabación” para guardar.');
+}
+function exportState(){ const s = engine.get(); delete s.mediaSrc; s.paused = false; return s; }
+function embedCode(){
+  const s = exportState(); let note = '';
+  if (s.source === 'image' || s.source === 'video') { s.mediaSrc = s.source === 'video' ? 'mi-video.mp4' : 'mi-imagen.jpg';
+    note = '<!-- Cambia "mediaSrc" por la ruta de tu archivo (mismo dominio, o servido con CORS). -->\n'; }
+  if (s.source === 'camera') s.source = 'pattern';
+  const json = JSON.stringify(s).replace(/</g,'\\u003c');
+  return '<!-- Fondo ASCII animado (ASCII Shader Lab) -->\n' + note +
+    '<div class="ascii-bg" style="position:fixed;inset:0;z-index:-1;pointer-events:none;background:'+s.bg+'">\n' +
+    '  <canvas style="display:block;width:100%;height:100%"></canvas>\n</div>\n<script>\n(function(){\nvar ASCIIEngine = ' +
+    ASCIIEngine.toString() + ';\nvar c = document.currentScript.previousElementSibling.querySelector("canvas");\nASCIIEngine(c, ' + json + ');\n})();\n<\/script>';
+}
+let dlgMode = 'embed';
+function openDialog(mode){
+  dlgMode = mode;
+  if (mode === 'embed') {
+    $('dlgTitle').textContent = 'Código para tu web';
+    $('dlgNote').textContent = 'Pega esto dentro del <body>. Crea un canvas fijo detrás de tu contenido, sin librerías externas. Reacciona al cursor y se adapta al tamaño de pantalla.';
+    $('dlgText').value = embedCode(); $('dlgText').readOnly = true; $('dlgAlt').textContent = 'Descargar .html';
+  } else {
+    $('dlgTitle').textContent = 'Ajustes en JSON';
+    $('dlgNote').textContent = 'Copia estos ajustes para guardarlos, o pega unos anteriores y pulsa “Aplicar ajustes”.';
+    $('dlgText').value = JSON.stringify(exportState(), null, 2); $('dlgText').readOnly = false; $('dlgAlt').textContent = 'Aplicar ajustes';
+  }
+  $('dlg').showModal();
+}
+$('dlgClose').onclick = () => $('dlg').close();
+$('dlgCopy').onclick = async () => {
+  const ta = $('dlgText');
+  try { await navigator.clipboard.writeText(ta.value); toast('Copiado al portapapeles'); }
+  catch(e){ ta.focus(); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch(_){}
+    toast(ok ? 'Copiado al portapapeles' : 'Texto seleccionado: cópialo con Ctrl+C o Cmd+C'); }
+};
+$('dlgAlt').onclick = () => {
+  if (dlgMode === 'embed') {
+    const html = '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Fondo ASCII</title>\n</head>\n<body style="margin:0;min-height:100vh">\n' + embedCode() + '\n</body>\n</html>\n';
+    saveFile('fondo-ascii.html', html);
+  } else {
+    try {
+      const obj = JSON.parse($('dlgText').value); if (!obj || typeof obj !== 'object') throw 0;
+      const defs = engine.defaults(), p = {};
+      for (const k in obj) if (k in defs && typeof obj[k] === typeof defs[k] && k !== 'mediaSrc') p[k] = obj[k];
+      if (['image','video','camera'].includes(p.source) && !engine.hasMedia(p.source)) delete p.source;
+      applyPatch(p); $('dlg').close(); toast('Ajustes aplicados');
+    } catch(e){ toast('El JSON no es válido. Revisa comas y comillas.'); }
+  }
+};
+function resetAll(){
+  try { localStorage.removeItem(KEY); } catch(e){}
+  const prev = state.source;
+  applyPatch(Object.assign(engine.defaults(), PRESET_BASE, PRESETS[0].s, {source:'pattern'}), 'Nebulosa');
+  if (prev !== 'pattern') onSourceChange('pattern', prev);
+  toast('Todo restablecido');
+}
+function randomize(){
+  const R = Math.random, pick = a => a[Math.floor(R()*a.length)], h = Math.floor(R()*360), m = isMedia(state), r2 = v => Math.round(v*100)/100;
+  const p = {patA:Math.floor(R()*16), patB:R()<.35 ? -1 : Math.floor(R()*16), blend:Math.floor(R()*8), mix:r2(.35+R()*.65),
+    scale:r2(.6+R()*1.6), scaleB:r2(.4+R()*1.8), speed:r2(.3+R()*1.3), speedB:r2(.4+R()*1.6), rot:R()<.5 ? 0 : Math.floor(R()*360), warp:R()<.45 ? 0 : r2(R()*.9),
+    charset:CHARSETS[pick(['clasico','detallado','bloques','puntos','binario','matrix','hex','simbolos'])], cell:pick([7,8,9,10,11,12,14]),
+    colorMode:m ? pick([3,3,0,1]) : pick([0,1,1,2,2]), colA:hsl(h,80,72), colB:hsl((h+pick([30,150,200]))%360,70,18), bg:hsl((h+180)%360,40,4),
+    hue:r2(R()), cycle:R()<.3 ? r2(R()*.08) : 0, glow:r2(R()*.6), edge:R()<.2 ? r2(.4+R()*.4) : 0, contrast:r2(.9+R()*.5), bright:0, gamma:1,
+    invert:false, scan:R()<.2 ? r2(R()*.6) : 0, vig:r2(R()*.5), cellBg:R()<.2 ? r2(R()*.3) : 0, dither:R()<.3 ? .5 : 0};
+  if (m && state.source !== 'text') p.mediaMix = R()<.4 ? r2(R()*.6) : 0;
+  applyPatch(p);
+}
+
+/* ---------- UI declarativa ---------- */
+const TABDEF = [
+  {id:'fuente', name:'Fuente', items:[
+    {k:'source', t:'seg', label:'Qué se convierte en ASCII', opts:[['pattern','Patrón'],['image','Imagen'],['video','Video'],['text','Texto'],['camera','Cámara']]},
+    {t:'custom', show:s => s.source==='image' || s.source==='video', render:() => {
+      const b = el('button',{class:'btn primary',type:'button'}), n = el('p',{class:'note'});
+      b.onclick = () => pickFile(state.source);
+      return {root:el('div',null,[b,n]), update:() => {
+        b.textContent = state.source === 'video' ? (engine.hasMedia('video') ? 'Cambiar video' : 'Elegir video') : (engine.hasMedia('image') ? 'Cambiar imagen' : 'Elegir imagen');
+        n.textContent = mediaNames[state.source] ? 'Archivo: ' + mediaNames[state.source] : 'También puedes arrastrar el archivo sobre el lienzo.'; }};
+    }},
+    {t:'custom', show:s => s.source==='video', render:() => {
+      const pp = el('button',{class:'btn',type:'button'}), mu = el('button',{class:'btn',type:'button'});
+      pp.onclick = () => { if (!videoEl) return; if (videoEl.paused) videoEl.play().catch(() => {}); else videoEl.pause(); };
+      mu.onclick = () => { ui.videoMuted = !ui.videoMuted; if (videoEl) videoEl.muted = ui.videoMuted; refresh(); persist(); };
+      return {root:el('div',{class:'row2'},[pp,mu]), update:() => {
+        pp.disabled = mu.disabled = !videoEl;
+        pp.textContent = videoEl && !videoEl.paused ? 'Pausar video' : 'Reproducir video';
+        mu.textContent = ui.videoMuted ? 'Activar sonido' : 'Silenciar'; }};
+    }},
+    {k:'videoRate', t:'select', label:'Velocidad del video', show:s => s.source==='video', opts:[[.25,'0.25×'],[.5,'0.5×'],[1,'Normal'],[1.5,'1.5×'],[2,'2×']]},
+    {t:'custom', show:s => s.source==='camera', render:() => {
+      const b = el('button',{class:'btn primary',type:'button',text:'Activar cámara'}); b.onclick = () => startCamera();
+      return {root:b, update:() => { b.hidden = !!camStream; }};
+    }},
+    {k:'text', t:'textarea', label:'Texto (Enter para otra línea)', show:s => s.source==='text'},
+    {k:'textSize', t:'range', label:'Tamaño del texto', min:.2, max:1.5, step:.01, show:s => s.source==='text'},
+    {t:'h', label:'Encuadre', show:isFileMedia},
+    {k:'fit', t:'select', label:'Ajuste a la pantalla', opts:[[0,'Cubrir (recorta)'],[1,'Contener (completo)'],[2,'Estirar']], show:isFileMedia},
+    {k:'zoom', t:'range', label:'Zoom', min:.5, max:4, step:.01, show:isFileMedia},
+    {k:'panX', t:'range', label:'Mover horizontal', min:-.5, max:.5, step:.005, show:isFileMedia},
+    {k:'panY', t:'range', label:'Mover vertical', min:-.5, max:.5, step:.005, show:isFileMedia},
+    {k:'mirror', t:'toggle', label:'Espejo', show:isFileMedia},
+    {t:'h', label:'Mezclar con el patrón', show:isMedia},
+    {k:'mediaMix', t:'range', label:'Cantidad de patrón', min:0, max:1, step:.01, show:isMedia},
+    {k:'mediaBlend', t:'select', label:'Modo de mezcla', opts:BLENDS, show:s => isMedia(s) && s.mediaMix > 0},
+    {t:'note', label:'El patrón se elige y ajusta en la pestaña Patrón. Multiplicar anima la imagen sin perder su forma.', show:isMedia},
+    {t:'note', label:'Todo sale del shader: combina dos patrones, deforma, rota y reacciona al cursor. Imagen, video, texto y cámara son opcionales.', show:s => s.source==='pattern'}
+  ]},
+  {id:'patron', name:'Patrón', items:[
+    {k:'patA', t:'select', label:'Patrón principal', opts:PATTERNS},
+    {k:'patB', t:'select', label:'Segundo patrón', opts:[[-1,'Ninguno']].concat(PATTERNS)},
+    {k:'blend', t:'select', label:'Cómo se combinan', opts:BLENDS, show:s => s.patB >= 0},
+    {k:'mix', t:'range', label:'Fuerza de la combinación', min:0, max:1, step:.01, show:s => s.patB >= 0},
+    {k:'scaleB', t:'range', label:'Escala del segundo', min:.2, max:4, step:.01, show:s => s.patB >= 0},
+    {k:'speedB', t:'range', label:'Velocidad del segundo', min:0, max:3, step:.01, show:s => s.patB >= 0},
+    {t:'h', label:'Movimiento y forma'},
+    {k:'speed', t:'range', label:'Velocidad', min:0, max:3, step:.01},
+    {k:'scale', t:'range', label:'Escala', min:.2, max:5, step:.01},
+    {k:'rot', t:'range', label:'Rotación', min:0, max:360, step:1, fmt:v => v+'°'},
+    {k:'warp', t:'range', label:'Distorsión', min:0, max:1.5, step:.01},
+    {k:'mouse', t:'range', label:'Reacción al cursor', min:0, max:1, step:.01}
+  ]},
+  {id:'ascii', name:'ASCII', items:[
+    {k:'cell', t:'range', label:'Tamaño de celda (menos = más detalle)', min:3, max:48, step:1, fmt:v => v+' px'},
+    {k:'aspect', t:'range', label:'Proporción de celda', min:.6, max:2.4, step:.01},
+    {k:'dpr', t:'select', label:'Nitidez de render', opts:[[1,'Normal (más rápido)'],[1.5,'Alta'],[2,'Máxima']]},
+    {k:'charsetPreset', t:'select', label:'Juego de caracteres', opts:CHARSET_OPTS},
+    {k:'charset', t:'text', label:'Caracteres (de vacío a lleno)'},
+    {k:'sortDensity', t:'toggle', label:'Ordenar por densidad automáticamente'},
+    {k:'font', t:'select', label:'Tipografía', opts:FONT_OPTS},
+    {k:'weight', t:'range', label:'Grosor', min:100, max:900, step:100, fmt:v => String(v)},
+    {k:'glyph', t:'range', label:'Tamaño del carácter en la celda', min:.3, max:1.6, step:.01},
+    {t:'h', label:'Tono y definición'},
+    {k:'bright', t:'range', label:'Brillo', min:-1, max:1, step:.01},
+    {k:'contrast', t:'range', label:'Contraste', min:0, max:3, step:.01},
+    {k:'gamma', t:'range', label:'Gamma', min:.2, max:3, step:.01},
+    {k:'invert', t:'toggle', label:'Invertir'},
+    {k:'dither', t:'range', label:'Tramado (suaviza degradados)', min:0, max:1, step:.01},
+    {k:'edge', t:'range', label:'Contornos (dibuja bordes con | / - \\)', min:0, max:1, step:.01}
+  ]},
+  {id:'color', name:'Color', items:[
+    {k:'colorMode', t:'seg', label:'Modo de color', opts:[[0,'Un color'],[1,'Degradado'],[2,'Paleta'],[3,'Original']]},
+    {t:'note', label:'Original toma los colores de tu imagen, video o cámara. Con patrón o texto usa la paleta.', show:s => s.colorMode === 3 && !isFileMedia(s)},
+    {k:'colA', t:'color', label:s => s.colorMode === 1 ? 'Color de luces' : 'Color de caracteres', show:s => s.colorMode <= 1},
+    {k:'colB', t:'color', label:'Color de sombras', show:s => s.colorMode === 1},
+    {k:'bg', t:'color', label:'Fondo'},
+    {k:'hue', t:'range', label:'Rotar tono', min:0, max:1, step:.005, show:s => s.colorMode >= 2},
+    {k:'sat', t:'range', label:'Saturación', min:0, max:2, step:.01, show:s => s.colorMode >= 2},
+    {k:'vivid', t:'range', label:'Viveza (aclara colores oscuros)', min:0, max:1, step:.01, show:s => s.colorMode === 3},
+    {k:'cycle', t:'range', label:'Ciclo de color', min:0, max:.3, step:.001, show:s => s.colorMode === 2},
+    {t:'h', label:'Acabado'},
+    {k:'cellBg', t:'range', label:'Relleno de celda', min:0, max:1, step:.01},
+    {k:'glow', t:'range', label:'Resplandor', min:0, max:1.5, step:.01},
+    {k:'scan', t:'range', label:'Líneas de monitor', min:0, max:1, step:.01},
+    {k:'vig', t:'range', label:'Viñeta', min:0, max:1, step:.01}
+  ]},
+  {id:'exportar', name:'Exportar', items:[
+    {t:'custom', render:() => {
+      const png = el('button',{class:'btn primary',type:'button',text:'Guardar imagen PNG'}); png.onclick = exportPNG;
+      const rb = el('button',{class:'btn',type:'button'}); rb.onclick = toggleRec;
+      const n1 = el('p',{class:'note',text:'El video se graba del lienzo tal como lo ves (WebM, o MP4 en Safari).'});
+      const h2 = el('h3',{class:'sub',text:'Usar como fondo en tu web'});
+      const code = el('button',{class:'btn',type:'button',text:'Ver código para pegar'}); code.onclick = () => openDialog('embed');
+      const n2 = el('p',{class:'note',text:'Un bloque HTML con el motor incluido. Con imagen o video, cambia “mediaSrc” por tu archivo; la cámara no se exporta.'});
+      const h3 = el('h3',{class:'sub',text:'Ajustes'});
+      const js = el('button',{class:'btn',type:'button',text:'Copiar o pegar ajustes (JSON)'}); js.onclick = () => openDialog('json');
+      const rs = el('button',{class:'btn',type:'button',text:'Restablecer todo'}); rs.onclick = resetAll;
+      return {root:el('div',null,[png,rb,n1,h2,code,n2,h3,js,rs]), update:() => {
+        rb.className = rec ? 'btn rec' : 'btn';
+        rb.textContent = rec ? 'Detener grabación (' + Math.floor((Date.now()-recStart)/1000) + ' s)' : 'Grabar video';
+      }};
+    }}
+  ]}
+];
+
+const ctls = [], panes = {}, tabBtns = [];
+const lblOf = it => typeof it.label === 'function' ? it.label(state) : (it.label || '');
+function fmt(it, v){ if (it.fmt) return it.fmt(v); return (it.step >= 1) ? String(Math.round(v)) : Number(v).toFixed(2); }
+function build(it){
+  let root, update = () => {};
+  const lab = el('span',{class:'lbl'});
+  if (it.t === 'range') {
+    const out = el('output'), inp = el('input',{type:'range',min:it.min,max:it.max,step:it.step || .01});
+    inp.addEventListener('input', () => setVal(it.k, parseFloat(inp.value)));
+    root = el('label',{class:'ctl'},[lab,out,inp]);
+    update = () => { lab.textContent = lblOf(it); const v = get(it.k); if (document.activeElement !== inp) inp.value = v; out.textContent = fmt(it, v); };
+  } else if (it.t === 'select') {
+    const sel = el('select'); it.opts.forEach((o,i) => sel.appendChild(el('option',{value:i,text:o[1]})));
+    sel.addEventListener('change', () => setVal(it.k, it.opts[+sel.value][0]));
+    root = el('label',{class:'ctl'},[lab,sel]);
+    update = () => { lab.textContent = lblOf(it); const i = it.opts.findIndex(o => o[0] === get(it.k)); sel.value = String(Math.max(0,i)); };
+  } else if (it.t === 'seg') {
+    const box = el('div',{class:'seg',role:'group'});
+    const btns = it.opts.map(o => { const b = el('button',{type:'button',text:o[1]}); b.addEventListener('click', () => setVal(it.k, o[0])); box.appendChild(b); return b; });
+    root = el('div',{class:'ctl'},[lab,box]);
+    update = () => { lab.textContent = lblOf(it); box.setAttribute('aria-label', lblOf(it)); btns.forEach((b,i) => b.setAttribute('aria-pressed', String(it.opts[i][0] === get(it.k)))); };
+  } else if (it.t === 'toggle') {
+    const inp = el('input',{type:'checkbox',role:'switch'}); inp.addEventListener('change', () => setVal(it.k, inp.checked));
+    root = el('label',{class:'ctl toggle'},[lab,inp]);
+    update = () => { lab.textContent = lblOf(it); inp.checked = !!get(it.k); };
+  } else if (it.t === 'color') {
+    const inp = el('input',{type:'color'}), hex = el('output');
+    inp.addEventListener('input', () => setVal(it.k, inp.value));
+    root = el('label',{class:'ctl color'},[lab, el('span',{class:'sw'},[hex,inp])]);
+    update = () => { lab.textContent = lblOf(it); const v = String(get(it.k)); if (document.activeElement !== inp) inp.value = v; hex.textContent = v.toUpperCase(); };
+  } else if (it.t === 'text' || it.t === 'textarea') {
+    const inp = it.t === 'text' ? el('input',{type:'text',spellcheck:'false',autocomplete:'off'}) : el('textarea',{rows:'3',spellcheck:'false'});
+    inp.addEventListener('input', () => setVal(it.k, inp.value));
+    root = el('label',{class:'ctl'},[lab,inp]);
+    update = () => { lab.textContent = lblOf(it); if (document.activeElement !== inp) inp.value = get(it.k); };
+  } else if (it.t === 'h') { root = el('h3',{class:'sub'}); update = () => { root.textContent = lblOf(it); }; }
+  else if (it.t === 'note') { root = el('p',{class:'note'}); update = () => { root.textContent = lblOf(it); }; }
+  else if (it.t === 'custom') { const r = it.render(); root = r.root; update = r.update || update; }
+  ctls.push({it, root, update});
+  return root;
+}
+TABDEF.forEach(tab => {
+  const b = el('button',{class:'tab',type:'button',role:'tab',text:tab.name}); b.dataset.id = tab.id;
+  b.onclick = () => showTab(tab.id); $('tabs').appendChild(b); tabBtns.push(b);
+  const pane = el('div',{role:'tabpanel','aria-label':tab.name}); tab.items.forEach(it => pane.appendChild(build(it)));
+  $('panes').appendChild(pane); panes[tab.id] = pane;
+});
+function showTab(id){ if (!panes[id]) id = 'fuente'; ui.tab = id; tabBtns.forEach(b => b.setAttribute('aria-selected', String(b.dataset.id === id)));
+  for (const p in panes) panes[p].hidden = p !== id; $('panes').scrollTop = 0; persist(); }
+
+const chips = PRESETS.map(p => { const c = el('button',{class:'chip',type:'button',text:p.name});
+  c.onclick = () => applyPatch(Object.assign({}, PRESET_BASE, p.s), p.name); $('presets').appendChild(c); return c; });
+
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Pausar</span>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg><span>Reanudar</span>';
+function refresh(){
+  ctls.forEach(c => { const vis = !c.it.show || c.it.show(state); c.root.hidden = !vis; if (vis) c.update(); });
+  chips.forEach((c,i) => c.setAttribute('aria-pressed', String(PRESETS[i].name === ui.preset)));
+  $('bPause').innerHTML = state.paused ? ICON_PLAY : ICON_PAUSE;
+  $('bPause').title = state.paused ? 'Reanudar animación (Espacio)' : 'Pausar animación (Espacio)';
+  const src = state.source, need = isFileMedia(state) && !engine.hasMedia(src) && !(src === 'camera' && camStream);
+  $('empty').hidden = !need;
+  if (need) {
+    $('emptyMsg').textContent = src === 'camera' ? 'Activa la cámara para convertirla en ASCII en vivo.' : src === 'video' ? 'Suelta aquí un video o elige uno de tu equipo.' : 'Suelta aquí una imagen o elige una de tu equipo.';
+    $('emptyBtn').textContent = src === 'camera' ? 'Activar cámara' : src === 'video' ? 'Elegir video' : 'Elegir imagen';
+  }
+}
+$('emptyBtn').onclick = () => { if (state.source === 'camera') startCamera(); else pickFile(state.source); };
+
+/* ---------- barra y atajos ---------- */
+const togglePause = () => setVal('paused', !state.paused);
+const togglePanel = () => document.body.classList.toggle('panel-off');
+function toggleFull(){
+  const d = document, de = d.documentElement;
+  try {
+    if (d.fullscreenElement || d.webkitFullscreenElement) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); return; }
+    const fn = de.requestFullscreen || de.webkitRequestFullscreen;
+    if (!fn) throw 0;
+    const r = fn.call(de); if (r && r.catch) r.catch(() => toast('Pantalla completa no disponible aquí. Oculta el panel con H.'));
+  } catch(e){ toast('Pantalla completa no disponible aquí. Oculta el panel con H.'); }
+}
+$('bRand').onclick = randomize; $('bPause').onclick = togglePause; $('bPanel').onclick = togglePanel; $('bFull').onclick = toggleFull;
+addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || $('dlg').open) return;
+  const t = e.target;
+  if (t.closest && t.closest('input,textarea,select')) return;
+  if (e.key === ' ') { if (t.closest && t.closest('button')) return; e.preventDefault(); togglePause(); }
+  else if (e.key === 'r' || e.key === 'R') randomize();
+  else if (e.key === 'h' || e.key === 'H') togglePanel();
+  else if (e.key === 'f' || e.key === 'F') toggleFull();
+});
+
+/* ---------- arrastrar y soltar ---------- */
+let dragDepth = 0;
+addEventListener('dragenter', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragDepth++; document.body.classList.add('dragging'); } });
+addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth-1); if (!dragDepth) document.body.classList.remove('dragging'); });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging'); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+setInterval(() => { const i = engine.info(); $('stats').textContent = i.cols + '×' + i.rows + ' celdas, ' + i.fps + ' fps'; }, 500);
+showTab(ui.tab);
+refresh();
+})();
+</script>
+</body>
+</html>
