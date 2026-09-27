@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import {
-  BLEND_NAMES, CHARSETS, COLOR_MAP_NAMES, FAMILY_NAMES, FONTS, INTERACT_NAMES, MSG_MODE_NAMES, PATTERNS, fontById, type PatternFamily,
+  BLEND_NAMES, CHARSETS, COLOR_MAP_NAMES, FAMILY_NAMES, FONTS, INTERACT_NAMES, MSG_MODE_NAMES, PATTERNS, fontById, patternById, type PatternFamily,
 } from '../../engine/catalog';
 import { DEFAULT_LAYER, cloneRecipe, defaultRecipe, type BlendMode, type ColorMap, type InteractMode, type MsgMode, type Recipe } from '../../engine/recipe';
 import { ARCHETYPES } from '../../random/archetypes';
@@ -163,7 +163,8 @@ export function patternOptions(): PickOpt<string>[] {
  */
 export function patternThumbRecipe(base: Recipe, pattern: string): Recipe {
   const d = defaultRecipe();
-  d.layers = [{ ...DEFAULT_LAYER, pattern }];
+  // a 3D object is drawn smaller, so the thumbnail's centre crop shows all of it
+  d.layers = [{ ...DEFAULT_LAYER, pattern, scale: patternById(pattern).family === 'solidos' ? 1.6 : 1 }];
   d.color = { ...base.color, mode: 'ramp', cycle: 0 };
   d.glyph = { ...base.glyph, cell: 14, mode: 'density', edge: 0, dither: 0 };
   d.interact = { ...d.interact, mode: 'none' };

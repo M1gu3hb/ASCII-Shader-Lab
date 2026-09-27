@@ -9,6 +9,7 @@
  *   Δlum   mean absolute difference of luminance (0..255)
  *   glifos share of cells with the same character; visibles: same, among cells where either shows ink
  *   Δrgb   mean absolute difference of cell colours; Δpx: of canvas pixels (0..255)
+ * The 3D objects are also compared at four a/b pairs (their shape depends on them).
  * Exit code 1 when a pattern correlates below 0.8 at both sample times, a preset below 0.8, or any
  * comparison differs by more than 8 (of 255) per pixel on average: that is a rendering bug, not rounding.
  */
@@ -72,6 +73,32 @@ try {
   console.log(`\nMedia: r ${f2(mean('r'))} · Δlum ${mean('lumMad').toFixed(2)} · glifos ${pct(mean('glyphs'))} · visibles ${pct(mean('visibleGlyphs'))}`);
   console.log(`Mínimo r: ${rows.map(r => [r.id, Math.min(...r.res.map(c => c.r))]).sort((a, b) => a[1] - b[1]).slice(0, 5).map(([id, r]) => `${id} ${f2(r)}`).join(', ')}\n`);
 
+  // 3D objects change shape with a and b (knot type, polyhedron, number of crystals…): compare them at the ends too
+  const AB = [[0.1, 0.1], [0.9, 0.9], [0.15, 0.85], [0.85, 0.15]];
+  const solids = await page.evaluate(async () => (await import('/src/engine/catalog.ts')).PATTERNS.filter(p => p.family === 'solidos').map(p => p.id));
+  const solidRows = [];
+  for (const id of solids) {
+    const res = [];
+    for (const [a, b] of AB) {
+      res.push(await page.evaluate(([id, a, b, t]) => {
+        const B = window.__basic, r = B.defaultRecipe();
+        r.glyph.cell = 6; r.color.stops = ['#10131a', '#6ee7ff', '#fff4d6']; r.color.bg = '#05060a'; r.interact.mode = 'none';
+        r.layers = [{ ...r.layers[0], pattern: id, a, b }];
+        return B.compareRecipe(r, { t });
+      }, [id, a, b, TIMES[0]]));
+    }
+    solidRows.push({ id, res });
+    if (res.some(c => c.r < 0.8 || c.pixelMad > 8)) failed = true;
+  }
+  console.log(`## Sólidos 3D con otros a/b (480×270, celda 6, t = ${TIMES[0]}; a/b = ${AB.map(x => x.join('/')).join(', ')})\n`);
+  console.log('| patrón | r por a/b | Δlum | glifos | Δpx |');
+  console.log('|---|---|---|---|---|');
+  for (const { id, res } of solidRows) {
+    const avg = k => res.reduce((s, c) => s + c[k], 0) / res.length;
+    console.log(`| ${id} | ${res.map(c => f2(c.r)).join(' / ')} | ${avg('lumMad').toFixed(2)} | ${pct(avg('glyphs'))} | ${avg('pixelMad').toFixed(2)} |`);
+  }
+  console.log('');
+
   // pointer effects: same pointer state injected into both engines, a few frames rendered
   const pointer = [];
   const modes = await page.evaluate(() => window.__basic.interactModes);
@@ -109,7 +136,7 @@ try {
 
   // cost per frame, in this browser (SwiftShader: the canvas is GPU-accelerated in software, slow for
   // full-canvas overlays) and in one without GPU (CPU canvas, like a browser with acceleration off)
-  const cases = [['pattern', 'nube'], ['pattern', 'plasma'], ['pattern', 'marmol'], ['pattern', 'dona'], ['preset', 'fondos/bruma'], ['preset', 'tipo/maquina'], ['preset', 'arte/bermellon'], ['preset', 'terminal/consola'], ['preset', 'media/retrato']];
+  const cases = [['pattern', 'nube'], ['pattern', 'plasma'], ['pattern', 'marmol'], ['pattern', 'dona'], ['pattern', 'voxeles'], ['pattern', 'cristales'], ['preset', 'fondos/bruma'], ['preset', 'tipo/maquina'], ['preset', 'arte/bermellon'], ['preset', 'terminal/consola'], ['preset', 'media/retrato']];
   const runBenches = async pg => {
     const out = [];
     for (const [kind, id] of quick ? cases.slice(0, 2) : cases) {
@@ -135,7 +162,7 @@ try {
     }
   }
   if (errors.length) { console.log('\nErrores de la página:\n' + errors.join('\n')); failed = true; }
-  if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ probe: info.probe, checks, patterns: rows, pointer, presets, benches, errors }, null, 2));
+  if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ probe: info.probe, checks, patterns: rows, solids: solidRows, pointer, presets, benches, errors }, null, 2));
 } finally {
   await browser.close();
   await server.close();

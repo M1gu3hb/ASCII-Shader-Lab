@@ -686,7 +686,7 @@ const poliedro: BasicPattern = {
     const dif = diffuse(), spec = specular(20);
     const face = 0.08 + 0.62 * dif + 0.22 * hash13(Math.floor(poNx * 7 + 7.5), Math.floor(poNy * 7 + 7.5), Math.floor(poNz * 7 + 7.5))
       + 0.18 * headlight() + 0.3 * spec;
-    const edge = 1 - smoothstep(PX * 0.5, PX * 1.6, poGap);
+    const edge = 1 - smoothstep(PX * 0.3, PX * 1.1, poGap);
     return sat(mix(face * (1 - 0.6 * edge), Math.max(edge * (0.55 + 0.45 * dif), 0.05 + 0.12 * dif), b));
   },
 };
@@ -731,13 +731,13 @@ let moW = 0.2, moTw = 1, moT = 0;
 function moSd(px: number, py: number, pz: number): number {
   const an = Math.atan2(pz, px);
   const lx = Math.sqrt(px * px + pz * pz) - 0.5, ang = an * moTw * 0.5, c = Math.cos(ang), s = Math.sin(ang);
-  const dx = Math.abs(c * lx + s * py) - moW, dy = Math.abs(-s * lx + c * py) - 0.03;
+  const dx = Math.abs(c * lx + s * py) - moW, dy = Math.abs(-s * lx + c * py) - 0.045;
   const ox = Math.max(dx, 0), oy = Math.max(dy, 0);
   return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(dx, dy), 0);
 }
 const moebius: BasicPattern = {
   prep(t, a, b) {
-    rotXY(1 + 0.3 * Math.sin(t * 0.23), t * 0.3, MMO);
+    rotXY(0.8 + 0.2 * Math.sin(t * 0.23), t * 0.3, MMO);
     moW = 0.12 + a * 0.2; moTw = 1 + 2 * Math.floor(b * 2.999); moT = t;
   },
   f(x, y) {
@@ -979,11 +979,11 @@ const metabolas: BasicPattern = {
     const nx = N3[0], ny = N3[1], nz = N3[2], dx = RAY[3], dy = RAY[4], dz = RAY[5];
     const ndi = nx * dx + ny * dy + nz * dz;
     const fx = dx - 2 * ndi * nx, fy = dy - 2 * ndi * ny, fz = dz - 2 * ndi * nz;
-    const env = mix(0.12, 0.5 + 0.4 * fy, smoothstep(-0.15, 0.15, fy)) + 0.8 * Math.exp(-Math.abs(fy + 0.05) * 12) + 0.45 * Math.exp(-Math.abs(fy - 0.5) * 18);
+    const env = mix(0.3, 0.55 + 0.35 * fy, smoothstep(-0.2, 0.2, fy)) + 0.55 * Math.exp(-Math.abs(fy + 0.05) * 12) + 0.35 * Math.exp(-Math.abs(fy - 0.5) * 18);
     const box = smoothstep(0.72, 0.9, fx * MB_BOX[0] + fy * MB_BOX[1] + fz * MB_BOX[2]);
-    const fres = 0.45 + 0.55 * Math.pow(1 - Math.max(-ndi, 0), 3);
+    const fres = 0.5 + 0.5 * Math.pow(1 - Math.max(-ndi, 0), 3);
     const dif = Math.max(nx * MB_BOX[0] + ny * MB_BOX[1] + nz * MB_BOX[2], 0);
-    return sat(0.08 + 0.3 * dif + 0.7 * env * fres + 0.6 * box);
+    return sat(0.06 + 0.35 * dif + 0.7 * env * fres + 0.55 * box);
   },
 };
 

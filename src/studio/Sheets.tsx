@@ -273,7 +273,7 @@ export function SeedSheet() {
             options={[{ value: '', label: 'Cualquiera (según el espacio)', desc: 'El dado elige entre los estilos de este espacio.' }, ...ARCHETYPES.map(a => ({ value: a.id, label: a.name, desc: a.blurb }))]} />
         </div>
         <div className="ctl cx">
-          <span className="lbl" id="seed-gen-l">Generador</span>
+          <span className="lbl" id="seed-gen-l">Versión del generador</span>
           <Picker id="seed-gen" value={gen} label="Versión del generador" labelId="seed-gen-l" describedBy="seed-gen-note" minWidth={280} onChange={g => setPicked(g)}
             options={[...GEN_VERSIONS].reverse().map(g => ({ value: g, label: genLabel(g), desc: GEN_INFO[g]?.desc }))} />
         </div>

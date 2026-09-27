@@ -12,7 +12,7 @@ import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
  * versions stay reachable (a seed plus its version always gives the same piece): see GEN_VERSIONS.
  *   1 — the first dice (12 styles, 3 solids).
  *   2 — 13 solids spread over the styles, «Grabado 3D», flatter weights; 3D objects only as the lead
- *       layer, framed, and never under a photo or inside letters.
+ *       layer, framed, and not under a photo or inside letters (unless the chosen style has nothing else).
  */
 export const GEN_VERSION = 2;
 /** Every version generate() can still reproduce, oldest first. */
@@ -89,8 +89,8 @@ function genForma(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, gen: number
   if (space === 'fondos' || space === 'terminal') n = Math.min(n, 2);
   const layers: Layer[] = [];
   let cost = 0;
-  // v2: a 3D object is the subject of a piece: never stamped as a second layer, never under a photo or inside
-  // letters, and behind web content only when it can stay quiet
+  // v2: a 3D object is the subject of a piece: never stamped as a second layer, not under a photo or inside
+  // letters, and behind web content only when it can stay quiet (a style made only of objects keeps them)
   const v2 = gen >= 2;
   const leadPool = !v2 ? A.patterns
     : space === 'media' || space === 'tipo' ? flat(A.patterns)
@@ -262,6 +262,9 @@ export function copyGroup(r: Recipe, base: Recipe, g: LockGroup) {
 /* Mutation                                                            */
 /* ------------------------------------------------------------------ */
 
+/** Patterns a variation may put on a layer above the first (no 3D object stamped over a piece). */
+const OVERLAY_POOL = PATTERNS.filter(p => p.family !== 'solidos');
+
 export function mutate(r: Recipe, amount: number, seed: string, locks: LockGroup[] = []): Recipe {
   const rng = new Rng(`mut${GEN_VERSION}|${seed}`);
   const k = clamp(amount, 0.02, 1);
@@ -277,13 +280,13 @@ export function mutate(r: Recipe, amount: number, seed: string, locks: LockGroup
       if (rng.chance(k * 0.3)) {
         const fam = patternById(l.pattern).family;
         const pool = PATTERNS.filter(p => p.family === fam && p.id !== l.pattern);
-        n.pattern = (rng.chance(0.65) && pool.length ? rng.pick(pool) : rng.pick(PATTERNS)).id;
+        n.pattern = (rng.chance(0.65) && pool.length ? rng.pick(pool) : rng.pick(i === 0 ? PATTERNS : OVERLAY_POOL)).id;
       }
       if (i > 0 && rng.chance(k * 0.25)) n.blend = rng.pick(['multiply', 'screen', 'overlay', 'difference', 'add', 'lighten', 'mask'] as const);
       return n;
     });
     if (out.layers.length < 3 && rng.chance(k * 0.18)) {
-      out.layers.push({ ...DEFAULT_LAYER, pattern: rng.pick(PATTERNS).id, blend: rng.pick(['multiply', 'screen', 'overlay'] as const), mix: round(rng.range(0.3, 0.7)), scale: round(rng.range(0.6, 1.6)), phase: round(rng.range(0, 50)) });
+      out.layers.push({ ...DEFAULT_LAYER, pattern: rng.pick(OVERLAY_POOL).id, blend: rng.pick(['multiply', 'screen', 'overlay'] as const), mix: round(rng.range(0.3, 0.7)), scale: round(rng.range(0.6, 1.6)), phase: round(rng.range(0, 50)) });
     } else if (out.layers.length > 1 && rng.chance(k * 0.12)) {
       out.layers.splice(1 + rng.int(0, out.layers.length - 2), 1);
     }

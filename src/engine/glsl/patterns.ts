@@ -497,7 +497,7 @@ float P_poliedro(vec2 p, float t, float a, float b){
   float spec = pow(max(dot(reflect(-L, n), -rd), 0.), 20.);
   // flat faces, each with its own tone, so neighbours stay apart even under the same light
   float face = .08 + .62 * dif + .22 * hash13(floor(n * 7. + 7.5)) + .18 * max(dot(n, -rd), 0.) + .3 * spec;
-  float edge = 1. - smoothstep(PX * .5, PX * 1.6, s.y);
+  float edge = 1. - smoothstep(PX * .3, PX * 1.1, s.y);
   return sat(mix(face * (1. - .6 * edge), max(edge * (.55 + .45 * dif), .05 + .12 * dif), b));
 }`,
   giroide: `
@@ -538,11 +538,11 @@ float P_giroide(vec2 p, float t, float a, float b){
 float mo_sd(vec3 p, float w, float tw){
   float an = atan(p.z, p.x);
   vec2 q = rot2(vec2(length(p.xz) - .5, p.y), an * tw * .5);
-  vec2 d = abs(q) - vec2(w, .03);
+  vec2 d = abs(q) - vec2(w, .045);
   return length(max(d, 0.)) + min(max(d.x, d.y), 0.);
 }
 float P_moebius(vec2 p, float t, float a, float b){
-  mat3 R = rotXY(1. + .3 * sin(t * .23), t * .3);
+  mat3 R = rotXY(.8 + .2 * sin(t * .23), t * .3);
   vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(p, 1.6));
   float w = .12 + a * .2, tw = 1. + 2. * floor(b * 2.999);
   float rb = .55 + w;
@@ -740,11 +740,11 @@ float P_metabolas(vec2 p, float t, float a, float b){
                    + e.yxy * mb_sd(pos + e.yxy * .002, C, r, k) + e.xxx * mb_sd(pos + e.xxx * .002, C, r, k));
   // liquid metal: it mirrors a studio (bright ceiling, dark floor, a light band on the horizon, a softbox)
   vec3 rf = reflect(rd, n);
-  float env = mix(.12, .5 + .4 * rf.y, smoothstep(-.15, .15, rf.y)) + .8 * exp(-abs(rf.y + .05) * 12.) + .45 * exp(-abs(rf.y - .5) * 18.);
+  float env = mix(.3, .55 + .35 * rf.y, smoothstep(-.2, .2, rf.y)) + .55 * exp(-abs(rf.y + .05) * 12.) + .35 * exp(-abs(rf.y - .5) * 18.);
   float box = smoothstep(.72, .9, dot(rf, vec3(-.49, .64, -.59)));
-  float fres = .45 + .55 * pow(1. - max(dot(n, -rd), 0.), 3.);
+  float fres = .5 + .5 * pow(1. - max(dot(n, -rd), 0.), 3.);
   float dif = max(dot(n, vec3(-.49, .64, -.59)), 0.);
-  return sat(.08 + .3 * dif + .7 * env * fres + .6 * box);
+  return sat(.06 + .35 * dif + .7 * env * fres + .55 * box);
 }`,
   engranajes: `
 float ge_gear(vec3 p, vec2 c, float R, float N, float ang, float S){
