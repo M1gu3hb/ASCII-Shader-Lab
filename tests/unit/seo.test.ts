@@ -1,0 +1,127 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { GUIDES, MORPHIQ, PAGES, SITE_URL } from '../../src/shared/site';
+import { cleanVerification, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, sitemapXml } from '../../scripts/seo';
+
+const root = join(import.meta.dirname, '../..');
+const page = (id: string) => PAGES.find(p => p.id === id)!;
+const graphOf = (id: string) => (JSON.parse(jsonForScript(jsonLd(page(id)))) as { '@graph': Array<Record<string, unknown>> })['@graph'];
+
+describe('site pages', () => {
+  it('every page has an HTML source with the head directive, and an honest-length title and description', () => {
+    for (const p of PAGES) {
+      const html = readFileSync(join(root, p.file), 'utf8');
+      expect(html, p.file).toContain('<!-- @head -->');
+      expect(html, p.file).not.toMatch(/<title>/);
+      expect(p.title.length, p.title).toBeLessThanOrEqual(70);
+      expect(p.description.length, p.description).toBeLessThanOrEqual(160);
+      expect(existsSync(join(root, 'public', p.image.path)), p.image.path).toBe(true);
+    }
+  });
+
+  it('guide posters and the Morphiq logo files exist', () => {
+    for (const g of GUIDES) for (const s of ['.webp', '-640.webp', '-og.jpg']) expect(existsSync(join(root, 'public', g.poster + s)), g.poster + s).toBe(true);
+    expect(existsSync(join(root, 'public', MORPHIQ.logo.path))).toBe(true);
+    for (const w of MORPHIQ.display.files) for (const ext of ['png', 'webp']) expect(existsSync(join(root, `public/brand/morphiq/morphiq-logo-${w}.${ext}`))).toBe(true);
+    expect(MORPHIQ.display.width * MORPHIQ.logo.height).toBe(MORPHIQ.display.height * MORPHIQ.logo.width);
+  });
+});
+
+describe('sitemap and robots', () => {
+  it('lists absolute canonical URLs with a trailing slash, landing first', () => {
+    const xml = sitemapXml('2026-09-27');
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+    expect(locs).toEqual(['/', '/studio/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'].map(p => SITE_URL + p));
+    expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(8);
+    expect(xml).not.toContain('404');
+  });
+
+  it('robots allows everything and points to the absolute sitemap', () => {
+    expect(robotsTxt()).toBe(`User-agent: *\nAllow: /\n\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+  });
+});
+
+describe('head tags', () => {
+  it('uses absolute canonical and share image URLs', () => {
+    const h = headTags(page('imagen'));
+    expect(h).toContain(`<link rel="canonical" href="${SITE_URL}/imagen-a-ascii/">`);
+    expect(h).toContain(`<meta property="og:url" content="${SITE_URL}/imagen-a-ascii/">`);
+    expect(h).toContain(`<meta property="og:image" content="${SITE_URL}/ex/imagen-a-ascii-og.jpg">`);
+    expect(h).toContain('<meta property="og:locale" content="es_MX">');
+    expect(h).toContain('<meta name="twitter:card" content="summary_large_image">');
+  });
+
+  it('keeps the 404 out of the index and without a canonical', () => {
+    const h = headTags(page('notfound'));
+    expect(h).toContain('<meta name="robots" content="noindex">');
+    expect(h).not.toContain('canonical');
+    expect(h).not.toContain('application/ld+json');
+  });
+
+  it('adds the Search Console tag only for a well-formed token', () => {
+    expect(headTags(page('main'))).not.toContain('google-site-verification');
+    expect(headTags(page('main'), { verification: cleanVerification(' abcDEF123_-xyz ') })).toContain('<meta name="google-site-verification" content="abcDEF123_-xyz">');
+    expect(cleanVerification('"><script>alert(1)</script>')).toBeNull();
+    expect(cleanVerification('')).toBeNull();
+    expect(cleanVerification(undefined)).toBeNull();
+  });
+});
+
+describe('structured data', () => {
+  it('landing: WebSite, Morphiq as creator and publisher, and the studio as a free WebApplication', () => {
+    const g = graphOf('main');
+    const site = g.find(n => n['@type'] === 'WebSite')!;
+    const org = g.find(n => n['@type'] === 'Organization')!;
+    const app = g.find(n => n['@type'] === 'WebApplication')!;
+    expect(site).toMatchObject({ name: 'Monotrama', alternateName: 'ASCII Shader Lab', url: SITE_URL + '/', inLanguage: 'es', creator: { '@id': org['@id'] }, publisher: { '@id': org['@id'] } });
+    expect(org).toMatchObject({ name: 'Morphiq', url: 'https://morphiq.com.mx', logo: { url: SITE_URL + MORPHIQ.logo.path } });
+    expect(app).toMatchObject({
+      url: SITE_URL + '/studio/', applicationCategory: 'DesignApplication', operatingSystem: 'Web', isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'MXN' }, inLanguage: 'es', license: SITE_URL + '/licencia/',
+      browserRequirements: 'Requiere JavaScript; WebGL 2 para el motor completo',
+    });
+  });
+
+  it('guides: WebPage and a two-step BreadcrumbList', () => {
+    for (const g of GUIDES) {
+      const graph = graphOf(g.id);
+      expect(graph.find(n => n['@type'] === 'WebPage')).toMatchObject({ url: SITE_URL + g.path, inLanguage: 'es' });
+      const crumbs = graph.find(n => n['@type'] === 'BreadcrumbList')!.itemListElement as Array<{ item: string; position: number }>;
+      expect(crumbs.map(c => c.item)).toEqual([SITE_URL + '/', SITE_URL + g.path]);
+    }
+  });
+
+  it('never lets "</script>" into the JSON-LD block', () => {
+    expect(jsonForScript({ a: '</script><b>' })).not.toContain('<');
+    expect(JSON.parse(jsonForScript({ a: '</script>' }))).toEqual({ a: '</script>' });
+  });
+});
+
+describe('directives', () => {
+  const opts = { readPublic: (p: string) => (p === 'ex/x.txt' ? '\n  <a> & b\n' : '') };
+
+  it('expands the shared footer with the Morphiq credit', () => {
+    const html = renderPage('<body><!-- @footer --></body>', page('imagen'), opts);
+    expect(html).toContain('Desarrollado por');
+    expect(html).toContain(`href="${MORPHIQ.url}"`);
+    expect(html).toContain(`alt="${MORPHIQ.alt}"`);
+    expect(html).toContain('width="128" height="37"');
+    expect(renderPage('<!-- @footer paper -->', page('licencia'), opts)).toContain('class="foot paper"');
+  });
+
+  it('leaves the current guide out of "@guides others"', () => {
+    const html = renderPage('<!-- @guides others -->', page('video'), opts);
+    expect(html).not.toContain('href="/video-a-ascii/"');
+    expect(html.match(/class="guide-card"/g)).toHaveLength(4);
+  });
+
+  it('includes text files escaped and keeps a leading blank row inside <pre>', () => {
+    expect(renderPage('<pre><!-- @include:ex/x.txt --></pre>', page('terminal'), opts)).toBe('<pre>\n\n  &lt;a&gt; &amp; b</pre>');
+    expect(() => renderPage('<!-- @include:../secret.txt -->', page('terminal'), opts)).toThrow();
+  });
+
+  it('rejects unknown directives instead of shipping them', () => {
+    expect(() => renderPage('<!-- @hed -->', page('main'), opts)).toThrow(/@hed/);
+  });
+});
