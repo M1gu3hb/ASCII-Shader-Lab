@@ -1,36 +1,17 @@
 import { create } from 'zustand';
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { del as idbDel, delMany, get as idbGet, getMany, set as idbSet, setMany } from 'idb-keyval';
 import { cloneRecipe, normalizeRecipe, sameRecipe, type Recipe } from '../engine/recipe';
 import { PATTERN_IDS } from '../engine/catalog';
 import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type SpaceId } from '../random';
 import { presetsFor, spaceAccepts, starterFor } from './presets';
+import {
+  HISTORY_LIMIT, HISTORY_WARN, allRecipes, entryBody, mediaIdsOf, mergeSession, normalizeEntry, normalizeFavorite, pruneHistory,
+  sameBody, uid, type Entry, type EntryKind, type Favorite,
+} from './history';
+import { gcMedia } from './mediaStore';
 
-export type EntryKind = 'inicio' | 'azar' | 'variación' | 'receta' | 'importado' | 'favorito' | 'enlace' | 'espacio';
-
-export interface Entry {
-  id: string;
-  recipe: Recipe;
-  origin: Recipe;
-  kind: EntryKind;
-  label?: string;
-  seed?: string;
-  arch?: string;
-  space: SpaceId;
-  created: number;
-  edited: boolean;
-  thumb?: string;
-  favId?: string;
-}
-
-export interface Favorite {
-  id: string;
-  name: string;
-  recipe: Recipe;
-  thumb?: string;
-  created: number;
-  updated: number;
-  space: SpaceId;
-}
+export type { Entry, EntryKind, Favorite } from './history';
+export { HISTORY_LIMIT, uid } from './history';
 
 export type ChangeKind = 'edit' | 'nav' | 'roll' | 'load';
 
@@ -59,10 +40,24 @@ interface State {
   ui: UIState;
   stats: { cols: number; rows: number; fps: number };
   undoTick: number;
+  /** Results kept in this browser before the oldest are discarded (HISTORY_LIMIT). */
+  histLimit: number;
+  /** Results discarded by that limit during this session. */
+  pruned: number;
 }
 
-const MAX_ENTRIES = 200;
-const K_HIST = 'mt.v2.history', K_FAV = 'mt.v2.favorites', K_SEEN = 'mt.v2.seen', K_PREFS = 'mt.v2.prefs';
+const K_FAV = 'mt.v2.favorites', K_SEEN = 'mt.v2.seen', K_PREFS = 'mt.v2.prefs';
+/** Previous layout: the whole history in one record (migrated to v3 on first load). */
+const K_HIST_V2 = 'mt.v2.history';
+/** v3 layout: an index { v: 3, ids, cursor } plus one record per entry and one per thumbnail. */
+const K_INDEX = 'mt.v3.history';
+const kEntry = (id: string) => 'mt.v3.e:' + id;
+const kThumb = (id: string) => 'mt.v3.t:' + id;
+/**
+ * Testing aid only: a lower history limit read at load (localStorage 'mt.histLimit', 5..999),
+ * so the pruning can be exercised without a thousand rolls. Never set by the app itself.
+ */
+const K_TEST_LIMIT = 'mt.histLimit';
 
 const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -81,12 +76,12 @@ export const useStudio = create<State>(() => ({
   ui: { panel: true, hideUI: false, tab: {}, preview: false, terminal: { cols: 80, rows: 24 }, sheet: 'none', component: null },
   stats: { cols: 0, rows: 0, fps: 0 },
   undoTick: 0,
+  histLimit: HISTORY_LIMIT,
+  pruned: 0,
 }));
 
 const set = useStudio.setState;
 const S = useStudio.getState;
-
-export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 /* ------------------------------------------------------------------ */
 /* Selectors                                                           */
@@ -115,6 +110,92 @@ export function canUndo() { const e = currentEntry(); return !!e && stackOf(e.id
 export function canRedo() { const e = currentEntry(); return !!e && stackOf(e.id).future.length > 0; }
 
 /* ------------------------------------------------------------------ */
+/* History limit                                                       */
+/* ------------------------------------------------------------------ */
+
+export type HistoryEvent =
+  | { type: 'near'; count: number; limit: number }
+  | { type: 'pruned'; dropped: number; limit: number };
+
+let onEvent: ((e: HistoryEvent) => void) | null = null;
+/** The UI shows these once per session (the store stays free of UI code). */
+export function onHistoryEvent(fn: (e: HistoryEvent) => void) { onEvent = fn; }
+let warnedNear = false, warnedPruned = false;
+
+/** Keeps the history within the limit: drops the oldest results that are not favourites nor the current one. */
+function limitHistory(entries: Entry[], cursor: number, favorites = S().favorites) {
+  const favIds = new Set(favorites.map(f => f.id));
+  const p = pruneHistory(entries, cursor, S().histLimit, e => !!e.favId && favIds.has(e.favId));
+  for (const e of p.dropped) stacks.delete(e.id);
+  if (p.dropped.length) scheduleGc();
+  return p;
+}
+
+function afterGrowth(count: number, dropped: number) {
+  const limit = S().histLimit;
+  if (dropped && !warnedPruned) { warnedPruned = warnedNear = true; onEvent?.({ type: 'pruned', dropped, limit }); }
+  else if (!warnedNear && count >= Math.ceil(limit * HISTORY_WARN)) { warnedNear = true; onEvent?.({ type: 'near', count, limit }); }
+  if (count > 50) askPersist();
+}
+
+/* ------------------------------------------------------------------ */
+/* Storage that lasts                                                  */
+/* ------------------------------------------------------------------ */
+
+let persistAsked = false;
+/**
+ * Asks the browser not to evict this site's data under storage pressure. Called when the history
+ * starts to matter (first favourite, more than 50 results). Some browsers decide silently.
+ */
+function askPersist() {
+  if (persistAsked) return;
+  persistAsked = true;
+  const st = typeof navigator !== 'undefined' ? navigator.storage : undefined;
+  if (!st?.persist) return;
+  void st.persisted().then(p => (p ? true : st.persist())).catch(() => false);
+}
+
+/* ------------------------------------------------------------------ */
+/* Media no longer referenced                                          */
+/* ------------------------------------------------------------------ */
+
+/** Media ids still needed: history (current and original versions), collection and undo steps. */
+export function referencedMediaIds(): Set<string> {
+  const s = S();
+  const ids = mediaIdsOf(allRecipes(s.entries, s.favorites));
+  for (const st of stacks.values()) for (const id of mediaIdsOf([...st.past, ...st.future])) ids.add(id);
+  return ids;
+}
+
+let gcT = 0;
+function scheduleGc(ms = 3000) {
+  if (typeof window === 'undefined') return;
+  clearTimeout(gcT);
+  gcT = window.setTimeout(() => { if (S().ready) void gcMedia(referencedMediaIds()); }, ms);
+}
+
+/* ------------------------------------------------------------------ */
+/* Local media link (media.ts registers it; the store does not import media) */
+/* ------------------------------------------------------------------ */
+
+interface MediaLink {
+  /** Reference of the file loaded for a kind, if any. */
+  refFor(kind: 'image' | 'video'): Recipe['media']['ref'];
+  /** True while the stage cannot show this entry's media (a thumbnail now would show only the pattern). */
+  holdThumb(e: Entry): boolean;
+}
+let mediaLink: MediaLink | null = null;
+export function linkMedia(l: MediaLink) { mediaLink = l; }
+
+/** A piece that turns to an image or video without naming one takes the file on stage (what the person sees). */
+function nameLoadedMedia(r: Recipe) {
+  if ((r.source === 'image' || r.source === 'video') && r.media.ref?.kind !== r.source) {
+    const ref = mediaLink?.refFor(r.source);
+    if (ref) r.media.ref = { ...ref };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Entries                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -122,15 +203,14 @@ function bump(kind: ChangeKind) { return { kind, n: S().change.n + 1 }; }
 
 function pushEntry(e: Omit<Entry, 'id' | 'created' | 'edited' | 'origin'> & { origin?: Recipe }, kind: ChangeKind = 'roll') {
   const s = S();
+  nameLoadedMedia(e.recipe);
   const entry: Entry = { ...e, origin: cloneRecipe(e.origin ?? e.recipe), id: uid(), created: Date.now(), edited: false };
-  let entries = [...s.entries, entry];
-  if (entries.length > MAX_ENTRIES) {
-    const drop = entries.findIndex((x, i) => i < entries.length - 1 && !x.favId);
-    entries = entries.filter((_, i) => i !== (drop >= 0 ? drop : 0));
-  }
-  set({ entries, cursor: entries.length - 1, change: bump(kind) });
+  const all = [...s.entries, entry];
+  const p = limitHistory(all, all.length - 1);
+  set({ entries: p.entries, cursor: p.cursor, change: bump(kind), pruned: s.pruned + p.dropped.length });
   seen.add(fingerprint(entry.recipe));
   persistSoon();
+  afterGrowth(p.entries.length, p.dropped.length);
   return entry;
 }
 
@@ -186,6 +266,7 @@ export function edit(fn: (r: Recipe) => void, key = '') {
   if (!e) return;
   const next = cloneRecipe(e.recipe);
   fn(next);
+  if (next.source !== e.recipe.source) nameLoadedMedia(next);
   if (sameRecipe(next, e.recipe) && JSON.stringify(next.meta) === JSON.stringify(e.recipe.meta)) return;
   const st = stackOf(e.id), now = performance.now();
   if (!(key && st.key === key && now - st.t < 900)) {
@@ -225,7 +306,7 @@ export function restoreOrigin() {
 export function setThumb(entryId: string, thumb: string) {
   const s = S();
   const i = s.entries.findIndex(e => e.id === entryId);
-  if (i < 0) return;
+  if (i < 0 || (s.entries[i].thumb && mediaLink?.holdThumb(s.entries[i]))) return;
   const entries = s.entries.slice();
   entries[i] = { ...entries[i], thumb };
   set({ entries });
@@ -238,6 +319,25 @@ export function clearHistory() {
   stacks.clear();
   set({ entries: [{ ...e }], cursor: 0 });
   persistSoon();
+  scheduleGc();
+}
+
+/**
+ * Adds the entries and favourites of a saved session after the current history (entries and
+ * favourites already here, by id, are skipped) and moves to the session's current entry.
+ */
+export function importSession(inc: { entries: unknown[]; favorites: unknown[]; cursor: number }) {
+  const entries = inc.entries.map(normalizeEntry).filter((e): e is Entry => !!e);
+  const favorites = inc.favorites.map(normalizeFavorite).filter((f): f is Favorite => !!f);
+  const s = S();
+  const m = mergeSession(s, { entries, favorites, cursor: Math.max(0, Math.min(entries.length - 1, inc.cursor | 0)) });
+  const p = limitHistory(m.entries, m.cursor, m.favorites);
+  const cur = p.entries[p.cursor];
+  set({ entries: p.entries, cursor: p.cursor, favorites: m.favorites, space: cur?.space ?? s.space, change: bump('load'), pruned: s.pruned + p.dropped.length });
+  for (const e of entries) seen.add(fingerprint(e.recipe));
+  persistSoon();
+  if (m.favAdded || p.entries.length > 50) askPersist();
+  return { added: m.added, skipped: m.skipped, favAdded: m.favAdded, dropped: p.dropped.length };
 }
 
 /* ------------------------------------------------------------------ */
@@ -288,6 +388,7 @@ export function saveFavorite(name?: string): Favorite | null {
   entries[s.cursor] = { ...e, favId: fav.id };
   set({ favorites, entries });
   persistSoon();
+  askPersist();
   return fav;
 }
 
@@ -298,6 +399,7 @@ export function removeFavorite(id: string) {
     entries: s.entries.map(e => (e.favId === id ? { ...e, favId: undefined } : e)),
   });
   persistSoon();
+  scheduleGc();
 }
 
 export function renameFavorite(id: string, name: string) {
@@ -361,33 +463,109 @@ function persistPrefs() {
 let saveT = 0;
 export function persistSoon() {
   clearTimeout(saveT);
-  saveT = window.setTimeout(persistNow, 500);
+  saveT = window.setTimeout(() => void persistNow(), 500);
 }
-export async function persistNow() {
+
+/** What IndexedDB holds, so each save writes only what changed (cheap even with a long history). */
+let saved = new Map<string, { e: Entry; thumb?: string }>();
+let savedIds: string[] = [];
+let savedCursor = -2;
+let savedFavs: Favorite[] | null = null;
+let savedSeen = -1;
+let chain: Promise<void> = Promise.resolve();
+
+export function persistNow(): Promise<void> {
+  clearTimeout(saveT);
+  chain = chain.then(writeChanges, writeChanges);
+  return chain;
+}
+
+async function writeChanges() {
   const s = S();
+  if (!s.ready) return;
   try {
-    await idbSet(K_HIST, { v: 2, entries: s.entries, cursor: s.cursor });
-    await idbSet(K_FAV, s.favorites);
-    await idbSet(K_SEEN, [...seen].slice(-6000));
-  } catch { /* private mode: keep working in memory */ }
+    const puts: Array<[IDBValidKey, unknown]> = [];
+    const next = new Map<string, { e: Entry; thumb?: string }>();
+    for (const e of s.entries) {
+      const prev = saved.get(e.id);
+      if (!prev || (prev.e !== e && !sameBody(prev.e, e))) puts.push([kEntry(e.id), entryBody(e)]);
+      if (e.thumb && e.thumb !== prev?.thumb) puts.push([kThumb(e.id), e.thumb]);
+      next.set(e.id, { e, thumb: e.thumb ?? prev?.thumb });
+    }
+    const ids = s.entries.map(e => e.id);
+    const gone = [...saved.keys()].filter(id => !next.has(id));
+    // records first, then the index that points to them, then what nothing points to any more
+    if (puts.length) await setMany(puts);
+    if (s.cursor !== savedCursor || ids.length !== savedIds.length || ids.some((id, i) => id !== savedIds[i])) {
+      await idbSet(K_INDEX, { v: 3, ids, cursor: s.cursor });
+      savedIds = ids; savedCursor = s.cursor;
+    }
+    if (gone.length) await delMany(gone.flatMap(id => [kEntry(id), kThumb(id)]));
+    saved = next;
+    if (s.favorites !== savedFavs) { await idbSet(K_FAV, s.favorites); savedFavs = s.favorites; }
+    if (seen.size !== savedSeen) { const n = seen.size; await idbSet(K_SEEN, [...seen].slice(-6000)); savedSeen = n; }
+  } catch { /* private mode or storage full: keep working in memory */ }
+}
+
+/** Reads the v3 layout. */
+async function readV3(idx: { ids: unknown[]; cursor?: number }): Promise<{ entries: Entry[]; cursor: number }> {
+  const ids = idx.ids.filter((x): x is string => typeof x === 'string');
+  const [bodies, thumbs] = await Promise.all([getMany(ids.map(kEntry)), getMany<string>(ids.map(kThumb))]);
+  const entries: Entry[] = [];
+  ids.forEach((id, i) => {
+    const e = bodies[i] && normalizeEntry({ ...bodies[i], id, thumb: thumbs[i] });
+    if (!e) return;
+    entries.push(e);
+    saved.set(e.id, { e, thumb: e.thumb });
+  });
+  const want = ids[idx.cursor ?? -1];
+  const at = entries.findIndex(e => e.id === want);
+  savedIds = entries.map(e => e.id);
+  savedCursor = at >= 0 ? at : entries.length - 1;
+  return { entries, cursor: savedCursor };
+}
+
+/** Moves a v2 history (one big record) to the v3 layout. v2 is deleted only once v3 is written. */
+async function migrateV2(h: { entries: unknown[]; cursor?: number }): Promise<{ entries: Entry[]; cursor: number }> {
+  const entries = h.entries.map(normalizeEntry).filter((e): e is Entry => !!e);
+  const cursor = Math.min(Math.max(0, h.cursor ?? entries.length - 1), entries.length - 1);
+  try {
+    await setMany(entries.flatMap(e => {
+      const recs: Array<[IDBValidKey, unknown]> = [[kEntry(e.id), entryBody(e)]];
+      if (e.thumb) recs.push([kThumb(e.id), e.thumb]);
+      return recs;
+    }));
+    await idbSet(K_INDEX, { v: 3, ids: entries.map(e => e.id), cursor });
+    for (const e of entries) saved.set(e.id, { e, thumb: e.thumb });
+    savedIds = entries.map(e => e.id); savedCursor = cursor;
+    await idbDel(K_HIST_V2);
+  } catch { /* v2 stays where it was; the next load migrates again */ }
+  return { entries, cursor };
 }
 
 /** Returns true on the very first visit (empty history). */
 export async function hydrate(): Promise<boolean> {
   let entries: Entry[] = [], cursor = -1, favorites: Favorite[] = [];
+  let histLimit = HISTORY_LIMIT;
   try {
-    const h = await idbGet(K_HIST);
-    if (h && Array.isArray(h.entries)) {
-      entries = h.entries.filter((e: Entry) => e && e.recipe).map((e: Entry) => ({
-        ...e, recipe: normalizeRecipe(e.recipe, PATTERN_IDS), origin: normalizeRecipe(e.origin ?? e.recipe, PATTERN_IDS),
-        space: spaceById(e.space).id,
-      }));
-      cursor = Math.min(Math.max(0, h.cursor ?? entries.length - 1), entries.length - 1);
+    const n = parseInt(localStorage.getItem(K_TEST_LIMIT) ?? '', 10);
+    if (n >= 5 && n < HISTORY_LIMIT) histLimit = n;
+  } catch { /* ignore */ }
+  try {
+    const idx = await idbGet(K_INDEX);
+    if (idx && idx.v === 3 && Array.isArray(idx.ids)) {
+      ({ entries, cursor } = await readV3(idx));
+      void idbDel(K_HIST_V2).catch(() => undefined); // leftover of an interrupted migration
+    } else {
+      const h = await idbGet(K_HIST_V2);
+      if (h && Array.isArray(h.entries)) ({ entries, cursor } = await migrateV2(h));
     }
     const f = await idbGet(K_FAV);
-    if (Array.isArray(f)) favorites = f.map((x: Favorite) => ({ ...x, recipe: normalizeRecipe(x.recipe, PATTERN_IDS), space: spaceById(x.space).id }));
+    if (Array.isArray(f)) favorites = f.map(normalizeFavorite).filter((x): x is Favorite => !!x);
+    savedFavs = favorites;
     const sn = await idbGet(K_SEEN);
     if (Array.isArray(sn)) seen = new Set(sn.filter((x: unknown) => typeof x === 'string'));
+    savedSeen = seen.size;
   } catch { /* ignore */ }
   let prefs: Record<string, unknown> = {};
   try { prefs = JSON.parse(localStorage.getItem(K_PREFS) || '{}'); } catch { /* ignore */ }
@@ -395,7 +573,7 @@ export async function hydrate(): Promise<boolean> {
   if (typeof innerWidth === 'number' && innerWidth < 900) ui.panel = false;
   const space = spaceById(String(prefs.space ?? entries[cursor]?.space ?? 'arte')).id;
   set({
-    entries, cursor, favorites, ready: true, ui,
+    entries, cursor, favorites, ready: true, ui, histLimit,
     space: entries[cursor]?.space ?? space,
     locks: Array.isArray(prefs.locks) ? (prefs.locks as LockGroup[]) : [],
     arch: typeof prefs.arch === 'string' ? prefs.arch : null,
@@ -408,6 +586,8 @@ export async function hydrate(): Promise<boolean> {
     pushEntry({ recipe: p.make(), kind: 'inicio', label: p.name, space: 'arte' }, 'load');
   }
   addEventListener('pagehide', () => { void persistNow(); });
+  // media left behind by earlier sessions (e.g. replaced images whose undo steps are gone)
+  scheduleGc(12_000);
   return first;
 }
 

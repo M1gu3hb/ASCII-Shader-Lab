@@ -4,6 +4,7 @@ import { Deck, copyLink, dice, favorite } from './Deck';
 import { ExportSheet } from './ExportSheet';
 import { Panel } from './Panel';
 import { CollectionSheet, ExploreSheet, SeedSheet, ShortcutsSheet } from './Sheets';
+import { ShareSheet } from './ShareSheet';
 import { Stage } from './Stage';
 import { TopBar, toggleFullscreen } from './TopBar';
 import { SPACES } from '../random/spaces';
@@ -29,6 +30,7 @@ export function App() {
       <ExploreSheet />
       <ShortcutsSheet />
       <SeedSheet />
+      <ShareSheet />
       <Toasts />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>

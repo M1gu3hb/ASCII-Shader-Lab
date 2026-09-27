@@ -1,4 +1,4 @@
-import { isV1Settings, migrateV1, normalizeRecipe, type Recipe } from '../engine/recipe';
+import { isV1Settings, migrateV1, normMediaRef, normalizeRecipe, type Recipe } from '../engine/recipe';
 import { PATTERN_IDS } from '../engine/catalog';
 
 const b64url = (bytes: Uint8Array) => {
@@ -18,9 +18,20 @@ async function pipe(bytes: Uint8Array, stream: CompressionStream | Decompression
   return new Uint8Array(await new Response(s).arrayBuffer());
 }
 
+/**
+ * The recipe as it may leave this browser without its media: the media reference keeps what the
+ * receiver needs to be told what is missing (kind, pixel size, format) and drops the file name
+ * (it can be personal) and the local id (meaningless elsewhere).
+ */
+export function publicRecipe(r: Recipe): Recipe {
+  const ref = r.media.ref;
+  if (!ref) return r;
+  return { ...r, media: { ...r.media, ref: normMediaRef({ kind: ref.kind, type: ref.type, w: ref.w, h: ref.h }) } };
+}
+
 /** Compact, URL-safe encoding of a recipe ("z" = deflate, "j" = plain JSON fallback). */
 export async function encodeRecipe(r: Recipe): Promise<string> {
-  const { meta, ...rest } = r;
+  const { meta, ...rest } = publicRecipe(r);
   const json = JSON.stringify({ ...rest, meta: { seed: meta.seed, arch: meta.arch, space: meta.space, name: meta.name } });
   const bytes = new TextEncoder().encode(json);
   if (typeof CompressionStream !== 'undefined') {
