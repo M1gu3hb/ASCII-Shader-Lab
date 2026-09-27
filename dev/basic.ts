@@ -14,7 +14,7 @@ import '@fontsource/space-mono/latin-400.css';
 import '@fontsource/vt323/latin-400.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
 import {
-  AsciiEngine, BasicEngine, PATTERNS, PATTERN_GLSL, createFontLoader, defaultRecipe, explainWebGL, probeWebGL,
+  AsciiEngine, BasicEngine, PATTERNS, PATTERN_GLSL, createFontLoader, createRenderer, defaultRecipe, explainWebGL, probeWebGL,
   unsupportedFeatures, type GridSnapshot, type Recipe, type Renderer,
 } from '../src/engine';
 import { PRESETS } from '../src/studio/presets';
@@ -247,6 +247,122 @@ function live() {
   return eng;
 }
 
+/* ---------- diagnostics: probe, fallbacks and the live loop, checked in a real browser ---------- */
+
+type Check = { name: string; ok: boolean; info: string };
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** Runs fn with getContext refusing the given WebGL context types (as a blocklisted GPU would). */
+async function withoutContexts<T>(types: string[], fn: () => T | Promise<T>, message = 'Simulated: GPU blocklisted'): Promise<T> {
+  const orig = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+    if (types.includes(type)) {
+      const ev = new Event('webglcontextcreationerror') as Event & { statusMessage?: string };
+      Object.defineProperty(ev, 'statusMessage', { value: message });
+      this.dispatchEvent(ev);
+      return null;
+    }
+    return (orig as (...a: unknown[]) => unknown).call(this, type, ...rest);
+  } as typeof orig;
+  try { return await fn(); } finally { HTMLCanvasElement.prototype.getContext = orig; }
+}
+
+/** Live frames per second of a BasicEngine on a 1280×720 canvas, measured after a warm-up. */
+async function liveFps(recipe: Recipe, ms: number, o: { offscreen?: boolean; warm?: number } = {}) {
+  const c = document.createElement('canvas');
+  c.style.cssText = o.offscreen ? 'position:absolute;top:30000px;left:0;width:1280px;height:720px' : 'position:fixed;left:0;top:0;width:1280px;height:720px;opacity:.01';
+  document.body.append(c);
+  const e = new BasicEngine(c, recipe, { fonts, maxPixelRatio: 1, adaptive: true, observeVisibility: true });
+  e.setMedia('image', IMAGE);
+  await e.ready();
+  await sleep(o.warm ?? 500);
+  let frames = 0, last = e.timings;
+  const t0 = performance.now();
+  while (performance.now() - t0 < ms) {
+    await new Promise(r => requestAnimationFrame(r));
+    if (e.timings !== last) { frames++; last = e.timings; }
+  }
+  const fps = (frames * 1000) / (performance.now() - t0);
+  const res = { fps, cap: e.fpsLimit, ms: e.stats.ms, cols: e.stats.cols, rows: e.stats.rows };
+  e.destroy(); c.remove();
+  return res;
+}
+
+async function diagnostics(): Promise<Check[]> {
+  const out: Check[] = [];
+  const add = (name: string, ok: boolean, info: unknown) => out.push({ name, ok, info: typeof info === 'string' ? info : JSON.stringify(info) });
+  const probe = () => probeWebGL({ fresh: true });
+  const mk = (force?: 'basic') => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 36; document.body.append(c);
+    const res = createRenderer(c, defaultRecipe(), { library: PATTERN_GLSL, fonts, fixedSize: { width: 64, height: 36, pixelRatio: 1 }, autoplay: false, interactive: false }, force ? { force } : {});
+    res.renderer.renderAt(1);
+    const g = res.renderer.readGrid();
+    const info = { kind: res.renderer.kind, reason: res.status.reason, detail: res.status.detail, grid: `${g.cols}x${g.rows}`, sameCanvas: res.renderer.canvas === c, inDom: res.renderer.canvas.isConnected };
+    res.renderer.destroy(); res.renderer.canvas.remove(); c.remove();
+    return info;
+  };
+
+  const real = probe();
+  add('probe: this browser', real.reason === 'ok' && real.webgl2, real);
+  add('createRenderer: WebGL 2 available → webgl2', mk().kind === 'webgl2', mk());
+  add('createRenderer force basic → basic, reason forced', (() => { const i = mk('basic'); return i.kind === 'basic' && i.reason === 'forced'; })(), mk('basic'));
+  try {
+    localStorage.setItem('mt.motor', 'basico');
+    const p = probeWebGL();
+    const i = mk();
+    add('localStorage mt.motor=basico → forced, basic', p.reason === 'forced' && p.webgl2 && i.kind === 'basic', { probe: p.reason, ...i });
+  } finally { localStorage.removeItem('mt.motor'); }
+
+  await withoutContexts(['webgl2', 'webgl', 'experimental-webgl'], () => {
+    const p = probe();
+    const i = mk();
+    add('no WebGL contexts → blocked (detail captured), basic', p.reason === 'blocked' && !p.webgl1 && !!p.detail && i.kind === 'basic', { probe: p, ...i });
+  });
+  await withoutContexts(['webgl2'], () => {
+    const p = probe();
+    add('only WebGL 1 → no-webgl2', p.reason === 'no-webgl2' && p.webgl1 && !p.webgl2, p);
+    add('no-webgl2 → basic', mk().kind === 'basic', mk());
+  });
+  {
+    const w = window as unknown as Record<string, unknown>;
+    const saved = w.WebGL2RenderingContext;
+    delete w.WebGL2RenderingContext;
+    try {
+      const p = probe();
+      add('no WebGL2RenderingContext → no-api', p.reason === 'no-api' && !p.webgl2, p);
+      add('explain no-api mentions the browser version', /versión|actualiza/i.test(JSON.stringify(explainWebGL(p))), explainWebGL(p).title);
+    } finally { w.WebGL2RenderingContext = saved; }
+  }
+  {
+    // the WebGL engine claims the canvas and then fails (shader compiler broken): the canvas is swapped
+    const proto = WebGL2RenderingContext.prototype as unknown as { createShader: unknown };
+    const orig = proto.createShader;
+    proto.createShader = () => { throw new Error('simulated shader failure'); };
+    try {
+      probe();
+      const i = mk();
+      add('WebGL fails after claiming the canvas → basic on a fresh canvas in the DOM', i.kind === 'basic' && i.reason === 'blocked' && !i.sameCanvas && i.inDom, i);
+    } finally { proto.createShader = orig; probe(); }
+  }
+  for (const reason of ['ok', 'no-api', 'blocked', 'no-webgl2', 'forced'] as const) {
+    const e = explainWebGL({ ...real, reason, software: false });
+    const blamesBrowser = /versión|actualiza/i.test(e.title + e.body);
+    add(`explain ${reason}`, !!e.title && !!e.body && (reason === 'ok' || e.steps.length > 0) && (reason === 'no-api' || !blamesBrowser), e.title);
+  }
+  add('explain software', explainWebGL({ ...real, reason: 'ok', software: true }).body.includes('lento'), explainWebGL({ ...real, reason: 'ok', software: true }).title);
+
+  const light = defaultRecipe();
+  const l = await liveFps(light, 2500);
+  add('live: default recipe capped at 30 fps', l.fps <= 31.5 && l.fps > 20 && l.cap === 30, l);
+  const heavy = presetRecipe('arte/bermellon');
+  heavy.glyph.cell = 6; // make frames slow on purpose
+  const h = await liveFps(heavy, 2000, { warm: 2500 });
+  add('live: slow frames drop the cap to 15 fps (grid unchanged)', h.cap === 15 && h.fps <= 16.5, h);
+  const off = await liveFps(light, 1500, { offscreen: true });
+  add('live: off-screen canvas renders nothing (observeVisibility)', off.fps === 0, off);
+  return out;
+}
+
 const st = probeWebGL();
 $('#probe').textContent = `probe: ${st.reason}${st.software ? ' (software)' : ''}${st.renderer ? ' · ' + st.renderer : ''} — ${explainWebGL(st).title}`;
 
@@ -283,6 +399,7 @@ window.__basic = {
     for (let i = 0; i < d.length; i += 4) s += d[i];
     return `${cv.width}x${cv.height}:${s}`;
   })),
+  diagnostics,
   defaultRecipe,
   probe: st,
 };
