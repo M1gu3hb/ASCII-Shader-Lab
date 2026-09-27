@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { dismissWelcome } from './helpers';
 
 test('en móvil, el aviso de modo básico se ve sin tapar la barra del dado', async ({ page }) => {
   await page.goto('/studio/?motor=basico');
   const deck = page.locator('.deck');
   await expect(deck).toBeVisible();
+  await dismissWelcome(page);
   await expect(page.locator('.panel')).not.toBeInViewport();
   const chip = page.locator('.bm-basic');
   await expect(chip).toBeInViewport();
