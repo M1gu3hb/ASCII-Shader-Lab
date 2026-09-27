@@ -5,7 +5,7 @@ import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type Sp
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import {
   HISTORY_LIMIT, HISTORY_WARN, allRecipes, entryBody, mediaIdsOf, mergeSession, normalizeEntry, normalizeFavorite, pruneHistory,
-  sameBody, uid, type Entry, type EntryKind, type Favorite,
+  sameBody, thumbOf, uid, type Entry, type EntryKind, type Favorite,
 } from './history';
 import { idbKeys, idbRead, idbValues, idbWrite, isQuotaError } from './idb';
 import { gcMedia } from './mediaStore';
@@ -526,7 +526,7 @@ export function importFavorites(list: Array<{ name?: string; recipe: unknown; th
   const now = Date.now();
   const add: Favorite[] = list.map(x => ({
     id: uid(), name: String(x.name ?? 'Importado').slice(0, 80), recipe: normalizeRecipe(x.recipe, PATTERN_IDS),
-    thumb: typeof x.thumb === 'string' && x.thumb.startsWith('data:image/') ? x.thumb : undefined,
+    thumb: thumbOf(x.thumb),
     created: now, updated: now, space: (spaceById(String(x.space ?? '')).id),
   }));
   set({ favorites: [...add, ...S().favorites] });

@@ -117,6 +117,9 @@ describe('stored and imported entries', () => {
     expect(e.favId).toBe('F');
     expect(normalizeEntry({ recipe: {}, thumb: 'data:image/webp;base64,AAAA' })!.thumb).toBe('data:image/webp;base64,AAAA');
     expect(normalizeFavorite({ name: 7, recipe: {} })!.name).toBe('Importado');
+    // a crafted thumbnail cannot smuggle another url() into the CSS it is used in
+    expect(normalizeFavorite({ recipe: {}, thumb: 'data:image/png;base64,AA), url(https://tracker.example/p' })!.thumb).toBeUndefined();
+    expect(normalizeEntry({ recipe: {}, thumb: 'data:image/svg+xml,<svg onload=x>' })!.thumb).toBeUndefined();
   });
 
   it('collects the media ids used by history (current and original) and collection', () => {

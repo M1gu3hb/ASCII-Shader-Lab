@@ -47,7 +47,14 @@ export const historyLabel = (count: number, limit: number) => `Historial: ${coun
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 const str = (v: unknown, max: number) => (typeof v === 'string' && v ? v.slice(0, max) : undefined);
-const thumbOf = (v: unknown) => (typeof v === 'string' && v.startsWith('data:image/') && v.length < 400_000 ? v : undefined);
+/**
+ * A thumbnail from storage or an imported file: only a base64 image data URL (what the studio makes),
+ * so a crafted one cannot add anything to the CSS it is used in.
+ */
+const THUMB = /^data:image\/(?:webp|jpeg|png|gif|avif);base64,[A-Za-z0-9+/]+={0,2}$/;
+export const thumbOf = (v: unknown) => (typeof v === 'string' && v.length < 400_000 && THUMB.test(v) ? v : undefined);
+/** A CSS background for a thumbnail (quoted as well, in case one ever gets past thumbOf). */
+export const thumbBg = (url: string) => ({ backgroundImage: `url(${JSON.stringify(url)})` });
 const time = (v: unknown, fb: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fb);
 
 /** Sanitises a stored or imported history entry. Returns null when there is no recipe at all. */

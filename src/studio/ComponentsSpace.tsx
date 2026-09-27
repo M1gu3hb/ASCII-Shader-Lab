@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { COMPONENTS, compById, type CompDef, type Values } from '../components/catalog';
 import { copyText, downloadText } from './download';
 import { setSpace, setUI, useStudio } from './store';
+import { thumbBg } from './history';
 
 /** Live mount of a component demo. Re-mounts when its values change. */
 function Demo({ def, values, big }: { def: CompDef; values: Values; big?: boolean }) {
@@ -80,7 +81,7 @@ function Gallery() {
         title="Fondo animado" action="Diseñar en Fondos"
         blurb="El motor completo como fondo, portada o bloque. Diséñalo en «Fondos» y exporta HTML, Web Component o React."
         onOpen={() => { setSpace('fondos'); setUI({ sheet: 'export' }); }}
-        demoStyle={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        demoStyle={thumb ? { ...thumbBg(thumb), backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
       />
       <Card
         title="Imagen ASCII" action="Abrir Imagen"

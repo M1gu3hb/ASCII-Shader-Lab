@@ -7,6 +7,7 @@ import { downloadBlob } from './download';
 import { allRecipes, mediaIdsOf } from './history';
 import { mediaBlob, rememberFile, syncMedia } from './media';
 import { guessType, kindOfType, put } from './mediaStore';
+import { spaceForOpened } from './presets';
 import { applyRecipe, importSession, onHistoryEvent, planSession, useStudio, type Entry, type Favorite } from './store';
 import { toast } from './toast';
 
@@ -75,7 +76,7 @@ async function openProject(files: Awaited<ReturnType<typeof unzip>>, label: stri
         : ' · no queda espacio para guardar el archivo: se verá mientras no cierres la pestaña';
     }
   }
-  const space = spaceById(recipe.meta.space ?? useStudio.getState().space).id;
+  const space = spaceById(spaceForOpened(recipe, useStudio.getState().space)).id;
   useStudio.setState({ space });
   applyRecipe(recipe, 'importado', label || recipe.meta.name || 'Proyecto');
   toast('Proyecto abierto' + note, undefined, note ? 7000 : 3200);

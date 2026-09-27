@@ -9,7 +9,7 @@ import {
 import { saveSession } from './packages';
 import { announce, toast } from './toast';
 import { setAuto, useLive } from './live';
-import { historyLabel } from './history';
+import { historyLabel, thumbBg } from './history';
 import { shareLink } from './ShareSheet';
 import { HoldCompare } from './guide/HoldCompare';
 
@@ -123,7 +123,7 @@ const Thumb = memo(function Thumb({ e, i, current, fav }: { e: Entry; i: number;
   return (
     <button
       ref={ref} type="button" role="listitem" className="thumb" aria-current={current} aria-label={label} title={label}
-      style={near && e.thumb ? { backgroundImage: `url(${e.thumb})` } : undefined}
+      style={near && e.thumb ? thumbBg(e.thumb) : undefined}
       onClick={() => go(i)}
     >
       <span className="n">{i + 1}</span>

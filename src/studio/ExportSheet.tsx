@@ -565,7 +565,8 @@ function RecipeTab() {
   useEffect(() => { if (e) void shareUrl({ ...e.recipe, meta: { ...e.recipe.meta, space: e.space } }).then(setUrl); }, [e?.recipe, e?.space]);
   useEffect(() => { let alive = true; if (e) void projectMedia(e.recipe).then(m => { if (alive) setPm(m); }); return () => { alive = false; }; }, [e?.recipe]);
   if (!e) return null;
-  const r = e.recipe;
+  // what leaves the studio records the space, so it reopens where it was made (as the share sheet does)
+  const r = { ...e.recipe, meta: { ...e.recipe.meta, space: e.space } };
   const media = (r.source === 'image' || r.source === 'video') && r.media.ref?.kind === r.source ? r.media.ref : null;
   const video = r.source === 'video';
   const word = video ? 'el video' : 'la imagen';
