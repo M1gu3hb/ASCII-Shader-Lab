@@ -1,24 +1,43 @@
-import { AsciiEngine } from '../engine/engine';
+import { createRenderer } from '../engine/create';
 import { createFontLoader } from '../engine/fonts';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
+import type { Renderer } from '../engine/renderer';
+import { useCaps } from './caps';
 import { attachEngine, pauseVideo, resumeVideo, stopCamera } from './media';
 import { currentEntry, currentRecipe, setStats, setThumb, useStudio } from './store';
 import { toast } from './toast';
 
-/** One live engine drives the studio stage; the store is the single source of truth. */
-let engine: AsciiEngine | null = null;
+/**
+ * One live renderer drives the studio stage; the store is the single source of truth.
+ * The bridge owns the stage canvas: it creates it inside the container the Stage renders, because
+ * createRenderer may swap it for a fresh one when WebGL fails late, and React must never hold that node.
+ */
+let engine: Renderer | null = null;
+let host: HTMLElement | null = null;
 let unsub: (() => void) | null = null;
 let thumbT = 0;
+let lostT = 0;
+let unwatch: (() => void) | null = null;
 
 export const getEngine = () => engine;
 export const studioFonts = createFontLoader({ google: false });
 
-export function mountStudioEngine(canvas: HTMLCanvasElement): string | null {
+const NO_CANVAS = 'Este navegador no puede dibujar en un lienzo (ni WebGL ni Canvas 2D), así que el estudio no tiene dónde mostrar la pieza. Ábrelo en otro navegador, o actualiza este.';
+
+/**
+ * Mounts the live renderer in `container`: the WebGL 2 engine when it works, the basic engine otherwise.
+ * Only when not even Canvas 2D is available does the stage stay empty (caps.fatal says why).
+ */
+export function mountStudioEngine(container: HTMLElement, o: { force?: 'basic' } = {}) {
   destroyStudioEngine();
+  host = container;
   const s = useStudio.getState();
-  let lastErr = 0;
+  const canvas = document.createElement('canvas');
+  container.appendChild(canvas);
+  let lastErr = 0, mounting = true;
+  let created;
   try {
-    engine = new AsciiEngine(canvas, currentRecipe(s), {
+    created = createRenderer(canvas, currentRecipe(s), {
       library: PATTERN_GLSL,
       fonts: studioFonts,
       interactive: true,
@@ -30,15 +49,27 @@ export function mountStudioEngine(canvas: HTMLCanvasElement): string | null {
       onStats: st => setStats({ cols: st.cols, rows: st.rows, fps: st.fps }),
       onError: m => {
         console.error('[monotrama]', m);
-        if (performance.now() - lastErr > 4000) { lastErr = performance.now(); toast('El motor no pudo compilar esa combinación. Prueba otra.'); }
+        // a WebGL failure while starting is not the piece's fault: the stage fell back to the basic engine
+        if (mounting) return;
+        if (performance.now() - lastErr > 4000) {
+          lastErr = performance.now();
+          toast(engine?.kind === 'basic' ? 'El motor básico no pudo dibujar esa combinación. Prueba otra.' : 'El motor no pudo compilar esa combinación. Prueba otra.');
+        }
       },
-    });
-  } catch (e) {
-    return (e as Error).message === 'webgl2'
-      ? 'Tu navegador no tiene WebGL 2 activo. Abre Monotrama en Chrome, Edge, Firefox o Safari actualizados.'
-      : 'No se pudo iniciar el motor gráfico: ' + (e as Error).message;
+    }, o);
+  } catch {
+    mounting = false;
+    container.replaceChildren();
+    useCaps.setState({ renderer: null, fatal: NO_CANVAS });
+    return;
   }
-  attachEngine(engine);
+  mounting = false;
+  const e = created.renderer;
+  engine = e;
+  e.canvas.setAttribute('aria-hidden', 'true');
+  useCaps.setState({ renderer: e.kind, gl: created.status, fatal: null, ...(o.force ? {} : { lost: false }) });
+  if (e.kind === 'webgl2') watchContext(e.canvas);
+  attachEngine(e);
   let prevSource = currentRecipe(s).source;
   unsub = useStudio.subscribe((st, prev) => {
     if (!engine) return;
@@ -56,15 +87,40 @@ export function mountStudioEngine(canvas: HTMLCanvasElement): string | null {
     if (st.playing !== prev.playing) { if (st.playing) engine.play(); else engine.pause(); }
   });
   scheduleThumb();
-  return null;
+}
+
+/**
+ * A GPU reset takes the WebGL context away; the browser usually hands it back within a moment. If it
+ * does not, switch the stage to the basic engine instead of leaving it black.
+ */
+function watchContext(canvas: HTMLCanvasElement) {
+  const onLost = () => {
+    clearTimeout(lostT);
+    lostT = window.setTimeout(() => {
+      if (!host || engine?.canvas !== canvas) return;
+      const time = engine.time;
+      const gl = useCaps.getState().gl;
+      mountStudioEngine(host, { force: 'basic' });
+      if (engine) engine.time = time;
+      useCaps.setState({ lost: true, gl: { ...gl, reason: 'blocked', detail: undefined } });
+    }, 3000);
+  };
+  const onRestored = () => clearTimeout(lostT);
+  canvas.addEventListener('webglcontextlost', onLost);
+  canvas.addEventListener('webglcontextrestored', onRestored);
+  unwatch = () => { canvas.removeEventListener('webglcontextlost', onLost); canvas.removeEventListener('webglcontextrestored', onRestored); };
 }
 
 export function destroyStudioEngine() {
+  clearTimeout(lostT);
+  unwatch?.(); unwatch = null;
   unsub?.(); unsub = null;
   if (engine) engine.externalPulse = 0;
   attachEngine(null);
   engine?.destroy();
+  engine?.canvas.remove();
   engine = null;
+  host = null;
 }
 
 function scheduleThumb() {

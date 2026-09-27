@@ -7,11 +7,10 @@ import '@fontsource/vt323/latin-400.css';
 import '@fontsource/martian-mono/latin-700.css';
 import '@fontsource/martian-mono/latin-800.css';
 import './landing.css';
-import { AsciiEngine } from '../engine/engine';
-import { createFontLoader } from '../engine/fonts';
-import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import { luminance } from '../engine/color';
 import type { Recipe } from '../engine/recipe';
+import type { Renderer } from '../engine/renderer';
+import type { GLStatus } from '../engine/support';
 import { generate, archById, freshSeed } from '../random';
 import { PRESETS } from '../studio/presets';
 import { encodeRecipe } from '../shared/share';
@@ -23,20 +22,63 @@ import { spinner } from '../components/lib/spinners.js';
 import { halo } from '../components/lib/halo.js';
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const fonts = createFontLoader({ google: false });
 const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s);
 const $$ = <T extends Element = HTMLElement>(s: string) => Array.from(document.querySelectorAll<T>(s));
 const preset = (space: keyof typeof PRESETS, id: string) => PRESETS[space].find(p => p.id === id)!.make();
 
-function engine(canvas: HTMLCanvasElement, r: Recipe, o: Partial<ConstructorParameters<typeof AsciiEngine>[2]> = {}) {
-  try {
-    return new AsciiEngine(canvas, r, {
-      library: PATTERN_GLSL, fonts, observeVisibility: true, reducedMotion: reduced, maxPixelRatio: 1.25, pointerTarget: 'canvas', ...o,
-    });
-  } catch {
-    canvas.style.background = r.color.bg;
-    return null;
-  }
+/*
+ * The engine is its own chunk, requested right away but never in the way of the first paint. It picks
+ * WebGL 2 when it works and the basic engine (Canvas 2D) otherwise, so no canvas stays empty.
+ */
+const engines = import('./engines');
+type Opts = import('./engines').LandingOptions;
+
+/** With «reduce motion», every canvas is a still frame: no autoplay and no wandering pointer. */
+function still(r: Recipe): Recipe {
+  if (reduced) r.interact.auto = false;
+  return r;
+}
+
+async function engine(canvas: HTMLCanvasElement, r: Recipe, o: Opts = {}): Promise<Renderer | null> {
+  canvas.style.background = r.color.bg;
+  const m = await engines;
+  const basic = m.basicHere();
+  const made = m.mount(canvas, still(r), {
+    observeVisibility: true, reducedMotion: reduced, maxPixelRatio: 1.25, pointerTarget: 'canvas', ...o,
+    // the CPU draws every pixel in basic mode: keep the canvases at 1 device pixel per CSS pixel
+    ...(basic ? { maxPixelRatio: 1 } : {}),
+  });
+  if (made?.renderer.kind === 'basic') noteBasic(made.status, m.basicWords);
+  return made?.renderer ?? null;
+}
+
+/** «modo básico» next to the hero's seed: discreet, and one tap away from the exact reason. */
+let noted = false;
+function noteBasic(status: GLStatus, words: typeof import('./engines').basicWords) {
+  const seed = $('.hero-seed');
+  if (noted || !seed) return;
+  noted = true;
+  const w = words(status);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'hero-basic';
+  btn.textContent = 'modo básico';
+  btn.title = w.title;
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('aria-controls', 'hero-basic-why');
+  const why = document.createElement('p');
+  why.id = 'hero-basic-why';
+  why.className = 'hero-basic-why';
+  why.hidden = true;
+  const b = document.createElement('b');
+  b.textContent = w.title + '. ';
+  why.append(b, w.body);
+  btn.addEventListener('click', () => {
+    why.hidden = !why.hidden;
+    btn.setAttribute('aria-expanded', String(!why.hidden));
+  });
+  seed.append(' · ', btn);
+  seed.after(why);
 }
 
 /* ---------- brand & nav ---------- */
@@ -56,7 +98,13 @@ function heroize(r: Recipe): Recipe {
 const heroCanvas = $<HTMLCanvasElement>('.hero-canvas')!;
 let heroRecipe = heroize(preset('arte', 'bermellon'));
 heroRecipe.glyph.cell = 12;
-const hero = engine(heroCanvas, heroRecipe, { pointerTarget: 'window', maxPixelRatio: 1.5 });
+let hero: Renderer | null = null;
+const firstHero = heroRecipe;
+void engine(heroCanvas, heroRecipe, { pointerTarget: 'window', maxPixelRatio: 1.5 }).then(e => {
+  hero = e;
+  // the dice may have been rolled while the engine was on its way
+  if (hero && heroRecipe !== firstHero) hero.set(still(heroRecipe));
+});
 const heroEl = $('.hero')!;
 const seedEl = $('[data-hero-seed]')!;
 const openEl = $<HTMLAnchorElement>('[data-hero-open]')!;
@@ -65,6 +113,7 @@ async function theme(r: Recipe, label: string) {
   const light = luminance(r.color.bg) > 0.35;
   heroEl.style.setProperty('--hero-bg', r.color.bg);
   heroEl.style.setProperty('--hero-ink', light ? '#1c1a17' : '#ede6da');
+  heroCanvas.style.background = r.color.bg;
   seedEl.textContent = label;
   openEl.href = '/studio/#r=' + (await encodeRecipe({ ...r, meta: { ...r.meta, space: 'arte' } }));
 }
@@ -73,7 +122,7 @@ void theme(heroRecipe, 'semilla: bermellón');
 $('[data-hero-roll]')!.addEventListener('click', () => {
   const seed = freshSeed();
   heroRecipe = heroize(generate({ seed, space: 'arte', base: heroRecipe }));
-  hero?.set(heroRecipe, { transition: true });
+  hero?.set(still(heroRecipe), { transition: true });
   void theme(heroRecipe, `semilla: ${seed} · ${archById(heroRecipe.meta.arch)?.name ?? ''}`);
 });
 
@@ -96,31 +145,28 @@ $$<HTMLCanvasElement>('[data-demo]').forEach(cv => lazy(cv, () => {
   const kind = cv.dataset.demo!;
   const r = demos[kind]();
   if (kind === 'fondos') r.interact.auto = true;
-  const e = engine(cv, r, { maxPixelRatio: 1 });
-  if (e && kind === 'media') e.setMedia('image', syntheticPhoto());
+  void engine(cv, r, { maxPixelRatio: 1 }).then(e => { if (e && kind === 'media') e.setMedia('image', syntheticPhoto()); });
 }));
 
 /* terminal: real characters read back from the engine, printed as text */
 const pre = $('[data-terminal]');
-if (pre) lazy(pre, () => {
+if (pre) lazy(pre, async () => {
   const r = PRESETS.terminal.find(p => p.id === 'donut')!.make();
   const cols = 64, rows = 20, cw = 9, ch = 18;
-  const off = document.createElement('canvas');
-  let e: AsciiEngine | null = null;
-  try {
-    e = new AsciiEngine(off, r, { library: PATTERN_GLSL, fonts, fixedSize: { width: cols * cw, height: rows * ch, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false });
-  } catch { return; }
+  const m = await engines;
+  const e = m.mount(document.createElement('canvas'), r, { fixedSize: { width: cols * cw, height: rows * ch, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false })?.renderer;
+  if (!e) return;
   let visible = false, t = 3;
   new IntersectionObserver(es => { visible = es.some(x => x.isIntersecting); }).observe(pre);
   const draw = () => {
-    const g = e!.readGrid();
+    const g = e.readGrid();
     const lines: string[] = [];
     for (let y = 0; y < g.rows; y++) lines.push(g.chars.slice(y * g.cols, (y + 1) * g.cols).join(''));
     pre.textContent = lines.join('\n');
   };
   e.renderAt(t);
   draw();
-  if (!reduced) setInterval(() => { if (!visible || document.hidden) return; t += 0.08; e!.renderAt(t); draw(); }, 80);
+  if (!reduced) setInterval(() => { if (!visible || document.hidden) return; t += 0.08; e.renderAt(t); draw(); }, 80);
 });
 
 /* pieces */
@@ -129,6 +175,12 @@ if (typeEl) typewriter(typeEl, { phrases: ['descifrar()', 'maquina_de_escribir()
 $$('[data-spin]').forEach(el => spinner(el, el.dataset.spin || 'braille'));
 
 /* ---------- azar: a remembered history ---------- */
+/** WebP when the browser encodes it, JPEG otherwise (never the much heavier silent PNG). */
+function thumb(c: HTMLCanvasElement) {
+  const url = c.toDataURL('image/webp', 0.8);
+  return url.startsWith('data:image/webp') ? url : c.toDataURL('image/jpeg', 0.82);
+}
+
 const azarCv = $<HTMLCanvasElement>('[data-azar]');
 const strip = $('[data-azar-strip]');
 const azarSeed = $('[data-azar-seed]');
@@ -140,20 +192,17 @@ if (azarCv && strip && azarSeed) lazy(azarCv, async () => {
     r.interact.auto = true;
     return r;
   });
-  const live = engine(azarCv, recipes[3], { maxPixelRatio: 1.25 });
-  const thumbs = document.createElement('canvas');
-  let te: AsciiEngine | null = null;
-  try {
-    te = new AsciiEngine(thumbs, recipes[0], { library: PATTERN_GLSL, fonts, fixedSize: { width: 640, height: 400, pixelRatio: 0.5 }, autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true });
-    await te.ready();
-  } catch { te = null; }
+  const live = await engine(azarCv, recipes[3], { maxPixelRatio: 1.25 });
+  const m = await engines;
+  const te = m.mount(document.createElement('canvas'), recipes[0], { fixedSize: { width: 640, height: 400, pixelRatio: 0.5 }, autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true })?.renderer ?? null;
+  await te?.ready();
   const btns = recipes.map((r, i) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.setAttribute('role', 'listitem');
     b.setAttribute('aria-label', `Resultado ${i + 1}: ${seeds[i].replace(/-/g, ' ')}`);
     b.innerHTML = `<span>${i + 1}</span>`;
-    if (te) { te.set(r); te.renderAt(4); b.style.backgroundImage = `url(${thumbs.toDataURL('image/webp', 0.8)})`; }
+    if (te) { te.set(r); te.renderAt(4); b.style.backgroundImage = `url(${thumb(te.canvas)})`; }
     b.addEventListener('click', () => select(i));
     strip.appendChild(b);
     return b;
@@ -161,7 +210,7 @@ if (azarCv && strip && azarSeed) lazy(azarCv, async () => {
   te?.destroy();
   function select(i: number) {
     btns.forEach((b, j) => b.setAttribute('aria-current', String(i === j)));
-    live?.set(recipes[i], { transition: true });
+    live?.set(still(recipes[i]), { transition: true });
     azarSeed!.textContent = `N.º ${i + 1}/7 · ${seeds[i]} · ${archById(recipes[i].meta.arch)?.name ?? ''}`;
   }
   select(3);
@@ -172,7 +221,7 @@ const finalCv = $<HTMLCanvasElement>('.final-canvas');
 if (finalCv) lazy(finalCv, () => {
   const r = preset('fondos', 'constelacion');
   r.interact.auto = true;
-  engine(finalCv, r, { pointerTarget: 'window' });
+  void engine(finalCv, r, { pointerTarget: 'window' });
 });
 const haloBtn = $('[data-halo]');
 if (haloBtn) halo(haloBtn, { color: '#ff5b1f', cell: 10, radius: 110, idle: 0.1 });

@@ -12,6 +12,7 @@ import { IDice, IDown, IEye, IEyeOff, IPlus, ITrash, IUp } from './icons';
 import { toggleMute, toggleVideo, useMedia, setVideoRate, startCamera, stopCamera } from './media';
 import { edit, setUI, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
+import { BasicFxHint } from './BasicMode';
 import { pickFile } from './files';
 
 export const TABS: Record<SpaceId, Array<[string, string]>> = {
@@ -290,6 +291,7 @@ function FxTab() {
       <Slider f={F('fx.flicker')} label="Parpadeo" min={0} max={1} />
       <Slider f={F('fx.grain')} label="Grano" min={0} max={1} />
       <Slider f={F('fx.grid')} label="Retícula" min={0} max={1} />
+      <BasicFxHint />
     </>
   );
 }
