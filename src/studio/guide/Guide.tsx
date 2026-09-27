@@ -37,7 +37,6 @@ export function Guide() {
   const path = useGuide(s => s.path);
   const step = useGuide(s => s.step);
   const tick = useGuide(s => s.focusTick);
-  const space = useStudio(s => s.space);
   const missing = useGate(path, step);
   const title = useRef<HTMLHeadingElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -47,8 +46,6 @@ export function Guide() {
     body.current?.scrollTo(0, 0);
     title.current?.focus({ preventScroll: true });
   }, [tick]);
-  // the person went to another space: the guide steps aside, the piece stays
-  useEffect(() => { if (path && space !== PATHS[path].space) exitGuide('switch'); }, [space, path]);
 
   if (!path) return null;
   const info = PATHS[path];

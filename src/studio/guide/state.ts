@@ -79,8 +79,10 @@ function prepare(path: PathId) {
 export function startPath(path: PathId) {
   const g = G();
   if (g.welcome) closeWelcome('path');
-  if (g.path === null) panelBefore = useStudio.getState().ui.panel;
+  const before = g.path === null ? useStudio.getState().ui.panel : panelBefore;
+  if (g.path) setG({ path: null }); // the space may change now: that is not the person leaving
   prepare(path);
+  panelBefore = before;
   setUI({ panel: true, sheet: 'none', hideUI: false });
   setG({ path, step: 0, focusTick: g.focusTick + 1, wordLoop: true, word: null });
   announce(`Guía: ${PATHS[path].title}. Paso 1 de ${STEP_COUNT}.`);
@@ -92,6 +94,13 @@ export function goStep(step: number) {
   const s = Math.max(0, Math.min(STEP_COUNT - 1, step));
   if (s !== g.step) setG({ step: s, focusTick: g.focusTick + 1 });
 }
+
+// the person went to another space (top bar, keys 1–6, an opened recipe): the guide steps aside,
+// the piece stays
+useStudio.subscribe((s, prev) => {
+  const path = G().path;
+  if (path && s.space !== prev.space && s.space !== PATHS[path].space) exitGuide('switch');
+});
 
 /** Focus after the panel re-renders (the element may not exist yet). */
 function focusSoon(selector: string) {
