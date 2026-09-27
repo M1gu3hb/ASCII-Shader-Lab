@@ -122,8 +122,9 @@ test.describe('motor básico pedido', () => {
     await expect(chip).toContainText('Lo elegiste como preferencia en este navegador.');
     await chip.getByRole('button', { name: '¿Por qué?' }).click();
     await page.getByRole('button', { name: 'Usar el motor completo' }).click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('mt.motor'))).toBeNull();
-    await expect.poll(() => contextOf(page, '.stage canvas')).toBe('webgl2');
+    // the page reloads meanwhile: a read that lands during the reload is simply tried again
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('mt.motor')).catch(() => 'recargando')).toBeNull();
+    await expect.poll(() => contextOf(page, '.stage canvas').catch(() => 'none')).toBe('webgl2');
     await expect(page.locator('.bm-basic')).toHaveCount(0);
   });
 

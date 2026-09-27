@@ -61,7 +61,7 @@
 .g-sec.alt { background: var(--ink-2); border-block: 1px solid rgba(237, 230, 218, .06); }
 .g-sec h2 { font: 800 clamp(28px, 3.6vw, 48px)/1.02 var(--font-display); letter-spacing: -.05em; margin: 0 0 18px; text-wrap: balance; }
 .g-sec .sec-head { margin-bottom: clamp(28px, 4vw, 48px); }
-.g-sec.paper .eyebrow { color: #8a8173; }
+.g-sec.paper .eyebrow { color: #6d6556; }
 .g-sec.paper .lead { color: #4a453d; }
 .g-sec .principles { max-width: none; }
 
@@ -105,7 +105,7 @@
 /* ---------- document pages (/licencia/) ---------- */
 body.doc { background: var(--paper); color: #1c1a17; }
 .doc-main { max-width: 780px; margin: 0 auto; padding: clamp(100px, 11vw, 136px) 20px clamp(64px, 8vw, 104px); }
-.doc .crumbs ol { color: #8a8173; }
+.doc .crumbs ol { color: #6d6556; }
 .doc .crumbs li + li::before { color: #b9ae9b; }
 .doc .crumbs a { color: #3a352e; }
 .doc h1 { color: #1c1a17; }

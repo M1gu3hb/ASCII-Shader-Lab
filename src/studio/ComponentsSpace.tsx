@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { COMPONENTS, compById, type CompDef, type Values } from '../components/catalog';
 import { copyText, downloadText } from './download';
 import { setSpace, setUI, useStudio } from './store';
@@ -28,6 +28,27 @@ export function ComponentsSpace() {
   );
 }
 
+/**
+ * One gallery card: a plain container with a heading and ONE real button whose hit area covers the
+ * card (a stretched pseudo-element). The live demo is decoration here: inert and hidden from assistive
+ * tech, so nothing interactive (e.g. the Halo demo's own button) ends up inside another control.
+ */
+function Card({ title, blurb, action, onOpen, demo, demoStyle }: {
+  title: string; blurb: string; action: string; onOpen: () => void; demo?: React.ReactNode; demoStyle?: React.CSSProperties;
+}) {
+  const id = useId();
+  return (
+    <article className="comp-card" aria-labelledby={id}>
+      <div className="comp-demo" style={demoStyle} aria-hidden="true" inert>{demo}</div>
+      <div className="txt">
+        <h2 id={id}>{title}</h2>
+        <p>{blurb}</p>
+        <button type="button" className="comp-open" onClick={onOpen} aria-label={`${action}: ${title}`}>{action}</button>
+      </div>
+    </article>
+  );
+}
+
 function Gallery() {
   const thumb = useStudio(s => s.entries[s.cursor]?.thumb);
   return (
@@ -37,19 +58,21 @@ function Gallery() {
         <h1 style={{ font: '700 clamp(22px,3vw,34px)/1.1 var(--font-display)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Piezas listas para tu proyecto</h1>
         <p className="note" style={{ maxWidth: '62ch', margin: 0 }}>Cada pieza se personaliza aquí y se lleva como código que funciona: HTML para pegar, módulo ES, componente de React o, si es para la consola, Node, Python y Bash. Sin dependencias.</p>
       </div>
-      <button type="button" className="comp-card" onClick={() => { setSpace('fondos'); setUI({ sheet: 'export' }); }}>
-        <div className="comp-demo" style={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined} />
-        <div className="txt"><h3>Fondo animado</h3><p>El motor completo como fondo, portada o bloque. Diséñalo en «Fondos» y exporta HTML, Web Component o React.</p></div>
-      </button>
-      <button type="button" className="comp-card" onClick={() => setSpace('media')}>
-        <div className="comp-demo"><span style={{ font: '500 11px/1.1 var(--font-mono)', color: 'var(--smoke)', whiteSpace: 'pre', textAlign: 'center' }}>{'  .:-=+*#%@@%#*+=-:.  \n .:=*#%@@@@@@%#*=:. \n.:=*#%@@@@@@@@%#*=:.\n .:=*#%@@@@@@%#*=:. \n  .:-=+*#%@@%#*+=-:.  '}</span></div>
-        <div className="txt"><h3>Imagen ASCII</h3><p>Tu foto o video en caracteres, con lupa o borrador que revela el original. Exporta como elemento web.</p></div>
-      </button>
+      <Card
+        title="Fondo animado" action="Diseñar en Fondos"
+        blurb="El motor completo como fondo, portada o bloque. Diséñalo en «Fondos» y exporta HTML, Web Component o React."
+        onOpen={() => { setSpace('fondos'); setUI({ sheet: 'export' }); }}
+        demoStyle={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+      />
+      <Card
+        title="Imagen ASCII" action="Abrir Imagen"
+        blurb="Tu foto o video en caracteres, con lupa o borrador que revela el original. Exporta como elemento web."
+        onOpen={() => setSpace('media')}
+        demo={<span className="comp-ascii">{'  .:-=+*#%@@%#*+=-:.  \n .:=*#%@@@@@@%#*=:. \n.:=*#%@@@@@@@@%#*=:.\n .:=*#%@@@@@@%#*=:. \n  .:-=+*#%@@%#*+=-:.  '}</span>}
+      />
       {COMPONENTS.map(c => (
-        <button key={c.id} type="button" className="comp-card" onClick={() => setUI({ component: c.id })}>
-          <div className="comp-demo"><Demo def={c} values={c.defaults} /></div>
-          <div className="txt"><h3>{c.name}</h3><p>{c.blurb}</p></div>
-        </button>
+        <Card key={c.id} title={c.name} blurb={c.blurb} action="Personalizar y copiar" onOpen={() => setUI({ component: c.id })}
+          demo={<Demo def={c} values={c.defaults} />} />
       ))}
     </div>
   );
