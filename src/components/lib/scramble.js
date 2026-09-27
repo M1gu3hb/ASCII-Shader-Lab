@@ -42,6 +42,10 @@ export function scramble(el, options = {}) {
   const pool = Array.from(o.chars);
   const rnd = () => pool[(Math.random() * pool.length) | 0];
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // letters not shown yet take a non-breaking space: the text keeps its size and line breaks while it
+  // resolves (with a monospaced font nothing around it moves)
+  const HOLD = ' ';
+  const blank = letters.map(c => (c === ' ' || c === '\n' ? c : HOLD)).join('');
   let raf = 0, timer = 0, t0 = 0, seen = false;
 
   function frame(now) {
@@ -55,7 +59,7 @@ export function scramble(el, options = {}) {
       const start = order[i] * 0.72;
       if (c === ' ' || c === '\n' || p >= start + 0.28) { flush(); html += esc(c); }
       else if (p >= start - 0.2) noise += rnd();
-      else noise += ' ';
+      else noise += HOLD;
     });
     flush();
     vis.innerHTML = html;
@@ -71,7 +75,7 @@ export function scramble(el, options = {}) {
     clearTimeout(timer);
     if (reduced) { vis.textContent = text; return; }
     t0 = performance.now();
-    raf = requestAnimationFrame(frame);
+    frame(t0); // the first frame now: never an empty element in between
   }
 
   let io = null;
@@ -81,7 +85,7 @@ export function scramble(el, options = {}) {
     el.addEventListener('pointerenter', onEnter);
     el.addEventListener('focus', onEnter);
   } else if (o.trigger === 'view' && typeof IntersectionObserver !== 'undefined') {
-    vis.textContent = '';
+    vis.textContent = blank; // holds the text's place until it scrolls into view
     io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && !seen) { seen = true; play(); } }), { threshold: 0.4 });
     io.observe(el);
   } else {

@@ -14,7 +14,6 @@ import type { GLStatus } from '../engine/support';
 import { generate, archById, freshSeed } from '../random';
 import { PRESETS } from '../studio/presets';
 import { encodeRecipe } from '../shared/share';
-import { logoMark } from '../shared/brand';
 import { syntheticPhoto } from '../shared/sample';
 import { scramble } from '../components/lib/scramble.js';
 import { typewriter } from '../components/lib/typewriter.js';
@@ -82,7 +81,6 @@ function noteBasic(status: GLStatus, words: typeof import('./engines').basicWord
 }
 
 /* ---------- brand & nav ---------- */
-$$('[data-logo]').forEach(el => { el.innerHTML = logoMark(24); });
 const nav = $('.nav')!;
 const onScroll = () => nav.classList.toggle('scrolled', scrollY > 40);
 addEventListener('scroll', onScroll, { passive: true });
