@@ -51,17 +51,21 @@ test.describe('transiciones y calidad de la vista previa', () => {
     const recipe = async () => {
       await page.keyboard.press('e');
       await page.getByRole('tab', { name: 'Receta' }).click();
-      const v = await page.getByRole('textbox', { name: 'Enlace' }).inputValue();
+      const box = page.getByRole('textbox', { name: 'Enlace' });
+      await expect(box).toHaveValue(/#r=z/);
+      const v = await box.inputValue();
       await page.keyboard.press('Escape');
       return v;
     };
     const before = await recipe();
-    await expect.poll(canvasW, { timeout: 20_000 }).toBeGreaterThan(1.3);
     const btn = page.getByRole('button', { name: /Calidad de la vista previa/ });
     await expect(btn).toContainText('fps');
     await btn.click();
     const dlg = page.getByRole('dialog', { name: 'Calidad de la vista previa' });
     await expect(dlg).toContainText('lo que exportas sale con la calidad completa');
+    // «Alta»: the full pixel ratio, even while frames are slow (the test GPU is a software one)
+    await dlg.getByRole('button', { name: /Alta/ }).click();
+    await expect.poll(canvasW, { timeout: 20_000 }).toBeGreaterThan(1.9);
     await dlg.getByRole('button', { name: /Ligera/ }).click();
     await expect(dlg.getByRole('button', { name: /Ligera/ })).toHaveAttribute('aria-pressed', 'true');
     await page.keyboard.press('Escape');

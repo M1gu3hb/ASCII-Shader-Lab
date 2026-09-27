@@ -247,6 +247,18 @@ test.describe('miniaturas del historial', () => {
     expect(errors).toEqual([]);
   });
 
+  test('si WebGL se pierde a mitad de un cambio, el escenario sigue en el motor básico y las miniaturas también', async ({ page }) => {
+    const errors = await openStudio(page);
+    await page.keyboard.press('r');
+    // lost while the new piece is getting ready (or its transition runs)
+    await page.evaluate(() => document.querySelector<HTMLCanvasElement>('.stage canvas')!.getContext('webgl2')!.getExtension('WEBGL_lose_context')!.loseContext());
+    await expect(page.locator('.bm-basic')).toContainText('WebGL dejó de responder', { timeout: 15_000 });
+    for (let i = 0; i < 4; i++) { await page.keyboard.press('r'); await page.waitForTimeout(150); }
+    await expect(page.locator('.seedline')).toContainText('6/6');
+    await allThumbs(page);
+    expect(errors).toEqual([]);
+  });
+
   test('un historial guardado sin miniaturas (versiones anteriores) las recibe al verse en la tira', async ({ page }) => {
     await openStudio(page);
     for (let i = 0; i < 24; i++) { await page.keyboard.press('r'); await page.waitForTimeout(40); }

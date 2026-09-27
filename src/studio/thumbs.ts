@@ -52,6 +52,9 @@ const sessionStart = Date.now() - 60_000;
 let started = false;
 let timer = 0;
 let running = false;
+/** The last key or pointer press: a render waits a moment after one, so what the person did comes first. */
+let lastInput = 0;
+const INPUT_QUIET_MS = 400;
 
 /** Starts the pipeline (once; the strip calls it when it mounts). */
 export function startThumbs() {
@@ -73,6 +76,9 @@ export function startThumbs() {
     schedule(0);
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) schedule(0); });
+  const input = () => { lastInput = performance.now(); };
+  addEventListener('keydown', input, { capture: true, passive: true });
+  addEventListener('pointerdown', input, { capture: true, passive: true });
   schedule(300);
 }
 
@@ -171,6 +177,8 @@ async function pump() {
   if (document.hidden) return;                // resumes on visibilitychange
   // the stage is getting a new piece ready, or showing a transition: its frames come first
   if (getEngine()?.busy) { schedule(150); return; }
+  const quiet = performance.now() - lastInput;
+  if (quiet < INPUT_QUIET_MS) { schedule(INPUT_QUIET_MS - quiet + 20); return; }
   const { next, waiting } = candidates();
   markWaiting(waiting);
   if (!next) {

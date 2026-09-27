@@ -49,7 +49,7 @@ export function stageMedia(eng: Renderer) {
  * made once. Jobs run one at a time, in the order asked; the renderer goes away after a while unused, or
  * when the stage changes kind (e.g. to the basic engine after losing WebGL).
  */
-let shared: { eng: Renderer; kind: RendererKind | null } | null = null;
+let shared: { eng: Renderer; kind: RendererKind | null; lost: boolean } | null = null;
 let creating: Promise<Renderer> | null = null;
 let chain: Promise<unknown> = Promise.resolve();
 let idleT = 0;
@@ -60,17 +60,17 @@ const IDLE_MS = 30_000;
 
 async function sharedEngine(recipe: Recipe, size: OffscreenSize): Promise<Renderer> {
   const kind = liveKind();
-  if (shared && (shared.kind !== kind || isLost(shared.eng))) { shared.eng.destroy(); shared = null; }
+  if (shared && (shared.kind !== kind || shared.lost)) { shared.eng.destroy(); shared = null; }
   if (shared) { shared.eng.setFixedSize(size.cssW, size.cssH, size.pixelRatio); return shared.eng; }
-  creating ??= offscreenEngine(recipe, size, { readback: true }).then(eng => { shared = { eng, kind }; return eng; }).finally(() => { creating = null; });
+  creating ??= offscreenEngine(recipe, size, { readback: true }).then(eng => {
+    const s = { eng, kind, lost: false };
+    // a WebGL context the browser takes back (too many at once, a GPU reset): make a new renderer next time
+    eng.canvas.addEventListener('webglcontextlost', () => { s.lost = true; });
+    shared = s;
+    return eng;
+  }).finally(() => { creating = null; });
   return creating;
 }
-
-const isLost = (e: Renderer) => {
-  if (e.kind !== 'webgl2') return false;
-  const gl = e.canvas.getContext('webgl2');
-  return !gl || gl.isContextLost();
-};
 
 /**
  * Runs `job` with the shared hidden renderer, sized as asked (CSS size of the stage and a pixel ratio),

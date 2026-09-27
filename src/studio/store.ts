@@ -680,6 +680,8 @@ async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Pr
     // one transaction: the records, the index that points to them and what nothing points to any more
     const r = await idbWrite(puts, dels, kind === 'now' && !claim ? { fence: [K_OWNER, token] } : { commit: kind === 'leave' });
     if (r === 'fenced') { lose(); return; }
+    // the page is being left: the save made then carries these changes too
+    if (r === 'superseded') return;
     if (claim) tokenStored = true;
     saved = next;
     if (index) { savedIds = ids; savedCursor = s.cursor; }

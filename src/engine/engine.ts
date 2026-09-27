@@ -336,7 +336,7 @@ export class AsciiEngine implements Renderer {
 
   /**
    * Fixed-size engines (exports, thumbnails): compiles the current recipe's field shader ahead of the
-   * first render, the same way live changes do, so rendering does not wait for the driver (at most 2 s).
+   * first render without blocking (see set()), so rendering does not wait for the driver (at most 2 s).
    */
   private async compileAhead() {
     if (this.lost) return;
@@ -351,11 +351,8 @@ export class AsciiEngine implements Renderer {
     if (compiled && !this.lost) gl.deleteSync(compiled);
     if (!this.alive || this.lost) return;
     if (this.progs.has(key)) { dropProgram(gl, pp); return; }
-    try { this.cacheProgram(key, finishProgram(gl, pp)); } catch (e) { this.o.onError?.((e as Error).message); return; }
-    const sync = this.warmUp(key);
-    if (!sync) return;
-    while (this.alive && !this.lost && !passed(gl, sync) && performance.now() - t0 < 2000) await later();
-    if (!this.lost) gl.deleteSync(sync);
+    // (no warm-up draw here: the render that follows is the first draw, and nothing waits on screen for it)
+    try { this.cacheProgram(key, finishProgram(gl, pp)); } catch (e) { this.o.onError?.((e as Error).message); }
   }
 
   /**
