@@ -409,6 +409,45 @@ async function diagnostics(): Promise<Check[]> {
     e.destroy(); ref.destroy();
   }
 
+  {
+    // video / camera path: a canvas stream played through a <video>, frames change → the grid follows
+    const src = document.createElement('canvas');
+    src.width = 320; src.height = 180;
+    const sx = src.getContext('2d')!;
+    // repaint every animation frame so the stream keeps producing frames
+    let boxX = 20, painting = true;
+    const paint = () => {
+      sx.fillStyle = '#000'; sx.fillRect(0, 0, 320, 180); sx.fillStyle = '#fff'; sx.fillRect(boxX, 40, 120, 100);
+      if (painting) requestAnimationFrame(paint);
+    };
+    paint();
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true;
+    v.srcObject = src.captureStream(30);
+    await Promise.race([v.play(), sleep(3000)]);
+    const frameShown = () => Promise.race([
+      new Promise(r => (v as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => void }).requestVideoFrameCallback?.(() => r(null))),
+      sleep(400),
+    ]);
+    await frameShown();
+    const r = presetRecipe('media/retrato');
+    r.source = 'video';
+    const e = new BasicEngine(document.createElement('canvas'), r, { fonts, fixedSize: { width: 320, height: 180, pixelRatio: 1 }, autoplay: false, interactive: false });
+    e.setMedia('video', v);
+    await e.ready();
+    e.renderAt(1);
+    const a = e.readGrid();
+    boxX = 180;
+    await frameShown(); await frameShown(); await frameShown();
+    e.renderAt(1);
+    const b = e.readGrid();
+    const lit = (g: GridSnapshot, c0: number, c1: number) => { let s = 0, n = 0; for (let y = 0; y < g.rows; y++) for (let x = c0; x < c1; x++) { s += g.lum[y * g.cols + x]; n++; } return s / n; };
+    const q = a.cols / 4;
+    const info = { before: [lit(a, 0, q), lit(a, 3 * q, 4 * q)].map(Math.round), after: [lit(b, 0, q), lit(b, 3 * q, 4 * q)].map(Math.round) };
+    add('video source: the grid follows the frames', info.before[0] > info.before[1] + 30 && info.after[1] > info.after[0] + 30, info);
+    e.destroy(); v.pause(); v.srcObject = null; painting = false;
+  }
+
   const light = defaultRecipe();
   const l = await liveFps(light, 2500);
   add('live: default recipe capped at 30 fps', l.fps <= 31.5 && l.fps > 20 && l.cap === 30, l);
