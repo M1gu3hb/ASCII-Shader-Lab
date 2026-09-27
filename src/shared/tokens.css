@@ -1,0 +1,25 @@
+/* Monotrama · design tokens shared by the site and the studio */
+:root {
+  --ink: #0c0b0a;
+  --ink-2: #151412;
+  --ink-3: #1e1c19;
+  --graphite: #2a2723;
+  --smoke: #8c857a;
+  --bone: #ede6da;
+  --paper: #f2ecdf;
+  --signal: #ff5b1f;
+  --signal-ink: #1a0700;
+  --signal-soft: rgba(255, 91, 31, .14);
+  --phosphor: #b8ffcf;
+
+  --font-display: "Martian Mono", "Martian Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui: "Inter Tight Variable", "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-snap: cubic-bezier(.7, 0, .2, 1);
+  --r-s: 6px;
+  --r-m: 10px;
+  --r-l: 16px;
+}

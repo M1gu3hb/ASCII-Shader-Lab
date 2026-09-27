@@ -1,0 +1,209 @@
+import type { BlendMode, ColorMap, GlyphMode, InteractMode, Recipe } from '../engine/recipe';
+import type { PaletteStyle } from './palettes';
+
+type W<T extends string> = Partial<Record<T, number>>;
+/** [probability, min, max] */
+type Maybe = [number, number, number];
+
+/**
+ * An archetype is an art direction: coherent distributions for every decision the dice make.
+ * Results stay surprising but never incoherent (no bloom on paper, no 5-layer 3D stacks, etc.).
+ */
+export interface Archetype {
+  id: string;
+  name: string;
+  blurb: string;
+  patterns: W<string>;
+  /** optional secondary pool for extra layers */
+  overlays?: W<string>;
+  layers: [number, number];
+  blends: W<BlendMode>;
+  palettes: W<PaletteStyle>;
+  charsets: W<string>;
+  fonts: W<string>;
+  weights?: [number, number];
+  cell: [number, number];
+  aspect?: [number, number];
+  glyphModes: W<GlyphMode>;
+  speed: [number, number];
+  scale: [number, number];
+  warp: Maybe;
+  fx: Partial<Record<keyof Recipe['fx'], Maybe>>;
+  interact: W<InteractMode>;
+  colorMap: W<ColorMap>;
+  contrast: [number, number];
+  edge?: Maybe;
+  dither?: Maybe;
+  levels?: Maybe;
+  hold?: Maybe;
+  pulse?: Maybe;
+  shade?: [number, number];
+  cycle?: Maybe;
+}
+
+export const ARCHETYPES: Archetype[] = [
+  {
+    id: 'minimal', name: 'Minimal', blurb: 'Pocos caracteres, movimiento lento, mucho aire.',
+    patterns: { nube: 3, ondas: 1.5, degradado: 1, franjas: 0.8, interferencia: 1, crestas: 1, aurora: 1, trama: 0.8, marmol: 1 },
+    layers: [1, 2], blends: { multiply: 2, screen: 1, overlay: 1, normal: 0.6 },
+    palettes: { mono: 3, gris: 2, curado: 1.2, papel: 1.4, analogo: 0.8 },
+    charsets: { minimo: 3, suave: 2, puntos: 1.5, clasico: 1.2, lineas: 0.6, geometria: 0.6 },
+    fonts: { jetbrains: 2, plex: 2, martian: 1, system: 1 }, weights: [300, 500],
+    cell: [11, 18], glyphModes: { density: 1 }, speed: [0.15, 0.5], scale: [0.6, 1.3],
+    warp: [0.5, 0.1, 0.5], fx: { vig: [0.5, 0.1, 0.4], grain: [0.2, 0.05, 0.2] },
+    interact: { light: 2, ripple: 1.3, lens: 1, repel: 1, none: 0.6 }, colorMap: { luma: 3, y: 1, radial: 0.7 },
+    contrast: [0.8, 1.1], dither: [0.2, 0.3, 0.6],
+  },
+  {
+    id: 'neon', name: 'Neón', blurb: 'Colores saturados que brillan sobre negro.',
+    patterns: { plasma: 1.5, tunel: 1.2, espiral: 1, anillos: 1, interferencia: 1, lissajous: 1, rejilla: 0.8, hiper: 1, rayos: 0.8, lava: 1, forma: 0.6 },
+    layers: [1, 2], blends: { screen: 2, add: 1.5, difference: 1, multiply: 1 },
+    palettes: { neon: 3, curado: 1.5, cosmico: 1, duotono: 1 },
+    charsets: { clasico: 1, detallado: 1, simbolos: 1, puntos: 1, estrellas: 0.8, braille: 0.8, hex: 0.6 },
+    fonts: { jetbrains: 1.5, martian: 1.2, fira: 1, space: 1 }, weights: [400, 700],
+    cell: [8, 13], glyphModes: { density: 5, scramble: 1 }, speed: [0.5, 1.4], scale: [0.7, 1.6],
+    warp: [0.35, 0.1, 0.6], fx: { glow: [0.8, 0.3, 0.9], bloom: [0.7, 0.3, 1], vig: [0.6, 0.2, 0.5], chroma: [0.2, 0.2, 0.5] },
+    interact: { ripple: 2, light: 1.5, swirl: 1, lens: 1, scramble: 0.6 }, colorMap: { luma: 3, x: 1, radial: 1, angle: 0.7 },
+    contrast: [1, 1.4], cycle: [0.3, 0.02, 0.12],
+  },
+  {
+    id: 'organico', name: 'Orgánico', blurb: 'Materia viva: nubes, mármol, cáusticas, lava.',
+    patterns: { nube: 2, marmol: 2, crestas: 1.5, fuego: 1, aurora: 1.2, causticas: 1.5, lava: 1, celulas: 1.2, grietas: 1 },
+    overlays: { celulas: 1, grietas: 1, ondas: 1, nube: 1 },
+    layers: [1, 3], blends: { multiply: 2, overlay: 1.5, screen: 1, lighten: 0.8, difference: 0.5 },
+    palettes: { tierra: 2, curado: 2, analogo: 2, hielo: 1, fuego: 0.8, mono: 0.8 },
+    charsets: { detallado: 2, clasico: 1.5, suave: 1.5, bloques: 1, puntos: 0.8, letras: 0.6 },
+    fonts: { jetbrains: 1.5, plex: 1.5, fira: 1, system: 0.6 }, weights: [300, 600],
+    cell: [7, 12], glyphModes: { density: 6, words: 0.6 }, speed: [0.3, 0.9], scale: [0.7, 1.5],
+    warp: [0.6, 0.2, 0.9], fx: { glow: [0.4, 0.15, 0.5], vig: [0.6, 0.2, 0.5], grain: [0.25, 0.05, 0.2] },
+    interact: { ripple: 2, light: 1, swirl: 1, paint: 0.6 }, colorMap: { luma: 4, noise: 1, y: 0.6 },
+    contrast: [0.95, 1.3], dither: [0.3, 0.3, 0.7],
+  },
+  {
+    id: 'geometrico', name: 'Geométrico', blurb: 'Retículas, laberintos, panales y figuras.',
+    patterns: { anillos: 1.2, cuadros: 1.2, rayos: 0.8, tablero: 1, truchet: 1.5, hex: 1.3, trama: 1.3, rombos: 1, franjas: 0.8, caleido: 1, forma: 1 },
+    layers: [1, 2], blends: { multiply: 1.5, difference: 1.5, screen: 1, mask: 1, overlay: 0.8 },
+    palettes: { duotono: 2, curado: 1.5, mono: 1, riso: 1, papel: 0.8 },
+    charsets: { clasico: 1.5, cajas: 1.2, bloques: 1, geometria: 1.2, simbolos: 1, lineas: 0.8, medios: 0.8 },
+    fonts: { martian: 1.5, jetbrains: 1.2, space: 1, plex: 1 }, weights: [400, 800],
+    cell: [9, 16], glyphModes: { density: 5, lines: 0.8 }, speed: [0.3, 1], scale: [0.6, 1.4],
+    warp: [0.25, 0.05, 0.35], fx: { cellBg: [0.3, 0.1, 0.35], vig: [0.4, 0.1, 0.3], grid: [0.2, 0.2, 0.6] },
+    interact: { lens: 1.5, repel: 1.5, swirl: 1, light: 1 }, colorMap: { luma: 2, x: 1, radial: 1, angle: 0.8 },
+    contrast: [1.1, 1.6], edge: [0.3, 0.3, 0.7], levels: [0.2, 3, 6],
+  },
+  {
+    id: 'glitch', name: 'Glitch', blurb: 'Señal corrupta, saltos, estática y caos.',
+    patterns: { glitch: 2, ruido: 1, lluvia: 1.2, ecualizador: 1, franjas: 0.8, tablero: 0.6, plasma: 0.8, interferencia: 0.6 },
+    overlays: { ruido: 1, glitch: 1, lluvia: 0.8 },
+    layers: [1, 3], blends: { difference: 2, add: 1, screen: 1, subtract: 0.8 },
+    palettes: { neon: 1.5, curado: 1, duotono: 1, fosforo: 0.8, riso: 0.5 },
+    charsets: { binario: 1.5, hex: 1.5, matrix: 1.2, simbolos: 1, detallado: 1, braille: 0.8 },
+    fonts: { vt: 1.5, jetbrains: 1, fira: 1, pixel: 0.6, silk: 0.6 }, weights: [400, 700],
+    cell: [8, 13], glyphModes: { density: 3, scramble: 2 }, speed: [0.6, 1.6], scale: [0.8, 1.6],
+    warp: [0.3, 0.1, 0.5], fx: { chroma: [0.8, 0.3, 0.9], scan: [0.6, 0.2, 0.7], flicker: [0.5, 0.2, 0.7], grain: [0.5, 0.1, 0.4], bloom: [0.3, 0.2, 0.6] },
+    interact: { scramble: 3, repel: 1, erase: 1 }, colorMap: { luma: 2, x: 1, noise: 1 },
+    contrast: [1.1, 1.6], hold: [0.4, 6, 14], dither: [0.3, 0.4, 1],
+  },
+  {
+    id: 'retro', name: 'Terminal retro', blurb: 'Fósforo, tubo de rayos catódicos y 80 columnas.',
+    patterns: { lluvia: 1.2, nube: 1, plasma: 1, horizonte: 1, radar: 1.2, ecualizador: 1, rejilla: 0.8, dona: 1.2, cubo: 1, esfera: 0.8, tunel: 0.7 },
+    layers: [1, 2], blends: { screen: 1.5, multiply: 1, add: 1 },
+    palettes: { fosforo: 5, curado: 0.6 },
+    charsets: { clasico: 2, detallado: 2, binario: 1, hex: 0.8, letras: 0.8, simbolos: 0.8 },
+    fonts: { vt: 3, pixel: 0.8, jetbrains: 1, plex: 1, system: 0.8 }, weights: [400, 500],
+    cell: [9, 14], aspect: [1.6, 2.0], glyphModes: { density: 6, scramble: 0.6 }, speed: [0.4, 1], scale: [0.8, 1.3],
+    warp: [0.2, 0.1, 0.4], fx: { scan: [0.9, 0.3, 0.8], curve: [0.6, 0.2, 0.7], vig: [0.9, 0.3, 0.7], bloom: [0.7, 0.3, 0.9], flicker: [0.4, 0.1, 0.4] },
+    interact: { light: 2, scramble: 1, ripple: 1 }, colorMap: { luma: 5 },
+    contrast: [1, 1.35], hold: [0.25, 8, 15],
+  },
+  {
+    id: 'cosmico', name: 'Cósmico', blurb: 'Túneles, galaxias, polvo de estrellas.',
+    patterns: { estrellas: 1.5, hiper: 1.5, galaxia: 1.5, tunel: 1.2, espiral: 1, nube: 0.8, julia: 0.8, aurora: 0.8 },
+    overlays: { estrellas: 2, nube: 1 },
+    layers: [1, 3], blends: { screen: 2, add: 1.5, lighten: 1 },
+    palettes: { cosmico: 3, hielo: 1, neon: 1, curado: 1 },
+    charsets: { estrellas: 2, puntos: 1.5, clasico: 1, detallado: 1, braille: 1 },
+    fonts: { jetbrains: 1, plex: 1, martian: 1, space: 1 }, weights: [300, 600],
+    cell: [7, 12], glyphModes: { density: 1 }, speed: [0.3, 1], scale: [0.8, 1.4],
+    warp: [0.3, 0.1, 0.4], fx: { glow: [0.7, 0.3, 0.9], bloom: [0.7, 0.3, 1.1], vig: [0.8, 0.3, 0.6] },
+    interact: { swirl: 2, lens: 1.5, ripple: 1, light: 1 }, colorMap: { luma: 3, radial: 1.2, angle: 0.8 },
+    contrast: [1, 1.4], cycle: [0.25, 0.02, 0.08],
+  },
+  {
+    id: 'tinta', name: 'Tinta y papel', blurb: 'Impresión: tinta oscura sobre papel, tramas y serifas.',
+    patterns: { trama: 2, marmol: 1.5, crestas: 1.2, nube: 1.2, celulas: 1, grietas: 1, horizonte: 1, rosa: 0.8, caleido: 0.8, causticas: 0.6 },
+    layers: [1, 2], blends: { multiply: 2, darken: 1, mask: 0.8 },
+    palettes: { papel: 3, riso: 2, curado: 0.5 },
+    charsets: { clasico: 1.5, detallado: 1.5, letras: 1.2, tipografico: 1, suave: 1, puntos: 0.8 },
+    fonts: { serif: 1.5, plex: 1.5, jetbrains: 1, space: 1, courier: 0.8 }, weights: [300, 700],
+    cell: [8, 13], glyphModes: { density: 5, words: 1, lines: 0.5 }, speed: [0.2, 0.7], scale: [0.7, 1.4],
+    warp: [0.4, 0.1, 0.5], fx: { grain: [0.4, 0.05, 0.25] },
+    interact: { erase: 1.5, paint: 1.2, ripple: 1, lens: 1 }, colorMap: { luma: 4, y: 0.6 },
+    contrast: [1.05, 1.5], dither: [0.4, 0.3, 0.8], edge: [0.2, 0.2, 0.5], shade: [0, 0.3],
+  },
+  {
+    id: 'brutal', name: 'Brutalista', blurb: 'Bloques enormes, alto contraste, sin concesiones.',
+    patterns: { cuadros: 1, tablero: 1, franjas: 1, forma: 1.2, anillos: 1, glitch: 0.8, ecualizador: 0.8, estrella: 0.8, latido: 0.6 },
+    layers: [1, 2], blends: { difference: 2, multiply: 1, mask: 1, cutout: 1 },
+    palettes: { duotono: 2, curado: 1, riso: 1.2, gris: 1, papel: 0.8 },
+    charsets: { bloques: 2, medios: 1.2, cajas: 1, clasico: 1, binario: 0.6 },
+    fonts: { martian: 2, space: 1, pixel: 1, silk: 0.6 }, weights: [700, 800],
+    cell: [16, 30], aspect: [1, 1.3], glyphModes: { density: 5, lines: 0.4 }, speed: [0.3, 1.1], scale: [0.6, 1.2],
+    warp: [0.15, 0.1, 0.3], fx: { cellBg: [0.5, 0.2, 0.7], grid: [0.3, 0.3, 0.8] },
+    interact: { repel: 1.5, lens: 1.5, erase: 1 }, colorMap: { luma: 3, x: 0.6 },
+    contrast: [1.4, 2.2], levels: [0.5, 2, 4], hold: [0.3, 4, 10], pulse: [0.3, 0.3, 0.8],
+  },
+  {
+    id: 'vapor', name: 'Vapor', blurb: 'Rejillas infinitas, soles partidos y pasteles eléctricos.',
+    patterns: { rejilla: 2.5, ondas: 1, plasma: 1, forma: 1, estrella: 0.8, latido: 0.6, tunel: 0.8 },
+    overlays: { estrellas: 1, franjas: 0.5 },
+    layers: [1, 2], blends: { screen: 2, add: 1, lighten: 1 },
+    palettes: { curado: 1, pastel: 2, neon: 1.2, cosmico: 0.8 },
+    charsets: { clasico: 1, puntos: 1, geometria: 1, estrellas: 1, medios: 0.8 },
+    fonts: { martian: 1, space: 1.2, pixel: 0.8, jetbrains: 1 }, weights: [400, 700],
+    cell: [8, 13], glyphModes: { density: 1 }, speed: [0.4, 1], scale: [0.9, 1.2],
+    warp: [0.1, 0.05, 0.2], fx: { glow: [0.6, 0.2, 0.7], bloom: [0.6, 0.3, 0.9], scan: [0.4, 0.2, 0.5], vig: [0.5, 0.2, 0.4] },
+    interact: { ripple: 1.5, swirl: 1, light: 1 }, colorMap: { y: 3, luma: 2, radial: 0.6 },
+    contrast: [1, 1.3], cycle: [0.3, 0.02, 0.08],
+  },
+  {
+    id: 'solidos', name: 'Sólidos', blurb: 'Donas, esferas y cubos iluminados con caracteres.',
+    patterns: { dona: 3, esfera: 2, cubo: 2 },
+    overlays: { estrellas: 1.5, nube: 1, trama: 0.6, rejilla: 0.6 },
+    layers: [1, 2], blends: { screen: 1.5, lighten: 1.5, add: 1 },
+    palettes: { fosforo: 1.5, curado: 1.5, mono: 1, neon: 1, gris: 1 },
+    charsets: { detallado: 2, clasico: 2, puntos: 0.8, bloques: 0.8 },
+    fonts: { jetbrains: 1.5, plex: 1, vt: 1, martian: 1 }, weights: [400, 700],
+    cell: [7, 11], glyphModes: { density: 5, lines: 0.6, words: 0.6 }, speed: [0.5, 1.2], scale: [0.9, 1.3],
+    warp: [0.05, 0.05, 0.15], fx: { glow: [0.5, 0.2, 0.6], bloom: [0.5, 0.2, 0.7], vig: [0.5, 0.2, 0.5] },
+    interact: { lens: 1.5, light: 1, ripple: 1, swirl: 1 }, colorMap: { luma: 4, y: 0.6 },
+    contrast: [1, 1.3],
+  },
+  {
+    id: 'op', name: 'Op-art', blurb: 'Vibración óptica: moiré, franjas y espirales.',
+    patterns: { moire: 2, anillos: 1.2, cuadros: 1, franjas: 1.2, rombos: 1.2, tablero: 1, espiral: 1, interferencia: 1 },
+    layers: [1, 2], blends: { difference: 3, multiply: 1 },
+    palettes: { gris: 2, duotono: 1.5, papel: 1, curado: 0.8 },
+    charsets: { bloques: 1.5, medios: 1, clasico: 1, binario: 1, lineas: 1 },
+    fonts: { martian: 1.5, jetbrains: 1, space: 1 }, weights: [500, 800],
+    cell: [7, 12], aspect: [1, 1.5], glyphModes: { density: 1 }, speed: [0.4, 1.2], scale: [0.7, 1.4],
+    warp: [0.2, 0.05, 0.3], fx: { vig: [0.3, 0.1, 0.3] },
+    interact: { lens: 2, swirl: 1.5, repel: 1 }, colorMap: { luma: 4, x: 0.5 },
+    contrast: [1.4, 2.2], levels: [0.4, 2, 3],
+  },
+  {
+    id: 'fractal', name: 'Matemático', blurb: 'Julia, rosas polares, Lissajous y simetrías.',
+    patterns: { julia: 2, rosa: 1.5, lissajous: 1.5, caleido: 1.5, galaxia: 0.8, espiral: 0.8 },
+    overlays: { estrellas: 1, trama: 0.5 },
+    layers: [1, 2], blends: { screen: 1.5, add: 1, difference: 1 },
+    palettes: { curado: 1.5, neon: 1, analogo: 1.2, cosmico: 1, papel: 0.8 },
+    charsets: { detallado: 1.5, clasico: 1.2, braille: 1, puntos: 1, geometria: 1 },
+    fonts: { plex: 1, jetbrains: 1, serif: 0.8, martian: 1 }, weights: [300, 600],
+    cell: [7, 11], glyphModes: { density: 5, lines: 0.8 }, speed: [0.3, 0.9], scale: [0.8, 1.2],
+    warp: [0.15, 0.05, 0.25], fx: { glow: [0.5, 0.2, 0.6], bloom: [0.4, 0.2, 0.6], vig: [0.5, 0.2, 0.5] },
+    interact: { lens: 1.5, swirl: 1.5, light: 1 }, colorMap: { luma: 3, angle: 1, radial: 1 },
+    contrast: [1, 1.4], cycle: [0.3, 0.02, 0.1],
+  },
+];
+
+export const archById = (id?: string) => ARCHETYPES.find(a => a.id === id);
