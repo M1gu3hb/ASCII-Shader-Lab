@@ -9,6 +9,7 @@ import {
   sameBody, uid, type Entry, type EntryKind, type Favorite,
 } from './history';
 import { gcMedia } from './mediaStore';
+import { DEFAULT_VIEW_OPTS, normalizeViewOpts, normalizeViews, type ViewId, type ViewOpts } from './views/views';
 
 export type { Entry, EntryKind, Favorite } from './history';
 export { HISTORY_LIMIT, uid } from './history';
@@ -19,7 +20,9 @@ export interface UIState {
   panel: boolean;
   hideUI: boolean;
   tab: Partial<Record<SpaceId, string>>;
-  preview: boolean;
+  /** Destination preview chosen in each space (views/views.ts; the default depends on the space). */
+  views: Partial<Record<SpaceId, ViewId>>;
+  viewOpts: ViewOpts;
   terminal: { cols: number; rows: number };
   sheet: 'none' | 'export' | 'collection' | 'shortcuts' | 'explore' | 'seed';
   component: string | null;
@@ -73,7 +76,7 @@ export const useStudio = create<State>(() => ({
   change: { kind: 'load', n: 0 },
   playing: !reduced,
   reducedMotion: reduced,
-  ui: { panel: true, hideUI: false, tab: {}, preview: false, terminal: { cols: 80, rows: 24 }, sheet: 'none', component: null },
+  ui: { panel: true, hideUI: false, tab: {}, views: {}, viewOpts: DEFAULT_VIEW_OPTS, terminal: { cols: 80, rows: 24 }, sheet: 'none', component: null },
   stats: { cols: 0, rows: 0, fps: 0 },
   undoTick: 0,
   histLimit: HISTORY_LIMIT,
@@ -451,7 +454,7 @@ function persistPrefs() {
   try {
     localStorage.setItem(K_PREFS, JSON.stringify({
       space: s.space, locks: s.locks, arch: s.arch, amount: s.amount,
-      ui: { panel: s.ui.panel, tab: s.ui.tab, preview: s.ui.preview, terminal: s.ui.terminal },
+      ui: { panel: s.ui.panel, tab: s.ui.tab, views: s.ui.views, viewOpts: s.ui.viewOpts, terminal: s.ui.terminal },
     }));
   } catch { /* storage may be unavailable */ }
 }
@@ -569,7 +572,11 @@ export async function hydrate(): Promise<boolean> {
   } catch { /* ignore */ }
   let prefs: Record<string, unknown> = {};
   try { prefs = JSON.parse(localStorage.getItem(K_PREFS) || '{}'); } catch { /* ignore */ }
-  const ui = { ...S().ui, ...(prefs.ui as object || {}), sheet: 'none' as const, hideUI: false, component: null };
+  const saved = (prefs.ui || {}) as Record<string, unknown>;
+  const ui = {
+    ...S().ui, ...saved, sheet: 'none' as const, hideUI: false, component: null,
+    views: normalizeViews(saved.views, saved.preview), viewOpts: normalizeViewOpts(saved.viewOpts),
+  };
   if (typeof innerWidth === 'number' && innerWidth < 900) ui.panel = false;
   const space = spaceById(String(prefs.space ?? entries[cursor]?.space ?? 'arte')).id;
   set({
