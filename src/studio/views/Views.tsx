@@ -6,6 +6,7 @@ import { captureGrid } from '../exporting';
 import { openExport } from '../exportTab';
 import { IDownload, IMore } from '../icons';
 import { setUI, useRecipe, useStudio } from '../store';
+import type { Recipe } from '../../engine/recipe';
 import { useGuide } from '../guide/state';
 import { VERDICT, inkFor, useLegibility, useLegibilityMeter } from './legibility';
 import { setView, setViewOpts } from './state';
@@ -253,23 +254,44 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
 /** The README text version, shared by the page mock (which renders it) and the bar (which copies it). */
 export const useReadme = create<{ text: string; cols: number; rows: number; gifW: number }>(() => ({ text: '', cols: 80, rows: 0, gifW: 640 }));
 
-/** Captures the text version (80 columns) when the piece changes, at most every 700 ms. */
+/**
+ * Captures the text version (80 columns) when the piece changes: one capture at a time, at least 700 ms
+ * after the previous one ended, always of the latest piece. (Timed from when captures started, a slow
+ * one, with software WebGL, let every nudge of a slider start another offscreen engine.)
+ */
 function useReadmeText(img: { w: number; h: number }) {
   const recipe = useRecipe();
-  const last = useRef(0);
+  const q = useRef<{ want: { r: Recipe; cols: number; rows: number } | null; busy: boolean; last: number; t: number; alive: boolean }>(
+    { want: null, busy: false, last: 0, t: 0, alive: true });
+  const schedule = useRef(() => {
+    const s = q.current;
+    if (s.busy || !s.want) return; // the capture on its way takes the latest piece when it ends
+    clearTimeout(s.t);
+    s.t = window.setTimeout(async () => {
+      const w = s.want;
+      if (!w || !s.alive) return;
+      s.want = null;
+      s.busy = true;
+      try {
+        const g = await captureGrid(w.r, w.cols, w.rows);
+        if (s.alive) useReadme.setState({ text: gridToText(g), cols: w.cols, rows: w.rows });
+      } catch { /* the next change tries again */ }
+      s.busy = false;
+      s.last = performance.now();
+      if (s.alive) schedule.current();
+    }, Math.max(120, 700 - (performance.now() - s.last)));
+  });
   useEffect(() => {
     if (!recipe || !img.w) return;
-    let alive = true;
     const { cols, rows } = readmeGrid(img.w, img.h, recipe.glyph.cell, recipe.glyph.aspect);
-    const wait = Math.max(120, 700 - (performance.now() - last.current));
-    const t = setTimeout(() => {
-      last.current = performance.now();
-      void captureGrid(recipe, cols, rows)
-        .then(g => { if (alive) useReadme.setState({ text: gridToText(g), cols, rows }); })
-        .catch(() => undefined);
-    }, wait);
-    return () => { alive = false; clearTimeout(t); };
+    q.current.want = { r: recipe, cols, rows };
+    schedule.current();
   }, [recipe, img.w, img.h]);
+  useEffect(() => {
+    const s = q.current;
+    s.alive = true;
+    return () => { s.alive = false; clearTimeout(s.t); };
+  }, []);
 }
 
 function ReadmeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
@@ -308,7 +330,8 @@ function TerminalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const term = useStudio(s => s.ui.terminal);
   const cell = useStudio(s => s.entries[s.cursor]?.recipe.glyph.cell ?? 10);
   const aspect = useStudio(s => s.entries[s.cursor]?.recipe.glyph.aspect ?? 2);
-  const win = terminalWindow(term.cols, term.rows, cell, aspect);
+  const pr = useStudio(s => s.stats.pr);
+  const win = terminalWindow(term.cols, term.rows, cell, aspect, pr);
   const k = size.w ? Math.min(1, size.w / win.w, (size.h - 30) / win.h) : 1;
   return (
     <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>

@@ -59,6 +59,22 @@ describe('vistas de destino', () => {
     expect(terminalWindow(80, 24, 10, 2.06)).toEqual({ w: 800, h: 24 * 21 });
   });
 
+  it('a cualquier densidad de pantalla, el lienzo en vivo de la ventana tiene exactamente cols×filas celdas', () => {
+    // what both renderers do: canvas = round(css × pr), cell = round(cell × pr), grid = ceil(canvas / cell)
+    const live = (w: number, h: number, cell: number, aspect: number, pr: number) => [
+      Math.ceil(Math.round(w * pr) / Math.max(2, Math.round(cell * pr))),
+      Math.ceil(Math.round(h * pr) / Math.max(2, Math.round(cell * aspect * pr))),
+    ];
+    for (const pr of [1, 1.1, 1.15, 1.25, 1.5, 1.75, 2, 0.8, 0.75])
+      for (const cell of [3, 6, 9, 10, 11, 14, 24])
+        for (const aspect of [1, 1.4, 1.45, 1.47, 2, 2.06]) {
+          const { w, h } = terminalWindow(80, 24, cell, aspect, pr);
+          expect(live(w, h, cell, aspect, pr), `pr ${pr}, celda ${cell}, proporción ${aspect}`).toEqual([80, 24]);
+        }
+    // e.g. Windows at 125 %: a slightly larger window, the same 80 columns
+    expect(terminalWindow(80, 24, 10, 2, 1.25)).toEqual({ w: 832, h: 480 });
+  });
+
   it('bloque Markdown: valla de tres acentos, más larga si el texto ya trae acentos graves', () => {
     expect(markdownBlock('ab\ncd\n')).toBe('```text\nab\ncd\n```\n');
     expect(markdownBlock('a ``` b')).toBe('````text\na ``` b\n````\n');

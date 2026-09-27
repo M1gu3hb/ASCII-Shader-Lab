@@ -113,7 +113,7 @@ function HistoryBox() {
         <div className={'data-meter' + (count >= limit * HISTORY_WARN ? ' near' : '')} aria-hidden="true"><i style={{ '--v': pct + '%' } as React.CSSProperties} /></div>
         <p className="note">
           Guarda tus últimos {limit} resultados; al pasar de ahí se descartan los más antiguos.
-          {pruned > 0 && <> En esta sesión {pruned === 1 ? 'se descartó 1 resultado' : `se descartaron ${pruned} resultados`}.</>}
+          {pruned > 0 && <> En esta visita {pruned === 1 ? 'se descartó 1 resultado' : `se descartaron ${pruned} resultados`}.</>}
         </p>
       </div>
       <div className="data-acts">

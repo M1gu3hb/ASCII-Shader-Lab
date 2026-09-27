@@ -31,8 +31,8 @@ export const extFor = (type: string, kind: 'image' | 'video') => EXT[type] ?? (k
 
 function mediaWord(ref: MediaRef | undefined) {
   return ref?.kind === 'video'
-    ? { la: 'el video', La: 'El video', una: 'un video', la_: 'lo', con: 'con él' }
-    : { la: 'la imagen', La: 'La imagen', una: 'una imagen', la_: 'la', con: 'con ella' };
+    ? { la: 'el video', La: 'El video', una: 'un video', la_: 'lo', con: 'con él', guardada: 'guardado', incluida: 'incluido' }
+    : { la: 'la imagen', La: 'La imagen', una: 'una imagen', la_: 'la', con: 'con ella', guardada: 'guardada', incluida: 'incluida' };
 }
 
 function readme(r: Recipe, mediaPath: string | null): string {
@@ -51,7 +51,7 @@ function readme(r: Recipe, mediaPath: string | null): string {
   if (mediaPath) lines.push(`- ${mediaPath}: ${w.la} original que usa la pieza, tal como ${w.la_} elegiste (sin recomprimir).`);
   lines.push(`- ${PROJECT_README}: este archivo.`, '');
   if (uses && !mediaPath) {
-    lines.push(`La pieza usa ${w.una} que no estaba guardada en el navegador al exportar, así que no va incluida:`,
+    lines.push(`La pieza usa ${w.una} que no estaba ${w.guardada} en el navegador al exportar, así que no va ${w.incluida}:`,
       `al abrirla, el estudio pedirá que elijas ${w.una}. Mientras tanto se ve el patrón de fondo.`, '');
   }
   lines.push(

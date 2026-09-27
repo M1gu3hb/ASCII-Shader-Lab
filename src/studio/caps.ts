@@ -23,6 +23,8 @@ export interface Caps {
   lost: boolean;
   /** Not even Canvas 2D works: nothing can be drawn. */
   fatal: string | null;
+  /** The fatal state goes away with a reload (a part that could not be downloaded), so offer one. */
+  fatalReload?: boolean;
   /** Encoders canvas.toBlob really has (null while probing). PNG is always there. */
   images: Record<ImageFormat, boolean> | null;
   /** VideoEncoder + VideoFrame: frame-by-frame video rendering. */

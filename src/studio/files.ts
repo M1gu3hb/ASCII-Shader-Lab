@@ -49,7 +49,7 @@ export async function handleFile(f: File) {
       const o = JSON.parse(text);
       if (o && o.monotrama === 'collection' && Array.isArray(o.items)) {
         const n = importFavorites(o.items);
-        toast(`${n} piezas añadidas a tu colección`);
+        toast(n === 1 ? '1 pieza añadida a tu colección' : `${n} piezas añadidas a tu colección`);
         return;
       }
     } catch { /* handled below */ }

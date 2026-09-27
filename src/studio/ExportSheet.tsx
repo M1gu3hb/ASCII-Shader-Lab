@@ -178,7 +178,7 @@ function ImageTab({ req }: { req: ExportRequest | null }) {
       </div>
       <div className="ex-card">
         <h3>Consejos</h3>
-        <p>«Vista ×2» y «×3» mantienen exactamente la composición que ves. Los tamaños fijos (cuadrado, vertical) reencuadran la escena conservando la densidad de caracteres.</p>
+        <p>«Vista ×2» y «×3» mantienen la composición que ves (con la pantalla a una escala intermedia, como 125 %, puede variar en una o dos columnas). Los tamaños fijos (cuadrado, vertical) reencuadran la escena conservando la densidad de caracteres.</p>
         <p>Para imprimir o escalar sin límite, usa la pestaña <b>Vector</b>.</p>
       </div>
     </div>
@@ -535,7 +535,7 @@ function CodeTab() {
       </div>
       {basic && (
         <div className="ex-na info" role="note">
-          <p><b>Tu vista previa usa el motor básico.</b> Quien visite tu web con WebGL 2 verá el motor completo; sin WebGL 2, verá tu póster o el color de fondo.</p>
+          <p><b>Tu vista previa usa el motor básico.</b> Quien visite tu web con WebGL 2 verá el motor completo; sin WebGL 2, verá el color de fondo (o tu póster, si lo subes con tu página y pones su URL en «poster»).</p>
           <button type="button" className="btn" onClick={() => void poster()}>Descargar póster (PNG)</button>
         </div>
       )}
@@ -584,7 +584,7 @@ function RecipeTab() {
               <p className="note" style={{ margin: '8px 0 0' }}>No lleva tus ediciones{e.edited ? ' (esta pieza está editada)' : ''} ni tus archivos, y depende de la versión del generador. Para algo exacto, usa el enlace, la receta o el proyecto.</p>
             </>
           ) : (
-            <p>Esta pieza no salió del dado (viene de una receta, un enlace o un archivo), así que no tiene semilla. Usa el enlace, la receta o el proyecto.</p>
+            <p>Esta pieza no salió del dado (es un estilo de partida, o viene de un enlace o de un archivo), así que no tiene semilla. Usa el enlace, la receta o el proyecto.</p>
           )}
         </div>
         <div className="ex-card">

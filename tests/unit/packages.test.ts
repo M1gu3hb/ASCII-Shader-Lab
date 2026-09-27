@@ -104,7 +104,11 @@ describe('project package', () => {
     const p = (await readProject(files))!;
     expect(p.media).toBeNull();
     expect(p.recipe.media.ref).toEqual({ kind: 'image', type: 'image/jpeg', w: 1600, h: 1200 });
-    expect(await files[1].text()).toContain('no va incluida');
+    expect(await files[1].text()).toContain('una imagen que no estaba guardada en el navegador al exportar, así que no va incluida');
+    // and for a video, in the masculine
+    const v = imagePiece(); v.source = 'video'; v.media.ref = { ...v.media.ref!, kind: 'video', type: 'video/mp4' };
+    const vf = await unzip(await buildProject(v, null));
+    expect(await vf[1].text()).toContain('un video que no estaba guardado en el navegador al exportar, así que no va incluido');
   });
 
   it('opens projects re-zipped inside a folder, and refuses archives without a recipe', async () => {
@@ -140,6 +144,11 @@ describe('session package', () => {
     expect(s.media).toHaveLength(1);
     expect(s.media[0].meta).toEqual({ id: ID, kind: 'image', name: 'foto de mamá.jpg', type: 'image/jpeg', size: 4, w: 1600, h: 1200 });
     expect(await s.media[0].read()).toEqual(bytes);
+    // its LEEME counts in the singular when there is one, and says what the history limit discards
+    const leeme = await files.find(f => f.name === 'LEEME.txt')!.text();
+    expect(leeme).toContain('2 resultados del historial y 1 pieza de la colección, con 1 archivo de imagen o video.');
+    expect(leeme).toContain('se descartan los más antiguos');
+    expect(leeme).not.toContain('no se borra nada');
   });
 
   it('names the file by date and rejects other archives', async () => {
