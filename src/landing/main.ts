@@ -115,7 +115,8 @@ async function theme(r: Recipe, label: string) {
   seedEl.textContent = label;
   openEl.href = '/studio/#r=' + (await encodeRecipe({ ...r, meta: { ...r.meta, space: 'arte' } }));
 }
-void theme(heroRecipe, 'semilla: bermellón');
+// a ready-made recipe, not a seed: typing «bermellón» as a seed would weave another piece
+void theme(heroRecipe, 'receta: Bermellón');
 
 $('[data-hero-roll]')!.addEventListener('click', () => {
   const seed = freshSeed();
