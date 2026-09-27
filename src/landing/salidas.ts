@@ -39,6 +39,12 @@ export function mountSalidas(root: HTMLElement) {
     if (kind === 'web') {
       const f = p.querySelector<HTMLIFrameElement>('iframe[data-src]');
       if (f) f.src = f.dataset.src!;
+      // the example page falls back to its poster without WebGL 2: say so when that is what you see
+      void import('../engine/support').then(m => {
+        const note = p.querySelector<HTMLElement>('[data-no-webgl]');
+        const why = m.probeWebGL().reason;
+        if (note && why !== 'ok' && why !== 'forced') note.hidden = false;
+      });
     }
     if (kind === 'terminal') setupTerminal(p);
   }
@@ -55,6 +61,8 @@ export function mountSalidas(root: HTMLElement) {
       btn.setAttribute('aria-label', playing ? 'Pausar el video' : 'Reproducir el video');
     };
     const sync = () => { if (want()) void v.play().catch(() => undefined); else v.pause(); };
+    // the poster waits for the tab (a video's poster downloads even while its panel is hidden)
+    if (v.dataset.poster) v.poster = v.dataset.poster;
     v.removeAttribute('controls');
     v.preload = 'auto';
     v.addEventListener('play', label);

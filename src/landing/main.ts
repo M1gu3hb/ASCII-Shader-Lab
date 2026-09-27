@@ -2,6 +2,9 @@ import '../shared/fonts.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
 import '@fontsource/jetbrains-mono/latin-400.css';
 import '@fontsource/jetbrains-mono/latin-500.css';
+// the display face's static cuts: registered from the first paint, so headings never switch face later
+import '@fontsource/martian-mono/latin-700.css';
+import '@fontsource/martian-mono/latin-800.css';
 import './landing.css';
 import { luminance } from '../engine/color';
 import type { Recipe } from '../engine/recipe';
@@ -122,33 +125,55 @@ $('[data-hero-roll]')!.addEventListener('click', async e => {
 });
 
 /* ---------- motion: headings resolve, blocks weave in ---------- */
+document.querySelector('#guias .guides')?.setAttribute('data-weave', '');
 resolveHeadings();
 weaveIn();
 
-/* ---------- islands: loaded as their section comes near (or is reached with the keyboard) ---------- */
+/*
+ * ---------- islands: loaded as their section comes near (or is reached with the keyboard) ----------
+ * Only once the page has loaded and gone idle: the first paint and the hero come first.
+ */
+const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 1200));
+const afterLoad = (fn: () => void) => (document.readyState === 'complete' ? idle(fn) : addEventListener('load', () => idle(fn), { once: true }));
 function island(sel: string, load: (el: HTMLElement) => Promise<unknown>) {
   const el = $<HTMLElement>(sel);
   if (!el) return;
-  let done = false;
-  const go = () => { if (!done) { done = true; void load(el); } };
-  near(el, go, '700px');
+  let done = false, mounted = false;
+  let pending: HTMLElement | null = null;
+  const go = () => {
+    if (done) return;
+    done = true;
+    void load(el).then(() => {
+      mounted = true;
+      // a button pressed while the island was on its way still does what was asked
+      (pending?.matches('button') ? pending : pending?.querySelector('button'))?.click();
+      pending = null;
+    });
+  };
+  afterLoad(() => near(el, go, '600px'));
   el.addEventListener('focusin', go, { once: true });
   el.addEventListener('pointerenter', go, { once: true });
+  el.addEventListener('click', e => {
+    if (mounted) return;
+    const b = (e.target as Element).closest<HTMLElement>('button, [data-contact]');
+    if (b) { pending = b; e.preventDefault(); }
+    go();
+  }, true);
 }
 island('[data-telar]', el => import('./telar').then(m => m.mountTelar(el)));
-island('[data-azar-demo]', el => import('./azar').then(m => m.mountAzar(el.closest('section')!)));
+island('#azar', el => import('./azar').then(m => m.mountAzar(el)));
 island('[data-salidas]', el => import('./salidas').then(m => m.mountSalidas(el)));
 
 /* ---------- final ---------- */
 const finalCv = $<HTMLCanvasElement>('.final-canvas');
-if (finalCv) near(finalCv, () => {
+if (finalCv) afterLoad(() => near(finalCv, () => {
   const r = still(preset('fondos', 'constelacion'));
   r.interact.auto = !isPaused();
   void live(finalCv, r, { pointerTarget: 'window' }).then(e => { if (e) track(e); });
-});
+}));
 // set up near view: it measures the button (a forced layout) and draws, which the load does not need
 const haloBtn = $('[data-halo]');
 if (haloBtn) near(haloBtn, () => halo(haloBtn, { color: '#ff5b1f', cell: 10, radius: 110, idle: 0.1 }), '200px');
 
 // the engine chunk and the dice, fetched once the page has settled (the hero asked for the engine already)
-addEventListener('load', () => setTimeout(() => { void engines(); void random(); }, 1200), { once: true });
+afterLoad(() => { void engines(); void random(); });

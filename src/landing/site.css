@@ -66,7 +66,8 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
 .nav-motion .ic { font: 500 11px/1 var(--font-mono); letter-spacing: -.1em; }
 .nav-motion:hover { color: var(--bone); border-color: rgba(237, 230, 218, .45); }
 .nav-motion[data-paused] { color: var(--bone); border-color: var(--signal); }
-.nav-motion[hidden] { display: none; }
+/* its place is kept before the script shows it, so the links beside it never move */
+.nav-motion[hidden] { visibility: hidden; }
 
 /* ---------- buttons ---------- */
 .btn-cta {

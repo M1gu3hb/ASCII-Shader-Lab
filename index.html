@@ -30,7 +30,7 @@
     <div class="hero-inner wrap">
       <div class="hero-copy">
         <p class="kicker"><span class="dot" aria-hidden="true"></span> Monotrama <span class="tag">Teje luz con caracteres</span></p>
-        <h1 id="hero-title" class="hero-title">Haz arte ASCII <span class="l2">que <em>se mueve.</em></span></h1>
+        <h1 id="hero-title" class="hero-title">Haz arte ASCII<br> que <em>se mueve.</em></h1>
         <p class="hero-sub">Con tus fotos, video, texto o el azar. Explora sin configurar nada, guarda lo que te guste y llévalo a tu web, a un video o a tu terminal.</p>
         <div class="hero-actions">
           <a class="btn-cta" href="/studio/">Abrir el estudio <span aria-hidden="true">→</span></a>
@@ -40,7 +40,8 @@
       <aside class="hero-plate" aria-label="Pieza del fondo">
         <p class="pl-h"><span>En el fondo</span><span data-hero-no>N.º 1</span></p>
         <p class="pl-name" data-hero-name aria-hidden="true">Bermellón</p>
-        <p class="hero-seed" aria-live="polite"><span data-hero-seed>receta: Bermellón</span> · <a href="/studio/" data-hero-open>abrir esta pieza en el estudio</a></p>
+        <p class="hero-seed" aria-live="polite"><span data-hero-seed>receta: Bermellón</span></p>
+        <p class="hero-open"><a href="/studio/" data-hero-open>abrir esta pieza en el estudio <span aria-hidden="true">→</span></a></p>
       </aside>
     </div>
     <div class="hero-spec">
@@ -66,7 +67,7 @@
         </div>
         <div class="telar-panel" id="telar-panel" role="tabpanel" aria-labelledby="t-fondos">
           <div class="stage" data-stage>
-            <img src="/ex/fondos-ascii.webp" width="1280" height="800" alt="" loading="lazy" decoding="async">
+            <img src="/ex/fondos-ascii-640.webp" width="640" height="400" alt="" loading="lazy" decoding="async" fetchpriority="low">
             <canvas role="img" aria-label="Fondos: «Marea» en vivo, con un titular, un párrafo y un botón de ejemplo encima"></canvas>
             <div class="stage-over" data-over="fondos"><div class="mock" aria-hidden="true"><b>Tu titular</b><i>Así se lee tu contenido encima del fondo.</i><span>Botón principal</span></div></div>
             <div class="stage-over" data-over="terminal" hidden><div class="termbar" aria-hidden="true"><i></i><i></i><i></i><span data-term-title>donut.c — pieza.mjs</span></div><p class="termline" aria-hidden="true"><b>~ $</b> node pieza.mjs</p></div>
@@ -128,7 +129,7 @@
       </div>
       <div class="contact">
         <p class="contact-h"><span>Hoja de contactos · una tirada por estilo</span><span>catorce resultados reales del dado, elegidos sin retocar. Pulsa uno para tejerlo arriba.</span></p>
-        <ol class="contact-grid" aria-label="Hoja de contactos del dado">
+        <ol class="contact-grid" aria-label="Hoja de contactos del dado" data-weave>
           <!-- @contacts -->
         </ol>
       </div>
@@ -140,7 +141,7 @@
       <div class="sec-head">
         <p class="sec-rule"><span class="idx">03</span> Salidas <span class="ramp" aria-hidden="true"> .:-=+*#%@</span></p>
         <h2 id="exp-title" data-resolve>Lo que haces aquí, funciona <em>allá</em>.</h2>
-        <p class="lead">Una misma pieza, «Saturno», llevada a cinco destinos. Cada archivo de abajo es real: salió de «Exportar» del estudio y se generó en el navegador. Si algo no puede ser fiel, el estudio lo dice antes.</p>
+        <p class="lead">Una misma pieza, «Saturno», llevada a cinco destinos. Cada archivo de abajo es real: lo generaron, en un navegador, las mismas funciones que usa «Exportar» en el estudio. Si algo no puede ser fiel, el estudio lo dice antes.</p>
       </div>
       <div class="sal-tabs" role="tablist" aria-label="Destinos">
         <button class="sal-tab" type="button" role="tab" id="sal-t-imagen" aria-selected="true" aria-controls="sal-imagen"><span class="n" aria-hidden="true">A</span><span class="name">Imagen</span></button>
@@ -172,7 +173,7 @@
       <div class="sal-panel" id="sal-mov" role="tabpanel" aria-labelledby="sal-t-mov" data-salida="movimiento" hidden>
         <figure class="sal-art">
           <div class="sal-frame">
-            <video muted loop playsinline controls preload="none" width="1200" height="630" poster="/ex/salidas/monotrama-saturno.webp" aria-label="Video en bucle de «Saturno»: el planeta de caracteres gira despacio entre estrellas">
+            <video muted loop playsinline controls preload="none" width="1200" height="630" data-poster="/ex/salidas/monotrama-saturno.webp" aria-label="Video en bucle de «Saturno»: el planeta de caracteres gira despacio entre estrellas">
               <source src="/ex/salidas/monotrama-saturno.mp4" type="video/mp4">
               <source src="/ex/salidas/monotrama-saturno.webm" type="video/webm">
             </video>
@@ -211,6 +212,7 @@
             <div><dt>Licencia</dt><dd>MIT-0: úsalo sin atribución</dd></div>
           </dl>
           <p class="limit"><b>Límite:</b> quien visite tu web necesita WebGL 2 para verla moverse; sin él queda el color de fondo o el póster que indiques.</p>
+          <p class="limit" data-no-webgl hidden><b>Aquí mismo:</b> tu navegador no tiene WebGL 2 ahora, así que la página de ejemplo muestra el póster, como la verían tus visitantes en tu caso.</p>
           <p class="sal-links"><a href="/ex/salidas/web/">Abrir la página de ejemplo</a><a href="/ex/salidas/web/monotrama-field.js">Ver monotrama-field.js</a></p>
         </div>
       </div>

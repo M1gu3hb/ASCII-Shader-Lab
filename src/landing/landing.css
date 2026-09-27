@@ -4,7 +4,7 @@
 
 /* ---------- hero ---------- */
 .hero {
-  position: relative; min-height: max(640px, 100svh); display: grid; grid-template-rows: 1fr auto; overflow: hidden;
+  position: relative; min-height: max(640px, 100svh); display: grid; overflow: hidden;
   color: var(--hero-ink, var(--bone)); transition: color .5s;
 }
 .hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
@@ -15,12 +15,13 @@
     linear-gradient(to bottom, color-mix(in srgb, var(--hero-bg, #0b0708) 62%, transparent), transparent 20%, transparent 72%, var(--ink));
   transition: background .5s;
 }
+/* the strip at the foot is positioned on its own: its wrapping (fonts arriving) never moves the headline */
 .hero-inner {
-  position: relative; z-index: 2; align-self: center; padding: 124px 0 56px; pointer-events: none;
+  position: relative; z-index: 2; align-self: center; padding: 124px 0 112px; pointer-events: none;
   display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: clamp(16px, 2vw, 32px);
 }
 .hero-inner a, .hero-inner button { pointer-events: auto; }
-.hero-copy { grid-column: 1 / span 10; }
+.hero-copy { grid-column: 1 / span 10; grid-row: 1; }
 .kicker { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; font: 600 11px/1.3 var(--font-display); letter-spacing: .14em; text-transform: uppercase; margin: 0 0 clamp(20px, 2.6vw, 34px); opacity: .9; }
 .kicker .dot { width: 8px; height: 8px; background: var(--signal); border-radius: 1px; animation: blink 1.2s steps(2) infinite; }
 .kicker .tag { font: italic 400 17px/1 var(--font-serif); letter-spacing: 0; text-transform: none; opacity: .95; }
@@ -28,7 +29,6 @@
   font: 800 clamp(44px, 7.3vw, 126px)/.9 var(--font-display); letter-spacing: -.06em; margin: 0 0 clamp(22px, 2.4vw, 34px);
   text-wrap: balance;
 }
-.hero-title .l2 { display: block; }
 .hero-title em { font: italic 400 1.12em/.8 var(--font-serif); letter-spacing: -.015em; color: var(--signal); padding-right: .04em; }
 .hero-sub { font-size: clamp(17px, 1.45vw, 22px); line-height: 1.5; max-width: 44ch; margin: 0 0 clamp(26px, 2.8vw, 38px); opacity: .94; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
@@ -42,25 +42,27 @@
 .hero-plate .pl-h { display: flex; justify-content: space-between; margin: 0 0 6px; font: 600 10.5px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; opacity: .7; }
 .hero-plate .pl-name { margin: 0 0 4px; font: 700 clamp(18px, 1.5vw, 22px)/1.15 var(--font-display); letter-spacing: -.03em; }
 .hero-seed { margin: 0; opacity: .8; }
-.hero-seed a { text-underline-offset: 3px; }
-.hero-seed a, .hero-seed .hero-basic { display: inline-block; padding: 4px 0; }
+.hero-seed .hero-basic { display: inline-block; padding: 4px 0; }
+.hero-open { margin: 2px 0 0; }
+.hero-open a { display: inline-block; padding: 6px 0; text-underline-offset: 3px; }
 
 /* inputs → outputs: a static strip at the foot of the hero (it replaces the old marquee) */
 .hero-spec {
-  position: relative; z-index: 2; border-top: 1px solid rgba(237, 230, 218, .12); background: rgba(12, 11, 10, .74);
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; border-top: 1px solid rgba(237, 230, 218, .12); background: rgba(12, 11, 10, .74);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: rgba(237, 230, 218, .78);
 }
 .hero-spec .wrap { margin-block: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 13px 0; font: 600 10px/1.5 var(--font-display); letter-spacing: .1em; text-transform: uppercase; }
 .hero-spec b { color: var(--signal); font-weight: 600; }
-.hero-spec .arrow { font-family: var(--font-mono); letter-spacing: 0; opacity: .6; }
+.hero-spec .arrow { font-family: var(--font-mono); font-weight: 400; letter-spacing: 0; opacity: .6; }
 .hero-spec span { white-space: nowrap; }
 
 @media (max-width: 1023px) {
   .hero-copy, .hero-plate { grid-column: 1 / -1; }
+  .hero-copy { grid-row: 1; }
   .hero-plate { grid-row: 2; justify-self: start; max-width: 520px; margin-top: 30px; }
 }
 @media (max-width: 620px) {
-  .hero-inner { padding: 100px 0 36px; }
+  .hero-inner { align-self: start; padding: 100px 0 150px; }
   .hero-scrim { background:
     linear-gradient(to bottom, color-mix(in srgb, var(--hero-bg, #0b0708) 80%, transparent), color-mix(in srgb, var(--hero-bg, #0b0708) 68%, transparent) 60%, var(--ink)); }
   .hero-spec .wrap { font-size: 9.5px; gap: 4px 12px; }
@@ -191,18 +193,18 @@
 }
 .btn-step:disabled { opacity: .35; cursor: default; }
 .azar-count { font: 500 13px/1.3 var(--font-mono); color: var(--paper-muted); min-width: 9ch; }
-.azar-count b { color: var(--paper-ink); font-weight: 600; }
+.azar-count b { color: var(--paper-ink); font-weight: 500; }
 .azar-open { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font: 700 14px/1 var(--font-display); color: var(--paper-ink); text-underline-offset: 4px; }
 .azar-seed { margin: 6px 0 0; font: 500 13px/1.5 var(--font-mono); color: var(--paper-muted); }
-.azar-seed b { color: var(--paper-ink); font-weight: 600; }
-.azar-strip { list-style: none; margin: 16px 0 0; padding: 0 0 6px; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.azar-seed b { color: var(--paper-ink); font-weight: 500; }
+.azar-strip { list-style: none; margin: 16px 0 0; padding: 0 0 6px; min-height: 60px; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
 .azar-strip li { flex: none; scroll-snap-align: start; }
 .azar-strip button {
   position: relative; display: block; width: 84px; aspect-ratio: 16 / 10; padding: 0; border-radius: 5px; border: 0; cursor: pointer; overflow: hidden;
   background: #d9d1bf; box-shadow: 0 0 0 1px rgba(28, 26, 23, .18);
 }
 .azar-strip button canvas, .azar-strip button img { width: 100%; height: 100%; object-fit: cover; }
-.azar-strip button span { position: absolute; left: 4px; bottom: 3px; font: 600 9.5px/1 var(--font-mono); color: #fff; text-shadow: 0 1px 2px #000; }
+.azar-strip button span { position: absolute; left: 4px; bottom: 3px; font: 500 9.5px/1 var(--font-mono); color: #fff; text-shadow: 0 1px 2px #000; }
 .azar-strip button[aria-current="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px #c2410c; }
 .azar-note { margin: 10px 0 0; font-size: 14px; color: var(--paper-muted); max-width: 62ch; }
 .facts { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--paper-rule); }

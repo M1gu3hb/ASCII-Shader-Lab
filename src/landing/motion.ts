@@ -26,7 +26,7 @@ function onceInView(el: Element, run: () => void, threshold = 0.35) {
 
 /** Resolves `el`'s text out of the ramp (≈0.8 s, half in low motion). Serif accents (<em>) stay as they are. */
 export function resolveText(el: HTMLElement, duration = 820) {
-  if (!moving) return;
+  if (!moving || el.classList.contains('resolving')) return;
   const ghost = document.createElement('span');
   ghost.innerHTML = el.innerHTML;
   ghost.className = 'resolve-ghost';
@@ -41,12 +41,14 @@ export function resolveText(el: HTMLElement, duration = 820) {
     nodes.push({ n: n as Text, text: n.textContent ?? '' });
   }
   const d = duration * (level === 'low' ? 0.5 : 1);
+  // the first frame is already scrambled: the final text never flashes before it resolves
+  nodes.forEach(({ n, text }, i) => { n.textContent = scrambleFrame(text, 0, { glyphs: GLYPHS, seed: i + 1 }); });
   el.classList.add('resolving');
   el.appendChild(ghost);
   const t0 = performance.now();
   let tick = 0;
   const frame = (now: number) => {
-    const p = (now - t0) / d;
+    const p = Math.max(0, now - t0) / d;
     tick++;
     nodes.forEach(({ n, text }, i) => { n.textContent = scrambleFrame(text, p, { glyphs: GLYPHS, seed: i + 1, tick: tick >> 1 }); });
     if (p < 1) requestAnimationFrame(frame);
@@ -99,7 +101,7 @@ export function swapText(el: HTMLElement, text: string, duration = 300) {
   const d = duration * (level === 'low' ? 0.5 : 1), t0 = performance.now();
   let tick = 0;
   const frame = (now: number) => {
-    const p = (now - t0) / d;
+    const p = Math.max(0, now - t0) / d;
     el.textContent = scrambleFrame(text, p, { glyphs: GLYPHS, tick: tick++ >> 1 });
     if (p < 1) running.set(el, requestAnimationFrame(frame));
   };

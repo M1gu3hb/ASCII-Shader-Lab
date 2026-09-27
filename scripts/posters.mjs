@@ -83,9 +83,10 @@ const webPage = (usage, name) => `<!doctype html>
   html, body { margin: 0; height: 100%; background: #07060f; color: #f6efe4; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   .hero { position: relative; min-height: 100vh; display: grid; align-items: center; overflow: hidden; }
   .hero monotrama-field { position: absolute; inset: 0; }
-  .copy { position: relative; max-width: 30em; padding: 32px 6vw; }
+  .copy { position: relative; max-width: min(48%, 30em); padding: 32px 5vw; }
+  @media (max-width: 560px) { .copy { max-width: none; } }
   .copy p:first-child { margin: 0 0 12px; font: 600 11px/1 ui-monospace, Menlo, monospace; letter-spacing: .16em; text-transform: uppercase; opacity: .75; }
-  h1 { margin: 0 0 14px; font-size: clamp(26px, 5vw, 48px); line-height: 1.02; letter-spacing: -.03em; }
+  h1 { margin: 0 0 14px; font-size: clamp(24px, 4.2vw, 44px); line-height: 1.04; letter-spacing: -.03em; }
   .copy p { margin: 0 0 20px; max-width: 26em; opacity: .88; }
   a { display: inline-block; padding: 12px 18px; border-radius: 10px; background: #f6efe4; color: #07060f; font-weight: 700; text-decoration: none; }
   code { font: 14px ui-monospace, Menlo, monospace; }

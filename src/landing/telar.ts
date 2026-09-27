@@ -106,13 +106,14 @@ export function mountTelar(root: HTMLElement) {
   });
   select(tabs.index, false);
 
-  void live(canvas, wanted, { maxPixelRatio: 1.25 }).then(e => {
+  const first = wanted;
+  void live(canvas, first, { maxPixelRatio: 1.25 }).then(e => {
     if (!e) return;
     engine = e;
     track(e);
     e.setMedia('image', syntheticPhoto());
     // a space chosen while the engine was on its way
-    if (e.recipe.meta !== wanted.meta) e.set(wanted);
+    if (wanted !== first) e.set(wanted);
     void e.ready().then(() => { stage.querySelector('img')?.remove(); stage.dataset.live = e.kind; });
   });
 }
