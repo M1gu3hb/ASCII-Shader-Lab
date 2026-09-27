@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { spaceById } from '../random/spaces';
 import { TABS, TabContent } from './panels';
 import { presetsFor } from './presets';
@@ -7,6 +7,8 @@ import { IClose } from './icons';
 import { exitGuide, useGuide } from './guide/state';
 import { LoadBoundary } from './Boundary';
 import { loadGuide } from './lazy';
+import { ScrollRow } from './ui/ScrollRow';
+import { HintBubble } from './ui/Help';
 
 // the guided paths load when one starts (the welcome itself is in the main bundle)
 const Guide = lazy(() => loadGuide().then(m => ({ default: m.Guide })));
@@ -18,6 +20,12 @@ export function Panel() {
   const tabs = TABS[space];
   const tab = tabs.find(t => t[0] === tabSel)?.[0] ?? tabs[0]?.[0];
   const presets = presetsFor(space);
+  // each recipe's colours, as a small swatch on its chip (the recipes' own palettes, not the current piece's)
+  const swatches = useMemo(() => presetsFor(space).map(p => {
+    const r = p.make();
+    const stops = r.color.stops;
+    return `linear-gradient(135deg, ${r.color.bg} 0 42%, ${stops[Math.floor(stops.length / 2)] ?? r.color.bg} 42% 70%, ${stops[stops.length - 1] ?? r.color.bg} 70%)`;
+  }), [space]);
   const guiding = useGuide(s => s.path !== null);
   useEffect(() => { document.querySelector('.pane')?.scrollTo(0, 0); }, [tab, space]);
   const drag = useDragToClose();
@@ -26,6 +34,7 @@ export function Panel() {
     return (
       <aside className="panel guide-panel" aria-labelledby="guide-title">
         <LoadBoundary where="la guía" onClose={() => exitGuide('close')}><Suspense fallback={null}><Guide /></Suspense></LoadBoundary>
+        <HintBubble />
       </aside>
     );
   }
@@ -39,22 +48,27 @@ export function Panel() {
           <p className="eyebrow">Recetas · {spaceById(space).name}</p>
           <button type="button" className="icon-btn mobile-only" aria-label="Cerrar ajustes" onClick={() => setUI({ panel: false })}><IClose /></button>
         </div>
-        <div className="recipes" role="group" aria-label="Recetas listas">
-          {presets.map(p => (
+        {/* wide screens: the recipes wrap and the sections form a grid; phones: rows that scroll and say so */}
+        <ScrollRow className="recipes" aria-label="Recetas listas" more="más">
+          {presets.map((p, i) => (
             <button key={p.id} type="button" className="chip"
               aria-pressed={!!entry && entry.label === p.name && !entry.edited && ['espacio', 'receta', 'inicio'].includes(entry.kind)}
-              onClick={() => applyRecipe(p.make(currentRecipe()), 'receta', p.name)}>{p.name}</button>
+              onClick={() => applyRecipe(p.make(currentRecipe()), 'receta', p.name)}>
+              <span className="chip-sw" aria-hidden="true" style={{ background: swatches[i] }} />{p.name}
+            </button>
           ))}
-        </div>
+        </ScrollRow>
       </div>
-      <div className="tabs" role="tablist" aria-label="Secciones">
+      <ScrollRow role="tablist" aria-label="Secciones" className="ptabs" boxClassName="ptabs-box"
+        style={{ '--cols': tabs.length <= 4 ? tabs.length : Math.ceil(tabs.length / 2) } as CSSProperties}>
         {tabs.map(([id, name]) => (
           <button key={id} type="button" role="tab" id={'tab-' + id} aria-selected={tab === id} aria-controls="pane" className="tab" onClick={() => setTab(id)}>{name}</button>
         ))}
-      </div>
+      </ScrollRow>
       <div className="pane" id="pane" role="tabpanel" aria-labelledby={'tab-' + tab}>
         {tab && <TabContent tab={tab} space={space} />}
       </div>
+      <HintBubble />
     </aside>
   );
 }

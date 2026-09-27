@@ -8,7 +8,8 @@ import type { SpaceId } from '../../random/spaces';
 import type { ExportRequest } from '../exportTab';
 import { textGrid } from '../guide/paths';
 
-export type ViewId = 'libre' | 'web' | 'tarjeta' | 'vertical' | 'readme' | 'terminal';
+/** «vertical» is the story / reel frame (the id stays so saved preferences keep working). */
+export type ViewId = 'libre' | 'web' | 'movil' | 'tarjeta' | 'vertical' | 'readme' | 'terminal';
 
 export interface ViewInfo {
   id: ViewId;
@@ -20,8 +21,9 @@ export interface ViewInfo {
 export const VIEWS: ViewInfo[] = [
   { id: 'libre', name: 'Libre', what: 'La pieza a todo el escenario, sin marco.' },
   { id: 'web', name: 'Fondo web', what: 'Tu pieza como fondo de una página, con contenido encima.' },
+  { id: 'movil', name: 'Pantalla de móvil', what: 'Tu pieza como fondo de una web en un teléfono de 390×844 px, con contenido encima.' },
   { id: 'tarjeta', name: 'Tarjeta', what: 'Tu pieza en la imagen de una tarjeta, junto a otras dos.' },
-  { id: 'vertical', name: 'Vertical 9:16', what: 'Historia o reel de 1080×1920. Las franjas marcan dónde suele ir la interfaz de la app (varía según la app).' },
+  { id: 'vertical', name: 'Historia / Reel 9:16', what: 'Un video vertical de 1080×1920 para historias y reels. Puedes marcar dónde suelen ir los textos y botones de las apps.' },
   { id: 'readme', name: 'README', what: 'Un README de GitHub: tu pieza como imagen y como texto de 80 columnas.' },
   { id: 'terminal', name: 'Terminal', what: 'Una ventana de terminal: lo que exportas como texto, ANSI o script para la consola.' },
 ];
@@ -37,11 +39,13 @@ export interface ViewOpts {
   ink: InkMode;
   /** Tarjeta and README: light or dark page. */
   page: 'light' | 'dark';
-  /** Vertical: a caption mock (account name and a line of text) over the bottom band. */
+  /** Story / reel: a caption mock (account name and a line of text) near the bottom. */
   caption: boolean;
+  /** Story / reel: the bands where the apps' own interface usually sits (approximate). */
+  zones: boolean;
 }
 
-export const DEFAULT_VIEW_OPTS: ViewOpts = { ink: 'auto', page: 'light', caption: false };
+export const DEFAULT_VIEW_OPTS: ViewOpts = { ink: 'auto', page: 'light', caption: false, zones: false };
 
 /** The terminal space opens on its terminal window; every other space, on the free stage. */
 export const defaultView = (space: SpaceId): ViewId => (space === 'terminal' ? 'terminal' : 'libre');
@@ -71,6 +75,7 @@ export function normalizeViewOpts(raw: unknown): ViewOpts {
     ink: o.ink === 'light' || o.ink === 'dark' ? o.ink : 'auto',
     page: o.page === 'dark' ? 'dark' : 'light',
     caption: o.caption === true,
+    zones: o.zones === true,
   };
 }
 
@@ -88,9 +93,27 @@ export function verticalFrame(availW: number, availH: number): { w: number; h: n
   return { w: (h * 9) / 16, h };
 }
 
-/** Share of the 9:16 frame that app interfaces usually cover (Instagram, TikTok, Shorts: about 250–380 px of 1920). */
+/**
+ * Share of the 9:16 frame that app interfaces usually cover (Instagram, TikTok, Shorts: about 250–380 px of
+ * 1920 at the bottom, 220–270 at the top, and a column of buttons on the right). Approximate: every app and
+ * version differs, and the view says so.
+ */
 export const SAFE_TOP = 0.14;
 export const SAFE_BOTTOM = 0.2;
+export const SAFE_RIGHT = 0.16;
+
+/** «Pantalla de móvil»: a common phone screen in CSS px (iPhone 12 to 15, many Android phones are close). */
+export const PHONE = { w: 390, h: 844 } as const;
+
+/**
+ * The phone as shown: its screen keeps its CSS size (what the page would lay out, and what a «Vista ×3»
+ * export composes: 1170×2532) and the whole handset is drawn smaller when the stage is short.
+ */
+export function phoneFit(availW: number, availH: number, bezel = 17): { w: number; h: number; k: number } {
+  const W = PHONE.w + bezel * 2, H = PHONE.h + bezel * 2;
+  const k = availW > 0 && availH > 0 ? Math.min(1, availW / W, availH / H) : 1;
+  return { w: PHONE.w, h: PHONE.h, k };
+}
 
 /** Media slot of the first card: 360×225 (16:10) where it fits, 288×180 on narrow screens. */
 export function cardMedia(availW: number): { w: number; h: number } {
@@ -163,6 +186,7 @@ export function markdownBlock(text: string): string {
 export function exportFor(view: ViewId, o: { gifW?: number; term?: { cols: number; rows: number } } = {}): ExportRequest | null {
   switch (view) {
     case 'web': return { tab: 'codigo' };
+    case 'movil': return { tab: 'codigo' };
     case 'tarjeta': return { tab: 'imagen', size: 'v2' };
     case 'vertical': return { tab: 'video', size: 'story' };
     case 'readme': return { tab: 'video', gifW: o.gifW ?? 640 };
@@ -171,10 +195,18 @@ export function exportFor(view: ViewId, o: { gifW?: number; term?: { cols: numbe
   }
 }
 
+/** A second way out for the views that have one (a still of the story; the phone screen as an image). */
+export function exportAlt(view: ViewId): { req: ExportRequest; label: string; hint: string } | null {
+  if (view === 'vertical') return { req: { tab: 'imagen', size: 'story' }, label: 'Imagen 1080×1920', hint: 'Una imagen fija 1080×1920 con este encuadre.' };
+  if (view === 'movil') return { req: { tab: 'imagen', size: 'v4' }, label: `Imagen ${PHONE.w * 3}×${PHONE.h * 3}`, hint: 'La pantalla del teléfono como imagen, a la densidad de un móvil (×3).' };
+  return null;
+}
+
 /** What the export button says it will do, per view. */
 export const EXPORT_HINT: Record<ViewId, string> = {
   libre: '',
   web: 'Código para tu web, como fondo de página.',
+  movil: 'Código para tu web, como fondo de página: así se verá en un teléfono.',
   tarjeta: 'Imagen al doble de la tarjeta (nítida en pantallas retina).',
   vertical: 'Video 1080×1920 con este encuadre.',
   readme: 'GIF al ancho de la imagen del README.',

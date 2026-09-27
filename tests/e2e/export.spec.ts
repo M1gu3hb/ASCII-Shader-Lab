@@ -76,7 +76,7 @@ test.describe('exportar', () => {
     await page.keyboard.press('e');
     await page.getByRole('tab', { name: 'Video y GIF' }).click();
     await page.getByLabel('Duración (s)').fill('1');
-    await page.locator('#gif-w').selectOption('320');
+    await page.getByRole('radio', { name: '320 px' }).click();
     const gif = await download(page, () => page.getByRole('button', { name: 'Descargar GIF' }).click());
     const buf = readFileSync(gif.path);
     expect(buf.subarray(0, 6).toString()).toBe('GIF89a');
@@ -94,6 +94,6 @@ test.describe('exportar', () => {
     await expect(page.locator('.seedline')).toContainText('ajustes-v1');
     await page.keyboard.press('Escape');
     await page.getByRole('tab', { name: /Capas/ }).click();
-    await expect(page.getByLabel('Patrón de la capa 1')).toHaveValue('lluvia');
+    await expect(page.getByRole('combobox', { name: 'Patrón de la capa 1' })).toHaveAttribute('data-value', 'lluvia');
   });
 });

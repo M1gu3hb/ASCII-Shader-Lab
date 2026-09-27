@@ -40,7 +40,8 @@ export function Sheet({ open, title, sub, onClose, children, wide }: { open: boo
 export function trapTab(e: React.KeyboardEvent, d: HTMLElement | null) {
   if (e.key !== 'Tab' || !d) return;
   const all = [...d.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-    .filter(el => !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0 && !el.closest('[inert]'));
+    // tabIndex -1: roving items of a tab row and scroll chevrons are not Tab stops
+    .filter(el => !(el as HTMLButtonElement).disabled && el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[inert]'));
   if (!all.length) return;
   const first = all[0], last = all[all.length - 1];
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }

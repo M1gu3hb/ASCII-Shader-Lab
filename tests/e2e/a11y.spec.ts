@@ -29,10 +29,10 @@ async function serious(page: Page, what: string, include?: string) {
 /** Interactive elements inside other interactive elements (buttons in buttons, links in buttons…). */
 function nestedInteractive(page: Page) {
   return page.evaluate(() => {
-    const sel = 'a[href], button, input, select, textarea, [role="button"], [role="link"], [role="switch"], [role="tab"], [role="checkbox"], [tabindex]:not([tabindex="-1"])';
+    const sel = 'a[href], button, input, select, textarea, [role="button"], [role="link"], [role="switch"], [role="tab"], [role="checkbox"], [role="radio"], [role="combobox"], [role="option"], [tabindex]:not([tabindex="-1"])';
     const out: string[] = [];
     for (const el of document.querySelectorAll(sel)) {
-      const outer = el.parentElement?.closest('a[href], button, [role="button"], [role="link"], [role="tab"], [role="switch"]');
+      const outer = el.parentElement?.closest('a[href], button, [role="button"], [role="link"], [role="tab"], [role="switch"], [role="radio"], [role="option"], [role="combobox"]');
       if (outer && !outer.closest('[inert]')) out.push(`${el.tagName.toLowerCase()}.${el.className} inside ${outer.tagName.toLowerCase()}.${outer.className}`);
     }
     return out;
@@ -48,12 +48,23 @@ test.describe('accesibilidad', () => {
       await tab.click();
       await serious(page, 'panel ' + (await tab.textContent()), '.panel');
     }
-    for (const v of ['Fondo web', 'Tarjeta', 'Vertical 9:16', 'README', 'Terminal']) {
-      await page.getByRole('group', { name: 'Vista', exact: true }).getByRole('button', { name: v, exact: true }).click();
+    // a list open (the studio's picker) and an explanation open: no serious issue either
+    await page.getByRole('tab', { name: 'Glifos' }).click();
+    await page.getByRole('combobox', { name: 'Caracteres', exact: true }).click();
+    await expect(page.getByRole('listbox', { name: 'Caracteres', exact: true })).toBeVisible();
+    await serious(page, 'lista de caracteres abierta');
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Qué es «Forma de la celda (alto ÷ ancho)»' }).click();
+    await serious(page, 'explicación abierta', '.panel');
+    for (const v of ['Fondo web', 'Pantalla de móvil', 'Tarjeta', 'Historia / Reel 9:16', 'README', 'Terminal']) {
+      await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: v, exact: true }).click();
       await serious(page, 'vista ' + v, '.stage-top');
       expect(await nestedInteractive(page)).toEqual([]);
     }
-    await page.getByRole('group', { name: 'Vista', exact: true }).getByRole('button', { name: 'Libre', exact: true }).click();
+    await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Historia / Reel 9:16', exact: true }).click();
+    await page.locator('.vbar-switch').getByText(/Zonas de interfaz/).click();
+    await serious(page, 'historia con zonas', '.stage-top');
+    await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Libre', exact: true }).click();
 
     await page.keyboard.press('e');
     const sheet = (name: string) => page.getByRole('dialog', { name });

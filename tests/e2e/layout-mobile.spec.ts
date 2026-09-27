@@ -1,5 +1,6 @@
 import { devices, expect, test, type Browser, type Page } from '@playwright/test';
 import { dismissWelcome } from './helpers';
+import { choose } from './clip';
 
 /** On a phone, what the person works on stays in view (iPhone 13: 390×664). */
 
@@ -47,15 +48,18 @@ test.describe('en el teléfono', () => {
     await ctx.close();
   });
 
-  test('la vista vertical 9:16 cabe entera, con sus dos franjas', async ({ browser }) => {
+  test('la vista Historia / Reel 9:16 cabe entera, con sus franjas de interfaz', async ({ browser }) => {
     const { ctx, page } = await iphone(browser, '/studio/#space=fondos');
     await dismissWelcome(page);
-    await page.locator('select.vsel').selectOption('vertical');
+    await choose(page, page.getByRole('combobox', { name: 'Vista' }), /^Historia \/ Reel/);
+    await page.getByRole('button', { name: 'Opciones de la vista' }).tap();
+    await page.locator('.vbar-switch').getByText(/Zonas de interfaz/).tap();
+    await page.getByRole('button', { name: 'Opciones de la vista' }).tap();
     // measured once the frame has taken the room it has (sizes settle over a couple of frames)
     await expect.poll(async () => {
       const area = await box(page, '.vw-center');
       const out: string[] = [];
-      for (const sel of ['.vw-phone', '.vw-safe-top', '.vw-safe-bottom']) {
+      for (const sel of ['.vw-phone', '.vw-safe-top', '.vw-safe-right', '.vw-safe-bottom']) {
         const b = await box(page, sel);
         if (b.top < area.top - 1 || b.bottom > area.bottom + 1) out.push(`${sel} ${Math.round(b.top)}–${Math.round(b.bottom)} fuera de ${Math.round(area.top)}–${Math.round(area.bottom)}`);
       }

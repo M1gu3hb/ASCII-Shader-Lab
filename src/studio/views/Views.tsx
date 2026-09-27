@@ -11,10 +11,14 @@ import { useGuide } from '../guide/state';
 import { VERDICT, inkFor, useLegibility, useLegibilityMeter } from './legibility';
 import { setView, setViewOpts } from './state';
 import {
-  EXPORT_HINT, GITHUB_CELL, SAFE_BOTTOM, SAFE_TOP, TERM_SIZES, VIEWS, cardMedia, exportFor, markdownBlock, nonAscii, readmeGrid, readmeImage,
-  terminalWindow, verticalFrame, viewInfo, type ViewId,
+  EXPORT_HINT, GITHUB_CELL, SAFE_BOTTOM, SAFE_RIGHT, SAFE_TOP, TERM_SIZES, VIEWS, cardMedia, exportAlt, exportFor, markdownBlock, nonAscii, phoneFit,
+  readmeGrid, readmeImage, terminalWindow, verticalFrame, viewInfo, type ViewId,
 } from './views';
+import { ScrollRow } from '../ui/ScrollRow';
+import { Picker } from '../ui/Picker';
+import { VIEW_OVERLAY_LABEL } from '../ui/copy';
 import '../css/views.css';
+import '../css/controls.css';
 
 /**
  * Destination previews. The stage canvas is never scaled: each view sizes the element that holds it
@@ -129,6 +133,7 @@ function usePhone() {
 export function ViewStage({ view, host, ins }: { view: ViewId; host: HTMLElement; ins: Insets }) {
   switch (view) {
     case 'web': return <WebView host={host} ins={ins} />;
+    case 'movil': return <PhoneView host={host} ins={ins} />;
     case 'tarjeta': return <CardView host={host} ins={ins} />;
     case 'vertical': return <VerticalView host={host} ins={ins} />;
     case 'readme': return <ReadmeView host={host} ins={ins} />;
@@ -170,9 +175,9 @@ function WebView({ host, ins }: { host: HTMLElement; ins: Insets }) {
           <div className="preview-content" style={style} aria-hidden="true">
             <div className="pc-nav"><b>Tu marca</b><span>Proyectos · Estudio · Contacto</span></div>
             <div className="pc-hero">
-              <h1 ref={h1}>Un titular que se lee sin esfuerzo</h1>
-              <p>Así se verá tu fondo detrás de contenido real. Si cuesta leer, baja el contraste o sube el tamaño de celda.</p>
-              <div className="pc-btns"><span className="pc-btn">Botón principal</span><span className="pc-btn ghost">Saber más</span></div>
+              <h1 ref={h1} data-legib="headline">Un titular que se lee sin esfuerzo</h1>
+              <p data-legib="body">Así se verá tu fondo detrás de contenido real. Si cuesta leer, baja el contraste o sube el tamaño de celda.</p>
+              <div className="pc-btns"><span className="pc-btn" data-legib="button">Botón principal</span><span className="pc-btn ghost" data-legib="button">Saber más</span></div>
             </div>
           </div>
         </div>
@@ -218,12 +223,18 @@ function CardView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   );
 }
 
-/* Vertical 9:16 ---------------------------------------------------------- */
+/* Historia / Reel 9:16 ------------------------------------------------------ */
 
+/**
+ * A vertical video frame (1080×1920). Clean by default: it is the video itself, not an app. On request,
+ * the bands where Reels, TikTok and Stories usually put their own interface (approximate: every app and
+ * version differs), and a sample caption.
+ */
 function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const ref = useRef<HTMLDivElement>(null);
   const size = useSize(ref);
   const caption = useStudio(s => s.ui.viewOpts.caption);
+  const zones = useStudio(s => s.ui.viewOpts.zones);
   const f = verticalFrame(size.w, size.h);
   // on a very short stage the frame keeps its CSS size (what the export composes) and is shown smaller;
   // the box around it takes the smaller size, so it is centred and nothing of it is cut
@@ -231,19 +242,65 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   return (
     <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>
       <div className="vw-phone-box" style={{ width: f.w * k, height: f.h * k }}>
-      <div className="vw-phone" style={{ width: f.w, height: f.h, transform: k < 1 ? `scale(${k})` : undefined }} data-frame={`${f.w}x${f.h}`}>
-        <Slot host={host} className="vw-fill" />
-        <div className="vw-safe vw-safe-top" style={{ height: SAFE_TOP * 100 + '%' }} aria-hidden="true"><span>interfaz de la app</span></div>
-        <div className="vw-safe vw-safe-bottom" style={{ height: SAFE_BOTTOM * 100 + '%' }} aria-hidden="true">
+        <div className="vw-phone vw-story" style={{ width: f.w, height: f.h, transform: k < 1 ? `scale(${k})` : undefined }} data-frame={`${f.w}x${f.h}`}>
+          <Slot host={host} className="vw-fill" />
+          {zones && (
+            <>
+              <div className="vw-safe vw-safe-top" style={{ height: SAFE_TOP * 100 + '%' }} aria-hidden="true"><span>interfaz de la app · aprox.</span></div>
+              <div className="vw-safe vw-safe-right" style={{ top: SAFE_TOP * 100 + '%', bottom: SAFE_BOTTOM * 100 + '%', width: SAFE_RIGHT * 100 + '%' }} aria-hidden="true">
+                <span className="vw-safe-icons"><i>♥</i><i>✎</i><i>➦</i></span>
+              </div>
+              <div className="vw-safe vw-safe-bottom" style={{ height: SAFE_BOTTOM * 100 + '%' }} aria-hidden="true"><span>interfaz de la app · aprox.</span></div>
+            </>
+          )}
           {caption && (
-            <span className="vw-cap">
+            <span className="vw-cap" style={{ bottom: SAFE_BOTTOM * 50 + '%' }} aria-hidden="true">
               <b>@tu_cuenta</b>
               <span>Tejido con caracteres, fotograma a fotograma ✦</span>
             </span>
           )}
-          <span>interfaz de la app</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* Pantalla de móvil ------------------------------------------------------------ */
+
+/**
+ * The piece as the background of a web page on a phone (390×844 CSS px), with the same kind of test
+ * content as «Fondo web». The screen keeps its CSS size; the handset is drawn smaller when the stage
+ * is short. Text regions are marked (data-legib) for the legibility estimate.
+ */
+function PhoneView({ host, ins }: { host: HTMLElement; ins: Insets }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const size = useSize(ref);
+  const recipe = useRecipe();
+  const mode = useStudio(s => s.ui.viewOpts.ink);
+  const ink = inkFor(mode, recipe?.color.bg ?? '#000000');
+  const h1 = useRef<HTMLHeadingElement>(null);
+  useLegibilityMeter(true, recipe, ink, h1);
+  const pad = 12;
+  const fit = phoneFit(size.w, size.h, pad + 5);
+  const style = { width: fit.w, height: fit.h, '--pc': ink, '--pcb': ink === '#ffffff' ? '#111111' : '#ffffff' } as CSSProperties;
+  return (
+    <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>
+      <div className="vw-handset-box" style={{ width: (fit.w + pad * 2) * fit.k, height: (fit.h + pad * 2) * fit.k }}>
+        <div className="vw-handset" style={{ transform: fit.k < 1 ? `scale(${fit.k})` : undefined }} data-screen={`${fit.w}x${fit.h}`}>
+          <div className="vw-handset-screen" style={style}>
+            <Slot host={host} className="vw-fill" />
+            <div className="vw-handset-bar" aria-hidden="true"><span>9:41</span><i /><span>▮▮▮</span></div>
+            {/* test content over the background: what a visitor reads on a phone */}
+            <div className="vw-mobile-content" aria-hidden="true">
+              <div className="pc-nav"><b>Tu marca</b><span className="pc-burger" /></div>
+              <div className="pc-hero">
+                <h1 ref={h1} data-legib="headline">Un titular que se lee sin esfuerzo</h1>
+                <p data-legib="body">Así se verá tu fondo en un teléfono, detrás de contenido real.</p>
+                <div className="pc-btns"><span className="pc-btn" data-legib="button">Botón principal</span><span className="pc-btn ghost" data-legib="button">Saber más</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -355,20 +412,21 @@ export function ViewBar({ view }: { view: ViewId }) {
   const gifW = useReadme(s => s.gifW);
   const more = view !== 'libre';
   const go = () => { const r = exportFor(view, { gifW, term }); if (r) openExport(r.tab, r); };
+  const alt = exportAlt(view);
   const goLabel = view === 'readme' ? 'Exportar GIF para README' : 'Exportar para este destino';
   const hint = view === 'readme' ? `GIF de ${gifW} px de ancho, el de la imagen del README.` : EXPORT_HINT[view];
   return (
     <div className={'vbar' + (more ? ' more' : '')}>
       <div className="vbar-sel">
         <span className="vbar-lbl" id="vbar-lbl">Vista</span>
-        <div className="vseg" role="group" aria-labelledby="vbar-lbl">
+        {/* one choice among the destinations: wraps on narrow stages rather than hiding any */}
+        <ScrollRow role="radiogroup" aria-labelledby="vbar-lbl" className="vseg" boxClassName="vseg-box">
           {VIEWS.map(v => (
-            <button key={v.id} type="button" aria-pressed={view === v.id} onClick={() => setView(v.id)} title={v.what}>{v.name}</button>
+            <button key={v.id} type="button" role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)} title={v.what}>{v.name}</button>
           ))}
-        </div>
-        <select className="vsel" aria-labelledby="vbar-lbl" value={view} onChange={e => setView(e.target.value as ViewId)}>
-          {VIEWS.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-        </select>
+        </ScrollRow>
+        <Picker className="vsel-pk" value={view} label="Vista" labelId="vbar-lbl" minWidth={260}
+          options={VIEWS.map(v => ({ value: v.id, label: v.name, desc: v.what }))} onChange={v => setView(v)} />
         {more && (
           <button type="button" className="vbar-fold" aria-expanded={open} aria-controls="vbar-opts" onClick={() => setOpen(!open)} title="Opciones de la vista">
             <IMore /><span className="sr-only">Opciones de la vista</span>
@@ -379,10 +437,11 @@ export function ViewBar({ view }: { view: ViewId }) {
       {more && (
         <div className="vbar-more">
           <p className="vbar-what">{info.what}</p>
-          {view === 'web' && <Legib />}
+          {(view === 'web' || view === 'movil') && <Legib />}
           <div className={'vbar-opts' + (open ? ' open' : '')} id="vbar-opts">
             <ViewOptions view={view} />
             <ViewNotes view={view} />
+            {alt && <button type="button" className="vbar-alt" title={alt.hint} onClick={() => openExport(alt.req.tab, alt.req)}>{alt.label}</button>}
           </div>
           <button type="button" className="vbar-go vbar-go-lg" onClick={go} title={hint}><IDownload />{goLabel}</button>
         </div>
@@ -400,21 +459,31 @@ function Seg<T extends string>({ label, value, opts, onPick }: { label: string; 
   );
 }
 
+function Switch({ label, on, onChange }: { label: string; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="vbar-switch">
+      <span>{label}</span>
+      <span className="switch"><input type="checkbox" role="switch" checked={on} onChange={e => onChange(e.target.checked)} /><span /></span>
+    </label>
+  );
+}
+
 function ViewOptions({ view }: { view: ViewId }) {
   const o = useStudio(s => s.ui.viewOpts);
   const term = useStudio(s => s.ui.terminal);
   const text = useReadme(s => s.text);
   switch (view) {
     case 'web':
+    case 'movil':
       return <Seg label="Texto" value={o.ink} opts={[['auto', 'Auto'], ['light', 'Claro'], ['dark', 'Oscuro']]} onPick={ink => setViewOpts({ ink })} />;
     case 'tarjeta':
       return <Seg label="Página" value={o.page} opts={[['light', 'Clara'], ['dark', 'Oscura']]} onPick={page => setViewOpts({ page })} />;
     case 'vertical':
       return (
-        <label className="vbar-switch">
-          <span>Pie de texto</span>
-          <span className="switch"><input type="checkbox" role="switch" checked={o.caption} onChange={e => setViewOpts({ caption: e.target.checked })} /><span /></span>
-        </label>
+        <>
+          <Switch label={VIEW_OVERLAY_LABEL} on={o.zones} onChange={zones => setViewOpts({ zones })} />
+          <Switch label="Pie de texto de ejemplo" on={o.caption} onChange={caption => setViewOpts({ caption })} />
+        </>
       );
     case 'readme':
       return (
@@ -423,16 +492,18 @@ function ViewOptions({ view }: { view: ViewId }) {
           <button type="button" className="vbar-btn" disabled={!text} onClick={() => void copyText(markdownBlock(text), 'Bloque Markdown copiado')}>Copiar bloque Markdown</button>
         </>
       );
-    case 'terminal':
+    case 'terminal': {
+      const cur = `${term.cols}x${term.rows}`;
+      const sizes = TERM_SIZES.map(([c, r]) => ({ value: `${c}x${r}`, label: `${c}×${r}` }));
+      if (!sizes.some(x => x.value === cur)) sizes.unshift({ value: cur, label: `${term.cols}×${term.rows}` });
       return (
-        <label className="vbar-size">
-          <span>Tamaño</span>
-          <select value={`${term.cols}x${term.rows}`} onChange={e => { const [cols, rows] = e.target.value.split('x').map(Number); setUI({ terminal: { cols, rows } }); }}>
-            {!TERM_SIZES.some(([c, r]) => c === term.cols && r === term.rows) && <option value={`${term.cols}x${term.rows}`}>{term.cols}×{term.rows}</option>}
-            {TERM_SIZES.map(([c, r]) => <option key={c + 'x' + r} value={`${c}x${r}`}>{c}×{r}</option>)}
-          </select>
-        </label>
+        <span className="vbar-size">
+          <span id="vbar-term-l">Tamaño</span>
+          <Picker size="sm" value={cur} label="Tamaño de la terminal" labelId="vbar-term-l" options={sizes} minWidth={140}
+            onChange={v => { const [cols, rows] = v.split('x').map(Number); setUI({ terminal: { cols, rows } }); }} />
+        </span>
       );
+    }
     default:
       return null;
   }

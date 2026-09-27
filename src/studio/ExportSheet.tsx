@@ -18,6 +18,9 @@ import { exportProject, fmtSize, projectMedia, slug } from './packages';
 import { shareLink } from './ShareSheet';
 import './css/basic.css';
 import { takeExportRequest, type ExportRequest } from './exportTab';
+import { SegGroup } from './controls';
+import { Picker, type PickOpt } from './ui/Picker';
+import { ScrollRow } from './ui/ScrollRow';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -42,9 +45,9 @@ export function ExportSheet() {
   }, [open, space]);
   return (
     <Sheet open={open} onClose={() => setUI({ sheet: 'none' })} wide title="Llevar la pieza fuera" sub="Todo se genera en tu navegador. Elige el formato según dónde la vayas a usar.">
-      <div className="sheet-tabs" role="tablist">
+      <ScrollRow role="tablist" aria-label="Formatos" className="sheet-tabs" boxClassName="sheet-tabs-box">
         {TABS.map(([id, name]) => <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{name}</button>)}
-      </div>
+      </ScrollRow>
       <div className="sheet-body">
         {tab === 'imagen' && <ImageTab key={opening} req={req} />}
         {tab === 'video' && <VideoTab key={opening} req={req} />}
@@ -137,6 +140,34 @@ function formatGap(f: ImageFormat, ok: Record<ImageFormat, boolean>): string {
 /** A size preset asked for by the request, when the sheet offers it. */
 const presetOf = (req: ExportRequest | null, fallback: string) => (req?.size && SIZE_PRESETS.some(p => p.id === req.size) ? req.size : fallback);
 
+/** The size presets, each with the pixels it gives now (the «view» ones follow the stage). */
+function sizeOptions(even = false): PickOpt<string>[] {
+  return SIZE_PRESETS.map(p => {
+    const z = resolveSize(p.spec, even);
+    return { value: p.id, label: p.name, group: p.spec.kind === 'view' ? 'Como la ves' : 'Tamaños fijos', desc: `${z.W}×${z.H} px` };
+  });
+}
+
+/** A size picker with its visible label. */
+function SizePicker({ id, value, onChange, even }: { id: string; value: string; onChange: (v: string) => void; even?: boolean }) {
+  return (
+    <div className="ctl cx">
+      <span className="lbl" id={id + '-l'}>Tamaño</span>
+      <Picker id={id} value={value} label="Tamaño" labelId={id + '-l'} options={sizeOptions(even)} onChange={onChange} minWidth={240} />
+    </div>
+  );
+}
+
+/** A few numbers to choose from, all in view (frames per second, GIF widths). */
+function Numbers({ id, label, value, list, unit = '', onPick }: { id: string; label: string; value: number; list: number[]; unit?: string; onPick: (v: number) => void }) {
+  return (
+    <div className="ctl cx">
+      <span className="lbl" id={id}>{label}</span>
+      <SegGroup labelId={id} value={value} opts={list.map(n => [n, n + unit] as [number, string])} onPick={onPick} />
+    </div>
+  );
+}
+
 function ImageTab({ req }: { req: ExportRequest | null }) {
   const e = useCurrent();
   const images = useCaps(s => s.images);
@@ -165,8 +196,7 @@ function ImageTab({ req }: { req: ExportRequest | null }) {
       <div className="ex-card">
         <h3>Imagen fija</h3>
         <p>El fotograma actual, re-renderizado a la resolución que elijas (los glifos se dibujan de nuevo al tamaño final: nítidos, sin escalar).</p>
-        <div className="ctl"><label className="lbl" htmlFor="ex-size">Tamaño</label>
-          <select id="ex-size" value={preset} onChange={ev => setPreset(ev.target.value)}>{SIZE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+        <SizePicker id="ex-size" value={preset} onChange={setPreset} />
         <p className="note">Resultado: <b>{sz.W}×{sz.H}</b> px.</p>
         <div className="ctl"><span className="lbl">Formato</span>
           <div className="seg">{formats.map(f => <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>{f.toUpperCase()}</button>)}</div></div>
@@ -298,7 +328,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
       {!camera && (
         <div className="ex-clip">
           <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={60} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(60, +ev.target.value || 1)))} /></label>
-          <label className="ctl"><span className="lbl">Fotogramas/s</span><select value={fps} onChange={ev => setFps(+ev.target.value)}>{[24, 25, 30, 60].map(f => <option key={f} value={f}>{f}</option>)}</select></label>
+          <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
           <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}</p>
         </div>
       )}
@@ -312,8 +342,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
               ? <Unavailable what="MP4 y WebM: no disponibles.">Este navegador no tiene WebCodecs, la función con la que se codifica el video fotograma a fotograma. Usa {liveAlt}.</Unavailable>
               : (
                 <>
-                  <div className="ctl"><label className="lbl" htmlFor="v-size">Tamaño</label>
-                    <select id="v-size" value={preset} onChange={ev => setPreset(ev.target.value)}>{SIZE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  <SizePicker id="v-size" value={preset} onChange={setPreset} even />
                   {busy?.kind === 'video' ? progress : renderRows()}
                 </>
               )}
@@ -325,8 +354,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
             ? <Unavailable what="GIF: no con la cámara.">El GIF también se calcula fotograma a fotograma. Con la cámara, graba en directo.</Unavailable>
             : (
               <>
-                <div className="ctl"><label className="lbl" htmlFor="gif-w">Ancho</label>
-                  <select id="gif-w" value={gifW} onChange={ev => setGifW(+ev.target.value)}>{[320, 480, 640, 800].map(w => <option key={w} value={w}>{w} px</option>)}</select></div>
+                <Numbers id="gif-w" label="Ancho del GIF" value={gifW} list={[320, 480, 640, 800]} unit=" px" onPick={setGifW} />
                 {busy?.kind === 'gif' ? progress : <button type="button" className="btn" disabled={!!busy} onClick={() => void run('gif')}>Descargar GIF</button>}
               </>
             )}
@@ -467,9 +495,9 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
         <div className="ex-card">
           <h3>Animación para la consola</h3>
           <p>Scripts autónomos: no necesitan instalar nada. Se detienen con Ctrl+C y restauran la terminal.</p>
-          <div className="row2">
+          <div className="ex-anim">
             <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={30} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(30, +ev.target.value || 1)))} /></label>
-            <label className="ctl"><span className="lbl">Fotogramas/s</span><select value={fps} onChange={ev => setFps(+ev.target.value)}>{[8, 10, 12, 15, 20, 24].map(f => <option key={f} value={f}>{f}</option>)}</select></label>
+            <Numbers id="t-fps" label="Fotogramas por segundo" value={fps} list={[8, 10, 12, 15, 20, 24]} onPick={setFps} />
           </div>
           {busy !== null ? <Busy p={busy} onCancel={() => { cancel.current.cancelled = true; }} /> : (
             <>

@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Browser, type Page } from '@playwright/test';
 import { dismissWelcome } from './helpers';
+import { choose } from './clip';
 
 /**
  * Phones for real: an iPhone 13 (390×664 viewport, touch) and a 360×800 Android. Nothing overflows
@@ -63,7 +64,7 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       expect(t!.y + t!.height).toBeLessThanOrEqual(deck!.y);
 
       await noOverflow(page, 'estudio');
-      expect(await smallTargets(page, '.topbar button, .topbar select, .deck button, .seedline button, .vbar select')).toEqual([]);
+      expect(await smallTargets(page, '.topbar button, .topbar select, .deck button, .seedline button, .vbar button')).toEqual([]);
 
       // history strip and an edited seed line (it wraps to a second row, still 44 px targets)
       for (let i = 0; i < 4; i++) await page.locator('.act.dice').tap();
@@ -130,9 +131,14 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       await sheet.getByRole('button', { name: 'Cerrar' }).tap();
       await expect(sheet).toBeHidden();
 
-      // destination previews
-      for (const v of ['web', 'tarjeta', 'vertical', 'readme', 'terminal', 'libre']) {
-        await page.locator('.vsel').selectOption(v);
+      // destination previews (chosen in the studio's picker: a sheet at the bottom of the screen)
+      for (const v of ['Fondo web', 'Pantalla de móvil', 'Tarjeta', 'Historia', 'README', 'Terminal', 'Libre']) {
+        await page.getByRole('combobox', { name: 'Vista' }).tap();
+        const list = page.getByRole('listbox', { name: 'Vista' });
+        await expect(list).toBeVisible();
+        expect(await smallTargets(page, '.pk-pop :is(button, [role=option])'), 'lista de vistas').toEqual([]);
+        await list.getByRole('option', { name: new RegExp('^' + v) }).tap();
+        await expect(list).toBeHidden();
         await page.waitForTimeout(300);
         await noOverflow(page, 'vista ' + v);
         expect(await smallTargets(page, '.vbar :is(button, select)'), 'vista ' + v).toEqual([]);
@@ -146,7 +152,7 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       await page.getByRole('dialog', { name: 'Colección e historial' }).getByRole('button', { name: 'Cerrar' }).tap();
 
       // components: gallery and detail
-      await page.locator('.space-select').selectOption('componentes');
+      await choose(page, page.getByRole('combobox', { name: 'Espacio' }), /^Componentes/);
       await noOverflow(page, 'galería');
       expect(await smallTargets(page, '.comp-open, .topbar button')).toEqual([]);
       await page.getByRole('button', { name: /Personalizar y copiar: Halo/ }).tap();
