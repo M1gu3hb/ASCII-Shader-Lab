@@ -1,17 +1,24 @@
-import { useEffect } from 'react';
-import { ComponentsSpace } from './ComponentsSpace';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { Deck, copyLink, dice, favorite } from './Deck';
-import { ExportSheet } from './ExportSheet';
 import { Panel } from './Panel';
-import { CollectionSheet, ExploreSheet, SeedSheet, ShortcutsSheet } from './Sheets';
 import { ShareSheet } from './ShareSheet';
 import { Stage } from './Stage';
 import { TopBar, toggleFullscreen } from './TopBar';
 import { SPACES } from '../random/spaces';
-import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary } from './store';
+import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary, type UIState } from './store';
 import { useToasts } from './toast';
 import { Welcome } from './guide/Welcome';
 import { openWelcome, useGuide } from './guide/state';
+import { loadComponents, loadExportSheet, loadSheets, warmCodeExporter } from './lazy';
+import './css/perf.css';
+
+// not needed for the first piece: loaded when first opened (and prefetched once the studio is idle, see lazy.ts)
+const ExportSheet = lazy(() => loadExportSheet().then(m => ({ default: m.ExportSheet })));
+const CollectionSheet = lazy(() => loadSheets().then(m => ({ default: m.CollectionSheet })));
+const ExploreSheet = lazy(() => loadSheets().then(m => ({ default: m.ExploreSheet })));
+const ShortcutsSheet = lazy(() => loadSheets().then(m => ({ default: m.ShortcutsSheet })));
+const SeedSheet = lazy(() => loadSheets().then(m => ({ default: m.SeedSheet })));
+const ComponentsSpace = lazy(() => loadComponents().then(m => ({ default: m.ComponentsSpace })));
 
 export function App() {
   const space = useStudio(s => s.space);
@@ -24,21 +31,38 @@ export function App() {
     <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '') + (guide ? ' ' + guide : '')}>
       <TopBar />
       <main className="stage-wrap" aria-label="Escenario">
-        {comps ? <ComponentsSpace /> : <Stage />}
+        {comps ? <Suspense fallback={<Wait label="Cargando las piezas…" />}><ComponentsSpace /></Suspense> : <Stage />}
       </main>
       {!comps && <Panel />}
       {!comps && <Deck />}
-      <ExportSheet />
-      <CollectionSheet />
-      <ExploreSheet />
-      <ShortcutsSheet />
-      <SeedSheet />
+      <OnDemand sheet="export" label="Cargando la exportación…" onFirstOpen={warmCodeExporter}><ExportSheet /></OnDemand>
+      <OnDemand sheet="collection" label="Cargando la colección…"><CollectionSheet /></OnDemand>
+      <OnDemand sheet="explore" label="Cargando el explorador…"><ExploreSheet /></OnDemand>
+      <OnDemand sheet="shortcuts" label="Cargando los atajos…"><ShortcutsSheet /></OnDemand>
+      <OnDemand sheet="seed" label="Cargando…"><SeedSheet /></OnDemand>
       <ShareSheet />
       <Welcome />
       <Toasts />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>
   );
+}
+
+/**
+ * Mounts a sheet the first time it is asked for, then keeps it mounted, so its dialog opens, closes and
+ * returns focus exactly as when it was part of the startup bundle.
+ */
+function OnDemand({ sheet, label, onFirstOpen, children }: { sheet: UIState['sheet']; label: string; onFirstOpen?: () => void; children: ReactNode }) {
+  const open = useStudio(s => s.ui.sheet === sheet);
+  const [wanted, setWanted] = useState(open);
+  if (open && !wanted) setWanted(true);
+  useEffect(() => { if (wanted) onFirstOpen?.(); }, [wanted, onFirstOpen]);
+  return wanted ? <Suspense fallback={open ? <Wait label={label} /> : null}>{children}</Suspense> : null;
+}
+
+/** What shows while an on-demand part arrives (only on a first open before the idle prefetch finished). */
+function Wait({ label }: { label: string }) {
+  return <p className="lazy-wait" role="status">{label}</p>;
 }
 
 function Toasts() {
