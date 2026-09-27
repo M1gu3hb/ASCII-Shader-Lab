@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Recipe } from '../engine/recipe';
 import { byteSize, gridToAnsi, gridToHtml, gridToHtmlPage, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
 import { recipeFile, shareUrl } from '../shared/share';
+import { imageFormats, recorderLabel, useCaps, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
 import { copyText, downloadBlob, downloadText } from './download';
 import {
-  LiveRecorder, SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, hasWebCodecs, liveTime, loopSeconds, resolveSize,
-  videoSupport, type Cancel,
+  LiveRecorder, SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize,
+  smallerEncodable, videoSupport, type Cancel,
 } from './exporting';
 import { Sheet, slug } from './Sheets';
 import { setUI, useStudio } from './store';
@@ -15,6 +16,7 @@ import { spaceById } from '../random/spaces';
 import { Glossary } from './Glossary';
 import { exportProject, fmtSize, projectMedia } from './packages';
 import { shareLink } from './ShareSheet';
+import './css/basic.css';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -56,17 +58,86 @@ function Busy({ p, label, onCancel }: { p: number; label?: string; onCancel?: ()
   );
 }
 
+/** An option this browser cannot produce: said plainly, with what to use instead. Never a button. */
+function Unavailable({ what, children, action }: { what: string; children: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="ex-na" role="note">
+      <p><b>{what}</b> {children}</p>
+      {action}
+    </div>
+  );
+}
+
+/** Copies through the clipboard when the browser allows it, else through the old copy command. */
+async function tryCopy(text: string): Promise<boolean> {
+  if (useCaps.getState().clipboard) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { /* permission refused: try the old way */ }
+  }
+  // inside the open dialog: a modal makes the rest of the page inert, and inert text cannot be selected
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+  (document.querySelector('dialog[open]') ?? document.body).appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+  ta.remove();
+  return ok;
+}
+
+/**
+ * Copy buttons that tell the truth: when the browser does not let us copy, the text is selected
+ * (in `target`, or in a box that appears under the buttons) and we say how to copy it by hand.
+ */
+function useCopy() {
+  const [manual, setManual] = useState<{ text: string } | null>(null);
+  const copy = async (text: string, done: string, target?: HTMLTextAreaElement | null) => {
+    if (await tryCopy(text)) { setManual(null); toast(done); return; }
+    if (target) { target.focus(); target.select(); setManual({ text: '' }); } else setManual({ text });
+  };
+  return { copy, manual };
+}
+
+function CopyFallback({ manual }: { manual: { text: string } | null }) {
+  const clipboard = useCaps(s => s.clipboard);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { if (manual?.text) { ref.current?.focus(); ref.current?.select(); } }, [manual]);
+  if (!manual) return null;
+  const why = clipboard ? 'El navegador no dejó copiar' : 'Este navegador no da acceso al portapapeles desde aquí';
+  return (
+    <div className="ex-copy">
+      <p role="status">{why}. {manual.text ? 'El texto está seleccionado aquí abajo' : 'El código ya está seleccionado'}: cópialo con Ctrl+C (⌘C en Mac), o mantén pulsado y elige «Copiar» en el móvil.</p>
+      {manual.text && <textarea ref={ref} className="code" readOnly value={manual.text} aria-label="Texto para copiar a mano" onFocus={ev => ev.currentTarget.select()} />}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
+
+const FORMAT_NAME: Record<ImageFormat, string> = { png: 'PNG', webp: 'WebP', jpeg: 'JPEG' };
+
+/** Why a format is missing, and what to use instead (only formats that do work are named). */
+function formatGap(f: ImageFormat, ok: Record<ImageFormat, boolean>): string {
+  const others = (['png', 'jpeg', 'webp'] as const).filter(o => o !== f && ok[o]).map(o => FORMAT_NAME[o]);
+  return `Este navegador no sabe guardar ${FORMAT_NAME[f]}: si se lo pidiéramos, entregaría un PNG con otro nombre. Usa ${others.join(' o ')}.`;
+}
 
 function ImageTab() {
   const e = useCurrent();
+  const images = useCaps(s => s.images);
   const [preset, setPreset] = useState('v2');
   const [transparent, setTransparent] = useState(false);
-  const [format, setFormat] = useState<'png' | 'webp' | 'jpeg'>('png');
+  const [format, setFormat] = useState<ImageFormat>('png');
   const [busy, setBusy] = useState(false);
   const spec = SIZE_PRESETS.find(p => p.id === preset)!.spec;
   const sz = resolveSize(spec);
+  useEffect(() => { void imageFormats(); }, []);
+  useEffect(() => { if (images && !images[format]) setFormat('png'); }, [images, format]);
   if (!e) return null;
+  // PNG always works; the others only once the probe has confirmed them
+  const formats = (['png', 'webp', 'jpeg'] as const).filter(f => f === 'png' || images?.[f]);
+  const missing = images ? (['webp', 'jpeg'] as const).filter(f => !images[f]) : [];
   const go = async () => {
     setBusy(true);
     try {
@@ -84,7 +155,9 @@ function ImageTab() {
           <select id="ex-size" value={preset} onChange={ev => setPreset(ev.target.value)}>{SIZE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
         <p className="note">Resultado: <b>{sz.W}×{sz.H}</b> px.</p>
         <div className="ctl"><span className="lbl">Formato</span>
-          <div className="seg">{(['png', 'webp', 'jpeg'] as const).map(f => <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>{f.toUpperCase()}</button>)}</div></div>
+          <div className="seg">{formats.map(f => <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>{f.toUpperCase()}</button>)}</div></div>
+        {!images && <p className="note" aria-live="polite">Comprobando qué formatos guarda este navegador…</p>}
+        {images && missing.map(f => <Unavailable key={f} what={`${FORMAT_NAME[f]}: no disponible.`}>{formatGap(f, images)}</Unavailable>)}
         <label className="toggle"><span>Fondo transparente {format === 'jpeg' && '(no en JPEG)'}</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} disabled={format === 'jpeg'} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
         {transparent && <p className="note">Sólo quedan los caracteres (y el relleno de celda). Ideal para componer en Figma, Photoshop o After Effects.</p>}
         <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Generando…' : 'Descargar imagen'}</button>
@@ -100,33 +173,62 @@ function ImageTab() {
 
 /* ------------------------------------------------------------------ */
 
+type Smaller = Awaited<ReturnType<typeof smallerEncodable>>;
+
+/** Why the live recording cannot run here. */
+function recorderGap(r: RecorderCaps): string {
+  if (r.gap === 'no-recorder') return 'Este navegador no puede grabar video (no tiene MediaRecorder).';
+  if (r.gap === 'no-capture') return 'Este navegador no puede convertir el lienzo en video (no tiene captureStream).';
+  return 'Este navegador no graba en ningún formato de video que podamos guardar (MP4 o WebM).';
+}
+
 function VideoTab() {
   const e = useCurrent();
+  const webcodecs = useCaps(s => s.webcodecs);
+  const recorder = useCaps(s => s.recorder);
+  const basic = useCaps(s => s.renderer === 'basic');
   const [preset, setPreset] = useState('hd');
   const [fps, setFps] = useState(30);
   const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 6);
-  const [support, setSupport] = useState<{ mp4: boolean; webm: boolean } | null>(null);
-  const [busy, setBusy] = useState<{ p: number; label?: string } | null>(null);
+  /** Codec support at the chosen size, and the smaller sizes that would work (keyed by W×H). */
+  const [support, setSupport] = useState<{ key: string; s: VideoSupport } | null>(null);
+  const [alt, setAlt] = useState<{ key: string; any: Smaller; mp4: Smaller } | null>(null);
+  const [busy, setBusy] = useState<{ kind: 'video' | 'gif'; p: number; label?: string } | null>(null);
   const cancel = useRef<Cancel>({ cancelled: false });
   const [gifW, setGifW] = useState(640);
   const [rec, setRec] = useState<LiveRecorder | null>(null);
   const [recT, setRecT] = useState(0);
   const spec = SIZE_PRESETS.find(p => p.id === preset)!.spec;
   const sz = resolveSize(spec, true);
+  const key = `${sz.W}x${sz.H}`;
   const camera = e?.recipe.source === 'camera';
   useEffect(() => { setSecs(loop > 0 ? loop : 6); }, [loop]);
-  useEffect(() => { void videoSupport(sz.W, sz.H).then(setSupport); }, [sz.W, sz.H]);
+  useEffect(() => {
+    if (!webcodecs || camera) return;
+    let alive = true;
+    void videoSupport(sz.W, sz.H).then(async s => {
+      if (!alive) return;
+      setSupport({ key, s });
+      const any = !s.mp4 && !s.webm ? await smallerEncodable(sz.W, sz.H) : null;
+      const mp4 = !s.mp4 && s.webm ? await smallerEncodable(sz.W, sz.H, 'mp4') : null;
+      if (alive) setAlt({ key, any, mp4 });
+    });
+    return () => { alive = false; };
+  }, [key, webcodecs, camera]);
   useEffect(() => { if (!rec) return; const t0 = Date.now(); const id = setInterval(() => setRecT(Math.floor((Date.now() - t0) / 1000)), 250); return () => clearInterval(id); }, [rec]);
   if (!e) return null;
+  const cur = support?.key === key ? support.s : null;
+  const alts = alt?.key === key ? alt : null;
   const start = loop > 0 ? 0 : liveTime();
   const run = async (kind: 'mp4' | 'webm' | 'gif') => {
     cancel.current = { cancelled: false };
-    setBusy({ p: 0 });
+    const where = kind === 'gif' ? 'gif' : 'video';
+    setBusy({ kind: where, p: 0 });
     try {
       const blob = kind === 'gif'
-        ? await exportGif(e.recipe, gifW, { fps: Math.min(fps, 25), seconds: secs, start, colors: 128 }, (p, label) => setBusy({ p, label }), cancel.current)
-        : await exportVideo(e.recipe, spec, { fps, seconds: secs, format: kind, start }, (p, label) => setBusy({ p, label }), cancel.current);
+        ? await exportGif(e.recipe, gifW, { fps: Math.min(fps, 25), seconds: secs, start, colors: 128 }, (p, label) => setBusy({ kind: where, p, label }), cancel.current)
+        : await exportVideo(e.recipe, spec, { fps, seconds: secs, format: kind, start }, (p, label) => setBusy({ kind: where, p, label }), cancel.current);
       downloadBlob(`${baseName(e.recipe)}.${kind}`, blob);
     } catch (err) {
       if ((err as Error).message !== 'cancelado') toast('La exportación falló: ' + (err as Error).message);
@@ -136,44 +238,83 @@ function VideoTab() {
   const toggleRec = async () => {
     if (rec) { const { blob, ext } = await rec.stop(); setRec(null); downloadBlob(`${baseName(e.recipe)}-directo.${ext}`, blob); return; }
     const r = new LiveRecorder();
-    if (r.start(30)) setRec(r); else toast('Este navegador no permite grabar el lienzo.');
+    if (r.start(30)) setRec(r); else toast('Este navegador no permitió grabar el lienzo.');
+  };
+  const progress = busy && <Busy p={busy.p} label={busy.label} onCancel={() => { cancel.current.cancelled = true; }} />;
+  const switchTo = (p: NonNullable<Smaller>) => <button type="button" className="btn" onClick={() => setPreset(p.id)}>Usar {p.name}</button>;
+  const liveAlt = recorder.ok ? 'la grabación en directo o el GIF' : 'el GIF';
+  const renderRows = () => {
+    if (!cur) return <p className="note" aria-live="polite">Comprobando qué puede codificar este navegador a {sz.W}×{sz.H}…</p>;
+    if (!cur.mp4 && !cur.webm) {
+      if (!alts) return <p className="note" aria-live="polite">Buscando un tamaño que este navegador sí pueda codificar…</p>;
+      return alts.any
+        ? <Unavailable what={`Video a ${sz.W}×${sz.H}: no disponible.`} action={switchTo(alts.any)}>Este navegador no puede codificar video a este tamaño; a {alts.any.W}×{alts.any.H} sí.</Unavailable>
+        : <Unavailable what="Video renderizado: no disponible.">Este navegador no puede codificar video en ningún tamaño (ni H.264, ni VP9, ni VP8). Usa {liveAlt}.</Unavailable>;
+    }
+    return (
+      <>
+        <div className={cur.mp4 && cur.webm ? 'row2' : undefined}>
+          {cur.mp4 && <button type="button" className="btn primary" onClick={() => void run('mp4')}>MP4 (H.264)</button>}
+          {cur.webm && <button type="button" className={'btn' + (cur.mp4 ? '' : ' primary')} onClick={() => void run('webm')}>WebM</button>}
+        </div>
+        {!cur.mp4 && (alts?.mp4
+          ? <Unavailable what={`MP4 (H.264) a ${sz.W}×${sz.H}: no disponible.`} action={switchTo(alts.mp4)}>Este navegador no puede codificar H.264 a este tamaño; a {alts.mp4.W}×{alts.mp4.H} sí. A este tamaño, usa WebM.</Unavailable>
+          : alts && <Unavailable what="MP4 (H.264): no disponible.">Este navegador no puede codificar H.264, así que aquí no hay MP4. Usa WebM o prueba en otro navegador.</Unavailable>)}
+        {!cur.webm && <Unavailable what="WebM: no disponible.">Este navegador no puede codificar VP9 ni VP8 a {sz.W}×{sz.H}. Usa MP4.</Unavailable>}
+        <p className="note">{sz.W}×{sz.H} · {Math.round(secs * fps)} fotogramas. MP4 funciona en redes sociales, Keynote y editores de video.</p>
+      </>
+    );
   };
   return (
-    <div className="ex-grid">
-      <div className="ex-card">
-        <h3>Video renderizado</h3>
-        <p>Fotograma a fotograma, sin saltos aunque tu equipo sea modesto. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el video enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}</p>
-        {camera && <p className="warn">La cámara no se puede renderizar fotograma a fotograma: usa la grabación en directo.</p>}
-        <div className="ctl"><label className="lbl" htmlFor="v-size">Tamaño</label>
-          <select id="v-size" value={preset} onChange={ev => setPreset(ev.target.value)}>{SIZE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-        <div className="row2">
+    <>
+      {!camera && (
+        <div className="ex-clip">
           <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={60} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(60, +ev.target.value || 1)))} /></label>
           <label className="ctl"><span className="lbl">Fotogramas/s</span><select value={fps} onChange={ev => setFps(+ev.target.value)}>{[24, 25, 30, 60].map(f => <option key={f} value={f}>{f}</option>)}</select></label>
+          <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}</p>
         </div>
-        {busy ? <Busy p={busy.p} label={busy.label} onCancel={() => { cancel.current.cancelled = true; }} /> : (
-          <>
-            {!hasWebCodecs() && <p className="warn">Tu navegador no tiene WebCodecs: el render fotograma a fotograma no está disponible. Usa la grabación en directo.</p>}
-            {support && !support.mp4 && !support.webm && hasWebCodecs() && <p className="warn">Tu navegador no puede codificar video a {sz.W}×{sz.H}. Prueba un tamaño menor o la grabación en directo.</p>}
-            {support && !support.mp4 && support.webm && <p className="warn">Este navegador no puede codificar H.264, así que aquí no hay MP4. Usa WebM o prueba en otro navegador.</p>}
-            <div className="row2">
-              <button type="button" className="btn primary" disabled={camera || !support?.mp4} onClick={() => void run('mp4')}>MP4 (H.264)</button>
-              <button type="button" className="btn" disabled={camera || !support?.webm} onClick={() => void run('webm')}>WebM</button>
-            </div>
-            <p className="note">{sz.W}×{sz.H} · {Math.round(secs * fps)} fotogramas. MP4 funciona en redes sociales, Keynote y editores de video.</p>
-          </>
-        )}
+      )}
+      <div className="ex-grid">
+        <div className="ex-card">
+          <h3>Video renderizado</h3>
+          <p>Fotograma a fotograma, sin saltos aunque tu equipo sea modesto{basic ? ' (en modo básico tarda más, pero no pierde fotogramas)' : ''}.</p>
+          {camera
+            ? <Unavailable what="Render fotograma a fotograma: no con la cámara.">La cámara sólo existe en directo, así que no hay fotogramas que calcular por adelantado. {recorder.ok ? 'Usa la grabación en directo.' : 'La grabación en directo tampoco funciona en este navegador: exporta una imagen.'}</Unavailable>
+            : !webcodecs
+              ? <Unavailable what="MP4 y WebM: no disponibles.">Este navegador no tiene WebCodecs, la función con la que se codifica el video fotograma a fotograma. Usa {liveAlt}.</Unavailable>
+              : (
+                <>
+                  <div className="ctl"><label className="lbl" htmlFor="v-size">Tamaño</label>
+                    <select id="v-size" value={preset} onChange={ev => setPreset(ev.target.value)}>{SIZE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  {busy?.kind === 'video' ? progress : renderRows()}
+                </>
+              )}
+        </div>
+        <div className="ex-card">
+          <h3>GIF animado</h3>
+          <p>Para README, Slack o correos. Hasta 25 fps y 128 colores por fotograma; mejor corto y pequeño.</p>
+          {camera
+            ? <Unavailable what="GIF: no con la cámara.">El GIF también se calcula fotograma a fotograma. Con la cámara, graba en directo.</Unavailable>
+            : (
+              <>
+                <div className="ctl"><label className="lbl" htmlFor="gif-w">Ancho</label>
+                  <select id="gif-w" value={gifW} onChange={ev => setGifW(+ev.target.value)}>{[320, 480, 640, 800].map(w => <option key={w} value={w}>{w} px</option>)}</select></div>
+                {busy?.kind === 'gif' ? progress : <button type="button" className="btn" disabled={!!busy} onClick={() => void run('gif')}>Descargar GIF</button>}
+              </>
+            )}
+          <h3 style={{ marginTop: 18 }}>Grabación en directo</h3>
+          {recorder.ok ? (
+            <>
+              <p>Graba el lienzo tal como lo ves, con tu cursor y tu cámara. La calidad depende de la fluidez de tu equipo{basic ? ' (en modo básico, como mucho 30 fotogramas por segundo)' : ''}.</p>
+              <p className="note">Se guarda como <b>{recorderLabel(recorder.mime)}</b> (archivo .{recorder.ext}).</p>
+              <button type="button" className={'btn' + (rec ? ' primary' : '')} onClick={() => void toggleRec()}>{rec ? `Detener y guardar (${recT} s)` : 'Empezar a grabar'}</button>
+            </>
+          ) : (
+            <Unavailable what="Grabación en directo: no disponible.">{recorderGap(recorder)}{camera ? '' : webcodecs ? ' Usa el video renderizado o el GIF.' : ' Usa el GIF.'}</Unavailable>
+          )}
+        </div>
       </div>
-      <div className="ex-card">
-        <h3>GIF animado</h3>
-        <p>Para README, Slack o correos. Hasta 25 fps y 128 colores por fotograma; mejor corto y pequeño.</p>
-        <div className="ctl"><label className="lbl" htmlFor="gif-w">Ancho</label>
-          <select id="gif-w" value={gifW} onChange={ev => setGifW(+ev.target.value)}>{[320, 480, 640, 800].map(w => <option key={w} value={w}>{w} px</option>)}</select></div>
-        <button type="button" className="btn" disabled={!!busy || camera} onClick={() => void run('gif')}>Descargar GIF</button>
-        <h3 style={{ marginTop: 18 }}>Grabación en directo</h3>
-        <p>Graba el lienzo tal como lo ves, con tu cursor y tu cámara. La calidad depende de la fluidez de tu equipo.</p>
-        <button type="button" className={'btn' + (rec ? ' primary' : '')} onClick={() => void toggleRec()}>{rec ? `Detener y guardar (${recT} s)` : 'Empezar a grabar'}</button>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -238,6 +379,7 @@ function TerminalTab() {
   const [busy, setBusy] = useState<number | null>(null);
   const [est, setEst] = useState('');
   const cancel = useRef<Cancel>({ cancelled: false });
+  const { copy, manual } = useCopy();
   useEffect(() => { if (space === 'terminal') { setCols(term.cols); setRows(term.rows); } }, [space, term.cols, term.rows]);
   useEffect(() => {
     if (!e) return;
@@ -279,7 +421,7 @@ function TerminalTab() {
           <h3>Fotograma</h3>
           <p>{cols}×{rows} caracteres · ANSI {est}. «256» es el más compatible; «Color real» se ve perfecto en terminales modernas.</p>
           <div className="row2">
-            <button type="button" className="btn primary" onClick={() => preview && void copyText(preview.text, 'Texto copiado')}>Copiar texto</button>
+            <button type="button" className="btn primary" onClick={() => preview && void copy(preview.text, 'Texto copiado')}>Copiar texto</button>
             <button type="button" className="btn" onClick={() => preview && downloadText(name + '.txt', preview.text)}>.txt</button>
           </div>
           <div className="row2">
@@ -287,9 +429,10 @@ function TerminalTab() {
             <button type="button" className="btn" onClick={() => preview && downloadText(name + '.html', preview.page, 'text/html')}>HTML</button>
           </div>
           <div className="row2">
-            <button type="button" className="btn" onClick={() => preview && void copyText(toShellBanner(preview.text), 'Saludo para tu shell copiado')}>Saludo de shell</button>
-            <button type="button" className="btn" onClick={() => preview && void copyText(toJsString(preview.ansi), 'Código para tu CLI copiado')}>Para tu CLI (JS)</button>
+            <button type="button" className="btn" onClick={() => preview && void copy(toShellBanner(preview.text), 'Saludo para tu shell copiado')}>Saludo de shell</button>
+            <button type="button" className="btn" onClick={() => preview && void copy(toJsString(preview.ansi), 'Código para tu CLI copiado')}>Para tu CLI (JS)</button>
           </div>
+          <CopyFallback manual={manual} />
         </div>
         <div className="ex-card">
           <h3>Animación para la consola</h3>
@@ -324,6 +467,9 @@ function CodeTab() {
   const [systemFont, setSystemFont] = useState(false);
   const [mediaUrl, setMediaUrl] = useState('');
   const [mod, setMod] = useState<typeof import('../exporters/code') | null>(null);
+  const basic = useCaps(s => s.renderer === 'basic');
+  const codeRef = useRef<HTMLTextAreaElement>(null);
+  const { copy, manual } = useCopy();
   useEffect(() => { void import('../exporters/code').then(setMod); }, []);
   const opts = { placement, interactive, systemFont, height: 420, mediaUrl };
   const out = useMemo(() => {
@@ -357,16 +503,23 @@ function CodeTab() {
         <label className="toggle" style={{ margin: 0 }}><span>Sin dependencias externas</span><span className="switch"><input type="checkbox" role="switch" checked={systemFont} onChange={ev => setSystemFont(ev.target.checked)} /><span /></span></label>
         {isMedia && <input type="text" className="mono" placeholder={e.recipe.source === 'image' ? 'URL de tu imagen' : 'URL de tu video'} value={mediaUrl} onChange={ev => setMediaUrl(ev.target.value)} style={{ flex: 1, minWidth: 200, background: 'var(--field)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px' }} />}
       </div>
+      {basic && (
+        <div className="ex-na info" role="note">
+          <p><b>Tu vista previa usa el motor básico.</b> Quien visite tu web con WebGL 2 verá el motor completo; sin WebGL 2, verá tu póster o el color de fondo.</p>
+          <button type="button" className="btn" onClick={() => void poster()}>Descargar póster (PNG)</button>
+        </div>
+      )}
       {out?.notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
-      <textarea className="code" readOnly value={out?.code ?? 'Preparando…'} aria-label="Código" onFocus={ev => ev.currentTarget.select()} />
+      <textarea ref={codeRef} className="code" readOnly value={out?.code ?? 'Preparando…'} aria-label="Código" onFocus={ev => ev.currentTarget.select()} />
       <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
-        <button type="button" className="btn primary" style={{ width: 'auto', margin: 0 }} disabled={!out} onClick={() => out && void copyText(out.code, 'Código copiado')}>Copiar</button>
+        <button type="button" className="btn primary" style={{ width: 'auto', margin: 0 }} disabled={!out} onClick={() => out && void copy(out.code, 'Código copiado', codeRef.current)}>Copiar</button>
         {kind === 'html' && mod && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(baseName(e.recipe) + '.html', mod.htmlPage(e.recipe, opts), 'text/html')}>Descargar página .html</button>}
         {kind === 'wc' && out?.extra && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText('monotrama-field.js', out.extra!, 'text/javascript')}>Descargar monotrama-field.js</button>}
         {kind === 'react' && out && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(out.file, out.code, 'text/javascript')}>Descargar {out.file}</button>}
-        <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => void poster()}>Descargar póster (PNG)</button>
+        {!basic && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => void poster()}>Descargar póster (PNG)</button>}
         <span className="note" style={{ margin: 0 }}>Motor incluido ({mod ? Math.round(mod.runtimeSize() / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».</span>
       </div>
+      <CopyFallback manual={manual} />
       <p className="note">Sin WebGL 2 se ve el color de fondo; el póster se muestra en su lugar si lo subes con tu página y pones su URL en «poster».</p>
     </>
   );

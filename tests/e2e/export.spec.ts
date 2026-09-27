@@ -65,7 +65,8 @@ test.describe('exportar', () => {
     const mp4 = page.getByRole('button', { name: 'MP4 (H.264)' });
     if (avc) await expect(mp4).toBeEnabled();
     else {
-      await expect(mp4).toBeDisabled();
+      // not a dead button: an explanation row says why, and what to use instead
+      await expect(mp4).toHaveCount(0);
       await expect(page.getByText(/no puede codificar H\.264/)).toBeVisible();
     }
   });
