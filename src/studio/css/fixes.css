@@ -10,3 +10,10 @@ dialog.sheet.tab-away { width: min(520px, calc(100vw - 24px)); }
 .tab-away .note { margin: 0; }
 .keep-warn { margin: 0 0 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 176, 138, .45); background: rgba(255, 91, 31, .08); font-size: 13px; line-height: 1.5; }
 .keep-warn .mini { margin-top: 8px; }
+
+/* ---------- live recording in progress (stays visible when the interface is hidden) ---------- */
+.rec-chip .bm-tag i { background: #ff3b30; animation: rec-blink 1.2s steps(2) infinite; }
+.rec-chip .rec-t { flex: 0 0 auto; font: 500 12px/1 var(--font-mono); color: var(--text); font-variant-numeric: tabular-nums; }
+.app.ui-off .stage-notes .bm-chip.rec-chip { opacity: 1; pointer-events: auto; }
+@keyframes rec-blink { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .rec-chip .bm-tag i { animation: none; } }
