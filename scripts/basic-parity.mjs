@@ -40,6 +40,13 @@ try {
   const info = await page.evaluate(() => ({ patterns: window.__basic.patterns, presets: window.__basic.presets, probe: window.__basic.probe }));
   console.log(`probe: ${JSON.stringify(info.probe)}\n`);
 
+  // WebGL probe, createRenderer fallbacks and the live loop, checked in this browser
+  const checks = await page.evaluate(() => window.__basic.diagnostics());
+  console.log('## Diagnóstico y respaldo\n');
+  for (const c of checks) console.log(`- ${c.ok ? 'ok' : 'FALLA'} · ${c.name} — ${c.info}`);
+  console.log('');
+  if (checks.some(c => !c.ok)) failed = true;
+
   const f2 = v => v.toFixed(3);
   const pct = v => (v * 100).toFixed(1) + '%';
   const rows = [];
@@ -87,7 +94,7 @@ try {
     console.log(`| ${b.kind} ${b.id} | ${b.cols}×${b.rows} | ${b.total.toFixed(1)} / ${b.median.toFixed(1)} / ${b.p90.toFixed(1)} ms | ${b.field.toFixed(1)} | ${b.select.toFixed(1)} | ${b.compose.toFixed(1)} |`);
   }
   if (errors.length) { console.log('\nErrores de la página:\n' + errors.join('\n')); failed = true; }
-  if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ probe: info.probe, patterns: rows, presets, benches, errors }, null, 2));
+  if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ probe: info.probe, checks, patterns: rows, presets, benches, errors }, null, 2));
 } finally {
   await browser.close();
   await server.close();
