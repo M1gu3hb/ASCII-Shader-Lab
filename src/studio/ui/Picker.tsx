@@ -186,8 +186,9 @@ export function Picker<T extends string | number>(p: PickerProps<T>) {
   const onKey = (e: KeyboardEvent) => {
     const k = e.key;
     const printable = k.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
-    const now = performance.now();
-    const typing = now - typed.current.t < 700 && typed.current.s.length > 0;
+    // when the key was pressed (not when it is handled: a busy page may handle a quick «bra» in bursts)
+    const now = e.timeStamp || performance.now();
+    const typing = now - typed.current.t < 1000 && typed.current.s.length > 0;
     // type-ahead follows the list as shown (grouped)
     const find = (ch: string, from: number) => {
       typed.current = { s: (typing ? typed.current.s : '') + ch, t: now };
