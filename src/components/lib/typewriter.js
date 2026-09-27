@@ -25,7 +25,7 @@ export function typewriter(el, options = {}) {
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   el.textContent = '';
   const sr = document.createElement('span');
-  sr.textContent = phrases.join('. ');
+  sr.textContent = phrases.map(p => (/[.!?…:;]$/.test(p) ? p : p + '.')).join(' ');
   sr.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
   const vis = document.createElement('span');
   vis.setAttribute('aria-hidden', 'true');
