@@ -1,0 +1,212 @@
+import type { GridSnapshot } from '../engine/engine';
+import type { Recipe } from '../engine/recipe';
+import { gridToAnsi, gridToText, type ColorDepth, type Frames } from '../exporters/text';
+import { getEngine } from './engineBridge';
+import { mediaElement } from './media';
+import { offscreenEngine, stageSize, type OffscreenSize } from './offscreen';
+
+export type SizeSpec = { kind: 'view'; scale: number } | { kind: 'fixed'; w: number; h: number };
+
+export const SIZE_PRESETS: Array<{ id: string; name: string; spec: SizeSpec }> = [
+  { id: 'v1', name: 'Como la vista', spec: { kind: 'view', scale: 1 } },
+  { id: 'v2', name: 'Vista ×2', spec: { kind: 'view', scale: 2 } },
+  { id: 'v4', name: 'Vista ×3', spec: { kind: 'view', scale: 3 } },
+  { id: 'hd', name: '1920×1080', spec: { kind: 'fixed', w: 1920, h: 1080 } },
+  { id: '4k', name: '3840×2160 (4K)', spec: { kind: 'fixed', w: 3840, h: 2160 } },
+  { id: 'sq', name: '1080×1080', spec: { kind: 'fixed', w: 1080, h: 1080 } },
+  { id: 'story', name: '1080×1920 vertical', spec: { kind: 'fixed', w: 1080, h: 1920 } },
+  { id: 'og', name: '1200×630 (redes)', spec: { kind: 'fixed', w: 1200, h: 630 } },
+];
+
+export function resolveSize(spec: SizeSpec, even = false): OffscreenSize & { W: number; H: number } {
+  const { cssW, cssH } = stageSize();
+  let size: OffscreenSize;
+  if (spec.kind === 'view') size = { cssW, cssH, pixelRatio: spec.scale };
+  else size = { cssW: Math.round(cssH * (spec.w / spec.h)), cssH, pixelRatio: spec.h / cssH };
+  let W = Math.round(size.cssW * size.pixelRatio), H = Math.round(size.cssH * size.pixelRatio);
+  if (even) {
+    if (W % 2) { size.cssW += 1 / size.pixelRatio; W += 1; }
+    if (H % 2) { size.cssH += 1 / size.pixelRatio; H += 1; }
+  }
+  return { ...size, W, H };
+}
+
+export const liveTime = () => getEngine()?.time ?? 0;
+const canvasBlob = (c: HTMLCanvasElement, type: string, q?: number) => new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('toBlob'))), type, q));
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
+
+export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: boolean; format: 'png' | 'webp' | 'jpeg' }): Promise<Blob> {
+  const size = resolveSize(spec);
+  const eng = await offscreenEngine(r, size, { transparent: o.transparent && o.format !== 'jpeg' });
+  try {
+    eng.renderAt(liveTime());
+    return await canvasBlob(eng.canvas, 'image/' + o.format, o.format === 'png' ? undefined : 0.92);
+  } finally { eng.destroy(); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Video                                                               */
+/* ------------------------------------------------------------------ */
+
+export interface Progress { (p: number, label?: string): void }
+export interface Cancel { cancelled: boolean }
+
+export const hasWebCodecs = () => typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
+
+export async function videoSupport(W: number, H: number): Promise<{ mp4: boolean; webm: boolean }> {
+  if (!hasWebCodecs()) return { mp4: false, webm: false };
+  const mb = await import('mediabunny');
+  const [avc, vp9, vp8] = await Promise.all([
+    mb.canEncodeVideo('avc', { width: W, height: H }).catch(() => false),
+    mb.canEncodeVideo('vp9', { width: W, height: H }).catch(() => false),
+    mb.canEncodeVideo('vp8', { width: W, height: H }).catch(() => false),
+  ]);
+  return { mp4: avc, webm: vp9 || vp8 };
+}
+
+async function seekVideo(v: HTMLVideoElement, t: number) {
+  const d = v.duration || 1;
+  const target = ((t % d) + d) % d;
+  if (Math.abs(v.currentTime - target) < 1e-3) return;
+  await new Promise<void>(res => {
+    const done = () => { v.removeEventListener('seeked', done); res(); };
+    v.addEventListener('seeked', done);
+    v.currentTime = target;
+    setTimeout(done, 1500);
+  });
+}
+
+/** Deterministic, frame-by-frame render: no dropped frames even on slow machines. */
+export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
+  const mb = await import('mediabunny');
+  const size = resolveSize(spec, true);
+  const codec = o.format === 'mp4' ? 'avc' : (await mb.canEncodeVideo('vp9', { width: size.W, height: size.H })) ? 'vp9' : 'vp8';
+  const eng = await offscreenEngine(r, size);
+  const video = r.source === 'video' ? (mediaElement('video') as HTMLVideoElement | null) : null;
+  const wasPaused = video?.paused ?? true;
+  video?.pause();
+  const target = new mb.BufferTarget();
+  const output = new mb.Output({ format: o.format === 'mp4' ? new mb.Mp4OutputFormat({ fastStart: 'in-memory' }) : new mb.WebMOutputFormat(), target });
+  const src = new mb.CanvasSource(eng.canvas, { codec, quality: mb.QUALITY_HIGH, keyFrameInterval: 2 });
+  output.addVideoTrack(src, { frameRate: o.fps });
+  try {
+    await output.start();
+    const n = Math.max(1, Math.round(o.seconds * o.fps));
+    for (let i = 0; i < n; i++) {
+      if (cancel.cancelled) { await output.cancel(); throw new Error('cancelado'); }
+      const t = o.start + i / o.fps;
+      if (video) await seekVideo(video, t * r.media.rate);
+      eng.renderAt(t);
+      await src.add(i / o.fps, 1 / o.fps);
+      progress((i + 1) / n, `Fotograma ${i + 1} de ${n}`);
+      if (i % 4 === 0) await nextFrame();
+    }
+    await output.finalize();
+    return new Blob([target.buffer!], { type: o.format === 'mp4' ? 'video/mp4' : 'video/webm' });
+  } finally {
+    eng.destroy();
+    if (video && !wasPaused) void video.play().catch(() => undefined);
+  }
+}
+
+/** Real-time capture of the live canvas (for the camera, or browsers without WebCodecs). */
+export class LiveRecorder {
+  private rec: MediaRecorder | null = null;
+  private chunks: Blob[] = [];
+  mime = '';
+  static supported() {
+    return typeof MediaRecorder !== 'undefined' && typeof HTMLCanvasElement.prototype.captureStream === 'function';
+  }
+  start(fps = 30): boolean {
+    const c = getEngine()?.canvas;
+    if (!c || !LiveRecorder.supported()) return false;
+    this.mime = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) ?? '';
+    if (!this.mime) return false;
+    this.chunks = [];
+    this.rec = new MediaRecorder(c.captureStream(fps), { mimeType: this.mime, videoBitsPerSecond: 16e6 });
+    this.rec.ondataavailable = e => { if (e.data.size) this.chunks.push(e.data); };
+    this.rec.start(250);
+    return true;
+  }
+  stop(): Promise<{ blob: Blob; ext: string }> {
+    return new Promise(res => {
+      if (!this.rec) { res({ blob: new Blob(), ext: 'webm' }); return; }
+      this.rec.onstop = () => res({ blob: new Blob(this.chunks, { type: this.mime }), ext: this.mime.includes('mp4') ? 'mp4' : 'webm' });
+      this.rec.stop();
+      this.rec = null;
+    });
+  }
+  get active() { return !!this.rec; }
+}
+
+/* ------------------------------------------------------------------ */
+/* GIF                                                                 */
+/* ------------------------------------------------------------------ */
+
+export async function exportGif(r: Recipe, width: number, o: { fps: number; seconds: number; start: number; colors: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
+  const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
+  const { cssW, cssH } = stageSize();
+  const pr = width / cssW;
+  const eng = await offscreenEngine(r, { cssW, cssH, pixelRatio: pr });
+  const W = eng.canvas.width, H = eng.canvas.height;
+  const c2 = document.createElement('canvas');
+  c2.width = W; c2.height = H;
+  const ctx = c2.getContext('2d', { willReadFrequently: true })!;
+  const gif = GIFEncoder();
+  const n = Math.max(1, Math.round(o.seconds * o.fps));
+  const delay = Math.round(1000 / o.fps);
+  try {
+    for (let i = 0; i < n; i++) {
+      if (cancel.cancelled) throw new Error('cancelado');
+      eng.renderAt(o.start + i / o.fps);
+      ctx.drawImage(eng.canvas, 0, 0);
+      const { data } = ctx.getImageData(0, 0, W, H);
+      const palette = quantize(data, o.colors);
+      const index = applyPalette(data, palette);
+      gif.writeFrame(index, W, H, { palette, delay, repeat: i === 0 ? 0 : undefined });
+      progress((i + 1) / n, `Fotograma ${i + 1} de ${n}`);
+      if (i % 2 === 0) await nextFrame();
+    }
+    gif.finish();
+    return new Blob([gif.bytes() as BlobPart], { type: 'image/gif' });
+  } finally { eng.destroy(); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Character grid (text, ANSI, SVG, terminal)                          */
+/* ------------------------------------------------------------------ */
+
+function gridSize(r: Recipe, cols?: number, rows?: number): OffscreenSize {
+  if (cols && rows) {
+    const cw = Math.max(2, Math.round(r.glyph.cell)), ch = Math.max(2, Math.round(r.glyph.cell * r.glyph.aspect));
+    return { cssW: cols * cw, cssH: rows * ch, pixelRatio: 1 };
+  }
+  const { cssW, cssH } = stageSize();
+  return { cssW, cssH, pixelRatio: 1 };
+}
+
+export async function captureGrid(r: Recipe, cols?: number, rows?: number, time = liveTime()): Promise<GridSnapshot> {
+  const eng = await offscreenEngine(r, gridSize(r, cols, rows));
+  try { eng.renderAt(time); return eng.readGrid(); } finally { eng.destroy(); }
+}
+
+export async function captureFrames(
+  r: Recipe, cols: number, rows: number, o: { fps: number; seconds: number; start: number; depth: ColorDepth; withBg: boolean },
+  progress: Progress, cancel: Cancel,
+): Promise<Frames> {
+  const eng = await offscreenEngine(r, gridSize(r, cols, rows));
+  const frames: string[] = [];
+  const n = Math.max(1, Math.round(o.seconds * o.fps));
+  try {
+    for (let i = 0; i < n; i++) {
+      if (cancel.cancelled) throw new Error('cancelado');
+      eng.renderAt(o.start + i / o.fps);
+      const g = eng.readGrid();
+      const s = o.depth === 'none' ? gridToText(g) : gridToAnsi(g, o.depth, o.withBg);
+      frames.push(s.replace(/\n$/, ''));
+      progress((i + 1) / n);
+      if (i % 6 === 0) await nextFrame();
+    }
+    return { cols, rows, fps: o.fps, frames };
+  } finally { eng.destroy(); }
+}
