@@ -276,7 +276,13 @@ async function stageShot(page, file) {
     for (const el of document.querySelectorAll('body *')) if (!el.contains(c)) el.style.visibility = 'hidden';
   });
   await pump(page, 64);
-  await page.locator('.stage canvas').first().screenshot({ path: file });
+  // clip to the canvas's own pixels: an element screenshot of a canvas at a fractional position (the
+  // terminal window is centred) grows by one row and shifts the comparison by a pixel
+  const clip = await page.evaluate(() => {
+    const c = document.querySelector('.stage canvas'), r = c.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y), width: c.clientWidth, height: c.clientHeight };
+  });
+  await page.screenshot({ path: file, clip });
   await page.evaluate(() => { for (const el of document.querySelectorAll('body *')) el.style.visibility = ''; });
 }
 async function playFor(page, frames) {
