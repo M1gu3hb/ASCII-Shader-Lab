@@ -75,13 +75,15 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 | Proyecto `.monotrama.zip` | receta + archivo original + LEEME.txt | sí | exacta y completa, en cualquier equipo |
 | Sesión `.zip` | historial + colección (+ medios opcionales) | opcional | exacta |
 
-- Las imágenes (≤ 40 MB) y videos (≤ 200 MB) que cargas se guardan en IndexedDB (`mt-media`) con su contenido original, identificados por SHA-256; volver en el historial o abrir un favorito los recupera. Lo más grande funciona mientras la pestaña esté abierta. La cámara nunca se guarda. Lo que ya nada usa se borra solo.
+- Las imágenes (≤ 40 MB) y videos (≤ 200 MB) que cargas se guardan en IndexedDB (`mt-media`) con su contenido original, identificados por su contenido (SHA-256; en archivos de más de 16 MB, tamaño más tres muestras para no duplicar el archivo en memoria); volver en el historial o abrir un favorito los recupera. Lo más grande funciona mientras la pestaña esté abierta. La cámara nunca se guarda. Lo que ya nada usa se borra solo.
+- **Una pestaña a la vez**: si abres el estudio en otra pestaña, la nueva toma el control (Web Locks + BroadcastChannel) y la anterior guarda, se detiene y ofrece «Usar aquí»; así dos pestañas no se pisan el historial ni la colección. Si IndexedDB no está disponible o está lleno, el estudio lo dice («Sin guardar» / «Sin espacio») y ofrece guardar la sesión en un archivo.
+- Al abrir una sesión que pasa de 1000 resultados se descartan los más antiguos por fecha, y el aviso dice cuántos antes de hacerlo.
 - Antes de copiar el enlace de una pieza con imagen o video, el estudio avisa de que el archivo no viaja y ofrece exportar el proyecto.
 - Borrar los datos del sitio en el navegador borra historial, colección y medios; el estudio pide almacenamiento persistente y muestra el uso.
 
 ### Empezar, comparar y previsualizar
 
-- **Guías** (primera visita, botón «Guías», tecla G o `/studio/?camino=foto|fondo|palabra`): convertir una foto en ASCII (termina en PNG ×2 y texto), crear un fondo para tu web (control «Presencia», estimación de contraste del titular, termina en código HTML/Web Component/React) y animar una palabra (termina en GIF, video si el navegador puede codificarlo, o snippet). Cada paso es una entrada normal del historial.
+- **Guías** (primera visita, botón «Guías», tecla G o `/studio/?camino=foto|fondo|palabra`; también `/studio/#space=media&source=video|image|camera`): convertir una foto en ASCII (termina en PNG ×2 y texto), crear un fondo para tu web (control «Presencia», estimación de contraste del titular, termina en código HTML/Web Component/React) y animar una palabra (termina en GIF, video si el navegador puede codificarlo, o snippet). Cada paso es una entrada normal del historial.
 - **Comparar**: miniaturas bajo/medio/alto para tamaño de celda y contraste; muestras de juegos de caracteres y paletas.
 - **Vistas de destino** (selector «Vista»): Libre, Fondo web (con contenido encima), Tarjeta (360×225), Vertical 9:16 (con zonas de interfaz de las apps), README (imagen + texto de 80 columnas como en GitHub) y Terminal. El lienzo real toma el tamaño del destino, así que lo que ves es lo que exportas. «Exportar para este destino» abre el formato adecuado.
 - **En vivo**: el micrófono (sólo al pulsar) marca el pulso; cursor y tacto con linterna, ondas, lupa, empuje, remolino, borrador, pincel y caos; modo exposición.
