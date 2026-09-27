@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Recipe } from '../engine/recipe';
-import { byteSize, gridToAnsi, gridToHtml, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
+import { byteSize, gridToAnsi, gridToHtml, gridToHtmlPage, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
 import { recipeFile, shareUrl } from '../shared/share';
 import { copyText, downloadBlob, downloadText } from './download';
 import {
-  LiveRecorder, SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, hasWebCodecs, liveTime, resolveSize,
+  LiveRecorder, SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, hasWebCodecs, liveTime, loopSeconds, resolveSize,
   videoSupport, type Cancel,
 } from './exporting';
 import { Sheet, slug } from './Sheets';
@@ -99,7 +99,7 @@ function VideoTab() {
   const e = useCurrent();
   const [preset, setPreset] = useState('hd');
   const [fps, setFps] = useState(30);
-  const loop = e?.recipe.motion.loop ?? 0;
+  const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 6);
   const [support, setSupport] = useState<{ mp4: boolean; webm: boolean } | null>(null);
   const [busy, setBusy] = useState<{ p: number; label?: string } | null>(null);
@@ -149,6 +149,7 @@ function VideoTab() {
           <>
             {!hasWebCodecs() && <p className="warn">Tu navegador no tiene WebCodecs: el render fotograma a fotograma no está disponible. Usa la grabación en directo.</p>}
             {support && !support.mp4 && !support.webm && hasWebCodecs() && <p className="warn">Tu navegador no puede codificar video a {sz.W}×{sz.H}. Prueba un tamaño menor o la grabación en directo.</p>}
+            {support && !support.mp4 && support.webm && <p className="warn">Este navegador no puede codificar H.264, así que aquí no hay MP4. Usa WebM o prueba en otro navegador.</p>}
             <div className="row2">
               <button type="button" className="btn primary" disabled={camera || !support?.mp4} onClick={() => void run('mp4')}>MP4 (H.264)</button>
               <button type="button" className="btn" disabled={camera || !support?.webm} onClick={() => void run('webm')}>WebM</button>
@@ -225,8 +226,8 @@ function TerminalTab() {
   const [rows, setRows] = useState(term.rows);
   const [depth, setDepth] = useState<ColorDepth>('256');
   const [withBg, setWithBg] = useState(true);
-  const [preview, setPreview] = useState<{ text: string; html: string; ansi: string } | null>(null);
-  const loop = e?.recipe.motion.loop ?? 0;
+  const [preview, setPreview] = useState<{ text: string; html: string; page: string; ansi: string } | null>(null);
+  const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 4);
   const [fps, setFps] = useState(12);
   const [busy, setBusy] = useState<number | null>(null);
@@ -239,7 +240,7 @@ function TerminalTab() {
     void captureGrid(e.recipe, cols, rows).then(g => {
       if (!alive) return;
       const ansi = gridToAnsi(g, depth, withBg);
-      setPreview({ text: gridToText(g), html: gridToHtml(g), ansi });
+      setPreview({ text: gridToText(g), html: gridToHtml(g), page: gridToHtmlPage(g, e.recipe.meta.name ?? e.recipe.meta.seed ?? 'Monotrama'), ansi });
       setEst(byteSize(ansi));
     });
     return () => { alive = false; };
@@ -278,7 +279,7 @@ function TerminalTab() {
           </div>
           <div className="row2">
             <button type="button" className="btn" onClick={() => preview && downloadText(name + '.ans', preview.ansi)}>.ans (ANSI)</button>
-            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.html', `<!doctype html><meta charset="utf-8"><title>${title}</title><body style="margin:0;background:${e.recipe.color.bg}">${preview.html}</body>`, 'text/html')}>HTML</button>
+            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.html', preview.page, 'text/html')}>HTML</button>
           </div>
           <div className="row2">
             <button type="button" className="btn" onClick={() => preview && void copyText(toShellBanner(preview.text), 'Saludo para tu shell copiado')}>Saludo de shell</button>
@@ -328,6 +329,10 @@ function CodeTab() {
   }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl]);
   if (!e) return null;
   const isMedia = e.recipe.source === 'image' || e.recipe.source === 'video';
+  const poster = async () => {
+    try { downloadBlob(baseName(e.recipe) + '-poster.png', await exportImage(e.recipe, { kind: 'view', scale: 1 }, { transparent: false, format: 'png' })); }
+    catch (err) { toast('No se pudo generar el póster: ' + (err as Error).message); }
+  };
   return (
     <>
       <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -354,8 +359,10 @@ function CodeTab() {
         {kind === 'html' && mod && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(baseName(e.recipe) + '.html', mod.htmlPage(e.recipe, opts), 'text/html')}>Descargar página .html</button>}
         {kind === 'wc' && out?.extra && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText('monotrama-field.js', out.extra!, 'text/javascript')}>Descargar monotrama-field.js</button>}
         {kind === 'react' && out && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(out.file, out.code, 'text/javascript')}>Descargar {out.file}</button>}
+        <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => void poster()}>Descargar póster (PNG)</button>
         <span className="note" style={{ margin: 0 }}>Motor incluido ({mod ? Math.round(mod.runtimeSize() / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».</span>
       </div>
+      <p className="note">Sin WebGL 2 se ve el color de fondo; el póster se muestra en su lugar si lo subes con tu página y pones su URL en «poster».</p>
     </>
   );
 }
