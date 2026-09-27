@@ -19,6 +19,8 @@ export interface Entry {
   arch?: string;
   space: SpaceId;
   created: number;
+  /** Last edit (undo and redo count), so a session from another computer can tell which version is newer. */
+  updated?: number;
   edited: boolean;
   thumb?: string;
   favId?: string;
@@ -63,6 +65,7 @@ export function normalizeEntry(x: unknown): Entry | null {
     created: time(o.created, Date.now()),
     edited: typeof o.edited === 'boolean' ? o.edited : false,
   };
+  if (typeof o.updated === 'number' && Number.isFinite(o.updated) && o.updated > 0) e.updated = o.updated;
   const label = str(o.label, 80), seed = str(o.seed, 80), arch = str(o.arch, 40), thumb = thumbOf(o.thumb), favId = str(o.favId, 40);
   if (label) e.label = label;
   if (seed) e.seed = seed;
@@ -99,20 +102,22 @@ export function entryBody(e: Entry): Omit<Entry, 'thumb'> {
 /** Same stored body (the store replaces objects on change, so references are enough). */
 export function sameBody(a: Entry, b: Entry): boolean {
   return a.recipe === b.recipe && a.origin === b.origin && a.kind === b.kind && a.label === b.label && a.seed === b.seed
-    && a.arch === b.arch && a.space === b.space && a.created === b.created && a.edited === b.edited && a.favId === b.favId && a.id === b.id;
+    && a.arch === b.arch && a.space === b.space && a.created === b.created && a.updated === b.updated && a.edited === b.edited
+    && a.favId === b.favId && a.id === b.id;
 }
 
 /**
- * Keeps the history within `limit` by discarding the oldest entries that are neither the current
- * one nor kept (favourites). If everything left is kept, the history may stay over the limit.
+ * Keeps the history within `limit` by discarding the oldest entries (by the date they were made, so
+ * an older session opened later goes before today's results) that are neither the current one nor
+ * kept (favourites). If everything left is kept, the history may stay over the limit.
  */
-export function pruneHistory<E extends { id: string }>(entries: E[], cursor: number, limit: number, keep: (e: E) => boolean): { entries: E[]; cursor: number; dropped: E[] } {
+export function pruneHistory<E extends { id: string; created: number }>(entries: E[], cursor: number, limit: number, keep: (e: E) => boolean): { entries: E[]; cursor: number; dropped: E[] } {
   const excess = entries.length - Math.max(1, limit);
   if (excess <= 0) return { entries, cursor, dropped: [] };
-  const drop = new Set<number>();
-  for (let i = 0; i < entries.length && drop.size < excess; i++) {
-    if (i !== cursor && !keep(entries[i])) drop.add(i);
-  }
+  // candidates, oldest first (ties: earlier in the history first)
+  const order = entries.map((_e, i) => i).filter(i => i !== cursor && !keep(entries[i]))
+    .sort((a, b) => entries[a].created - entries[b].created || a - b);
+  const drop = new Set(order.slice(0, excess));
   if (!drop.size) return { entries, cursor, dropped: [] };
   const kept: E[] = [], dropped: E[] = [];
   entries.forEach((e, i) => (drop.has(i) ? dropped : kept).push(e));
@@ -120,29 +125,64 @@ export function pruneHistory<E extends { id: string }>(entries: E[], cursor: num
   return { entries: kept, cursor: cur ? kept.indexOf(cur) : kept.length - 1, dropped };
 }
 
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** When an entry last changed: its last edit, or when it was made. */
+export const entryTime = (e: Entry) => e.updated ?? e.created;
+
 /**
- * Adds an imported session after the current history. Entries and favourites already present
- * (same id) are not duplicated. The cursor moves to the session's current entry.
+ * Adds an imported session after the current history. An entry or favourite already here (same id)
+ * is not duplicated: when both versions differ, the one changed last is kept (a session carried to
+ * another computer and back brings the edits made there). `replaced` lists the entries whose local
+ * version gave way, so it can stay one undo step away. The cursor moves to the session's current entry.
  */
 export function mergeSession(
   cur: { entries: Entry[]; cursor: number; favorites: Favorite[] },
   inc: { entries: Entry[]; cursor: number; favorites: Favorite[] },
-): { entries: Entry[]; cursor: number; favorites: Favorite[]; added: number; skipped: number; favAdded: number } {
-  const have = new Set(cur.entries.map(e => e.id));
+): {
+  entries: Entry[]; cursor: number; favorites: Favorite[];
+  added: number; updated: number; skipped: number; favAdded: number; favUpdated: number; replaced: Entry[];
+} {
+  const at0 = new Map(cur.entries.map((e, i) => [e.id, i]));
+  const entries = cur.entries.slice();
   const add: Entry[] = [];
-  for (const e of inc.entries) if (!have.has(e.id)) { have.add(e.id); add.push(e); }
-  const entries = [...cur.entries, ...add];
+  const replaced: Entry[] = [];
+  const seenIds = new Set<string>();
+  let skipped = 0;
+  for (const e of inc.entries) {
+    if (seenIds.has(e.id)) continue;
+    seenIds.add(e.id);
+    const i = at0.get(e.id);
+    if (i === undefined) { add.push(e); continue; }
+    const mine = entries[i];
+    if (entryTime(e) > entryTime(mine) && !(sameJson(e.recipe, mine.recipe) && sameJson(e.origin, mine.origin))) {
+      replaced.push(mine);
+      entries[i] = { ...e, thumb: e.thumb ?? mine.thumb };
+    } else skipped++;
+  }
+  entries.push(...add);
   const target = inc.entries[inc.cursor]?.id;
   const at = target ? entries.findIndex(e => e.id === target) : -1;
-  const favHave = new Set(cur.favorites.map(f => f.id));
-  const favNew = inc.favorites.filter(f => !favHave.has(f.id) && favHave.add(f.id));
+  const favAt = new Map(cur.favorites.map((f, i) => [f.id, i]));
+  const favorites = cur.favorites.slice();
+  const favNew: Favorite[] = [];
+  let favUpdated = 0;
+  for (const f of inc.favorites) {
+    const i = favAt.get(f.id);
+    if (i === undefined) { favAt.set(f.id, -1); favNew.push(f); continue; }
+    if (i < 0) continue;
+    const mine = favorites[i];
+    if (f.updated > mine.updated && !(sameJson(f.recipe, mine.recipe) && f.name === mine.name)) { favorites[i] = { ...f, thumb: f.thumb ?? mine.thumb }; favUpdated++; }
+  }
   return {
     entries,
     cursor: at >= 0 ? at : add.length ? entries.length - 1 : cur.cursor,
-    favorites: [...cur.favorites, ...favNew],
+    favorites: [...favorites, ...favNew],
     added: add.length,
-    skipped: inc.entries.length - add.length,
+    updated: replaced.length,
+    skipped,
     favAdded: favNew.length,
+    favUpdated,
+    replaced,
   };
 }
 

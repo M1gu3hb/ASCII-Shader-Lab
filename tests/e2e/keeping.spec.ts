@@ -224,6 +224,41 @@ test.describe('lo que guarda el navegador', () => {
     expect(await indexIds(page)).toHaveLength(3);
   });
 
+  test('abrir una sesión más antigua en un historial lleno descarta lo más antiguo por fecha, y lo dice antes', async ({ browser }) => {
+    const a = await browser.newContext();
+    const pa = await a.newPage();
+    await openStudio(pa);
+    for (let i = 2; i <= 4; i++) { await pa.keyboard.press('r'); await expect(pa.locator('.seedline')).toContainText(`${i}/${i}`); }
+    await pa.getByRole('button', { name: /Colección/ }).click();
+    const [dl] = await Promise.all([pa.waitForEvent('download'), pa.getByRole('button', { name: 'Guardar sesión' }).click()]);
+    const sess = await dl.path();
+    const { readFileSync } = await import('node:fs');
+    const bytes = readFileSync(sess!);
+    await a.close();
+
+    const b = await browser.newContext();
+    await b.addInitScript(() => localStorage.setItem('mt.histLimit', '10'));
+    const pb = await b.newPage();
+    await openStudio(pb);
+    for (let i = 2; i <= 9; i++) { await pb.keyboard.press('r'); await expect(pb.locator('.seedline')).toContainText(`${i}/${i}`); }
+    const mine = await seed(pb);
+    let asked = '';
+    pb.once('dialog', d => { asked = d.message(); void d.accept(); });
+    await pb.getByRole('button', { name: /Colección/ }).click();
+    const [chooser] = await Promise.all([pb.waitForEvent('filechooser'), pb.getByRole('button', { name: 'Abrir sesión' }).click()]);
+    await chooser.setFiles({ name: 'monotrama-sesion.zip', mimeType: 'application/zip', buffer: bytes });
+    await expect(pb.locator('.toast').filter({ hasText: 'Sesión abierta: 4 resultados añadidos' })).toBeVisible();
+    // 9 + 4 = 13 over 10: the three oldest by date go, all from the older session (its current one stays)
+    expect(asked).toContain('se descartan los 3 resultados más antiguos por fecha (3 de la sesión)');
+    expect(asked).not.toContain('de tu historial');
+    await expect(pb.locator('.toast').filter({ hasText: 'se descartaron los 3 resultados más antiguos' })).toBeVisible();
+    await pb.keyboard.press('Escape');
+    await expect(pb.locator('.thumb')).toHaveCount(10);
+    await pb.locator('.thumb').nth(8).click();
+    await expect(pb.locator('.seedline .ell')).toHaveText(mine);
+    await b.close();
+  });
+
   test('«Vaciar historial» borra también la foto recién cargada que ya nadie usa', async ({ page }) => {
     await openStudio(page);
     await drop(page, 'foto-a.png', png(64, 40));

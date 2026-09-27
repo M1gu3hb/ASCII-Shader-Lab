@@ -29,14 +29,20 @@ export interface SessionData { entries: unknown[]; favorites: unknown[]; cursor:
 const pad = (n: number) => String(n).padStart(2, '0');
 export const sessionFileName = (d = new Date()) => `monotrama-sesion-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.zip`;
 
+/** The studio's history limit (studio/history.ts HISTORY_LIMIT), for the LEEME. */
+const LIMIT = 1000;
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 const readme = (n: number, favs: number, media: number) => [
   'Monotrama · sesión guardada',
   '===========================',
   '',
-  `${n} resultados del historial y ${favs} piezas de la colección${media ? `, con ${media} ${media === 1 ? 'archivo' : 'archivos'} de imagen o video` : ''}.`,
+  `${count(n, 'resultado', 'resultados')} del historial y ${count(favs, 'pieza', 'piezas')} de la colección${media ? `, con ${count(media, 'archivo', 'archivos')} de imagen o video` : ''}.`,
   '',
   `Para abrirla: en el estudio (${SITE_URL}/studio/) arrastra este .zip sobre el lienzo,`,
-  'o usa «Colección» → «Abrir sesión». Los resultados se añaden después de tu historial; no se borra nada.',
+  'o usa «Colección» → «Abrir sesión». Los resultados se añaden a tu historial y las piezas a tu colección.',
+  `El historial guarda como mucho ${LIMIT} resultados: si al abrirla los superas, se descartan los más antiguos`,
+  '(lo guardado con ★ se conserva) y el estudio te dice antes cuántos.',
   '',
   'Todo se procesa en tu navegador: nada se sube a ningún servidor.',
   '',
