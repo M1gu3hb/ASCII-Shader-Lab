@@ -1,15 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { luminance } from '../engine/color';
 import { SOURCE_NAMES } from '../engine/catalog';
+import { EngineNotes, StageFatal } from './BasicMode';
 import { mountStudioEngine, destroyStudioEngine } from './engineBridge';
 import { handleFile, pickFile } from './files';
 import { startCamera, useMedia } from './media';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
 
 export function Stage() {
-  const canvas = useRef<HTMLCanvasElement>(null);
+  // the bridge creates the canvas inside this container (it may replace it if WebGL fails late)
+  const host = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
-  const [fatal, setFatal] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const space = useStudio(s => s.space);
   const term = useStudio(s => s.ui.terminal);
@@ -18,9 +19,8 @@ export function Stage() {
   const [fit, setFit] = useState({ w: 800, h: 480, k: 1 });
 
   useEffect(() => {
-    if (!canvas.current) return;
-    const err = mountStudioEngine(canvas.current);
-    if (err) setFatal(err);
+    if (!host.current) return;
+    mountStudioEngine(host.current);
     return () => destroyStudioEngine();
   }, []);
 
@@ -58,14 +58,17 @@ export function Stage() {
         <div className={terminal ? 'term-win' : 'stage'} style={terminal ? { transform: `scale(${fit.k})` } : undefined}>
           {terminal && <div className="term-bar" aria-hidden="true"><i /><i /><i /><span>monotrama — {term.cols}×{term.rows}</span></div>}
           <div key="cv" className={terminal ? 'term-canvas' : 'stage'} style={terminal ? { width: fit.w, height: fit.h } : undefined}>
-            <canvas ref={canvas} role="img" aria-label={describe(recipe)} />
+            <div ref={host} className="cv-host" role="img" aria-label={describe(recipe)} />
           </div>
         </div>
       </div>
-      {fatal && <div className="fatal"><div><p>{fatal}</p></div></div>}
+      <StageFatal />
       <MediaPrompt />
       <ContentPreview />
-      <MotionNote />
+      <div className="stage-notes">
+        <EngineNotes />
+        <MotionNote />
+      </div>
     </div>
   );
 }
