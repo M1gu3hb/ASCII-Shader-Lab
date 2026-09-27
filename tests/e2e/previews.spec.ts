@@ -194,4 +194,22 @@ test.describe('vistas de destino', () => {
     expect(same).toBeGreaterThan(0.9);
     expect(same).toBeGreaterThan(other + 0.15);
   });
+
+  test('con «reducir movimiento» la pieza empieza en pausa, las vistas funcionan y la interfaz no anima', async ({ browser }) => {
+    const ctx = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 1366, height: 860 } });
+    const page = await ctx.newPage();
+    await page.goto('/studio/');
+    const welcome = page.locator('dialog.welcome[open]');
+    await expect(welcome).toBeVisible();
+    expect(await welcome.evaluate(el => getComputedStyle(el).animationName)).toBe('none');
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Movimiento reducido activo')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reproducir animación' })).toBeVisible();
+    await pick(page, 'Vertical 9:16');
+    await expect.poll(async () => { const [w, h] = await canvasSize(page); return w / h; }).toBeCloseTo(9 / 16, 6);
+    for (const sel of ['.panel', '.vbar', '.stage-wrap']) {
+      expect(await page.locator(sel).first().evaluate(el => getComputedStyle(el).transitionDuration.split(',').every(d => parseFloat(d) === 0))).toBe(true);
+    }
+    await ctx.close();
+  });
 });

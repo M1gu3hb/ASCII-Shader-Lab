@@ -220,9 +220,7 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
 /* README ------------------------------------------------------------------ */
 
 /** The README text version, shared by the page mock (which renders it) and the bar (which copies it). */
-export const useReadme = create<{ text: string; cols: number; rows: number; gifW: number; w: number; h: number }>(() => ({
-  text: '', cols: 80, rows: 0, gifW: 640, w: 0, h: 0,
-}));
+export const useReadme = create<{ text: string; cols: number; rows: number; gifW: number }>(() => ({ text: '', cols: 80, rows: 0, gifW: 640 }));
 
 /** Captures the text version (80 columns) when the piece changes, at most every 700 ms. */
 function useReadmeText(img: { w: number; h: number }) {
@@ -250,7 +248,7 @@ function ReadmeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const img = readmeImage(size.w || 800);
   const text = useReadme(s => s.text);
   const cols = useReadme(s => s.cols);
-  useEffect(() => { useReadme.setState({ gifW: img.gifW, w: img.w, h: img.h }); }, [img.gifW, img.w, img.h]);
+  useEffect(() => { useReadme.setState({ gifW: img.gifW }); }, [img.gifW]);
   useReadmeText(img);
   return (
     <div className={'vw-area vw-scroll vw-gh vw-' + page} style={areaStyle(ins)} tabIndex={0} role="region" aria-label="README de ejemplo">
@@ -264,7 +262,7 @@ function ReadmeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
           <p aria-hidden="true">Una línea que cuenta qué hace tu proyecto, con la pieza como cabecera:</p>
           <Slot host={host} className="gh-img" style={{ width: img.w, height: img.h }} />
           <p aria-hidden="true">Y la misma pieza como texto, en un bloque de código:</p>
-          <pre className="gh-pre" tabIndex={0} aria-label={`Versión en texto, ${cols} columnas`}><code>{text ? text.replace(/\n+$/, '') : 'Tejiendo el texto…'}</code></pre>
+          <pre className="gh-pre" tabIndex={0} role="region" aria-label={`Versión en texto, ${cols} columnas`}><code>{text ? text.replace(/\n+$/, '') : 'Tejiendo el texto…'}</code></pre>
         </article>
       </div>
     </div>
