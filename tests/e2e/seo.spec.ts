@@ -6,7 +6,7 @@ const SITE = 'https://monotrama.vercel.app';
 const PATHS = ['/', '/studio/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
 const GUIDES: Array<[string, string]> = [
   ['/imagen-a-ascii/', '/studio/?camino=foto'],
-  ['/video-a-ascii/', '/studio/#space=media'],
+  ['/video-a-ascii/', '/studio/#space=media&source=video'],
   ['/fondos-ascii/', '/studio/?camino=fondo'],
   ['/texto-animado-ascii/', '/studio/?camino=palabra'],
   ['/arte-ascii-terminal/', '/studio/#space=terminal'],
@@ -149,6 +149,20 @@ for (const [path, cta] of GUIDES) {
     expect(violations).toEqual([]);
   });
 }
+
+test('the video guide opens the studio asking for a video, with a picker that takes videos', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/video-a-ascii/');
+  await page.locator('main a.btn-cta').first().click();
+  await expect(page).toHaveURL(/\/studio\/$/);
+  const card = page.getByRole('region', { name: 'Cargar fuente' });
+  await expect(card.getByRole('heading', { name: 'Suelta aquí un video' })).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator('dialog.welcome[open]')).toHaveCount(0);
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), card.getByRole('button', { name: 'Elegir video' }).click()]);
+  expect(await chooser.element().getAttribute('accept')).toBe('video/*');
+  expect(errors).toEqual([]);
+});
 
 test('every public page credits Morphiq in the footer', async ({ page }) => {
   for (const path of ['/', ...GUIDES.map(g => g[0]), '/licencia/', '/esta-pagina-no-existe/']) {
