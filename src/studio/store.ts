@@ -175,13 +175,7 @@ function scheduleGc(ms = 3000) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Entries                                                             */
-/* ------------------------------------------------------------------ */
-
-function bump(kind: ChangeKind) { return { kind, n: S().change.n + 1 }; }
-
-/* ------------------------------------------------------------------ */
-/* Link with the local media (media.ts registers; the store stays independent of it) */
+/* Local media link (media.ts registers it; the store does not import media) */
 /* ------------------------------------------------------------------ */
 
 interface MediaLink {
@@ -200,6 +194,12 @@ function nameLoadedMedia(r: Recipe) {
     if (ref) r.media.ref = { ...ref };
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Entries                                                             */
+/* ------------------------------------------------------------------ */
+
+function bump(kind: ChangeKind) { return { kind, n: S().change.n + 1 }; }
 
 function pushEntry(e: Omit<Entry, 'id' | 'created' | 'edited' | 'origin'> & { origin?: Recipe }, kind: ChangeKind = 'roll') {
   const s = S();
