@@ -25,7 +25,7 @@ export function Stage() {
   const ins = useStageInsets(wrap, top);
 
   useEffect(() => {
-    mountStudioEngine(host);
+    void mountStudioEngine(host);
     return () => destroyStudioEngine();
   }, [host]);
   useEffect(() => { host.setAttribute('aria-label', describe(recipe)); }, [host, recipe]);

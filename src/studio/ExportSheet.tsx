@@ -8,13 +8,13 @@ import {
   LiveRecorder, SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize,
   smallerEncodable, videoSupport, type Cancel,
 } from './exporting';
-import { Sheet, slug } from './Sheets';
+import { Sheet } from './Sheet';
 import { setUI, useStudio } from './store';
 import { toast } from './toast';
 import { archById } from '../random/archetypes';
 import { spaceById } from '../random/spaces';
 import { Glossary } from './Glossary';
-import { exportProject, fmtSize, projectMedia } from './packages';
+import { exportProject, fmtSize, projectMedia, slug } from './packages';
 import { shareLink } from './ShareSheet';
 import './css/basic.css';
 import { takeExportRequest, type ExportRequest } from './exportTab';

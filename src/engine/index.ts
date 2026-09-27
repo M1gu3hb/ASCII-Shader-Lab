@@ -11,5 +11,5 @@ export type { Renderer, RendererKind, MediaEl } from './renderer';
 export * from './basic';
 export { probeWebGL, explainWebGL, basicRequested } from './support';
 export type { GLStatus, GLReason, GLExplanation } from './support';
-export { createRenderer } from './create';
-export type { CreatedRenderer } from './create';
+export { createRenderer, createRendererWith, loadBasicEngine } from './create';
+export type { BasicEngineClass, CreatedRenderer } from './create';

@@ -4,7 +4,7 @@ import { basicRequestedBy, clearBasicRequest, markSeen, preferBasic, seen, useCa
 import { Note } from './controls';
 import { getEngine } from './engineBridge';
 import { IClose } from './icons';
-import { Sheet } from './Sheets';
+import { Sheet } from './Sheet';
 import { persistNow, useStudio } from './store';
 import './css/basic.css';
 
