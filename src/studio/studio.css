@@ -573,7 +573,7 @@ dialog.sheet::backdrop { background: rgba(5, 4, 3, .66); }
 @media (max-width: 900px) {
   /* the settings sheet opens above the deck: dice and history stay in reach */
   :root { --deck-h: calc(118px + env(safe-area-inset-bottom, 0px)); }
-  .panel, .panel.guide-panel { bottom: var(--deck-h); height: min(50dvh, 480px); border-radius: 18px; border-bottom: 1px solid var(--line); left: 6px; right: 6px; padding-bottom: 0; }
+  .panel, .panel.guide-panel { bottom: var(--deck-h); height: min(56dvh, 520px); border-radius: 18px; border-bottom: 1px solid var(--line); left: 6px; right: 6px; padding-bottom: 0; }
   .app.panel-off .panel { transform: translateY(calc(100% + var(--deck-h) + 10px)); }
   .app:not(.panel-off) .deck { opacity: 1; pointer-events: auto; }
   .panel-head { padding-top: 0; }
