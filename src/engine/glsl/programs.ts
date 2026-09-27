@@ -341,12 +341,72 @@ uniform vec3 uBg;
 uniform vec3 uAccent;
 uniform float uCellBg, uGlow, uBloomAmt, uScan, uVig, uCurve, uChroma, uGrain, uFlicker, uGridAmt, uTime, uMsgBox;
 uniform float uTrans, uTransparent, uReveal, uEraseReveal, uHasMedia, uN;
+uniform int uTransKind;
+uniform vec2 uTransOrigin;
+uniform float uTransDir, uTransSeed;
 ${GLSL_MEDIA}
 out vec4 o;
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float glyphCov(float idx, ivec2 ic){
   ivec2 ac = ivec2(int(mod(idx, uAtlasCols)), int(floor(idx / uAtlasCols))) * ivec2(uCell) + ic;
   return texelFetch(uAtlas, ac, 0).a;
+}
+// Mosaico's block size in cells at progress p: 16, 8, 4, 2, 1
+float mosaicBlock(float p){ return float(16 >> min(4, int(p * 5.))); }
+// Transition state of a cell of the screen grid at progress p (see engine/transitions.ts; ported to JS in
+// basic/transition.ts): x = 0 the new piece, 1 the old frame, 2 a glyph of the ramp (index y) in the accent.
+vec2 transCell(vec2 cell, float p){
+  float N1 = max(uN - 1., 1.);
+  vec2 g = uGrid;
+  float u = (cell.x + .5) / g.x, v = (cell.y + .5) / g.y;
+  if (uTransDir < 0.) u = 1. - u;
+  if (uTransKind == 1){
+    // disolución: each cell at its own moment, down the ramp from dense to empty, then the new piece
+    float s = hash12(cell * 1.37 + vec2(7.1, uTransSeed)) * .7;
+    float lp = (p - s) / .3;
+    if (lp < 0.) return vec2(1., 0.);
+    if (lp >= 1.) return vec2(0.);
+    return vec2(2., floor((1. - lp) * N1 + .5));
+  }
+  if (uTransKind == 2){
+    // lluvia: columns fall at their own pace, a trail of scrambled glyphs ahead of the new piece
+    float d = hash12(vec2(cell.x * 1.7 + uTransSeed, 3.1)) * .45;
+    float tail = max(3., floor(g.y * .12));
+    float front = clamp((p - d) / .55, 0., 1.) * (g.y + tail);
+    if (cell.y < front - tail) return vec2(0.);
+    if (cell.y < front) return vec2(2., cell.y >= front - 1. ? N1 : 1. + floor(hash12(cell + floor(uTime * 24.)) * N1));
+    return vec2(1., 0.);
+  }
+  if (uTransKind == 3){
+    // iris: a ring of glyphs opens from the origin (the centre, or where the pointer was)
+    vec2 o = uTransOrigin * uRes;
+    float r = length((cell + .5) * uCell - o) / uCell.x;
+    float maxr = length(max(o, uRes - o)) / uCell.x + 1.;
+    float rad = p * (maxr + 2.5);
+    if (r < rad - 2.5) return vec2(0.);
+    if (r < rad) return vec2(2., 1. + floor(hash12(cell + floor(uTime * 30.)) * N1));
+    return vec2(1., 0.);
+  }
+  if (uTransKind == 4){
+    // barrido: a diagonal scan, densest glyph at its front
+    float h = u * .7 + v * .3;
+    float front = p * 1.14;
+    if (h < front - .14) return vec2(0.);
+    if (h < front) return vec2(2., floor((h - front + .14) / .14 * N1 + .5));
+    return vec2(1., 0.);
+  }
+  if (uTransKind == 5){
+    // mosaico: blocks of the new piece appear, then the blocks halve down to single cells (see main)
+    vec2 blk = floor(cell / mosaicBlock(p));
+    if (p < .2 && hash12(blk * 1.31 + uTransSeed) > p * 5.) return vec2(1., 0.);
+    return vec2(0.);
+  }
+  // tejido: a scrambled weave crosses the piece
+  float h = hash12(cell * 1.13 + uTransSeed) * .3 + u * .55 + v * .15;
+  float prog = p * 1.3 - .15;
+  if (h > prog + .07) return vec2(1., 0.);
+  if (h > prog) return vec2(2., 1. + floor(hash12(cell + floor(uTime * 30.)) * N1));
+  return vec2(0.);
 }
 vec4 shade(vec2 pt){
   ivec2 cell = ivec2(floor(pt / uCell));
@@ -382,7 +442,19 @@ vec4 shade(vec2 pt){
 }
 void main(){
   vec2 fc = gl_FragCoord.xy;
-  vec2 pt = vec2(fc.x, uRes.y - fc.y);
+  // transitions work on the screen grid (the cells as drawn, before any CRT curvature)
+  vec2 ps = vec2(fc.x, uRes.y - fc.y);
+  vec2 tc = floor(ps / uCell);
+  vec2 pt = ps;
+  if (uTrans >= 0. && uTransKind == 5){
+    // mosaico: each block shows its centre cell, magnified
+    float B = mosaicBlock(uTrans);
+    if (B > 1.){
+      vec2 bo = floor(tc / B) * B;
+      vec2 c = min(bo + floor(B * .5), uGrid - 1.);
+      pt = c * uCell + (ps - bo * uCell) / B;
+    }
+  }
   float edgeMask = 1.;
   if (uCurve > 0.){
     vec2 uv = pt / uRes * 2. - 1.;
@@ -412,18 +484,15 @@ void main(){
   if (uGrain > 0. && uTransparent < .5) col += (hash12(fc + fract(uTime * 13.7) * 311.) - .5) * uGrain * .16;
   col *= edgeMask;
   if (uTrans >= 0.){
-    ivec2 cell = ivec2(floor(pt / uCell));
-    float h = hash12(vec2(cell) * 1.13) * .3 + (pt.x / uRes.x) * .55 + (pt.y / uRes.y) * .15;
-    float prog = uTrans * 1.3 - .15;
-    if (h > prog + .07){
-      vec4 pv = texelFetch(uPrev, ivec2(fc), 0);
-      col = pv.rgb; alpha = pv.a;
-    } else if (h > prog){
-      ivec2 ic = clamp(ivec2(floor(pt)) - cell * ivec2(uCell), ivec2(0), ivec2(uCell) - 1);
-      float gi = 1. + floor(hash12(vec2(cell) + floor(uTime * 30.)) * max(uN - 1., 1.));
-      float cv = glyphCov(gi, ic);
+    vec2 st = transCell(tc, uTrans);
+    if (st.x > 1.5){
+      ivec2 ic = clamp(ivec2(floor(ps)) - ivec2(tc) * ivec2(uCell), ivec2(0), ivec2(uCell) - 1);
+      float cv = glyphCov(st.y, ic);
       col = mix(uTransparent > .5 ? vec3(0.) : uBg, uAccent, cv);
       alpha = uTransparent > .5 ? cv : 1.;
+    } else if (st.x > .5){
+      vec4 pv = texelFetch(uPrev, ivec2(fc), 0);
+      col = pv.rgb; alpha = pv.a;
     }
   }
   col = clamp(col, 0., 1.);

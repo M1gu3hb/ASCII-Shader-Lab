@@ -17,6 +17,7 @@ import {
   AsciiEngine, BasicEngine, PATTERNS, PATTERN_GLSL, createFontLoader, createRendererWith, defaultRecipe, explainWebGL, probeWebGL,
   unsupportedFeatures, type GridSnapshot, type Recipe, type Renderer,
 } from '../src/engine';
+import { TRANSITIONS, type TransitionKind, type TransitionSpec } from '../src/engine/transitions';
 import { PRESETS } from '../src/studio/presets';
 
 const fonts = createFontLoader({ google: false });
@@ -153,6 +154,49 @@ async function compare(id: string, recipe: Recipe, o: { w?: number; h?: number; 
     rgbMad: mad(ga.rgb, gb.rgb), pixelMad: mad(pa, pb), msGl, msBasic,
     gaps: unsupportedFeatures(recipe).map(g => g.label),
   };
+}
+
+/**
+ * A transition caught at progress p in both engines: from one preset to another, same spec, same clock
+ * (the clock starts at the first frame of the new piece). Compares the canvases: mean difference per
+ * channel, and the share of pixels showing the same thing (within 24 of 255 per channel).
+ */
+async function compareTransition(kind: TransitionKind, p: number, o: { from?: string; to?: string; show?: HTMLCanvasElement[] } = {}) {
+  const pair = pairFor(480, 272);
+  const a = presetRecipe(o.from ?? 'arte/vapor'), b = presetRecipe(o.to ?? 'fondos/bruma');
+  const spec: TransitionSpec = { kind, duration: 1, seed: 0.37, origin: [0.3, 0.6], dir: 1 };
+  const T0 = 40;
+  for (const e of [pair.gl, pair.basic] as Renderer[]) { e.set(a); }
+  await Promise.all([pair.gl.ready(), pair.basic.ready()]);
+  // end any transition left from an earlier comparison, then show the old piece
+  for (const e of [pair.gl, pair.basic] as Renderer[]) { e.renderAt(3, T0 - 20); e.renderAt(3, T0 - 10); e.renderAt(3, T0); }
+  for (const e of [pair.gl, pair.basic] as Renderer[]) e.set(b, { transition: spec });
+  await Promise.all([pair.gl.ready(), pair.basic.ready()]);
+  for (const e of [pair.gl, pair.basic] as Renderer[]) { e.renderAt(3, T0); e.renderAt(3, T0 + p); }
+  const pa = pixels(pair.gl.canvas), pb = pixels(pair.basic.canvas);
+  let same = 0;
+  for (let i = 0; i < pa.length; i += 4) {
+    if (Math.abs(pa[i] - pb[i]) <= 24 && Math.abs(pa[i + 1] - pb[i + 1]) <= 24 && Math.abs(pa[i + 2] - pb[i + 2]) <= 24) same++;
+  }
+  if (o.show) {
+    for (const [i, e] of [pair.gl, pair.basic].entries()) {
+      const c = o.show[i];
+      c.width = pair.w; c.height = pair.h;
+      c.getContext('2d')!.drawImage(e.canvas, 0, 0);
+    }
+  }
+  // how much of the frame is neither piece alone (so a match is not two finished frames)
+  const refs = await Promise.all([a, b].map(async r => {
+    pair.basic.set(r); await pair.basic.ready(); pair.basic.renderAt(3, T0 + 30); pair.basic.renderAt(3, T0 + 40);
+    return pixels(pair.basic.canvas);
+  }));
+  let mixed = 0;
+  for (let i = 0; i < pb.length; i += 4) {
+    const d = (q: Uint8ClampedArray) => Math.abs(q[i] - pb[i]) + Math.abs(q[i + 1] - pb[i + 1]) + Math.abs(q[i + 2] - pb[i + 2]);
+    if (d(refs[0]) > 30 && d(refs[1]) > 30) mixed++;
+  }
+  const n = pa.length / 4;
+  return { kind, p, pixelMad: mad(pa, pb), same: same / n, changed: mixed / n };
 }
 
 /**
@@ -393,6 +437,8 @@ async function diagnostics(): Promise<Check[]> {
     const before = px(e);
     e.set(b, { transition: true });
     await e.ready();
+    // the clock starts with the first frame of the new piece
+    e.renderAt(2, 10);
     e.renderAt(2, 10.4);
     const mid = px(e);
     ref.renderAt(2, 11);
@@ -470,6 +516,8 @@ window.__basic = {
   comparePattern: (id: string, t = T) => compare(id, patternRecipe(id), { t }),
   comparePreset: (key: string, t = T, transparent = false) => compare(key, presetRecipe(key), { t, w: 640, h: 360, transparent }),
   comparePointer,
+  compareTransition,
+  transitions: TRANSITIONS.map(t => t.id),
   interactModes: ['light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'],
   compareRecipe: (r: Recipe, o: Parameters<typeof compare>[2] = {}) => compare('recipe', r, o),
   benchPattern: (id: string, o?: Parameters<typeof bench>[1]) => { const r = patternRecipe(id); r.glyph.cell = 10; return bench(r, o); },

@@ -5,7 +5,8 @@ import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
 import type { EngineOptions, EngineStats, GridSnapshot, MediaKind } from '../engine';
 import type { PatternLibrary } from '../glsl/patterns';
-import type { MediaEl, Renderer } from '../renderer';
+import type { MediaEl, PreviewQuality, Renderer } from '../renderer';
+import { DEFAULT_TRANSITION, transitionOf, type TransitionSpec } from '../transitions';
 import { drawTextSource, layoutMessage, messageState, type MsgLayout } from '../text';
 import { blurGrid, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
 import { drawOverlays, hasOverlays, type OverlayCache } from './overlays';
@@ -15,6 +16,10 @@ import {
 } from './field';
 import { SelectBuffers, runSelect } from './select';
 import { SimGrid } from './sim';
+import { TransitionLayer } from './transition';
+
+/** Longest a live change with a transition waits for its fonts (the old piece keeps moving meanwhile). */
+const PREP_BUDGET_MS = 700;
 
 /** Same options as AsciiEngine; the GLSL pattern library is not needed (patterns are compiled in). */
 export type BasicEngineOptions = Omit<EngineOptions, 'library'> & { library?: PatternLibrary };
@@ -57,7 +62,8 @@ const SRC_OF = (r: Recipe, hasMedia: boolean): FieldSource =>
  *    resolution never change;
  *  - live canvases stay under BASIC_MAX_PIXELS device pixels (the pixel ratio is lowered, not below 1);
  *  - `stats.ms` is the CPU cost of a frame (the GPU engine reports the frame interval);
- *  - film grain uses a different random sequence, and is added before scanlines and vignette.
+ *  - film grain uses a different random sequence, and is added before scanlines and vignette;
+ *  - transitions are drawn with canvas operations over the finished frame (./transition.ts).
  */
 export class BasicEngine implements Renderer {
   readonly kind = 'basic' as const;
@@ -121,11 +127,17 @@ export class BasicEngine implements Renderer {
   private needsRender = true;
   private sizeDirty = true;
   private trans = -1;
-  private transStart = 0;
-  private prevFrame: Uint32Array | null = null;
+  /** realT of the transition's first frame (NaN until that frame is drawn). */
+  private transStart = NaN;
+  /** Seconds of transition shown on a live canvas (see AsciiEngine.transElapsed). */
+  private transElapsed = 0;
+  private transSpec: TransitionSpec = DEFAULT_TRANSITION;
+  private transLayer = new TransitionLayer();
+  /** A change with a transition waiting for its fonts (see set()). */
+  private pending: { r: Recipe; trans: TransitionSpec; since: number; fonts: boolean } | null = null;
+  private q: PreviewQuality = {};
+  private adaptiveHold = 0;
   private rendered = false;
-  /** The last frame has canvas overlays on top of out32. */
-  private overlaid = false;
   private frames = 0; private fps = 0; private fpsT = 0; private ema = 8; private slow = 0; private fast = 0;
   private fpsCap = FPS;
   private fontGen = 0;
@@ -149,7 +161,8 @@ export class BasicEngine implements Renderer {
     this.r = cloneRecipe(recipe);
     this.fonts = opts.fonts ?? createFontLoader({ google: opts.googleFonts ?? true });
     this.playing = (opts.autoplay ?? true) && !opts.reducedMotion;
-    const ctx = canvas.getContext('2d', { alpha: true });
+    // an offscreen engine read back often (thumbnails) keeps its canvas in memory: reading it then never waits for a GPU
+    const ctx = canvas.getContext('2d', opts.readback ? { alpha: true, willReadFrequently: true } : { alpha: true });
     if (!ctx) throw new Error('canvas2d');
     this.ctx = ctx;
     if (opts.fixedSize) this.resize();
@@ -171,7 +184,8 @@ export class BasicEngine implements Renderer {
   /* Public API                                                        */
   /* ---------------------------------------------------------------- */
 
-  get recipe(): Recipe { return cloneRecipe(this.r); }
+  /** The recipe last given to set() (it may still be getting ready to show). */
+  get recipe(): Recipe { return cloneRecipe(this.pending?.r ?? this.r); }
   get time() { return this.t; }
   set time(v: number) { this.t = v; this.needsRender = true; }
   get isPlaying() { return this.playing; }
@@ -181,11 +195,31 @@ export class BasicEngine implements Renderer {
   get glyphChars(): string[] { return this.atlas ? this.atlas.chars.slice() : []; }
   /** Current live frame-rate cap (30, or 15 when frames are slow). */
   get fpsLimit() { return this.fpsCap; }
+  get busy() { return !!this.pending || this.trans >= 0; }
 
-  set(next: Recipe, o: { transition?: boolean } = {}) {
-    if (o.transition && !this.o.reducedMotion && this.rendered) this.captureTransition();
+  /**
+   * A live change with a transition waits (at most PREP_BUDGET_MS, drawing the current piece) until the
+   * new piece's fonts are loaded, so its glyphs do not change halfway; the transition's clock starts with
+   * the first frame of the new piece.
+   */
+  set(next: Recipe, o: { transition?: boolean | TransitionSpec } = {}) {
+    const trans = this.o.reducedMotion ? null : transitionOf(o.transition);
+    const r = cloneRecipe(next);
+    const p = this.pending;
+    if (!this.o.fixedSize && this.rendered && (trans || p)) {
+      if (p) { p.r = r; p.trans = trans ?? p.trans; p.fonts = false; }
+      const want = p ?? (this.pending = { r, trans: trans!, since: performance.now(), fonts: false });
+      void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
+      this.needsRender = true;
+      return;
+    }
+    if (trans && this.rendered) this.captureTransition(trans);
+    this.applyRecipe(r);
+  }
+
+  private applyRecipe(next: Recipe) {
     const prev = this.r;
-    this.r = cloneRecipe(next);
+    this.r = next;
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
       || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
@@ -194,6 +228,41 @@ export class BasicEngine implements Renderer {
     if (prev.source !== next.source) { this.mediaEl = null; this.mediaOK = false; }
     this.needsRender = true;
   }
+
+  private applyPending() {
+    const p = this.pending;
+    if (!p) return;
+    this.pending = null;
+    this.captureTransition(p.trans);
+    this.applyRecipe(p.r);
+  }
+
+  private fontsFor(r: Recipe): Promise<unknown> {
+    const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
+    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    return Promise.all(jobs).catch(() => undefined);
+  }
+
+  setFixedSize(width: number, height: number, pixelRatio: number) {
+    const f = this.o.fixedSize;
+    if (!f || (f.width === width && f.height === height && f.pixelRatio === pixelRatio)) return;
+    this.o = { ...this.o, fixedSize: { width, height, pixelRatio } };
+    this.sizeDirty = true;
+    this.needsRender = true;
+  }
+
+  holdAdaptive(until: number) { this.adaptiveHold = until; }
+
+  setQuality(q: PreviewQuality) {
+    this.q = { ...q };
+    this.fpsCap = this.maxFps();
+    this.sizeDirty = true;
+    this.needsRender = true;
+  }
+
+  /** Live frame-rate cap before slow frames lower it. */
+  private maxFps() { return Math.max(SLOW_FPS, Math.min(FPS, this.q.maxFps || FPS)); }
 
   play() { if (!this.playing) { this.playing = true; this.needsRender = true; } }
   pause() { this.playing = false; this.needsRender = true; }
@@ -214,20 +283,21 @@ export class BasicEngine implements Renderer {
   }
 
   renderAt(t: number, realT = t) {
+    this.applyPending();
     this.t = t;
     this.realT = realT;
     this.render(0);
   }
 
-  renderNow() { this.render(0); }
+  renderNow() { this.applyPending(); this.render(0); }
 
   drawTo(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    this.render(0);
+    this.renderNow();
     ctx.drawImage(this.canvas, 0, 0, w, h);
   }
 
   readGrid(): GridSnapshot {
-    this.render(0);
+    this.renderNow();
     const n = this.cols * this.rows, s = this.sel;
     const table = this.atlas?.chars ?? [' '];
     const chars: string[] = new Array(n);
@@ -236,6 +306,13 @@ export class BasicEngine implements Renderer {
       cols: this.cols, rows: this.rows, chars, rgb: s.rgb.slice(0, n * 3), alpha: s.alpha.slice(0, n), lum: s.lum.slice(0, n),
       flags: s.flags.slice(0, n), bg: this.r.color.bg, cw: this.cw, ch: this.ch,
     };
+  }
+
+  /** Pixels of a region of the last frame (see AsciiEngine.snapshot). */
+  async snapshot(sx: number, sy: number, sw: number, sh: number): Promise<ImageData | null> {
+    sx = Math.max(0, Math.min(this.W - 1, Math.round(sx))); sy = Math.max(0, Math.min(this.H - 1, Math.round(sy)));
+    sw = Math.max(1, Math.min(this.W - sx, Math.round(sw))); sh = Math.max(1, Math.min(this.H - sy, Math.round(sh)));
+    try { return this.ctx.getImageData(sx, sy, sw, sh); } catch { return null; }
   }
 
   accent(): string {
@@ -249,6 +326,8 @@ export class BasicEngine implements Renderer {
 
   destroy() {
     this.alive = false;
+    this.pending = null;
+    this.transLayer.release();
     cancelAnimationFrame(this.raf);
     this.ro?.disconnect();
     this.io?.disconnect();
@@ -327,11 +406,14 @@ export class BasicEngine implements Renderer {
     if (!this.alive) return;
     this.raf = requestAnimationFrame(this.loop);
     if (!this.visible) { this.lastFrame = 0; return; }
+    if (this.pending && (this.pending.fonts || performance.now() - this.pending.since > PREP_BUDGET_MS)) this.applyPending();
     const interval = 1000 / this.fpsCap;
     if (this.lastFrame && now - this.lastFrame < interval - 2) return;
-    const dt = this.lastFrame ? Math.min(0.1, (now - this.lastFrame) / 1000) : 0;
+    const raw = this.lastFrame ? (now - this.lastFrame) / 1000 : 0;
+    const dt = Math.min(0.1, raw);
     this.lastFrame = now;
     this.realT += dt;
+    if (this.trans >= 0 && !Number.isNaN(this.transStart)) this.transElapsed += Math.min(0.2, raw);
     if (this.playing) this.t += dt * this.r.motion.speed;
     const interactive = this.stepPointer(dt, now);
     const video = this.r.source === 'video' || this.r.source === 'camera';
@@ -339,28 +421,33 @@ export class BasicEngine implements Renderer {
     if (this.playing || this.needsRender || interactive || video || sim || this.trans >= 0) {
       this.needsRender = false;
       const t0 = performance.now();
+      const inTrans = this.trans >= 0;
       try {
         this.render(dt);
       } catch (e) {
         if (now - this.lastErr > 4000) { this.lastErr = now; this.o.onError?.((e as Error).message); }
       }
-      this.measure(now, performance.now() - t0);
+      this.measure(now, performance.now() - t0, inTrans);
     }
   };
 
-  private measure(now: number, ms: number) {
+  private measure(now: number, ms: number, inTrans = false) {
     this.frames++;
-    this.ema = this.ema * 0.9 + ms * 0.1;
     if (now - this.fpsT > 500) {
       this.fps = Math.round((this.frames * 1000) / (now - this.fpsT));
       this.frames = 0; this.fpsT = now;
       this.o.onStats?.(this.stats);
     }
-    if (!(this.o.adaptive ?? true) || !this.playing) return;
+    // the frames of a transition (the first one builds the new piece's glyphs) say nothing about the piece
+    if (inTrans) return;
+    this.ema = this.ema * 0.9 + ms * 0.1;
+    if (!(this.q.adaptive ?? this.o.adaptive ?? true) || !this.playing) return;
+    if (performance.now() < this.adaptiveHold) { this.slow = 0; return; }
     // never touch the grid or the resolution: only how often frames are drawn
+    const top = this.maxFps();
     if (this.ema > 22) { this.slow++; this.fast = 0; } else if (this.ema < 12) { this.fast++; this.slow = 0; } else { this.slow = this.fast = 0; }
     if (this.slow > 20 && this.fpsCap !== SLOW_FPS) { this.fpsCap = SLOW_FPS; this.slow = 0; }
-    if (this.fast > 90 && this.fpsCap !== FPS) { this.fpsCap = FPS; this.fast = 0; }
+    if (this.fast > 90 && this.fpsCap !== top) { this.fpsCap = top; this.fast = 0; }
   }
 
   private stepPointer(dt: number, now: number): boolean {
@@ -395,7 +482,7 @@ export class BasicEngine implements Renderer {
     } else {
       this.cssW = Math.max(1, this.canvas.clientWidth || 300);
       this.cssH = Math.max(1, this.canvas.clientHeight || 150);
-      pr = Math.min(this.o.maxPixelRatio ?? 2, Math.max(1, window.devicePixelRatio || 1));
+      pr = Math.min(this.q.maxPixelRatio ?? 2, this.o.maxPixelRatio ?? 2, Math.max(1, window.devicePixelRatio || 1));
       const budget = Math.sqrt(BASIC_MAX_PIXELS / (this.cssW * this.cssH));
       if (pr > budget) pr = Math.max(Math.min(1, pr), budget);
     }
@@ -410,7 +497,7 @@ export class BasicEngine implements Renderer {
       this.out32 = new Uint32Array(this.img.data.buffer);
       this.flat = null;
       this.revealKey = '';
-      this.trans = -1; this.prevFrame = null;
+      this.trans = -1;
     }
     this.cw = Math.max(2, Math.round(g.cell * pr));
     this.ch = Math.max(2, Math.round(g.cell * g.aspect * pr));
@@ -589,16 +676,13 @@ export class BasicEngine implements Renderer {
     return this.reader;
   }
 
-  /** Keeps the frame on screen (with its overlays, like the GPU engine's full compose) to dissolve from. */
-  private captureTransition() {
+  /** Keeps the frame on screen (overlays and an ongoing transition included) to dissolve from. */
+  private captureTransition(spec: TransitionSpec) {
     if (!this.img) return;
-    let prev: Uint32Array | null = null;
-    if (this.overlaid) {
-      try { prev = new Uint32Array(this.ctx.getImageData(0, 0, this.W, this.H).data.buffer); } catch { prev = null; }
-    }
-    this.prevFrame = prev ?? this.out32.slice();
+    this.transLayer.capture(this.canvas);
     this.trans = 0;
-    this.transStart = this.realT;
+    this.transStart = NaN;
+    this.transSpec = spec;
   }
 
   /* ---------------------------------------------------------------- */
@@ -634,8 +718,11 @@ export class BasicEngine implements Renderer {
     this.updateWords();
     this.updateMedia();
     if (this.trans >= 0) {
-      this.trans = (this.realT - this.transStart) / 0.85;
-      if (this.trans >= 1) { this.trans = -1; this.prevFrame = null; }
+      // the clock starts with the first frame of the new piece
+      if (Number.isNaN(this.transStart)) { this.transStart = this.realT; this.transElapsed = 0; }
+      const shown = this.o.fixedSize ? this.realT - this.transStart : this.transElapsed;
+      this.trans = shown / this.transSpec.duration;
+      if (this.trans >= 1 || this.trans < 0) this.trans = -1;
     }
     this.runSim(dt);
     const r = this.r, P = this.ptr, it = this.r.interact;
@@ -681,7 +768,8 @@ export class BasicEngine implements Renderer {
     }, this.sel);
     const T2 = performance.now();
 
-    const fx = r.fx;
+    // simplified preview (quality «Ligera»): none of the effects that cost a pass over every pixel
+    const fx = this.q.simplify && !this.o.fixedSize ? { ...r.fx, curve: 0, chroma: 0, bloom: 0, grain: 0 } : r.fx;
     const bloom = fx.bloom > 0 && !this.transparent;
     if (bloom) blurGrid(this.sel, this.cols, this.rows, fx.bloom, this.bloomBuf, this.bloomTmp);
     const mediaPx = this.updateReveal();
@@ -693,7 +781,7 @@ export class BasicEngine implements Renderer {
       msgBox: m.on ? m.box : 0, transparent: this.transparent,
       reveal: hasMedia ? r.media.reveal : 0, eraseReveal: hasMedia && it.mode === 'erase', simTr: this.sim.tr,
       mediaPx: hasMedia ? mediaPx : null, bloom: bloom ? this.bloomBuf : null,
-      realT: this.realT, trans: this.prevFrame ? this.trans : -1, prev: this.prevFrame,
+      realT: this.realT,
     };
     const pixelPost = needsPixelPost(frame);
     if (pixelPost) {
@@ -703,11 +791,17 @@ export class BasicEngine implements Renderer {
       postPass(frame, this.flat, this.out32);
     } else {
       shadePass(frame, this.out32);
-      if (r.fx.grain > 0) grainPass(frame, this.out32);
+      if (fx.grain > 0) grainPass(frame, this.out32);
     }
+    const tf = this.trans >= 0 && this.transLayer.ready ? {
+      W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows, n: a.n,
+      spec: this.transSpec, p: this.trans, realT: this.realT, atlas: this.glyphs, bg: frame.bg, accent: ac,
+    } : null;
+    if (tf) { this.transLayer.cells(tf); this.transLayer.paintGlyphs(this.out32, tf); }
     this.ctx.putImageData(this.img!, 0, 0);
-    this.overlaid = !pixelPost && hasOverlays(frame);
-    if (this.overlaid) drawOverlays(this.ctx, frame, this.overlayCache);
+    if (tf?.spec.kind === 'mosaico') this.transLayer.mosaic(this.ctx, tf);
+    if (!pixelPost && hasOverlays(frame)) drawOverlays(this.ctx, frame, this.overlayCache);
+    if (tf) this.transLayer.drawOld(this.ctx, tf);
     this.rendered = true;
     this.ptr.impulse = 0;
     const T3 = performance.now();

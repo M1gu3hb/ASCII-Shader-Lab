@@ -31,6 +31,53 @@ export function compileProgram(gl: WebGL2RenderingContext, vs: string, fs: strin
   return { prog, u: new Map() };
 }
 
+/**
+ * A program whose shaders were handed to the driver but not checked yet. Asking for its status blocks
+ * until the driver is done, so the engine asks only once the program is ready (KHR_parallel_shader_compile)
+ * or a frame later, and keeps drawing meanwhile.
+ */
+export interface PendingProgram { prog: WebGLProgram; vs: WebGLShader; fs: WebGLShader; fsSrc: string }
+
+export function startProgram(gl: WebGL2RenderingContext, vs: string, fs: string): PendingProgram {
+  const mk = (type: number, src: string) => {
+    const s = gl.createShader(type)!;
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  };
+  const v = mk(gl.VERTEX_SHADER, vs), f = mk(gl.FRAGMENT_SHADER, fs);
+  const prog = gl.createProgram()!;
+  gl.attachShader(prog, v);
+  gl.attachShader(prog, f);
+  gl.bindAttribLocation(prog, 0, 'aPos');
+  gl.linkProgram(prog);
+  return { prog, vs: v, fs: f, fsSrc: fs };
+}
+
+/** Whether a started program is done compiling, without waiting for it (needs KHR_parallel_shader_compile). */
+export function programDone(gl: WebGL2RenderingContext, p: PendingProgram, ext: unknown): boolean {
+  if (!ext) return true;
+  return gl.getProgramParameter(p.prog, 0x91B1 /* COMPLETION_STATUS_KHR */) !== false;
+}
+
+/** Checks a started program (blocks until the driver is done) and returns it, or throws its log. */
+export function finishProgram(gl: WebGL2RenderingContext, p: PendingProgram): Program {
+  const ok = gl.getProgramParameter(p.prog, gl.LINK_STATUS) || gl.isContextLost();
+  if (!ok) {
+    const fsLog = gl.getShaderParameter(p.fs, gl.COMPILE_STATUS) ? '' : gl.getShaderInfoLog(p.fs) || 'error de compilación';
+    const log = fsLog || gl.getProgramInfoLog(p.prog) || 'error de enlazado';
+    gl.deleteShader(p.vs); gl.deleteShader(p.fs); gl.deleteProgram(p.prog);
+    throw new Error(log + (fsLog ? '\n' + numbered(p.fsSrc, fsLog) : ''));
+  }
+  gl.deleteShader(p.vs);
+  gl.deleteShader(p.fs);
+  return { prog: p.prog, u: new Map() };
+}
+
+export function dropProgram(gl: WebGL2RenderingContext, p: PendingProgram) {
+  gl.deleteShader(p.vs); gl.deleteShader(p.fs); gl.deleteProgram(p.prog);
+}
+
 function numbered(src: string, log: string): string {
   const m = /ERROR: \d+:(\d+)/.exec(log);
   if (!m) return '';
