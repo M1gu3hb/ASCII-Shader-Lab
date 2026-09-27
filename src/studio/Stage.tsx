@@ -9,6 +9,7 @@ import { useView } from './views/state';
 import { ViewBar, ViewStage, useStageInsets, type Insets } from './views/Views';
 import { StorageNote } from './Keeping';
 import { RecordingChip } from './Recording';
+import { SlowNotice } from './Quality';
 
 export function Stage() {
   // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
@@ -54,6 +55,7 @@ export function Stage() {
         <ViewBar view={view} />
         <div className="stage-notes">
           <RecordingChip />
+          <SlowNotice />
           <EngineNotes />
           <StorageNote />
           <MotionNote />

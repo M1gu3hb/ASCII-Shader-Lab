@@ -23,6 +23,12 @@ export interface Entry {
   updated?: number;
   edited: boolean;
   thumb?: string;
+  /**
+   * Version of the recipe the thumbnail was rendered from (recipeVersion). A thumbnail without one comes
+   * from an earlier version of the studio, or a favourite: it is shown, and made again when the entry is
+   * the current one.
+   */
+  thumbV?: string;
   favId?: string;
 }
 
@@ -74,12 +80,43 @@ export function normalizeEntry(x: unknown): Entry | null {
   };
   if (typeof o.updated === 'number' && Number.isFinite(o.updated) && o.updated > 0) e.updated = o.updated;
   const label = str(o.label, 80), seed = str(o.seed, 80), arch = str(o.arch, 40), thumb = thumbOf(o.thumb), favId = str(o.favId, 40);
+  const thumbV = typeof o.thumbV === 'string' && /^[0-9a-z]{1,16}$/.test(o.thumbV) ? o.thumbV : undefined;
   if (label) e.label = label;
   if (seed) e.seed = seed;
   if (arch) e.arch = arch;
-  if (thumb) e.thumb = thumb;
+  if (thumb) { e.thumb = thumb; if (thumbV) e.thumbV = thumbV; }
   if (favId) e.favId = favId;
   return e;
+}
+
+const versions = new WeakMap<Recipe, string>();
+/**
+ * A short fingerprint of a recipe (FNV-1a of its JSON, base 36). Recipes are never changed in place in
+ * the store (an edit makes a new one), so it is computed once per recipe object.
+ */
+export function recipeVersion(r: Recipe): string {
+  let v = versions.get(r);
+  if (v) return v;
+  const json = JSON.stringify(r);
+  let a = 0x811c9dc5, b = 0x01000193 ^ json.length;
+  for (let i = 0; i < json.length; i++) {
+    const c = json.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193);
+    b = Math.imul(b ^ c ^ (i & 0xff), 0x01000193);
+  }
+  v = (a >>> 0).toString(36) + (b >>> 0).toString(36);
+  versions.set(r, v);
+  return v;
+}
+
+/**
+ * Whether an entry's thumbnail shows its recipe as it is now: 'ok'; 'legacy' (made before versions were
+ * kept, or copied from a favourite: probably right); 'stale' (the recipe changed since); 'missing'.
+ */
+export function thumbState(e: Entry): 'ok' | 'legacy' | 'stale' | 'missing' {
+  if (!e.thumb) return 'missing';
+  if (!e.thumbV) return 'legacy';
+  return e.thumbV === recipeVersion(e.recipe) ? 'ok' : 'stale';
 }
 
 export function normalizeFavorite(x: unknown): Favorite | null {
@@ -100,7 +137,7 @@ export function normalizeFavorite(x: unknown): Favorite | null {
   return f;
 }
 
-/** The entry as stored in its own record: everything but the thumbnail (stored apart). */
+/** The entry as stored in its own record: everything but the thumbnail (stored apart; its version stays). */
 export function entryBody(e: Entry): Omit<Entry, 'thumb'> {
   const { thumb: _thumb, ...rest } = e;
   return rest;
@@ -110,7 +147,7 @@ export function entryBody(e: Entry): Omit<Entry, 'thumb'> {
 export function sameBody(a: Entry, b: Entry): boolean {
   return a.recipe === b.recipe && a.origin === b.origin && a.kind === b.kind && a.label === b.label && a.seed === b.seed
     && a.arch === b.arch && a.space === b.space && a.created === b.created && a.updated === b.updated && a.edited === b.edited
-    && a.favId === b.favId && a.id === b.id;
+    && a.favId === b.favId && a.id === b.id && a.thumbV === b.thumbV;
 }
 
 /**
@@ -163,7 +200,8 @@ export function mergeSession(
     const mine = entries[i];
     if (entryTime(e) > entryTime(mine) && !(sameJson(e.recipe, mine.recipe) && sameJson(e.origin, mine.origin))) {
       replaced.push(mine);
-      entries[i] = { ...e, thumb: e.thumb ?? mine.thumb };
+      // a thumbnail kept from the local version is marked with that version's recipe, so it gets made again
+      entries[i] = e.thumb ? e : { ...e, thumb: mine.thumb, thumbV: mine.thumb ? mine.thumbV ?? recipeVersion(mine.recipe) : undefined };
     } else skipped++;
   }
   entries.push(...add);

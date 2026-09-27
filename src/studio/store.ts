@@ -5,7 +5,7 @@ import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type Sp
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import {
   HISTORY_LIMIT, HISTORY_WARN, allRecipes, entryBody, mediaIdsOf, mergeSession, normalizeEntry, normalizeFavorite, pruneHistory,
-  sameBody, thumbOf, uid, type Entry, type EntryKind, type Favorite,
+  recipeVersion, sameBody, thumbOf, uid, type Entry, type EntryKind, type Favorite,
 } from './history';
 import { idbKeys, idbRead, idbValues, idbWrite, isQuotaError } from './idb';
 import { gcMedia } from './mediaStore';
@@ -378,14 +378,27 @@ export function restoreOrigin() {
   edit(r => Object.assign(r, cloneRecipe(e.origin)), 'restore');
 }
 
-export function setThumb(entryId: string, thumb: string) {
+/**
+ * Stores the thumbnail rendered from version `v` of an entry's recipe (thumbs.ts), only while the entry
+ * still has that recipe: a picture never lands on an entry that changed in the meantime. A favourite
+ * saved from that same recipe takes it too.
+ */
+export function setThumb(entryId: string, thumb: string, v: string): boolean {
   const s = S();
   const i = s.entries.findIndex(e => e.id === entryId);
-  if (i < 0 || (s.entries[i].thumb && mediaLink?.holdThumb(s.entries[i]))) return;
+  if (i < 0 || recipeVersion(s.entries[i].recipe) !== v) return false;
+  const e = s.entries[i];
   const entries = s.entries.slice();
-  entries[i] = { ...entries[i], thumb };
-  set({ entries });
-  persistSoon();
+  entries[i] = { ...e, thumb, thumbV: v };
+  const fav = e.favId ? s.favorites.find(f => f.id === e.favId) : undefined;
+  if (fav && fav.thumb !== thumb && recipeVersion(fav.recipe) === v) {
+    set({ entries, favorites: s.favorites.map(f => (f === fav ? { ...f, thumb } : f)) });
+    saveNow();
+  } else {
+    set({ entries });
+    persistSoon();
+  }
+  return true;
 }
 
 export function clearHistory() {
@@ -667,6 +680,8 @@ async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Pr
     // one transaction: the records, the index that points to them and what nothing points to any more
     const r = await idbWrite(puts, dels, kind === 'now' && !claim ? { fence: [K_OWNER, token] } : { commit: kind === 'leave' });
     if (r === 'fenced') { lose(); return; }
+    // the page is being left: the save made then carries these changes too
+    if (r === 'superseded') return;
     if (claim) tokenStored = true;
     saved = next;
     if (index) { savedIds = ids; savedCursor = s.cursor; }

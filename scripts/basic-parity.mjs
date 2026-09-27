@@ -9,7 +9,8 @@
  *   Δlum   mean absolute difference of luminance (0..255)
  *   glifos share of cells with the same character; visibles: same, among cells where either shows ink
  *   Δrgb   mean absolute difference of cell colours; Δpx: of canvas pixels (0..255)
- * Exit code 1 when a pattern correlates below 0.8 at both sample times, a preset below 0.8, or any
+ * Exit code 1 when a pattern correlates below 0.8 at both sample times, a preset below 0.8, a transition
+ * frame matches on fewer than 90% of its pixels, or any
  * comparison differs by more than 8 (of 255) per pixel on average: that is a rendering bug, not rounding.
  */
 import { createServer } from 'vite';
@@ -84,6 +85,19 @@ try {
   for (const c of pointer) console.log(`| ${c.mode} | ${c.id} | ${f2(c.r)} | ${c.lumMad.toFixed(2)} | ${pct(c.glyphs)} | ${c.pixelMad.toFixed(2)} | ${pct(c.touched)} |`);
   console.log('');
   if (pointer.some(c => c.r < 0.9 || c.touched < 0.01)) failed = true;
+
+  // transitions: the same spec and clock in both engines, caught partway (canvas pixels compared)
+  const trans = [];
+  for (const kind of await page.evaluate(() => window.__basic.transitions)) {
+    for (const p of [0.3, 0.6]) trans.push(await page.evaluate(([k, p]) => window.__basic.compareTransition(k, p), [kind, p]));
+  }
+  console.log('## Transiciones (480×272, arte/vapor → fondos/bruma, progreso 0.3 y 0.6)\n');
+  console.log('| transición | progreso | Δpx | píxeles iguales | en transición |');
+  console.log('|---|---|---|---|---|');
+  for (const c of trans) console.log(`| ${c.kind} | ${c.p} | ${c.pixelMad.toFixed(2)} | ${pct(c.same)} | ${pct(c.changed)} |`);
+  console.log('');
+  // a mismatch here is a different cell pattern or a missing layer, not rounding
+  if (trans.some(c => c.same < 0.9 || c.pixelMad > 8)) failed = true;
 
   const presets = [];
   if (!quick) {

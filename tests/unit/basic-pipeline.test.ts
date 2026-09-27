@@ -122,7 +122,7 @@ describe('basic engine compose', () => {
     const f: ComposeFrame = {
       W: 4, H: 2, cw: 2, ch: 2, cols: 2, rows: 1, sel, atlas: { cov, w: 4, h: 2, cols: 2, n: 2 },
       bg: [0, 0, 1], accent: [1, 1, 1], fx: defaultRecipe().fx, msgBox: 0, transparent, reveal: 0, eraseReveal: false,
-      simTr: null, mediaPx: null, bloom: null, realT: 0, trans: -1, prev: null,
+      simTr: null, mediaPx: null, bloom: null, realT: 0,
     };
     const px = new Uint32Array(8);
     shadePass(f, px);

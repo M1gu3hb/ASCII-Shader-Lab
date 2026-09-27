@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { explainWebGL, probeWebGL, type GLExplanation, type GLStatus } from '../engine/support';
 import { basicRequestedBy, clearBasicRequest, markSeen, preferBasic, seen, useCaps } from './caps';
 import { Note } from './controls';
+import { slowNoticeAnswered } from './Quality';
 import { getEngine } from './engineBridge';
 import { IClose } from './icons';
 import { Sheet } from './Sheet';
@@ -80,7 +81,8 @@ function SoftwareHint({ onWhy }: { onWhy: () => void }) {
     let slow = 0;
     const id = setInterval(() => {
       const e = getEngine();
-      if (!e || e.kind !== 'webgl2' || !useStudio.getState().playing || document.hidden) { slow = 0; return; }
+      // lowering the preview quality comes first (Quality.tsx): this suggestion only after that
+      if (!e || e.kind !== 'webgl2' || !useStudio.getState().playing || document.hidden || !slowNoticeAnswered()) { slow = 0; return; }
       const f = e.stats.fps;
       slow = f > 0 && f < 20 ? slow + 1 : 0;
       if (slow >= 3) { clearInterval(id); markSeen(SOFT_KEY, 'local'); setFps(f); }

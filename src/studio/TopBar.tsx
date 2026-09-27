@@ -5,6 +5,7 @@ import { setPlaying, setSpace, setUI, useStudio } from './store';
 import { IGuide } from './guide/Welcome';
 import { openWelcome, useGuide } from './guide/state';
 import { Picker } from './ui/Picker';
+import { QualityReadout } from './Quality';
 
 export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
@@ -19,7 +20,6 @@ export function toggleFullscreen() {
 export function TopBar() {
   const space = useStudio(s => s.space);
   const playing = useStudio(s => s.playing);
-  const stats = useStudio(s => s.stats);
   const favs = useStudio(s => s.favorites.length);
   const panel = useStudio(s => s.ui.panel);
   const guiding = useGuide(s => s.path !== null);
@@ -34,7 +34,7 @@ export function TopBar() {
       <Picker<SpaceId> className="space-select" value={space} label="Espacio" minWidth={260} onChange={setSpace}
         options={SPACES.map(s => ({ value: s.id, label: s.name, desc: s.blurb }))} />
       <div className="tb-right">
-        {space !== 'componentes' && <span className="stats" aria-hidden="true">{stats.cols}×{stats.rows} · {stats.fps} fps</span>}
+        {space !== 'componentes' && <QualityReadout />}
         {space !== 'componentes' && (
           <button type="button" className="ib hide-sm" onClick={() => setPlaying(!playing)} title={playing ? 'Pausar (espacio)' : 'Reproducir (espacio)'} aria-label={playing ? 'Pausar animación' : 'Reproducir animación'}>
             {playing ? <IPause /> : <IPlay />}

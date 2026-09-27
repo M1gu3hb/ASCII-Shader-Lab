@@ -1,11 +1,12 @@
 import type { Recipe } from '../../engine/recipe';
 import { getEngine } from '../engineBridge';
-import { offscreenEngine, stageSize } from '../offscreen';
+import { canvasUrl, snapshotCanvas, stageSize, withOffscreen } from '../offscreen';
 
 /**
  * Small offscreen renders of recipes for choosing and comparing (style grids, comparison strips).
- * One job at a time (each job borrows one hidden engine), cancellable, and cached per recipe and
- * size, so going back to a step or re-opening a comparison shows the images at once.
+ * One job at a time (each job borrows the studio's shared hidden renderer, see offscreen.ts),
+ * cancellable, and cached per recipe and size, so going back to a step or re-opening a comparison
+ * shows the images at once.
  */
 export interface CropSpec {
   w: number;
@@ -17,7 +18,6 @@ export interface Signal { cancelled: boolean }
 
 const cache = new Map<string, string>();
 const CACHE_MAX = 120;
-let chain: Promise<void> = Promise.resolve();
 
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
 
@@ -44,7 +44,7 @@ export function renderCrops(recipes: Recipe[], o: CropSpec, onEach: (i: number, 
     if (hit) onEach(i, hit); else todo.push(i);
   });
   if (!todo.length) return;
-  chain = chain.then(() => run(recipes, todo, o, onEach, signal)).catch(() => undefined);
+  void run(recipes, todo, o, onEach, signal);
 }
 
 async function run(recipes: Recipe[], todo: number[], o: CropSpec, onEach: (i: number, url: string | null) => void, signal: Signal) {
@@ -54,33 +54,28 @@ async function run(recipes: Recipe[], todo: number[], o: CropSpec, onEach: (i: n
   const aspect = o.w / o.h;
   const regW = Math.min(cssW, cssH * aspect) * Math.max(0.1, Math.min(1, o.zoom)), regH = regW / aspect;
   const pr = Math.min(2, o.w / regW);
-  let eng: Awaited<ReturnType<typeof offscreenEngine>>;
-  try {
-    eng = await offscreenEngine(recipes[todo[0]], { cssW, cssH, pixelRatio: pr });
-  } catch {
-    for (const i of todo) if (!signal.cancelled) onEach(i, null);
-    return;
-  }
-  const out = document.createElement('canvas');
-  out.width = o.w; out.height = o.h;
-  const ctx = out.getContext('2d')!;
   const t = getEngine()?.time ?? 3;
-  try {
-    for (const i of todo) {
-      if (signal.cancelled) break;
-      eng.set(recipes[i]);
-      await eng.ready();
-      if (signal.cancelled) break;
-      eng.renderAt(t);
-      const W = eng.canvas.width, H = eng.canvas.height, sw = regW * pr, sh = regH * pr;
-      ctx.clearRect(0, 0, o.w, o.h);
-      ctx.drawImage(eng.canvas, (W - sw) / 2, (H - sh) / 2, sw, sh, 0, 0, o.w, o.h);
-      const url = out.toDataURL('image/webp', 0.82);
-      if (recipes[i].source !== 'camera') remember(keyOf(recipes[i], o, stage), url);
-      onEach(i, url);
-      await nextFrame();
+  for (const i of todo) {
+    if (signal.cancelled) break;
+    let url: string | null = null;
+    try {
+      // one render per turn of the shared renderer: history thumbnails can go in between
+      const c = await withOffscreen({ cssW, cssH, pixelRatio: pr }, recipes[i], async eng => {
+        if (signal.cancelled) return null;
+        eng.set(recipes[i]);
+        await eng.ready();
+        if (signal.cancelled) return null;
+        eng.renderAt(t);
+        const W = eng.canvas.width, H = eng.canvas.height, sw = regW * pr, sh = regH * pr;
+        return snapshotCanvas(eng, (W - sw) / 2, (H - sh) / 2, sw, sh, o.w, o.h);
+      });
+      url = c ? await canvasUrl(c, 0.82) : null;
+    } catch {
+      url = null;
     }
-  } finally {
-    eng.destroy();
+    if (signal.cancelled) break;
+    if (url && recipes[i].source !== 'camera') remember(keyOf(recipes[i], o, stage), url);
+    onEach(i, url);
+    await nextFrame();
   }
 }
