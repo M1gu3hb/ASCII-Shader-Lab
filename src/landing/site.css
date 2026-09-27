@@ -44,6 +44,8 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
   padding: 12px var(--gutter); transition: background .3s, border-color .3s;
   border-bottom: 1px solid transparent;
 }
+/* over the hero's live canvas the links keep a quiet shade behind them */
+.nav:not(.scrolled):not(.solid) { background: linear-gradient(rgba(12, 11, 10, .66), rgba(12, 11, 10, 0)); }
 .nav.scrolled, .nav.solid { background: rgba(12, 11, 10, .9); border-bottom-color: rgba(237, 230, 218, .08); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .nav-brand { display: flex; align-items: center; gap: 10px; min-height: 44px; text-decoration: none; color: var(--bone); }
 .nav-brand .word { font: 700 15px/1 var(--font-display); letter-spacing: -.02em; }

@@ -36,7 +36,8 @@
 /* the readout of the piece on stage: what it is, and where to open it */
 .hero-plate {
   grid-column: 10 / -1; grid-row: 1; align-self: end; justify-self: end; width: 100%; max-width: 320px; margin-bottom: 6px;
-  border-top: 1px solid color-mix(in srgb, var(--hero-ink, #ede6da) 30%, transparent); padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--hero-ink, #ede6da) 30%, transparent); padding: 12px 14px 8px;
+  background: color-mix(in srgb, var(--hero-bg, #0b0708) 76%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   font: 500 12.5px/1.5 var(--font-mono); pointer-events: auto;
 }
 .hero-plate .pl-h { display: flex; justify-content: space-between; margin: 0 0 6px; font: 600 10.5px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; opacity: .7; }
