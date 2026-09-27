@@ -10,6 +10,7 @@ import { announce, toast } from './toast';
 import { setAuto, useLive } from './live';
 import { historyLabel } from './history';
 import { shareLink } from './ShareSheet';
+import { HoldCompare } from './guide/HoldCompare';
 
 export function dice() {
   const e = rollDice();
@@ -108,7 +109,8 @@ function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
       {e.edited && <><span className="sep">·</span><span>editado</span></>}
       <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
       <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
-      {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió">original</button>}
+      {e.edited && <HoldCompare origin={e.origin} />}
+      {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió (se puede deshacer)">restaurar</button>}
       <button type="button" onClick={() => void copyLink()} title="Copiar un enlace a esta pieza">enlace</button>
       <button type="button" onClick={() => setUI({ sheet: 'seed' })} title="Escribir una semilla">semilla</button>
     </div>

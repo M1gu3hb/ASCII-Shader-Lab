@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { luminance } from '../engine/color';
 import { SOURCE_NAMES } from '../engine/catalog';
 import { mountStudioEngine, destroyStudioEngine } from './engineBridge';
 import { handleFile, pickFile } from './files';
 import { startCamera, useMedia } from './media';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
+import { previewInk } from './guide/paths';
 
 export function Stage() {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -144,12 +144,16 @@ function MediaPrompt() {
   );
 }
 
+/**
+ * Test content over a background: a headline, a paragraph and a button. The text colour follows
+ * previewInk, the same rule the fondo guide uses to estimate the headline's contrast.
+ */
 function ContentPreview() {
   const on = useStudio(s => s.ui.preview && s.space === 'fondos');
   const bg = useStudio(s => s.entries[s.cursor]?.recipe.color.bg ?? '#000');
   if (!on) return null;
-  const light = luminance(bg) > 0.4;
-  const style = { '--pc': light ? '#111' : '#fff', '--pcb': light ? '#fff' : '#111' } as React.CSSProperties;
+  const ink = previewInk(bg);
+  const style = { '--pc': ink, '--pcb': ink === '#ffffff' ? '#111111' : '#ffffff' } as React.CSSProperties;
   return (
     <div className="preview-content" style={style} aria-hidden="true">
       <div className="pc-nav"><span>Tu marca</span><span>Proyectos · Estudio · Contacto</span></div>

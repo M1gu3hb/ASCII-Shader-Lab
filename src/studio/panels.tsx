@@ -13,6 +13,8 @@ import { toggleMute, toggleVideo, useMedia, setVideoRate, startCamera, stopCamer
 import { edit, setUI, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
 import { pickFile } from './files';
+import { CharsetSwatches, CompareStrip, Hint } from './guide/CompareStrip';
+import { CONTRAST, DETAIL } from './guide/paths';
 
 export const TABS: Record<SpaceId, Array<[string, string]>> = {
   fondos: [['forma', 'Forma'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
@@ -128,10 +130,14 @@ function ColorTab() {
   return (
     <>
       <Sub>Paletas</Sub>
+      <Hint>Colorean de las celdas vacías a las llenas, sobre su fondo. Mucho contraste con el fondo llama la atención; poco se lee mejor bajo texto.</Hint>
       <div className="palettes">
         {CURATED.map(p => (
           <button key={p.name} type="button" className="pal" title={p.name} onClick={() => edit(r => { r.color.stops = p.stops.slice(); r.color.bg = p.bg; if (r.color.mode === 'source' && !isMedia) r.color.mode = 'ramp'; }, 'pal' + Date.now())}>
-            <span className="bar">{[p.bg, ...p.stops].map((c, i) => <i key={i} style={{ background: c }} />)}</span>
+            <span className="bar" aria-hidden="true">
+              <i style={{ background: p.bg, flex: '0 0 24%' }} />
+              <i style={{ background: p.stops.length > 1 ? `linear-gradient(90deg, ${p.stops.join(', ')})` : p.stops[0] }} />
+            </span>
             <span>{p.name}</span>
           </button>
         ))}
@@ -179,6 +185,9 @@ function GlifosTab({ space }: { space: SpaceId }) {
   return (
     <>
       <Slider f={F('glyph.cell')} label="Tamaño de celda" min={3} max={48} step={1} fmt={v => v + ' px'} />
+      <Hint what="tamaños de celda" compare={<CompareStrip path="glyph.cell" choices={DETAIL} fmt={v => v + ' px'} zoom={0.4} label="Tamaños de celda" />}>
+        Pequeña: más detalle y más caracteres (más trabajo para el equipo). Grande: más gráfica y ligera.
+      </Hint>
       <Slider f={F('glyph.aspect')} label="Proporción de celda" min={0.6} max={2.4} />
       <div className="ctl">
         <label className="lbl" htmlFor="cs-sel">Juego de caracteres</label>
@@ -186,6 +195,9 @@ function GlifosTab({ space }: { space: SpaceId }) {
           {charsetOpts.map(([id, name]) => <option key={id} value={id} disabled={id === 'custom'}>{name}</option>)}
         </select>
       </div>
+      <Hint what="juegos de caracteres" compare={<CharsetSwatches asciiOnly={space === 'terminal'} />}>
+        Los caracteres que dibujan, de vacío a lleno. Muchos dan degradados suaves; pocos, más contraste y carácter.
+      </Hint>
       <Text f={F('glyph.charset')} label="Caracteres (de vacío a lleno)" mono />
       {space === 'terminal' && /[^\x20-\x7e]/.test(charset) && <Note><b>Aviso:</b> hay caracteres fuera de ASCII; algunas terminales antiguas no los mostrarán.</Note>}
       <Toggle f={F('glyph.sort')} label="Ordenar por densidad medida" />
@@ -204,6 +216,9 @@ function GlifosTab({ space }: { space: SpaceId }) {
       <Sub>Tono</Sub>
       <Slider f={F('tone.bright')} label="Brillo" min={-1} max={1} />
       <Slider f={F('tone.contrast')} label="Contraste" min={0} max={3} />
+      <Hint what="contrastes" compare={<CompareStrip path="tone.contrast" choices={CONTRAST} fmt={v => '×' + v} zoom={0.75} label="Contrastes" />}>
+        Separa claros y oscuros. Alto marca las formas pero pierde matices; bajo conserva los grises y puede quedar plano.
+      </Hint>
       <Slider f={F('tone.gamma')} label="Gamma" min={0.2} max={3} />
       <Slider f={F('tone.levels')} label="Posterizar (niveles)" min={0} max={12} step={1} fmt={v => (v < 2 ? 'no' : String(v))} />
       <Toggle f={F('tone.invert')} label="Invertir" />
