@@ -6,6 +6,7 @@
  *   LEEME.txt            what it is and how to open it
  * Entries and favourites are passed through as plain data; the studio normalises them on import.
  */
+import { SITE_URL } from './site';
 import { normMediaRef } from '../engine/recipe';
 import { MEDIA_DIR, safeFileName } from './project';
 import { zip, type ZipEntry } from './zip';
@@ -34,7 +35,7 @@ const readme = (n: number, favs: number, media: number) => [
   '',
   `${n} resultados del historial y ${favs} piezas de la colección${media ? `, con ${media} ${media === 1 ? 'archivo' : 'archivos'} de imagen o video` : ''}.`,
   '',
-  'Para abrirla: en el estudio (https://monotrama.vercel.app/studio/) arrastra este .zip sobre el lienzo,',
+  `Para abrirla: en el estudio (${SITE_URL}/studio/) arrastra este .zip sobre el lienzo,`,
   'o usa «Colección» → «Abrir sesión». Los resultados se añaden después de tu historial; no se borra nada.',
   '',
   'Todo se procesa en tu navegador: nada se sube a ningún servidor.',
