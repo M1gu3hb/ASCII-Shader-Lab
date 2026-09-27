@@ -607,7 +607,7 @@ function RecipeTab() {
           {e.seed ? (
             <>
               <p>La palabra con la que el dado tejió esta pieza. Escrita en «semilla», en el mismo espacio y estilo, la repite.</p>
-              <p className="seed-big"><b>{e.seed}</b> · {spaceById(e.space).name}{arch ? ` · ${arch}` : ''}</p>
+              <p className="seed-big"><b>{e.seed}</b> · {spaceById(e.space).name}{arch ? ` · ${arch}` : ''} · generador v{e.recipe.meta.gen ?? 1}</p>
               <button type="button" className="btn" onClick={() => void copyText(e.seed!, 'Semilla copiada')}>Copiar semilla</button>
               <p className="note" style={{ margin: '8px 0 0' }}>No lleva tus ediciones{e.edited ? ' (esta pieza está editada)' : ''} ni tus archivos, y depende de la versión del generador. Para algo exacto, usa el enlace, la receta o el proyecto.</p>
             </>

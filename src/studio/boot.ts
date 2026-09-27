@@ -1,4 +1,5 @@
 import { decodeRecipe } from '../shared/share';
+import { genOf } from '../random/generator';
 import { spaceById, type SpaceId } from '../random/spaces';
 import { parseCamino, withoutCamino } from './guide/paths';
 import { startPath } from './guide/state';
@@ -14,7 +15,8 @@ export type BootOpened = 'link' | 'seed' | 'space' | 'camino' | null;
 /**
  * Runs once the store is hydrated: starts the local-data watchers (the media follows the current
  * piece; warnings near the history limit), then opens shared links:
- * #r=<recipe>, #seed=<seed>&space=<space>&arch=<arch>, #space=<space>[&source=image|video|camera],
+ * #r=<recipe>, #seed=<seed>&space=<space>&arch=<arch>[&gen=<generator version>] (without gen: the current
+ * generator), #space=<space>[&source=image|video|camera],
  * and guided paths: ?camino=foto|fondo|palabra (the public guides link there).
  * Both are removed from the address once handled.
  */
@@ -42,7 +44,7 @@ export async function bootFromUrl(): Promise<BootOpened> {
       opened = 'seed';
       if (space) useStudio.setState({ space: spaceById(space).id });
       if (h.get('arch')) useStudio.setState({ arch: h.get('arch') });
-      rollDice(h.get('seed')!);
+      rollDice(h.get('seed')!, genOf(h.get('gen') ?? undefined));
     } else if (space) {
       opened = 'space';
       const id = spaceById(space).id as SpaceId;

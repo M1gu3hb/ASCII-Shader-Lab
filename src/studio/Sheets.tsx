@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Recipe } from '../engine/recipe';
 import { ARCHETYPES } from '../random/archetypes';
+import { GEN_VERSION, GEN_VERSIONS } from '../random/generator';
 import { cleanSeed, freshSeed } from '../random/seeds';
 import { spaceById } from '../random/spaces';
 import { recipeFile } from '../shared/share';
@@ -233,16 +234,34 @@ export function ShortcutsSheet() {
 
 /* ------------------------------------------------------------------ */
 
+/** What each generator version is, for the person choosing one (newest first). */
+const GEN_INFO: Record<number, { label: string; desc: string }> = {
+  2: { label: 'Versión 2', desc: 'La actual: trece objetos 3D y un azar que rara vez repite lo que acabas de ver.' },
+  1: { label: 'Versión 1', desc: 'La primera: repite las semillas que anotaste con ella.' },
+};
+const genLabel = (g: number) => (GEN_INFO[g]?.label ?? `Versión ${g}`) + (g === GEN_VERSION ? ' (actual)' : '');
+
 export function SeedSheet() {
   const open = useStudio(s => s.ui.sheet === 'seed');
   const cur = useStudio(s => s.entries[s.cursor]?.seed ?? '');
+  // the version that wove the current piece (pieces from before versions were recorded are version 1)
+  const curGen = useStudio(s => { const e = s.entries[s.cursor]; return e?.seed ? e.recipe.meta.gen ?? 1 : GEN_VERSION; });
   const arch = useStudio(s => s.arch);
   const space = useStudio(s => s.space);
   const [v, setV] = useState('');
-  useEffect(() => { if (open) setV(cur); }, [open, cur]);
-  const go = () => { const s = cleanSeed(v); if (!s) return; rollDice(s); close(); toast(`Semilla «${s}» en ${spaceById(space).name}`); };
+  // the version: the one that made the seed on screen, until another is chosen or another seed is written
+  const [picked, setPicked] = useState<number | null>(null);
+  useEffect(() => { if (open) { setV(cur); setPicked(null); } }, [open, cur]);
+  const gen = picked ?? (cleanSeed(v) === cur ? curGen : GEN_VERSION);
+  const go = () => {
+    const s = cleanSeed(v);
+    if (!s) return;
+    rollDice(s, gen);
+    close();
+    toast(`Semilla «${s}» en ${spaceById(space).name}${gen !== GEN_VERSION ? ` · ${GEN_INFO[gen]?.label.toLowerCase() ?? 'versión ' + gen}` : ''}`);
+  };
   return (
-    <Sheet open={open} onClose={close} title="Semilla" sub="Cualquier palabra o frase sirve. La misma semilla, en el mismo espacio y con el mismo estilo, da siempre la misma pieza.">
+    <Sheet open={open} onClose={close} title="Semilla" sub="Cualquier palabra o frase sirve. La misma semilla, en el mismo espacio, con el mismo estilo y la misma versión del generador, da la misma pieza.">
       <div className="sheet-body">
         <div className="ctl">
           <label className="lbl" htmlFor="seed-in">Semilla</label>
@@ -253,6 +272,16 @@ export function SeedSheet() {
           <Picker id="seed-arch" value={arch ?? ''} label="Estilo" labelId="seed-arch-l" minWidth={280} onChange={v => setArch(v || null)}
             options={[{ value: '', label: 'Cualquiera (según el espacio)', desc: 'El dado elige entre los estilos de este espacio.' }, ...ARCHETYPES.map(a => ({ value: a.id, label: a.name, desc: a.blurb }))]} />
         </div>
+        <div className="ctl cx">
+          <span className="lbl" id="seed-gen-l">Generador</span>
+          <Picker id="seed-gen" value={gen} label="Versión del generador" labelId="seed-gen-l" describedBy="seed-gen-note" minWidth={280} onChange={g => setPicked(g)}
+            options={[...GEN_VERSIONS].reverse().map(g => ({ value: g, label: genLabel(g), desc: GEN_INFO[g]?.desc }))} />
+        </div>
+        <p className="note" id="seed-gen-note">
+          {cur && curGen !== GEN_VERSION
+            ? `La pieza en pantalla salió de la versión ${curGen} del generador: con esa versión, su semilla la repite. Con la actual, la misma semilla teje otra.`
+            : 'Cada versión del generador teje distinto la misma semilla. Tu historial y tu colección guardan la receta completa: no dependen de la versión.'}
+        </p>
         <div className="row2">
           <button type="button" className="btn" onClick={() => setV(freshSeed())}>Inventar una</button>
           <button type="button" className="btn primary" onClick={go}>Tejer esta semilla</button>

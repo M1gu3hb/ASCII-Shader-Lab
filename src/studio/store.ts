@@ -289,10 +289,18 @@ function pushEntry(e: Omit<Entry, 'id' | 'created' | 'edited' | 'origin'> & { or
   return entry;
 }
 
-export function rollDice(seed?: string) {
+/** The latest results of the current space, oldest first: the dice make repeating them less likely. */
+function recentIn(s: State, n = 10): Recipe[] {
+  const out: Recipe[] = [];
+  for (let i = s.entries.length - 1; i >= 0 && out.length < n; i--) if (s.entries[i].space === s.space) out.push(s.entries[i].recipe);
+  return out.reverse();
+}
+
+/** A new result from the dice; `seed` (and its generator version `gen`) reproduces a given one. */
+export function rollDice(seed?: string, gen?: number) {
   const s = S();
   const base = currentRecipe(s);
-  const res = roll({ space: s.space, arch: s.arch ?? undefined, base, locks: s.locks, seen, seed });
+  const res = roll({ space: s.space, arch: s.arch ?? undefined, base, locks: s.locks, seen, seed, gen, recent: recentIn(s) });
   seen.add(res.fp);
   return pushEntry({ recipe: res.recipe, kind: 'azar', seed: res.seed, arch: res.recipe.meta.arch, space: s.space });
 }
