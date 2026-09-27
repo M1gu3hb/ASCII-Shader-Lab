@@ -325,6 +325,11 @@ test.describe('caminos', () => {
     await welcome(page).getByRole('button', { name: 'Animar una palabra' }).click();
     await expect(stepTitle(page)).toContainText('Escribe tu palabra');
     await expect(page.getByRole('button', { name: 'Tipo', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    // going to another space lets the guide step aside, with the piece and the panel
+    await page.getByRole('button', { name: 'Arte', exact: true }).click();
+    await expect(guide(page)).toHaveCount(0);
+    await expect(page.getByRole('tablist', { name: 'Secciones' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guías' })).not.toHaveAttribute('data-on');
   });
 });
 
