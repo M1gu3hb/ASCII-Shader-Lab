@@ -1,43 +1,34 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SOURCE_NAMES } from '../engine/catalog';
 import { EngineNotes, StageFatal } from './BasicMode';
 import { mountStudioEngine, destroyStudioEngine } from './engineBridge';
 import { handleFile, pickFile } from './files';
 import { startCamera, useMedia } from './media';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
-import { previewInk } from './guide/paths';
+import { useView } from './views/state';
+import { ViewBar, ViewStage, useStageInsets } from './views/Views';
 
 export function Stage() {
-  // the bridge creates the canvas inside this container (it may replace it if WebGL fails late)
-  const host = useRef<HTMLDivElement>(null);
+  // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
+  // inside it if WebGL fails late) and moved into the slot of the destination preview shown
+  const host = useMemo(() => {
+    const el = document.createElement('div');
+    el.className = 'cv-host';
+    el.setAttribute('role', 'img');
+    return el;
+  }, []);
   const wrap = useRef<HTMLDivElement>(null);
+  const top = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState(false);
-  const space = useStudio(s => s.space);
-  const term = useStudio(s => s.ui.terminal);
   const recipe = useRecipe();
-  const terminal = space === 'terminal';
-  const [fit, setFit] = useState({ w: 800, h: 480, k: 1 });
+  const view = useView() ?? 'libre';
+  const ins = useStageInsets(wrap, top);
 
   useEffect(() => {
-    if (!host.current) return;
-    mountStudioEngine(host.current);
+    mountStudioEngine(host);
     return () => destroyStudioEngine();
-  }, []);
-
-  // terminal window: exact cols×rows in CSS pixels, scaled to fit the stage
-  useLayoutEffect(() => {
-    if (!terminal || !recipe || !wrap.current) return;
-    const measure = () => {
-      const el = wrap.current!;
-      const w = term.cols * recipe.glyph.cell, h = Math.round(term.rows * recipe.glyph.cell * recipe.glyph.aspect);
-      const aw = el.clientWidth - 36, ah = el.clientHeight - (window.innerWidth < 900 ? 190 : 150);
-      setFit({ w, h, k: Math.min(1, aw / w, (ah - 30) / h) });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(wrap.current);
-    return () => ro.disconnect();
-  }, [terminal, term.cols, term.rows, recipe?.glyph.cell, recipe?.glyph.aspect]);
+  }, [host]);
+  useEffect(() => { host.setAttribute('aria-label', describe(recipe)); }, [host, recipe]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -49,25 +40,20 @@ export function Stage() {
   return (
     <div
       ref={wrap}
-      className={'stage' + (drag ? ' dragging' : '')}
+      className={'stage view-' + view + (drag ? ' dragging' : '')}
       onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrag(true); } }}
       onDragLeave={e => { if (e.currentTarget === e.target) setDrag(false); }}
       onDrop={onDrop}
     >
-      <div className={terminal ? 'term-frame' : 'stage'}>
-        <div className={terminal ? 'term-win' : 'stage'} style={terminal ? { transform: `scale(${fit.k})` } : undefined}>
-          {terminal && <div className="term-bar" aria-hidden="true"><i /><i /><i /><span>monotrama — {term.cols}×{term.rows}</span></div>}
-          <div key="cv" className={terminal ? 'term-canvas' : 'stage'} style={terminal ? { width: fit.w, height: fit.h } : undefined}>
-            <div ref={host} className="cv-host" role="img" aria-label={describe(recipe)} />
-          </div>
-        </div>
-      </div>
+      <ViewStage view={view} host={host} ins={ins} />
       <StageFatal />
       <MediaPrompt />
-      <ContentPreview />
-      <div className="stage-notes">
-        <EngineNotes />
-        <MotionNote />
+      <div className="stage-top" ref={top}>
+        <ViewBar view={view} />
+        <div className="stage-notes">
+          <EngineNotes />
+          <MotionNote />
+        </div>
       </div>
     </div>
   );
@@ -143,26 +129,6 @@ function MediaPrompt() {
         {media.error && <p className="warn" style={{ marginTop: 12 }}>{media.error}</p>}
         <p className="privacy">Se procesa en tu navegador. Nada se sube a ningún servidor.</p>
       </div>
-    </div>
-  );
-}
-
-/**
- * Test content over a background: a headline, a paragraph and a button. The text colour follows
- * previewInk, the same rule the fondo guide uses to estimate the headline's contrast.
- */
-function ContentPreview() {
-  const on = useStudio(s => s.ui.preview && s.space === 'fondos');
-  const bg = useStudio(s => s.entries[s.cursor]?.recipe.color.bg ?? '#000');
-  if (!on) return null;
-  const ink = previewInk(bg);
-  const style = { '--pc': ink, '--pcb': ink === '#ffffff' ? '#111111' : '#ffffff' } as React.CSSProperties;
-  return (
-    <div className="preview-content" style={style} aria-hidden="true">
-      <div className="pc-nav"><span>Tu marca</span><span>Proyectos · Estudio · Contacto</span></div>
-      <h1>Un titular que se lee sin esfuerzo</h1>
-      <p>Así se verá tu fondo detrás de contenido real. Si cuesta leer, baja el contraste o sube el tamaño de celda.</p>
-      <span className="pc-btn">Botón principal</span>
     </div>
   );
 }
