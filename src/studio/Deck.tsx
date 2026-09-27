@@ -19,10 +19,9 @@ import { setTransitionChoice, setTransitionPace, usePreview, type TransitionChoi
 import { TRANSITIONS } from '../engine/transitions';
 import './css/azar.css';
 
+/** A new roll (the Deck announces it, like every move through the history). */
 export function dice() {
-  const e = rollDice();
-  const s = useStudio.getState();
-  announce(`Resultado ${s.cursor + 1}: ${e.seed?.replace(/-/g, ' ') ?? ''}, estilo ${archById(e.arch)?.name ?? ''}`);
+  rollDice();
 }
 
 export async function favorite() {
@@ -69,6 +68,15 @@ export function Deck() {
   }, [cursor, entries.length]);
   useEffect(() => startThumbs(), []);
   useStripRange(strip, entries.length);
+  // moving through the history (arrows, thumbnails, ← →) or a new roll of the dice: say where you are
+  const moved = useStudio(s => (s.change.kind === 'nav' || s.change.kind === 'roll' ? s.change.n : 0));
+  const was = useRef(cursor);
+  useEffect(() => {
+    if (!moved || was.current === cursor || !e) { was.current = cursor; return; }
+    was.current = cursor;
+    const arch = e.kind === 'azar' ? archById(e.arch)?.name : undefined;
+    announce(`Resultado ${cursor + 1} de ${entries.length}: ${e.label ?? e.seed?.replace(/-/g, ' ') ?? spaceById(e.space).name}${arch ? `, estilo ${arch}` : ''}${e.edited ? ', editado' : ''}`);
+  }, [moved]); // only when the history moves (entries and e are read at that moment)
 
   return (
     <>

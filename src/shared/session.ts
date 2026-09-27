@@ -5,6 +5,8 @@
  *   medios/<id>-<name>   the local images and videos they use (optional)
  *   LEEME.txt            what it is and how to open it
  * Entries and favourites are passed through as plain data; the studio normalises them on import.
+ * A collection backup is the same archive with `scope: 'collection'`, no entries and only the media the
+ * collection uses (older studios open it as a session that adds pieces to the collection).
  */
 import { SITE_URL } from './site';
 import { normMediaRef } from '../engine/recipe';
@@ -25,9 +27,13 @@ export interface SessionMedia {
 }
 
 export interface SessionData { entries: unknown[]; favorites: unknown[]; cursor: number }
+/** What an archive holds: the whole session, or only the collection. */
+export type SessionScope = 'all' | 'collection';
 
 const pad = (n: number) => String(n).padStart(2, '0');
-export const sessionFileName = (d = new Date()) => `monotrama-sesion-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.zip`;
+const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const sessionFileName = (d = new Date()) => `monotrama-sesion-${ymd(d)}.zip`;
+export const collectionFileName = (d = new Date()) => `monotrama-coleccion-${ymd(d)}.zip`;
 
 /** The studio's history limit (studio/history.ts HISTORY_LIMIT), for the LEEME. */
 const LIMIT = 1000;
@@ -48,17 +54,31 @@ const readme = (n: number, favs: number, media: number) => [
   '',
 ].join('\r\n');
 
-export async function buildSession(data: SessionData, media: Array<SessionMedia & { data: Blob | Uint8Array }> = []): Promise<Blob> {
+const readmeCollection = (favs: number, media: number) => [
+  'Monotrama · colección guardada',
+  '==============================',
+  '',
+  `${count(favs, 'pieza', 'piezas')} de tu colección (lo que guardaste con ★)${media ? `, con ${count(media, 'archivo', 'archivos')} de imagen o video que usan` : ''}.`,
+  '',
+  `Para abrirla: en el estudio (${SITE_URL}/studio/) arrastra este .zip sobre el lienzo,`,
+  'o usa «Colección» → «Importar receta, colección o proyecto». Las piezas se añaden a tu colección;',
+  'las que ya tengas no se duplican (se queda la versión cambiada más tarde).',
+  '',
+  'Todo se procesa en tu navegador: nada se sube a ningún servidor.',
+  '',
+].join('\r\n');
+
+export async function buildSession(data: SessionData, media: Array<SessionMedia & { data: Blob | Uint8Array }> = [], scope: SessionScope = 'all'): Promise<Blob> {
   const packed = media.map(m => ({ ...m, path: `${MEDIA_DIR}${m.id}-${safeFileName(m.name, m.kind === 'video' ? 'video' : 'imagen')}` }));
   const doc = {
-    monotrama: 'session', version: 1, exported: new Date().toISOString(),
+    monotrama: 'session', version: 1, exported: new Date().toISOString(), ...(scope === 'collection' ? { scope } : {}),
     cursor: data.cursor, entries: data.entries, favorites: data.favorites,
     media: packed.map(({ data: _d, ...meta }) => meta),
   };
   return zip([
     { name: SESSION_FILE, data: JSON.stringify(doc) },
     ...packed.map(m => ({ name: m.path, data: m.data })),
-    { name: README, data: readme(data.entries.length, data.favorites.length, media.length) },
+    { name: README, data: scope === 'collection' ? readmeCollection(data.favorites.length, media.length) : readme(data.entries.length, data.favorites.length, media.length) },
   ]);
 }
 
@@ -69,7 +89,7 @@ export function isSession(files: ZipEntry[]): boolean {
 }
 
 /** Opens a session archive. Media are read on demand. Returns null when it is not a session. */
-export async function readSession(files: ZipEntry[]): Promise<{ data: SessionData; media: Array<{ meta: SessionMedia; read: () => Promise<Uint8Array> }> } | null> {
+export async function readSession(files: ZipEntry[]): Promise<{ data: SessionData; scope: SessionScope; media: Array<{ meta: SessionMedia; read: () => Promise<Uint8Array> }> } | null> {
   const f = files.find(x => baseName(x.name) === SESSION_FILE && !x.name.startsWith('__MACOSX/'));
   if (!f) return null;
   let doc: Record<string, unknown>;
@@ -89,6 +109,7 @@ export async function readSession(files: ZipEntry[]): Promise<{ data: SessionDat
     });
   }
   return {
+    scope: doc.scope === 'collection' ? 'collection' : 'all',
     data: {
       entries: doc.entries,
       favorites: Array.isArray(doc.favorites) ? doc.favorites : [],
