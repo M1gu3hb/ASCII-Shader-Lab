@@ -14,7 +14,7 @@ import '@fontsource/space-mono/latin-400.css';
 import '@fontsource/vt323/latin-400.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
 import {
-  AsciiEngine, BasicEngine, PATTERNS, PATTERN_GLSL, createFontLoader, createRenderer, defaultRecipe, explainWebGL, probeWebGL,
+  AsciiEngine, BasicEngine, PATTERNS, PATTERN_GLSL, createFontLoader, createRendererWith, defaultRecipe, explainWebGL, probeWebGL,
   unsupportedFeatures, type GridSnapshot, type Recipe, type Renderer,
 } from '../src/engine';
 import { PRESETS } from '../src/studio/presets';
@@ -325,7 +325,7 @@ async function diagnostics(): Promise<Check[]> {
   const probe = () => probeWebGL({ fresh: true });
   const mk = (force?: 'basic') => {
     const c = document.createElement('canvas'); c.width = 64; c.height = 36; document.body.append(c);
-    const res = createRenderer(c, defaultRecipe(), { library: PATTERN_GLSL, fonts, fixedSize: { width: 64, height: 36, pixelRatio: 1 }, autoplay: false, interactive: false }, force ? { force } : {});
+    const res = createRendererWith(BasicEngine, c, defaultRecipe(), { library: PATTERN_GLSL, fonts, fixedSize: { width: 64, height: 36, pixelRatio: 1 }, autoplay: false, interactive: false }, force ? { force } : {});
     res.renderer.renderAt(1);
     const g = res.renderer.readGrid();
     const info = { kind: res.renderer.kind, reason: res.status.reason, detail: res.status.detail, grid: `${g.cols}x${g.rows}`, sameCanvas: res.renderer.canvas === c, inDom: res.renderer.canvas.isConnected };

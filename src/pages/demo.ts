@@ -23,9 +23,9 @@ const frame = () => new Promise(r => requestAnimationFrame(r));
 interface Playable { playing: () => boolean; toggle: () => void }
 
 /** The best renderer this browser can run; null only when not even Canvas 2D works. */
-function mount(canvas: HTMLCanvasElement, r: Recipe, o: Omit<EngineOptions, 'library' | 'fonts'>): { renderer: Renderer; status: GLStatus } | null {
+async function mount(canvas: HTMLCanvasElement, r: Recipe, o: Omit<EngineOptions, 'library' | 'fonts'>): Promise<{ renderer: Renderer; status: GLStatus } | null> {
   try {
-    return createRenderer(canvas, r, { library: PATTERN_GLSL, fonts, ...o });
+    return await createRenderer(canvas, r, { library: PATTERN_GLSL, fonts, ...o });
   } catch {
     return null;
   }
@@ -59,7 +59,7 @@ async function mountCanvas(el: HTMLElement, ex: Example, reduced: boolean): Prom
   box.appendChild(canvas);
   const r = ex.recipe();
   if (reduced) r.interact.auto = false; // a still frame: no wandering pointer either
-  const made = mount(canvas, r, {
+  const made = await mount(canvas, r, {
     observeVisibility: true, reducedMotion: reduced, maxPixelRatio: 1.5, pointerTarget: 'canvas',
   });
   if (!made) { canvas.remove(); return null; }
@@ -113,7 +113,7 @@ async function mountGrid(el: HTMLElement, ex: Example, reduced: boolean): Promis
   if (!pre || !ex.grid) return null;
   const r = ex.recipe();
   const { width, height } = gridSize(r, ex.grid.cols, ex.grid.rows);
-  const made = mount(document.createElement('canvas'), r, { fixedSize: { width, height, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false });
+  const made = await mount(document.createElement('canvas'), r, { fixedSize: { width, height, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false });
   if (!made) return null;
   const engine = made.renderer;
   if (engine.kind === 'basic') noteBasic(el, made.status);

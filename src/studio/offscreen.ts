@@ -21,7 +21,7 @@ export function stageSize(): { cssW: number; cssH: number } {
 export async function offscreenEngine(recipe: Recipe, size: OffscreenSize, opts: { transparent?: boolean } = {}): Promise<Renderer> {
   const canvas = document.createElement('canvas');
   const basic = (getEngine()?.kind ?? useCaps.getState().renderer) === 'basic';
-  const { renderer: eng } = createRenderer(canvas, recipe, {
+  const { renderer: eng } = await createRenderer(canvas, recipe, {
     library: PATTERN_GLSL, fonts: studioFonts, fixedSize: { width: size.cssW, height: size.cssH, pixelRatio: size.pixelRatio },
     autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true, alpha: true,
   }, basic ? { force: 'basic' } : {});
