@@ -25,6 +25,7 @@ export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes
   const x = cloneRecipe(r);
   const notes: string[] = [];
   x.meta = { name: r.meta.name, seed: r.meta.seed };
+  delete x.media.ref; // the local file's name and id stay in the studio (privacy); the code takes a media URL
   if (o.systemFont) {
     if (x.glyph.font !== 'system') notes.push('Tipografía cambiada a la mono del sistema: cero peticiones externas.');
     x.glyph.font = 'system';
