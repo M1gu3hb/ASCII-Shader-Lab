@@ -59,7 +59,7 @@ export const GUIDES: Guide[] = [
   {
     id: 'video', path: '/video-a-ascii/', short: 'Video', name: 'Video y cámara a ASCII',
     blurb: 'Un video o tu cámara en caracteres, en tiempo real.',
-    cta: { href: '/studio/#space=media', label: 'Convertir un video' },
+    cta: { href: '/studio/#space=media&source=video', label: 'Convertir un video' },
     poster: '/ex/video-a-ascii', posterAlt: 'Fotograma de un paisaje en movimiento convertido en caracteres verdes de fósforo, con líneas de barrido',
   },
   {
