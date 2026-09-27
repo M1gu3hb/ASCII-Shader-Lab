@@ -30,7 +30,11 @@ export function Sheet({ open, title, sub, onClose, children, wide }: { open: boo
     if (!open && d.open) d.close();
   }, [open]);
   return (
-    <dialog ref={ref} className={'sheet' + (wide ? ' wide' : '')} onClose={onClose}
+    <dialog ref={ref} className={'sheet' + (wide ? ' wide' : '')}
+      // Escape: 'cancel' comes at once; 'close' may come late on a busy page, when another sheet may
+      // already be open: only a sheet that is still open closes itself
+      onCancel={() => { if (open) onClose(); }}
+      onClose={() => { if (open) onClose(); }}
       onClick={e => { if (e.target === ref.current) onClose(); }} onKeyDown={e => trapTab(e, ref.current)} aria-label={title}>
       {open && (
         <>
