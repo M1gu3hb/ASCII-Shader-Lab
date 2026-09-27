@@ -3,13 +3,19 @@
  * Bundled + minified by scripts/runtime-plugin.ts and inlined into exported code.
  *   Monotrama.register(patterns)            add GLSL pattern chunks
  *   Monotrama.mount(canvasOrElementOrSelector, recipe, options) → controller
- *   <monotrama-field recipe='{…}' poster="imagen.png"></monotrama-field>
+ *   <monotrama-field recipe='{…}' poster="imagen.png" scrim="gradient"></monotrama-field>
  * It never throws into the host page: without WebGL 2 it shows the recipe's background colour and,
  * when given, the poster image (options.poster / poster attribute), and returns a controller that does nothing.
+ * options.scrim (attributes scrim, scrim-color, scrim-opacity, scrim-blur) adds the «zona protegida»: a
+ * layer over the whole background ('full') or fading from where text usually sits ('gradient').
  */
 import { AsciiEngine } from '../engine/engine';
 import { normalizeRecipe, type Recipe } from '../engine/recipe';
 import type { PatternLibrary } from '../engine/glsl/patterns';
+import { gradientSide, scrimCss } from '../shared/scrim';
+
+/** The protected zone: colour, opacity (0..1), backdrop blur in px and shape. */
+interface ScrimOption { color: string; opacity: number; blur: number; shape: 'full' | 'gradient' }
 
 interface MountOptions {
   patterns?: PatternLibrary;
@@ -19,6 +25,8 @@ interface MountOptions {
   paused?: boolean;
   /** Image shown when WebGL 2 is not available. */
   poster?: string;
+  /** A layer between the background and the page's text, which darkens (or lightens) and blurs the glyphs. */
+  scrim?: ScrimOption | null;
 }
 
 interface Controller {
@@ -44,6 +52,24 @@ function toCanvas(target: HTMLCanvasElement | HTMLElement | string): { canvas: H
   return { canvas: c, created: true };
 }
 
+/**
+ * Adds the protected zone over the canvas (inside the same box). A gradient fades from the left in a
+ * wide box and from the bottom in a tall one, and follows the box as it resizes. Returns its remover.
+ */
+function addScrim(canvas: HTMLCanvasElement, s: ScrimOption | null | undefined): () => void {
+  if (!s || (s.shape !== 'full' && s.shape !== 'gradient') || !(s.opacity > 0 || s.blur > 0)) return () => {};
+  const box = canvas.parentElement ?? ((canvas.getRootNode() as ShadowRoot).host as HTMLElement | undefined);
+  const el = document.createElement('div');
+  el.setAttribute('aria-hidden', 'true');
+  const z = { color: String(s.color || '#000000'), opacity: Math.max(0, Math.min(1, +s.opacity || 0)), blur: Math.max(0, Math.min(40, +s.blur || 0)), shape: s.shape };
+  const paint = () => { el.style.cssText = 'position:absolute;inset:0;pointer-events:none;' + scrimCss(z, gradientSide(box?.clientWidth || 1, box?.clientHeight || 1)); };
+  paint();
+  canvas.after(el);
+  const ro = z.shape === 'gradient' && box && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(paint) : null;
+  if (ro && box) ro.observe(box);
+  return () => { ro?.disconnect(); el.remove(); };
+}
+
 function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown, o: MountOptions = {}): Controller | null {
   const r: Recipe = normalizeRecipe(recipe);
   const found = toCanvas(target);
@@ -54,7 +80,8 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
   const { canvas, created } = found;
   const still = reduced() || !!o.paused;
   const calm = (x: Recipe) => { if (still) x.interact.auto = false; return x; }; // no wandering ghost pointer when motion is reduced
-  const remove = () => { if (created) canvas.remove(); };
+  const unscrim = addScrim(canvas, o.scrim);
+  const remove = () => { unscrim(); if (created) canvas.remove(); };
   let engine: AsciiEngine;
   try {
     engine = new AsciiEngine(canvas, calm(r), {
@@ -112,13 +139,20 @@ class MonotramaField extends HTMLElement {
       media: this.getAttribute('src') || undefined,
       paused: this.hasAttribute('paused'),
       poster: this.getAttribute('poster') || undefined,
+      scrim: this.scrim(),
     });
   }
   disconnectedCallback() { this.ctl?.destroy(); this.ctl = null; }
+  private scrim(): ScrimOption | null {
+    const shape = this.getAttribute('scrim');
+    if (shape !== 'full' && shape !== 'gradient') return null;
+    const num = (name: string, fb: number) => { const v = parseFloat(this.getAttribute(name) ?? ''); return Number.isFinite(v) ? v : fb; };
+    return { shape, color: this.getAttribute('scrim-color') || '#000000', opacity: num('scrim-opacity', 0.6), blur: num('scrim-blur', 4) };
+  }
 }
 
 const api = {
-  version: '2.1.0',
+  version: '2.2.0',
   register: (p: PatternLibrary) => { Object.assign(registry, p); },
   mount,
 };

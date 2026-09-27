@@ -1,7 +1,8 @@
 /**
  * Guided paths, the pure part: what each path is and the recipe transformations its steps apply
- * (Presencia, light or dark photo background, word, rhythm), plus the legibility estimate and the
- * values the comparison strips offer. No DOM and no store here, so every rule can be tested alone.
+ * (Presencia, light or dark photo background, word, rhythm) and the values the comparison strips
+ * offer (the legibility estimate lives in views/readability.ts). No DOM and no store here, so every
+ * rule can be tested alone.
  */
 import { cloneRecipe, type Recipe } from '../../engine/recipe';
 import { contrastRatio, hexToRgb, luminance, oklabToRgb, rgbToHex, rgbToOklab } from '../../engine/color';
@@ -150,47 +151,6 @@ export function applyPresence(into: Recipe, from: Recipe) {
 }
 
 export const presenceWord = (p: number) => (p < 0.35 ? 'sutil' : p <= 0.65 ? 'equilibrada' : 'protagonista');
-
-/* ------------------------------------------------------------------ */
-/* Legibility estimate                                                  */
-/* ------------------------------------------------------------------ */
-
-export type Legibility = 'buena' | 'justa' | 'baja';
-
-const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
-
-/**
- * Estimated WCAG contrast between a text colour and the rendered background behind it (RGBA
- * pixels, `w`×`h`). The background is averaged in blocks of `block` px (the eye blends the glyph
- * texture at reading size) and the estimate is the contrast against the worst tenth of those
- * blocks, so a few bright patches under the headline count. An estimate, not a WCAG audit.
- */
-export function legibility(data: ArrayLike<number>, w: number, h: number, textHex: string, block = 8): { ratio: number; level: Legibility } {
-  const lt = luminance(textHex);
-  const bw = Math.max(1, Math.ceil(w / block)), bh = Math.max(1, Math.ceil(h / block));
-  const sum = new Float64Array(bw * bh), cnt = new Uint32Array(bw * bh);
-  for (let y = 0; y < h; y++) {
-    const by = Math.floor(y / block) * bw;
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const a = (data[i + 3] ?? 255) / 255;
-      const Y = 0.2126 * lin(data[i] / 255) + 0.7152 * lin(data[i + 1] / 255) + 0.0722 * lin(data[i + 2] / 255);
-      const b = by + Math.floor(x / block);
-      sum[b] += Y * a; cnt[b]++;
-    }
-  }
-  const ratios: number[] = [];
-  for (let i = 0; i < sum.length; i++) {
-    if (!cnt[i]) continue;
-    const lb = sum[i] / cnt[i];
-    ratios.push((Math.max(lt, lb) + 0.05) / (Math.min(lt, lb) + 0.05));
-  }
-  if (!ratios.length) return { ratio: 1, level: 'baja' };
-  ratios.sort((a, b) => a - b);
-  const raw = ratios[Math.floor((ratios.length - 1) * 0.1)];
-  // shown with one decimal, rounded down: 4.48 must not read as a passing 4.5
-  return { ratio: Math.floor(raw * 10 + 1e-9) / 10, level: raw >= 4.5 ? 'buena' : raw >= 3 ? 'justa' : 'baja' };
-}
 
 /* ------------------------------------------------------------------ */
 /* Photo background (foto, step 3)                                     */

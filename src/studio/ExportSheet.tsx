@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Recipe } from '../engine/recipe';
+import { cloneRecipe, type Recipe } from '../engine/recipe';
 import { byteSize, gridToAnsi, gridToHtml, gridToHtmlPage, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
 import { recipeFile, shareUrl } from '../shared/share';
 import { imageFormats, recorderLabel, useCaps, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
@@ -14,13 +14,16 @@ import { toast } from './toast';
 import { archById } from '../random/archetypes';
 import { spaceById } from '../random/spaces';
 import { Glossary } from './Glossary';
+import { renderThumbs, stageSize } from './offscreen';
 import { exportProject, fmtSize, projectMedia, slug } from './packages';
-import { shareLink } from './ShareSheet';
+import { ShareKinds, shareLink } from './ShareSheet';
 import './css/basic.css';
+import './css/export-notes.css';
 import { takeExportRequest, type ExportRequest } from './exportTab';
 import { SegGroup } from './controls';
 import { Picker, type PickOpt } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -61,11 +64,13 @@ export function ExportSheet() {
 }
 
 function Busy({ p, label, onCancel }: { p: number; label?: string; onCancel?: () => void }) {
+  // the bar says the percentage; only the stage (preparing, encoding…) is announced, not every percent
   return (
-    <div aria-live="polite">
-      <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}><i style={{ '--v': Math.round(p * 100) + '%' } as React.CSSProperties} /></div>
+    <div>
+      <span className="sr-only" role="status">{label ?? 'Trabajando…'}</span>
+      <div className="progress" role="progressbar" aria-label={label ?? 'Progreso'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}><i style={{ '--v': Math.round(p * 100) + '%' } as React.CSSProperties} /></div>
       <div className="row" style={{ justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
-        <span>{label ?? 'Trabajando…'} {Math.round(p * 100)} %</span>
+        <span aria-hidden="true">{label ?? 'Trabajando…'} {Math.round(p * 100)} %</span>
         {onCancel && <button type="button" className="mini" onClick={onCancel}>Cancelar</button>}
       </div>
     </div>
@@ -376,6 +381,45 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
 
 /* ------------------------------------------------------------------ */
 
+/** Screen effects the SVG cannot carry (it has no pixels to blur, glow or bend). */
+const PIXEL_FX = ['glow', 'bloom', 'scan', 'curve', 'chroma', 'grain', 'flicker', 'vig'] as const;
+const FX_NAME: Record<(typeof PIXEL_FX)[number], string> = { glow: 'resplandor', bloom: 'bloom', scan: 'barrido', curve: 'curvatura', chroma: 'aberración', grain: 'grano', flicker: 'parpadeo', vig: 'viñeta' };
+const listEs = (xs: string[]) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1]);
+
+/**
+ * The current frame and the same frame without pixel effects, side by side, so the difference is seen
+ * before downloading (the SVG is made of the characters and their colours only).
+ */
+function SvgCompare({ r, used }: { r: Recipe; used: string[] }) {
+  const [urls, setUrls] = useState<[string | null, string | null]>([null, null]);
+  const { cssW, cssH } = stageSize();
+  useEffect(() => {
+    const sig = { cancelled: false };
+    const clean = cloneRecipe(r);
+    for (const k of PIXEL_FX) clean.fx[k] = 0;
+    setUrls([null, null]);
+    void renderThumbs([r, clean], 300, (i, url) => setUrls(u => (i ? [u[0], url] : [url, u[1]])), sig);
+    return () => { sig.cancelled = true; };
+  }, [r]);
+  const box = { aspectRatio: `${cssW} / ${cssH}` };
+  return (
+    <div className="svg-fx" role="note">
+      <p><b>Antes de exportar:</b> tu pieza usa {listEs(used)}, efectos de píxel que no existen en un SVG. El SVG se verá como la imagen de la derecha.</p>
+      <div className="svg-cmp">
+        <figure>
+          {urls[0] ? <img src={urls[0]} alt="El fotograma actual, con sus efectos" style={box} /> : <span className="svg-wait" style={box}>Preparando…</span>}
+          <figcaption>La vista, con efectos</figcaption>
+        </figure>
+        <figure>
+          {urls[1] ? <img src={urls[1]} alt="El mismo fotograma sin efectos de píxel, como saldrá el SVG" style={box} /> : <span className="svg-wait" style={box}>Preparando…</span>}
+          <figcaption>El SVG, sin efectos de píxel</figcaption>
+        </figure>
+      </div>
+      <p className="note">Si los necesitas, exporta PNG (pestaña Imagen): los conserva.</p>
+    </div>
+  );
+}
+
 function VectorTab() {
   const e = useCurrent();
   const [mode, setMode] = useState<'outline' | 'text'>('outline');
@@ -383,6 +427,7 @@ function VectorTab() {
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
   if (!e) return null;
+  const used = PIXEL_FX.filter(k => e.recipe.fx[k] > 0.02).map(k => FX_NAME[k]);
   const go = async () => {
     setBusy(true);
     try {
@@ -398,21 +443,22 @@ function VectorTab() {
     <div className="ex-grid">
       <div className="ex-card">
         <h3>SVG vectorial</h3>
-        <p>Cada carácter se convierte en su contorno real; escala sin límite y se abre igual en Figma, Illustrator o el navegador.</p>
+        <p>Cada carácter se convierte en su contorno real: escala sin perder nitidez. Comprobado en navegadores, Inkscape y rsvg; en Figma o Illustrator no se ha probado.</p>
+        {used.length > 0 ? <SvgCompare r={e.recipe} used={used} /> : <p className="note">Esta pieza no usa efectos de píxel: el SVG se verá como la vista.</p>}
         <div className="ctl"><span className="lbl">Caracteres como</span>
           <div className="seg">
             <button type="button" aria-pressed={mode === 'outline'} onClick={() => setMode('outline')}>Contornos (fiel)</button>
             <button type="button" aria-pressed={mode === 'text'} onClick={() => setMode('text')}>Texto editable</button>
           </div></div>
         <label className="toggle"><span>Sin fondo</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
-        <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Trazando…' : 'Descargar SVG'}</button>
+        <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Trazando…' : used.length ? 'Descargar SVG (sin efectos de píxel)' : 'Descargar SVG'}</button>
         {notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       </div>
       <div className="ex-card">
         <h3>Qué es fiel y qué no</h3>
         <p>Sí: caracteres, colores, fondo, relleno de celda y placas de mensaje.</p>
-        <p>No: resplandor, bloom, barrido, curvatura, grano, viñeta y aberración — son efectos de píxel. Si tu pieza los usa, el SVG se verá más limpio que la vista; para conservarlos exporta PNG.</p>
-        <p>«Texto editable» usa texto real (necesita la tipografía instalada donde lo abras).</p>
+        <p>No: resplandor, bloom, barrido, curvatura, grano, viñeta, parpadeo y aberración: son efectos de píxel. Si tu pieza los usa, el SVG se verá más limpio que la vista; para conservarlos exporta PNG.</p>
+        <p>«Texto editable» usa texto real: necesita la tipografía instalada donde lo abras, o se verá con otra.</p>
       </div>
     </div>
   );
@@ -528,14 +574,17 @@ function CodeTab() {
   const basic = useCaps(s => s.renderer === 'basic');
   const codeRef = useRef<HTMLTextAreaElement>(null);
   const { copy, manual } = useCopy();
+  const zone = useExportScrim();
+  const [withZone, setWithZone] = useState(true);
   useEffect(() => { void import('../exporters/code').then(setMod); }, []);
-  const opts = { placement, interactive, systemFont, height: 420, mediaUrl };
+  const scrim = withZone ? zone : null;
+  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim };
   const out = useMemo(() => {
     if (!mod || !e) return null;
     if (kind === 'html') { const r = mod.htmlSnippet(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'monotrama.html', extra: null as string | null }; }
     if (kind === 'wc') { const r = mod.webComponent(e.recipe, opts); return { code: r.usage, notes: r.notes, file: 'monotrama-field.js', extra: r.file }; }
     const r = mod.reactComponent(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'MonotramaBackground.jsx', extra: null };
-  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl]);
+  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim]);
   if (!e) return null;
   const isMedia = e.recipe.source === 'image' || e.recipe.source === 'video';
   const poster = async () => {
@@ -559,6 +608,7 @@ function CodeTab() {
       <div className="row" style={{ gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
         <label className="toggle" style={{ margin: 0 }}><span>Reacciona al cursor</span><span className="switch"><input type="checkbox" role="switch" checked={interactive} onChange={ev => setInteractive(ev.target.checked)} /><span /></span></label>
         <label className="toggle" style={{ margin: 0 }}><span>Sin dependencias externas</span><span className="switch"><input type="checkbox" role="switch" checked={systemFont} onChange={ev => setSystemFont(ev.target.checked)} /><span /></span></label>
+        {zone && <label className="toggle" style={{ margin: 0 }}><span>Zona protegida</span><span className="switch"><input type="checkbox" role="switch" checked={withZone} onChange={ev => setWithZone(ev.target.checked)} /><span /></span></label>}
         {isMedia && <input type="text" className="mono" aria-label={e.recipe.source === 'image' ? 'URL de tu imagen en tu web' : 'URL de tu video en tu web'} placeholder={e.recipe.source === 'image' ? 'URL de tu imagen' : 'URL de tu video'} value={mediaUrl} onChange={ev => setMediaUrl(ev.target.value)} style={{ flex: 1, minWidth: 200, background: 'var(--field)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px' }} />}
       </div>
       {basic && (
@@ -567,6 +617,7 @@ function CodeTab() {
           <button type="button" className="btn" onClick={() => void poster()}>Descargar póster (PNG)</button>
         </div>
       )}
+      <ScrimCodeNote zone={zone} on={withZone} />
       {out?.notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       <textarea ref={codeRef} className="code" readOnly value={out?.code ?? 'Preparando…'} aria-label="Código" onFocus={ev => ev.currentTarget.select()} />
       <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
@@ -601,6 +652,8 @@ function RecipeTab() {
   const arch = archById(e.arch)?.name;
   return (
     <>
+      <h3 className="data-h">Enlace o proyecto: qué lleva cada uno</h3>
+      <ShareKinds word={media ? word : undefined} />
       <div className="ex-grid">
         <div className="ex-card">
           <h3>Semilla</h3>
@@ -617,7 +670,7 @@ function RecipeTab() {
         </div>
         <div className="ex-card">
           <h3>Enlace</h3>
-          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve exactamente esta pieza y puede seguir editándola.</p>
+          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve esta pieza y puede seguir editándola{media ? `, pero con ${video ? 'un video suyo' : 'una imagen suya'}` : ''}.</p>
           {media && <p className="warn">El enlace no lleva {word} ni su nombre: quien lo abra verá el patrón de fondo hasta que elija {video ? 'un video suyo' : 'una imagen suya'}. Para enviarla completa, exporta el proyecto.</p>}
           <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace" />
           <button type="button" className="btn primary" style={{ marginTop: 10 }} onClick={() => void shareLink(r, e.space)}>Copiar enlace</button>
@@ -635,7 +688,7 @@ function RecipeTab() {
             {!media
               ? 'La receta y un LEEME con instrucciones, en un solo archivo. Esta pieza no usa imagen ni video.'
               : pm?.available
-                ? <>La receta y {word} original{media.name ? <> «{media.name}»</> : null} ({fmtSize(pm.size)}), con un LEEME. Arrástralo sobre el estudio en cualquier equipo y la pieza se abre igual.</>
+                ? <>La receta y {word} original{media.name ? <> «{media.name}»</> : null} ({fmtSize(pm.size)}), con un LEEME. Arrástralo sobre el estudio en otro equipo y la pieza se abre con su archivo.</>
                 : `${video ? 'El video' : 'La imagen'} de esta pieza ya no está en este navegador: el proyecto saldría sólo con la receta.`}
           </p>
           <button type="button" className="btn primary" onClick={() => void exportProject(r, baseName(r))}>Exportar proyecto (.zip)</button>

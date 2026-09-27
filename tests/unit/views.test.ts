@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SCRIM } from '../../src/shared/scrim';
 import {
   GIF_WIDTHS, PHONE, VIEWS, cardMedia, defaultView, exportAlt, exportFor, markdownBlock, nonAscii, normalizeViewOpts, normalizeViews, phoneFit,
   readmeGrid, readmeImage, terminalWindow, verticalFrame, viewFor,
@@ -18,11 +19,19 @@ describe('vistas de destino', () => {
     expect(normalizeViews({ arte: 'vertical', tipo: 'x', componentes: 'web' })).toEqual({ arte: 'vertical' });
     expect(normalizeViews(null, true)).toEqual({ fondos: 'web' });
     expect(normalizeViews({ fondos: 'readme' }, true)).toEqual({ fondos: 'readme' });
-    expect(normalizeViewOpts({ ink: 'dark', page: 'x', caption: 1 })).toEqual({ ink: 'dark', page: 'light', caption: false, zones: false });
+    expect(normalizeViewOpts({ ink: 'dark', page: 'x', caption: 1 })).toEqual({ ink: 'dark', page: 'light', caption: false, zones: false, scrim: DEFAULT_SCRIM });
     // preferences saved before the story/phone split: «vertical» is the story frame now, its bands start hidden
     expect(normalizeViews({ arte: 'vertical', fondos: 'movil' })).toEqual({ arte: 'vertical', fondos: 'movil' });
-    expect(normalizeViewOpts({ ink: 'light', page: 'dark', caption: true })).toEqual({ ink: 'light', page: 'dark', caption: true, zones: false });
+    expect(normalizeViewOpts({ ink: 'light', page: 'dark', caption: true })).toEqual({ ink: 'light', page: 'dark', caption: true, zones: false, scrim: DEFAULT_SCRIM });
     expect(normalizeViewOpts({ zones: true }).zones).toBe(true);
+  });
+
+  it('las preferencias de antes de la zona protegida la dejan apagada; las nuevas se leen como se guardaron', () => {
+    // exactly what the previous version stored in localStorage (mt.v2.prefs → ui.viewOpts)
+    const old = JSON.parse('{"ink":"light","page":"light","caption":false,"zones":true}');
+    expect(normalizeViewOpts(old)).toEqual({ ink: 'light', page: 'light', caption: false, zones: true, scrim: { mode: 'off', opacity: 0.5, blur: 2, shape: 'block' } });
+    const saved = { ...old, scrim: { mode: 'custom', opacity: 0.66, blur: 7, shape: 'gradient' } };
+    expect(normalizeViewOpts(JSON.parse(JSON.stringify(saved))).scrim).toEqual({ mode: 'custom', opacity: 0.66, blur: 7, shape: 'gradient' });
   });
 
   it('el marco vertical es 9:16 exacto, en pasos que dejan un ancho entero', () => {

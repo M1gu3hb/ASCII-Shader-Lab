@@ -133,12 +133,12 @@ test.describe('historial y medios locales', () => {
     // a pattern piece copies directly
     await pa.keyboard.press('l');
     await expect(pa.locator('.toast').filter({ hasText: 'Enlace copiado' })).toBeVisible();
-    await expect(pa.getByRole('dialog', { name: 'Compartir el enlace' })).toHaveCount(0);
+    await expect(pa.getByRole('dialog', { name: 'Compartir: enlace o proyecto' })).toHaveCount(0);
 
     await drop(pa, 'foto-a.png', 'image/png', A);
     await expect((await sourceFile(pa)).getByText('foto-a.png')).toBeVisible();
     await pa.keyboard.press('l');
-    const sheet = pa.getByRole('dialog', { name: 'Compartir el enlace' });
+    const sheet = pa.getByRole('dialog', { name: 'Compartir: enlace o proyecto' });
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Exportar proyecto (.zip con la imagen)' })).toBeVisible();
     await sheet.getByRole('button', { name: 'Cancelar' }).click();
@@ -149,8 +149,11 @@ test.describe('historial y medios locales', () => {
     await pa.getByRole('tab', { name: 'Receta' }).click();
     await pa.getByRole('button', { name: 'Copiar enlace', exact: true }).click();
     await expect(sheet).toBeVisible();
-    await sheet.getByRole('button', { name: 'Copiar enlace sin la imagen' }).click();
-    await expect(pa.locator('.toast').filter({ hasText: 'Enlace copiado (sin la imagen)' })).toBeVisible();
+    // the sheet says what each way carries, in words
+    await expect(sheet.getByText('No lleva la imagen, ni su nombre.')).toBeVisible();
+    await expect(sheet.getByText('Lleva la imagen original.')).toBeVisible();
+    await sheet.getByRole('button', { name: 'Copiar enlace (sin la imagen)' }).click();
+    await expect(pa.locator('.toast').filter({ hasText: 'Enlace copiado: sólo la receta, sin la imagen' })).toBeVisible();
     const link = await pa.evaluate(() => navigator.clipboard.readText());
     expect(link).toMatch(/\/studio\/#r=z/);
     await a.close();

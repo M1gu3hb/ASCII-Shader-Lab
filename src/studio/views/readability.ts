@@ -132,6 +132,30 @@ export function applyScrim(s: Sample, scrim: ScrimLayer | null, cover: ArrayLike
   return { ...s, data: out };
 }
 
+/**
+ * Area-averages an RGBA image to another size (device pixels of the canvas → CSS px), so a phone with
+ * a pixel ratio of 3 and a desktop at 1 are compared at the same scale.
+ */
+export function resample(src: ArrayLike<number>, sw: number, sh: number, dw: number, dh: number): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(dw * dh * 4);
+  if (sw === dw && sh === dh) { for (let i = 0; i < out.length; i++) out[i] = src[i]; return out; }
+  const acc = new Float32Array(dw * dh * 4), cnt = new Uint32Array(dw * dh);
+  const kx = dw / sw, ky = dh / sh;
+  for (let y = 0; y < sh; y++) {
+    const ty = Math.min(dh - 1, Math.floor(y * ky));
+    for (let x = 0; x < sw; x++) {
+      const t = ty * dw + Math.min(dw - 1, Math.floor(x * kx)), i = (y * sw + x) * 4;
+      acc[t * 4] += src[i]; acc[t * 4 + 1] += src[i + 1]; acc[t * 4 + 2] += src[i + 2];
+      cnt[t]++;
+    }
+  }
+  for (let t = 0; t < dw * dh; t++) {
+    const c = cnt[t] || 1;
+    out[t * 4] = acc[t * 4] / c; out[t * 4 + 1] = acc[t * 4 + 1] / c; out[t * 4 + 2] = acc[t * 4 + 2] / c; out[t * 4 + 3] = 255;
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* One region, one frame                                                */
 /* ------------------------------------------------------------------ */

@@ -103,7 +103,7 @@ test.describe('accesibilidad', () => {
     await page.getByRole('button', { name: 'Cerrar la guía' }).click();
     // a piece with a photo asks before sharing its link
     await page.locator('.seedline').getByRole('button', { name: 'enlace' }).click();
-    await expect(page.getByRole('dialog', { name: 'Compartir el enlace' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Compartir: enlace o proyecto' })).toBeVisible();
     await serious(page, 'compartir', 'dialog[open]');
   });
 
