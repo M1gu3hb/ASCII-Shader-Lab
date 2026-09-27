@@ -1,7 +1,8 @@
 /**
  * Shared script of the guide pages, /licencia/ and 404: styles, fonts and — only when the example is
- * near view, after the page has loaded, and the browser has WebGL 2 — the live demo (src/pages/demo.ts).
- * The engine is a separate chunk that this file never imports statically.
+ * near view and after the page has loaded — the live demo (src/pages/demo.ts). It runs on the WebGL 2
+ * engine, or on the basic engine (Canvas 2D) when the browser has no WebGL 2; the poster stays until
+ * the first frame is drawn. The engine is a separate chunk that this file never imports statically.
  */
 import '../shared/fonts.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
@@ -10,16 +11,6 @@ import './pages.css';
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
-
-function hasWebGL2(): boolean {
-  try {
-    const gl = document.createElement('canvas').getContext('webgl2');
-    gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    return !!gl;
-  } catch {
-    return false;
-  }
-}
 
 const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 200));
 
@@ -39,7 +30,6 @@ function whenNear(el: Element, run: () => void) {
 const demo = document.querySelector<HTMLElement>('[data-demo]');
 if (demo && !saveData) {
   whenNear(demo, () => {
-    if (!hasWebGL2()) { demo.dataset.state = 'poster'; return; }
     import('./demo').then(m => m.mountDemo(demo, reduced)).catch(() => { demo.dataset.state = 'poster'; });
   });
 }
