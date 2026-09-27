@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ARCHETYPES, archById } from '../random/archetypes';
 import { LOCK_GROUPS, LOCK_NAMES, spaceById } from '../random/spaces';
 import { IDice, IExplore, ILock, INext, IPrev, IRedo, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH } from './icons';
@@ -38,7 +38,8 @@ export function Deck() {
   const cursor = useStudio(s => s.cursor);
   const e = entries[cursor];
   const favs = useStudio(s => s.favorites);
-  const fav = !!e?.favId && favs.some(f => f.id === e.favId);
+  const favIds = useMemo(() => new Set(favs.map(f => f.id)), [favs]);
+  const fav = !!e?.favId && favIds.has(e.favId);
   const [pop, setPop] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
   const panel = useStudio(s => s.ui.panel);
@@ -59,7 +60,7 @@ export function Deck() {
           <button type="button" onClick={forward} aria-label={cursor < entries.length - 1 ? 'Resultado siguiente (→)' : 'Nuevo resultado al azar (→)'} title={cursor < entries.length - 1 ? 'Siguiente (→)' : 'Nuevo al azar (→)'}><INext /></button>
         </div>
         <div className="strip" ref={strip} role="list" aria-label={counter} title={counter}>
-          {entries.map((x, i) => <Thumb key={x.id} e={x} i={i} current={i === cursor} fav={!!x.favId && favs.some(f => f.id === x.favId)} />)}
+          {entries.map((x, i) => <Thumb key={x.id} e={x} i={i} current={i === cursor} fav={!!x.favId && favIds.has(x.favId)} />)}
         </div>
         <div className="acts">
           <button type="button" className="act" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
@@ -77,7 +78,8 @@ export function Deck() {
   );
 }
 
-function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; fav: boolean }) {
+/** Memoised: with up to a thousand results, an edit re-renders only the thumbnail that changed. */
+const Thumb = memo(function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; fav: boolean }) {
   const label = `${i + 1}. ${e.label ?? e.seed?.replace(/-/g, ' ') ?? e.kind}${e.edited ? ', editado' : ''}${fav ? ', en la colección' : ''}`;
   return (
     <button
@@ -90,7 +92,7 @@ function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; 
       {e.edited && <span className="dot" />}
     </button>
   );
-}
+});
 
 function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
   useStudio(s => s.undoTick);

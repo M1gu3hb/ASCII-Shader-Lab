@@ -123,7 +123,7 @@ function HistoryBox() {
       <div className="data-acts">
         <button type="button" className="mini" onClick={() => void saveSession(withMedia)}>Guardar sesión</button>
         <button type="button" className="mini" onClick={() => pickFile('session')}>Abrir sesión</button>
-        <button type="button" className="mini" onClick={() => { if (confirm('¿Vaciar el historial? Tu colección no se toca.')) { clearHistory(); toast('Historial vaciado'); } }}>Vaciar historial</button>
+        <button type="button" className="mini" onClick={() => { if (confirm('¿Vaciar el historial? Se queda sólo la pieza actual. Tu colección no se toca; las imágenes y videos que sólo usaba el historial se borran de este navegador.')) { clearHistory(); toast('Historial vaciado'); } }}>Vaciar historial</button>
       </div>
       {media && media.count > 0 && (
         <label className="toggle">

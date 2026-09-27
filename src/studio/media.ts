@@ -15,10 +15,11 @@ export interface MediaInfo { name: string; w: number; h: number; size: number; i
 
 /**
  * What the current piece is missing: its file is being brought back from the store ('restoring'),
- * is no longer stored in this browser ('missing'), or never travelled with the link or project
- * that opened it ('foreign').
+ * is no longer stored in this browser ('missing'), is stored but this browser cannot decode it
+ * ('unreadable', e.g. a session made in another browser), or never travelled with the link or
+ * project that opened it ('foreign').
  */
-export interface MediaNeed { state: 'restoring' | 'missing' | 'foreign'; ref: MediaRef }
+export interface MediaNeed { state: 'restoring' | 'missing' | 'unreadable' | 'foreign'; ref: MediaRef }
 
 interface MediaState {
   /** What the stage shows right now (null: the pattern shows instead). */
@@ -124,14 +125,22 @@ export function syncMedia(force = false) {
   const kind = r.source;
   if (kind !== 'image' && kind !== 'video') { setNeed(null); return; }
   const want = ref?.kind === kind ? ref : undefined;
-  if (!want) { show(kind, true); setNeed(null); return; }                     // older recipes: whatever is loaded
-  if (!want.id) { show(kind, false); setNeed({ state: 'foreign', ref: want }); return; }
-  if (loadedId(kind) === want.id) { show(kind, true); setNeed(null); return; }
+  const settle = (on: boolean, need: MediaNeed | null) => { cancelRestore(kind); show(kind, on); setNeed(need); };
+  if (!want) return settle(true, null);                                       // older recipes: whatever is loaded
+  if (!want.id) return settle(false, { state: 'foreign', ref: want });
+  if (loadedId(kind) === want.id) return settle(true, null);
   const cached = kind === 'image' ? bitmaps.get(want.id) : undefined;
-  if (cached) { useImage(cached); show('image', true); setNeed(null); return; }
+  if (cached) { useImage(cached); return settle(true, null); }
   show(kind, false);
   setNeed({ state: 'restoring', ref: want });
   void restore(kind, want);
+}
+
+/** A restore still on its way would replace what the piece now shows: let it go. */
+function cancelRestore(kind: MediaKind) {
+  if (!restoring[kind]) return;
+  restoring[kind] = '';
+  gen[kind]++;
 }
 
 async function restore(kind: MediaKind, ref: MediaRef) {
@@ -150,7 +159,7 @@ async function restore(kind: MediaKind, ref: MediaRef) {
   const ok = kind === 'image' ? await decodeImage(found.blob, info, g) : await openVideo(found.blob, info, g);
   if (gen[kind] !== g) return;
   restoring[kind] = '';
-  if (!ok) { if (wanted(kind) === id) setNeed({ state: 'missing', ref }); return; }
+  if (!ok) { if (wanted(kind) === id) setNeed({ state: 'unreadable', ref }); return; }
   syncMedia(true);
 }
 

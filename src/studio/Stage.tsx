@@ -105,6 +105,11 @@ function MediaPrompt() {
     text = video
       ? <>Esta pieza usaba {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`} y ya no está guardado en este navegador. Vuelve a elegirlo o usa otro.</>
       : <>Esta pieza usaba {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`} y ya no está guardada en este navegador. Vuelve a elegirla o usa otra.</>;
+  } else if (miss?.state === 'unreadable') {
+    title = video ? 'Este navegador no abre ese video' : 'Este navegador no abre esa imagen';
+    text = video
+      ? <>Esta pieza usa {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`}, pero este navegador no puede reproducirlo. Elígelo en MP4 (H.264) o WebM, o usa otro.</>
+      : <>Esta pieza usa {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`}, pero este navegador no puede abrirla. Elígela en JPG, PNG o WebP, o usa otra.</>;
   } else if (miss?.state === 'foreign') {
     title = video ? 'Pon aquí un video tuyo' : 'Pon aquí una imagen tuya';
     text = (
