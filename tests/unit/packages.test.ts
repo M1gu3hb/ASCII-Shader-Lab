@@ -16,6 +16,19 @@ function imagePiece(): Recipe {
 }
 const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
 
+describe('links that decompress to too much', () => {
+  it('are refused without decompressing them whole', async () => {
+    const { deflateRawSync } = await import('node:zlib');
+    const b64 = (b: Buffer) => b.toString('base64url');
+    // ~20 KB of link that would expand to 20 MB: stops at the recipe size limit
+    const bomb = 'z' + b64(deflateRawSync(Buffer.alloc(20 * 1024 * 1024, 0x20), { level: 9 }));
+    expect(bomb.length).toBeLessThan(64 * 1024);
+    expect(await decodeRecipe(bomb)).toBeNull();
+    // and a link longer than any recipe needs is not even read
+    expect(await decodeRecipe('j' + 'A'.repeat(70 * 1024))).toBeNull();
+  });
+});
+
 describe('recipe media reference', () => {
   it('is validated by normalizeRecipe', () => {
     const ok = normalizeRecipe({ media: { ref: { id: ID, kind: 'video', name: 'clip.mp4', type: 'video/mp4', size: 12.4, w: '1920', h: 1080.4 } } });

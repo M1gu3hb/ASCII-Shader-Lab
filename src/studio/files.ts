@@ -4,6 +4,7 @@ import { loadFile, syncMedia } from './media';
 import { MEDIA_LIMITS } from './mediaStore';
 import { openPackage } from './packages';
 import { applyRecipe, edit, importFavorites, setSpace, useStudio } from './store';
+import { spaceForOpened } from './presets';
 import { toast } from './toast';
 
 let input: HTMLInputElement | null = null;
@@ -54,7 +55,7 @@ export async function handleFile(f: File) {
     } catch { /* handled below */ }
     const r = parseRecipe(text);
     if (!r) { toast('Ese archivo no parece una receta de Monotrama.'); return; }
-    if (r.meta.space) useStudio.setState({ space: r.meta.space as never });
+    useStudio.setState({ space: spaceForOpened(r, useStudio.getState().space) });
     applyRecipe(r, 'importado', f.name.replace(/\.json$/i, '').replace(/\.monotrama$/i, ''));
     toast('Receta abierta');
     return;

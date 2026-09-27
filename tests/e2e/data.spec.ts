@@ -94,6 +94,7 @@ test.describe('historial y medios locales', () => {
     const a = await browser.newContext();
     const pa = await a.newPage();
     await openStudio(pa);
+    await pa.keyboard.press('3'); // Imagen
     await drop(pa, 'foto-a.png', 'image/png', A);
     await expect((await sourceFile(pa)).getByText('foto-a.png')).toBeVisible();
     await pa.keyboard.press('e');
@@ -105,6 +106,8 @@ test.describe('historial y medios locales', () => {
     const files = await unzip(new Uint8Array(bytes));
     expect(files.map(f => f.name)).toEqual(['receta.monotrama.json', 'medios/foto-a.png', 'LEEME.txt']);
     expect(Buffer.from(await files[1].read()).equals(A)).toBe(true);
+    // the space travels too: the piece reopens in Imagen, not in whatever space the other browser is in
+    expect(JSON.parse(await files[0].text()).recipe.meta.space).toBe('media');
     await a.close();
 
     // a browser that has never seen the image
@@ -114,6 +117,7 @@ test.describe('historial y medios locales', () => {
     await drop(pb, 'pieza.monotrama.zip', 'application/zip', bytes);
     await expect(pb.locator('.toast').filter({ hasText: 'Proyecto abierto' })).toBeVisible();
     await expect(pb.locator('.seedline')).toContainText('2/2');
+    await expect(pb.locator('.spaces').getByRole('button', { name: 'Imagen' })).toHaveAttribute('aria-pressed', 'true');
     await expect((await sourceFile(pb)).getByText('foto-a.png')).toBeVisible();
     await expect(prompt(pb)).toHaveCount(0);
     await pb.waitForTimeout(900);

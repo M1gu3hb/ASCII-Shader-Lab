@@ -7,7 +7,7 @@ import { recipeFile } from '../shared/share';
 import { downloadText } from './download';
 import { pickFile } from './files';
 import { Glossary } from './Glossary';
-import { HISTORY_WARN, historyLabel } from './history';
+import { HISTORY_WARN, historyLabel, thumbBg } from './history';
 import { IDice } from './icons';
 import { mediaUsage } from './mediaStore';
 import { renderThumbs } from './offscreen';
@@ -69,7 +69,7 @@ export function CollectionSheet() {
           <div className="card-grid">
             {favs.map(f => (
               <div key={f.id} className="fav-card">
-                <button type="button" className="img" style={f.thumb ? { backgroundImage: `url(${f.thumb})` } : undefined} onClick={() => { openFavorite(f.id); close(); }} aria-label={`Abrir ${f.name}`} />
+                <button type="button" className="img" style={f.thumb ? thumbBg(f.thumb) : undefined} onClick={() => { openFavorite(f.id); close(); }} aria-label={`Abrir ${f.name}`} />
                 <div className="meta">
                   <input defaultValue={f.name} aria-label="Nombre" onBlur={e => renameFavorite(f.id, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
                   <small>{spaceById(f.space).name} · {new Date(f.updated).toLocaleDateString()}{f.recipe.media.ref && (f.recipe.source === 'image' || f.recipe.source === 'video') ? ` · con ${f.recipe.source === 'video' ? 'video' : 'imagen'}` : ''}</small>
@@ -77,7 +77,7 @@ export function CollectionSheet() {
                 <div className="ops">
                   <button type="button" onClick={() => { openFavorite(f.id); close(); }}>Abrir</button>
                   <button type="button" onClick={() => duplicateFavorite(f.id)}>Duplicar</button>
-                  <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile(f.recipe), 'application/json')}>.json</button>
+                  <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }), 'application/json')}>.json</button>
                   <button type="button" onClick={() => void shareLink(f.recipe, f.space)}>Enlace</button>
                   <button type="button" onClick={() => { if (confirm(`¿Borrar «${f.name}» de tu colección?`)) removeFavorite(f.id); }} aria-label={`Borrar ${f.name}`}>✕</button>
                 </div>
@@ -196,7 +196,7 @@ export function ExploreSheet() {
         </div>
         <div className="explore-grid">
           {cands.map((c, i) => (
-            <button key={i} type="button" style={c.url ? { backgroundImage: `url(${c.url})` } : undefined} aria-label={`Variación ${i + 1}`}
+            <button key={i} type="button" style={c.url ? thumbBg(c.url) : undefined} aria-label={`Variación ${i + 1}`}
               onClick={() => { applyRecipe(c.r, 'variación', 'Variación'); close(); }}>
               <span>{c.url ? `variación ${i + 1}` : 'tejiendo…'}</span>
             </button>
