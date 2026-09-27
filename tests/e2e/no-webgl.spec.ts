@@ -9,7 +9,7 @@ import { download, openStudio } from './helpers';
  */
 test.use({ launchOptions: { args: ['--disable-3d-apis'] } });
 
-test('la portada dibuja el héroe, las demos, el azar y el texto de terminal', async ({ page }) => {
+test('la portada dibuja el héroe, el escenario de los espacios, el azar y el final', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
@@ -22,16 +22,18 @@ test('la portada dibuja el héroe, las demos, el azar y el texto de terminal', a
   await expect(page.locator('#hero-basic-why')).toContainText('WebGL');
   await expect(note).toHaveAttribute('aria-expanded', 'true');
 
-  for (const kind of ['fondos', 'arte', 'media', 'tipo']) {
-    await page.locator(`canvas[data-demo="${kind}"]`).scrollIntoViewIfNeeded();
-    await drawn(page, `canvas[data-demo="${kind}"]`);
+  // the six spaces share one stage: it draws, and keeps drawing when another space is chosen
+  await page.locator('#telar-panel canvas').scrollIntoViewIfNeeded();
+  await drawn(page, '#telar-panel canvas');
+  expect(await contextOf(page, '#telar-panel canvas')).toBe('2d');
+  for (const space of ['Imagen', 'Terminal']) {
+    await page.getByRole('tablist', { name: 'Espacios del estudio' }).getByRole('tab', { name: new RegExp(space) }).click();
+    await drawn(page, '#telar-panel canvas');
   }
-  const term = page.locator('[data-terminal]');
-  await term.scrollIntoViewIfNeeded();
-  await expect.poll(async () => ((await term.textContent()) ?? '').trim().length).toBeGreaterThan(200);
   await page.locator('[data-azar]').scrollIntoViewIfNeeded();
   await drawn(page, '[data-azar]');
-  await expect(page.locator('[data-azar-strip] button')).toHaveCount(7);
+  await page.getByRole('button', { name: 'Tirar', exact: true }).click();
+  await expect(page.locator('[data-azar-strip] button')).toHaveCount(2);
   await page.locator('.final-canvas').scrollIntoViewIfNeeded();
   await drawn(page, '.final-canvas');
   expect(errors).toEqual([]);

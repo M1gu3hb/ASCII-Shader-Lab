@@ -59,10 +59,12 @@ const pauseBtn = $<HTMLButtonElement>('[data-motion-toggle]');
 if (pauseBtn) {
   pauseBtn.hidden = false;
   pauseBtn.addEventListener('click', () => setPaused(!isPaused()));
+  // the name says what the button does next (visible words first, so voice control finds them)
   onPause(p => {
-    pauseBtn.setAttribute('aria-pressed', String(p));
+    pauseBtn.toggleAttribute('data-paused', p);
     pauseBtn.querySelector('.ic')!.textContent = p ? '▶' : '❚❚';
     pauseBtn.querySelector('.lb')!.textContent = p ? 'Animar' : 'Pausar';
+    pauseBtn.querySelector('.vh')!.textContent = p ? ' la página' : ' las animaciones de la página';
   });
 }
 
@@ -107,12 +109,13 @@ void theme(heroRecipe, 'Bermellón', 'receta: Bermellón');
 
 const random = () => import('../random');
 $('[data-hero-roll]')!.addEventListener('click', async e => {
+  const dice = e.currentTarget as HTMLElement;
   const R = await random();
   const seed = R.freshSeed();
   heroRecipe = heroize(R.generate({ seed, space: 'arte', base: heroRecipe }));
   heroNo++;
   // the iris opens where the dice is
-  const b = (e.currentTarget as HTMLElement).getBoundingClientRect(), c = heroCanvas.getBoundingClientRect();
+  const b = dice.getBoundingClientRect(), c = heroCanvas.getBoundingClientRect();
   hero?.set(heroRecipe, { transition: morph('iris', 0.9, { origin: [(b.left + b.width / 2 - c.left) / c.width, (b.top + b.height / 2 - c.top) / c.height] }) });
   const arch = R.archById(heroRecipe.meta.arch)?.name ?? '';
   void theme(heroRecipe, arch || seed, `semilla: ${seed}${arch ? ' · ' + arch : ''}`);

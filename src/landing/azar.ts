@@ -157,6 +157,6 @@ export function mountAzar(root: HTMLElement) {
     engine = e;
     track(e);
     if (cur !== 0) e.set(still(structuredClone(hist[cur].r)));
-    void e.ready().then(() => { root.querySelector('.azar-stage img')?.remove(); });
+    void e.ready().then(() => { root.querySelector('.azar-stage img')?.remove(); canvas.parentElement!.dataset.live = e.kind; });
   });
 }

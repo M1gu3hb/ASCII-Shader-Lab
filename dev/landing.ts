@@ -111,7 +111,7 @@ async function salidas() {
   // the first frame as plain text: what the page shows before (or without) its script
   out.firstFrame = frames.frames[0].replace(/\x1b\[[\d;]*m/g, '').split('\n').map(l => l.replace(/\s+$/, '')).join('\n') + '\n';
 
-  const wc = webComponent(r, { ...DEFAULT_CODE, placement: 'block', systemFont: true, height: 420 });
+  const wc = webComponent(r, { ...DEFAULT_CODE, placement: 'hero', systemFont: true });
   out.wcFile = wc.file;
   out.wcUsage = wc.usage;
   out.wcNotes = wc.notes;

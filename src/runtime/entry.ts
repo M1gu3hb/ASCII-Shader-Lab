@@ -96,7 +96,12 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
 class MonotramaField extends HTMLElement {
   private ctl: Controller | null = null;
   connectedCallback() {
-    if (this.ctl) return;
+    // The exported file defines this element and registers its patterns right after: an element that is
+    // already on the page (the usual `<script defer>`) is upgraded during the definition, before that
+    // registration. Mounting a microtask later sees the patterns (without them the piece stays blank).
+    queueMicrotask(() => { if (this.isConnected && !this.ctl) this.start(); });
+  }
+  private start() {
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
     root.innerHTML = '<style>:host{display:block;position:relative;min-height:120px}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}</style>';
     const cv = document.createElement('canvas');

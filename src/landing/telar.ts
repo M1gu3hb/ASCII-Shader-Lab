@@ -29,7 +29,7 @@ function ex(space: keyof typeof PRESETS, id: string, tweak?: (r: Recipe) => void
 
 const EXAMPLES: Record<Space, Example[]> = {
   fondos: [ex('fondos', 'marea'), ex('fondos', 'orbita'), ex('fondos', 'papel-vivo')],
-  arte: [ex('arte', 'saturno'), ex('arte', 'geoda'), ex('arte', 'nudo')],
+  arte: [ex('arte', 'nudo'), ex('arte', 'geoda'), ex('arte', 'saturno')],
   media: [ex('media', 'retrato', r => { r.glyph.cell = 7; }), ex('media', 'fosforo'), ex('media', 'bloques')],
   tipo: [ex('tipo', 'neon'), ex('tipo', 'disolver'), ex('tipo', 'trama')],
   terminal: [ex('terminal', 'donut'), ex('terminal', 'radar'), ex('terminal', 'consola')],
@@ -68,9 +68,10 @@ export function mountTelar(root: HTMLElement) {
     canvas.setAttribute('aria-label', space === 'componentes'
       ? 'Piezas de interfaz en vivo: descifrar, máquina de escribir, imán, indicadores y barra de progreso, sobre un fondo tranquilo'
       : `${SPACE_NAME[space]}: «${e.name}» en vivo${extra}`);
-    if (hudL) swapText(hudL, `${SPACE_NAME[space]} · ${space === 'componentes' ? 'piezas' : e.name}`.toUpperCase());
-    if (hudR) hudR.textContent = `${reduced ? 'quieto' : 'en vivo'} · ${at[space] + 1}/${EXAMPLES[space].length}`;
-    if (termTitle) termTitle.textContent = `${e.name} — pieza.mjs`;
+    const n = EXAMPLES[space].length;
+    if (hudL) swapText(hudL, (space === 'componentes' ? 'Piezas · componentes reales' : `${SPACE_NAME[space]} · ${e.name}`).toUpperCase());
+    if (hudR) hudR.textContent = (reduced ? 'quieto' : 'en vivo') + (n > 1 ? ` · ${at[space] + 1}/${n}` : '');
+    if (termTitle) termTitle.textContent = `${e.name} — pieza.mjs · ${at[space] + 1}/${n}`;
     if (moreName) moreName.textContent = `Ejemplo ${at[space] + 1} de ${EXAMPLES[space].length}: ${e.name}`;
     if (more) more.hidden = EXAMPLES[space].length < 2;
   };
@@ -89,6 +90,7 @@ export function mountTelar(root: HTMLElement) {
     space = next;
     panel.setAttribute('aria-labelledby', tab.id);
     stage.classList.toggle('term', space === 'terminal');
+    stage.querySelector<HTMLElement>('.stage-hud')!.hidden = space === 'terminal';
     stage.querySelectorAll<HTMLElement>('[data-over]').forEach(o => { o.hidden = o.dataset.over !== space; });
     caps.querySelectorAll<HTMLElement>('[data-cap]').forEach(c => { c.hidden = c.dataset.cap !== space; });
     if (user && changed) glyphCurtain(caps, { bg: '#0c0b0a', origin: 'left', duration: 260, cell: 9 });
@@ -111,7 +113,7 @@ export function mountTelar(root: HTMLElement) {
     e.setMedia('image', syntheticPhoto());
     // a space chosen while the engine was on its way
     if (e.recipe.meta !== wanted.meta) e.set(wanted);
-    void e.ready().then(() => { stage.querySelector('img')?.remove(); });
+    void e.ready().then(() => { stage.querySelector('img')?.remove(); stage.dataset.live = e.kind; });
   });
 }
 

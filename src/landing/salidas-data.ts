@@ -1,4 +1,5 @@
 import type { ColorDepth } from '../exporters/text';
+import { charsetById } from '../engine/catalog';
 import type { Recipe } from '../engine/recipe';
 import { PRESETS } from '../studio/presets';
 
@@ -30,6 +31,11 @@ export const SALIDA = {
     const r = SALIDA.recipe();
     r.glyph.aspect = 2;
     r.glyph.cell = 9;
+    // at 80×24 a short ramp reads better than the detailed one, and the planet takes the middle
+    r.glyph.charset = charsetById('clasico')!.chars;
+    r.layers[0].x = 0;
+    r.layers[0].scale = 0.62;
+    r.layers[1].mix = 0.3;
     return r;
   },
 };
