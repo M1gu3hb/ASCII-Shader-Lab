@@ -102,17 +102,24 @@ function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
   const title = e.seed ? e.seed : e.label ?? spaceById(e.space).name;
   return (
     <div className="seedline" role="status" aria-live="off">
-      <span>N.º <b>{n}</b>/{total}</span>
-      <span className="sep">·</span>
-      <b className="ell" title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
-      {arch && <><span className="sep arch">·</span><span className="arch">{arch}</span></>}
-      {e.edited && <><span className="sep">·</span><span>editado</span></>}
-      <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
-      <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
-      {e.edited && <HoldCompare origin={e.origin} />}
-      {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió (se puede deshacer)">restaurar</button>}
-      <button type="button" onClick={() => void copyLink()} title="Copiar un enlace a esta pieza">enlace</button>
-      <button type="button" onClick={() => setUI({ sheet: 'seed' })} title="Escribir una semilla">semilla</button>
+      {/* one pill on wide screens; on phones, what it is (with undo / redo) and then its actions */}
+      <span className="seed-info">
+        <span>N.º <b>{n}</b>/{total}</span>
+        <span className="sep">·</span>
+        <b className="ell" title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
+        {arch && <><span className="sep arch">·</span><span className="arch">{arch}</span></>}
+        {e.edited && <><span className="sep">·</span><span>editado</span></>}
+      </span>
+      <span className="seed-hist">
+        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
+        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
+      </span>
+      <span className="seed-acts">
+        {e.edited && <HoldCompare origin={e.origin} />}
+        {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió (se puede deshacer)">restaurar</button>}
+        <button type="button" onClick={() => void copyLink()} title="Copiar un enlace a esta pieza">enlace</button>
+        <button type="button" onClick={() => setUI({ sheet: 'seed' })} title="Escribir una semilla">semilla</button>
+      </span>
     </div>
   );
 }
