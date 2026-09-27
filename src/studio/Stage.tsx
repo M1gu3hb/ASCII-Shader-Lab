@@ -7,6 +7,7 @@ import { startCamera, useMedia } from './media';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
 import { useView } from './views/state';
 import { ViewBar, ViewStage, useStageInsets } from './views/Views';
+import { StorageNote } from './Keeping';
 
 export function Stage() {
   // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
@@ -52,6 +53,7 @@ export function Stage() {
         <ViewBar view={view} />
         <div className="stage-notes">
           <EngineNotes />
+          <StorageNote />
           <MotionNote />
         </div>
       </div>
@@ -90,10 +92,16 @@ function MediaPrompt() {
     title = 'Tu cámara, en caracteres';
     text = 'La cámara sólo se activa cuando pulsas el botón. Puedes apagarla cuando quieras.';
   } else if (miss?.state === 'missing') {
+    // true whether the file was deleted here or never came (a recipe or collection from another computer)
     title = video ? 'Falta el video de esta pieza' : 'Falta la imagen de esta pieza';
-    text = video
-      ? <>Esta pieza usaba {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`} y ya no está guardado en este navegador. Vuelve a elegirlo o usa otro.</>
-      : <>Esta pieza usaba {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`} y ya no está guardada en este navegador. Vuelve a elegirla o usa otra.</>;
+    text = (
+      <>
+        {video
+          ? <>Esta pieza usaba {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`}, que no está guardado en este navegador. Vuelve a elegirlo o usa otro.</>
+          : <>Esta pieza usaba {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`}, que no está guardada en este navegador. Vuelve a elegirla o usa otra.</>}
+        <span className="dims">Una receta o una colección (.json) no lleva el archivo; una sesión o un proyecto (.zip), sí.</span>
+      </>
+    );
   } else if (miss?.state === 'unreadable') {
     title = video ? 'Este navegador no abre ese video' : 'Este navegador no abre esa imagen';
     text = video

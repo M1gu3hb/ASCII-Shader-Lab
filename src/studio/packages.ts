@@ -49,7 +49,7 @@ export async function exportProject(r: Recipe, fileBase: string) {
   try {
     const blob = await buildProject(r, m && ref ? { name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, data: m.blob } : null);
     downloadBlob(`${fileBase}.monotrama.zip`, blob);
-    if (ref && !m) toast(`El proyecto sale sin ${ref.kind === 'video' ? 'el video' : 'la imagen'}: ya no está guardado en este navegador.`, undefined, 6000);
+    if (ref && !m) toast(`El proyecto sale sin ${ref.kind === 'video' ? 'el video: no está guardado' : 'la imagen: no está guardada'} en este navegador.`, undefined, 6000);
   } catch (err) {
     toast('No se pudo crear el proyecto: ' + (err as Error).message);
   }

@@ -19,6 +19,7 @@ import {
 } from './store';
 import { toast } from './toast';
 import { openWelcome } from './guide/state';
+import { storageProblem } from './Keeping';
 import { Sheet, trapTab } from './Sheet';
 import './css/data.css';
 
@@ -32,13 +33,27 @@ const close = () => setUI({ sheet: 'none' });
 export function CollectionSheet() {
   const open = useStudio(s => s.ui.sheet === 'collection');
   const favs = useStudio(s => s.favorites);
+  const storage = useStudio(s => s.storage);
   const exportAll = () => {
     const json = JSON.stringify({ monotrama: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
     downloadText(`monotrama-coleccion-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
+    // the .json carries recipes only: say so when some piece needs its own image or video
+    const media = favs.filter(f => (f.recipe.source === 'image' || f.recipe.source === 'video') && f.recipe.media.ref).length;
+    if (media) {
+      toast(`La colección (.json) lleva las recetas, no las imágenes ni los videos: ${media === 1 ? '1 pieza pedirá su archivo' : `${media} piezas pedirán su archivo`} en otro equipo. Para llevarlos, guarda la sesión.`,
+        { label: 'Guardar sesión', run: () => void saveSession(true) }, 9000);
+    }
   };
+  const kept = storage === 'ok';
   return (
-    <Sheet open={open} onClose={close} wide title="Colección e historial" sub={`${favs.length} ${favs.length === 1 ? 'pieza guardada' : 'piezas guardadas'} con ★ · todo se queda en este navegador`}>
+    <Sheet open={open} onClose={close} wide title="Colección e historial" sub={`${favs.length} ${favs.length === 1 ? 'pieza guardada' : 'piezas guardadas'} con ★ · ${kept ? 'todo se queda en este navegador' : 'sólo mientras no cierres la pestaña'}`}>
       <div className="sheet-body">
+        {!kept && (
+          <div className="keep-warn" role="status">
+            {storageProblem(storage)} Guarda la sesión para conservarlos.
+            <div><button type="button" className="mini" onClick={() => void saveSession(true)}>Guardar sesión</button></div>
+          </div>
+        )}
         {open && <HistoryBox />}
         <h3 className="data-h">Tu colección</h3>
         <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
@@ -48,7 +63,7 @@ export function CollectionSheet() {
         {!favs.length ? (
           <div className="empty-state">
             <div className="big">{' .:-=+*#%@\n  aquí vivirán\n  tus piezas'}</div>
-            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; guarda la sesión o exporta la colección para llevarla a otro equipo.</p>
+            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; para llevarlo a otro equipo, guarda la sesión (lleva también tus imágenes y videos).</p>
           </div>
         ) : (
           <div className="card-grid">

@@ -4,8 +4,9 @@ import { LOCK_GROUPS, LOCK_NAMES, spaceById } from '../random/spaces';
 import { IDice, IExplore, ILock, INext, IPrev, IRedo, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH } from './icons';
 import {
   back, canRedo, canUndo, forward, go, redo, restoreOrigin, rollDice, saveFavorite, setAmount, setArch, setUI, toggleLock, undo,
-  useStudio, vary, type Entry,
+  useStudio, vary, whenSaved, type Entry,
 } from './store';
+import { saveSession } from './packages';
 import { announce, toast } from './toast';
 import { setAuto, useLive } from './live';
 import { historyLabel } from './history';
@@ -18,12 +19,21 @@ export function dice() {
   announce(`Resultado ${s.cursor + 1}: ${e.seed?.replace(/-/g, ' ') ?? ''}, estilo ${archById(e.arch)?.name ?? ''}`);
 }
 
-export function favorite() {
+export async function favorite() {
   const s = useStudio.getState();
   const e = s.entries[s.cursor];
   const had = !!e?.favId;
   const f = saveFavorite();
-  if (f) toast(had ? `Actualizado en tu colección: «${f.name}»` : `Guardado en tu colección: «${f.name}»`, { label: 'Ver', run: () => setUI({ sheet: 'collection' }) });
+  if (!f) return;
+  // the star is saved at once: say «guardado» only once the browser has kept it
+  await whenSaved();
+  const storage = useStudio.getState().storage;
+  if (storage !== 'ok') {
+    toast(`«${f.name}» está en tu colección sólo hasta que cierres la pestaña: ${storage === 'full' ? 'el navegador no tiene espacio para guardarla' : 'este navegador no deja guardar'}. Guarda la sesión para conservarla.`,
+      { label: 'Guardar sesión', run: () => void saveSession(true) }, 9000);
+    return;
+  }
+  toast(had ? `Actualizado en tu colección: «${f.name}»` : `Guardado en tu colección: «${f.name}»`, { label: 'Ver', run: () => setUI({ sheet: 'collection' }) });
 }
 
 /** Copies a link to the current piece (pieces with a local image or video ask first: the file does not travel). */
@@ -66,7 +76,7 @@ export function Deck() {
         <div className="acts">
           <button type="button" className="act" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
           <button type="button" className="act hide-md" onClick={() => setUI({ sheet: 'explore' })} title="Explorar variaciones (X)" aria-label="Explorar variaciones"><IExplore /></button>
-          <button type="button" className="act fav" aria-pressed={fav} onClick={favorite} title="Guardar en la colección (S)" aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
+          <button type="button" className="act fav" aria-pressed={fav} onClick={() => void favorite()} title="Guardar en la colección (S)" aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
           <button type="button" className="act dice" onClick={dice} title="Nueva combinación al azar (R)"><IDice /><span className="lbl">Azar</span><kbd>R</kbd></button>
           <div style={{ position: 'relative' }}>
             <button type="button" className="act" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
