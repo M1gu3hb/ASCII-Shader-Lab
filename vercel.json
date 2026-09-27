@@ -8,9 +8,9 @@
   "trailingSlash": true,
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "ascii-shader-lab.vercel.app" }],
-      "destination": "https://monotrama.vercel.app/:path*",
+      "destination": "https://monotrama.vercel.app/$1",
       "permanent": true
     }
   ],
