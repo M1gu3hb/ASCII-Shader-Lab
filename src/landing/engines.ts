@@ -10,6 +10,8 @@ import type { Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 import { explainWebGL, probeWebGL, type GLStatus } from '../engine/support';
 import './basic.css';
+// every face a piece can use, registered with the engine (they download only when a piece asks for one)
+import './fonts';
 
 // the probe runs once and is cached: when it already says «basic», fetch that chunk right away
 if (probeWebGL().reason !== 'ok') void loadBasicEngine().catch(() => undefined);
