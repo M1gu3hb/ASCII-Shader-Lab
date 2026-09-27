@@ -5,8 +5,8 @@ import { recipeFile, shareUrl } from '../shared/share';
 import { imageFormats, recorderLabel, useCaps, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
 import { copyText, downloadBlob, downloadText } from './download';
 import {
-  LiveRecorder, SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize,
-  smallerEncodable, videoSupport, type Cancel,
+  SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize,
+  smallerEncodable, startRecording, stopRecording, useRecording, useStopOnLeave, videoSupport, type Cancel,
 } from './exporting';
 import { Sheet } from './Sheet';
 import { setUI, useStudio } from './store';
@@ -211,8 +211,10 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const [busy, setBusy] = useState<{ kind: 'video' | 'gif'; p: number; label?: string } | null>(null);
   const cancel = useRef<Cancel>({ cancelled: false });
   const [gifW, setGifW] = useState(() => (req?.gifW && [320, 480, 640, 800].includes(req.gifW) ? req.gifW : 640));
-  const [rec, setRec] = useState<LiveRecorder | null>(null);
+  const rec = useRecording(s => s.rec);
+  const since = useRecording(s => s.since);
   const [recT, setRecT] = useState(0);
+  useStopOnLeave(cancel);
   const spec = SIZE_PRESETS.find(p => p.id === preset)!.spec;
   const sz = resolveSize(spec, true);
   const key = `${sz.W}x${sz.H}`;
@@ -230,13 +232,19 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     });
     return () => { alive = false; };
   }, [key, webcodecs, camera]);
-  useEffect(() => { if (!rec) return; const t0 = Date.now(); const id = setInterval(() => setRecT(Math.floor((Date.now() - t0) / 1000)), 250); return () => clearInterval(id); }, [rec]);
+  useEffect(() => {
+    if (!rec) return;
+    const tick = () => setRecT(Math.floor((Date.now() - since) / 1000));
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [rec, since]);
   if (!e) return null;
   const cur = support?.key === key ? support.s : null;
   const alts = alt?.key === key ? alt : null;
   const start = loop > 0 ? 0 : liveTime();
   const run = async (kind: 'mp4' | 'webm' | 'gif') => {
-    cancel.current = { cancelled: false };
+    const job: Cancel = cancel.current = { cancelled: false, active: true };
     const where = kind === 'gif' ? 'gif' : 'video';
     setBusy({ kind: where, p: 0 });
     try {
@@ -247,12 +255,15 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     } catch (err) {
       if ((err as Error).message !== 'cancelado') toast('La exportación falló: ' + (err as Error).message);
     }
+    job.active = false;
     setBusy(null);
   };
   const toggleRec = async () => {
-    if (rec) { const { blob, ext } = await rec.stop(); setRec(null); downloadBlob(`${baseName(e.recipe)}-directo.${ext}`, blob); return; }
-    const r = new LiveRecorder();
-    if (r.start(30)) setRec(r); else toast('Este navegador no permitió grabar el lienzo.');
+    if (rec) { await stopRecording(); return; }
+    if (!startRecording(baseName(e.recipe))) { toast('Este navegador no permitió grabar el lienzo.'); return; }
+    // the sheet covers the stage: close it so the recording shows (and takes) the cursor; the stage keeps the stop button
+    setUI({ sheet: 'none' });
+    toast('Grabando el lienzo. Detén la grabación con el botón de arriba del lienzo.', undefined, 5000);
   };
   const progress = busy && <Busy p={busy.p} label={busy.label} onCancel={() => { cancel.current.cancelled = true; }} />;
   const switchTo = (p: NonNullable<Smaller>) => <button type="button" className="btn" onClick={() => setPreset(p.id)}>Usar {p.name}</button>;
@@ -268,8 +279,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     return (
       <>
         <div className={cur.mp4 && cur.webm ? 'row2' : undefined}>
-          {cur.mp4 && <button type="button" className="btn primary" onClick={() => void run('mp4')}>MP4 (H.264)</button>}
-          {cur.webm && <button type="button" className={'btn' + (cur.mp4 ? '' : ' primary')} onClick={() => void run('webm')}>WebM</button>}
+          {cur.mp4 && <button type="button" className="btn primary" disabled={!!busy} onClick={() => void run('mp4')}>MP4 (H.264)</button>}
+          {cur.webm && <button type="button" className={'btn' + (cur.mp4 ? '' : ' primary')} disabled={!!busy} onClick={() => void run('webm')}>WebM</button>}
         </div>
         {!cur.mp4 && (alts?.mp4
           ? <Unavailable what={`MP4 (H.264) a ${sz.W}×${sz.H}: no disponible.`} action={switchTo(alts.mp4)}>Este navegador no puede codificar H.264 a este tamaño; a {alts.mp4.W}×{alts.mp4.H} sí. A este tamaño, usa WebM.</Unavailable>
@@ -319,7 +330,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
           <h3 style={{ marginTop: 18 }}>Grabación en directo</h3>
           {recorder.ok ? (
             <>
-              <p>Graba el lienzo tal como lo ves, con tu cursor y tu cámara. La calidad depende de la fluidez de tu equipo{basic ? ' (en modo básico, como mucho 30 fotogramas por segundo)' : ''}.</p>
+              <p>Graba el lienzo tal como lo ves, con tu cursor y tu cámara: al empezar, esta ventana se cierra y el botón para detener queda sobre el lienzo. La calidad depende de la fluidez de tu equipo{basic ? ' (en modo básico, como mucho 30 fotogramas por segundo)' : ''}.</p>
               <p className="note">Se guarda como <b>{recorderLabel(recorder.mime)}</b> (archivo .{recorder.ext}).</p>
               <button type="button" className={'btn' + (rec ? ' primary' : '')} onClick={() => void toggleRec()}>{rec ? `Detener y guardar (${recT} s)` : 'Empezar a grabar'}</button>
             </>
@@ -393,6 +404,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   const [busy, setBusy] = useState<number | null>(null);
   const [est, setEst] = useState('');
   const cancel = useRef<Cancel>({ cancelled: false });
+  useStopOnLeave(cancel);
   const { copy, manual } = useCopy();
   useEffect(() => { if (space === 'terminal') { setCols(term.cols); setRows(term.rows); } }, [space, term.cols, term.rows]);
   useEffect(() => {
@@ -410,7 +422,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   const name = baseName(e.recipe);
   const title = e.recipe.meta.name ?? e.recipe.meta.seed ?? 'Monotrama';
   const anim = async (kind: 'cast' | 'node' | 'python') => {
-    cancel.current = { cancelled: false };
+    const job: Cancel = cancel.current = { cancelled: false, active: true };
     setBusy(0);
     try {
       const f = await captureFrames(e.recipe, cols, rows, { fps, seconds: secs, start: loop > 0 ? 0 : liveTime(), depth, withBg }, p => setBusy(p), cancel.current);
@@ -418,6 +430,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
       if (kind === 'node') downloadText(name + '.mjs', await toNodePlayer(f, title), 'text/javascript');
       if (kind === 'python') downloadText(name + '.py', await toPythonPlayer(f, title), 'text/x-python');
     } catch (err) { if ((err as Error).message !== 'cancelado') toast('Falló: ' + (err as Error).message); }
+    job.active = false;
     setBusy(null);
   };
   return (

@@ -8,6 +8,7 @@ import { edit, setPlaying, useRecipe, useStudio } from './store';
 import { useView } from './views/state';
 import { ViewBar, ViewStage, useStageInsets } from './views/Views';
 import { StorageNote } from './Keeping';
+import { RecordingChip } from './Recording';
 
 export function Stage() {
   // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
@@ -52,6 +53,7 @@ export function Stage() {
       <div className="stage-top" ref={top}>
         <ViewBar view={view} />
         <div className="stage-notes">
+          <RecordingChip />
           <EngineNotes />
           <StorageNote />
           <MotionNote />
