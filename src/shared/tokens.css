@@ -12,10 +12,11 @@
   --signal-soft: rgba(255, 91, 31, .14);
   --phosphor: #b8ffcf;
 
-  --font-display: "Martian Mono", "Martian Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-ui: "Inter Tight Variable", "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* each «… Fallback» is a local face resized to the brand font's metrics (src/shared/fonts.css) */
+  --font-display: "Martian Mono", "Martian Mono Variable", "Martian Mono Fallback", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui: "Inter Tight Variable", "Inter Tight", "Inter Tight Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Instrument Serif", "Instrument Serif Fallback", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --ease-out: cubic-bezier(.2, .8, .2, 1);
   --ease-snap: cubic-bezier(.7, 0, .2, 1);
