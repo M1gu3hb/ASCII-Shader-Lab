@@ -100,6 +100,7 @@ export class BasicEngine implements Renderer {
   // media
   private media: Partial<Record<MediaKind, MediaEl | null>> = {};
   private mediaEl: MediaEl | null = null;
+  private mediaFailed: MediaEl | null = null;
   private mediaTime = -1;
   private mediaKey = '';
   private mediaOK = false;
@@ -200,6 +201,7 @@ export class BasicEngine implements Renderer {
   setMedia(kind: MediaKind, el: MediaEl | null) {
     this.media[kind] = el;
     this.mediaEl = null;
+    this.mediaFailed = null;
     this.mediaOK = false;
     this.needsRender = true;
   }
@@ -518,6 +520,8 @@ export class BasicEngine implements Renderer {
     const w = Math.max(1, Math.round(natW * k)), h = Math.max(1, Math.round(natH * k));
     const key = `${w}x${h}`;
     if (this.mediaEl === el && this.mediaOK && key === this.mediaKey && (!isVideo || (el as HTMLVideoElement).currentTime === this.mediaTime)) return;
+    // a picture that cannot be read (cross-origin without CORS) fails the same way every frame: report once
+    if (this.mediaFailed === el) return;
     try {
       this.mediaCanvas ??= document.createElement('canvas');
       const cv = this.mediaCanvas;
@@ -537,6 +541,7 @@ export class BasicEngine implements Renderer {
       this.mediaOK = false;
       this.mediaBuf = null;
       this.mediaEl = el;
+      this.mediaFailed = el;
       this.o.onError?.('media: ' + (e as Error).message);
     }
   }

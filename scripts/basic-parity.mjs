@@ -41,7 +41,10 @@ try {
   console.log(`probe: ${JSON.stringify(info.probe)}\n`);
 
   // WebGL probe, createRenderer fallbacks and the live loop, checked in this browser
-  const checks = await page.evaluate(() => window.__basic.diagnostics());
+  const checks = await Promise.race([
+    page.evaluate(() => window.__basic.diagnostics()),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('diagnostics: timed out after 3 min')), 180_000)),
+  ]);
   console.log('## Diagnóstico y respaldo\n');
   for (const c of checks) console.log(`- ${c.ok ? 'ok' : 'FALLA'} · ${c.name} — ${c.info}`);
   console.log('');
