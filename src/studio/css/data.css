@@ -1,0 +1,65 @@
+/* History, collection, sharing and local media (lane: history-media). Tokens from studio.css. */
+
+/* ---------- glossary ---------- */
+.glossary { margin-top: 18px; border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.glossary h3 { margin: 0 0 10px; font: 600 10px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.glossary dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 22px; }
+.glossary dl > div { display: grid; gap: 2px; }
+.glossary dt { font: 700 12.5px/1.3 var(--font-display); color: var(--text); }
+.glossary dd { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
+/* ---------- share confirm ---------- */
+dialog.sheet:has(.share-body) { width: min(520px, calc(100vw - 24px)); }
+.share-body p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+.share-acts { display: grid; gap: 0; margin-top: 16px; }
+.share-acts .btn { min-height: 44px; }
+
+/* ---------- collection & history sheet ---------- */
+.data-hist {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 18px; align-items: start;
+  border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 18px; background: var(--panel-2);
+}
+.data-hist h3, .data-h { margin: 0 0 6px; font: 600 10px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.data-h { margin: 0 0 10px; }
+.data-count p { margin: 0; font-size: 13.5px; }
+.data-count .count-line b { font: 600 14px/1.2 var(--font-mono); font-variant-numeric: tabular-nums; }
+.data-count .note { margin: 6px 0 0; }
+.data-meter { height: 4px; background: var(--field-2); border-radius: 4px; overflow: hidden; margin: 8px 0 0; }
+.data-meter i { display: block; height: 100%; width: var(--v, 0%); background: var(--bone); }
+.data-meter.near i { background: var(--accent); }
+.data-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.data-acts .mini { height: 40px; }
+.data-hist .toggle { grid-column: 1 / -1; margin: 0; }
+.data-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 18px; margin-top: 22px; }
+.data-foot .glossary { margin-top: 0; }
+.data-storage { border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.data-storage h3 { margin: 0 0 10px; font: 600 10px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.data-storage p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.data-storage p b { color: var(--text); font-weight: 600; }
+.data-storage p:last-child { margin-bottom: 0; }
+.data-storage .plain { color: var(--text); }
+
+/* collection cards: five actions must fit (or wrap) in a narrow card */
+.fav-card .ops { flex-wrap: wrap; }
+.fav-card .ops button { min-width: 0; }
+
+/* ---------- export sheet, «Receta» tab ---------- */
+.seed-big { margin: 0 0 12px; font: 500 13px/1.4 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
+.seed-big b { color: var(--text); font-weight: 600; }
+
+/* ---------- stage prompt while a stored file is brought back ---------- */
+.prompt .card.restoring { animation: mt-late .2s .45s both; }
+.prompt .card.restoring p { margin: 0; }
+@keyframes mt-late { from { opacity: 0; } to { opacity: 1; } }
+.prompt .card .dims { display: block; margin-top: 4px; font: 500 11.5px/1.4 var(--font-mono); color: var(--dim); }
+
+@media (max-width: 900px) {
+  .data-hist { grid-template-columns: 1fr; }
+  .data-acts { justify-content: flex-start; }
+  .data-acts .mini { flex: 1 1 auto; height: 44px; }
+  .data-foot { grid-template-columns: 1fr; }
+  .fav-card .ops button { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prompt .card.restoring { animation: none; opacity: 1; }
+}

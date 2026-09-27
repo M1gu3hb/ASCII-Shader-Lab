@@ -10,6 +10,11 @@ import {
 import { Sheet, slug } from './Sheets';
 import { setUI, useStudio } from './store';
 import { toast } from './toast';
+import { archById } from '../random/archetypes';
+import { spaceById } from '../random/spaces';
+import { Glossary } from './Glossary';
+import { exportProject, fmtSize, projectMedia } from './packages';
+import { shareLink } from './ShareSheet';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -369,26 +374,62 @@ function CodeTab() {
 
 /* ------------------------------------------------------------------ */
 
+/** Ways to keep or send the piece, from the loosest (seed) to the most complete (project). */
 function RecipeTab() {
   const e = useCurrent();
   const [url, setUrl] = useState('');
+  const [pm, setPm] = useState<{ available: boolean; size: number } | null>(null);
   useEffect(() => { if (e) void shareUrl({ ...e.recipe, meta: { ...e.recipe.meta, space: e.space } }).then(setUrl); }, [e?.recipe, e?.space]);
+  useEffect(() => { let alive = true; if (e) void projectMedia(e.recipe).then(m => { if (alive) setPm(m); }); return () => { alive = false; }; }, [e?.recipe]);
   if (!e) return null;
+  const r = e.recipe;
+  const media = (r.source === 'image' || r.source === 'video') && r.media.ref?.kind === r.source ? r.media.ref : null;
+  const video = r.source === 'video';
+  const word = video ? 'el video' : 'la imagen';
+  const arch = archById(e.arch)?.name;
   return (
-    <div className="ex-grid">
-      <div className="ex-card">
-        <h3>Enlace compartible</h3>
-        <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve exactamente esta pieza y puede seguir editándola.</p>
-        <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace" />
-        <button type="button" className="btn primary" style={{ marginTop: 10 }} onClick={() => void copyText(url, 'Enlace copiado')}>Copiar enlace</button>
+    <>
+      <div className="ex-grid">
+        <div className="ex-card">
+          <h3>Semilla</h3>
+          {e.seed ? (
+            <>
+              <p>La palabra con la que el dado tejió esta pieza. Escrita en «semilla», en el mismo espacio y estilo, la repite.</p>
+              <p className="seed-big"><b>{e.seed}</b> · {spaceById(e.space).name}{arch ? ` · ${arch}` : ''}</p>
+              <button type="button" className="btn" onClick={() => void copyText(e.seed!, 'Semilla copiada')}>Copiar semilla</button>
+              <p className="note" style={{ margin: '8px 0 0' }}>No lleva tus ediciones{e.edited ? ' (esta pieza está editada)' : ''} ni tus archivos, y depende de la versión del generador. Para algo exacto, usa el enlace, la receta o el proyecto.</p>
+            </>
+          ) : (
+            <p>Esta pieza no salió del dado (viene de una receta, un enlace o un archivo), así que no tiene semilla. Usa el enlace, la receta o el proyecto.</p>
+          )}
+        </div>
+        <div className="ex-card">
+          <h3>Enlace</h3>
+          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve exactamente esta pieza y puede seguir editándola.</p>
+          {media && <p className="warn">El enlace no lleva {word} ni su nombre: quien lo abra verá el patrón de fondo hasta que elija {video ? 'un video suyo' : 'una imagen suya'}. Para enviarla completa, exporta el proyecto.</p>}
+          <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace" />
+          <button type="button" className="btn primary" style={{ marginTop: 10 }} onClick={() => void shareLink(r, e.space)}>Copiar enlace</button>
+        </div>
+        <div className="ex-card">
+          <h3>Receta (.json)</h3>
+          <p>Un archivo con todos los ajustes. Arrástralo sobre el estudio (o usa Colección → Importar) para reabrirlo. También acepta los ajustes JSON del laboratorio original.</p>
+          {media && <p className="note">Guarda el nombre y las medidas de {word}, no el archivo.</p>}
+          <button type="button" className="btn primary" onClick={() => downloadText(baseName(r) + '.monotrama.json', recipeFile(r), 'application/json')}>Descargar receta (.json)</button>
+          <button type="button" className="btn" onClick={() => void copyText(JSON.stringify(r, null, 2), 'Receta copiada')}>Copiar JSON</button>
+        </div>
+        <div className="ex-card">
+          <h3>Proyecto (.zip)</h3>
+          <p>
+            {!media
+              ? 'La receta y un LEEME con instrucciones, en un solo archivo. Esta pieza no usa imagen ni video.'
+              : pm?.available
+                ? <>La receta y {word} original{media.name ? <> «{media.name}»</> : null} ({fmtSize(pm.size)}), con un LEEME. Arrástralo sobre el estudio en cualquier equipo y la pieza se abre igual.</>
+                : `${video ? 'El video' : 'La imagen'} de esta pieza ya no está en este navegador: el proyecto saldría sólo con la receta.`}
+          </p>
+          <button type="button" className="btn primary" onClick={() => void exportProject(r, baseName(r))}>Exportar proyecto (.zip)</button>
+        </div>
       </div>
-      <div className="ex-card">
-        <h3>Archivo de receta</h3>
-        <p>Un .json con todos los ajustes. Arrástralo sobre el estudio (o usa Colección → Importar) para reabrirlo. También acepta los ajustes JSON del laboratorio original.</p>
-        <button type="button" className="btn primary" onClick={() => downloadText(baseName(e.recipe) + '.monotrama.json', recipeFile(e.recipe), 'application/json')}>Descargar receta (.json)</button>
-        <button type="button" className="btn" onClick={() => void copyText(JSON.stringify(e.recipe, null, 2), 'Receta copiada')}>Copiar JSON</button>
-        {e.seed && <p className="note">Semilla: <b>{e.seed}</b> · la misma semilla en el mismo espacio y estilo repite la pieza generada (sin tus ediciones posteriores).</p>}
-      </div>
-    </div>
+      <Glossary />
+    </>
   );
 }
