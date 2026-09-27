@@ -254,12 +254,12 @@ function giveMedia(eng: Renderer, r: Recipe, el: MediaEl) {
 type Media = { el: MediaEl } | null | 'missing';
 
 /** Recently decoded files by id (many entries share one photo): a couple, released when unused. */
-const decoded = new Map<string, { el: MediaEl; at: number }>();
+const decoded = new Map<string, { el: MediaEl }>();
 let decodedT = 0;
 
 function keepDecoded(id: string, el: MediaEl) {
   decoded.delete(id);
-  decoded.set(id, { el, at: Date.now() });
+  decoded.set(id, { el });
   while (decoded.size > 2) {
     const [k, v] = decoded.entries().next().value!;
     decoded.delete(k);
@@ -401,9 +401,4 @@ export function standIn(r: Recipe, media = false): string | null {
   } catch {
     return null;
   }
-}
-
-/** Testing and diagnostics: how many entries wait, and how many stand-ins show. */
-export function thumbsStatus() {
-  return { preparing: Object.keys(useThumbs.getState().preparing).length, fallback: Object.keys(useThumbs.getState().fallback).length, running };
 }
