@@ -1,3 +1,4 @@
+// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Rótulo ASCII — convierte un texto en letras grandes hechas de caracteres, para README,
  * terminales, comentarios de código o la web.

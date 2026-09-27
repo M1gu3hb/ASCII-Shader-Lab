@@ -15,7 +15,7 @@ test.describe('exportar', () => {
     const svg = await download(page, () => page.getByRole('button', { name: 'Descargar SVG' }).click());
     const svgText = readFileSync(svg.path, 'utf8');
     expect(svgText).toContain('<svg');
-    expect(svgText).toContain('<use href="#g');
+    expect(svgText).toContain('<use xlink:href="#g');
 
     await page.getByRole('tab', { name: 'Texto y terminal' }).click();
     await expect(page.locator('.ansi-pre')).toBeVisible();
@@ -48,6 +48,26 @@ test.describe('exportar', () => {
     expect(size[0]).toBeGreaterThan(100);
     expect(await other.evaluate(() => typeof (window as unknown as { Monotrama?: unknown }).Monotrama)).toBe('object');
     expect(errors).toEqual([]);
+  });
+
+  test('código: póster PNG de respaldo; video: MP4 sólo si el navegador codifica H.264', async ({ page }) => {
+    await openStudio(page);
+    await page.keyboard.press('e');
+    await page.getByRole('tab', { name: 'Código' }).click();
+    const poster = await download(page, () => page.getByRole('button', { name: 'Descargar póster (PNG)' }).click());
+    expect(poster.name).toMatch(/-poster\.png$/);
+    expect(readFileSync(poster.path).subarray(1, 4).toString()).toBe('PNG');
+    await expect(page.getByText(/Sin WebGL 2 se ve el color de fondo/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Video y GIF' }).click();
+    await expect(page.getByRole('button', { name: 'WebM' })).toBeEnabled();
+    const avc = await page.evaluate(async () => (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 1280, height: 720 })).supported);
+    const mp4 = page.getByRole('button', { name: 'MP4 (H.264)' });
+    if (avc) await expect(mp4).toBeEnabled();
+    else {
+      await expect(mp4).toBeDisabled();
+      await expect(page.getByText(/no puede codificar H\.264/)).toBeVisible();
+    }
   });
 
   test('GIF animado', async ({ page }) => {
