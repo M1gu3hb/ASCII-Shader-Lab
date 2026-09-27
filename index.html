@@ -1,1 +1,163 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Monotrama</title></head><body><a href="/studio/">Estudio</a></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monotrama — Teje luz con caracteres</title>
+<meta name="description" content="Monotrama es un estudio de arte ASCII en tiempo real: fondos animados para web, composiciones, imagen y cámara, tipografía y piezas para terminal. Juega, guarda y exporta a PNG, SVG, video, ANSI o código.">
+<meta name="theme-color" content="#0c0b0a">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Monotrama — Teje luz con caracteres">
+<meta property="og:description" content="Estudio de arte ASCII en tiempo real. Azar con memoria, exportación real a web, terminal, imagen y video.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<style>html,body{background:#0c0b0a;margin:0}</style>
+</head>
+<body>
+<a class="skip" href="#espacios">Saltar al contenido</a>
+
+<header class="nav" id="top">
+  <a class="nav-brand" href="/" aria-label="Monotrama, inicio"><span class="logo" data-logo></span><span class="word">monotrama</span></a>
+  <nav class="nav-links" aria-label="Secciones">
+    <a href="#espacios">Espacios</a>
+    <a href="#azar">Azar</a>
+    <a href="#exportar">Exportar</a>
+    <a href="#piezas">Piezas</a>
+  </nav>
+  <a class="btn-cta small" href="/studio/">Abrir el estudio <span aria-hidden="true">→</span></a>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="hero-title">
+    <canvas class="hero-canvas" aria-hidden="true"></canvas>
+    <div class="hero-scrim" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <p class="kicker"><span class="dot" aria-hidden="true"></span> Estudio de arte ASCII en tiempo real</p>
+      <h1 id="hero-title" class="hero-title"><span data-scramble>Teje</span> <em>luz</em><br><span data-scramble>con caracteres.</span></h1>
+      <p class="hero-sub">Un laboratorio para jugar durante horas con patrones, imágenes, cámara y tipografía hechos de letras. Cuando algo te guste, guárdalo y llévatelo a tu web, tu interfaz o tu terminal.</p>
+      <div class="hero-actions">
+        <a class="btn-cta" href="/studio/">Abrir el estudio <span aria-hidden="true">→</span></a>
+        <button class="btn-ghost" type="button" data-hero-roll><span class="dice" aria-hidden="true">⚄</span> Tirar el dado</button>
+      </div>
+      <p class="hero-seed" aria-live="polite"><span data-hero-seed>semilla: bermellón</span> · <a href="/studio/" data-hero-open>abrir esta pieza en el estudio</a></p>
+    </div>
+    <div class="ticker" aria-hidden="true"><div class="ticker-track">PNG 4K · SVG VECTORIAL · MP4 · WEBM · GIF · ANSI 256 · COLOR REAL · NODE · PYTHON · ASCIINEMA · HTML · WEB COMPONENT · REACT · RECETA JSON · ENLACE · PNG 4K · SVG VECTORIAL · MP4 · WEBM · GIF · ANSI 256 · COLOR REAL · NODE · PYTHON · ASCIINEMA · HTML · WEB COMPONENT · REACT · RECETA JSON · ENLACE ·</div></div>
+  </section>
+
+  <section class="sec dark" id="espacios" aria-labelledby="esp-title">
+    <div class="sec-head">
+      <p class="eyebrow">01 · Espacios</p>
+      <h2 id="esp-title" data-scramble-view>Seis talleres, un solo telar.</h2>
+      <p class="lead">Cada espacio afina el azar y los controles para un tipo de trabajo. Todos comparten el mismo motor, el mismo historial y la misma colección.</p>
+    </div>
+    <div class="bento">
+      <a class="tile t-wide" href="/studio/#space=fondos">
+        <div class="tile-art"><canvas data-demo="fondos" aria-hidden="true"></canvas>
+          <div class="tile-mock" aria-hidden="true"><b>Tu titular</b><i>Así se lee tu contenido encima.</i></div></div>
+        <div class="tile-txt"><h3>Fondos</h3><p>Fondos animados discretos y legibles, con vista de prueba bajo contenido real. Se exportan como HTML, Web Component o React.</p></div>
+      </a>
+      <a class="tile" href="/studio/#space=arte">
+        <div class="tile-art"><canvas data-demo="arte" aria-hidden="true"></canvas></div>
+        <div class="tile-txt"><h3>Arte</h3><p>Hasta cuatro capas, 45 patrones, sólidos 3D, fractales y efectos de pantalla.</p></div>
+      </a>
+      <a class="tile" href="/studio/#space=media">
+        <div class="tile-art"><canvas data-demo="media" aria-hidden="true"></canvas></div>
+        <div class="tile-txt"><h3>Imagen</h3><p>Tu foto, video o cámara en caracteres, con lupa y borrador que revela el original. Todo en tu navegador.</p></div>
+      </a>
+      <a class="tile" href="/studio/#space=tipo">
+        <div class="tile-art"><canvas data-demo="tipo" aria-hidden="true"></canvas></div>
+        <div class="tile-txt"><h3>Tipo</h3><p>Palabras rellenas de patrón, mensajes que se escriben, se borran y se descifran.</p></div>
+      </a>
+      <a class="tile" href="/studio/#space=terminal">
+        <div class="tile-art term"><div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>donut.c — 64×20</span></div><pre data-terminal aria-hidden="true"></pre></div>
+        <div class="tile-txt"><h3>Terminal</h3><p>80 columnas, ASCII puro. Texto real, ANSI y animaciones que corren en tu shell con Node o Python.</p></div>
+      </a>
+      <a class="tile" href="/studio/#space=componentes">
+        <div class="tile-art pieces">
+          <span class="pc-type" data-type aria-hidden="true"></span>
+          <span class="pc-row" aria-hidden="true"><span data-spin></span><span data-spin="barras"></span><span data-spin="trama"></span><span data-spin="rebote"></span></span>
+        </div>
+        <div class="tile-txt"><h3>Piezas</h3><p>Componentes listos: descifrar, máquina de escribir, imán, estela, halo, indicadores y rótulos.</p></div>
+      </a>
+    </div>
+  </section>
+
+  <section class="sec paper" id="azar" aria-labelledby="azar-title">
+    <div class="split">
+      <div class="sec-head">
+        <p class="eyebrow">02 · Azar con memoria</p>
+        <h2 id="azar-title" data-scramble-view>Tira diez veces. Vuelve a la cuarta.</h2>
+        <p class="lead">Cada resultado tiene una semilla legible — <code>faro-lunar-417</code> — y queda en tu historial. Retrocede, avanza, edítalo, guárdalo con ★. El dado dirige su suerte con doce estilos de arte, respeta lo que bloquees (forma, color, glifos…) y evita repetirte combinaciones que ya viste.</p>
+        <ul class="facts">
+          <li><b>Reproducible.</b> La misma semilla, en el mismo espacio y estilo, teje la misma pieza.</li>
+          <li><b>Sin perder nada.</b> El historial nunca se corta: tirar desde un resultado viejo añade, no borra.</li>
+          <li><b>Compartible.</b> Un enlace lleva la receta completa; nada pasa por un servidor.</li>
+        </ul>
+      </div>
+      <div class="azar-demo">
+        <div class="azar-stage"><canvas data-azar aria-label="Pieza del historial seleccionada" role="img"></canvas></div>
+        <div class="azar-strip" role="list" aria-label="Historial de ejemplo" data-azar-strip></div>
+        <p class="azar-seed" data-azar-seed aria-live="polite">&nbsp;</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec dark" id="exportar" aria-labelledby="exp-title">
+    <div class="sec-head">
+      <p class="eyebrow">03 · Sale del laboratorio</p>
+      <h2 id="exp-title" data-scramble-view>Lo que haces aquí, funciona allá.</h2>
+      <p class="lead">Cada formato se genera en tu navegador y se prueba contra lo que ves. Cuando algo no puede ser fiel — un bloom no es vector — te lo decimos y te damos la alternativa.</p>
+    </div>
+    <div class="formats">
+      <article><h3>Imagen</h3><p><b>PNG</b> hasta 4K, re-renderizado (no escalado), con fondo transparente. <b>SVG</b> con el contorno real de cada letra.</p></article>
+      <article><h3>Movimiento</h3><p><b>MP4 y WebM</b> fotograma a fotograma: sin saltos aunque tu equipo sea modesto. Bucles perfectos. <b>GIF</b> para README.</p></article>
+      <article><h3>Web</h3><p><b>HTML</b> para pegar, <b>Web Component</b> y <b>React</b>. El motor incluido, sólo con los patrones que usas.</p></article>
+      <article><h3>Terminal</h3><p><b>TXT</b>, <b>ANSI</b> en 16, 256 o color real, scripts de <b>Node</b> y <b>Python</b> sin dependencias, y grabaciones <b>asciinema</b>.</p></article>
+      <article><h3>Receta</h3><p><b>JSON</b> editable, <b>enlace</b> que reabre la pieza exacta y <b>semilla</b>. Abre también tus ajustes del laboratorio original.</p></article>
+    </div>
+    <pre class="snippet" aria-label="Ejemplo de código exportado"><code><span class="c">&lt;!-- Monotrama · fondo ASCII animado --&gt;</span>
+<span class="t">&lt;div</span> <span class="a">class</span>=<span class="s">"monotrama"</span> <span class="a">style</span>=<span class="s">"position:fixed;inset:0;z-index:-1"</span><span class="t">&gt;</span>
+  <span class="t">&lt;canvas&gt;&lt;/canvas&gt;</span>
+<span class="t">&lt;/div&gt;</span>
+<span class="t">&lt;script&gt;</span> <span class="c">/* motor incluido · ~70 KB */</span>
+  Monotrama.<span class="f">mount</span>(canvas, receta, { pointer: <span class="s">'window'</span> });
+<span class="t">&lt;/script&gt;</span></code></pre>
+  </section>
+
+  <section class="sec paper" id="piezas" aria-labelledby="pie-title">
+    <div class="sec-head">
+      <p class="eyebrow">04 · Oficio</p>
+      <h2 id="pie-title" data-scramble-view>Hecho con cuidado.</h2>
+    </div>
+    <div class="principles">
+      <article><span class="glyph" aria-hidden="true">▣</span><h3>Tus archivos no salen de tu equipo</h3><p>Imágenes y videos se procesan en el navegador. No hay subida, ni cuentas, ni servidores de por medio.</p></article>
+      <article><span class="glyph" aria-hidden="true">◉</span><h3>La cámara, sólo si la pides</h3><p>El permiso se solicita cuando pulsas «Activar cámara», y se apaga al cambiar de fuente.</p></article>
+      <article><span class="glyph" aria-hidden="true">≋</span><h3>Movimiento con respeto</h3><p>Si tu sistema pide reducir movimiento, todo empieza en pausa y las transiciones son instantáneas.</p></article>
+      <article><span class="glyph" aria-hidden="true">▤</span><h3>Fluido en equipos modestos</h3><p>El motor ajusta la resolución si los fotogramas se retrasan y se detiene fuera de pantalla.</p></article>
+      <article><span class="glyph" aria-hidden="true">⌨</span><h3>Teclado y tacto</h3><p>Atajos para todo (R, ←, →, S, E), controles grandes y un panel que en el móvil se vuelve hoja inferior.</p></article>
+      <article><span class="glyph" aria-hidden="true">∞</span><h3>Nada se pierde</h3><p>Historial, colección y ajustes se guardan en tu navegador; exporta la colección para llevarla contigo.</p></article>
+    </div>
+  </section>
+
+  <section class="final" aria-labelledby="final-title">
+    <canvas class="final-canvas" aria-hidden="true"></canvas>
+    <div class="final-inner">
+      <h2 id="final-title" data-scramble-view>Empieza a tejer.</h2>
+      <a class="btn-cta big" href="/studio/" data-halo>Abrir el estudio <span aria-hidden="true">→</span></a>
+      <p class="final-note">Gratis, en tu navegador, sin registrarte.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-brand"><span class="logo" data-logo></span><span>monotrama</span></div>
+  <p>Monotrama nace del <a href="https://github.com/M1gu3hb/ASCII-Shader-Lab">ASCII Shader Lab</a>. Motor WebGL2 propio; tipografías con licencia OFL (Martian Mono, Inter Tight, Instrument Serif, JetBrains Mono y más).</p>
+  <p class="foot-small">Teje luz con caracteres · <a href="#top">Volver arriba ↑</a></p>
+</footer>
+
+<script type="module" src="/src/landing/main.ts"></script>
+</body>
+</html>

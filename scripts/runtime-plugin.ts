@@ -10,7 +10,7 @@ import type { Plugin } from 'vite';
 export function runtimePlugin(): Plugin {
   const id = 'virtual:mt-runtime';
   const resolved = '\0' + id;
-  const entry = resolve(__dirname, '../src/runtime/entry.ts');
+  const entry = resolve(import.meta.dirname, '../src/runtime/entry.ts');
   return {
     name: 'mt-runtime',
     resolveId(source) {

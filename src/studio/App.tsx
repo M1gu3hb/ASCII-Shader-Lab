@@ -55,10 +55,12 @@ function useKeys() {
     const onKey = (e: KeyboardEvent) => {
       const s = useStudio.getState();
       const t = e.target as HTMLElement;
-      const typing = t.closest('input, textarea, select, [contenteditable="true"]');
+      const field = t.closest('input, textarea, select, [contenteditable="true"]') as HTMLInputElement | null;
+      // sliders, switches and buttons don't take letters: let shortcuts through
+      const typing = field && !['range', 'checkbox', 'radio', 'color', 'button'].includes(field.type);
       const mod = e.ctrlKey || e.metaKey;
       if (mod && (e.key === 'z' || e.key === 'Z')) {
-        if (typing && (t as HTMLInputElement).type !== 'range') return;
+        if (typing) return;
         e.preventDefault();
         if (e.shiftKey) redo(); else undo();
         return;
