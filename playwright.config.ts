@@ -1,6 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/** End-to-end tests run against the production build (vite preview). */
+/**
+ * End-to-end tests. By default they run against the production build (vite preview).
+ * Set BASE_URL to test a deployed site, e.g. BASE_URL=https://monotrama.vercel.app npm run test:e2e
+ * (PW_PROXY and PW_ARGS allow routing through a corporate proxy if needed).
+ */
+const remote = process.env.BASE_URL;
+const extraArgs = (process.env.PW_ARGS ?? '').split(' ').filter(Boolean);
+
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 120_000,
@@ -9,15 +16,16 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: remote ?? 'http://localhost:4173',
     acceptDownloads: true,
-    launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] },
+    proxy: process.env.PW_PROXY ? { server: process.env.PW_PROXY } : undefined,
+    launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', ...extraArgs] },
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 860 } }, testIgnore: /mobile\.spec/ },
     { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec/ },
   ],
-  webServer: {
+  webServer: remote ? undefined : {
     command: 'npm run build && npx vite preview --port 4173 --strictPort',
     port: 4173,
     reuseExistingServer: true,

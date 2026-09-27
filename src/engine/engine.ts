@@ -717,6 +717,7 @@ export class AsciiEngine {
 
   private pulse(tq: number): number {
     const m = this.r.motion;
+    if (this.externalPulse > 0) return Math.min(1, this.externalPulse);
     if (m.pulse <= 0) return 0;
     let bpm = m.bpm, t = tq;
     if (m.loop > 0) { const beats = Math.max(1, Math.round((m.loop * bpm) / 60)); bpm = (beats * 60) / m.loop; t = tq % m.loop; }
@@ -884,6 +885,8 @@ export class AsciiEngine {
 
   /** Export engines can render with a transparent background. */
   transparent = false;
+  /** Live input (e.g. microphone level, 0..1) that drives the pulse instead of the BPM clock. */
+  externalPulse = 0;
 }
 
 /** Creates an engine and reports a readable error instead of throwing. */

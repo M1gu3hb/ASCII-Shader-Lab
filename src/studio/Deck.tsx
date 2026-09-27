@@ -8,6 +8,7 @@ import {
   useStudio, vary, type Entry,
 } from './store';
 import { announce, toast } from './toast';
+import { setAuto, useLive } from './live';
 
 export function dice() {
   const e = rollDice();
@@ -115,6 +116,7 @@ function DicePop({ onClose }: { onClose: () => void }) {
   const arch = useStudio(s => s.arch);
   const amount = useStudio(s => s.amount);
   const space = useStudio(s => s.space);
+  const auto = useLive(s => s.auto);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (ev: MouseEvent) => { if (ref.current && !ref.current.contains(ev.target as Node) && !(ev.target as HTMLElement).closest('[aria-label="Ajustes del azar"]')) onClose(); };
@@ -151,6 +153,11 @@ function DicePop({ onClose }: { onClose: () => void }) {
         <input type="range" min={0.05} max={1} step={0.01} value={amount} onChange={e => setAmount(parseFloat(e.target.value))} style={{ '--p': ((amount - 0.05) / 0.95) * 100 + '%' } as React.CSSProperties} aria-label="Intensidad de la variación" />
       </div>
       <button type="button" className="btn" onClick={() => { onClose(); setUI({ sheet: 'explore' }); }}><IExplore width={16} /> Explorar ocho variaciones</button>
+      <h3>Modo exposición</h3>
+      <div className="seg" role="group" aria-label="Tirar solo cada" style={{ marginBottom: 8 }}>
+        {[0, 5, 10, 20, 40].map(n => <button key={n} type="button" aria-pressed={auto === n} onClick={() => setAuto(n)}>{n ? n + ' s' : 'No'}</button>)}
+      </div>
+      <p className="note">El dado tira solo. Pulsa <b>H</b> para ocultar la interfaz y dejar la pieza a pantalla completa.</p>
       <p className="note" style={{ margin: 0 }}>Cada resultado tiene una semilla: la misma semilla, en el mismo espacio y estilo, repite exactamente la pieza. El dado evita combinaciones que ya viste.</p>
     </div>
   );

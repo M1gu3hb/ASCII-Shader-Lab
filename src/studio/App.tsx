@@ -67,7 +67,7 @@ function useKeys() {
       }
       if (mod && (e.key === 'y' || e.key === 'Y')) { if (!typing) { e.preventDefault(); redo(); } return; }
       if (mod || e.altKey || typing) return;
-      if (s.ui.sheet !== 'none') return;
+      if (s.ui.sheet !== 'none' || document.querySelector('dialog[open]')) return;
       if (s.ui.hideUI && e.key !== 'h' && e.key !== 'H' && e.key !== 'Escape') { setUI({ hideUI: false }); return; }
       const comps = s.space === 'componentes';
       const k = e.key;

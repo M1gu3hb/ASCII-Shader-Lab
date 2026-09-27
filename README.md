@@ -63,6 +63,13 @@ Además: lectura de la rejilla de caracteres (para exportar texto/ANSI/SVG idén
 - **Sin repetir lo visto**: cada resultado tiene una huella visual (patrones, paleta cuantizada, glifos, efectos…); el dado descarta semillas cuya huella ya está en tu historial. No se promete unicidad global, sólo frente a lo que tú ya viste.
 - **Historial que nunca se trunca**: tirar desde un resultado antiguo añade al final. Las ediciones enmiendan la entrada actual (con deshacer/rehacer por entrada y «volver al original»). `→` al final del historial tira el dado.
 - **Colección** (★) y **enlaces** con la receta completa comprimida en el fragmento `#`, que nunca llega a un servidor.
+- **Explorar**: ocho mutaciones del resultado actual renderizadas fuera de pantalla para elegir la siguiente.
+- **Modo exposición**: el dado tira solo cada 5–40 s (no interrumpe si estás ajustando algo); con `H` la pieza queda sola en pantalla.
+
+### En vivo
+
+- **Sonido**: el micrófono (sólo al pulsar «Reaccionar al sonido») marca el pulso de la pieza con una envolvente de ataque rápido y caída lenta sobre un umbral de ruido adaptativo. Se analiza en el navegador; nada se graba.
+- **Cursor y tacto**: linterna, ondas (ecuación de onda en la GPU), lupa, empuje, remolino, borrador (revela la foto original), pincel y caos; cursor fantasma opcional para fondos sin interacción.
 
 ### Exportaciones (y sus límites, dichos claramente)
 
@@ -99,7 +106,7 @@ Proyecto de Vercel **`ascii-shader-lab`** (framework Vite, salida `dist/`). `ver
 
 ## Pendiente / ideas siguientes
 
-- Reacción al audio (micrófono) y sincronía con BPM de una canción.
+- Sincronía con el BPM detectado de una canción (hoy el micrófono sigue el volumen, no el tempo).
 - Simulaciones con estado (reacción-difusión, juego de la vida) como capas.
 - Guardar opcionalmente la imagen de un favorito en el navegador para reabrirlo con su foto.
 - Editor de rampas de caracteres con vista previa de densidad y más estilos de rótulo (fuentes FIGlet).

@@ -372,7 +372,8 @@ export async function persistNow() {
   } catch { /* private mode: keep working in memory */ }
 }
 
-export async function hydrate() {
+/** Returns true on the very first visit (empty history). */
+export async function hydrate(): Promise<boolean> {
   let entries: Entry[] = [], cursor = -1, favorites: Favorite[] = [];
   try {
     const h = await idbGet(K_HIST);
@@ -400,12 +401,14 @@ export async function hydrate() {
     arch: typeof prefs.arch === 'string' ? prefs.arch : null,
     amount: typeof prefs.amount === 'number' ? prefs.amount : 0.35,
   });
-  if (!entries.length) {
+  const first = !entries.length;
+  if (first) {
     const p = presetsFor('arte')[0];
     set({ space: 'arte' });
     pushEntry({ recipe: p.make(), kind: 'inicio', label: p.name, space: 'arte' }, 'load');
   }
   addEventListener('pagehide', () => { void persistNow(); });
+  return first;
 }
 
 export const seenCount = () => seen.size;
