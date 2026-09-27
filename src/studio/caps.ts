@@ -133,6 +133,8 @@ export function codecsAt(W: number, H: number): Promise<CodecSupport> {
       const [avc, vp9, vp8] = await Promise.all([can('avc'), can('vp9'), can('vp8')]);
       return { avc, vp9, vp8 };
     })();
+    // the encoder could not be fetched (offline, or a new version replaced it): ask again next time
+    p.catch(() => { if (codecCache.get(key) === p) codecCache.delete(key); });
     codecCache.set(key, p);
   }
   return p;

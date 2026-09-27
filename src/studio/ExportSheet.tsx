@@ -206,7 +206,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 6);
   /** Codec support at the chosen size, and the smaller sizes that would work (keyed by W×H). */
-  const [support, setSupport] = useState<{ key: string; s: VideoSupport } | null>(null);
+  const [support, setSupport] = useState<{ key: string; s: VideoSupport; failed?: boolean } | null>(null);
   const [alt, setAlt] = useState<{ key: string; any: Smaller; mp4: Smaller } | null>(null);
   const [busy, setBusy] = useState<{ kind: 'video' | 'gif'; p: number; label?: string } | null>(null);
   const cancel = useRef<Cancel>({ cancelled: false });
@@ -229,7 +229,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
       const any = !s.mp4 && !s.webm ? await smallerEncodable(sz.W, sz.H) : null;
       const mp4 = !s.mp4 && s.webm ? await smallerEncodable(sz.W, sz.H, 'mp4') : null;
       if (alive) setAlt({ key, any, mp4 });
-    });
+    }).catch(() => { if (alive) setSupport({ key, s: { mp4: false, webm: false }, failed: true }); });
     return () => { alive = false; };
   }, [key, webcodecs, camera]);
   useEffect(() => {
@@ -270,6 +270,9 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const liveAlt = recorder.ok ? 'la grabación en directo o el GIF' : 'el GIF';
   const renderRows = () => {
     if (!cur) return <p className="note" aria-live="polite">Comprobando qué puede codificar este navegador a {sz.W}×{sz.H}…</p>;
+    if (support?.failed) {
+      return <Unavailable what="Video renderizado: no se pudo preparar.">No se pudo descargar el codificador de video (quizá se cortó la conexión o hay una versión nueva del estudio). Cierra y vuelve a abrir esta ventana para intentarlo de nuevo, o recarga la página.</Unavailable>;
+    }
     if (!cur.mp4 && !cur.webm) {
       if (!alts) return <p className="note" aria-live="polite">Buscando un tamaño que este navegador sí pueda codificar…</p>;
       return alts.any

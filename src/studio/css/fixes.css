@@ -17,3 +17,14 @@ dialog.sheet.tab-away { width: min(520px, calc(100vw - 24px)); }
 .app.ui-off .stage-notes .bm-chip.rec-chip { opacity: 1; pointer-events: auto; }
 @keyframes rec-blink { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .rec-chip .bm-tag i { animation: none; } }
+
+/* ---------- a part of the studio that could not be fetched (Boundary.tsx) ---------- */
+.load-fail {
+  position: fixed; z-index: 100; left: 50%; top: calc(var(--top-h) + 12px); transform: translateX(-50%);
+  width: min(460px, calc(100vw - 24px)); padding: 14px; border-radius: 14px; border: 1px solid var(--line-2);
+  background: var(--panel); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); font-size: 13.5px; line-height: 1.5; color: var(--muted);
+}
+.load-fail p { margin: 0 0 12px; }
+.load-fail b { color: var(--text); }
+.load-fail .btn { margin: 0; min-height: 44px; }
+.guide-panel .load-fail, .comp-wrap .load-fail { position: static; transform: none; width: auto; margin: 14px; box-shadow: none; }

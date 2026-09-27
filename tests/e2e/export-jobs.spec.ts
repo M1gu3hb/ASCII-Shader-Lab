@@ -51,6 +51,21 @@ test.describe('exportaciones largas', () => {
     await expect(page.getByRole('button', { name: 'Descargar GIF' })).toBeEnabled();
   });
 
+  test('si una parte del estudio no se puede descargar, lo dice y el resto sigue en pie', async ({ page }) => {
+    await page.addInitScript(() => Object.defineProperty(navigator, 'connection', { get: () => ({ saveData: true }) })); // no idle prefetch
+    await openStudio(page);
+    await page.route(/\/assets\/export-sheet-[^/]*\.js$/, r => r.fulfill({ status: 404, body: '' }));
+    await page.keyboard.press('e');
+    const fail = page.locator('.load-fail');
+    await expect(fail).toContainText('No se pudo cargar esta parte del estudio', { timeout: 20_000 });
+    await expect(page.locator('.stage canvas').first()).toBeVisible();
+    await expect(page.locator('.seedline')).toBeVisible();
+    await fail.getByRole('button', { name: 'Cerrar' }).click();
+    await expect(fail).toHaveCount(0);
+    await page.keyboard.press('r');
+    await expect(page.locator('.seedline')).toContainText('2/2');
+  });
+
   test('el GIF de una pieza con video sigue el video fotograma a fotograma', async ({ page }) => {
     test.skip(!hasFfmpeg, 'needs ffmpeg to make a test video');
     const file = test.info().outputPath('reloj.webm');
