@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { gridToAnsi, gridToText, gridToHtml, toAsciicast, toNodePlayer, toPythonPlayer } from '../../src/exporters/text';
+import {
+  LICENSE_LINE, charWidth, gridToAnsi, gridToText, gridToHtml, gridToHtmlPage, textWidth, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner,
+} from '../../src/exporters/text';
 import { layoutMessage, messageState } from '../../src/engine/text';
 import { defaultRecipe } from '../../src/engine/recipe';
 import type { GridSnapshot } from '../../src/engine/engine';
@@ -57,6 +59,70 @@ describe('text exporters', () => {
     const b64 = /Buffer\.from\("([^"]+)"/.exec(node)![1];
     const { gunzipSync } = await import('node:zlib');
     expect(JSON.parse(gunzipSync(Buffer.from(b64, 'base64')).toString())).toEqual(f.frames);
+  });
+});
+
+describe('text exports on a real terminal', () => {
+  /** A one-row grid from an array of cells (a cell may hold a wide or zero-width glyph). */
+  const row = (cells: string[]): GridSnapshot => {
+    const n = cells.length;
+    return { cols: n, rows: 1, chars: cells, rgb: new Uint8Array(n * 3).fill(200), alpha: new Uint8Array(n).fill(255), lum: new Uint8Array(n), flags: new Uint8Array(n), bg: '#000000', cw: 8, ch: 16 };
+  };
+
+  it('a double-width glyph takes its cell and the next one, so rows keep exactly cols columns', () => {
+    expect(charWidth('こ')).toBe(2);
+    expect(charWidth('😀')).toBe(2);
+    expect(charWidth('ｱ')).toBe(1);
+    expect(charWidth('́')).toBe(0);
+    const g = row(['a', 'こ', 'b', 'c', '😀', 'd', 'e', '界']);
+    expect(gridToText(g)).toBe('aこc😀e\n');
+    const ansi = gridToAnsi(g, 'truecolor', true).replace(/\n$/, '');
+    expect(textWidth(ansi)).toBe(8);
+    expect(gridToHtml(g)).toContain('aこc😀e');
+  });
+
+  it('control and combining characters become spaces', () => {
+    expect(gridToText(row(['a', '\x1b', 'b', '́', 'c']))).toBe('a b c\n');
+  });
+
+  it('an empty first row survives the HTML parser (it eats one newline after <pre>)', () => {
+    const h = gridToHtml(grid(['    ', 'abcd']));
+    expect(h).toMatch(/aria-label="Arte ASCII">\n\n/);
+    expect(gridToHtmlPage(grid(['ab']), '</title><script>x</script>')).toContain('<title>&lt;/title&gt;&lt;script&gt;x&lt;/script&gt;</title>');
+  });
+
+  it('asciicast ends without a newline that would scroll the last frame', () => {
+    const lines = toAsciicast({ cols: 2, rows: 2, fps: 10, frames: ['a\nb'] }, 't').trim().split('\n');
+    expect(JSON.parse(lines.at(-1)!)[2]).toBe('\x1b[0m\x1b[?25h');
+  });
+
+  it('players pad frames to the full width and print one frame when stdout is not a terminal', async () => {
+    const f = { cols: 10, rows: 2, fps: 12, frames: ['#####\n##', '#\n########'] };
+    const node = await toNodePlayer(f, 'x');
+    expect(node).toContain(LICENSE_LINE);
+    const b64 = /Buffer\.from\("([^"]+)"/.exec(node)![1];
+    const { gunzipSync } = await import('node:zlib');
+    const frames: string[] = JSON.parse(gunzipSync(Buffer.from(b64, 'base64')).toString());
+    expect(frames.every(fr => fr.split('\n').every(l => l.length === 10))).toBe(true);
+    const { spawnSync } = await import('node:child_process');
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const file = join(mkdtempSync(join(tmpdir(), 'mt-')), 'p.mjs');
+    writeFileSync(file, node);
+    const r = spawnSync(process.execPath, [file], { encoding: 'utf8', timeout: 5000 });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('#####     \n##        \x1b[0m\n');
+    const py = await toPythonPlayer(f, 'x');
+    expect(py).toContain('if not out.isatty():');
+    expect(py).toContain('except BrokenPipeError');
+  });
+
+  it('shell greeting only prints in interactive shells; the CLI snippet drops colours when redirected', async () => {
+    expect(toShellBanner('hola\n')).toMatch(/^# Hecho con Monotrama[^\n]*\n# [^\n]*\ncase \$- in \*i\*\)\ncat <<'MONOTRAMA'\nhola\nMONOTRAMA\n;; esac\n$/);
+    const { spawnSync } = await import('node:child_process');
+    const r = spawnSync(process.execPath, ['--input-type=module', '-e', toJsString('\x1b[38;5;208mhola\x1b[0m\n')], { encoding: 'utf8' });
+    expect(r.stdout).toBe('hola\n');
   });
 });
 

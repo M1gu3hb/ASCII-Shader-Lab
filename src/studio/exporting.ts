@@ -22,7 +22,8 @@ export function resolveSize(spec: SizeSpec, even = false): OffscreenSize & { W: 
   const { cssW, cssH } = stageSize();
   let size: OffscreenSize;
   if (spec.kind === 'view') size = { cssW, cssH, pixelRatio: spec.scale };
-  else size = { cssW: Math.round(cssH * (spec.w / spec.h)), cssH, pixelRatio: spec.h / cssH };
+  // fixed sizes are exact: rounding the CSS width first gave e.g. 1919×1080 for «1920×1080»
+  else size = { cssW: (cssH * spec.w) / spec.h, cssH, pixelRatio: spec.h / cssH };
   let W = Math.round(size.cssW * size.pixelRatio), H = Math.round(size.cssH * size.pixelRatio);
   if (even) {
     if (W % 2) { size.cssW += 1 / size.pixelRatio; W += 1; }
@@ -32,6 +33,13 @@ export function resolveSize(spec: SizeSpec, even = false): OffscreenSize & { W: 
 }
 
 export const liveTime = () => getEngine()?.time ?? 0;
+
+/**
+ * Engine time runs at motion.speed per real second (that's what the stage shows), so rendered clips step it
+ * the same way. A perfect loop of `motion.loop` engine seconds lasts loop / speed real seconds.
+ */
+export const clipTime = (r: Recipe, start: number, seconds: number) => start + seconds * r.motion.speed;
+export const loopSeconds = (r: Recipe) => (r.motion.loop > 0 && r.motion.speed > 0 ? r.motion.loop / r.motion.speed : 0);
 const canvasBlob = (c: HTMLCanvasElement, type: string, q?: number) => new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('toBlob'))), type, q));
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
 
@@ -94,9 +102,9 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
     const n = Math.max(1, Math.round(o.seconds * o.fps));
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) { await output.cancel(); throw new Error('cancelado'); }
-      const t = o.start + i / o.fps;
-      if (video) await seekVideo(video, t * r.media.rate);
-      eng.renderAt(t);
+      const t = clipTime(r, o.start, i / o.fps);
+      if (video) await seekVideo(video, (o.start + i / o.fps) * r.media.rate);
+      eng.renderAt(t, o.start + i / o.fps);
       await src.add(i / o.fps, 1 / o.fps);
       progress((i + 1) / n, `Fotograma ${i + 1} de ${n}`);
       if (i % 4 === 0) await nextFrame();
@@ -120,7 +128,10 @@ export class LiveRecorder {
   start(fps = 30): boolean {
     const c = getEngine()?.canvas;
     if (!c || !LiveRecorder.supported()) return false;
-    this.mime = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) ?? '';
+    // .mp4 only with H.264 inside (what editors and social networks expect); plain 'video/mp4' last,
+    // for browsers that record MP4 but no WebM (Safari)
+    this.mime = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4']
+      .find(t => MediaRecorder.isTypeSupported(t)) ?? '';
     if (!this.mime) return false;
     this.chunks = [];
     this.rec = new MediaRecorder(c.captureStream(fps), { mimeType: this.mime, videoBitsPerSecond: 16e6 });
@@ -154,11 +165,13 @@ export async function exportGif(r: Recipe, width: number, o: { fps: number; seco
   const ctx = c2.getContext('2d', { willReadFrequently: true })!;
   const gif = GIFEncoder();
   const n = Math.max(1, Math.round(o.seconds * o.fps));
-  const delay = Math.round(1000 / o.fps);
+  // GIF delays are whole centiseconds: accumulate them so the clip keeps its exact length (e.g. 24 fps)
+  const cs = (i: number) => Math.round((i * 100) / o.fps);
   try {
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(o.start + i / o.fps);
+      const delay = (cs(i + 1) - cs(i)) * 10;
+      eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
       ctx.drawImage(eng.canvas, 0, 0);
       const { data } = ctx.getImageData(0, 0, W, H);
       const palette = quantize(data, o.colors);
@@ -185,9 +198,10 @@ function gridSize(r: Recipe, cols?: number, rows?: number): OffscreenSize {
   return { cssW, cssH, pixelRatio: 1 };
 }
 
-export async function captureGrid(r: Recipe, cols?: number, rows?: number, time = liveTime()): Promise<GridSnapshot> {
+/** Grid of the frame at `time`, plus the size of the canvas it was read from (the SVG uses it). */
+export async function captureGrid(r: Recipe, cols?: number, rows?: number, time = liveTime()): Promise<GridSnapshot & { width: number; height: number }> {
   const eng = await offscreenEngine(r, gridSize(r, cols, rows));
-  try { eng.renderAt(time); return eng.readGrid(); } finally { eng.destroy(); }
+  try { eng.renderAt(time); return { ...eng.readGrid(), width: eng.canvas.width, height: eng.canvas.height }; } finally { eng.destroy(); }
 }
 
 export async function captureFrames(
@@ -200,7 +214,7 @@ export async function captureFrames(
   try {
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(o.start + i / o.fps);
+      eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
       const g = eng.readGrid();
       const s = o.depth === 'none' ? gridToText(g) : gridToAnsi(g, o.depth, o.withBg);
       frames.push(s.replace(/\n$/, ''));
