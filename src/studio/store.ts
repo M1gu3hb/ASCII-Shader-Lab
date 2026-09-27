@@ -585,7 +585,9 @@ export async function hydrate(): Promise<boolean> {
     set({ space: 'arte' });
     pushEntry({ recipe: p.make(), kind: 'inicio', label: p.name, space: 'arte' }, 'load');
   }
+  // pagehide alone is unreliable on phones (tabs are often frozen or discarded without it)
   addEventListener('pagehide', () => { void persistNow(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void persistNow(); });
   // media left behind by earlier sessions (e.g. replaced images whose undo steps are gone)
   scheduleGc(12_000);
   return first;
