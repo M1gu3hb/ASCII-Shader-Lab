@@ -16,6 +16,8 @@ import { BasicFxHint } from './BasicMode';
 import { pickFile } from './files';
 import { CharsetSwatches, CompareStrip, Hint } from './guide/CompareStrip';
 import { CONTRAST, DETAIL } from './guide/paths';
+import { setView, useView } from './views/state';
+import { TERM_SIZES } from './views/views';
 
 export const TABS: Record<SpaceId, Array<[string, string]>> = {
   fondos: [['forma', 'Forma'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
@@ -51,12 +53,13 @@ export function TabContent({ tab, space }: { tab: string; space: SpaceId }) {
 
 function FormaTab({ space }: { space: SpaceId }) {
   const n = useStudio(s => s.entries[s.cursor]?.recipe.layers.length ?? 0);
-  const preview = useStudio(s => s.ui.preview);
+  // «content on top» is the «Fondo web» destination preview
+  const preview = useView() === 'web';
   const source = useField(F<SourceKind>('source'));
   return (
     <>
       {space === 'fondos' && (
-        <button type="button" className="btn" onClick={() => setUI({ preview: !preview })} aria-pressed={preview}>
+        <button type="button" className="btn" onClick={() => setView(preview ? 'libre' : 'web')} aria-pressed={preview}>
           {preview ? <IEyeOff width={16} /> : <IEye width={16} />} {preview ? 'Ocultar contenido de prueba' : 'Probar con contenido encima'}
         </button>
       )}
@@ -441,13 +444,15 @@ function MsgTab() {
 /* Terminal                                                            */
 /* ------------------------------------------------------------------ */
 
-const TERM_SIZES: Array<[number, number]> = [[80, 24], [100, 30], [120, 36], [132, 43], [60, 20], [40, 16]];
 
 function TermTab() {
   const t = useStudio(s => s.ui.terminal);
+  const inTerm = useView() === 'terminal';
   return (
     <>
-      <Note>La vista reproduce una terminal de <b>{t.cols}×{t.rows}</b>. Lo que ves es exactamente lo que exportas como texto, ANSI o animación para la consola.</Note>
+      {inTerm
+        ? <Note>La vista reproduce una terminal de <b>{t.cols}×{t.rows}</b>. Lo que ves es exactamente lo que exportas como texto, ANSI o animación para la consola.</Note>
+        : <button type="button" className="btn" onClick={() => setView('terminal')}>Ver la ventana de terminal ({t.cols}×{t.rows})</button>}
       <div className="ctl">
         <span className="lbl">Tamaño</span>
         <div className="seg" role="group" aria-label="Tamaño de la terminal">

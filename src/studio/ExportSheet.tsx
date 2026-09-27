@@ -17,7 +17,7 @@ import { Glossary } from './Glossary';
 import { exportProject, fmtSize, projectMedia } from './packages';
 import { shareLink } from './ShareSheet';
 import './css/basic.css';
-import { takeExportTab } from './exportTab';
+import { takeExportRequest, type ExportRequest } from './exportTab';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -29,17 +29,27 @@ export function ExportSheet() {
   const open = useStudio(s => s.ui.sheet === 'export');
   const space = useStudio(s => s.space);
   const [tab, setTab] = useState<Tab>('imagen');
-  useEffect(() => { if (open) setTab(takeExportTab() ?? (space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen')); }, [open, space]);
+  // a destination preview may ask for a tab and where it starts (size, GIF width, columns × rows)
+  const [req, setReq] = useState<ExportRequest | null>(null);
+  // each opening starts the tabs afresh (a tab left open last time must not keep its old size)
+  const [opening, setOpening] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const r = takeExportRequest();
+    setReq(r);
+    setOpening(n => n + 1);
+    setTab(r?.tab ?? (space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen'));
+  }, [open, space]);
   return (
     <Sheet open={open} onClose={() => setUI({ sheet: 'none' })} wide title="Llevar la pieza fuera" sub="Todo se genera en tu navegador. Elige el formato según dónde la vayas a usar.">
       <div className="sheet-tabs" role="tablist">
         {TABS.map(([id, name]) => <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{name}</button>)}
       </div>
       <div className="sheet-body">
-        {tab === 'imagen' && <ImageTab />}
-        {tab === 'video' && <VideoTab />}
+        {tab === 'imagen' && <ImageTab key={opening} req={req} />}
+        {tab === 'video' && <VideoTab key={opening} req={req} />}
         {tab === 'vector' && <VectorTab />}
-        {tab === 'terminal' && <TerminalTab />}
+        {tab === 'terminal' && <TerminalTab key={opening} req={req} />}
         {tab === 'codigo' && <CodeTab />}
         {tab === 'receta' && <RecipeTab />}
       </div>
@@ -124,10 +134,13 @@ function formatGap(f: ImageFormat, ok: Record<ImageFormat, boolean>): string {
   return `Este navegador no sabe guardar ${FORMAT_NAME[f]}: si se lo pidiéramos, entregaría un PNG con otro nombre. Usa ${others.join(' o ')}.`;
 }
 
-function ImageTab() {
+/** A size preset asked for by the request, when the sheet offers it. */
+const presetOf = (req: ExportRequest | null, fallback: string) => (req?.size && SIZE_PRESETS.some(p => p.id === req.size) ? req.size : fallback);
+
+function ImageTab({ req }: { req: ExportRequest | null }) {
   const e = useCurrent();
   const images = useCaps(s => s.images);
-  const [preset, setPreset] = useState('v2');
+  const [preset, setPreset] = useState(() => presetOf(req, 'v2'));
   const [transparent, setTransparent] = useState(false);
   const [format, setFormat] = useState<ImageFormat>('png');
   const [busy, setBusy] = useState(false);
@@ -183,12 +196,12 @@ function recorderGap(r: RecorderCaps): string {
   return 'Este navegador no graba en ningún formato de video que podamos guardar (MP4 o WebM).';
 }
 
-function VideoTab() {
+function VideoTab({ req }: { req: ExportRequest | null }) {
   const e = useCurrent();
   const webcodecs = useCaps(s => s.webcodecs);
   const recorder = useCaps(s => s.recorder);
   const basic = useCaps(s => s.renderer === 'basic');
-  const [preset, setPreset] = useState('hd');
+  const [preset, setPreset] = useState(() => presetOf(req, 'hd'));
   const [fps, setFps] = useState(30);
   const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 6);
@@ -197,7 +210,7 @@ function VideoTab() {
   const [alt, setAlt] = useState<{ key: string; any: Smaller; mp4: Smaller } | null>(null);
   const [busy, setBusy] = useState<{ kind: 'video' | 'gif'; p: number; label?: string } | null>(null);
   const cancel = useRef<Cancel>({ cancelled: false });
-  const [gifW, setGifW] = useState(640);
+  const [gifW, setGifW] = useState(() => (req?.gifW && [320, 480, 640, 800].includes(req.gifW) ? req.gifW : 640));
   const [rec, setRec] = useState<LiveRecorder | null>(null);
   const [recT, setRecT] = useState(0);
   const spec = SIZE_PRESETS.find(p => p.id === preset)!.spec;
@@ -365,12 +378,12 @@ function VectorTab() {
 
 /* ------------------------------------------------------------------ */
 
-function TerminalTab() {
+function TerminalTab({ req }: { req: ExportRequest | null }) {
   const e = useCurrent();
   const term = useStudio(s => s.ui.terminal);
   const space = useStudio(s => s.space);
-  const [cols, setCols] = useState(term.cols);
-  const [rows, setRows] = useState(term.rows);
+  const [cols, setCols] = useState(req?.term?.cols ?? term.cols);
+  const [rows, setRows] = useState(req?.term?.rows ?? term.rows);
   const [depth, setDepth] = useState<ColorDepth>('256');
   const [withBg, setWithBg] = useState(true);
   const [preview, setPreview] = useState<{ text: string; html: string; page: string; ansi: string } | null>(null);
@@ -416,7 +429,7 @@ function TerminalTab() {
           <div className="seg">{([['none', 'Sin color'], ['16', '16'], ['256', '256'], ['truecolor', 'Color real']] as Array<[ColorDepth, string]>).map(([d, n]) => <button key={d} type="button" aria-pressed={depth === d} onClick={() => setDepth(d)}>{n}</button>)}</div></div>
         <label className="toggle" style={{ margin: 0 }}><span>Pintar fondo</span><span className="switch"><input type="checkbox" role="switch" checked={withBg} onChange={ev => setWithBg(ev.target.checked)} /><span /></span></label>
       </div>
-      {preview && <div className="ansi-pre" style={{ marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: preview.html }} />}
+      {preview && <div className="ansi-pre" style={{ marginBottom: 14 }} tabIndex={0} role="region" aria-label={`Vista previa en texto, ${cols}×${rows}`} dangerouslySetInnerHTML={{ __html: preview.html }} />}
       <div className="ex-grid">
         <div className="ex-card">
           <h3>Fotograma</h3>
@@ -502,7 +515,7 @@ function CodeTab() {
       <div className="row" style={{ gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
         <label className="toggle" style={{ margin: 0 }}><span>Reacciona al cursor</span><span className="switch"><input type="checkbox" role="switch" checked={interactive} onChange={ev => setInteractive(ev.target.checked)} /><span /></span></label>
         <label className="toggle" style={{ margin: 0 }}><span>Sin dependencias externas</span><span className="switch"><input type="checkbox" role="switch" checked={systemFont} onChange={ev => setSystemFont(ev.target.checked)} /><span /></span></label>
-        {isMedia && <input type="text" className="mono" placeholder={e.recipe.source === 'image' ? 'URL de tu imagen' : 'URL de tu video'} value={mediaUrl} onChange={ev => setMediaUrl(ev.target.value)} style={{ flex: 1, minWidth: 200, background: 'var(--field)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px' }} />}
+        {isMedia && <input type="text" className="mono" aria-label={e.recipe.source === 'image' ? 'URL de tu imagen en tu web' : 'URL de tu video en tu web'} placeholder={e.recipe.source === 'image' ? 'URL de tu imagen' : 'URL de tu video'} value={mediaUrl} onChange={ev => setMediaUrl(ev.target.value)} style={{ flex: 1, minWidth: 200, background: 'var(--field)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px' }} />}
       </div>
       {basic && (
         <div className="ex-na info" role="note">

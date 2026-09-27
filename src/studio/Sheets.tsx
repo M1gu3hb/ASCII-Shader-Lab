@@ -30,8 +30,12 @@ export function Sheet({ open, title, sub, onClose, children, wide }: { open: boo
     if (!open && d.open) d.close();
   }, [open]);
   return (
-    <dialog ref={ref} className="sheet" style={wide ? { width: 'min(1040px, calc(100vw - 24px))' } : undefined} onClose={onClose}
-      onClick={e => { if (e.target === ref.current) onClose(); }} aria-label={title}>
+    <dialog ref={ref} className={'sheet' + (wide ? ' wide' : '')}
+      // Escape: 'cancel' comes at once; 'close' may come late on a busy page, when another sheet may
+      // already be open: only a sheet that is still open closes itself
+      onCancel={() => { if (open) onClose(); }}
+      onClose={() => { if (open) onClose(); }}
+      onClick={e => { if (e.target === ref.current) onClose(); }} onKeyDown={e => trapTab(e, ref.current)} aria-label={title}>
       {open && (
         <>
           <div className="sheet-head">
@@ -43,6 +47,20 @@ export function Sheet({ open, title, sub, onClose, children, wide }: { open: boo
       )}
     </dialog>
   );
+}
+
+/**
+ * Tab and Shift+Tab wrap around inside an open sheet: a modal dialog already makes the page behind
+ * inert, but past its last control the browser would send focus to its own toolbar.
+ */
+export function trapTab(e: React.KeyboardEvent, d: HTMLElement | null) {
+  if (e.key !== 'Tab' || !d) return;
+  const all = [...d.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0 && !el.closest('[inert]'));
+  if (!all.length) return;
+  const first = all[0], last = all[all.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 const close = () => setUI({ sheet: 'none' });

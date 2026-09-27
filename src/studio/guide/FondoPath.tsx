@@ -1,12 +1,13 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Recipe } from '../../engine/recipe';
-import { getEngine } from '../engineBridge';
 import { openExport } from '../exportTab';
 import { IDice } from '../icons';
 import { PRESETS } from '../presets';
-import { applyRecipe, currentRecipe, edit, rollDice, setUI, useEntry, useRecipe, useStudio } from '../store';
+import { applyRecipe, currentRecipe, edit, rollDice, useEntry, useRecipe, useStudio } from '../store';
 import { announce } from '../toast';
-import { FONDO_SPEEDS, applyPresence, legibility, nearestChoice, presence, presenceWord, previewInk, type Legibility } from './paths';
+import { VERDICT, inkFor, useLegibility } from '../views/legibility';
+import { currentView, setView, useView } from '../views/state';
+import { FONDO_SPEEDS, applyPresence, nearestChoice, presence, presenceWord } from './paths';
 import { CodeBox, StyleGrid, type StyleItem } from './parts';
 
 /* 1 · Elige un estilo ------------------------------------------------ */
@@ -35,56 +36,12 @@ export function FondoStyle() {
 
 /* 2 · Que se lea el contenido ------------------------------------------ */
 
-const VERDICT: Record<Legibility, string> = {
-  buena: 'Se lee bien',
-  justa: 'Vale para titulares grandes; para texto normal, baja la presencia',
-  baja: 'Cuesta leer: baja la presencia',
-};
-
-/**
- * Samples the rendered stage behind the preview headline and estimates its contrast with the
- * headline colour. Runs while the step shows: after each change and every second and a half
- * (the background moves).
- */
-function useLegibility(on: boolean, recipe: Recipe | undefined) {
-  const [est, setEst] = useState<{ ratio: number; level: Legibility } | null>(null);
-  useEffect(() => {
-    if (!on || !recipe) { setEst(null); return; }
-    let alive = true;
-    const measure = () => {
-      const eng = getEngine();
-      const h1 = document.querySelector('.preview-content h1');
-      if (!eng || !h1 || !alive) return;
-      const c = eng.canvas, cr = c.getBoundingClientRect(), hr = h1.getBoundingClientRect();
-      const x0 = Math.max(hr.left, cr.left), y0 = Math.max(hr.top, cr.top);
-      const x1 = Math.min(hr.right, cr.right), y1 = Math.min(hr.bottom, cr.bottom);
-      if (x1 - x0 < 4 || y1 - y0 < 4 || !cr.width || !cr.height) return;
-      const kx = c.width / cr.width, ky = c.height / cr.height;
-      const sw = (x1 - x0) * kx, sh = (y1 - y0) * ky;
-      const k = Math.min(1, 360 / sw);
-      const w = Math.max(1, Math.round(sw * k)), h = Math.max(1, Math.round(sh * k));
-      const t = document.createElement('canvas');
-      t.width = w; t.height = h;
-      const x = t.getContext('2d', { willReadFrequently: true });
-      if (!x) return;
-      try {
-        eng.renderNow();
-        x.drawImage(c, (x0 - cr.left) * kx, (y0 - cr.top) * ky, sw, sh, 0, 0, w, h);
-        const block = Math.max(3, Math.round(recipe.glyph.cell * kx * k * 2));
-        setEst(legibility(x.getImageData(0, 0, w, h).data, w, h, previewInk(recipe.color.bg), block));
-      } catch { /* a canvas we cannot read: no estimate */ }
-    };
-    // the first sample waits for a style's crossfade to settle
-    const first = setTimeout(measure, 700);
-    const every = setInterval(measure, 1500);
-    return () => { alive = false; clearTimeout(first); clearInterval(every); };
-  }, [on, recipe]);
-  return est;
-}
-
 export function FondoPresence() {
   const recipe = useRecipe();
-  const preview = useStudio(s => s.ui.preview);
+  // the test content is the «Fondo web» destination preview, which also measures the headline
+  const preview = useView() === 'web';
+  const ink = useStudio(s => inkFor(s.ui.viewOpts.ink, s.entries[s.cursor]?.recipe.color.bg ?? '#000000'));
+  const est = useLegibility(s => s.est);
   const id = useId();
   // the base the slider works from: taken when the step opens, and again whenever the piece
   // changes by other means (another style, undo, the full panel)
@@ -94,8 +51,7 @@ export function FondoPresence() {
   useEffect(() => {
     if (recipe && recipe !== mine.current) { base.current = recipe; setP(0.5); }
   }, [recipe]);
-  useEffect(() => { if (!useStudio.getState().ui.preview) setUI({ preview: true }); }, []);
-  const est = useLegibility(preview, recipe);
+  useEffect(() => { if (currentView() !== 'web') setView('web'); }, []);
   const move = (v: number) => {
     const b = base.current;
     if (!b) return;
@@ -116,7 +72,7 @@ export function FondoPresence() {
       </div>
       <label className="toggle">
         <span>Ver un titular, un texto y un botón encima</span>
-        <span className="switch"><input type="checkbox" role="switch" checked={preview} onChange={e => setUI({ preview: e.target.checked })} /><span /></span>
+        <span className="switch"><input type="checkbox" role="switch" checked={preview} onChange={e => setView(e.target.checked ? 'web' : 'libre')} /><span /></span>
       </label>
       {preview && (
         <div className={'legib ' + (est?.level ?? 'wait')}>
@@ -128,7 +84,7 @@ export function FondoPresence() {
         </div>
       )}
       <p className="note">
-        Es una estimación: mide el fondo real detrás del titular de prueba ({previewInk(recipe?.color.bg ?? '#000') === '#ffffff' ? 'texto blanco' : 'texto oscuro'}), en sus zonas más difíciles.
+        Es una estimación: mide el fondo real detrás del titular de prueba ({ink === '#ffffff' ? 'texto blanco' : 'texto oscuro'}), en sus zonas más difíciles.
         Para texto normal se recomienda 4.5:1; para titulares grandes, 3:1.
       </p>
     </>
