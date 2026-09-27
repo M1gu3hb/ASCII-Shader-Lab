@@ -33,11 +33,6 @@ export class SimGrid {
     const [ax, ay, bx, by] = seg;
     const bax = bx - ax, bay = by - ay, bb = Math.max(bax * bax + bay * bay, 1e-6);
     const br = Math.max(brushR, 1);
-    const H = (c: number, r: number) => {
-      c = c < 0 ? 0 : c >= cols ? cols - 1 : c;
-      r = r < 0 ? 0 : r >= rows ? rows - 1 : r;
-      return h[r * cols + c];
-    };
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const i = r * cols + c;
@@ -51,7 +46,8 @@ export class SimGrid {
         const dd = Math.sqrt(dx * dx + dy * dy) / br;
         const brush = Math.exp(-dd * dd * 2.5);
         if (mode === 2) {
-          const lap = kx * (H(c + 1, r) + H(c - 1, r) - 2 * hh) + kyy * (H(c, r + 1) + H(c, r - 1) - 2 * hh);
+          const lap = kx * (at(h, cols, rows, c + 1, r) + at(h, cols, rows, c - 1, r) - 2 * hh)
+            + kyy * (at(h, cols, rows, c, r + 1) + at(h, cols, rows, c, r - 1) - 2 * hh);
           n = (2 * hh - hp[i] + 0.45 * lap) * 0.985;
           n += brush * str * (active * 0.35 + impulse * 1.6);
           t = 0;
@@ -67,4 +63,11 @@ export class SimGrid {
     this.h = nh; this.nh = h;
     this.tr = ntr; this.ntr = tr;
   }
+}
+
+/** Height at a cell, clamped to the grid (texelFetch with clamped coordinates in the shader). */
+function at(h: Float32Array, cols: number, rows: number, c: number, r: number) {
+  c = c < 0 ? 0 : c >= cols ? cols - 1 : c;
+  r = r < 0 ? 0 : r >= rows ? rows - 1 : r;
+  return h[r * cols + c];
 }

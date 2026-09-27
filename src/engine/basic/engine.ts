@@ -49,9 +49,15 @@ const SRC_OF = (r: Recipe, hasMedia: boolean): FieldSource =>
 /**
  * Canvas 2D renderer for browsers without WebGL 2. It runs the same pipeline as AsciiEngine on the CPU
  * (field → select → compose, see ./field.ts, ./select.ts, ./compose.ts) and draws the result with
- * putImageData, so the character grid (readGrid) and the look match the GPU engine.
- * Differences: live frames are capped at 30 fps (15 when slow, with `adaptive`), the canvas is kept
- * under BASIC_MAX_PIXELS device pixels, and film grain uses a different random sequence.
+ * putImageData, so the character grid (readGrid) and the look match the GPU engine. Post effects that do
+ * not move pixels are canvas operations (./overlays.ts); curvature, aberration and transitions run per pixel.
+ * Same constructor and options as AsciiEngine (the GLSL library and preserveDrawingBuffer are not needed;
+ * the canvas always has an alpha channel). Differences:
+ *  - live frames are capped at 30 fps, and at 15 fps while frames are slow (`adaptive`); the grid and the
+ *    resolution never change;
+ *  - live canvases stay under BASIC_MAX_PIXELS device pixels (the pixel ratio is lowered, not below 1);
+ *  - `stats.ms` is the CPU cost of a frame (the GPU engine reports the frame interval);
+ *  - film grain uses a different random sequence, and is added before scanlines and vignette.
  */
 export class BasicEngine implements Renderer {
   readonly kind = 'basic' as const;
@@ -117,6 +123,8 @@ export class BasicEngine implements Renderer {
   private transStart = 0;
   private prevFrame: Uint32Array | null = null;
   private rendered = false;
+  /** The last frame has canvas overlays on top of out32. */
+  private overlaid = false;
   private frames = 0; private fps = 0; private fpsT = 0; private ema = 8; private slow = 0; private fast = 0;
   private fpsCap = FPS;
   private fontGen = 0;
@@ -576,9 +584,14 @@ export class BasicEngine implements Renderer {
     return this.reader;
   }
 
+  /** Keeps the frame on screen (with its overlays, like the GPU engine's full compose) to dissolve from. */
   private captureTransition() {
     if (!this.img) return;
-    this.prevFrame = this.out32.slice();
+    let prev: Uint32Array | null = null;
+    if (this.overlaid) {
+      try { prev = new Uint32Array(this.ctx.getImageData(0, 0, this.W, this.H).data.buffer); } catch { prev = null; }
+    }
+    this.prevFrame = prev ?? this.out32.slice();
     this.trans = 0;
     this.transStart = this.realT;
   }
@@ -688,7 +701,8 @@ export class BasicEngine implements Renderer {
       if (r.fx.grain > 0) grainPass(frame, this.out32);
     }
     this.ctx.putImageData(this.img!, 0, 0);
-    if (!pixelPost && hasOverlays(frame)) drawOverlays(this.ctx, frame, this.overlayCache);
+    this.overlaid = !pixelPost && hasOverlays(frame);
+    if (this.overlaid) drawOverlays(this.ctx, frame, this.overlayCache);
     this.rendered = true;
     this.ptr.impulse = 0;
     const T3 = performance.now();

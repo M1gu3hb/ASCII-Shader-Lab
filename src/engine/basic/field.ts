@@ -6,7 +6,7 @@
  * Pure: no DOM, so it runs in tests.
  */
 import { BLENDS, type Recipe } from '../recipe';
-import { PI, blendf, clamp, fbm, hash12 } from './core';
+import { PI, TAU, blendf, clamp, fbm, hash12 } from './core';
 
 const fr = Math.fround;
 import { basicPattern, setPX, type BasicPattern } from './patterns';
@@ -186,11 +186,6 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const mx = (f.ptrX - 0.5 * W) / H, my = (0.5 * H - f.ptrY) / H;
   const rad2 = Math.max(f.irad * f.irad, 1e-5), str = f.istr, on = f.ptrOn;
   const pulseK = 1 - f.pulse * 0.06;
-  const simH = (c: number, r: number) => {
-    c = c < 0 ? 0 : c >= cols ? cols - 1 : c;
-    r = r < 0 ? 0 : r >= rows ? rows - 1 : r;
-    return sim ? sim.h[r * cols + c] : 0;
-  };
 
   // 1. warped sample positions (pointer distortion, pulse zoom, domain warp)
   for (let row = 0; row < rows; row++) {
@@ -211,7 +206,9 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
         }
       }
       if (im === 2 && sim) {
-        const gx = simH(col + 1, row) - simH(col - 1, row), gy = simH(col, row - 1) - simH(col, row + 1);
+        const h = sim.h;
+        const gx = simAt(h, cols, rows, col + 1, row) - simAt(h, cols, rows, col - 1, row);
+        const gy = simAt(h, cols, rows, col, row - 1) - simAt(h, cols, rows, col, row + 1);
         ppx += gx * 0.05 * str; ppy += gy * 0.05 * str;
       }
       if (pulseK !== 1) { ppx = fr(ppx * pulseK); ppy = fr(ppy * pulseK); }
@@ -237,7 +234,7 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const text = f.src === 'text' ? f.text : null;
   if (media) MAP.set(W, H, media.natW, media.natH, f.fit, f.zoom, f.panX, f.panY, f.mirror);
   const csx = (cw / W) * 0.25, csy = (ch / H) * 0.25;
-  const env = f.morph > 0 ? 0.5 - 0.5 * Math.cos((6.28318530718 * T) / f.morph) : 0;
+  const env = f.morph > 0 ? 0.5 - 0.5 * Math.cos((TAU * T) / f.morph) : 0;
   const morphK = f.morph > 0 ? smooth01(env) : 0;
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
@@ -279,3 +276,10 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
 
 /** smoothstep(.1, .9, x) */
 function smooth01(x: number) { let t = (x - 0.1) / 0.8; t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); }
+
+/** Ripple height at a cell, clamped to the grid like the GPU's CLAMP_TO_EDGE sampling. */
+function simAt(h: Float32Array, cols: number, rows: number, c: number, r: number) {
+  c = c < 0 ? 0 : c >= cols ? cols - 1 : c;
+  r = r < 0 ? 0 : r >= rows ? rows - 1 : r;
+  return h[r * cols + c];
+}

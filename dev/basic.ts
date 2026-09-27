@@ -115,11 +115,13 @@ export interface Comparison {
   msGl: number; msBasic: number; gaps: string[];
 }
 
-async function compare(id: string, recipe: Recipe, o: { w?: number; h?: number; t?: number; transparent?: boolean; show?: HTMLCanvasElement[] } = {}): Promise<Comparison> {
+async function compare(id: string, recipe: Recipe, o: { w?: number; h?: number; t?: number; transparent?: boolean; show?: HTMLCanvasElement[]; keep?: boolean } = {}): Promise<Comparison> {
   const p = pairFor(o.w ?? 480, o.h ?? 270, o.transparent);
   const t = o.t ?? T;
-  p.gl.set(recipe); p.basic.set(recipe);
-  await Promise.all([p.gl.ready(), p.basic.ready()]);
+  if (!o.keep) {
+    p.gl.set(recipe); p.basic.set(recipe);
+    await Promise.all([p.gl.ready(), p.basic.ready()]);
+  }
   let t0 = performance.now();
   p.gl.renderAt(t);
   const ga: GridSnapshot = p.gl.readGrid();
@@ -152,6 +154,35 @@ async function compare(id: string, recipe: Recipe, o: { w?: number; h?: number; 
     gaps: unsupportedFeatures(recipe).map(g => g.label),
   };
 }
+
+/**
+ * Pointer effects: both engines get the same pointer state (pressed and moving, at a fixed spot) and
+ * render `frames` frames, so simulated modes (ripple, erase, paint) step their grids the same way.
+ */
+async function comparePointer(mode: Recipe['interact']['mode'], frames = 6, id = 'plasma') {
+  const p = pairFor(480, 270);
+  const r = id.includes('/') ? presetRecipe(id) : patternRecipe(id);
+  r.interact = { mode, strength: 0.8, radius: 0.2, auto: false };
+  p.gl.set(r); p.basic.set(r);
+  await Promise.all([p.gl.ready(), p.basic.ready()]);
+  let res: Comparison | null = null;
+  for (let k = 0; k < frames; k++) {
+    for (const e of [p.gl, p.basic]) {
+      const P = (e as unknown as { ptr: Record<string, number | boolean> }).ptr;
+      Object.assign(P, { x: 200 + k * 6, y: 120, px: 194 + k * 6, py: 118, tx: 200 + k * 6, ty: 120, on: 1, targetOn: 1, down: true, impulse: k === 0 ? 1 : 0, moved: 6.3 });
+    }
+    if (k < frames - 1) { p.gl.renderAt(3 + k / 60); p.basic.renderAt(3 + k / 60); }
+    else res = await compare(`${mode}`, r, { t: 3 + k / 60, keep: true });
+  }
+  // how much the pointer changed the picture (so a match is not two untouched frames)
+  const withPtr = p.basic.readGrid().lum;
+  const none = { ...r, interact: { ...r.interact, mode: 'none' as const } };
+  p.basic.set(none);
+  p.basic.renderAt(3 + (frames - 1) / 60);
+  const effect = mad(withPtr, p.basic.readGrid().lum) * (withPtr.length / Math.max(1, countDiff(withPtr, p.basic.readGrid().lum)));
+  return { ...res!, effect, touched: countDiff(withPtr, p.basic.readGrid().lum) / withPtr.length };
+}
+const countDiff = (a: Uint8Array, b: Uint8Array) => { let n = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++; return n; };
 
 /** Average cost of the basic engine over `frames` consecutive frames of a fixed-size canvas. */
 async function bench(recipe: Recipe, o: { w?: number; h?: number; frames?: number; pixelRatio?: number } = {}) {
@@ -351,6 +382,33 @@ async function diagnostics(): Promise<Check[]> {
   }
   add('explain software', explainWebGL({ ...real, reason: 'ok', software: true }).body.includes('lento'), explainWebGL({ ...real, reason: 'ok', software: true }).title);
 
+  {
+    // dissolve transition: mid-way it mixes both frames; once over, the frame is the new recipe's
+    const a = presetRecipe('arte/vapor'), b = presetRecipe('fondos/bruma');
+    const mkE = () => new BasicEngine(document.createElement('canvas'), a, { fonts, fixedSize: { width: 320, height: 180, pixelRatio: 1 }, autoplay: false, interactive: false });
+    const e = mkE(), ref = mkE();
+    await e.ready(); ref.set(b); await ref.ready();
+    e.renderAt(2, 10);
+    const px = (x: BasicEngine) => new Uint32Array(x.canvas.getContext('2d')!.getImageData(0, 0, 320, 180).data.buffer);
+    const before = px(e);
+    e.set(b, { transition: true });
+    await e.ready();
+    e.renderAt(2, 10.4);
+    const mid = px(e);
+    ref.renderAt(2, 11);
+    e.renderAt(2, 11);
+    const after = px(e), want = px(ref);
+    // mid-transition frames take the per-pixel post path, settled ones the canvas overlays: allow rounding
+    const close = (p: number, q: number) => Math.abs((p & 255) - (q & 255)) <= 3 && Math.abs(((p >>> 8) & 255) - ((q >>> 8) & 255)) <= 3
+      && Math.abs(((p >>> 16) & 255) - ((q >>> 16) & 255)) <= 3;
+    let fromOld = 0, fromNew = 0, same = 0;
+    for (let i = 0; i < mid.length; i++) { if (close(mid[i], before[i])) fromOld++; if (close(mid[i], want[i])) fromNew++; if (close(after[i], want[i])) same++; }
+    const n = mid.length;
+    add('transition: dissolve mixes old and new, then settles on the new recipe', fromOld / n > 0.1 && fromNew / n > 0.1 && same / n > 0.99,
+      { fromOld: +(fromOld / n).toFixed(2), fromNew: +(fromNew / n).toFixed(2), settled: +(same / n).toFixed(3) });
+    e.destroy(); ref.destroy();
+  }
+
   const light = defaultRecipe();
   const l = await liveFps(light, 2500);
   add('live: default recipe capped at 30 fps', l.fps <= 31.5 && l.fps > 20 && l.cap === 30, l);
@@ -371,7 +429,9 @@ window.__basic = {
   patterns: PATTERNS.map(p => p.id),
   presets: PRESET_LIST.map(p => p.key),
   comparePattern: (id: string, t = T) => compare(id, patternRecipe(id), { t }),
-  comparePreset: (key: string, t = T) => compare(key, presetRecipe(key), { t, w: 640, h: 360 }),
+  comparePreset: (key: string, t = T, transparent = false) => compare(key, presetRecipe(key), { t, w: 640, h: 360, transparent }),
+  comparePointer,
+  interactModes: ['light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'],
   compareRecipe: (r: Recipe, o: Parameters<typeof compare>[2] = {}) => compare('recipe', r, o),
   benchPattern: (id: string, o?: Parameters<typeof bench>[1]) => { const r = patternRecipe(id); r.glyph.cell = 10; return bench(r, o); },
   benchPreset: (key: string, o?: Parameters<typeof bench>[1]) => bench(presetRecipe(key), o),

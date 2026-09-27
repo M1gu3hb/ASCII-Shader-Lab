@@ -303,7 +303,60 @@ export function postPass(f: ComposeFrame, src: Uint32Array, dst: Uint32Array) {
   if (f.transparent) { passB(f, null, src, dst); return; }
   if (tenBuf.length !== f.W * f.H) tenBuf = new Int32Array(f.W * f.H);
   passA(f, src, tenBuf);
-  passB(f, tenBuf, src, dst);
+  if (f.trans < 0) passBOpaque(f, tenBuf, dst);
+  else passB(f, tenBuf, src, dst);
+}
+
+/**
+ * B for opaque frames without a transition (CRT curvature and/or chromatic aberration): the same math as
+ * passB in a lean loop, with the darkening factors (scanlines × vignette × flicker × edge fade) turned
+ * into one integer per pixel of the row first.
+ */
+function passBOpaque(f: ComposeFrame, F: Int32Array, dst: Uint32Array) {
+  const { W, H, cw, fx } = f;
+  const T = f.realT;
+  const flick = fx.flicker > 0 ? 1 - fx.flicker * 0.12 * (0.5 + 0.5 * Math.sin(T * 53)) * hash12(Math.floor(T * 12), 3) : 1;
+  const vx = new Float32Array(W), mrow = new Int32Array(W);
+  for (let x = 0; x < W; x++) { const v = (x + 0.5) / W - 0.5; vx[x] = fx.vig * v * v * 2.2; }
+  const map = fx.curve > 0 ? curveIdx : null, edge = fx.curve > 0 ? curveEdge : null;
+  const off = fx.chroma > 0 ? Math.floor(0.5 + fx.chroma * cw * 0.45) : 0;
+  const bgR = Math.round(f.bg[0] * 1020), bgG = Math.round(f.bg[1] * 1020), bgB = Math.round(f.bg[2] * 1020);
+  const bg10 = bgR | (bgG << 10) | (bgB << 20);
+  const grain4 = Math.round(fx.grain * 0.16 * 1020);
+  let sd = (Math.imul(Math.floor(T * 240) + 7, 0x9e3779b1) | 1) >>> 0;
+  for (let y = 0; y < H; y++) {
+    const fcy = H - y - 0.5; // gl_FragCoord.y counts from the bottom
+    const m0 = (fx.scan > 0 ? 1 - fx.scan * 0.45 * (0.5 + 0.5 * Math.cos(fcy * 1.5708)) : 1) * flick * 256;
+    const v = fcy / H - 0.5, vyy = fx.vig * v * v * 2.2;
+    const row = y * W;
+    for (let x = 0; x < W; x++) {
+      let m = (m0 * (1 - vx[x] - vyy) + 0.5) | 0;
+      if (m < 0) m = 0;
+      mrow[x] = edge ? (m * edge[row + x]) >> 8 : m;
+    }
+    for (let x = 0, o = row; x < W; x++, o++) {
+      const s = map ? map[o] : o;
+      const p = s < 0 ? bg10 : F[s];
+      let r = p & 1023, g = (p >> 10) & 1023, b = (p >> 20) & 1023;
+      if (off > 0 && s >= 0) {
+        const sx = s % W;
+        r = sx + off < W ? F[s + off] & 1023 : bgR;
+        b = sx - off >= 0 ? (F[s - off] >> 20) & 1023 : bgB;
+      }
+      const m = mrow[x];
+      r = (r * m) >> 8; g = (g * m) >> 8; b = (b * m) >> 8;
+      if (grain4 > 0) {
+        // shader order: grain is added before the edge fade multiplies everything
+        sd ^= sd << 13; sd ^= sd >>> 17; sd ^= sd << 5;
+        const n = (((((sd & 0xffff) - 32768) * grain4) >> 16) * (edge ? edge[o] : 256)) >> 8;
+        r += n; g += n; b += n;
+      }
+      r = (r + 2) >> 2; g = (g + 2) >> 2; b = (b + 2) >> 2;
+      r &= ~(r >> 31); g &= ~(g >> 31); b &= ~(b >> 31);
+      r -= (r - 255) & ((255 - r) >> 31); g -= (g - 255) & ((255 - g) >> 31); b -= (b - 255) & ((255 - b) >> 31);
+      dst[o] = -16777216 | (b << 16) | (g << 8) | r;
+    }
+  }
 }
 
 /**
@@ -336,6 +389,7 @@ function passA(f: ComposeFrame, src: Uint32Array, F: Int32Array) {
   const gG = Math.round((bgG + (f.accent[1] * 255 - bgG) * 0.35) * 4);
   const gB = Math.round((bgB + (f.accent[2] * 255 - bgB) * 0.35) * 4);
   // bloom: bilinear upsample of the blurred grid, done separably (two upsampled grid rows kept around)
+  const bR = new Int32Array(W), bG = new Int32Array(W), bB = new Int32Array(W);
   let L0 = new Int32Array(0), L1 = new Int32Array(0), j0c = -1, j1c = -1;
   const ci0 = new Int32Array(bloomK > 0 ? W : 0), ci1 = new Int32Array(bloomK > 0 ? W : 0), cfx = new Float32Array(bloomK > 0 ? W : 0);
   if (bloomK > 0) {
@@ -357,19 +411,22 @@ function passA(f: ComposeFrame, src: Uint32Array, F: Int32Array) {
       if (j0 !== j0c) { bloomRow(B!, j0, cols, W, ci0, ci1, cfx, bloomK, L0); j0c = j0; }
       if (j1 !== j1c) { bloomRow(B!, j1, cols, W, ci0, ci1, cfx, bloomK, L1); j1c = j1; }
     }
+    if (bloomK > 0) {
+      // vertical lerp once per row, into planar rows the pixel loop adds unconditionally
+      for (let x = 0, k = 0; x < W; x++, k += 3) {
+        bR[x] = L0[k] + (((L1[k] - L0[k]) * fy) >> 8);
+        bG[x] = L0[k + 1] + (((L1[k + 1] - L0[k + 1]) * fy) >> 8);
+        bB[x] = L0[k + 2] + (((L1[k + 2] - L0[k + 2]) * fy) >> 8);
+      }
+    }
     const rowGrid = gridK > 0 && y % ch === 0;
     let o = y * W;
     for (let x = 0; x < W; x++, o++) {
       const v = src[o];
-      let r = (v & 255) << 2, g = ((v >>> 8) & 255) << 2, b = ((v >>> 16) & 255) << 2;
-      if (bloomK > 0) {
-        const k = x * 3;
-        r += L0[k] + (((L1[k] - L0[k]) * fy) >> 8);
-        g += L0[k + 1] + (((L1[k + 1] - L0[k + 1]) * fy) >> 8);
-        b += L0[k + 2] + (((L1[k + 2] - L0[k + 2]) * fy) >> 8);
-      }
+      let r = ((v & 255) << 2) + bR[x], g = (((v >>> 8) & 255) << 2) + bG[x], b = (((v >>> 16) & 255) << 2) + bB[x];
       if (gridK > 0 && (rowGrid || x % cw === 0)) { r += ((gR - r) * gridK) >> 8; g += ((gG - g) * gridK) >> 8; b += ((gB - b) * gridK) >> 8; }
-      F[o] = (r > 1023 ? 1023 : r) | ((g > 1023 ? 1023 : g) << 10) | ((b > 1023 ? 1023 : b) << 20);
+      r -= (r - 1023) & ((1023 - r) >> 31); g -= (g - 1023) & ((1023 - g) >> 31); b -= (b - 1023) & ((1023 - b) >> 31);
+      F[o] = r | (g << 10) | (b << 20);
     }
   }
 }
