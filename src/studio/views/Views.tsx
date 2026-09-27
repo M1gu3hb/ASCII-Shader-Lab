@@ -107,6 +107,20 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
 
 const areaStyle = (ins: Insets): CSSProperties => ({ top: ins.top, bottom: ins.bottom });
 
+const PHONE = '(max-width: 900px)';
+/** True on phone-sized screens (the layout's own breakpoint). */
+function usePhone() {
+  const [phone, setPhone] = useState(() => typeof matchMedia === 'function' && matchMedia(PHONE).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const mq = matchMedia(PHONE);
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return phone;
+}
+
 /* ------------------------------------------------------------------ */
 /* The stage in each view                                               */
 /* ------------------------------------------------------------------ */
@@ -118,8 +132,22 @@ export function ViewStage({ view, host, ins }: { view: ViewId; host: HTMLElement
     case 'vertical': return <VerticalView host={host} ins={ins} />;
     case 'readme': return <ReadmeView host={host} ins={ins} />;
     case 'terminal': return <TerminalView host={host} ins={ins} />;
-    default: return <Slot host={host} className="vw-fill" />;
+    default: return <FreeView host={host} ins={ins} />;
   }
+}
+
+/* Libre -------------------------------------------------------------------- */
+
+/**
+ * The whole stage, behind the deck and the panel. Except on a phone during a guide: the guide's sheet
+ * covers the lower half of the screen and cannot be lowered, so the piece goes in the room above it
+ * (the word and the photo's centre sat right under the sheet).
+ */
+function FreeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
+  const phone = usePhone();
+  const guiding = useGuide(s => s.path !== null);
+  if (phone && guiding) return <div className="vw-area vw-free" style={areaStyle(ins)}><Slot host={host} className="vw-fill" /></div>;
+  return <Slot host={host} className="vw-fill" />;
 }
 
 /* Fondo web ------------------------------------------------------------ */
@@ -196,10 +224,12 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const size = useSize(ref);
   const caption = useStudio(s => s.ui.viewOpts.caption);
   const f = verticalFrame(size.w, size.h);
-  // on a very short stage the frame keeps its CSS size (what the export composes) and is shown smaller
-  const k = size.h && f.h > size.h ? size.h / f.h : 1;
+  // on a very short stage the frame keeps its CSS size (what the export composes) and is shown smaller;
+  // the box around it takes the smaller size, so it is centred and nothing of it is cut
+  const k = size.h && size.w ? Math.min(1, size.h / f.h, size.w / f.w) : 1;
   return (
     <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>
+      <div className="vw-phone-box" style={{ width: f.w * k, height: f.h * k }}>
       <div className="vw-phone" style={{ width: f.w, height: f.h, transform: k < 1 ? `scale(${k})` : undefined }} data-frame={`${f.w}x${f.h}`}>
         <Slot host={host} className="vw-fill" />
         <div className="vw-safe vw-safe-top" style={{ height: SAFE_TOP * 100 + '%' }} aria-hidden="true"><span>interfaz de la app</span></div>
@@ -212,6 +242,7 @@ function VerticalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
           )}
           <span>interfaz de la app</span>
         </div>
+      </div>
       </div>
     </div>
   );

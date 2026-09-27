@@ -6,7 +6,7 @@ import { handleFile, pickFile } from './files';
 import { startCamera, useMedia } from './media';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
 import { useView } from './views/state';
-import { ViewBar, ViewStage, useStageInsets } from './views/Views';
+import { ViewBar, ViewStage, useStageInsets, type Insets } from './views/Views';
 import { StorageNote } from './Keeping';
 import { RecordingChip } from './Recording';
 
@@ -49,7 +49,7 @@ export function Stage() {
     >
       <ViewStage view={view} host={host} ins={ins} />
       <StageFatal />
-      <MediaPrompt />
+      <MediaPrompt ins={ins} />
       <div className="stage-top" ref={top}>
         <ViewBar view={view} />
         <div className="stage-notes">
@@ -69,8 +69,10 @@ function describe(r: ReturnType<typeof useRecipe>): string {
   return `Pieza ASCII animada. Fuente: ${SOURCE_NAMES[r.source]}. Patrones: ${pats}. Colores: ${r.color.stops.join(', ')} sobre ${r.color.bg}.`;
 }
 
-function MediaPrompt() {
+function MediaPrompt({ ins }: { ins: Insets }) {
   const source = useStudio(s => s.entries[s.cursor]?.recipe.source);
+  // in the room between the bar at the top of the stage and the seed line (or the sheet on phones)
+  const area = { top: ins.top, bottom: ins.bottom };
   const media = useMedia();
   const need = (source === 'image' && !media.image) || (source === 'video' && !media.video) || (source === 'camera' && media.camera !== 'on');
   if (!need) return null;
@@ -82,7 +84,7 @@ function MediaPrompt() {
   const dims = miss && miss.ref.w > 0 && miss.ref.h > 0 ? `${miss.ref.w}×${miss.ref.h}` : '';
   if (miss?.state === 'restoring') {
     return (
-      <div className="prompt">
+      <div className="prompt" style={area}>
         <div className="card restoring" role="status">
           <p>Recuperando {name ? <>«{name}»</> : video ? 'el video' : 'la imagen'} de este navegador…</p>
         </div>
@@ -124,7 +126,7 @@ function MediaPrompt() {
     text = 'O elige un archivo de tu equipo. Mientras tanto ves el patrón de fondo.';
   }
   return (
-    <div className="prompt">
+    <div className="prompt" style={area}>
       <div className="card" role="region" aria-label="Cargar fuente">
         <h2>{title}</h2>
         <p>{text}</p>

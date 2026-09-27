@@ -1,4 +1,5 @@
-/* Review fixes (lane: fix-studio). Tokens from studio.css. */
+/* Review fixes (lane: fix-studio). Tokens from studio.css. This file can load before studio.css:
+   rules that override it are prefixed with .app. */
 
 /* ---------- when the browser keeps nothing, or another tab has the studio ---------- */
 .keep-chip .bm-tag i { background: #ffb08a; }
@@ -28,3 +29,34 @@ dialog.sheet.tab-away { width: min(520px, calc(100vw - 24px)); }
 .load-fail b { color: var(--text); }
 .load-fail .btn { margin: 0; min-height: 44px; }
 .guide-panel .load-fail, .comp-wrap .load-fail { position: static; transform: none; width: auto; margin: 14px; box-shadow: none; }
+
+/* ---------- destination previews on short stages ---------- */
+/* Vertical 9:16: the box has the scaled size, the frame scales from its corner (scaled from its centre
+   inside a grid row as tall as the unscaled frame, its lower part was cut) */
+.vw-phone-box { position: relative; flex: none; }
+.vw-phone-box > .vw-phone { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* Phones during a guide: the room above the guide's sheet is small. The view bar keeps only its
+   selector (the step already shows the contrast estimate; «Opciones» still unfolds the rest), and the
+   «Fondo web» test page shrinks to fit a short window, so headline and buttons stay in view. */
+@media (max-width: 900px) {
+  .app.guide-on .vbar-what, .app.guide-on .vbar-legib { display: none; }
+  .app.guide-on .vbar-more:not(:has(.vbar-opts.open)) { display: none; }
+}
+/* (.app: this file may load before studio.css) */
+@container (max-height: 170px) {
+  .app .preview-content { padding: 8px 6cqw 8px; }
+  .app .preview-content .pc-nav { font-size: 11px; }
+  .app .preview-content .pc-hero { padding-top: 4px; }
+  .app .preview-content h1 { font-size: clamp(15px, 4.6cqw, 22px); margin-bottom: 6px; }
+  .app .preview-content .pc-btns { gap: 6px; }
+  .app .preview-content .pc-btn { padding: 5px 9px; font-size: 11.5px; border-radius: 7px; }
+}
+
+/* ---------- the media prompt sits between the stage's top bar and the seed line (Stage.tsx) ---------- */
+.app .prompt { padding: 8px 12px; }
+.app .prompt .card { max-height: 100%; overflow: auto; overscroll-behavior: contain; }
+@media (max-width: 900px) {
+  .app .prompt .card { padding: 14px 16px; }
+  .app .prompt .card p { margin-bottom: 12px; }
+}
