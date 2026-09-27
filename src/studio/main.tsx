@@ -28,6 +28,7 @@ import { App } from './App';
 import { hydrate } from './store';
 import { bootFromUrl } from './boot';
 import { DICE_HINT, openWelcome } from './guide/state';
+import { prefetchLater } from './lazy';
 import { toast } from './toast';
 
 const first = await hydrate();
@@ -36,4 +37,6 @@ const opened = await bootFromUrl();
 // a space or a guided path); set before the first render so the dialog opens with the page
 if (first && !opened) openWelcome(true);
 createRoot(document.getElementById('root')!).render(<App />);
+// the export sheet, the other sheets and the Componentes space: fetched once the studio is idle
+prefetchLater();
 if (first && opened === 'space') setTimeout(() => toast(DICE_HINT, undefined, 7000), 900);

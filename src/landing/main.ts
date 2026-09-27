@@ -14,7 +14,6 @@ import type { GLStatus } from '../engine/support';
 import { generate, archById, freshSeed } from '../random';
 import { PRESETS } from '../studio/presets';
 import { encodeRecipe } from '../shared/share';
-import { logoMark } from '../shared/brand';
 import { syntheticPhoto } from '../shared/sample';
 import { scramble } from '../components/lib/scramble.js';
 import { typewriter } from '../components/lib/typewriter.js';
@@ -43,7 +42,7 @@ async function engine(canvas: HTMLCanvasElement, r: Recipe, o: Opts = {}): Promi
   canvas.style.background = r.color.bg;
   const m = await engines;
   const basic = m.basicHere();
-  const made = m.mount(canvas, still(r), {
+  const made = await m.mount(canvas, still(r), {
     observeVisibility: true, reducedMotion: reduced, maxPixelRatio: 1.25, pointerTarget: 'canvas', ...o,
     // the CPU draws every pixel in basic mode: keep the canvases at 1 device pixel per CSS pixel
     ...(basic ? { maxPixelRatio: 1 } : {}),
@@ -82,7 +81,6 @@ function noteBasic(status: GLStatus, words: typeof import('./engines').basicWord
 }
 
 /* ---------- brand & nav ---------- */
-$$('[data-logo]').forEach(el => { el.innerHTML = logoMark(24); });
 const nav = $('.nav')!;
 const onScroll = () => nav.classList.toggle('scrolled', scrollY > 40);
 addEventListener('scroll', onScroll, { passive: true });
@@ -154,7 +152,7 @@ if (pre) lazy(pre, async () => {
   const r = PRESETS.terminal.find(p => p.id === 'donut')!.make();
   const cols = 64, rows = 20, cw = 9, ch = 18;
   const m = await engines;
-  const e = m.mount(document.createElement('canvas'), r, { fixedSize: { width: cols * cw, height: rows * ch, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false })?.renderer;
+  const e = (await m.mount(document.createElement('canvas'), r, { fixedSize: { width: cols * cw, height: rows * ch, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false }))?.renderer;
   if (!e) return;
   let visible = false, t = 3;
   new IntersectionObserver(es => { visible = es.some(x => x.isIntersecting); }).observe(pre);
@@ -169,10 +167,10 @@ if (pre) lazy(pre, async () => {
   if (!reduced) setInterval(() => { if (!visible || document.hidden) return; t += 0.08; e.renderAt(t); draw(); }, 80);
 });
 
-/* pieces */
+/* pieces: their timers start when the tile comes near, not while the page loads */
 const typeEl = $('[data-type]');
-if (typeEl) typewriter(typeEl, { phrases: ['descifrar()', 'maquina_de_escribir()', 'iman()', 'estela()', 'halo()'], typeSpeed: 60, hold: 1100 });
-$$('[data-spin]').forEach(el => spinner(el, el.dataset.spin || 'braille'));
+if (typeEl) lazy(typeEl, () => typewriter(typeEl, { phrases: ['descifrar()', 'maquina_de_escribir()', 'iman()', 'estela()', 'halo()'], typeSpeed: 60, hold: 1100 }));
+$$('[data-spin]').forEach(el => lazy(el, () => spinner(el, el.dataset.spin || 'braille')));
 
 /* ---------- azar: a remembered history ---------- */
 /** WebP when the browser encodes it, JPEG otherwise (never the much heavier silent PNG). */
@@ -194,7 +192,7 @@ if (azarCv && strip && azarSeed) lazy(azarCv, async () => {
   });
   const live = await engine(azarCv, recipes[3], { maxPixelRatio: 1.25 });
   const m = await engines;
-  const te = m.mount(document.createElement('canvas'), recipes[0], { fixedSize: { width: 640, height: 400, pixelRatio: 0.5 }, autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true })?.renderer ?? null;
+  const te = (await m.mount(document.createElement('canvas'), recipes[0], { fixedSize: { width: 640, height: 400, pixelRatio: 0.5 }, autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true }))?.renderer ?? null;
   await te?.ready();
   const btns = recipes.map((r, i) => {
     const b = document.createElement('button');
@@ -223,5 +221,6 @@ if (finalCv) lazy(finalCv, () => {
   r.interact.auto = true;
   void engine(finalCv, r, { pointerTarget: 'window' });
 });
+// set up near view: it measures the button (a forced layout) and draws, which the load does not need
 const haloBtn = $('[data-halo]');
-if (haloBtn) halo(haloBtn, { color: '#ff5b1f', cell: 10, radius: 110, idle: 0.1 });
+if (haloBtn) lazy(haloBtn, () => halo(haloBtn, { color: '#ff5b1f', cell: 10, radius: 110, idle: 0.1 }));

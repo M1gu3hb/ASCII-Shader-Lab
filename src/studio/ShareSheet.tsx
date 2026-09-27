@@ -4,7 +4,7 @@ import type { SpaceId } from '../random/spaces';
 import { shareUrl } from '../shared/share';
 import { copyText } from './download';
 import { exportProject, pieceFileBase } from './packages';
-import { Sheet } from './Sheets';
+import { Sheet } from './Sheet';
 import './css/data.css';
 
 /**

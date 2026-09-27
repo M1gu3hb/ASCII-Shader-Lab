@@ -2,7 +2,7 @@
  * The landing's engine, as a separate chunk: the page paints and becomes interactive without it, and
  * browsers without WebGL 2 get the basic engine (Canvas 2D) instead of empty canvases.
  */
-import { createRenderer } from '../engine/create';
+import { createRenderer, loadBasicEngine } from '../engine/create';
 import type { EngineOptions } from '../engine/engine';
 import { createFontLoader } from '../engine/fonts';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
@@ -11,14 +11,20 @@ import type { Renderer } from '../engine/renderer';
 import { explainWebGL, probeWebGL, type GLStatus } from '../engine/support';
 import './basic.css';
 
+// the probe runs once and is cached: when it already says «basic», fetch that chunk right away
+if (probeWebGL().reason !== 'ok') void loadBasicEngine().catch(() => undefined);
+
 const fonts = createFontLoader({ google: false });
 
 export type LandingOptions = Partial<Omit<EngineOptions, 'library' | 'fonts'>>;
 
-/** The renderer this browser can run (never throws for missing WebGL); null only when nothing can draw. */
-export function mount(canvas: HTMLCanvasElement, r: Recipe, o: LandingOptions): { renderer: Renderer; status: GLStatus } | null {
+/**
+ * The renderer this browser can run (never fails for missing WebGL); null only when nothing can draw.
+ * The basic engine is one more chunk, fetched only by browsers that need it.
+ */
+export async function mount(canvas: HTMLCanvasElement, r: Recipe, o: LandingOptions): Promise<{ renderer: Renderer; status: GLStatus } | null> {
   try {
-    return createRenderer(canvas, r, { library: PATTERN_GLSL, fonts, ...o });
+    return await createRenderer(canvas, r, { library: PATTERN_GLSL, fonts, ...o });
   } catch {
     return null;
   }

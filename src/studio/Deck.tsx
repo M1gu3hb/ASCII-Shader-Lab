@@ -79,13 +79,41 @@ export function Deck() {
   );
 }
 
-/** Memoised: with up to a thousand results, an edit re-renders only the thumbnail that changed. */
+/** One observer per strip: which thumbnails are within a few widths of its visible part. */
+const nearWatchers = new WeakMap<Element, { io: IntersectionObserver; cbs: Map<Element, () => void> }>();
+
+function watchNear(el: Element, onNear: () => void): () => void {
+  const root = el.parentElement;
+  if (!root || typeof IntersectionObserver === 'undefined') { onNear(); return () => undefined; }
+  let w = nearWatchers.get(root);
+  if (!w) {
+    const cbs = new Map<Element, () => void>();
+    const io = new IntersectionObserver(es => {
+      for (const x of es) if (x.isIntersecting) { cbs.get(x.target)?.(); cbs.delete(x.target); io.unobserve(x.target); }
+    }, { root, rootMargin: '0px 400px' });
+    w = { io, cbs };
+    nearWatchers.set(root, w);
+  }
+  const { io, cbs } = w;
+  cbs.set(el, onNear);
+  io.observe(el);
+  return () => { cbs.delete(el); io.unobserve(el); };
+}
+
+/**
+ * Memoised: with up to a thousand results, an edit re-renders only the thumbnail that changed. Each
+ * picture (an inline data URL) is set once the thumbnail comes near the visible part of the strip:
+ * setting a thousand of them at load took most of a second on a phone-speed CPU.
+ */
 const Thumb = memo(function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; fav: boolean }) {
   const label = `${i + 1}. ${e.label ?? e.seed?.replace(/-/g, ' ') ?? e.kind}${e.edited ? ', editado' : ''}${fav ? ', en la colección' : ''}`;
+  const ref = useRef<HTMLButtonElement>(null);
+  const [near, setNear] = useState(false);
+  useEffect(() => (near || !ref.current ? undefined : watchNear(ref.current, () => setNear(true))), [near]);
   return (
     <button
-      type="button" role="listitem" className="thumb" aria-current={current} aria-label={label} title={label}
-      style={e.thumb ? { backgroundImage: `url(${e.thumb})` } : undefined}
+      ref={ref} type="button" role="listitem" className="thumb" aria-current={current} aria-label={label} title={label}
+      style={near && e.thumb ? { backgroundImage: `url(${e.thumb})` } : undefined}
       onClick={() => go(i)}
     >
       <span className="n">{i + 1}</span>
