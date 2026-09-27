@@ -41,7 +41,8 @@ interface State {
   playing: boolean;
   reducedMotion: boolean;
   ui: UIState;
-  stats: { cols: number; rows: number; fps: number };
+  /** Live grid, frame rate and the pixel ratio the stage renders at (0 until the first frame). */
+  stats: { cols: number; rows: number; fps: number; pr: number };
   undoTick: number;
   /** Results kept in this browser before the oldest are discarded (HISTORY_LIMIT). */
   histLimit: number;
@@ -87,7 +88,7 @@ export const useStudio = create<State>(() => ({
   playing: !reduced,
   reducedMotion: reduced,
   ui: { panel: true, hideUI: false, tab: {}, views: {}, viewOpts: DEFAULT_VIEW_OPTS, terminal: { cols: 80, rows: 24 }, sheet: 'none', component: null },
-  stats: { cols: 0, rows: 0, fps: 0 },
+  stats: { cols: 0, rows: 0, fps: 0, pr: 0 },
   undoTick: 0,
   histLimit: HISTORY_LIMIT,
   pruned: 0,

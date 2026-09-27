@@ -226,7 +226,7 @@ test.describe('historial y medios locales', () => {
     await expect(page.locator('.thumb').first().locator('.star')).toBeVisible();
     await page.getByRole('button', { name: /Colección/ }).click();
     await expect(page.getByText('Historial: 10 de 10 · lo guardado con ★ no se descarta')).toBeVisible();
-    await expect(page.getByText('En esta sesión se descartó 1 resultado.')).toBeVisible();
+    await expect(page.getByText('En esta visita se descartó 1 resultado.')).toBeVisible();
   });
 
   test('un historial guardado con el formato anterior se conserva entero', async ({ page }) => {

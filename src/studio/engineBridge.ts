@@ -30,6 +30,10 @@ export const studioFonts = createFontLoader({ google: false });
 if (probeWebGL().reason !== 'ok') void loadBasicEngine().catch(() => undefined);
 
 const NO_CANVAS = 'Este navegador no puede dibujar en un lienzo (ni WebGL ni Canvas 2D), así que el estudio no tiene dónde mostrar la pieza. Ábrelo en otro navegador, o actualiza este.';
+const NO_BASIC = 'No se pudo descargar el motor básico, el que dibuja la pieza sin WebGL (quizá se cortó la conexión o hay una versión nueva del estudio). Recarga la página para seguir: tu historial y tu colección se quedan.';
+
+/** Only the basic engine itself throwing 'canvas2d' means there is no canvas at all; anything else is its download. */
+const noCanvas = (e: unknown) => e instanceof Error && e.message === 'canvas2d';
 
 /**
  * Mounts the live renderer in `container`: the WebGL 2 engine when it works, the basic engine otherwise.
@@ -40,13 +44,13 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   const gen = ++mountGen;
   host = container;
   const s = useStudio.getState();
-  const canvas = document.createElement('canvas');
-  container.appendChild(canvas);
   let lastErr = 0, mounting = true;
   let created: CreatedRenderer;
-  try {
-    // the WebGL engine is ready when this resolves (a microtask later); the basic one after its chunk loads
-    created = await createRenderer(canvas, currentRecipe(), {
+  // a fresh canvas for each try (a canvas keeps the first kind of context it gave)
+  const make = () => {
+    const canvas = document.createElement('canvas');
+    container.replaceChildren(canvas);
+    return createRenderer(canvas, currentRecipe(), {
       library: PATTERN_GLSL,
       fonts: studioFonts,
       interactive: true,
@@ -55,7 +59,7 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
       maxPixelRatio: 2,
       autoplay: s.playing,
       reducedMotion: false,
-      onStats: st => setStats({ cols: st.cols, rows: st.rows, fps: st.fps }),
+      onStats: st => setStats({ cols: st.cols, rows: st.rows, fps: st.fps, pr: st.pixelRatio }),
       onError: m => {
         console.error('[monotrama]', m);
         // a WebGL failure while starting is not the piece's fault: the stage fell back to the basic engine
@@ -66,11 +70,21 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
         }
       },
     }, o);
-  } catch {
+  };
+  try {
+    // the WebGL engine is ready when this resolves (a microtask later); the basic one after its chunk loads
+    try { created = await make(); } catch (err) {
+      // the basic engine's chunk did not arrive: once more after a moment (a dropped connection)
+      if (noCanvas(err) || gen !== mountGen) throw err;
+      await new Promise(r => setTimeout(r, 1000));
+      if (gen !== mountGen) return;
+      created = await make();
+    }
+  } catch (err) {
     mounting = false;
     if (gen !== mountGen) return;
     container.replaceChildren();
-    useCaps.setState({ renderer: null, fatal: NO_CANVAS });
+    useCaps.setState(noCanvas(err) ? { renderer: null, fatal: NO_CANVAS, fatalReload: false } : { renderer: null, fatal: NO_BASIC, fatalReload: true });
     return;
   }
   mounting = false;

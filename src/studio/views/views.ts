@@ -125,10 +125,17 @@ export const GITHUB_CELL = 1.45 / 0.6;
 /** Terminal sizes on offer (columns × rows). */
 export const TERM_SIZES: Array<[number, number]> = [[80, 24], [100, 30], [120, 36], [132, 43], [60, 20], [40, 16]];
 
-/** Terminal window: exactly cols×rows cells of the size the text exports use (captureGrid). */
-export function terminalWindow(cols: number, rows: number, cell: number, aspect: number): { w: number; h: number } {
-  const cw = Math.max(2, Math.round(cell)), ch = Math.max(2, Math.round(cell * aspect));
-  return { w: cols * cw, h: rows * ch };
+/**
+ * Terminal window: exactly cols×rows cells. At pixel ratio 1 (what the text exports use, captureGrid)
+ * that is cols×rows cells of the cell size rounded to whole pixels. The stage renders at the screen's
+ * pixel ratio `pr` (e.g. 1.25 on Windows at 125 %, lower when the engine eases its load), where the
+ * renderer rounds each cell to whole device pixels: the window is sized from that cell, in whole CSS
+ * px (floored), so the live grid is cols×rows too (at 1.25 the width grid was 77 columns, not 80).
+ */
+export function terminalWindow(cols: number, rows: number, cell: number, aspect: number, pr = 1): { w: number; h: number } {
+  const p = pr > 0 ? pr : 1;
+  const cw = Math.max(2, Math.round(cell * p)), ch = Math.max(2, Math.round(cell * aspect * p));
+  return { w: Math.floor((cols * cw) / p + 1e-6), h: Math.floor((rows * ch) / p + 1e-6) };
 }
 
 /* ------------------------------------------------------------------ */
