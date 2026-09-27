@@ -167,10 +167,10 @@ if (pre) lazy(pre, async () => {
   if (!reduced) setInterval(() => { if (!visible || document.hidden) return; t += 0.08; e.renderAt(t); draw(); }, 80);
 });
 
-/* pieces */
+/* pieces: their timers start when the tile comes near, not while the page loads */
 const typeEl = $('[data-type]');
-if (typeEl) typewriter(typeEl, { phrases: ['descifrar()', 'maquina_de_escribir()', 'iman()', 'estela()', 'halo()'], typeSpeed: 60, hold: 1100 });
-$$('[data-spin]').forEach(el => spinner(el, el.dataset.spin || 'braille'));
+if (typeEl) lazy(typeEl, () => typewriter(typeEl, { phrases: ['descifrar()', 'maquina_de_escribir()', 'iman()', 'estela()', 'halo()'], typeSpeed: 60, hold: 1100 }));
+$$('[data-spin]').forEach(el => lazy(el, () => spinner(el, el.dataset.spin || 'braille')));
 
 /* ---------- azar: a remembered history ---------- */
 /** WebP when the browser encodes it, JPEG otherwise (never the much heavier silent PNG). */
@@ -221,5 +221,6 @@ if (finalCv) lazy(finalCv, () => {
   r.interact.auto = true;
   void engine(finalCv, r, { pointerTarget: 'window' });
 });
+// set up near view: it measures the button (a forced layout) and draws, which the load does not need
 const haloBtn = $('[data-halo]');
-if (haloBtn) halo(haloBtn, { color: '#ff5b1f', cell: 10, radius: 110, idle: 0.1 });
+if (haloBtn) lazy(haloBtn, () => halo(haloBtn, { color: '#ff5b1f', cell: 10, radius: 110, idle: 0.1 }));
