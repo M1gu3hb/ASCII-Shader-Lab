@@ -1,7 +1,9 @@
-import { createRenderer } from '../engine/create';
+import { createRenderer, loadBasicEngine, type CreatedRenderer } from '../engine/create';
 import { createFontLoader } from '../engine/fonts';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
+import type { Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
+import { probeWebGL } from '../engine/support';
 import { useCaps } from './caps';
 import { attachEngine, pauseVideo, resumeVideo, stopCamera } from './media';
 import { currentEntry, currentRecipe, setStats, setThumb, useStudio } from './store';
@@ -18,9 +20,14 @@ let unsub: (() => void) | null = null;
 let thumbT = 0;
 let lostT = 0;
 let unwatch: (() => void) | null = null;
+/** Bumped by every mount and destroy: a mount still waiting for the basic engine's chunk knows it is stale. */
+let mountGen = 0;
 
 export const getEngine = () => engine;
 export const studioFonts = createFontLoader({ google: false });
+
+// the probe already knows when the stage will need the basic engine: fetch its chunk while the store hydrates
+if (probeWebGL().reason !== 'ok') void loadBasicEngine().catch(() => undefined);
 
 const NO_CANVAS = 'Este navegador no puede dibujar en un lienzo (ni WebGL ni Canvas 2D), así que el estudio no tiene dónde mostrar la pieza. Ábrelo en otro navegador, o actualiza este.';
 
@@ -28,16 +35,18 @@ const NO_CANVAS = 'Este navegador no puede dibujar en un lienzo (ni WebGL ni Can
  * Mounts the live renderer in `container`: the WebGL 2 engine when it works, the basic engine otherwise.
  * Only when not even Canvas 2D is available does the stage stay empty (caps.fatal says why).
  */
-export function mountStudioEngine(container: HTMLElement, o: { force?: 'basic' } = {}) {
+export async function mountStudioEngine(container: HTMLElement, o: { force?: 'basic' } = {}): Promise<void> {
   destroyStudioEngine();
+  const gen = ++mountGen;
   host = container;
   const s = useStudio.getState();
   const canvas = document.createElement('canvas');
   container.appendChild(canvas);
   let lastErr = 0, mounting = true;
-  let created;
+  let created: CreatedRenderer;
   try {
-    created = createRenderer(canvas, currentRecipe(s), {
+    // the WebGL engine is ready when this resolves (a microtask later); the basic one after its chunk loads
+    created = await createRenderer(canvas, currentRecipe(), {
       library: PATTERN_GLSL,
       fonts: studioFonts,
       interactive: true,
@@ -59,32 +68,39 @@ export function mountStudioEngine(container: HTMLElement, o: { force?: 'basic' }
     }, o);
   } catch {
     mounting = false;
+    if (gen !== mountGen) return;
     container.replaceChildren();
     useCaps.setState({ renderer: null, fatal: NO_CANVAS });
     return;
   }
   mounting = false;
   const e = created.renderer;
+  // the stage went away (or mounted again) while the renderer was on its way
+  if (gen !== mountGen) { e.destroy(); e.canvas.remove(); return; }
   engine = e;
   e.canvas.setAttribute('aria-hidden', 'true');
   useCaps.setState({ renderer: e.kind, gl: created.status, fatal: null, ...(o.force ? {} : { lost: false }) });
   if (e.kind === 'webgl2') watchContext(e.canvas);
   attachEngine(e);
   let prevSource = currentRecipe(s).source;
-  unsub = useStudio.subscribe((st, prev) => {
-    if (!engine) return;
-    if (st.change.n !== prev.change.n || st.cursor !== prev.cursor) {
-      const r = currentRecipe(st);
-      engine.set(r, { transition: st.change.kind !== 'edit' && !st.reducedMotion });
-      if (r.source !== prevSource) {
-        if (prevSource === 'camera') stopCamera();
-        if (prevSource === 'video') pauseVideo();
-        if (r.source === 'video') resumeVideo();
-        prevSource = r.source;
-      }
-      scheduleThumb();
+  const follow = (r: Recipe, transition: boolean) => {
+    e.set(r, { transition });
+    if (r.source !== prevSource) {
+      if (prevSource === 'camera') stopCamera();
+      if (prevSource === 'video') pauseVideo();
+      if (r.source === 'video') resumeVideo();
+      prevSource = r.source;
     }
-    if (st.playing !== prev.playing) { if (st.playing) engine.play(); else engine.pause(); }
+    scheduleThumb();
+  };
+  // the history may have moved while the basic engine's chunk was loading
+  const now = useStudio.getState();
+  if (currentRecipe(now) !== currentRecipe(s)) follow(currentRecipe(now), false);
+  if (now.playing !== s.playing) { if (now.playing) e.play(); else e.pause(); }
+  unsub = useStudio.subscribe((st, prev) => {
+    if (engine !== e) return;
+    if (st.change.n !== prev.change.n || st.cursor !== prev.cursor) follow(currentRecipe(st), st.change.kind !== 'edit' && !st.reducedMotion);
+    if (st.playing !== prev.playing) { if (st.playing) e.play(); else e.pause(); }
   });
   scheduleThumb();
 }
@@ -100,9 +116,10 @@ function watchContext(canvas: HTMLCanvasElement) {
       if (!host || engine?.canvas !== canvas) return;
       const time = engine.time;
       const gl = useCaps.getState().gl;
-      mountStudioEngine(host, { force: 'basic' });
-      if (engine) engine.time = time;
-      useCaps.setState({ lost: true, gl: { ...gl, reason: 'blocked', detail: undefined } });
+      void mountStudioEngine(host, { force: 'basic' }).then(() => {
+        if (engine) engine.time = time;
+        useCaps.setState({ lost: true, gl: { ...gl, reason: 'blocked', detail: undefined } });
+      });
     }, 3000);
   };
   const onRestored = () => clearTimeout(lostT);
@@ -112,6 +129,7 @@ function watchContext(canvas: HTMLCanvasElement) {
 }
 
 export function destroyStudioEngine() {
+  mountGen++;
   clearTimeout(lostT);
   unwatch?.(); unwatch = null;
   unsub?.(); unsub = null;

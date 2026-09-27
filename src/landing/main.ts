@@ -43,7 +43,7 @@ async function engine(canvas: HTMLCanvasElement, r: Recipe, o: Opts = {}): Promi
   canvas.style.background = r.color.bg;
   const m = await engines;
   const basic = m.basicHere();
-  const made = m.mount(canvas, still(r), {
+  const made = await m.mount(canvas, still(r), {
     observeVisibility: true, reducedMotion: reduced, maxPixelRatio: 1.25, pointerTarget: 'canvas', ...o,
     // the CPU draws every pixel in basic mode: keep the canvases at 1 device pixel per CSS pixel
     ...(basic ? { maxPixelRatio: 1 } : {}),
@@ -154,7 +154,7 @@ if (pre) lazy(pre, async () => {
   const r = PRESETS.terminal.find(p => p.id === 'donut')!.make();
   const cols = 64, rows = 20, cw = 9, ch = 18;
   const m = await engines;
-  const e = m.mount(document.createElement('canvas'), r, { fixedSize: { width: cols * cw, height: rows * ch, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false })?.renderer;
+  const e = (await m.mount(document.createElement('canvas'), r, { fixedSize: { width: cols * cw, height: rows * ch, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false }))?.renderer;
   if (!e) return;
   let visible = false, t = 3;
   new IntersectionObserver(es => { visible = es.some(x => x.isIntersecting); }).observe(pre);
@@ -194,7 +194,7 @@ if (azarCv && strip && azarSeed) lazy(azarCv, async () => {
   });
   const live = await engine(azarCv, recipes[3], { maxPixelRatio: 1.25 });
   const m = await engines;
-  const te = m.mount(document.createElement('canvas'), recipes[0], { fixedSize: { width: 640, height: 400, pixelRatio: 0.5 }, autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true })?.renderer ?? null;
+  const te = (await m.mount(document.createElement('canvas'), recipes[0], { fixedSize: { width: 640, height: 400, pixelRatio: 0.5 }, autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true }))?.renderer ?? null;
   await te?.ready();
   const btns = recipes.map((r, i) => {
     const b = document.createElement('button');
