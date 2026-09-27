@@ -165,7 +165,11 @@ function fullWidth(f: Frames): string[] {
     return w < f.cols ? l + ' '.repeat(f.cols - w) : l;
   }).join('\n'));
 }
-const oneLine = (s: string) => s.replace(/[\r\n]+/g, ' ');
+/**
+ * Text that stays inside a one-line comment (piece names come from shared links): control characters and
+ * U+2028/U+2029, which end a line in JavaScript, become spaces.
+ */
+const oneLine = (s: string) => s.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ');
 
 /** asciinema v2 recording (.cast): plays with `asciinema play` or the web player. */
 export function toAsciicast(f: Frames, title: string): string {
@@ -271,12 +275,17 @@ except BrokenPipeError:  # p. ej. «| head» cerró la tubería
 /** Snippet for a shell greeting (.bashrc / .zshrc). Only interactive shells print it, so scp/rsync keep working. */
 export function toShellBanner(text: string): string {
   const safe = text.replace(/\n+$/, '');
+  // the art may hold any line (a shared piece can write text over it): a line equal to the heredoc
+  // delimiter would end it early and run what follows, so pick one that no line matches
+  const lines = new Set(safe.split('\n').map(l => l.trim()));
+  let end = 'MONOTRAMA';
+  for (let i = 1; lines.has(end); i++) end = `MONOTRAMA_${i}`;
   return `# ${LICENSE_LINE}
 # Pega esto al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).
 case $- in *i*)
-cat <<'MONOTRAMA'
+cat <<'${end}'
 ${safe}
-MONOTRAMA
+${end}
 ;; esac
 `;
 }
