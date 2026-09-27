@@ -82,16 +82,53 @@ function MediaPrompt() {
   const need = (source === 'image' && !media.image) || (source === 'video' && !media.video) || (source === 'camera' && media.camera !== 'on');
   if (!need) return null;
   const cam = source === 'camera';
+  const video = source === 'video';
+  // what is missing: the piece's own file (no longer stored here, or it never travelled), or nothing chosen yet
+  const miss = !cam && media.need?.ref.kind === source ? media.need : null;
+  const name = miss?.ref.name;
+  const dims = miss && miss.ref.w > 0 && miss.ref.h > 0 ? `${miss.ref.w}×${miss.ref.h}` : '';
+  if (miss?.state === 'restoring') {
+    return (
+      <div className="prompt">
+        <div className="card restoring" role="status">
+          <p>Recuperando {name ? <>«{name}»</> : video ? 'el video' : 'la imagen'} de este navegador…</p>
+        </div>
+      </div>
+    );
+  }
+  let title: string, text: React.ReactNode;
+  if (cam) {
+    title = 'Tu cámara, en caracteres';
+    text = 'La cámara sólo se activa cuando pulsas el botón. Puedes apagarla cuando quieras.';
+  } else if (miss?.state === 'missing') {
+    title = video ? 'Falta el video de esta pieza' : 'Falta la imagen de esta pieza';
+    text = video
+      ? <>Esta pieza usaba {name ? <>«{name}»</> : 'un video tuyo'}{dims && ` (${dims})`} y ya no está guardado en este navegador. Vuelve a elegirlo o usa otro.</>
+      : <>Esta pieza usaba {name ? <>«{name}»</> : 'una imagen tuya'}{dims && ` (${dims})`} y ya no está guardada en este navegador. Vuelve a elegirla o usa otra.</>;
+  } else if (miss?.state === 'foreign') {
+    title = video ? 'Pon aquí un video tuyo' : 'Pon aquí una imagen tuya';
+    text = (
+      <>
+        {video
+          ? 'Esta pieza se hizo con un video propio que no viaja en los enlaces. Elige uno tuyo para verla; mientras tanto ves el patrón de fondo.'
+          : 'Esta pieza se hizo con una imagen propia que no viaja en los enlaces. Elige una tuya para verla; mientras tanto ves el patrón de fondo.'}
+        {dims && <span className="dims">{video ? 'El video' : 'La imagen'} original medía {dims} px.</span>}
+      </>
+    );
+  } else {
+    title = video ? 'Suelta aquí un video' : 'Suelta aquí una imagen';
+    text = 'O elige un archivo de tu equipo. Mientras tanto ves el patrón de fondo.';
+  }
   return (
     <div className="prompt">
       <div className="card" role="region" aria-label="Cargar fuente">
-        <h2>{cam ? 'Tu cámara, en caracteres' : source === 'video' ? 'Suelta aquí un video' : 'Suelta aquí una imagen'}</h2>
-        <p>{cam ? 'La cámara sólo se activa cuando pulsas el botón. Puedes apagarla cuando quieras.' : 'O elige un archivo de tu equipo. Mientras tanto ves el patrón de fondo.'}</p>
+        <h2>{title}</h2>
+        <p>{text}</p>
         {cam
           ? <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>
           : (
             <div className="row2">
-              <button type="button" className="btn primary" onClick={() => pickFile(source === 'video' ? 'video' : 'image')}>{source === 'video' ? 'Elegir video' : 'Elegir imagen'}</button>
+              <button type="button" className="btn primary" onClick={() => pickFile(video ? 'video' : 'image')}>{video ? 'Elegir video' : 'Elegir imagen'}</button>
               <button type="button" className="btn" onClick={() => { const p = startCamera(); edit(r => { r.source = 'camera'; }, 'cam'); void p; }}>Usar cámara</button>
             </div>
           )}

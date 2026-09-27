@@ -1,12 +1,25 @@
 import { parseRecipe } from '../shared/share';
-import { loadFile } from './media';
-import { applyRecipe, currentRecipe, edit, importFavorites, setSpace, useStudio } from './store';
+import { looksLikeZip } from '../shared/zip';
+import { loadFile, syncMedia } from './media';
+import { MEDIA_LIMITS } from './mediaStore';
+import { openPackage } from './packages';
+import { applyRecipe, edit, importFavorites, setSpace, useStudio } from './store';
 import { toast } from './toast';
 
 let input: HTMLInputElement | null = null;
 
+export type PickKind = 'image' | 'video' | 'recipe' | 'session' | 'any';
+
+const ACCEPT: Record<PickKind, string> = {
+  image: 'image/*',
+  video: 'video/*',
+  recipe: '.json,.zip,application/json,application/zip',
+  session: '.zip,application/zip',
+  any: 'image/*,video/*,.json,.zip,application/json,application/zip',
+};
+
 /** Opens the system file picker. Files stay on this device. */
-export function pickFile(kind: 'image' | 'video' | 'recipe' | 'any' = 'any') {
+export function pickFile(kind: PickKind = 'any') {
   if (!input) {
     input = document.createElement('input');
     input.type = 'file';
@@ -18,11 +31,17 @@ export function pickFile(kind: 'image' | 'video' | 'recipe' | 'any' = 'any') {
       input!.value = '';
     });
   }
-  input.accept = kind === 'image' ? 'image/*' : kind === 'video' ? 'video/*' : kind === 'recipe' ? '.json,application/json' : 'image/*,video/*,.json,application/json';
+  input.accept = ACCEPT[kind];
   input.click();
 }
 
+const isZip = (f: File) => /\.zip$/i.test(f.name) || f.type === 'application/zip' || f.type === 'application/x-zip-compressed';
+
 export async function handleFile(f: File) {
+  if (isZip(f) || (!f.type && await looksLikeZip(f))) {
+    await openPackage(f, f.name.replace(/\.zip$/i, ''));
+    return;
+  }
   if (f.type === 'application/json' || f.name.toLowerCase().endsWith('.json')) {
     const text = await f.text();
     try {
@@ -36,17 +55,28 @@ export async function handleFile(f: File) {
     const r = parseRecipe(text);
     if (!r) { toast('Ese archivo no parece una receta de Monotrama.'); return; }
     if (r.meta.space) useStudio.setState({ space: r.meta.space as never });
-    applyRecipe(r, 'importado', f.name.replace(/\.json$/i, ''));
+    applyRecipe(r, 'importado', f.name.replace(/\.json$/i, '').replace(/\.monotrama$/i, ''));
     toast('Receta abierta');
     return;
   }
   const s = useStudio.getState();
   if (s.space !== 'media' && s.space !== 'arte') setSpace('media');
-  const kind = await loadFile(f, currentRecipe().media.rate);
-  if (!kind) return;
+  const loaded = await loadFile(f);
+  if (!loaded) return;
+  const { kind, ref } = loaded;
+  // the same edit sets the source and names the file, so undo, history and favourites keep them together
   edit(r => {
     r.source = kind;
+    r.media.ref = ref;
     if (r.color.mode !== 'source' && useStudio.getState().space === 'media') r.color.mode = 'source';
   }, 'source-file' + Date.now());
-  toast(kind === 'image' ? 'Imagen cargada · se procesa sólo en tu navegador' : 'Video cargado · se procesa sólo en tu navegador');
+  syncMedia(true);
+  const what = kind === 'image' ? 'Imagen' : 'Video';
+  const st = loaded.store;
+  if (st.stored) toast(`${what} cargad${kind === 'image' ? 'a' : 'o'} · se queda en este navegador, nada se sube a ningún servidor`);
+  else if (st.reason === 'too-big') {
+    toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero pesa más de ${MEDIA_LIMITS[kind] / 1024 / 1024} MB: es demasiado grande para guardarl${kind === 'image' ? 'a' : 'o'} en el navegador. Se verá mientras no cierres la pestaña; después tendrás que elegirl${kind === 'image' ? 'a' : 'o'} otra vez.`, undefined, 9000);
+  } else {
+    toast(`${what} cargad${kind === 'image' ? 'a' : 'o'}, pero no se pudo guardar en el navegador (sin espacio o en modo privado). Se verá mientras no cierres la pestaña.`, undefined, 9000);
+  }
 }
