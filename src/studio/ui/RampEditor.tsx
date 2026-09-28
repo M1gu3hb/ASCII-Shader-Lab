@@ -8,7 +8,7 @@ import { ITrash } from '../icons';
 import { edit } from '../store';
 import { toast } from '../toast';
 import { ramp } from './options';
-import { RAMPS_MAX, removeRamp, saveRamp, useRamps } from './ramps';
+import { RAMPS_FULL, RAMPS_MAX, removeRamp, saveRamp, useRamps } from './ramps';
 import '../css/creative.css';
 
 /** Glyphs shown with a bar each; longer ramps show every glyph but in a denser strip. */
@@ -66,9 +66,9 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
   const refocus = (to: () => HTMLElement | null | undefined) => requestAnimationFrame(() => to()?.focus());
   const closeForm = () => { setNaming(false); refocus(() => saveBtn.current); };
   const save = () => {
-    saveRamp(name, charset);
+    const done = saveRamp(name, charset);
     closeForm();
-    toast(useRamps.getState().saved ? `Rampa «${name.trim() || 'Mi rampa'}» guardada en este navegador` : 'No se pudo guardar: este navegador no deja guardar datos del sitio');
+    toast(!done ? RAMPS_FULL : useRamps.getState().saved ? `Rampa «${name.trim() || 'Mi rampa'}» guardada en este navegador` : 'No se pudo guardar: este navegador no deja guardar datos del sitio');
   };
   return (
     <div className="ramp-ed" ref={root}>
@@ -138,7 +138,15 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
                   <span className="ramp-sample" aria-hidden="true" style={{ fontFamily: fontById(fontId).stack }}>{ramp(r.chars, 12)}</span>
                 </button>
                 <button type="button" className="icon-btn" aria-label={`Borrar la rampa «${r.name}»`} title="Borrar de este navegador"
-                  onClick={() => { removeRamp(r.id); toast(`Rampa «${r.name}» borrada`, { label: 'Deshacer', run: () => saveRamp(r.name, r.chars) }); }}><ITrash /></button>
+                  onClick={e => {
+                    // the keyboard goes to the ramp that takes its place (or the one before), else to «Guardar»:
+                    // both are there before and after, so it moves now, before this button goes
+                    const li = e.currentTarget.closest('li');
+                    const near = (li?.nextElementSibling ?? li?.previousElementSibling)?.querySelector<HTMLElement>('.ramp-chip');
+                    (near ?? saveBtn.current)?.focus();
+                    removeRamp(r.id);
+                    toast(`Rampa «${r.name}» borrada`, { label: 'Deshacer', run: () => { if (!saveRamp(r.name, r.chars)) toast(RAMPS_FULL); } });
+                  }}><ITrash /></button>
               </li>
             ))}
           </ul>

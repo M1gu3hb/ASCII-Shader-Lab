@@ -250,6 +250,8 @@ test.describe('rampa de caracteres', () => {
     // deleting says so and can be undone
     await page.getByRole('button', { name: 'Borrar la rampa «Mi trama»' }).click();
     await expect(page.getByRole('button', { name: /^Mi trama/ })).toHaveCount(0);
+    // (the button pressed went away with its ramp: the keyboard stays in the editor)
+    await expect(page.getByRole('button', { name: 'Guardar esta rampa en este navegador' })).toBeFocused();
     await page.locator('.toast').getByRole('button', { name: 'Deshacer' }).click();
     await expect(page.getByRole('button', { name: /^Mi trama/ })).toBeVisible();
     expect(errors).toEqual([]);
