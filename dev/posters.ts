@@ -11,7 +11,7 @@ import { createFontLoader } from '../src/engine/fonts';
 import { PATTERN_GLSL } from '../src/engine/glsl/patterns';
 import { gridToText } from '../src/exporters/text';
 import { EXAMPLES, gridSize } from '../src/pages/examples';
-import { logoMark } from '../src/shared/brand';
+import { lockup } from '../src/shared/brand';
 import { paintLandscape, syntheticPhoto } from '../src/shared/sample';
 import { GUIDES, SITE_URL, guideById, type Guide } from '../src/shared/site';
 
@@ -58,7 +58,6 @@ async function og(id: Id): Promise<string> {
   const g = guideById(id);
   await Promise.all([
     document.fonts.load('800 58px "Martian Mono Variable"', g.name),
-    document.fonts.load('700 26px "Martian Mono Variable"', 'monotrama'),
     document.fonts.load('500 26px "Inter Tight Variable"', g.blurb),
   ]);
   const c = document.createElement('canvas');
@@ -73,13 +72,11 @@ async function og(id: Id): Promise<string> {
   const scrim = x.createLinearGradient(560, 0, 780, 0);
   scrim.addColorStop(0, 'rgba(12,11,10,1)'); scrim.addColorStop(1, 'rgba(12,11,10,0)');
   x.fillStyle = scrim; x.fillRect(560, 0, 220, 630);
-  const mark = await image('data:image/svg+xml,' + encodeURIComponent(logoMark(40, { dot: '#ede6da', accent: '#ff5b1f' })));
-  x.drawImage(mark, 64, 58, 40, 40);
+  // the GLYPHOS lockup, as in the official artwork (cream on black)
+  const brand = await image('data:image/svg+xml,' + encodeURIComponent(lockup(40, { dot: '#efe9df', ink: '#efe9df' })));
+  x.drawImage(brand, 64, 58, brand.width, brand.height);
   x.fillStyle = '#ede6da';
   x.textBaseline = 'alphabetic';
-  x.font = '700 26px "Martian Mono Variable"';
-  x.letterSpacing = '-0.5px';
-  x.fillText('monotrama', 118, 87);
   x.font = '800 58px "Martian Mono Variable"';
   x.letterSpacing = '-3px';
   const title = wrap(x, g.name, 480);
@@ -119,7 +116,38 @@ async function poster(id: Id, pixelRatio: number, type = 'image/webp', quality =
   return url;
 }
 
-const api = { guides: GUIDES.map(g => ({ id: g.id, poster: g.poster })), poster, og, grid };
+/** 1200×630 share image of the site: the GLYPHOS lockup, the promise and the address over a real render. */
+async function siteOg(): Promise<string> {
+  const line = 'Haz arte ASCII que se mueve.';
+  await Promise.all([document.fonts.load('800 50px "Martian Mono Variable"', line), document.fonts.load('500 20px "JetBrains Mono"', SITE_URL)]);
+  const c = document.createElement('canvas');
+  c.width = 1200; c.height = 630;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#0c0b0a';
+  x.fillRect(0, 0, 1200, 630);
+  const e = await render('fondos', 400, 315, 2);
+  x.globalAlpha = 0.9;
+  x.drawImage(e.canvas, 400, 0, 800, 630);
+  x.globalAlpha = 1;
+  e.destroy();
+  const scrim = x.createLinearGradient(400, 0, 820, 0);
+  scrim.addColorStop(0, 'rgba(12,11,10,1)'); scrim.addColorStop(1, 'rgba(12,11,10,0)');
+  x.fillStyle = scrim; x.fillRect(400, 0, 420, 630);
+  const brand = await image('data:image/svg+xml,' + encodeURIComponent(lockup(92, { dot: '#efe9df', ink: '#efe9df' })));
+  x.drawImage(brand, 64, 200, brand.width, brand.height);
+  x.fillStyle = '#ede6da';
+  x.textBaseline = 'alphabetic';
+  x.font = '800 44px "Martian Mono Variable"';
+  x.letterSpacing = '-2px';
+  wrap(x, line, 620).forEach((l, i) => x.fillText(l, 64, 370 + i * 52));
+  x.font = '500 20px "JetBrains Mono"';
+  x.letterSpacing = '0px';
+  x.fillStyle = '#ff5b1f';
+  x.fillText(SITE_URL.replace('https://', ''), 64, 566);
+  return c.toDataURL('image/jpeg', 0.86);
+}
+
+const api = { guides: GUIDES.map(g => ({ id: g.id, poster: g.poster })), poster, og, siteOg, grid };
 (window as unknown as { mt: typeof api }).mt = api;
 
 if (location.search.includes('ver')) {

@@ -1,7 +1,7 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Estela — el cursor (o el dedo) deja caracteres que se desvanecen por una rampa de densidad.
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   trail(document.body, { color: '#ff5b1f' });
  */

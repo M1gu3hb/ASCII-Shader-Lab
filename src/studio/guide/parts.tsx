@@ -91,7 +91,7 @@ export function CodeBox({ kinds, placements, placement: initial }: { kinds: Kind
   const out = useMemo(() => {
     if (!mod || !r) return null;
     if (kind === 'html') { const x = mod.htmlSnippet(r, opts); return { code: x.code, notes: x.notes, file: null as null | { name: string; text: string } }; }
-    if (kind === 'wc') { const x = mod.webComponent(r, opts); return { code: x.usage, notes: x.notes, file: { name: 'monotrama-field.js', text: x.file } }; }
+    if (kind === 'wc') { const x = mod.webComponent(r, opts); return { code: x.usage, notes: x.notes, file: { name: 'glyphos-field.js', text: x.file } }; }
     const x = mod.reactComponent(r, opts); return { code: x.code, notes: x.notes, file: null };
   }, [mod, r, kind, placement, scrim]); // opts is rebuilt from these values
   if (!r) return null;
@@ -121,7 +121,7 @@ export function CodeBox({ kinds, placements, placement: initial }: { kinds: Kind
       </div>
       <p className="note">
         Motor incluido ({mod ? Math.round(mod.runtimeSize(r, 'basic') / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».
-        {kind === 'wc' && ' Sube monotrama-field.js junto a tu página.'}
+        {kind === 'wc' && ' Sube glyphos-field.js junto a tu página.'}
       </p>
       {scrim && <ScrimCodeNote zone={scrim} on />}
       {out?.notes.map((n, i) => <p key={i} className="note">{n}</p>)}

@@ -76,7 +76,7 @@ export function Welcome() {
         <>
           <div className="wl-head">
             <div className="grow">
-              <p className="eyebrow">Monotrama · estudio</p>
+              <p className="eyebrow">GLYPHOS · estudio</p>
               <h2 id="wl-title">¿Qué quieres hacer?</h2>
               <p id="wl-sub">Elige un camino: en cuatro pasos tendrás algo listo para descargar o pegar en tu web. Después, todo sigue abierto para explorar.</p>
             </div>

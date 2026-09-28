@@ -15,10 +15,12 @@ import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
  *       layer, framed, and not under a photo or inside letters (unless the chosen style has nothing else).
  *   3 — the same pieces as 2 (same seed, same streams), plus: transformations of the photo or the letters
  *       (Imagen, sometimes Tipo), letters that move (Tipo) and animated messages (Tipo, Terminal).
+ *   4 — the same pieces as 3; only the brand word a «words» fill may pick is the new name (GLYPHOS),
+ *       so a seed noted with version 3 still gives «MONOTRAMA ·» there.
  */
-export const GEN_VERSION = 3;
+export const GEN_VERSION = 4;
 /** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2, 3];
+export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4];
 /** A version asked for by a link or a person: a known one, else the current one. */
 export const genOf = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -42,6 +44,7 @@ const TABLES: Record<number, Tables> = {
   1: { archs: ARCHETYPES_V1, spaces: SPACE_ARCHS_V1 },
   2: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
   3: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
+  4: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
 };
 
 const TIPO_WORDS = ['TRAMA', 'ECO', 'SEÑAL', 'LUZ', 'RUIDO', 'HOLA', 'ONDA', 'PULSO', 'GLIFO', 'TINTA', 'NOCHE', 'VIBRA', 'MAREA', 'FARO'];
@@ -67,9 +70,11 @@ export function generate(inp: GenInput): Recipe {
   const A = pickArch(root.fork('arch'), inp.space, T, inp.arch);
   const base = inp.base;
   const r = defaultRecipe();
+  // versions 1–3 started from the default text of their time: seeds noted with them weave the same recipe
+  if (gen <= 3) r.text.content = 'MONOTRAMA';
   const light = genColor(r, root.fork('color'), A, inp.space);
   genForma(r, root.fork('forma'), A, inp.space, gen);
-  genGlifos(r, root.fork('glifos'), A, inp.space, light);
+  genGlifos(r, root.fork('glifos'), A, inp.space, light, gen);
   genMovimiento(r, root.fork('movimiento'), A, inp.space);
   genEfectos(r, root.fork('efectos'), A, inp.space, light);
   genFuente(r, root.fork('fuente'), A, inp.space, base);
@@ -160,7 +165,7 @@ function genColor(r: Recipe, rng: Rng, A: Archetype, space: SpaceId): boolean {
   return p.light;
 }
 
-function genGlifos(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, light: boolean) {
+function genGlifos(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, light: boolean, gen: number) {
   const g = r.glyph;
   let csId = rng.weighted(A.charsets);
   if (space === 'terminal' && !charsetById(csId)?.ascii) csId = rng.pick(['clasico', 'detallado', 'simbolos', 'binario', 'letras', 'hex']);
@@ -176,7 +181,9 @@ function genGlifos(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, light: boo
   g.aspect = round(rng.range(asp[0], asp[1]));
   g.mode = rng.weighted(A.glyphModes);
   if (space === 'terminal' && g.mode === 'words') g.mode = 'density';
-  g.words = rng.pick(WORD_FILLS);
+  const words = rng.pick(WORD_FILLS);
+  // the brand word follows the name (version 4); the pick, and so the rest of the piece, is the same
+  g.words = gen >= 4 && words === 'MONOTRAMA · ' ? 'GLYPHOS · ' : words;
   g.scale = round(rng.range(0.92, 1.08));
   g.edge = A.edge && rng.chance(A.edge[0]) ? round(rng.range(A.edge[1], A.edge[2])) : 0;
   g.dither = A.dither && rng.chance(A.dither[0]) ? round(rng.range(A.dither[1], A.dither[2])) : 0;

@@ -1,7 +1,7 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Imán — las letras se fragmentan en caracteres y huyen del cursor; al alejarse, se recomponen.
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   magnet(document.querySelector('.titulo'), { radius: 90 });
  */

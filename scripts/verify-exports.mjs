@@ -37,7 +37,7 @@ const BASE = `http://localhost:${PORT}`;
 const SITE_PORT = Number(process.env.SITE_PORT ?? PORT + 100); // "someone else's website": a different origin
 const DEV_PORT = SITE_PORT + 1;                                  // throwaway React project (vite dev, StrictMode)
 const SITE = `http://127.0.0.1:${SITE_PORT}`;
-const OUT = process.env.OUT ? resolve(process.env.OUT) : mkdtempSync(join(tmpdir(), 'monotrama-verify-'));
+const OUT = process.env.OUT ? resolve(process.env.OUT) : mkdtempSync(join(tmpdir(), 'glyphos-verify-'));
 const ONLY = (process.env.ONLY ?? '').split(',').map(s => s.trim()).filter(Boolean);
 /** PIECES=patron,texto: only those test pieces (while developing; a full run uses all of them). */
 const ONLY_PIECES = (process.env.PIECES ?? '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1213,7 +1213,7 @@ async function readCodeTab(page, dir, files) {
   await page.getByRole('button', { name: 'Web Component' }).click();
   await pump(page, 100);
   out.wcUsage = await code();
-  out.wcPath = await download(page, dir, () => page.getByRole('button', { name: /Descargar monotrama-field/ }).click());
+  out.wcPath = await download(page, dir, () => page.getByRole('button', { name: /Descargar glyphos-field/ }).click());
   await page.getByRole('button', { name: 'React' }).click();
   await pump(page, 100);
   out.react = await code();
@@ -1224,7 +1224,7 @@ async function readCodeTab(page, dir, files) {
   await page.getByRole('button', { name: 'Web Component' }).click();
   await pump(page, 100);
   out.wcPosterUsage = await code();
-  out.wcPosterPath = await download(page, join(dir, 'sin-basico'), () => page.getByRole('button', { name: /Descargar monotrama-field/ }).click());
+  out.wcPosterPath = await download(page, join(dir, 'sin-basico'), () => page.getByRole('button', { name: /Descargar glyphos-field/ }).click());
   await page.getByRole('button', { name: 'HTML para pegar' }).click();
   await pump(page, 100);
   out.htmlPoster = await code();
@@ -1233,7 +1233,7 @@ async function readCodeTab(page, dir, files) {
   return out;
 }
 
-const HEADER_RE = /Hecho con Monotrama · https:\/\/monotrama\.vercel\.app · Licencia MIT-0/;
+const HEADER_RE = /Hecho con GLYPHOS · https:\/\/glyphos-ascii\.vercel\.app · Licencia MIT-0/;
 const rgbOf = hex => `rgb(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)})`;
 
 async function codeChecks(key) {
@@ -1252,7 +1252,7 @@ async function codeChecks(key) {
     const missing = [];
     for (const [id, s] of Object.entries(c.html)) if (!HEADER_RE.test(s)) missing.push('HTML ' + id);
     if (!HEADER_RE.test(c.htmlPoster)) missing.push('HTML sin motor básico');
-    for (const [n, f] of [['monotrama-field.js', c.wcPath], ['monotrama-field.js sin motor básico', c.wcPosterPath], ['página .html', c.pagePath]]) if (!HEADER_RE.test(readFileSync(f, 'utf8'))) missing.push(n);
+    for (const [n, f] of [['glyphos-field.js', c.wcPath], ['glyphos-field.js sin motor básico', c.wcPosterPath], ['página .html', c.pagePath]]) if (!HEADER_RE.test(readFileSync(f, 'utf8'))) missing.push(n);
     if (!HEADER_RE.test(c.react)) missing.push('React');
     if (!HEADER_RE.test(c.reactPoster)) missing.push('React sin motor básico');
     assert(!missing.length, 'falta en: ' + missing.join(', '));
@@ -1283,7 +1283,7 @@ async function codeChecks(key) {
       const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-${id}.html`);
       try {
         const shot = join(OUT, key, `sitio-html-${id}.png`);
-        const cv = p.locator('.monotrama canvas');
+        const cv = p.locator('.glyphos canvas');
         await cv.screenshot({ path: shot });
         const box = await cv.boundingBox();
         const sd = spread(shot), rate = await drawRate(p), kind = await contextKind(cv);
@@ -1306,13 +1306,13 @@ async function codeChecks(key) {
     });
   }
   const [w, h] = identify(studioFiles[key].png, '%w %h').split(' ').map(Number);
-  writeFileSync(join(dir, 'parecido.html'), page('parecido', `<style>.monotrama{width:${w}px;height:${h}px!important;border-radius:0!important}</style>${c.html.block}`));
+  writeFileSync(join(dir, 'parecido.html'), page('parecido', `<style>.glyphos{width:${w}px;height:${h}px!important;border-radius:0!important}</style>${c.html.block}`));
   const sameSize = async (label, o) => {
     await check('codigo', `${key}: ${label}`, async () => {
       const { ctx, p, errors } = await visitSite(`${SITE}/${key}/parecido.html`, { reducedMotion: 'reduce', settle: 4000, viewport: { width: w + 100, height: h + 100 }, ...o });
       try {
         const shot = join(OUT, key, `sitio-parecido${o.noWebgl2 ? '-basico' : ''}.png`);
-        const cv = p.locator('.monotrama canvas');
+        const cv = p.locator('.glyphos canvas');
         await cv.screenshot({ path: shot });
         const kind = await contextKind(cv);
         assert(!errors.length, errors.slice(0, 2).join(' | '));
@@ -1328,10 +1328,10 @@ async function codeChecks(key) {
   await check('codigo', `${key}: se adapta al tamaño de su contenedor`, async () => {
     const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`);
     try {
-      const cv = p.locator('.monotrama canvas');
+      const cv = p.locator('.glyphos canvas');
       const size = () => cv.evaluate(c => ({ w: c.width, h: c.height, cw: c.clientWidth, ch: c.clientHeight }));
       const a = await size();
-      await p.evaluate(() => { const m = document.querySelector('.monotrama'); m.style.width = '520px'; m.style.height = '300px'; });
+      await p.evaluate(() => { const m = document.querySelector('.glyphos'); m.style.width = '520px'; m.style.height = '300px'; });
       await p.waitForTimeout(900);
       const b = await size();
       const rate = await drawRate(p, 800);
@@ -1346,10 +1346,10 @@ async function codeChecks(key) {
   await check('codigo', `${key}: oculto (display:none) no dibuja; al mostrarlo vuelve`, async () => {
     const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`);
     try {
-      await p.evaluate(() => { document.querySelector('.monotrama').style.display = 'none'; });
+      await p.evaluate(() => { document.querySelector('.glyphos').style.display = 'none'; });
       await p.waitForTimeout(400);
       const hidden = await drawRate(p);
-      await p.evaluate(() => { document.querySelector('.monotrama').style.display = ''; });
+      await p.evaluate(() => { document.querySelector('.glyphos').style.display = ''; });
       await p.waitForTimeout(600);
       const shown = await drawRate(p);
       assert(!errors.length, errors.slice(0, 2).join(' | '));
@@ -1360,7 +1360,7 @@ async function codeChecks(key) {
   await check('codigo', `${key}: quitar el bloque de la página lo detiene y libera el contexto`, async () => {
     const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`);
     try {
-      await p.evaluate(() => { window.__cv = document.querySelector('.monotrama canvas'); document.querySelector('.monotrama').remove(); });
+      await p.evaluate(() => { window.__cv = document.querySelector('.glyphos canvas'); document.querySelector('.glyphos').remove(); });
       await p.waitForTimeout(900);
       const d = await drawRate(p, 800), raf = await rafRate(p, 800);
       const lost = await p.evaluate(() => { const g = window.__cv.getContext('webgl2'); return g ? g.isContextLost() : 'sin WebGL'; });
@@ -1374,7 +1374,7 @@ async function codeChecks(key) {
     const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`, { reducedMotion: 'reduce' });
     try {
       const shot = join(OUT, key, 'sitio-reducido.png');
-      await p.locator('.monotrama canvas').screenshot({ path: shot });
+      await p.locator('.glyphos canvas').screenshot({ path: shot });
       const rate = await drawRate(p, 1500), sd = spread(shot);
       assert(!errors.length, errors.slice(0, 2).join(' | '));
       assert(rate === 0 && sd > 0.02, `dibujos/1.5 s ${rate}, desviación ${fmt(sd)}`);
@@ -1389,13 +1389,13 @@ async function codeChecks(key) {
     try {
       const pageErrors = errors.filter(e => e.startsWith('pageerror'));
       assert(!pageErrors.length, pageErrors.join(' | '));
-      const st = await p.evaluate(() => { const c = document.querySelector('.monotrama canvas'); const s = getComputedStyle(c); const w = getComputedStyle(c.parentElement); return { bg: s.backgroundColor, img: s.backgroundImage, wrap: w.backgroundColor }; });
+      const st = await p.evaluate(() => { const c = document.querySelector('.glyphos canvas'); const s = getComputedStyle(c); const w = getComputedStyle(c.parentElement); return { bg: s.backgroundColor, img: s.backgroundImage, wrap: w.backgroundColor }; });
       assert(st.wrap === bgRgb, `fondo ${st.wrap}, esperado ${bgRgb}`);
       if (poster) {
         assert(/poster\.png/.test(st.img), 'sin póster: ' + st.img);
         const shot = join(OUT, key, 'sitio-sin-webgl.png');
         await p.waitForTimeout(500);
-        await p.locator('.monotrama canvas').screenshot({ path: shot });
+        await p.locator('.glyphos canvas').screenshot({ path: shot });
         const e = rmse(shot, poster, { blur: 2, cover: true });
         assert(e < 0.08, 'el póster no se ve: RMSE ' + fmt(e));
         return `fondo ${st.wrap}, póster visible (RMSE contra el PNG ${fmt(e)}), 0 excepciones`;
@@ -1412,7 +1412,7 @@ async function codeChecks(key) {
       assert(!gl, 'WebGL 2 sigue disponible');
       const pe = a.errors.filter(e => e.startsWith('pageerror'));
       assert(!pe.length, pe.join(' | '));
-      const cv = a.p.locator('.monotrama canvas');
+      const cv = a.p.locator('.glyphos canvas');
       const shot = join(OUT, key, 'sitio-sin-3d.png');
       await cv.screenshot({ path: shot });
       const kind = await contextKind(cv), sd = spread(shot), rate = await drawRate(a.p);
@@ -1423,7 +1423,7 @@ async function codeChecks(key) {
     try {
       const pe = b.errors.filter(e => e.startsWith('pageerror'));
       assert(!pe.length, pe.join(' | '));
-      const img = await b.p.evaluate(() => getComputedStyle(document.querySelector('.monotrama canvas')).backgroundImage);
+      const img = await b.p.evaluate(() => getComputedStyle(document.querySelector('.glyphos canvas')).backgroundImage);
       assert(!poster || /poster\.png/.test(img), 'sin póster: ' + img);
       return `getContext('webgl2') = null; ${basic}; sin motor básico: ${poster ? 'póster visible' : 'color de fondo'}; 0 excepciones`;
     } finally { await b.ctx.close(); }
@@ -1440,15 +1440,15 @@ async function codeChecks(key) {
       return `desviación ${fmt(sd)}, sin errores`;
     } finally { await ctx.close(); }
   });
-  copyFileSync(c.wcPath, join(dir, 'monotrama-field.js'));
+  copyFileSync(c.wcPath, join(dir, 'glyphos-field.js'));
   mkdirSync(join(dir, 'ligero'), { recursive: true });
-  copyFileSync(c.wcPosterPath, join(dir, 'ligero', 'monotrama-field.js'));
+  copyFileSync(c.wcPosterPath, join(dir, 'ligero', 'glyphos-field.js'));
   writeFileSync(join(dir, 'wc.html'), page('wc', `<main><h1>Mi web</h1>${filler(2)}\n${c.wcUsage}\n${filler(40)}</main>`));
   const wcShot = join(OUT, key, 'sitio-wc.png');
-  await check('codigo', `${key}: Web Component (<monotrama-field> + monotrama-field.js)`, async () => {
+  await check('codigo', `${key}: Web Component (<glyphos-field> + glyphos-field.js)`, async () => {
     const { ctx, p, errors } = await visitSite(`${SITE}/${key}/wc.html`, { settle: 3500 });
     try {
-      await p.locator('monotrama-field').screenshot({ path: wcShot });
+      await p.locator('glyphos-field').screenshot({ path: wcShot });
       const sd = spread(wcShot), rate = await drawRate(p);
       assert(!errors.length, errors.slice(0, 2).join(' | '));
       assert(sd > 0.02 && rate > 1, `desviación ${fmt(sd)}, dibujos ${rate}`);
@@ -1463,7 +1463,7 @@ async function codeChecks(key) {
         off = ', fuera de pantalla 0 dibujos';
       }
       // removal: no canvas, no drawing, no animation frames left, the WebGL context released
-      await p.evaluate(() => { const el = document.querySelector('monotrama-field'); window.__cv = el.shadowRoot.querySelector('canvas'); el.remove(); });
+      await p.evaluate(() => { const el = document.querySelector('glyphos-field'); window.__cv = el.shadowRoot.querySelector('canvas'); el.remove(); });
       await p.waitForTimeout(300);
       const r3 = await drawRate(p, 800), raf = await rafRate(p, 800);
       const lost = await p.evaluate(() => { const g = window.__cv.getContext('webgl2'); return g ? g.isContextLost() : 'sin WebGL'; });
@@ -1478,7 +1478,7 @@ async function codeChecks(key) {
     const { ctx, p, errors } = await visitSite(`${SITE}/${key}/wc-parecido.html`, { reducedMotion: 'reduce', settle: 4000, viewport: { width: w + 100, height: h + 100 } });
     try {
       const shot = join(OUT, key, 'sitio-wc-parecido.png');
-      await p.locator('monotrama-field').screenshot({ path: shot });
+      await p.locator('glyphos-field').screenshot({ path: shot });
       assert(!errors.length, errors.slice(0, 2).join(' | '));
       const eb = rmse(studioFiles[key].png, shot, { blur: 2 });
       assert(eb < 0.05, `RMSE desenfocado ${fmt(eb)}`);
@@ -1487,15 +1487,15 @@ async function codeChecks(key) {
   });
   await check('codigo', `${key}: Web Component sin WebGL 2: motor básico; sin él (no-basic), póster`, async () => {
     writeFileSync(join(dir, 'wc-sin-webgl.html'), page('wc', `<main>${c.wcUsage}</main>`));
-    writeFileSync(join(dir, 'ligero', 'wc-sin-webgl.html'), page('wc', `<main>${c.wcPosterUsage.replace('<monotrama-field', '<monotrama-field poster="../poster.png"')}</main>`));
+    writeFileSync(join(dir, 'ligero', 'wc-sin-webgl.html'), page('wc', `<main>${c.wcPosterUsage.replace('<glyphos-field', '<glyphos-field poster="../poster.png"')}</main>`));
     const a = await visitSite(`${SITE}/${key}/wc-sin-webgl.html`, { noWebgl2: true, settle: 3500 });
     let basic;
     try {
       const pe = a.errors.filter(e => e.startsWith('pageerror'));
       assert(!pe.length, pe.join(' | '));
       const shot = join(OUT, key, 'sitio-wc-basico.png');
-      await a.p.locator('monotrama-field').screenshot({ path: shot });
-      const kind = await a.p.evaluate(() => { const cv = document.querySelector('monotrama-field').shadowRoot.querySelector('canvas'); return cv.getContext('2d') ? '2d' : 'otro'; });
+      await a.p.locator('glyphos-field').screenshot({ path: shot });
+      const kind = await a.p.evaluate(() => { const cv = document.querySelector('glyphos-field').shadowRoot.querySelector('canvas'); return cv.getContext('2d') ? '2d' : 'otro'; });
       const sd = spread(shot);
       assert(kind === '2d' && sd > 0.02, `${kind}, desviación ${fmt(sd)}`);
       basic = `motor básico 2D (desviación ${fmt(sd)})`;
@@ -1504,7 +1504,7 @@ async function codeChecks(key) {
     try {
       const pe = b.errors.filter(e => e.startsWith('pageerror'));
       assert(!pe.length, pe.join(' | '));
-      const img = await b.p.evaluate(() => { const el = document.querySelector('monotrama-field'); const cv = el.shadowRoot.querySelector('canvas'); return getComputedStyle(cv).backgroundImage; });
+      const img = await b.p.evaluate(() => { const el = document.querySelector('glyphos-field'); const cv = el.shadowRoot.querySelector('canvas'); return getComputedStyle(cv).backgroundImage; });
       assert(/poster\.png/.test(img), 'sin póster: ' + img);
       return `${basic}; sin él: póster en el lienzo; 0 excepciones`;
     } finally { await b.ctx.close(); }
@@ -2643,7 +2643,7 @@ async function componentsFlow() {
 process.on('unhandledRejection', e => record('verificador', 'promesa sin atender', 'FAIL', String(e?.message ?? e).split('\n')[0]));
 
 async function main() {
-  console.log(`Monotrama · verificación de exportaciones\n  estudio ${BASE} · sitio ajeno ${SITE} · artefactos ${OUT}\n`);
+  console.log(`GLYPHOS · verificación de exportaciones\n  estudio ${BASE} · sitio ajeno ${SITE} · artefactos ${OUT}\n`);
   const up = await fetch(`${BASE}/studio/`).then(r => r.ok).catch(() => false);
   if (!up) { console.error(`No hay estudio en ${BASE}. Ejecuta: npm run build && npx vite preview --port ${PORT} --strictPort`); process.exit(2); }
   const gap = engineGap(BROWSER);

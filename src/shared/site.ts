@@ -5,8 +5,8 @@
  */
 
 /** Canonical origin. Other hosts (e.g. ascii-shader-lab.vercel.app) redirect here (vercel.json). */
-export const SITE_URL = 'https://monotrama.vercel.app';
-export const SITE_NAME = 'Monotrama';
+export const SITE_URL = 'https://glyphos-ascii.vercel.app';
+export const SITE_NAME = 'GLYPHOS';
 export const SITE_LOCALE = 'es_MX';
 export const REPO_URL = 'https://github.com/M1gu3hb/ASCII-Shader-Lab';
 
@@ -47,7 +47,7 @@ export interface Guide {
 }
 
 const og = (slug: string, alt: string): ShareImage => ({ path: `/ex/${slug}-og.jpg`, width: 1200, height: 630, alt });
-const SITE_IMAGE: ShareImage = { path: '/og.jpg', width: 1200, height: 630, alt: 'Monotrama: «Teje luz con caracteres», estudio de arte ASCII en tiempo real' };
+const SITE_IMAGE: ShareImage = { path: '/og.jpg', width: 1200, height: 630, alt: 'GLYPHOS: «Teje luz con caracteres», estudio de arte ASCII en tiempo real' };
 
 export const GUIDES: Guide[] = [
   {
@@ -91,39 +91,39 @@ const guidePage = (id: Guide['id'], file: string, title: string, description: st
 
 export const PAGES: SitePage[] = [
   {
-    id: 'main', file: 'index.html', path: '/', kind: 'home', crumb: 'Monotrama', sitemap: true, image: SITE_IMAGE,
-    title: 'Monotrama — Generador de arte ASCII online y animado',
+    id: 'main', file: 'index.html', path: '/', kind: 'home', crumb: 'GLYPHOS', sitemap: true, image: SITE_IMAGE,
+    title: 'GLYPHOS — Generador de arte ASCII online y animado',
     description: 'Crea arte ASCII animado en tu navegador: fondos para web, foto, video y cámara a ASCII, texto y piezas para terminal. Exporta PNG, SVG, MP4, ANSI o código.',
   },
   {
     id: 'studio', file: 'studio/index.html', path: '/studio/', kind: 'app', crumb: 'Estudio', sitemap: true, image: SITE_IMAGE,
-    title: 'Estudio Monotrama — Generador ASCII en tu navegador',
+    title: 'Estudio GLYPHOS — Generador ASCII en tu navegador',
     description: 'Genera arte ASCII en tiempo real: tira el dado, ajusta patrón, color y glifos, usa tu foto, video o cámara y exporta a PNG, SVG, MP4, GIF, ANSI o código.',
   },
   guidePage('imagen', 'imagen-a-ascii/index.html',
-    'Imagen a ASCII: convierte tu foto en arte ASCII · Monotrama',
+    'Imagen a ASCII: convierte tu foto en arte ASCII · GLYPHOS',
     'Convierte una foto en arte ASCII en tu navegador, sin subirla a ningún servidor. Ajusta glifos y color, y descarga PNG, SVG, texto o video.'),
   guidePage('video', 'video-a-ascii/index.html',
-    'Video y cámara a ASCII en tiempo real · Monotrama',
+    'Video y cámara a ASCII en tiempo real · GLYPHOS',
     'Convierte un video o tu cámara en arte ASCII en tiempo real, en tu navegador. Exporta WebM, o MP4 si tu navegador lo codifica, fotograma a fotograma.'),
   guidePage('fondos', 'fondos-ascii/index.html',
-    'Fondos ASCII animados para tu web · Monotrama',
+    'Fondos ASCII animados para tu web · GLYPHOS',
     'Crea un fondo animado hecho de caracteres y pégalo en tu web como HTML, Web Component o React. Motor incluido; se pausa cuando no está a la vista.'),
   guidePage('texto', 'texto-animado-ascii/index.html',
-    'Texto animado en ASCII: palabras hechas de letras · Monotrama',
+    'Texto animado en ASCII: palabras hechas de letras · GLYPHOS',
     'Rellena una palabra con un patrón ASCII animado o haz que un mensaje se escriba, se descifre o desfile. Exporta PNG, SVG, video, GIF o código web.'),
   guidePage('terminal', 'arte-ascii-terminal/index.html',
-    'Arte ASCII para terminal: ANSI, Node y Python · Monotrama',
+    'Arte ASCII para terminal: ANSI, Node y Python · GLYPHOS',
     'Crea arte ASCII para tu terminal: texto plano, ANSI en 16 o 256 colores o color real, y animaciones que corren con Node o Python sin instalar nada.'),
   {
     id: 'licencia', file: 'licencia/index.html', path: '/licencia/', kind: 'doc', crumb: 'Licencia y uso', sitemap: true, image: SITE_IMAGE,
-    title: 'Licencia y uso · Monotrama',
-    description: 'Lo que creas con Monotrama es tuyo. El código exportado es MIT-0 y el del editor, MIT. La marca no se licencia. Terceros, tipografías y tus archivos.',
+    title: 'Licencia y uso · GLYPHOS',
+    description: 'Lo que creas con GLYPHOS es tuyo. El código exportado es MIT-0 y el del editor, MIT. La marca no se licencia. Terceros, tipografías y tus archivos.',
   },
   {
     id: 'notfound', file: '404.html', path: '/404.html', kind: 'error', crumb: 'Página no encontrada', sitemap: false, image: SITE_IMAGE,
-    title: 'Página no encontrada · Monotrama',
-    description: 'Esta dirección no existe en Monotrama. Vuelve al inicio, abre el estudio o elige una guía.',
+    title: 'Página no encontrada · GLYPHOS',
+    description: 'Esta dirección no existe en GLYPHOS. Vuelve al inicio, abre el estudio o elige una guía.',
   },
 ];
 

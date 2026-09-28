@@ -96,7 +96,7 @@ test('el estudio usa el motor básico, lo explica y exporta PNG y TXT', async ({
   await other.goto('file://' + file);
   await drawn(other, 'canvas');
   expect(await contextOf(other, 'canvas')).toBe('2d');
-  expect(await other.evaluate(() => (window as unknown as { Monotrama: { __basic?: unknown } }).Monotrama.__basic !== undefined)).toBe(true);
+  expect(await other.evaluate(() => (window as unknown as { Glyphos: { __basic?: unknown } }).Glyphos.__basic !== undefined)).toBe(true);
   expect(otherErrors).toEqual([]);
   await other.close();
 

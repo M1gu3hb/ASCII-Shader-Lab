@@ -66,6 +66,7 @@ async function guides() {
     write(`${slug}-640.webp`, fromDataUrl(await page.evaluate(id => window.mt.poster(id, 1), g.id)));
     write(`${slug}-og.jpg`, fromDataUrl(await page.evaluate(id => window.mt.og(id), g.id)));
   }
+  write('../og.jpg', fromDataUrl(await page.evaluate(() => window.mt.siteOg())));
   write('terminal-donut.txt', await page.evaluate(() => window.mt.grid('terminal')));
   page.checkFailed();
   await page.close();
@@ -78,11 +79,11 @@ const webPage = (usage, name) => `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Página de ejemplo con un fondo de Monotrama</title>
+<title>Página de ejemplo con un fondo de GLYPHOS</title>
 <style>
   html, body { margin: 0; height: 100%; background: #07060f; color: #f6efe4; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   .hero { position: relative; min-height: 100vh; display: grid; align-items: center; overflow: hidden; }
-  .hero monotrama-field { position: absolute; inset: 0; }
+  .hero glyphos-field { position: absolute; inset: 0; }
   .copy { position: relative; max-width: min(48%, 30em); padding: 32px 5vw; }
   @media (max-width: 560px) { .copy { max-width: none; } }
   .copy p:first-child { margin: 0 0 12px; font: 600 11px/1 ui-monospace, Menlo, monospace; letter-spacing: .16em; text-transform: uppercase; opacity: .75; }
@@ -98,7 +99,7 @@ ${usage}
   <div class="copy">
     <p>Página de ejemplo</p>
     <h1>Tu titular, sobre un fondo que se mueve.</h1>
-    <p>El fondo es «${name}» exportado desde el estudio como Web Component: el archivo <code>monotrama-field.js</code> y una etiqueta, sin más código.</p>
+    <p>El fondo es «${name}» exportado desde el estudio como Web Component: el archivo <code>glyphos-field.js</code> y una etiqueta, sin más código.</p>
     <a href="/studio/" target="_top">Hacer el mío</a>
   </div>
 </section>
@@ -122,7 +123,7 @@ async function landing() {
   await p2.close();
   await chrome?.close();
 
-  const b = 'salidas/monotrama-saturno';
+  const b = 'salidas/glyphos-saturno';
   write(`${b}.png`, Buffer.from(s.png, 'base64'));
   write(`${b}.webp`, fromDataUrl(s.pngDisplay));
   write(`${b}.svg`, s.svg);
@@ -131,14 +132,14 @@ async function landing() {
   else if (!existsSync(join(outDir, `${b}.mp4`))) console.warn('Sin MP4: este navegador no codifica H.264.');
   write(`${b}.mjs`, s.node);
   write('salidas-terminal.txt', s.firstFrame);
-  write(`${b}.monotrama.json`, s.recipe);
-  write('salidas/web/monotrama-field.js', s.wcFile);
+  write(`${b}.glyphos.json`, s.recipe);
+  write('salidas/web/glyphos-field.js', s.wcFile);
   write('salidas/web/index.html', webPage(s.wcUsage, s.name));
   const size = f => statSync(join(outDir, f)).size;
   const manifest = {
     piece: s.name, loopSeconds: s.loopSeconds, frames: s.frames, svgSize: s.svgSize, svgNotes: s.svgNotes, codecs: s.codecs,
     link: s.link, usage: s.wcUsage, runtime: s.runtime,
-    bytes: Object.fromEntries(['png', 'webp', 'svg', 'webm', 'mp4', 'mjs', 'monotrama.json'].map(x => [x, existsSync(join(outDir, `${b}.${x}`)) ? size(`${b}.${x}`) : 0]).concat([['wc', size('salidas/web/monotrama-field.js')]])),
+    bytes: Object.fromEntries(['png', 'webp', 'svg', 'webm', 'mp4', 'mjs', 'glyphos.json'].map(x => [x, existsSync(join(outDir, `${b}.${x}`)) ? size(`${b}.${x}`) : 0]).concat([['wc', size('salidas/web/glyphos-field.js')]])),
   };
   write('salidas/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
 }

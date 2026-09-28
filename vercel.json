@@ -10,7 +10,13 @@
     {
       "source": "/(.*)",
       "has": [{ "type": "host", "value": "ascii-shader-lab.vercel.app" }],
-      "destination": "https://monotrama.vercel.app/$1",
+      "destination": "https://glyphos-ascii.vercel.app/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "monotrama.vercel.app" }],
+      "destination": "https://glyphos-ascii.vercel.app/$1",
       "permanent": true
     }
   ],

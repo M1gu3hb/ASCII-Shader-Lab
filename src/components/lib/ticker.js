@@ -1,8 +1,8 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Separador — una franja de caracteres entre secciones: un letrero que desfila con tu texto, o una
  * onda de densidad que respira. Se pausa al pasar el cursor, al enfocarla y con su botón de pausa.
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   ticker(document.querySelector('.separador'), { text: 'NUEVA COLECCIÓN · ENVÍO GRATIS' });
  *

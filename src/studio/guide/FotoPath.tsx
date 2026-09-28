@@ -127,8 +127,8 @@ export function FotoAdjust() {
 
 /* 4 · Llévatela ------------------------------------------------------- */
 
-/** File names from the photo's own name: «monotrama-atardecer». */
-const photoBase = (name?: string) => 'monotrama-' + slug((name ?? '').replace(/\.[a-z0-9]+$/i, '') || 'foto');
+/** File names from the photo's own name: «glyphos-atardecer». */
+const photoBase = (name?: string) => 'glyphos-' + slug((name ?? '').replace(/\.[a-z0-9]+$/i, '') || 'foto');
 
 export function FotoTake() {
   const recipe = useRecipe();

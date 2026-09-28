@@ -42,7 +42,7 @@ export function mountSalidas(root: HTMLElement) {
         f.src = f.dataset.src!;
         // the example page's piece follows «Pausar» too: its element (same origin) mounts again, still or moving
         const follow = () => {
-          const field = f.contentDocument?.querySelector('monotrama-field');
+          const field = f.contentDocument?.querySelector('glyphos-field');
           if (!field || field.hasAttribute('paused') === isPaused()) return;
           const next = field.cloneNode(true) as Element;
           next.toggleAttribute('paused', isPaused());

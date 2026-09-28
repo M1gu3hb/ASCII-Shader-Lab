@@ -9,13 +9,14 @@
  *   <!-- @footer -->            footer with the guides, links and the Morphiq credit (`@footer paper` on light pages)
  *   <!-- @guides -->            cards for the five guides (`@guides others` leaves out the current one)
  *   <!-- @guide-links -->       plain list of links to the guides
- *   <!-- @mark -->              the Monotrama logo mark (inline SVG)
+ *   <!-- @mark -->              the GLYPHOS symbol (inline SVG)
+ *   <!-- @word -->              the GLYPHOS wordmark (inline SVG, in the text colour)
  *   <!-- @include:ex/x.txt -->  HTML-escaped contents of public/ex/x.txt
  *   <!-- @contacts -->          the landing's «Azar» contact sheet (src/landing/contacts.ts)
  *   <!-- @salida:key -->        a fact about the landing's exported files, read from public/ex/salidas/manifest.json
  *                               (sizes, duration, link…), so the page never quotes a stale number
  */
-import { logoMark } from '../src/shared/brand.ts';
+import { logoMark, wordmark } from '../src/shared/brand.ts';
 import { CONTACTS, CONTACT_PX, contactSrc } from '../src/landing/contacts.ts';
 import {
   GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
@@ -47,6 +48,7 @@ export function headTags(p: SitePage, o: { verification?: string | null } = {}):
   else tags.push(`<link rel="canonical" href="${url}">`);
   tags.push(
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
+    '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
     '<meta name="theme-color" content="#0c0b0a">',
   );
   if (p.kind !== 'error') {
@@ -92,7 +94,7 @@ function organization() {
 
 function website() {
   return {
-    '@type': 'WebSite', '@id': ID.website, name: SITE_NAME, alternateName: 'ASCII Shader Lab', url: `${SITE_URL}/`,
+    '@type': 'WebSite', '@id': ID.website, name: SITE_NAME, alternateName: ['Monotrama', 'ASCII Shader Lab'], url: `${SITE_URL}/`,
     inLanguage: 'es', description: page('main').description, creator: { '@id': ID.org }, publisher: { '@id': ID.org },
   };
 }
@@ -100,7 +102,7 @@ function website() {
 function webApplication() {
   const studio = page('studio');
   return {
-    '@type': 'WebApplication', '@id': ID.app, name: 'Estudio Monotrama', url: absUrl(studio.path), description: studio.description,
+    '@type': 'WebApplication', '@id': ID.app, name: 'Estudio GLYPHOS', url: absUrl(studio.path), description: studio.description,
     applicationCategory: 'DesignApplication', operatingSystem: 'Web',
     browserRequirements: 'Requiere JavaScript; WebGL 2 para el motor completo',
     isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'MXN' },
@@ -153,12 +155,14 @@ export function robotsTxt(): string {
 /* ---------------------------------------------------------------- shared markup */
 
 const mark = (size: number) => logoMark(size);
+/** The wordmark next to the symbol: as tall as the letters of the official lockup. */
+const word = (height: number) => wordmark(height, { className: 'word' });
 
 export function siteHeader(p: SitePage): string {
   const links = GUIDES.map(g => `<a href="${g.path}"${g.path === p.path ? ' aria-current="page"' : ''}>${g.short}</a>`).join('\n    ');
   return `<a class="skip" href="#contenido">Saltar al contenido</a>
 <header class="nav solid" id="top">
-  <a class="nav-brand" href="/" aria-label="Monotrama, inicio"><span class="logo">${mark(24)}</span><span class="word">monotrama</span></a>
+  <a class="nav-brand" href="/" aria-label="GLYPHOS, inicio"><span class="logo">${mark(24)}</span>${word(17)}</a>
   <nav class="nav-links" aria-label="Guías">
     ${links}
   </nav>
@@ -178,14 +182,14 @@ export function siteFooter(tone: 'ink' | 'paper' = 'ink'): string {
   return `<footer class="foot${tone === 'paper' ? ' paper' : ''}">
   <div class="foot-grid">
     <div class="foot-about">
-      <a class="foot-brand" href="/"><span class="logo">${mark(24)}</span><span>monotrama</span></a>
+      <a class="foot-brand" href="/" aria-label="GLYPHOS, inicio"><span class="logo">${mark(24)}</span>${word(17)}</a>
       <p>Teje luz con caracteres. Un estudio de arte ASCII en tiempo real, gratis y en tu navegador: lo que haces es tuyo.</p>
     </div>
     <nav class="foot-col" aria-labelledby="foot-guias"><p class="foot-h" id="foot-guias">Qué puedes hacer</p><ul>${guides}</ul></nav>
-    <nav class="foot-col" aria-labelledby="foot-mt"><p class="foot-h" id="foot-mt">Monotrama</p><ul><li><a href="/studio/">Estudio</a></li><li><a href="/licencia/">Licencia y uso</a></li><li><a href="${REPO_URL}">Código fuente</a></li></ul></nav>
+    <nav class="foot-col" aria-labelledby="foot-mt"><p class="foot-h" id="foot-mt">GLYPHOS</p><ul><li><a href="/studio/">Estudio</a></li><li><a href="/licencia/">Licencia y uso</a></li><li><a href="${REPO_URL}">Código fuente</a></li></ul></nav>
   </div>
   <div class="foot-base">
-    <p class="foot-small">Monotrama nace del ASCII Shader Lab · motor WebGL2 propio · tipografías con licencia OFL · <a href="#top">Volver arriba ↑</a></p>
+    <p class="foot-small">GLYPHOS nace del ASCII Shader Lab · motor WebGL2 propio · tipografías con licencia OFL · <a href="#top">Volver arriba ↑</a></p>
     ${morphiqCredit()}
   </div>
 </footer>`;
@@ -234,7 +238,7 @@ export function salida(key: string, readPublic: (path: string) => string): strin
     case 'linklen': return String(m.link.length - '/studio/#r='.length);
     case 'usage': return escapeHtml(shortUsage(m.usage));
     case 'json': {
-      const lines = readPublic(SALIDA_FILES + 'monotrama-saturno.monotrama.json').split('\n');
+      const lines = readPublic(SALIDA_FILES + 'glyphos-saturno.glyphos.json').split('\n');
       return escapeHtml(lines.slice(0, 18).join('\n') + (lines.length > 18 ? '\n      …' : ''));
     }
     default: throw new Error(`[mt-seo] @salida:${key} no existe`);
@@ -259,6 +263,7 @@ export function renderPage(html: string, p: SitePage, o: { verification?: string
       case 'guides': return guideCards(opt === 'others' ? p.path : undefined);
       case 'guide-links': return guideLinks();
       case 'mark': return mark(24);
+      case 'word': return word(17);
       case 'contacts': return contactSheet();
       case 'salida': {
         if (!arg) throw new Error('[mt-seo] @salida necesita una clave');

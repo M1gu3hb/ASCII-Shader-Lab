@@ -9,8 +9,8 @@ import { PRESETS } from '../studio/presets';
  * recipe); the page shows those files, never a mock-up of them.
  */
 export const SALIDA = {
-  /** File names follow the studio's (pieceFileBase): monotrama-<name>. */
-  base: 'monotrama-saturno',
+  /** File names follow the studio's (pieceFileBase): glyphos-<name>. */
+  base: 'glyphos-saturno',
   /** «1200×630 (redes)», one of the studio's export sizes. */
   size: { w: 1200, h: 630 },
   fps: 24,

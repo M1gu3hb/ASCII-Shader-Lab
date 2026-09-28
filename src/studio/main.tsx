@@ -34,7 +34,7 @@ import { claimStudio, tabsReady } from './tabs';
 // one tab at a time keeps the history and the collection: the newest takes over (tabs.ts)
 await claimStudio(() => {
   const line = document.querySelector('.boot-load');
-  if (line) line.lastChild!.textContent = 'Monotrama está abierto en otra pestaña: esperando a que guarde lo suyo…';
+  if (line) line.lastChild!.textContent = 'GLYPHOS está abierto en otra pestaña: esperando a que guarde lo suyo…';
 });
 const first = await hydrate();
 tabsReady();

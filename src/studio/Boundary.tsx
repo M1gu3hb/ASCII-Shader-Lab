@@ -13,7 +13,7 @@ export class LoadBoundary extends Component<{ children: ReactNode; onClose?: () 
 
   static getDerivedStateFromError() { return { failed: true }; }
 
-  componentDidCatch(err: unknown) { console.warn('Monotrama: no se pudo cargar una parte del estudio', err); }
+  componentDidCatch(err: unknown) { console.warn('GLYPHOS: no se pudo cargar una parte del estudio', err); }
 
   /** A sheet opened again after failing: try again (not remounting it, so its dialog keeps returning focus). */
   componentDidUpdate(prev: { hidden?: boolean }) {
@@ -27,7 +27,7 @@ export class LoadBoundary extends Component<{ children: ReactNode; onClose?: () 
     const close = this.props.onClose;
     return (
       <div className="load-fail" role="alert">
-        <p><b>No se pudo cargar {this.props.where ?? 'esta parte del estudio'}.</b> Quizá se cortó la conexión o hay una versión nueva de Monotrama. Recarga la página para seguir: tu historial y tu colección se quedan.</p>
+        <p><b>No se pudo cargar {this.props.where ?? 'esta parte del estudio'}.</b> Quizá se cortó la conexión o hay una versión nueva de GLYPHOS. Recarga la página para seguir: tu historial y tu colección se quedan.</p>
         <div className="row2">
           <button type="button" className="btn primary" onClick={() => void reload()}>Recargar</button>
           {close && <button type="button" className="btn" onClick={close}>Cerrar</button>}

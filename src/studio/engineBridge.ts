@@ -62,7 +62,7 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
       reducedMotion: false,
       onStats: st => setStats({ cols: st.cols, rows: st.rows, fps: st.fps, pr: st.pixelRatio }),
       onError: m => {
-        console.error('[monotrama]', m);
+        console.error('[glyphos]', m);
         // a WebGL failure while starting is not the piece's fault: the stage fell back to the basic engine
         if (mounting) return;
         if (performance.now() - lastErr > 4000) {

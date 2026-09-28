@@ -41,8 +41,8 @@ export function CollectionSheet() {
   useEffect(() => { if (!open) return; let alive = true; void collectionMediaSize().then(m => { if (alive) setCm(m); }); return () => { alive = false; }; }, [open, favs]);
   const usage = useStorageEstimate(open);
   const exportAll = () => {
-    const json = JSON.stringify({ monotrama: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
-    downloadText(`monotrama-coleccion-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
+    const json = JSON.stringify({ glyphos: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
+    downloadText(`glyphos-coleccion-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
     // the .json carries recipes only: say so when some piece needs its own image or video
     const media = favs.filter(f => (f.recipe.source === 'image' || f.recipe.source === 'video') && f.recipe.media.ref).length;
     if (media) {
@@ -64,7 +64,7 @@ export function CollectionSheet() {
         <section className="data-coll" aria-labelledby="data-coll-h">
           <h3 className="data-h" id="data-coll-h">Tu colección</h3>
           <p className="note">
-            Lo que guardas con ★ no se descarta nunca y no tiene un número fijo: lo limita el espacio que este navegador da a Monotrama
+            Lo que guardas con ★ no se descarta nunca y no tiene un número fijo: lo limita el espacio que este navegador da a GLYPHOS
             {usage?.usage != null && usage.quota ? <> (ahora usa {fmtSize(usage.usage)} de {fmtSize(usage.quota)})</> : null}.
           </p>
           <div className="data-acts data-coll-acts">
@@ -95,11 +95,11 @@ export function CollectionSheet() {
                 <div className="ops">
                   <button type="button" onClick={() => { openFavorite(f.id); close(); }}>Abrir</button>
                   <button type="button" onClick={() => duplicateFavorite(f.id)}>Duplicar</button>
-                  <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }), 'application/json')}>.json</button>
+                  <button type="button" onClick={() => downloadText(slug(f.name) + '.glyphos.json', recipeFile({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }), 'application/json')}>.json</button>
                   <button type="button" onClick={() => void shareLink(f.recipe, f.space)} title="Un enlace con la receta: sin tu imagen ni tu video"
                     aria-label={`Copiar enlace a ${f.name} (sólo la receta${usesMedia(f.recipe) ? ', sin su archivo' : ''})`}>Enlace</button>
                   {usesMedia(f.recipe) && (
-                    <button type="button" onClick={() => void exportProject({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }, 'monotrama-' + slug(f.name))}
+                    <button type="button" onClick={() => void exportProject({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }, 'glyphos-' + slug(f.name))}
                       title="Un .zip con la receta y su imagen o video original" aria-label={`Exportar proyecto de ${f.name} (.zip con su archivo)`}>.zip</button>
                   )}
                   <button type="button" onClick={() => { if (confirm(`¿Borrar «${f.name}» de tu colección?`)) removeFavorite(f.id); }} aria-label={`Borrar ${f.name}`}>✕</button>
@@ -193,7 +193,7 @@ function StorageBox() {
       <h3 id="data-storage-h">En este navegador</h3>
       {info && (
         <p>
-          {info.usage != null ? <>Monotrama ocupa <b>{fmtSize(info.usage)}</b>{info.quota ? <> de {fmtSize(info.quota)} disponibles</> : null}</> : 'Este navegador no informa del espacio que usa'}
+          {info.usage != null ? <>GLYPHOS ocupa <b>{fmtSize(info.usage)}</b>{info.quota ? <> de {fmtSize(info.quota)} disponibles</> : null}</> : 'Este navegador no informa del espacio que usa'}
           {info.media.count > 0 ? <>, de ellos {fmtSize(info.media.bytes)} en {info.media.count} {info.media.count === 1 ? 'imagen o video' : 'imágenes y videos'}.</> : '.'}
           {' '}{info.persisted ? 'El navegador aceptó no borrarlo por su cuenta si le falta espacio.' : 'Si al navegador le falta espacio, podría borrarlo por su cuenta.'}
         </p>
@@ -277,7 +277,8 @@ export function ShortcutsSheet() {
 
 /** What each generator version is, for the person choosing one (newest first). */
 const GEN_INFO: Record<number, { label: string; desc: string }> = {
-  3: { label: 'Versión 3', desc: 'La actual: las piezas de la versión 2 y, en Imagen, Tipo y Terminal, transformaciones y letras que se mueven.' },
+  4: { label: 'Versión 4', desc: 'La actual: las mismas piezas que la versión 3, con el nombre nuevo (GLYPHOS) cuando el azar rellena con palabras.' },
+  3: { label: 'Versión 3', desc: 'Las piezas de la versión 2 y, en Imagen, Tipo y Terminal, transformaciones y letras que se mueven.' },
   2: { label: 'Versión 2', desc: 'Trece objetos 3D y un azar que rara vez repite lo que acabas de ver.' },
   1: { label: 'Versión 1', desc: 'La primera: repite las semillas que anotaste con ella.' },
 };

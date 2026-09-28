@@ -1,11 +1,11 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Letras de bloque — rótulos con dos tipografías de mapa de bits incluidas («grande», 5×5, y
  * «compacta», 3×5), con tildes y eñe. El dibujo no depende de las fuentes instaladas (basta mostrarlo
  * con una letra monoespaciada): en la web, en tu CLI de Node (no necesitan <canvas>), en un README o en
  * un comentario de código. Una terminal que muestra a doble ancho los caracteres «ambiguos» (opción
  * habitual en chino, japonés o coreano) descuadra █ ▒ ▀ ▄ •: ahí usa el estilo 'almohadilla' (#).
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   blockText('HOLA, MUNDO', { font: 'grande', style: 'sombra' });   // → texto de varias líneas
  *   blockBanner(document.querySelector('.rotulo'), 'HOLA');           // en la página, accesible

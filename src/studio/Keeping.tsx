@@ -11,7 +11,7 @@ import './css/fixes.css';
 
 /** One sentence on why nothing is being kept, for the stage, the collection and the star's toast. */
 export function storageProblem(storage: 'ok' | 'unavailable' | 'full'): string {
-  if (storage === 'full') return 'El navegador no tiene espacio para Monotrama: lo último que hiciste no se guardó y se pierde al cerrar la pestaña.';
+  if (storage === 'full') return 'El navegador no tiene espacio para GLYPHOS: lo último que hiciste no se guardó y se pierde al cerrar la pestaña.';
   if (storage === 'unavailable') return 'Este navegador no deja guardar (datos de sitios bloqueados o almacenamiento no disponible): tu historial y tu colección se pierden al cerrar la pestaña.';
   return '';
 }
@@ -53,7 +53,7 @@ export function TabAway() {
       // it must stay: Escape does not close it (and if the browser closes it anyway, it opens again)
       onCancel={e => e.preventDefault()} onClose={() => ref.current?.showModal()}>
       <div className="sheet-body">
-        <h2 id={id}>Monotrama sigue en otra pestaña</h2>
+        <h2 id={id}>GLYPHOS sigue en otra pestaña</h2>
         <p>Abriste el estudio en otra pestaña. Para que una no borre lo que guarda la otra, sólo una pestaña a la vez guarda tu historial y tu colección.</p>
         <p>{away.saved
           ? 'Lo que hiciste aquí ya está guardado, y la otra pestaña lo tiene.'

@@ -47,16 +47,16 @@ export async function handleFile(f: File) {
     const text = await f.text();
     try {
       const o = JSON.parse(text);
-      if (o && o.monotrama === 'collection' && Array.isArray(o.items)) {
+      if (o && (o.glyphos ?? o.monotrama) === 'collection' && Array.isArray(o.items)) {
         const n = importFavorites(o.items);
         toast(n === 1 ? '1 pieza añadida a tu colección' : `${n} piezas añadidas a tu colección`);
         return;
       }
     } catch { /* handled below */ }
     const r = parseRecipe(text);
-    if (!r) { toast('Ese archivo no parece una receta de Monotrama.'); return; }
+    if (!r) { toast('Ese archivo no parece una receta de GLYPHOS.'); return; }
     useStudio.setState({ space: spaceForOpened(r, useStudio.getState().space) });
-    applyRecipe(r, 'importado', f.name.replace(/\.json$/i, '').replace(/\.monotrama$/i, ''));
+    applyRecipe(r, 'importado', f.name.replace(/\.json$/i, '').replace(/\.(glyphos|monotrama)$/i, ''));
     toast('Receta abierta');
     return;
   }

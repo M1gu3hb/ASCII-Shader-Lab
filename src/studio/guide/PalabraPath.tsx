@@ -128,7 +128,7 @@ export function PalabraTake() {
   if (!recipe) return null;
   const secs = loopSeconds(recipe) || LOOP_SECONDS;
   const start = recipe.motion.loop > 0 ? 0 : liveTime();
-  const base = 'monotrama-' + slug(recipe.text.content || 'palabra');
+  const base = 'glyphos-' + slug(recipe.text.content || 'palabra');
   const run = async (kind: 'gif' | 'mp4' | 'webm') => {
     const job: Cancel = cancel.current = { cancelled: false, active: true };
     setBusy({ what: kind, p: 0 });

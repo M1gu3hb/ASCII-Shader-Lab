@@ -1,6 +1,7 @@
 /**
  * "Proyecto exportado": one piece in a .zip that opens the same anywhere.
- *   receta.monotrama.json  the recipe (same format as the recipe file)
+ *   receta.glyphos.json   the recipe (same format as the recipe file); projects made as GLYPHOS
+ *                         carry receta.glyphos.json, which opens the same
  *   medios/<file name>     the original image or video, when the piece uses one
  *   LEEME.txt              how to reopen it, in Spanish
  */
@@ -9,7 +10,10 @@ import { parseRecipe, publicRecipe, recipeFile } from './share';
 import { SITE_URL as SITE } from './site';
 import { zip, type ZipEntry } from './zip';
 
-export const PROJECT_RECIPE = 'receta.monotrama.json';
+export const PROJECT_RECIPE = 'receta.glyphos.json';
+/** Recipe names a project may carry: the current one and the one from before the rename. */
+const RECIPE_NAMES = [PROJECT_RECIPE, 'receta.monotrama.json'];
+const isRecipeFile = (f: ZipEntry) => RECIPE_NAMES.includes(baseName(f.name)) && !f.name.startsWith('__MACOSX/');
 export const PROJECT_README = 'LEEME.txt';
 export const MEDIA_DIR = 'medios/';
 
@@ -40,10 +44,10 @@ function readme(r: Recipe, mediaPath: string | null): string {
   const uses = (r.source === 'image' || r.source === 'video') && ref;
   const w = mediaWord(ref);
   const lines = [
-    'Monotrama · proyecto exportado',
+    'GLYPHOS · proyecto exportado',
     '==============================',
     '',
-    `Este .zip guarda una pieza hecha con Monotrama (${SITE}).`,
+    `Este .zip guarda una pieza hecha con GLYPHOS (${SITE}).`,
     '',
     'Contenido',
     `- ${PROJECT_RECIPE}: todos los ajustes de la pieza. Es exacta: la pieza se reabre tal cual.`,
@@ -88,17 +92,17 @@ const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1);
 
 /** True when the archive holds a project (its recipe file, possibly inside one folder). */
 export function isProject(files: ZipEntry[]): boolean {
-  return files.some(f => baseName(f.name) === PROJECT_RECIPE && !f.name.startsWith('__MACOSX/'));
+  return files.some(isRecipeFile);
 }
 
 /** Opens a project archive. Returns null when there is no valid recipe in it. */
 export async function readProject(files: ZipEntry[]): Promise<{ recipe: Recipe; media: UnpackedMedia | null } | null> {
-  const rec = files.find(f => baseName(f.name) === PROJECT_RECIPE && !f.name.startsWith('__MACOSX/'));
+  const rec = files.find(isRecipeFile);
   if (!rec) return null;
   const recipe = parseRecipe(await rec.text());
   if (!recipe) return null;
-  // re-zipped folders keep everything under one prefix ("pieza/receta.monotrama.json")
-  const prefix = rec.name.slice(0, rec.name.length - PROJECT_RECIPE.length);
+  // re-zipped folders keep everything under one prefix ("pieza/receta.glyphos.json")
+  const prefix = rec.name.slice(0, rec.name.length - baseName(rec.name).length);
   const m = files.find(f => f.name.startsWith(prefix + MEDIA_DIR) && !f.name.startsWith('__MACOSX/') && !baseName(f.name).startsWith('.'));
   if (!m) return { recipe, media: null };
   const name = baseName(m.name);

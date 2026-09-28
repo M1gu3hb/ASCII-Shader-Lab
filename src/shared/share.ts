@@ -68,14 +68,15 @@ export function parseRecipe(text: string): Recipe | null {
   try { o = JSON.parse(text); } catch { return null; }
   if (!o || typeof o !== 'object') return null;
   const obj = o as Record<string, unknown>;
-  if (obj.monotrama === 'recipe' && obj.recipe) return normalizeRecipe(obj.recipe, PATTERN_IDS);
+  // files saved as GLYPHOS, and as Monotrama (its earlier name)
+  if ((obj.glyphos === 'recipe' || obj.monotrama === 'recipe') && obj.recipe) return normalizeRecipe(obj.recipe, PATTERN_IDS);
   if (isV1Settings(o)) return migrateV1(o);
   if ('layers' in obj || 'glyph' in obj || obj.v === 2) return normalizeRecipe(o, PATTERN_IDS);
   return null;
 }
 
 export function recipeFile(r: Recipe): string {
-  return JSON.stringify({ monotrama: 'recipe', version: 2, created: new Date().toISOString(), recipe: r }, null, 2);
+  return JSON.stringify({ glyphos: 'recipe', version: 2, created: new Date().toISOString(), recipe: r }, null, 2);
 }
 
 export async function shareUrl(r: Recipe, origin = location.origin): Promise<string> {

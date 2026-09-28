@@ -1,8 +1,8 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Halo — un botón o tarjeta cuyo fondo se enciende con caracteres alrededor del cursor.
  * Canvas 2D ligero (sin WebGL): pensado para docenas de elementos en una misma página.
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   document.querySelectorAll('.boton').forEach(b => halo(b, { color: '#ff5b1f' }));
  */

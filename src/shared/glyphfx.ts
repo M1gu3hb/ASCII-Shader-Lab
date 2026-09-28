@@ -1,5 +1,5 @@
 /**
- * Monotrama's motion language, «descomponer y recomponer»: content that changes resolves out of the
+ * GLYPHOS's motion language, «descomponer y recomponer»: content that changes resolves out of the
  * character ramp. Shared by the site and the studio. Framework-agnostic and cheap:
  *
  *  - motionLevel()   'full' | 'low' | 'none' — reduced motion always wins; 'low' for weak devices,

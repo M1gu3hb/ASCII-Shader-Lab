@@ -106,13 +106,13 @@ async function salidas() {
 
   const term = SALIDA.terminal();
   const frames = await captureFrames(term, 80, 24, { fps: SALIDA.termFps, seconds: loopSeconds(term), start: 0, depth: SALIDA.termDepth, withBg: false }, noop, { cancelled: false });
-  out.node = await toNodePlayer(frames, r.meta.name ?? 'Monotrama');
+  out.node = await toNodePlayer(frames, r.meta.name ?? 'GLYPHOS');
   out.frames = frames.frames.length;
   // the first frame as plain text: what the page shows before (or without) its script
   out.firstFrame = frames.frames[0].replace(/\x1b\[[\d;]*m/g, '').split('\n').map(l => l.replace(/\s+$/, '')).join('\n') + '\n';
 
   // «Sin dependencias externas» (the site's CSP allows no font host) and the page's poster for browsers without WebGL 2
-  const wc = webComponent(r, { ...DEFAULT_CODE, placement: 'hero', systemFont: true, poster: '/ex/salidas/monotrama-saturno.webp' });
+  const wc = webComponent(r, { ...DEFAULT_CODE, placement: 'hero', systemFont: true, poster: '/ex/salidas/glyphos-saturno.webp' });
   out.wcFile = wc.file;
   out.wcUsage = wc.usage;
   out.wcNotes = wc.notes;

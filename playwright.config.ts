@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * End-to-end tests. By default they run against the production build (vite preview).
- * Set BASE_URL to test a deployed site, e.g. BASE_URL=https://monotrama.vercel.app npm run test:e2e
+ * Set BASE_URL to test a deployed site, e.g. BASE_URL=https://glyphos-ascii.vercel.app npm run test:e2e
  * (PW_PROXY and PW_ARGS allow routing through a corporate proxy if needed).
  */
 const remote = process.env.BASE_URL;

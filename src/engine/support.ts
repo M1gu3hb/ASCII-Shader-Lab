@@ -127,7 +127,7 @@ export function explainWebGL(s: GLStatus): GLExplanation {
     case 'no-api':
       return {
         title: 'Este navegador no incluye WebGL 2',
-        body: 'La versión de tu navegador no trae WebGL 2 (es antigua o se compiló sin él), así que Monotrama usa su motor básico, que dibuja con el procesador.',
+        body: 'La versión de tu navegador no trae WebGL 2 (es antigua o se compiló sin él), así que GLYPHOS usa su motor básico, que dibuja con el procesador.',
         steps: [
           'Actualiza a una versión reciente de Chrome, Edge, Firefox o Safari (Safari 15 o posterior).',
           'Si ya usas un navegador reciente y ves este aviso, puede ser una edición sin WebGL: prueba con otro navegador.',
@@ -136,13 +136,13 @@ export function explainWebGL(s: GLStatus): GLExplanation {
     case 'blocked':
       return {
         title: 'WebGL está desactivado o bloqueado',
-        body: 'Tu navegador sabe usar WebGL 2, pero no pudo crear un contexto gráfico. Suele pasar cuando la aceleración gráfica está apagada, cuando el navegador bloqueó tu tarjeta o su controlador, o tras varios errores gráficos. Mientras tanto, Monotrama usa su motor básico.' + said,
+        body: 'Tu navegador sabe usar WebGL 2, pero no pudo crear un contexto gráfico. Suele pasar cuando la aceleración gráfica está apagada, cuando el navegador bloqueó tu tarjeta o su controlador, o tras varios errores gráficos. Mientras tanto, GLYPHOS usa su motor básico.' + said,
         steps: [STEP_CHROME, STEP_FIREFOX, STEP_SAFARI, STEP_RESTART, STEP_MANAGED],
       };
     case 'no-webgl2':
       return {
         title: 'Tu tarjeta gráfica no ofrece WebGL 2',
-        body: 'El navegador puede usar WebGL 1, pero no WebGL 2 con esta tarjeta o este controlador. Monotrama usa su motor básico.' + said,
+        body: 'El navegador puede usar WebGL 1, pero no WebGL 2 con esta tarjeta o este controlador. GLYPHOS usa su motor básico.' + said,
         steps: [STEP_DRIVERS, STEP_CHROME, STEP_FIREFOX, STEP_RESTART, STEP_MANAGED],
       };
     case 'ok':

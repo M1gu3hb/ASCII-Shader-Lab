@@ -169,8 +169,8 @@ export async function gridToSvg(g: GridSnapshot & { width?: number; height?: num
     return `<g fill="${col}"${op !== '1' ? ` fill-opacity="${op}"` : ''}${opts.mode === 'text' || items.some(s => s.startsWith('<text')) ? ' ' + textAttrs : ''}>${items.join('')}</g>`;
   }).join('\n');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-<title>${escXml(r.meta.name ?? r.meta.seed ?? 'Monotrama')}</title>
-<desc>Arte ASCII hecho con Monotrama (ASCII Shader Lab). ${g.cols}×${g.rows} caracteres.</desc>
+<title>${escXml(r.meta.name ?? r.meta.seed ?? 'GLYPHOS')}</title>
+<desc>Arte ASCII hecho con GLYPHOS (ASCII Shader Lab). ${g.cols}×${g.rows} caracteres.</desc>
 ${opts.transparent ? '' : `<rect width="${W}" height="${H}" fill="${r.color.bg}"/>`}
 ${paths.length ? `<defs>${paths.join('')}</defs>` : ''}
 ${rects.join('')}

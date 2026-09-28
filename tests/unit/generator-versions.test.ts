@@ -35,6 +35,8 @@ describe('generator versions', () => {
     expect(fixture2.cases.length).toBeGreaterThan(50);
     const base2 = (c: Case): Recipe => {
       const base = defaultRecipe();
+      // the default text when the fixture was captured (the studio was called Monotrama then)
+      base.text.content = 'MONOTRAMA';
       if (c.base === 'prev') return generate({ seed: 'base', space: 'arte', base, gen: 2 });
       if (c.base === 'media') { base.source = 'image'; base.media.ref = { id: 'abc123', kind: 'image', name: 'foto.png', w: 800, h: 600 }; }
       if (c.base === 'text') { base.source = 'text'; base.text.content = 'HOLA'; }

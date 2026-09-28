@@ -51,7 +51,7 @@ const js = (v: unknown) => JSON.stringify(v, null, 2);
 /** Single-quoted shell word. */
 const sq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 /** MIT-0 header of every exported file that contains code. */
-const LICENSE = 'Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.';
+const LICENSE = 'Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.';
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function el(tag: string, style: string, text = ''): HTMLElement {
@@ -353,7 +353,7 @@ const id = setInterval(() => {
       return [
         { id: 'text', label: 'Texto', code: txt + '\n', lang: 'txt', file: 'rotulo.txt' },
         { id: 'md', label: 'README', code: '```\n' + txt + '\n```\n', lang: 'md', file: 'rotulo.md' },
-        { id: 'bash', label: 'Saludo de shell', code: `# ${LICENSE}\n# Pega al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).\ncase $- in *i*)\ncat <<'MONOTRAMA'\n${txt}\nMONOTRAMA\n;; esac\n`, lang: 'bash', file: 'saludo.sh' },
+        { id: 'bash', label: 'Saludo de shell', code: `# ${LICENSE}\n# Pega al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).\ncase $- in *i*)\ncat <<'GLYPHOS'\n${txt}\nMONOTRAMA\n;; esac\n`, lang: 'bash', file: 'saludo.sh' },
         { id: 'js', label: 'Para tu CLI (JS)', code: `// ${LICENSE}\nconsole.log(${JSON.stringify(txt)});\n`, lang: 'js', file: 'rotulo.js' },
         { id: 'module', label: 'Módulo ES', code: `// banner.js — genera rótulos en el navegador\n${bannerSrc.trim()}\n`, lang: 'js', file: 'banner.js' },
       ];
@@ -402,9 +402,9 @@ function demoLink(text: string): HTMLElement {
 const SHELL = (txt: string) => `# ${LICENSE}
 # Pega al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).
 case $- in *i*)
-cat <<'MONOTRAMA'
+cat <<'GLYPHOS'
 ${txt}
-MONOTRAMA
+GLYPHOS
 ;; esac
 `;
 

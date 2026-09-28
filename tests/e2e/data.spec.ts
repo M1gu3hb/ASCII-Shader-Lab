@@ -101,10 +101,10 @@ test.describe('historial y medios locales', () => {
     await pa.getByRole('tab', { name: 'Receta' }).click();
     await expect(pa.getByText(/La receta y la imagen original «foto-a.png»/)).toBeVisible();
     const zipFile = await download(pa, () => pa.getByRole('button', { name: 'Exportar proyecto (.zip)' }).click());
-    expect(zipFile.name).toMatch(/\.monotrama\.zip$/);
+    expect(zipFile.name).toMatch(/\.glyphos\.zip$/);
     const bytes = readFileSync(zipFile.path);
     const files = await unzip(new Uint8Array(bytes));
-    expect(files.map(f => f.name)).toEqual(['receta.monotrama.json', 'medios/foto-a.png', 'LEEME.txt']);
+    expect(files.map(f => f.name)).toEqual(['receta.glyphos.json', 'medios/foto-a.png', 'LEEME.txt']);
     expect(Buffer.from(await files[1].read()).equals(A)).toBe(true);
     // the space travels too: the piece reopens in Imagen, not in whatever space the other browser is in
     expect(JSON.parse(await files[0].text()).recipe.meta.space).toBe('media');
@@ -114,7 +114,7 @@ test.describe('historial y medios locales', () => {
     const b = await browser.newContext();
     const pb = await b.newPage();
     await openStudio(pb);
-    await drop(pb, 'pieza.monotrama.zip', 'application/zip', bytes);
+    await drop(pb, 'pieza.glyphos.zip', 'application/zip', bytes);
     await expect(pb.locator('.toast').filter({ hasText: 'Proyecto abierto' })).toBeVisible();
     await expect(pb.locator('.seedline')).toContainText('2/2');
     await expect(pb.locator('.spaces').getByRole('button', { name: 'Imagen' })).toHaveAttribute('aria-pressed', 'true');
@@ -180,7 +180,7 @@ test.describe('historial y medios locales', () => {
     await expect(pa.getByText('Historial: 2 de 1000 · lo guardado con ★ no se descarta')).toBeVisible();
     await expect(pa.getByText(/Incluir en la sesión las imágenes y videos \(1,/)).toBeVisible();
     const sess = await download(pa, () => pa.getByRole('button', { name: 'Guardar sesión' }).click());
-    expect(sess.name).toMatch(/^monotrama-sesion-\d{4}-\d{2}-\d{2}\.zip$/);
+    expect(sess.name).toMatch(/^glyphos-sesion-\d{4}-\d{2}-\d{2}\.zip$/);
     const sessBytes = readFileSync(sess.path); // downloads go away with their context
     const names = (await unzip(new Uint8Array(sessBytes))).map(f => f.name);
     expect(names).toContain('sesion.json');
@@ -218,7 +218,7 @@ test.describe('historial y medios locales', () => {
     await expect(near).toBeVisible();
     await expect(page.locator('.strip')).toHaveAttribute('aria-label', 'Historial: 9 de 10 · lo guardado con ★ no se descarta');
     const sess = await download(page, () => near.getByRole('button', { name: 'Guardar sesión' }).click());
-    expect(sess.name).toMatch(/^monotrama-sesion-.*\.zip$/);
+    expect(sess.name).toMatch(/^glyphos-sesion-.*\.zip$/);
 
     await page.keyboard.press('r');
     await expect(page.locator('.seedline')).toContainText('10/10');

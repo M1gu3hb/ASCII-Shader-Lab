@@ -32,7 +32,7 @@ export interface CodeOptions {
   fallback?: Fallback;
   /**
    * «Zona protegida» (the studio's previews): 'full' and 'gradient' are a layer the runtime adds over the
-   * background; 'block' is a CSS class (monotrama-zona) for the blocks of text that go on top.
+   * background; 'block' is a CSS class (glyphos-zona) for the blocks of text that go on top.
    */
   scrim?: Scrim | null;
 }
@@ -92,7 +92,7 @@ const scrimOption = (o: CodeOptions) =>
 /** The zone as a class for your own blocks of text ('block'), or ''. */
 function scrimClass(o: CodeOptions): string {
   if (!o.scrim || o.scrim.shape !== 'block') return '';
-  return `.monotrama-zona{${scrimCss(o.scrim)};border-radius:16px;padding:16px 20px}`;
+  return `.glyphos-zona{${scrimCss(o.scrim)};border-radius:16px;padding:16px 20px}`;
 }
 const SCRIM_NOTE = 'Zona protegida: si el navegador de quien visita no desenfoca (backdrop-filter), queda sólo el color, que es lo que más ayuda a leer.';
 
@@ -110,7 +110,7 @@ function mountCall(r: Recipe, o: CodeOptions, target: string) {
   if (!withBasic(o)) opts.basic = false;
   const z = scrimOption(o);
   if (z) opts.scrim = z;
-  return `Monotrama.mount(${target}, ${json(r)}, ${json(opts).replace('"__P__"', json(patternsFor(r)))});`;
+  return `Glyphos.mount(${target}, ${json(r)}, ${json(opts).replace('"__P__"', json(patternsFor(r)))});`;
 }
 
 function wrapperStyle(r: Recipe, o: CodeOptions) {
@@ -126,14 +126,14 @@ export function htmlSnippet(src: Recipe, o: CodeOptions): { code: string; notes:
   const zona = scrimClass(o);
   if (o.scrim) notes.push(SCRIM_NOTE);
   const hero = o.placement === 'hero'
-    ? `\n  <div${zona ? ' class="monotrama-zona"' : ''} style="position:relative;z-index:1;text-align:center;color:#fff;padding:24px">\n    <h1>Tu titular</h1>\n  </div>`
+    ? `\n  <div${zona ? ' class="glyphos-zona"' : ''} style="position:relative;z-index:1;text-align:center;color:#fff;padding:24px">\n    <h1>Tu titular</h1>\n  </div>`
     : '';
-  const zonaNote = zona ? `\n     Zona protegida: pon class="monotrama-zona" en cada bloque de texto que vaya encima del fondo.` : o.scrim ? `\n     Zona protegida (${o.scrim.shape === 'full' ? 'toda la página' : 'degradado'}): la añade el script, entre el fondo y tu contenido.` : '';
+  const zonaNote = zona ? `\n     Zona protegida: pon class="glyphos-zona" en cada bloque de texto que vaya encima del fondo.` : o.scrim ? `\n     Zona protegida (${o.scrim.shape === 'full' ? 'toda la página' : 'degradado'}): la añade el script, entre el fondo y tu contenido.` : '';
   const code = `<!-- ${LICENSE_LINE}
-     Monotrama · ${inComment(title)} · ${new Date().toISOString().slice(0, 10)}
+     GLYPHOS · ${inComment(title)} · ${new Date().toISOString().slice(0, 10)}
      Fondo ASCII animado, sin librerías. Se pausa fuera de pantalla y respeta «reducir movimiento».
      ${withBasic(o) ? 'Sin WebGL 2 lo dibuja el motor básico (Canvas 2D, más lento); si tampoco puede, muestra el color de fondo o tu póster (URL en "poster").' : 'Sin WebGL 2 muestra el color de fondo, o tu póster si pones su URL en "poster".'}${zonaNote} -->${zona ? `\n<style>${zona}</style>` : ''}
-<div class="monotrama" style="${wrapperStyle(r, o)}">
+<div class="glyphos" style="${wrapperStyle(r, o)}">
   <canvas style="position:absolute;inset:0;width:100%;height:100%;display:block" aria-hidden="true"></canvas>${hero}
 </div>
 <script>
@@ -146,7 +146,7 @@ ${mountCall(r, o, 'document.currentScript.previousElementSibling.querySelector("
 
 export function htmlPage(src: Recipe, o: CodeOptions): string {
   const { code } = htmlSnippet(src, o);
-  const title = src.meta.name ?? src.meta.seed ?? 'Monotrama';
+  const title = src.meta.name ?? src.meta.seed ?? 'GLYPHOS';
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -162,15 +162,15 @@ ${code}
 `;
 }
 
-/** A standalone file that defines <monotrama-field>. */
+/** A standalone file that defines <glyphos-field>. */
 export function webComponent(src: Recipe, o: CodeOptions): { file: string; usage: string; notes: string[] } {
   const { recipe: r, notes } = exportRecipe(src, o);
   const file = `/*! ${LICENSE_LINE}
-    <monotrama-field recipe='{…}'> · atributos: src (imagen o video), pointer="window", static, paused, poster (imagen si no hay WebGL 2${withBasic(o) ? ' ni motor básico' : ''}),
+    <glyphos-field recipe='{…}'> · atributos: src (imagen o video), pointer="window", static, paused, poster (imagen si no hay WebGL 2${withBasic(o) ? ' ni motor básico' : ''}),
     scrim="full|gradient" con scrim-color, scrim-opacity (0 a 1) y scrim-blur (px): la zona protegida detrás de tu texto${withBasic(o) ? `
     Sin WebGL 2 dibuja el motor básico (Canvas 2D); el atributo no-basic lo desactiva (entonces se ve el póster o el color de fondo)` : ''} */
 ${runtimeCode(r, o)}
-Monotrama.register(${json(patternsFor(r))});
+Glyphos.register(${json(patternsFor(r))});
 `;
   const media = r.source === 'image' || r.source === 'video' ? ` src="${attr(mediaOf(r, o))}"` : '';
   const style = o.placement === 'fixed' ? 'position:fixed;inset:0;z-index:-1' : o.placement === 'hero' ? 'min-height:100vh' : `height:${o.height}px`;
@@ -178,17 +178,17 @@ Monotrama.register(${json(patternsFor(r))});
   if (o.scrim) notes.push(SCRIM_NOTE);
   const zAttrs = z ? `\n  scrim="${z.shape}" scrim-color="${z.color}" scrim-opacity="${z.opacity}" scrim-blur="${z.blur}"` : '';
   const usage = `<!-- ${LICENSE_LINE} -->
-<script src="monotrama-field.js" defer></script>${zona ? `\n<!-- Zona protegida: pon class="monotrama-zona" en cada bloque de texto que vaya encima del fondo. -->\n<style>${zona}</style>` : ''}
+<script src="glyphos-field.js" defer></script>${zona ? `\n<!-- Zona protegida: pon class="glyphos-zona" en cada bloque de texto que vaya encima del fondo. -->\n<style>${zona}</style>` : ''}
 
-<monotrama-field${media}${o.placement === 'fixed' ? ' pointer="window"' : ''}${o.interactive ? '' : ' static'}${withBasic(o) ? '' : ' no-basic'} poster="${attr(o.poster ?? '')}"${zAttrs}
+<glyphos-field${media}${o.placement === 'fixed' ? ' pointer="window"' : ''}${o.interactive ? '' : ' static'}${withBasic(o) ? '' : ' no-basic'} poster="${attr(o.poster ?? '')}"${zAttrs}
   style="${style};background:${r.color.bg}"
   recipe='${attr1(JSON.stringify(r))}'>
-</monotrama-field>`;
+</glyphos-field>`;
   return { file, usage, notes };
 }
 
 /** React component (works with Vite, Next.js — it's a client component — and CRA). */
-export function reactComponent(src: Recipe, o: CodeOptions, name = 'MonotramaBackground'): { code: string; notes: string[] } {
+export function reactComponent(src: Recipe, o: CodeOptions, name = 'GlyphosBackground'): { code: string; notes: string[] } {
   const { recipe: r, notes } = exportRecipe(src, o);
   const fixed = o.placement === 'fixed';
   const media = r.source === 'image' || r.source === 'video' ? `media: ${JSON.stringify(mediaOf(r, o, '/'))}, ` : '';
@@ -201,7 +201,7 @@ export function reactComponent(src: Recipe, o: CodeOptions, name = 'MonotramaBac
   })) : null;
   const code = `'use client';
 // ${LICENSE_LINE}
-// ${name}.jsx — fondo ASCII animado de Monotrama. Sin dependencias.
+// ${name}.jsx — fondo ASCII animado de GLYPHOS. Sin dependencias.
 // Props: className, style, interactive, poster (imagen que se ve si el navegador no tiene WebGL 2${withBasic(o) ? ' ni puede usar el motor básico' : ''}), scrim (zona protegida), children.${withBasic(o) ? `
 // Sin WebGL 2 la dibuja el motor básico (Canvas 2D, incluido): más lento, pero se mueve.` : ''}
 import { useEffect, useRef } from 'react';
@@ -215,12 +215,12 @@ const SCRIM = ${json(z)};
 `}
 function runtime() {
   if (typeof window === 'undefined') return null;
-  if (!window.Monotrama${withBasic(o) ? ' || !window.Monotrama.__basic' : ''}) {
+  if (!window.Glyphos${withBasic(o) ? ' || !window.Glyphos.__basic' : ''}) {
 ${withBasic(o) ? RUNTIME_BASIC : RUNTIME}
   }${withBasic(o) ? `
   // the CPU versions of this piece's patterns (each registers itself once per page)
   ${basicPatternsCode(r)}` : ''}
-  return window.Monotrama;
+  return window.Glyphos;
 }
 
 export default function ${name}({ className, style, interactive = ${o.interactive}, poster = ${JSON.stringify(o.poster ?? '')}, ${block ? '' : 'scrim = SCRIM, '}children }) {

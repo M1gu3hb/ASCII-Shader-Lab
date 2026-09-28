@@ -1,9 +1,9 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Carga — una pantalla (o un bloque) de carga hecha de caracteres: el porcentaje en números grandes,
  * una barra con precisión de subcarácter y una línea de estado. Tú dices cuánto va; al terminar se
  * deshace en caracteres y se oculta.
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   const carga = loader(document.querySelector('.carga'), { label: 'Cargando el mapa' });
  *   carga.set(0.4, 'Descargando texturas');   // 0..1 (o null: sin porcentaje conocido)

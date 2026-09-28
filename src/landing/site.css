@@ -48,7 +48,7 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
 .nav:not(.scrolled):not(.solid) { background: linear-gradient(rgba(12, 11, 10, .66), rgba(12, 11, 10, 0)); }
 .nav.scrolled, .nav.solid { background: rgba(12, 11, 10, .9); border-bottom-color: rgba(237, 230, 218, .08); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .nav-brand { display: flex; align-items: center; gap: 10px; min-height: 44px; text-decoration: none; color: var(--bone); }
-.nav-brand .word { font: 700 15px/1 var(--font-display); letter-spacing: -.02em; }
+.nav-brand .word, .foot-brand .word { display: block; height: 17px; width: auto; flex: none; }
 .nav-brand:hover .mt-cursor { animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 .nav-links { display: flex; gap: 4px; margin-left: auto; }
@@ -207,7 +207,7 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
 .foot-base { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px 40px; margin-top: 44px; padding-top: 22px; border-top: 1px solid rgba(237, 230, 218, .08); }
 .foot-small { margin: 0; max-width: 70ch; font: 500 12px/1.6 var(--font-mono); }
 .foot-small a { color: inherit; }
-/* Morphiq credit: after the Monotrama brand and smaller; the logo keeps clear space on every side */
+/* Morphiq credit: after the GLYPHOS brand and smaller; the logo keeps clear space on every side */
 .foot-credit { display: flex; align-items: center; gap: 12px; margin: 0; }
 .foot-credit-by { font: 500 11px/1 var(--font-mono); letter-spacing: .04em; color: var(--muted-2); }
 .morphiq { display: block; padding: 8px; margin: -8px; border-radius: 10px; line-height: 0; }
@@ -237,9 +237,13 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
   .nav .btn-cta.small { white-space: nowrap; min-height: 44px; }
 }
 @media (max-width: 400px) {
-  .nav-brand .word { display: none; }
+  .nav-brand .word { height: 12px; }
   .foot-col a { padding: 10px 0; }
   .foot-base { flex-direction: column; align-items: flex-start; }
+}
+/* the narrowest phones: the symbol alone, so «Abrir el estudio» keeps its room (the hero names GLYPHOS) */
+@media (max-width: 374px) {
+  .nav-brand .word { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .btn-cta { transition: none; }

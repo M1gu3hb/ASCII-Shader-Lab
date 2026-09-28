@@ -27,7 +27,7 @@ export function ScrimCodeNote({ zone, on }: { zone: Scrim | null; on: boolean })
   return (
     <p className="note">
       {zone.shape === 'block'
-        ? <>{what}, tras el texto: el código trae la clase <code>monotrama-zona</code>; ponla en cada bloque de texto que vaya encima del fondo.</>
+        ? <>{what}, tras el texto: el código trae la clase <code>glyphos-zona</code>; ponla en cada bloque de texto que vaya encima del fondo.</>
         : zone.shape === 'full'
           ? <>{what}, en toda la página: la añade el propio script, entre el fondo y tu contenido.</>
           : <>{what}, en degradado: la añade el propio script, más fuerte a la izquierda en pantallas anchas y abajo en las altas, donde suele ir el texto.</>}

@@ -1,10 +1,11 @@
-# Monotrama — ASCII Shader Lab
+# GLYPHOS — ASCII Shader Lab
 
 **Haz arte ASCII que se mueve.** Con tus fotos, video, texto o el azar: explora sin configurar nada, guarda lo que te guste y llévalo a tu web, a un video o a tu terminal. *Teje luz con caracteres.*
 
-Monotrama es un estudio de arte ASCII en tiempo real que corre en el navegador: fondos animados para web, composiciones abstractas, imagen, video y cámara convertidos en caracteres, tipografía animada, piezas para terminal y una biblioteca de componentes listos para insertar. Todo se puede guardar, reabrir, compartir y exportar como archivo o como código que funciona.
+GLYPHOS es un estudio de arte ASCII en tiempo real que corre en el navegador: fondos animados para web, composiciones abstractas, imagen, video y cámara convertidos en caracteres, tipografía animada, piezas para terminal y una biblioteca de componentes listos para insertar. Todo se puede guardar, reabrir, compartir y exportar como archivo o como código que funciona.
 
-- Sitio: https://monotrama.vercel.app (el dominio `ascii-shader-lab.vercel.app` redirige aquí).
+- Sitio: https://glyphos-ascii.vercel.app (`monotrama.vercel.app` y `ascii-shader-lab.vercel.app` redirigen aquí, con la misma ruta y el mismo enlace).
+- Antes se llamó **Monotrama**: sus recetas (`.monotrama.json`), proyectos (`.monotrama.zip`), sesiones, colecciones, enlaces y el código exportado (`<monotrama-field>`, `Monotrama.mount`) siguen abriéndose y funcionando. Lo nuevo sale como GLYPHOS (`.glyphos.json`, `.glyphos.zip`, `<glyphos-field>`, `Glyphos.mount`). Marca: `public/brand/glyphos/`.
 - Estudio: `/studio/` · Guías: `/imagen-a-ascii/`, `/video-a-ascii/`, `/fondos-ascii/`, `/texto-animado-ascii/`, `/arte-ascii-terminal/` · Licencia: `/licencia/`.
 - El prototipo original de un solo archivo se conserva en [`legacy/ASCII Shader Lab.html`](legacy/ASCII%20Shader%20Lab.html); sus ajustes JSON se abren en el estudio.
 
@@ -25,7 +26,7 @@ npm run check          # tipos + unitarias + build
 npm run verify:exports # verificador de exportaciones (ver abajo)
 ```
 
-- Las pruebas e2e usan Chromium de Playwright con WebGL por software (SwiftShader); funcionan sin GPU. `PW_PORT` cambia el puerto (útil con varias copias a la vez) y `BASE_URL=https://monotrama.vercel.app npm run test:e2e` las corre contra el sitio publicado.
+- Las pruebas e2e usan Chromium de Playwright con WebGL por software (SwiftShader); funcionan sin GPU. `PW_PORT` cambia el puerto (útil con varias copias a la vez) y `BASE_URL=https://glyphos-ascii.vercel.app npm run test:e2e` las corre contra el sitio publicado.
 - Verificador de exportaciones: `npm run build && npx vite preview --port 4177 --strictPort &` y luego `PORT=4177 npm run verify:exports`. Imprime una tabla PASS/FAIL/SKIP. Usa, si están instalados, ffmpeg/ffprobe, ImageMagick, rsvg-convert, Inkscape, gifsicle, xmllint y Python con `pip install pyte wcwidth asciinema`; si falta una herramienta, marca SKIP. `ONLY=imagen,vector,video,mp4,codigo,react,componentes,texto,terminal` corre sólo esos grupos.
 - Paridad del motor básico: `node scripts/basic-parity.mjs [--quick]` compara los dos motores patrón por patrón (`--solo creativo` sólo transformaciones y letras).
 - Variedad del dado: `node scripts/azar-report.mjs` tira cientos de veces por espacio y cuenta estilos, patrones y objetos 3D.
@@ -39,7 +40,7 @@ src/
   engine/        motor WebGL2 y motor básico Canvas 2D (engine/basic), receta, catálogo, atlas, diagnóstico WebGL
   random/        azar con semilla: PRNG, semillas en palabras, arquetipos, paletas, mutación, huellas
   exporters/     formateadores puros: texto/ANSI/HTML/asciicast/scripts, SVG, código web
-  runtime/       el motor empaquetado para webs de terceros (Monotrama.mount, <monotrama-field>)
+  runtime/       el motor empaquetado para webs de terceros (Glyphos.mount, <glyphos-field>)
   components/    biblioteca de piezas en JS puro (descifrar, máquina de escribir, imán, estela, halo…)
   studio/        la aplicación (React + zustand): guías, vistas de destino, historial, medios, exportación
     ui/          controles propios: ScrollRow (filas desplazables con aviso de «más»), Picker (lista accesible con vista previa), ayuda progresiva, editor de rampas
@@ -80,7 +81,7 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 | Receta `.json` | todos los ajustes | no (sólo nombre y medidas) | exacta |
 | Enlace | la receta comprimida tras el `#` (nunca llega a un servidor) | no, ni su nombre | exacta; quien lo abre elige su propia imagen |
 | Favorito (★) | receta en la colección de este navegador | sí, guardada en este navegador | exacta |
-| Proyecto `.monotrama.zip` | receta + archivo original + LEEME.txt | sí | exacta y completa, en cualquier equipo |
+| Proyecto `.glyphos.zip` (también abre los `.monotrama.zip` de antes) | receta + archivo original + LEEME.txt | sí | exacta y completa, en cualquier equipo |
 | Colección `.zip` | tus favoritos con sus imágenes y videos | sí | exacta |
 | Sesión `.zip` | historial + colección (+ medios opcionales) | opcional | exacta |
 | Rampa propia | tus caracteres ordenados, en este navegador (`mt.v2.ramps`, hasta 40) | — | la receta lleva los caracteres, así que enlaces y proyectos no dependen de ella |
@@ -96,7 +97,7 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 - **Guías** (primera visita, botón «Guías», tecla G o `/studio/?camino=foto|fondo|palabra`; también `/studio/#space=media&source=video|image|camera`): convertir una foto en ASCII (termina en PNG ×2 y texto), crear un fondo para tu web (control «Presencia», legibilidad estimada y zona protegida, termina en código HTML/Web Component/React) y animar una palabra (termina en GIF, video si el navegador puede codificarlo, o snippet). Cada paso es una entrada normal del historial; el paso se anuncia («Paso 1 de 4») a los lectores de pantalla.
 - **Comparar**: miniaturas bajo/medio/alto para tamaño de celda y contraste; muestras de juegos de caracteres y paletas.
 - **Vistas de destino** (selector «Vista», con icono y descripción): Libre, Fondo web (con contenido encima), Pantalla de móvil (una web de 390×844 con tu pieza de fondo), Tarjeta (360×225), Historia / Reel 9:16 (video vertical de 1080×1920; puedes marcar dónde suelen ir los textos y botones de las apps), README (imagen + texto de 80 columnas como en GitHub) y Terminal. El lienzo real toma el tamaño del destino, así que lo que ves es lo que exportas. «Exportar para este destino» abre el formato adecuado.
-- **Legibilidad (estimación)** en Fondo web y Pantalla de móvil: mide cada región de texto (titular, párrafo, botón) contra la pieza en varios cuadros —la parte que queda bajo 4.5:1 y 3:1, la textura de los glifos y la peor décima parte— y sólo dice «se lee bien» cuando los números lo sostienen. **Zona protegida** (Suave, Media, Fuerte) pone un velo detrás del contenido; va también en el código exportado (opción `scrim`, clase `.monotrama-zona`). `localStorage['mt.debugLegib'] = '1'` deja la última medición en `window.__mtLegib`.
+- **Legibilidad (estimación)** en Fondo web y Pantalla de móvil: mide cada región de texto (titular, párrafo, botón) contra la pieza en varios cuadros —la parte que queda bajo 4.5:1 y 3:1, la textura de los glifos y la peor décima parte— y sólo dice «se lee bien» cuando los números lo sostienen. **Zona protegida** (Suave, Media, Fuerte) pone un velo detrás del contenido; va también en el código exportado (opción `scrim`, clase `.glyphos-zona`). `localStorage['mt.debugLegib'] = '1'` deja la última medición en `window.__mtLegib`.
 - **En vivo**: el micrófono (sólo al pulsar) marca el pulso; cursor y tacto con linterna, ondas, lupa, empuje, remolino, borrador, pincel y caos; modo exposición.
 
 ### Crear: transformaciones, letras que se mueven y rampas propias
@@ -136,7 +137,7 @@ Verificado sobre la versión final con herramientas reales (identify/compare, rs
 
 - `src/shared/site.ts` es la única fuente de URLs, títulos, descripciones e imágenes sociales; `scripts/seo-plugin.ts` genera en el build las etiquetas `<head>` (canonical, Open Graph, Twitter), el JSON-LD (WebSite, Organization, WebApplication, WebPage, BreadcrumbList), `robots.txt`, `sitemap.xml` y la cabecera y el pie compartidos. Para añadir una página: entrada en `PAGES` + HTML con `<!-- @head -->`.
 - La portada muestra las creaciones del propio estudio: un escenario vivo con los seis espacios (pestañas con teclado), un dado que funciona con su historial y una hoja de contactos de 14 tiradas, y los archivos reales exportados de una misma pieza por destino. Sus islas se cargan cerca de su sección cuando la página está en reposo (un clic anterior se repite al montar), como mucho 3 lienzos WebGL vivos y en pausa fuera de pantalla. Los tamaños de archivo que cita salen de `public/ex/salidas/manifest.json` (`@salida:clave`), así que nunca citan un número viejo.
-- **Search Console**: define la variable `GOOGLE_SITE_VERIFICATION` en Vercel (sólo el valor de `content="…"`) y vuelve a desplegar; la etiqueta aparece en todas las páginas. Luego envía `https://monotrama.vercel.app/sitemap.xml`.
+- **Search Console**: define la variable `GOOGLE_SITE_VERIFICATION` en Vercel (sólo el valor de `content="…"`) y vuelve a desplegar; la etiqueta aparece en todas las páginas. Luego envía `https://glyphos-ascii.vercel.app/sitemap.xml`.
 
 ### Rendimiento (medido en laboratorio, no son datos de campo)
 
@@ -166,7 +167,7 @@ Qué se hizo: motor básico, hoja de exportación, colección, componentes y cod
 - **Código del editor y del sitio**: MIT (`LICENSE`, © 2026 Morphiq).
 - **Código que exporta el estudio** (runtime, snippets, componentes, scripts de terminal): **MIT-0** (`LICENSES/MIT-0.txt`): úsalo, modifícalo y véndelo sin atribución, en proyectos personales o comerciales. Cada archivo exportado lo dice en su cabecera.
 - **Lo que creas** (imágenes, video, texto, recetas) es tuyo. Eres responsable de los derechos de las imágenes o videos que cargas.
-- **Marcas**: los nombres y logos de Monotrama y de Morphiq no se licencian (`TRADEMARKS.md`).
+- **Marcas**: los nombres y logos de GLYPHOS y de Morphiq no se licencian (`TRADEMARKS.md`).
 - **Terceros**: `THIRD_PARTY_NOTICES.md` (React, zustand, idb-keyval, mediabunny —MPL-2.0, sin modificar, sólo en el editor—, gifenc, opentype.js y tipografías SIL OFL). Resumen en `/licencia/`.
 
 ## Despliegue
@@ -187,4 +188,4 @@ Proyecto de Vercel **`ascii-shader-lab`** conectado a este repositorio: **cada p
 - Probar en Safari real, en teléfonos reales y en Edge; abrir los SVG en Figma e Illustrator; terminales de Windows y macOS (lo pendiente y por qué, en [`docs/compatibilidad.md`](docs/compatibilidad.md)).
 - WebKit: el código pegado de la «pieza transformada» con WebGL 2 dibuja el texto grande algo más fino que el PNG del estudio (RMSE 0.061 frente a 0.03 del resto); con el motor básico coincide. Causa sin encontrar.
 - Sincronía con el BPM de una canción; simulaciones con estado (reacción-difusión, vida) como capas; fuentes FIGlet para las letras de bloque.
-- Propuestas para decidir aparte (no hechas): un dominio propio en lugar de `monotrama.vercel.app`; una galería pública de piezas compartidas (necesita servidor, moderación y consentimiento; las piezas locales no se publican ni se indexan); sincronizar la colección entre equipos; buscar y etiquetar en la colección; comparar dos piezas lado a lado.
+- Propuestas para decidir aparte (no hechas): un dominio propio en lugar de `glyphos-ascii.vercel.app`; una galería pública de piezas compartidas (necesita servidor, moderación y consentimiento; las piezas locales no se publican ni se indexan); sincronizar la colección entre equipos; buscar y etiquetar en la colección; comparar dos piezas lado a lado.

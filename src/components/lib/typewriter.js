@@ -1,8 +1,8 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Máquina de escribir — escribe frases, las sostiene y las borra; el borrado puede «marchitar»
  * cada letra por una rampa de densidad (@ # * + - . ) en vez de retroceder.
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   typewriter(el, { phrases: ['hola', 'mundo'], erase: 'decay' });
  */

@@ -1,6 +1,6 @@
 # Avisos de terceros
 
-Monotrama (el editor y este sitio) usa el software de terceros que se lista abajo, cada uno con su licencia.
+GLYPHOS (el editor y este sitio) usa el software de terceros que se lista abajo, cada uno con su licencia.
 El código que exporta el estudio no incluye ninguno de estos paquetes; los archivos SVG exportados incrustan
 los contornos de las letras que usan, de tipografías con licencia SIL OFL 1.1, que lo permite.
 
