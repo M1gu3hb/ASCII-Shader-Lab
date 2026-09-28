@@ -353,7 +353,7 @@ const id = setInterval(() => {
       return [
         { id: 'text', label: 'Texto', code: txt + '\n', lang: 'txt', file: 'rotulo.txt' },
         { id: 'md', label: 'README', code: '```\n' + txt + '\n```\n', lang: 'md', file: 'rotulo.md' },
-        { id: 'bash', label: 'Saludo de shell', code: `# ${LICENSE}\n# Pega al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).\ncase $- in *i*)\ncat <<'GLYPHOS'\n${txt}\nMONOTRAMA\n;; esac\n`, lang: 'bash', file: 'saludo.sh' },
+        { id: 'bash', label: 'Saludo de shell', code: `# ${LICENSE}\n# Pega al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).\ncase $- in *i*)\ncat <<'GLYPHOS'\n${txt}\nGLYPHOS\n;; esac\n`, lang: 'bash', file: 'saludo.sh' },
         { id: 'js', label: 'Para tu CLI (JS)', code: `// ${LICENSE}\nconsole.log(${JSON.stringify(txt)});\n`, lang: 'js', file: 'rotulo.js' },
         { id: 'module', label: 'Módulo ES', code: `// banner.js — genera rótulos en el navegador\n${bannerSrc.trim()}\n`, lang: 'js', file: 'banner.js' },
       ];
