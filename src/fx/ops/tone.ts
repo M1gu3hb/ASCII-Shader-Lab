@@ -55,6 +55,8 @@ export const threshold: Op = (src, dst, p, run) => {
   const s = src.data, d = dst.data, { width: w, height: h } = src;
   const level = p.level as number, soft = Math.max(0.002, p.soft as number);
   const ink = rgbOf(p.ink), paper = rgbOf(p.paper), clear = p.clear === true;
+  // light ink on dark paper: the ink goes where the picture is light
+  const flip = luma(ink[0], ink[1], ink[2]) > luma(paper[0], paper[1], paper[2]);
   const n = w * h;
   let local: Float32Array | null = null;
   if (p.mode === 'local') {
@@ -68,7 +70,8 @@ export const threshold: Op = (src, dst, p, run) => {
     for (let i = 0; i < n; i++) local[i] = local[i] - m[i] + bias;
   }
   for (let i = 0, j = 0; i < n; i++, j += 4) {
-    const c = local ? smoothstep(-soft, soft, local[i]) : smoothstep(level - soft, level + soft, luma(s[j], s[j + 1], s[j + 2]) / 255);
+    let c = local ? smoothstep(-soft, soft, local[i]) : smoothstep(level - soft, level + soft, luma(s[j], s[j + 1], s[j + 2]) / 255);
+    if (flip) c = 1 - c;
     if (clear) { d[j] = ink[0]; d[j + 1] = ink[1]; d[j + 2] = ink[2]; d[j + 3] = s[j + 3] * (1 - c); }
     else {
       d[j] = ink[0] + (paper[0] - ink[0]) * c; d[j + 1] = ink[1] + (paper[1] - ink[1]) * c; d[j + 2] = ink[2] + (paper[2] - ink[2]) * c;

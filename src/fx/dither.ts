@@ -182,6 +182,13 @@ function prepare(s: DitherSpec): Prepared {
     return { C: 3, L: 0, lut, pal, near, spread };
   }
   const L = s.mode === 'bn' ? 2 : clamp(Math.round(s.levels), 2, 256);
+  if (s.mode === 'bn' || s.mode === 'tonos') {
+    // the value becomes the share of paper whose mix with the ink has the pixel's brightness, so light
+    // ink on dark paper (or a grey paper) keeps the picture's tones instead of inverting or flattening them
+    const lum = (c: RGB) => { const y = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]; return s.linear ? TO_LIN[Math.round(y)] : y / 255; };
+    const li = lum(s.ink), lp = lum(s.paper);
+    if (Math.abs(lp - li) >= 0.08) for (let i = 0; i < 256; i++) lut[i] = clamp((lut[i] - li) / (lp - li), 0, 1);
+  }
   return { C: s.mode === 'rgb' ? 3 : 1, L, lut, pal: null, near: null, spread: 1 };
 }
 

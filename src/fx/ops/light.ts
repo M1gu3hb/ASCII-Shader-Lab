@@ -41,7 +41,7 @@ export const glow: Op = (src, dst, p, run) => {
   gaussBlur(g2, tmp, lw, lh, 4, R / 1.3 / f);
   const tr = tint[0] / 255, tg = tint[1] / 255, tb = tint[2] / 255;
   for (let k = 0; k < ln * 4; k += 4) {
-    const k0 = 0.6 * str, k1 = 0.55 * str;
+    const k0 = 0.35 * str, k1 = 0.8 * str;
     low[k] = (low[k] * k0 + g2[k] * k1) * tr;
     low[k + 1] = (low[k + 1] * k0 + g2[k + 1] * k1) * tg;
     low[k + 2] = (low[k + 2] * k0 + g2[k + 2] * k1) * tb;

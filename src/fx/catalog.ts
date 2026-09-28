@@ -79,7 +79,7 @@ export const CATALOG: FinishDef[] = [
       range('pixel', 'Tamaño de píxel', 1, 24, 1, 2, 'px', 'Tramar a menor resolución y ampliar sin suavizar: píxeles en bloque.'),
       range('bright', 'Brillo', -1, 1, 0.01, 0),
       range('contrast', 'Contraste', 0, 3, 0.01, 1.15),
-      toggle('linear', 'Luz lineal', false, 'Mezcla la luz como una impresión física: medios tonos más oscuros y fieles.'),
+      toggle('linear', 'Luz lineal', false, 'Reparte la luz como una impresión física (fiel en papel o a tamaño real). Reducida en pantalla se ve más oscura.'),
     ],
   },
   {
@@ -87,7 +87,7 @@ export const CATALOG: FinishDef[] = [
     blurb: 'Trama de imprenta: puntos, líneas o cruces cuyo tamaño sigue al tono, en tinta o en CMYK.',
     params: [
       select('shape', 'Forma', [['dot', 'Punto'], ['ellipse', 'Elipse'], ['square', 'Cuadrado'], ['line', 'Línea'], ['cross', 'Cruz']], 'dot'),
-      range('freq', 'Frecuencia', 2, 40, 0.5, 11, 'celdas / 100 px', 'Celdas por cada 100 px del resultado: menos es un punto más grande.'),
+      range('freq', 'Frecuencia', 2, 40, 0.5, 9, 'celdas / 100 px', 'Celdas por cada 100 px del resultado: menos es un punto más grande.'),
       range('angle', 'Ángulo', 0, 180, 1, 45, '°'),
       range('contrast', 'Contraste', 0.2, 3, 0.01, 1.2),
       select('color', 'Color', [['tinta', 'Tinta sobre papel'], ['fuente', 'Color de la imagen'], ['cmyk', 'CMYK (cuatro tramas)']], 'tinta'),
@@ -100,8 +100,8 @@ export const CATALOG: FinishDef[] = [
     kind: 'crosshatch', name: 'Rayado cruzado', group: 'tramado',
     blurb: 'Líneas de grabado que se cruzan en más direcciones donde la imagen es más oscura.',
     params: [
-      range('spacing', 'Separación', 3, 40, 0.5, 7, 'px'),
-      range('width', 'Grosor', 0.05, 0.9, 0.01, 0.38, undefined, 'Grosor máximo de la línea, en fracción de la separación.'),
+      range('spacing', 'Separación', 3, 40, 0.5, 11, 'px'),
+      range('width', 'Grosor', 0.05, 0.9, 0.01, 0.42, undefined, 'Grosor máximo de la línea, en fracción de la separación.'),
       range('angle', 'Ángulo', 0, 180, 1, 45, '°'),
       range('layers', 'Capas', 1, 4, 1, 3, undefined, 'Direcciones de línea que se suman al oscurecer.'),
       range('wobble', 'Pulso', 0, 1, 0.01, 0.25, undefined, 'Ondulación de trazo a mano.'),
@@ -220,11 +220,11 @@ export const CATALOG: FinishDef[] = [
     kind: 'glow', name: 'Resplandor', group: 'luz',
     blurb: 'Las luces se derraman alrededor (bloom); sobre transparente, un halo de luz.',
     params: [
-      range('threshold', 'Umbral', 0, 1, 0.01, 0.5, undefined, 'Solo brilla lo más claro que esto. 0: todo brilla (halo exterior).'),
+      range('threshold', 'Umbral', 0, 1, 0.01, 0.55, undefined, 'Solo brilla lo más claro que esto. 0: todo brilla (halo exterior).'),
       range('radius', 'Radio', 1, 160, 1, 28, 'px'),
-      range('strength', 'Fuerza', 0, 4, 0.01, 1.1),
+      range('strength', 'Fuerza', 0, 4, 0.01, 1),
       color('tint', 'Tinte', '#ffffff', 'Blanco conserva el color de la luz.'),
-      select('blend', 'Mezcla', [['add', 'Suma (luz)'], ['screen', 'Trama (suave)']], 'add'),
+      select('blend', 'Mezcla', [['screen', 'Trama (suave)'], ['add', 'Suma (luz intensa)']], 'screen', 'Suma quema a blanco las luces fuertes; trama las respeta.'),
     ],
   },
   {

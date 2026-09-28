@@ -9,6 +9,23 @@
 import { gaussBlur, maxFilter, sample4 } from '../kernels';
 import { DEG, luma, rgbOf, sat, smoothstep, toPremul, type Img, type Op, type RGB, type Run } from '../core';
 
+/* ------------------------------------------------------------------ tone → ink */
+
+const lum01 = (c: RGB) => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
+
+/**
+ * How much ink a tone l (0..1) needs: the share of ink whose mix with the paper has that brightness, so
+ * light ink on dark paper draws the lights. With the picture's own colours as ink (`ink` null) the ink is
+ * as bright as the tone, and the share grows with the distance from the paper's brightness instead.
+ */
+export function inkShareFor(ink: RGB | null, paper: RGB): (l: number) => number {
+  const lp = lum01(paper);
+  if (!ink) { const k = 1 / Math.max(lp, 1 - lp, 0.5); return l => sat(Math.abs(l - lp) * k); }
+  const li = lum01(ink);
+  if (Math.abs(lp - li) < 0.08) return l => 1 - l;
+  return l => sat((lp - l) / (lp - li));
+}
+
 /* ------------------------------------------------------------------ halftone */
 
 /** Dot radius (cell units) whose union with its neighbours covers roughly `d` of the cell. */
@@ -46,6 +63,7 @@ export const halftone: Op = (src, dst, p, run) => {
     ? [-30, 30, -45, 0].map(a => (p.angle as number) + a)
     : [p.angle as number];
   const rmax = shape === 'ellipse' ? 0.75 : 0.7072;
+  const inkShare = inkShareFor(mode === 'fuente' ? null : ink, paper);
 
   const screens: Screen[] = angles.map((deg, si) => {
     const cos = Math.cos(deg * DEG), sin = Math.sin(deg * DEG);
@@ -71,7 +89,7 @@ export const halftone: Op = (src, dst, p, run) => {
           const k = Math.min(c, m, y) * 0.9;
           const v = si === 3 ? k : k < 1 ? ([c, m, y][si] - k) / (1 - k) : 0;
           dark = v;
-        } else dark = 1 - (0.299 * r + 0.587 * gg + 0.114 * b);
+        } else dark = inkShare(0.299 * r + 0.587 * gg + 0.114 * b);
         if (col) { col[(j * gw + i) * 3] = r * 255; col[(j * gw + i) * 3 + 1] = gg * 255; col[(j * gw + i) * 3 + 2] = b * 255; }
         dark = sat((dark - 0.5) * contrast + 0.5) * Math.min(1, a / 255 * 1.5);
       }
@@ -180,6 +198,7 @@ export const crosshatch: Op = (src, dst, p, run) => {
   for (let i = 0; i < n; i++) { const j = i * 4, a = s[j + 3] / 255; tone[i * 2] = luma(s[j], s[j + 1], s[j + 2]) / 255 * a; tone[i * 2 + 1] = a; }
   gaussBlur(tone, run.scratch.f32('hatch.b', n * 2), w, h, 2, sp * scale * 0.33);
 
+  const inkShare = inkShareFor(fromSrc ? null : ink, paper);
   const lo = 0.1, band = (1 - lo) / layers;
   const L = layers;
   const cs = HATCH_ANGLES.slice(0, L).map(a => Math.cos(((p.angle as number) + a) * DEG));
@@ -193,7 +212,7 @@ export const crosshatch: Op = (src, dst, p, run) => {
       if (a === 0) { d[j] = 0; d[j + 1] = 0; d[j + 2] = 0; d[j + 3] = 0; continue; }
       const X = (x + 0.5) / scale;
       const ta = tone[i * 2 + 1];
-      const dark = ta > 1e-4 ? 1 - tone[i * 2] / ta : 0;
+      const dark = ta > 1e-4 ? inkShare(tone[i * 2] / ta) : 0;
       let keep = 1;
       for (let k = 0; k < L; k++) {
         const t = (dark - lo - k * band) / (band * 1.35);
@@ -209,7 +228,7 @@ export const crosshatch: Op = (src, dst, p, run) => {
       }
       const cov = 1 - keep;
       let ir = ink[0], ig = ink[1], ib = ink[2];
-      if (fromSrc) { ir = s[j] * 0.7; ig = s[j + 1] * 0.7; ib = s[j + 2] * 0.7; }
+      if (fromSrc) { ir = s[j]; ig = s[j + 1]; ib = s[j + 2]; }
       if (clear) { d[j] = ir; d[j + 1] = ig; d[j + 2] = ib; d[j + 3] = a * cov; }
       else {
         d[j] = paper[0] + (ir - paper[0]) * cov; d[j + 1] = paper[1] + (ig - paper[1]) * cov; d[j + 2] = paper[2] + (ib - paper[2]) * cov;
