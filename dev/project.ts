@@ -21,7 +21,8 @@ import { gcMedia, hasMedia, put } from '../src/studio/mediaStore';
 import type { MediaRef, Recipe } from '../src/engine/recipe';
 import { evaluate } from '../src/project/evaluate';
 import { Compositor } from '../src/project/compositor';
-import { newLayer, newProject, projectFromImage, projectFromRecipe, uid } from '../src/project/normalize';
+import { createSourceProvider } from '../src/project/sources';
+import { newLayer, newProject, projectFromImage, projectFromRecipe, projectFromVideo, uid } from '../src/project/normalize';
 import type { Mask, Project } from '../src/project/types';
 import * as exporting from '../src/project/export';
 import * as persist from '../src/project/persist';
@@ -134,13 +135,13 @@ function posterSample(ref: MediaRef): Project {
   p.layers.push(newLayer('ascii', { name: 'Sol tramado', source: src.id, style, opaque: true, mask: zone }));
   p.layers.push(newLayer('shape', { name: 'Marco', shape: 'bracket', pts: [0.52, 0.36, 0.3, 0.34], stroke: '#1c1a17', width: 2, fill: null, dash: null }));
   p.layers.push(newLayer('shape', { name: 'Nota FL33', shape: 'callout', pts: [0.67, 0.45, 0.8, 0.2, 0.9, 0.2], stroke: '#1c1a17', width: 1.5, fill: null, dash: null, label: { text: 'FL33', font: 'jetbrains', size: 0.018, color: '#1c1a17' } }));
-  p.layers.push(newLayer('shape', { name: 'Nota PW33', shape: 'callout', pts: [0.4, 0.66, 0.3, 0.72, 0.62, 0.72], stroke: '#1c1a17', width: 1.5, fill: null, dash: null, label: { text: 'PW33', font: 'jetbrains', size: 0.018, color: '#1c1a17' } }));
+  p.layers.push(newLayer('shape', { name: 'Nota PW33', shape: 'callout', pts: [0.4, 0.66, 0.3, 0.7, 0.12, 0.7], stroke: '#efe9df', width: 1.5, fill: null, dash: null, label: { text: 'PW33', font: 'jetbrains', size: 0.018, color: '#efe9df' } }));
   p.layers.push(newLayer('shape', { name: 'Mira', shape: 'crosshair', pts: [0.3, 0.37, 0.09, 0.07], stroke: '#ff5b1f', width: 1.5, fill: null, dash: null, label: { text: 'SUJETO 01', font: 'jetbrains', size: 0.014, color: '#ff5b1f' } }));
   p.layers.push(newLayer('shape', { name: 'Regla', shape: 'line', pts: [0.06, 0.12, 0.94, 0.12], stroke: '#1c1a17', width: 2, fill: null, dash: null }));
   p.layers.push(newLayer('text', { name: 'Título', text: 'Teje luz', font: 'serif', weight: 400, italic: true, size: 0.085, color: '#1c1a17', align: 'left', box: { x: 0.06, y: 0.03, w: 0.9 }, tracking: -0.01, leading: 1, upper: false }));
-  p.layers.push(newLayer('text', { name: 'Pie', text: 'GLYPHOS · estudio de foto · ensayo nº 3 — una foto, dos maneras de verla: píxeles y caracteres.', font: 'jetbrains', weight: 500, size: 0.017, color: '#1c1a17', align: 'left', box: { x: 0.06, y: 0.8, w: 0.55 }, tracking: 0.04, leading: 1.5, upper: true }));
-  p.layers.push(newLayer('text', { name: 'En arco', text: 'con caracteres · con caracteres · ', font: 'jetbrains', weight: 500, size: 0.016, color: '#ff5b1f', align: 'center', box: { x: 0, y: 0, w: 1 }, tracking: 0.12, leading: 1, upper: true, path: { kind: 'circle', cx: 0.78, cy: 0.9, r: 0.06, start: 0 } }));
-  p.layers.push(newLayer('text', { name: 'Espiral', text: 'la luz se vuelve letra y la letra vuelve a ser luz · ', font: 'jetbrains', weight: 400, size: 0.012, color: '#1c1a17', align: 'center', box: { x: 0, y: 0, w: 1 }, tracking: 0.05, leading: 1, upper: false, path: { kind: 'spiral', cx: 0.2, cy: 0.9, r: 0.07, start: 0, turns: 2.5 } }));
+  p.layers.push(newLayer('text', { name: 'Pie', text: 'GLYPHOS · estudio de foto · ensayo nº 3 — una foto, dos maneras de verla: píxeles y caracteres.', font: 'jetbrains', weight: 500, size: 0.017, color: '#1c1a17', align: 'left', box: { x: 0.06, y: 0.785, w: 0.6 }, tracking: 0.04, leading: 1.5, upper: true }));
+  p.layers.push(newLayer('text', { name: 'En arco', text: 'con caracteres · con caracteres · ', font: 'jetbrains', weight: 500, size: 0.016, color: '#ff5b1f', align: 'center', box: { x: 0, y: 0, w: 1 }, tracking: 0.12, leading: 1, upper: true, path: { kind: 'circle', cx: 0.85, cy: 0.91, r: 0.055, start: 0 } }));
+  p.layers.push(newLayer('text', { name: 'Espiral', text: 'la luz se vuelve letra y la letra vuelve a ser luz · ', font: 'jetbrains', weight: 400, size: 0.012, color: '#1c1a17', align: 'center', box: { x: 0, y: 0, w: 1 }, tracking: 0.05, leading: 1, upper: false, path: { kind: 'spiral', cx: 0.62, cy: 0.925, r: 0.05, start: 0, turns: 2.2 } }));
   return p;
 }
 
@@ -184,7 +185,9 @@ function transparentSample(): Project {
 
 interface Sample { name: string; project: Project }
 const samples: Sample[] = [];
-const compositor = new Compositor();
+/** ?motor=basico draws the ASCII layers with the Canvas 2D engine (as a browser without WebGL 2 does). */
+const BASIC = new URLSearchParams(location.search).get('motor') === 'basico';
+const compositor = new Compositor(BASIC ? { force: 'basic' } : {});
 
 async function renderInto(c: HTMLCanvasElement, p: Project, t: number, scale: number) {
   return compositor.render(evaluate(p, t), c, { scale });
@@ -305,6 +308,57 @@ const mt = {
     const s = evaluate(samples[i].project, t);
     return s.layers.map(l => ({ name: l.layer.name, kind: l.layer.kind, opacity: Math.round(l.layer.opacity * 1000) / 1000, clips: l.clips.map(c => `${c.template} ${c.p.toFixed(3)}${c.active ? ' ▶' : ''}`) }));
   },
+  /**
+   * Video sources: a short clip is encoded here (WebM, one solid colour per frame), stored, and drawn at each
+   * frame's time by a compositor with the frame-exact provider (mediabunny) and one with the preview provider
+   * (a video element). Returns, per frame, the colour expected and the colour each drew (red channel).
+   */
+  async videoCheck() {
+    const mb = await import('mediabunny');
+    const fps = 10, n = 10, W = 160, H = 96;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const x = c.getContext('2d')!;
+    const target = new mb.BufferTarget();
+    const output = new mb.Output({ format: new mb.WebMOutputFormat(), target });
+    const codec = (await mb.canEncodeVideo('vp9', { width: W, height: H })) ? 'vp9' : 'vp8';
+    const src = new mb.CanvasSource(c, { codec, quality: mb.QUALITY_VERY_HIGH, keyFrameInterval: 0.5 });
+    output.addVideoTrack(src, { frameRate: fps });
+    await output.start();
+    const red = (i: number) => 20 + i * 22;
+    for (let i = 0; i < n; i++) {
+      x.fillStyle = `rgb(${red(i)}, 90, ${230 - i * 20})`;
+      x.fillRect(0, 0, W, H);
+      await src.add(i / fps, 1 / fps);
+    }
+    await output.finalize();
+    const blob = new Blob([target.buffer!], { type: 'video/webm' });
+    const r = await put(blob, { kind: 'video', name: 'colores.webm', w: W, h: H });
+    const ref: MediaRef = { id: r.id, kind: 'video', name: 'colores.webm', type: 'video/webm', size: blob.size, w: W, h: H };
+    const p = projectFromVideo(ref, { duration: n / fps, fps });
+    const exact = new Compositor({ provider: createSourceProvider({ video: 'exact' }) });
+    const preview = new Compositor({ provider: createSourceProvider({ video: 'preview' }) });
+    const out: Array<{ t: number; want: number; exact: number; preview: number }> = [];
+    const probe = async (comp: Compositor, t: number) => {
+      const cv = document.createElement('canvas');
+      await comp.render(evaluate(p, t), cv, { scale: 1 });
+      return cv.getContext('2d', { willReadFrequently: true })!.getImageData(W >> 1, H >> 1, 1, 1).data[0];
+    };
+    try {
+      for (let i = 0; i < n; i++) {
+        // the middle of each frame's time
+        const t = (i + 0.5) / fps;
+        out.push({ t, want: red(i), exact: await probe(exact, t), preview: await probe(preview, t) });
+      }
+      // past the end the video starts again (the project time loops over the file)
+      out.push({ t: n / fps + 0.25 / fps, want: red(0), exact: await probe(exact, n / fps + 0.25 / fps), preview: await probe(preview, n / fps + 0.25 / fps) });
+    } finally {
+      exact.destroy(); exact.provider.release();
+      preview.destroy(); preview.provider.release();
+    }
+    return { codec, bytes: blob.size, frames: out };
+  },
+  basic: BASIC,
   file, persist, exporting,
 };
 (window as unknown as { mt: typeof mt }).mt = mt;
@@ -320,7 +374,7 @@ async function main() {
     { name: 'Cartel editorial con líneas y etiquetas', project: posterSample(ref) },
     { name: 'Dos zonas con estilos distintos y grano', project: zonesSample(ref) },
     { name: 'Recorte transparente', project: transparentSample() },
-    { name: 'Pieza del laboratorio llevada al estudio', project: projectFromRecipe(preset('media', 'serigrafia'), ref) },
+    { name: 'Pieza del laboratorio llevada al estudio', project: projectFromRecipe(preset('media', 'neon'), ref) },
   );
   const grid = $('#samples');
   const pick = $<HTMLSelectElement>('#pick');

@@ -41,13 +41,15 @@ interface Mt {
   fileRoundTrip(i: number, t?: number): Promise<{ ok: boolean; newId: boolean; same: boolean; differ: number }>;
   state(i: number, t: number): Array<{ name: string; kind: string; opacity: number; clips: string[] }>;
   gcCheck(): Promise<Record<string, unknown>>;
+  videoCheck(): Promise<{ codec: string; frames: Array<{ t: number; want: number; exact: number; preview: number }> }>;
+  basic: boolean;
 }
 type W = Window & { mt: Mt };
 
-async function open(page: Page) {
+async function open(page: Page, query = '') {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto(url);
+  await page.goto(url + query);
   // the first visit compiles the page's modules and the engines' shaders (SwiftShader): generous
   await page.waitForFunction(() => (window as unknown as W).mt?.ready || !!(window as unknown as W).mt?.error, null, { timeout: 150_000 });
   expect(await page.evaluate(() => (window as unknown as W).mt.error)).toBe('');
@@ -129,4 +131,31 @@ test('media collections: the lab keeps project files, the studio keeps lab files
   await open(page);
   const r = await page.evaluate(() => (window as unknown as W).mt.gcCheck());
   expect(r).toMatchObject({ labKeepsStudio: true, studioKeepsLab: true, goneWhenUnused: true, restored: true });
+});
+
+test('video sources: the frame-exact and the preview providers both draw the frame of each time', async ({ page }) => {
+  test.setTimeout(180_000);
+  await open(page);
+  const r = await page.evaluate(() => (window as unknown as W).mt.videoCheck());
+  expect(r.frames.length).toBeGreaterThanOrEqual(10);
+  for (const f of r.frames) {
+    // each frame is one solid colour (red 20, 42, 64…): a neighbour frame is 22 away, codec noise a few units
+    expect(Math.abs(f.exact - f.want), `exacto a ${f.t} s`).toBeLessThanOrEqual(6);
+    expect(Math.abs(f.preview - f.want), `vista a ${f.t} s`).toBeLessThanOrEqual(6);
+  }
+});
+
+test('without WebGL 2 (the basic engine) every sample renders and the export still equals the render', async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors = await open(page, '?motor=basico');
+  expect(await page.evaluate(() => (window as unknown as W).mt.basic)).toBe(true);
+  const n = await page.evaluate(() => (window as unknown as W).mt.samples.length);
+  for (let i = 0; i < n; i++) {
+    const r = await page.evaluate(i => (window as unknown as W).mt.render(i, 1.2, 0.5), i);
+    expect(r.std, `muestra ${i}`).toBeGreaterThan(8);
+    expect((r.report as unknown as { engines: { webgl2: number } }).engines.webgl2).toBe(0);
+  }
+  const e = await page.evaluate(() => (window as unknown as W).mt.exportMatches(3, 1.2));
+  expect(e).toMatchObject({ same: true, differ: 0 });
+  expect(errors).toEqual([]);
 });
