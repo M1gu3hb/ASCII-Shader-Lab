@@ -1877,7 +1877,12 @@ async function cameraFlows() {
       if (kind !== 'ok') {
         await check('camara', `cámara: ${what} → el estudio lo explica`, async () => {
           const warn = card.locator('.warn');
-          await warn.waitFor({ timeout: 15_000 });
+          await warn.waitFor({ timeout: 15_000 }).catch(async () => {
+            // say what the card and the page show instead (a dialog in front, the camera still starting…)
+            const shows = (await card.innerText().catch(() => '(sin tarjeta)')).replace(/\s+/g, ' ').slice(0, 160);
+            const dialogs = await p.locator('dialog[open]').count();
+            throw new Error(`sin aviso en 15 s; la tarjeta dice «${shows}»; diálogos abiertos: ${dialogs}`);
+          });
           const t = (await warn.innerText()).trim();
           assert(expect.test(t), '«' + t + '»');
           assert(await card.getByRole('button', { name: 'Activar cámara' }).isVisible(), 'sin botón para volver a intentarlo');
