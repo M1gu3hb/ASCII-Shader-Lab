@@ -127,6 +127,25 @@ test('azar: empieza con resultados a los que volver, tirar añade más y la hoja
   expect(errors).toEqual([]);
 });
 
+test('azar: pasados 40 resultados la tira guarda los últimos 40, cada uno con su número', async ({ page }) => {
+  await page.goto('/');
+  await toSection(page, 'azar');
+  const count = page.locator('[data-azar-count]');
+  const strip = page.getByRole('list', { name: 'Resultados de esta página' }).getByRole('button');
+  await expect(strip).toHaveCount(3);
+  const roll = page.getByRole('button', { name: 'Tirar', exact: true });
+  for (let i = 0; i < 40; i++) await roll.click();
+  await expect(count).toHaveText('43 de 43');
+  await expect(strip).toHaveCount(40);
+  const names = await strip.evaluateAll(bs => bs.map(b => (b.getAttribute('aria-label') ?? '').split(':')[0]));
+  expect(new Set(names).size, 'no two results share a number').toBe(40);
+  expect(names[0]).toBe('Resultado 4');
+  expect(names[39]).toBe('Resultado 43');
+  await strip.first().click();
+  await expect(count).toHaveText('4 de 43');
+  await expect(page.getByRole('button', { name: 'Resultado anterior' })).toBeDisabled();
+});
+
 test('salidas: cada destino muestra su archivo real, y el Web Component exportado teje la pieza', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
