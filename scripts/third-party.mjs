@@ -27,6 +27,8 @@ const USE = {
   'string.prototype.codepointat': 'Dependencia de opentype.js',
   'idb-keyval': 'Almacenamiento local (historial y colección)',
   mediabunny: 'Codificación de video MP4/WebM en el editor. Se usa sin modificar y nunca va dentro del código exportado',
+  'onnxruntime-web': 'Motor de los modelos de recorte en el navegador (estudio de foto). Se usa sin modificar y nunca va dentro del código exportado',
+  'onnxruntime-common': 'Dependencia de onnxruntime-web',
 };
 
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
@@ -91,16 +93,16 @@ lines.push(
   '## Bibliotecas',
   '',
 );
-let apache = '';
+const apache = [];
 for (const p of code) {
   lines.push(`### ${p.name} ${p.version} — ${p.license}`, '', `Fuente: ${p.repo}`, '');
   if (p.license === 'MPL-2.0') lines.push('Se distribuye sin modificar; su código fuente está disponible en la dirección de arriba y en npm.', '');
-  if (p.license === 'Apache-2.0') apache = p.name;
+  if (p.license === 'Apache-2.0') apache.push(p.name);
   lines.push(p.text ? fence(p.text) : `Sin archivo de licencia en el paquete; licencia declarada: ${p.license}.`, '');
 }
-if (apache) {
+if (apache.length) {
   const tsLicense = join(root, 'node_modules', 'typescript', 'LICENSE.txt');
-  lines.push('### Texto de la licencia Apache 2.0', '', `Aplica a ${apache}. También en https://www.apache.org/licenses/LICENSE-2.0`, '');
+  lines.push('### Texto de la licencia Apache 2.0', '', `Aplica a ${apache.join(', ')}. También en https://www.apache.org/licenses/LICENSE-2.0`, '');
   if (existsSync(tsLicense)) lines.push(fence(readFileSync(tsLicense, 'utf8').replace(/\r\n/g, '\n').replace(/[ \t]+$/gm, '').trim()), '');
 }
 lines.push('## Tipografías (SIL Open Font License 1.1)', '');

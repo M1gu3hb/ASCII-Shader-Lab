@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
+import { isolationPlugin } from './scripts/isolation-plugin.ts';
 import { runtimePlugin } from './scripts/runtime-plugin.ts';
 import { seoPlugin } from './scripts/seo-plugin.ts';
 import { PAGES } from './src/shared/site.ts';
@@ -22,7 +23,8 @@ const NAMED_CHUNKS: Array<[RegExp, string]> = [
 export default defineConfig({
   // Multi-page site: unknown URLs are 404s, not the landing.
   appType: 'mpa',
-  plugins: [react(), runtimePlugin(), seoPlugin()],
+  // isolationPlugin: onnxruntime-web files under /ort/<version>/ and COOP/COEP on the photo studio (in-browser cutout).
+  plugins: [react(), runtimePlugin(), seoPlugin(), isolationPlugin()],
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 800,
