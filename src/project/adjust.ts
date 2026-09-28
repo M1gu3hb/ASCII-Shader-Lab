@@ -100,17 +100,23 @@ export function toneCpu(d: Uint8ClampedArray, w: number, h: number, a: Adjust): 
     }
   }
   if (a.sharpen > 0 && w > 2 && h > 2) {
-    // unsharp mask with a 3×3 box: out = in + k·(in − blur)
+    // unsharp mask with a 3×3 box: out = in + k·(in − box), the box summed in two passes (rows, then columns)
     const k = a.sharpen * 1.5;
-    const src = new Uint8ClampedArray(d);
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
-        const o = (y * w + x) * 4;
-        for (let c = 0; c < 3; c++) {
-          let s = 0;
-          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += src[o + (dy * w + dx) * 4 + c];
-          const v = src[o + c];
-          d[o + c] = clamp255(v + k * (v - s / 9));
+    const n = w * h;
+    const row = new Uint16Array(n);
+    const orig = new Uint8ClampedArray(n);
+    for (let c = 0; c < 3; c++) {
+      for (let i = 0; i < n; i++) orig[i] = d[i * 4 + c];
+      for (let y = 0; y < h; y++) {
+        const o = y * w;
+        for (let x = 1; x < w - 1; x++) row[o + x] = orig[o + x - 1] + orig[o + x] + orig[o + x + 1];
+      }
+      for (let y = 1; y < h - 1; y++) {
+        const o = y * w;
+        for (let x = 1; x < w - 1; x++) {
+          const i = o + x;
+          const v = orig[i];
+          d[i * 4 + c] = clamp255(v + k * (v - (row[i - w] + row[i] + row[i + w]) / 9));
         }
       }
     }

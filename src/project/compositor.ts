@@ -113,6 +113,13 @@ function canvas2d(w: number, h: number, c?: HTMLCanvasElement): { c: HTMLCanvasE
   return { c, x };
 }
 
+/** A canvas whose 2D context reads back fast (created with willReadFrequently before anything else). */
+function memCanvas(): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.getContext('2d', { willReadFrequently: true });
+  return c;
+}
+
 /** The recipe an ASCII layer's engine draws: the layer's source instead of the recipe's own. */
 export function engineStyle(l: AsciiLayer): Recipe {
   const r = cloneRecipe(l.style);
@@ -148,6 +155,8 @@ export class Compositor {
   private chain: Promise<unknown> = Promise.resolve();
   /** The engine each ASCII layer of the frame being drawn uses (set by prepare). */
   private assigned = new Map<Id, Engine>();
+  /** Where photo layers that need CPU passes are drawn (read back often: kept in memory). */
+  private cpuCanvas: HTMLCanvasElement | null = null;
   private clock = 0;
   private destroyed = false;
 
@@ -174,6 +183,7 @@ export class Compositor {
     this.shared?.eng.destroy();
     this.shared = null;
     for (const c of [...this.layerCanvases.values(), ...this.feeds.values()]) { c.width = 0; c.height = 0; }
+    if (this.cpuCanvas) { this.cpuCanvas.width = this.cpuCanvas.height = 0; this.cpuCanvas = null; }
     this.layerCanvases.clear();
     this.feeds.clear();
     if (this.ownsProvider) this.provider.release();
@@ -391,14 +401,18 @@ export class Compositor {
     const a = l.adjust;
     const css = cssFilter(a, scale);
     const gpu = css !== 'none' && canvasFilterWorks();
-    if (gpu) x.filter = css;
-    x.drawImage(img, r.x, r.y, r.w, r.h);
-    x.filter = 'none';
-    if ((css !== 'none' && !gpu) || needsTone(a)) {
-      const data = x.getImageData(0, 0, rw, rh);
+    const cpu = (css !== 'none' && !gpu) || needsTone(a);
+    // the CPU passes read the pixels back: they work in a canvas kept in memory (no GPU readback)
+    const target = cpu ? (this.cpuCanvas = canvas2d(rw, rh, this.cpuCanvas ?? memCanvas()).c).getContext('2d', { willReadFrequently: true })! : x;
+    if (gpu) target.filter = css;
+    target.drawImage(img, r.x, r.y, r.w, r.h);
+    target.filter = 'none';
+    if (cpu) {
+      const data = target.getImageData(0, 0, rw, rh);
       if (css !== 'none' && !gpu) cssAdjustCpu(data.data, rw, rh, a, scale);
       if (needsTone(a)) toneCpu(data.data, rw, rh, a);
-      x.putImageData(data, 0, 0);
+      target.putImageData(data, 0, 0);
+      x.drawImage(target.canvas, 0, 0);
     }
     return undefined;
   }

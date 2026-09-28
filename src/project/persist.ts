@@ -136,13 +136,13 @@ const STUDIO_GRACE = 30 * 60_000;
  * collection (read from the lab's own storage), and nothing added in the last half hour. Returns what
  * was freed; nothing when any of those cannot be read.
  */
-export async function collectStudioMedia(extra: Iterable<string> = []): Promise<{ count: number; bytes: number }> {
+export async function collectStudioMedia(extra: Iterable<string> = [], grace = STUDIO_GRACE): Promise<{ count: number; bytes: number }> {
   try {
     const ids = await allProjectMediaIds();
     for (const id of extra) ids.add(id);
     const { storedMediaIds } = await import('../studio/store');
     for (const id of await storedMediaIds()) ids.add(id);
-    return await gcMedia(ids, STUDIO_GRACE);
+    return await gcMedia(ids, grace);
   } catch {
     return { count: 0, bytes: 0 };
   }

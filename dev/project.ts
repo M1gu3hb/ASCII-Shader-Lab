@@ -16,7 +16,8 @@ import '@fontsource/instrument-serif/latin-400.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
 import { paintLandscape } from '../src/shared/sample';
 import { PRESETS } from '../src/studio/presets';
-import { put } from '../src/studio/mediaStore';
+import { del as idbDel, set as idbSet } from 'idb-keyval';
+import { gcMedia, hasMedia, put } from '../src/studio/mediaStore';
 import type { MediaRef, Recipe } from '../src/engine/recipe';
 import { evaluate } from '../src/project/evaluate';
 import { Compositor } from '../src/project/compositor';
@@ -231,11 +232,40 @@ const mt = {
   samples,
   compositor,
   evaluate,
-  /** Renders sample i at t and scale into a new canvas; returns its size, a hash of its pixels and the report. */
+  /** Renders sample i at t and scale into a new canvas; returns its size, a hash of its pixels, how varied they are, and the report. */
   async render(i: number, t = 0, scale = 1) {
     const c = document.createElement('canvas');
     const report = await renderInto(c, samples[i].project, t, scale);
-    return { w: c.width, h: c.height, hash: fnv(pixelsOf(c)), report };
+    const d = pixelsOf(c);
+    let s = 0, s2 = 0, n = 0;
+    for (let k = 0; k < d.length; k += 16) { const l = (d[k] * 0.3 + d[k + 1] * 0.59 + d[k + 2] * 0.11) * (d[k + 3] / 255); s += l; s2 += l * l; n++; }
+    const mean = s / n;
+    return { w: c.width, h: c.height, hash: fnv(d), std: Math.sqrt(Math.max(0, s2 / n - mean * mean)), report };
+  },
+  /**
+   * Media collections: the lab's (as after «Vaciar historial»: nothing referenced, no grace) keeps the files
+   * of saved projects; the studio's keeps the files of lab entries; once nothing uses a file, it goes.
+   */
+  async gcCheck() {
+    const ref = photoRef!;
+    const id = ref.id!;
+    const out: Record<string, unknown> = {};
+    await persist.saveProject(samples[0].project);
+    await gcMedia(new Set(), 0);
+    out.labKeepsStudio = await hasMedia(id);
+    for (const s of await persist.listProjects()) await persist.deleteProject(s.id);
+    // a lab history entry that uses the photo (as the lab saves it)
+    await idbSet('mt.v3.e:prueba', { id: 'prueba', recipe: { media: { ref } }, origin: { media: {} } });
+    await persist.collectStudioMedia([], 0);
+    out.studioKeepsLab = await hasMedia(id);
+    await idbDel('mt.v3.e:prueba');
+    const freed = await persist.collectStudioMedia([], 0);
+    out.freed = freed.count;
+    out.goneWhenUnused = !(await hasMedia(id));
+    // back for the other checks
+    await storePhoto();
+    out.restored = await hasMedia(id);
+    return out;
   },
   /** Exports sample i as a still (PNG unless asked) and compares it with render() at scale 1. */
   async exportMatches(i: number, t = 0, format: 'png' | 'jpeg' | 'webp' = 'png') {
@@ -278,9 +308,11 @@ const mt = {
 };
 (window as unknown as { mt: typeof mt }).mt = mt;
 
+let photoRef: MediaRef | null = null;
+
 async function main() {
   status('guardando la foto de muestra en el navegador…');
-  const ref = await storePhoto();
+  const ref = photoRef = await storePhoto();
   samples.push(
     { name: 'Foto con una zona circular en ASCII', project: circleSample(ref) },
     { name: 'Sujeto en caracteres reales sobre la foto borrosa', project: subjectSample(ref) },
