@@ -66,8 +66,9 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
   const refocus = (to: () => HTMLElement | null | undefined) => requestAnimationFrame(() => to()?.focus());
   const closeForm = () => { setNaming(false); refocus(() => saveBtn.current); };
   const save = () => {
-    saveRamp(name, charset);
+    const kept = saveRamp(name, charset);
     closeForm();
+    if (!kept) { toast(`Ya tienes ${RAMPS_MAX} rampas guardadas: borra alguna de «Tus rampas» para guardar esta.`, undefined, 6000); return; }
     toast(useRamps.getState().saved ? `Rampa «${name.trim() || 'Mi rampa'}» guardada en este navegador` : 'No se pudo guardar: este navegador no deja guardar datos del sitio');
   };
   return (
