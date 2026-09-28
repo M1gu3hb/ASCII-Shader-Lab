@@ -61,6 +61,9 @@ export function ScrollRow({ children, role = 'group', roving, activate = 'auto',
     const el = ref.current;
     if (!el) return;
     measure();
+    // and once more on the next frame: layout that other components settle in their own effects (a
+    // panel turning into a sheet, labels that drop out) lands after this one
+    const again = requestAnimationFrame(measure);
     const items = itemsOf(el);
     const sel = items.find(isSelected) ?? null;
     if (rove) {
@@ -74,6 +77,7 @@ export function ScrollRow({ children, role = 'group', roving, activate = 'auto',
       reveal(sel, lastSel.current !== null);
       lastSel.current = sel;
     }
+    return () => cancelAnimationFrame(again);
   });
 
   useEffect(() => {
