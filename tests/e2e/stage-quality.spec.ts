@@ -60,6 +60,8 @@ test.describe('transiciones y calidad de la vista previa', () => {
     const before = await recipe();
     const btn = page.getByRole('button', { name: /Calidad de la vista previa/ });
     await expect(btn).toContainText('fps');
+    // its name does not follow the frame rate (a focused control is read out again at each change)
+    await expect(btn).toHaveAccessibleName('Calidad de la vista previa: Auto');
     await btn.click();
     const dlg = page.getByRole('dialog', { name: 'Calidad de la vista previa' });
     await expect(dlg).toContainText('lo que exportas sale con la calidad completa');
