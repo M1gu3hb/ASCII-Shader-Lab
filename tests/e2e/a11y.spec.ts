@@ -15,8 +15,14 @@ import { openStudio } from './helpers';
 const ART = ['.ansi-pre', '.wl-art', '.comp-demo', '.comp-stage', '.cs-sample', '.gh-pre', '.cv-host'];
 
 async function serious(page: Page, what: string, include?: string) {
-  // let entrance animations end: a half-faded text would read as low contrast
+  // let entrance animations end: a half-faded text would read as low contrast. On a busy machine the
+  // page's clock can lag well behind the wall clock, so wait for the finite animations and the glyph
+  // curtains (glyphfx) themselves, not for a fixed time only.
   await page.waitForTimeout(450);
+  await page.waitForFunction(() => !document.querySelector('.mt-curtain') && document.getAnimations().every(a => {
+    const t = a.effect?.getComputedTiming();
+    return a.playState !== 'running' || !t || t.endTime === Infinity;
+  }), undefined, { timeout: 8000 }).catch(() => undefined);
   let b = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']);
   if (include) b = b.include(include);
   for (const a of ART) b = b.exclude(a);
