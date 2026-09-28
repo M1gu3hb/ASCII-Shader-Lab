@@ -13,6 +13,8 @@ import { historyLabel, thumbBg } from './history';
 import { shareLink } from './ShareSheet';
 import { HoldCompare } from './guide/HoldCompare';
 import { Picker } from './ui/Picker';
+import { ScrollRow } from './ui/ScrollRow';
+import { useScramble } from './motion/hooks';
 import { archetypeOptions } from './ui/options';
 import { setStripRange, startThumbs, useThumbs } from './thumbs';
 import { setTransitionChoice, setTransitionPace, usePreview, type TransitionChoice } from './preview';
@@ -62,10 +64,7 @@ export function Deck() {
   const limit = useStudio(s => s.histLimit);
   const counter = historyLabel(entries.length, limit);
 
-  useEffect(() => {
-    const el = strip.current?.querySelector('[aria-current="true"]') as HTMLElement | null;
-    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  }, [cursor, entries.length]);
+  // the current item comes into view by itself (ScrollRow reveals what is current)
   useEffect(() => startThumbs(), []);
   useStripRange(strip, entries.length);
   // moving through the history (arrows, thumbnails, ← →) or a new roll of the dice: say where you are
@@ -83,22 +82,23 @@ export function Deck() {
       <SeedLine e={e} n={cursor + 1} total={entries.length} />
       <div className="deck" role="region" aria-label="Azar e historial">
         <div className="nav">
-          <button type="button" onClick={back} disabled={cursor <= 0} aria-label="Resultado anterior (←)" title="Anterior (←)"><IPrev /></button>
+          <button type="button" onClick={back} disabled={cursor <= 0} aria-label="Resultado anterior (←)" title={cursor <= 0 ? 'Estás en el primer resultado' : 'Anterior (←)'}><IPrev /></button>
           <button type="button" onClick={forward} aria-label={cursor < entries.length - 1 ? 'Resultado siguiente (→)' : 'Nuevo resultado al azar (→)'} title={cursor < entries.length - 1 ? 'Siguiente (→)' : 'Nuevo al azar (→)'}><INext /></button>
         </div>
-        <div className="strip" ref={strip} role="list" aria-label={counter} title={counter}>
+        {/* the history: a row that says when more waits on a side (and scrolls to what is current) */}
+        <ScrollRow role="list" className="strip" boxClassName="strip-box" listRef={strip} aria-label={counter} title={counter} more="">
           {entries.map((x, i) => <Thumb key={x.id} e={x} i={i} current={i === cursor} fav={!!x.favId && favIds.has(x.favId)} />)}
-        </div>
+        </ScrollRow>
         <div className="acts">
-          <button type="button" className="act" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
-          <button type="button" className="act hide-md" onClick={() => setUI({ sheet: 'explore' })} title="Explorar variaciones (X)" aria-label="Explorar variaciones"><IExplore /></button>
-          <button type="button" className="act fav" aria-pressed={fav} onClick={() => void favorite()} title="Guardar en la colección (S)" aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
+          <button type="button" className="act ghost" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
+          <button type="button" className="act ghost hide-md" onClick={() => setUI({ sheet: 'explore' })} title="Explorar ocho variaciones (X)" aria-label="Explorar variaciones"><IExplore /></button>
+          <button type="button" className="act ghost fav" aria-pressed={fav} onClick={() => void favorite()} title={fav ? 'En tu colección: guarda los cambios (S)' : 'Guardar en la colección (S)'} aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
           <button type="button" className="act dice" onClick={dice} title="Nueva combinación al azar (R)"><IDice /><span className="lbl">Azar</span><kbd>R</kbd></button>
-          <div style={{ position: 'relative' }}>
-            <button type="button" className="act" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
+          <div className="pop-anchor">
+            <button type="button" className="act ghost" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
             {pop && <DicePop onClose={() => setPop(false)} />}
           </div>
-          <button type="button" className="act mobile-only" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza"><ISlidersH /></button>
+          <button type="button" className="act ghost mobile-only" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza"><ISlidersH /></button>
         </div>
       </div>
     </>
@@ -187,22 +187,24 @@ const Thumb = memo(function Thumb({ e, i, current, fav }: { e: Entry; i: number;
 
 function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
   useStudio(s => s.undoTick);
+  const arch = e ? archById(e.arch)?.name : undefined;
+  const title = !e ? '' : e.seed ? e.seed : e.label ?? spaceById(e.space).name;
+  // a new result's name resolves out of glyphs (its real text is in place all along)
+  const name = useScramble<HTMLElement>(e ? e.id + '\u0000' + title : null, { duration: 320 });
   if (!e) return null;
-  const arch = archById(e.arch)?.name;
-  const title = e.seed ? e.seed : e.label ?? spaceById(e.space).name;
   return (
     <div className="seedline" role="status" aria-live="off">
       {/* one pill on wide screens; on phones, what it is (with undo / redo) and then its actions */}
       <span className="seed-info">
         <span>N.º <b>{n}</b>/{total}</span>
         <span className="sep">·</span>
-        <b className="ell" title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
+        <b className="ell" ref={name} title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
         {arch && <><span className="sep arch">·</span><span className="arch">{arch}</span></>}
         {e.edited && <><span className="sep">·</span><span>editado</span></>}
       </span>
       <span className="seed-hist">
-        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
-        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
+        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title={canUndo() ? 'Deshacer (Ctrl+Z)' : 'Nada que deshacer en este resultado'}><IUndo width={13} height={13} /></button>
+        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title={canRedo() ? 'Rehacer (Ctrl+Mayús+Z)' : 'Nada que rehacer'}><IRedo width={13} height={13} /></button>
       </span>
       <span className="seed-acts">
         {e.edited && <HoldCompare origin={e.origin} />}

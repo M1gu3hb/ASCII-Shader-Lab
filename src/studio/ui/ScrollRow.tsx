@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type HTMLAttributes, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type HTMLAttributes, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { itemsOf, nextIndex, reduced, revealLeft } from './rowMath';
 import '../css/controls.css';
 
@@ -27,10 +27,13 @@ export interface ScrollRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'ro
   boxClassName?: string;
   /** Word shown with the right chevron when more content waits there. */
   more?: string;
+  /** The scrolling element itself (for callers that watch its scroll position). */
+  listRef?: RefObject<HTMLDivElement | null>;
 }
 
-export function ScrollRow({ children, role = 'group', roving, activate = 'auto', boxClassName, className, more = 'más', ...rest }: ScrollRowProps) {
-  const ref = useRef<HTMLDivElement>(null);
+export function ScrollRow({ children, role = 'group', roving, activate = 'auto', boxClassName, className, more = 'más', listRef, ...rest }: ScrollRowProps) {
+  const own = useRef<HTMLDivElement>(null);
+  const ref = listRef ?? own;
   const [edge, setEdge] = useState({ prev: false, next: false });
   const rove = roving ?? (role === 'tablist' || role === 'radiogroup');
   const lastSel = useRef<Element | null>(null);

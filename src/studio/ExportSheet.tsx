@@ -26,6 +26,7 @@ import { ScrollRow } from './ui/ScrollRow';
 import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
 import type { Fallback } from '../exporters/code';
 import './css/export-code.css';
+import { useSwap } from './motion/hooks';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -48,12 +49,15 @@ export function ExportSheet() {
     setOpening(n => n + 1);
     setTab(r?.tab ?? (space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen'));
   }, [open, space]);
+  // another format: its options resolve in (lightly; the sheet itself stays put)
+  const body = useRef<HTMLDivElement>(null);
+  useSwap(body, open ? tab : null, (a, b) => (a && b ? 'tab' : null));
   return (
     <Sheet open={open} onClose={() => setUI({ sheet: 'none' })} wide title="Llevar la pieza fuera" sub="Todo se genera en tu navegador. Elige el formato según dónde la vayas a usar.">
       <ScrollRow role="tablist" aria-label="Formatos" className="sheet-tabs" boxClassName="sheet-tabs-box">
         {TABS.map(([id, name]) => <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{name}</button>)}
       </ScrollRow>
-      <div className="sheet-body">
+      <div className="sheet-body" ref={body}>
         {tab === 'imagen' && <ImageTab key={opening} req={req} />}
         {tab === 'video' && <VideoTab key={opening} req={req} />}
         {tab === 'vector' && <VectorTab />}

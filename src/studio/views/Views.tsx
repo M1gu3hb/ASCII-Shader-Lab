@@ -4,7 +4,8 @@ import { gridToText } from '../../exporters/text';
 import { copyText } from '../download';
 import { captureGrid } from '../exporting';
 import { openExport } from '../exportTab';
-import { IDownload, IMore } from '../icons';
+import { IDownload, IMore, VIEW_ICON } from '../icons';
+import { useScramble } from '../motion/hooks';
 import { setUI, useRecipe, useStudio } from '../store';
 import type { Recipe } from '../../engine/recipe';
 import { useGuide } from '../guide/state';
@@ -67,10 +68,10 @@ function useSize(ref: RefObject<HTMLElement | null>, inner = false) {
 }
 
 /**
- * Room the views can use inside the stage: below the bar at its top (view selector, engine notes)
+ * Room the views can use inside the stage: below the bar at its top (view selector and options)
  * and above the dice deck and seed line, or above the settings sheet on phones. Layout offsets are
- * used (not bounding boxes) so the panel's slide transition does not count. Toasts go just under the
- * stage's top bar, so they never cover it, the deck or the basic-mode chip.
+ * used (not bounding boxes) so the panel's slide transition does not count. The notification area
+ * (notes and toasts, Notices.tsx) hangs under that bar out of flow: it never changes this room.
  */
 export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObject<HTMLElement | null>): Insets {
   const [ins, setIns] = useState<Insets>({ top: 64, bottom: 120 });
@@ -96,7 +97,6 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
         }
       }
       setIns(p => (p.top === t && p.bottom === b ? p : { top: t, bottom: b }));
-      document.documentElement.style.setProperty('--toast-top', Math.round(st.getBoundingClientRect().top + t) + 'px');
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -106,7 +106,6 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
     addEventListener('resize', measure);
     return () => { ro.disconnect(); removeEventListener('resize', measure); };
   }, [stage, top, panel, hide, guiding, cursor]);
-  useEffect(() => () => { document.documentElement.style.removeProperty('--toast-top'); }, []);
   return ins;
 }
 
@@ -401,18 +400,24 @@ export function ViewBar({ view }: { view: ViewId }) {
   const alt = exportAlt(view);
   const goLabel = view === 'readme' ? 'Exportar GIF para README' : 'Exportar para este destino';
   const hint = view === 'readme' ? `GIF de ${gifW} px de ancho, el de la imagen del README.` : EXPORT_HINT[view];
+  const what = useScramble<HTMLParagraphElement>(info.what, { duration: 280 });
   return (
     <div className={'vbar' + (more ? ' more' : '')}>
       <div className="vbar-sel">
         <span className="vbar-lbl" id="vbar-lbl">Vista</span>
         {/* one choice among the destinations: wraps on narrow stages rather than hiding any */}
         <ScrollRow role="radiogroup" aria-labelledby="vbar-lbl" className="vseg" boxClassName="vseg-box">
-          {VIEWS.map(v => (
-            <button key={v.id} type="button" role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)} title={v.what}>{v.name}</button>
-          ))}
+          {VIEWS.map(v => {
+            const Ic = VIEW_ICON[v.id];
+            return (
+              <button key={v.id} type="button" role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)} title={v.what}>
+                {Ic && <Ic className="v-ic" />}<span>{v.name}</span>
+              </button>
+            );
+          })}
         </ScrollRow>
         <Picker className="vsel-pk" value={view} label="Vista" labelId="vbar-lbl" minWidth={260}
-          options={VIEWS.map(v => ({ value: v.id, label: v.name, desc: v.what }))} onChange={v => setView(v)} />
+          options={VIEWS.map(v => { const Ic = VIEW_ICON[v.id]; return { value: v.id, label: v.name, desc: v.what, icon: Ic ? <Ic width={16} height={16} /> : undefined }; })} onChange={v => setView(v)} />
         {more && (
           <button type="button" className="vbar-fold" aria-expanded={open} aria-controls="vbar-opts" onClick={() => setOpen(!open)} title="Opciones de la vista">
             <IMore /><span className="sr-only">Opciones de la vista</span>
@@ -422,7 +427,7 @@ export function ViewBar({ view }: { view: ViewId }) {
       </div>
       {more && (
         <div className="vbar-more">
-          <p className="vbar-what">{info.what}</p>
+          <p className="vbar-what" ref={what}>{info.what}</p>
           {(view === 'web' || view === 'movil') && <LegibilityReport><ScrimFine /></LegibilityReport>}
           <div className={'vbar-opts' + (open ? ' open' : '')} id="vbar-opts">
             <ViewOptions view={view} />
