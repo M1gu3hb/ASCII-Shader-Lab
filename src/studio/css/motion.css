@@ -1,0 +1,5 @@
+/* Motion overlays (src/studio/motion). A label resolving out of glyphs keeps its real text in place,
+   transparent, under the copy that shows the frames; nothing here takes pointer events. */
+[data-scr], [data-scr] * { color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important; }
+.mt-scr { display: block; box-sizing: border-box; }
+@media (prefers-reduced-motion: reduce) { .mt-scr, .mt-weave { display: none !important; } }

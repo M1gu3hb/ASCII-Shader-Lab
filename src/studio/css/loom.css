@@ -1,0 +1,367 @@
+/* «Telar de precisión»: the studio's look (lane: studio-redesign). Imported last (App.tsx), prefixed with
+   .app where it refines what studio.css and the parts' stylesheets set.
+   - the piece is the protagonist: the stage takes everything but a docked instrument column;
+   - vermilion marks only the one primary action (Exportar) and active states;
+   - hairlines, the grid and the ramp glyphs are the ornament; values and numbers in mono;
+   - states read the same everywhere: hover lifts to bone, pressed/selected is bone (or a vermilion mark),
+     disabled is faint with its reason in the title, focus is the warm ring. */
+
+:root {
+  --hair: rgba(237, 230, 218, .07);
+  --deck-bg: rgba(15, 14, 13, .95);
+  --r-ctl: 7px;
+  /* the deck's width (the seed line hangs from its top left) */
+  --deck-w: min(760px, calc(100vw - var(--panel-w) - 48px));
+}
+@media (min-width: 1600px) { :root { --panel-w: 368px; } }
+.app.panel-off { --deck-w: min(760px, calc(100vw - 28px)); }
+
+/* ---------- shared states ---------- */
+.app button:disabled, .app [aria-disabled="true"] { cursor: not-allowed; }
+.app .ib svg, .app .act svg { flex: none; }
+
+/* ---------- layout: a docked instrument column, the stage takes the rest ---------- */
+@media (min-width: 901px) {
+  .app .stage-wrap { inset: var(--top-h) var(--panel-w) 0 0; }
+  .app.panel-off .stage-wrap { right: 0; }
+  .app .panel {
+    top: var(--top-h); right: 0; bottom: 0; width: var(--panel-w); border: 0; border-left: 1px solid var(--line); border-radius: 0;
+    background: var(--panel); transition: opacity .16s var(--ease-out), visibility 0s;
+  }
+  /* hidden, it leaves the page's focus order too (it no longer slides: it forms in place, motion/swap.ts) */
+  .app.panel-off .panel { transform: none; opacity: 0; visibility: hidden; transition: opacity .12s, visibility 0s .12s; }
+  .app .deck, .app .seedline { left: calc(50% - var(--panel-w) / 2); }
+  .app.panel-off .deck, .app.panel-off .seedline, .app.ui-off .deck { left: 50%; }
+  .app .deck, .app.panel-off .deck { width: var(--deck-w); }
+}
+
+/* ---------- top bar ---------- */
+.app .topbar { align-items: stretch; gap: 0; padding: 0 10px 0 14px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.app .brand { align-self: center; gap: 9px; padding: 6px 14px 6px 2px; margin-right: 4px; position: relative; }
+.app .brand::after { content: ''; position: absolute; right: 0; top: 7px; bottom: 7px; width: 1px; background: var(--line); }
+.app .brand-word { font: 700 14px/1 var(--font-display); letter-spacing: -.03em; }
+.app .brand-sub { font: 500 9.5px/1 var(--font-display); letter-spacing: .16em; color: var(--dim); }
+
+.app .spaces { align-self: stretch; margin: 0 auto 0 4px; padding: 0; gap: 0; background: none; border-radius: 0; }
+.app .spaces button {
+  position: relative; display: inline-flex; align-items: center; gap: 7px; height: 100%; padding: 0 12px; border: 0; border-radius: 0;
+  background: none; color: var(--muted); font: 500 13px/1 var(--font-ui); letter-spacing: 0; text-transform: none; white-space: nowrap;
+}
+.app .spaces .sp-ic { width: 16px; height: 16px; stroke-width: 1.6; color: var(--dim); transition: color .15s; }
+.app .spaces button:hover { color: var(--text); }
+.app .spaces button:hover .sp-ic { color: var(--muted); }
+.app .spaces button[aria-pressed="true"] { color: var(--text); background: none; font-weight: 600; }
+.app .spaces button[aria-pressed="true"] .sp-ic { color: var(--accent); }
+/* the active space: a vermilion thread along the bar's bottom edge */
+.app .spaces button::after {
+  content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; background: var(--accent);
+  transform: scaleX(0); transition: transform .26s var(--ease-out);
+}
+.app .spaces button[aria-pressed="true"]::after { transform: scaleX(1); }
+.app .spaces button:focus-visible { outline-offset: -4px; border-radius: 8px; }
+
+.app .tb-right { align-self: center; gap: 4px; margin-left: 12px; }
+.tb-group { display: flex; align-items: center; gap: 2px; }
+.tb-sep { width: 1px; height: 22px; background: var(--line); margin: 0 6px; flex: none; }
+.app .ib {
+  height: 34px; min-width: 34px; gap: 7px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; background: none;
+  color: var(--text); font: 500 13px/1 var(--font-ui);
+}
+.app .ib svg { width: 17px; height: 17px; }
+.app .ib:hover { background: var(--field); border-color: var(--line); }
+.app .ib.ghost { color: var(--muted); }
+.app .ib.ghost:hover { color: var(--text); }
+.app .ib[aria-pressed="true"] { color: var(--text); background: var(--field-2); border-color: var(--line); }
+.app .tb-go .ib:not(.ghost) { border-color: var(--line); }
+.app .tb-go .ib:not(.ghost):hover { border-color: var(--line-2); background: var(--field); }
+.app .ib .count { font: 600 10.5px/1 var(--font-mono); background: none; border: 1px solid var(--line-2); color: var(--text); padding: 3px 5px 2px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+/* the one primary action */
+.app .ib.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; padding: 0 14px 0 12px; margin-left: 6px; }
+.app .ib.primary:hover { background: #ff6e38; border-color: transparent; }
+.app .ib.primary:active { background: #f04f14; }
+.app .topbar .guides-btn[data-on] { border-color: var(--accent); color: var(--text); }
+
+/* the preview readout: an instrument display, not a button that shouts */
+.app .q-btn { gap: 8px; padding: 0 10px 0 9px; color: var(--muted); border-color: var(--line); background: #090808; }
+.app .q-btn:hover { border-color: var(--line-2); background: #090808; }
+.app .q-btn svg { width: 15px; height: 15px; color: var(--dim); }
+.app .q-btn .stats { font: 500 11px/1 var(--font-mono); color: var(--muted); letter-spacing: 0; }
+.app .q-btn .q-lbl { font: 600 9.5px/1 var(--font-display); letter-spacing: .12em; color: var(--dim); padding-left: 8px; border-left: 1px solid var(--line); }
+.q-live { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex: none; }
+.q-live.on { background: var(--phosphor); }
+
+/* widths: the spaces keep icon and name as long as they can; «estudio» and the secondary labels go before
+   anything of Exportar (the layout e2e checks 901–1500 px, with and without a collection) */
+@media (max-width: 1560px) {
+  .app .q-btn .q-lbl, .app .brand-sub { display: none; }
+}
+@media (max-width: 1440px) { .app .spaces button { padding: 0 10px; } }
+@media (max-width: 1366px) { .app .tb-right .ib.coll-btn .lbl { display: none; } }
+@media (max-width: 1300px) {
+  .app .tb-right .ib.guides-btn .lbl { display: none; }
+  .app .q-btn .stats { display: none; }
+}
+@media (max-width: 1200px) {
+  .app .spaces .sp-ic { display: none; }
+  .app .spaces button { padding: 0 9px; }
+}
+@media (max-width: 1100px) { .app .stats { display: none; } }
+@media (min-width: 1101px) { .app .topbar .pk.space-select { display: none; } }
+@media (max-width: 1100px) {
+  .app .spaces { display: none; }
+  .app .topbar .pk.space-select { align-self: center; margin: 0 auto 0 8px; font: 600 12px/1 var(--font-ui); letter-spacing: 0; text-transform: none; }
+  .app .topbar .pk.space-select .pk-ic { min-width: 0; color: var(--accent); }
+}
+
+/* ---------- settings panel: an instrument ---------- */
+.app .panel-head { padding: 12px 14px 12px; border-bottom: 1px solid var(--line); }
+.panel-title { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; min-height: 20px; }
+.app .panel-title .eyebrow { margin: 0; flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; white-space: nowrap; overflow: hidden; }
+.eb-k { color: var(--dim); }
+.eb-sep { color: var(--line-2); }
+.panel-title .eyebrow > span:last-child { color: var(--muted); }
+.panel-count { font: 500 10.5px/1 var(--font-mono); color: var(--dim); letter-spacing: .04em; }
+.app .recipes { gap: 4px; }
+.app .recipes .chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px 0 6px; border-radius: 5px; border: 1px solid var(--line);
+  background: transparent; color: var(--muted); font: 500 12px/1 var(--font-ui);
+}
+.app .recipes .chip:hover { color: var(--text); border-color: var(--line-2); background: var(--field); }
+.app .recipes .chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: var(--signal-soft); font-weight: 600; }
+.app .chip .chip-sw { width: 10px; height: 10px; border-radius: 2px; }
+
+/* the groups: a grid of cells, each with its icon over its name */
+.app .ptabs { gap: 0; padding: 0; margin: 0; border-bottom: 1px solid var(--line); }
+.app .ptabs .tab {
+  position: relative; flex-direction: column; gap: 5px; min-height: 52px; padding: 9px 2px 8px; margin: 0; border-radius: 0; border: 0;
+  background: none; color: var(--muted); font: 500 11.5px/1.1 var(--font-ui); box-shadow: none;
+}
+.app .ptabs .tab + .tab { box-shadow: inset 1px 0 0 var(--hair); }
+.tab-ic { width: 17px; height: 17px; flex: none; color: var(--dim); transition: color .15s; }
+.tab-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.app .ptabs .tab:hover { color: var(--text); background: var(--field); }
+.app .ptabs .tab:hover .tab-ic { color: var(--muted); }
+.app .ptabs .tab[aria-selected="true"] { color: var(--text); background: var(--field-2); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+.app .ptabs .tab[aria-selected="true"] .tab-ic { color: var(--accent); }
+.app .ptabs .tab:focus-visible { outline-offset: -3px; }
+@media (min-width: 901px) {
+  .app .ptabs { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); }
+  /* hairlines between rows of the grid */
+  .app .ptabs .tab { border-bottom: 1px solid var(--hair); margin-bottom: -1px; }
+  .app .ptabs .tab[aria-selected="true"] { box-shadow: inset 0 -2px 0 var(--accent); }
+}
+
+/* modules: each group's sections, numbered, under a hairline */
+.app .pane { padding: 14px 14px 32px; counter-reset: mod; }
+.app .pane .sub {
+  counter-increment: mod; margin: 22px -14px 12px; padding: 13px 14px 0; border-top: 1px solid var(--line);
+  font: 600 10.5px/1.2 var(--font-display); letter-spacing: .14em; color: var(--dim); gap: 9px;
+}
+.app .pane .sub::before {
+  content: counter(mod, decimal-leading-zero);
+  content: counter(mod, decimal-leading-zero) / "";
+  font: 500 10.5px/1 var(--font-mono); letter-spacing: 0; color: var(--muted);
+}
+.app .pane .sub::after { display: none; }
+.app .pane .sub:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* controls: name, value in a small readout, the control */
+.app .ctl.cx > .lbl, .app .ctl > .lbl { font-size: 12.5px; }
+.app .ctl output, .app .ctl .val {
+  font: 500 11px/1 var(--font-mono); color: var(--text); padding: 3px 5px; border-radius: 4px; border: 1px solid var(--hair);
+  background: rgba(0, 0, 0, .22); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* the slider's scale: quarter ticks under the track, the initial value marked above it */
+.app input[type=range] {
+  background:
+    linear-gradient(var(--dim), var(--dim)) calc(4.5px + (100% - 9px) * var(--d, -1) - 1px) calc(50% - 6px) / 2px 4px no-repeat,
+    linear-gradient(to right, var(--line-2) 1px, transparent 1px) 4px calc(50% + 6px) / calc((100% - 9px) / 4) 3px repeat-x;
+}
+.app .seg { background: none; border: 1px solid var(--line); padding: 2px; border-radius: var(--r-ctl); gap: 2px; }
+.app .seg button { border-radius: 5px; }
+.app .seg button:hover:not([aria-checked="true"]):not([aria-pressed="true"]) { background: var(--field); }
+.app .layer { border-radius: 9px; border-color: var(--line); background: rgba(0, 0, 0, .16); padding: 10px 10px 2px; }
+.app .layer-head .idx { font: 500 10.5px/1 var(--font-mono); color: var(--muted); }
+.app .icon-btn { border-radius: 6px; background: none; border-color: var(--line); color: var(--muted); }
+.app .icon-btn:hover:not(:disabled) { color: var(--text); background: var(--field); border-color: var(--line-2); }
+.app .btn { border-radius: 8px; }
+/* inside the panel (and a guide), the key action of a group is bone: vermilion stays with Exportar */
+.app .panel .btn.primary { background: var(--bone); color: var(--ink); border-color: transparent; }
+.app .panel .btn.primary:hover { background: #fff; filter: none; }
+.app .panel .btn.primary:disabled { background: var(--field-2); color: var(--muted); }
+.app .btn:not(.primary):hover { border-color: var(--line-2); }
+.app .note { color: var(--muted); }
+.app .palettes .pal { border-radius: 6px; }
+
+/* ---------- the stage ---------- */
+.stage { container: stage / inline-size; }
+.stage-marks {
+  position: absolute; z-index: 6; inset: 10px; pointer-events: none; mix-blend-mode: difference; opacity: .6; transition: opacity .2s;
+  --m: 12px; --c: rgba(237, 230, 218, .85);
+  background:
+    linear-gradient(var(--c), var(--c)) 0 0 / var(--m) 1px no-repeat, linear-gradient(var(--c), var(--c)) 0 0 / 1px var(--m) no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% 0 / var(--m) 1px no-repeat, linear-gradient(var(--c), var(--c)) 100% 0 / 1px var(--m) no-repeat,
+    linear-gradient(var(--c), var(--c)) 0 100% / var(--m) 1px no-repeat, linear-gradient(var(--c), var(--c)) 0 100% / 1px var(--m) no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% 100% / var(--m) 1px no-repeat, linear-gradient(var(--c), var(--c)) 100% 100% / 1px var(--m) no-repeat;
+}
+.app.ui-off .stage-marks { opacity: 0; }
+.vw-veil { position: absolute; left: 0; right: 0; pointer-events: none; }
+
+/* the view bar */
+.app .vbar-sel { background: rgba(15, 14, 13, .93); border: 1px solid var(--line-2); border-radius: 10px; padding: 3px 3px 3px 11px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+.app .vbar-lbl { font: 600 9.5px/1 var(--font-display); letter-spacing: .16em; color: var(--muted); margin-right: 2px; }
+.app .vseg button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 9px; border-radius: 7px; font-size: 12.5px; }
+.v-ic { width: 15px; height: 15px; flex: none; stroke-width: 1.6; opacity: .75; }
+.app .vseg button[aria-checked="true"] .v-ic { opacity: 1; }
+@container stage (max-width: 1040px) { .app .vseg .v-ic { display: none; } }
+.app .vbar-more { background: rgba(15, 14, 13, .93); border-color: var(--line-2); border-radius: 10px; }
+/* the destination's own export: strong, but not the primary vermilion (that one is «Exportar») */
+.app .vbar-go { background: var(--bone); color: var(--ink); border: 1px solid transparent; }
+.app .vbar-go:hover { background: #fff; filter: none; }
+.app .vbar-fold { border-radius: 8px; }
+
+/* ---------- the one notification area (Notices.tsx) ---------- */
+/* it hangs from the stage's bar (out of flow: the views' room never changes with it) */
+.app .stage-top > .notices {
+  position: absolute; top: calc(100% + 8px); left: 0; width: min(100%, 540px); display: flex; flex-direction: column;
+  align-items: flex-start; gap: 6px; pointer-events: none;
+}
+/* without a stage (Piezas): under the top bar */
+.app .notices-free { position: fixed; z-index: 16; top: calc(var(--top-h) + 12px); left: 12px; width: min(540px, calc(100vw - 24px)); pointer-events: none; }
+.app .notices .stage-notes { position: static; inset: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+.app .notices .stage-notes:empty, .app .notices-toasts:empty { display: none; }
+.app .notices-toasts { display: contents; }
+.app .notices .stage-notes > *, .app .notices .toast { pointer-events: auto; max-width: 100%; }
+.app .notices .toasts { position: static; transform: none; left: auto; top: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+.app .notices .toasts:empty { display: none; }
+.app .toast {
+  background: rgba(20, 19, 17, .97); color: var(--text); border: 1px solid var(--line-2); border-left: 2px solid var(--bone); border-radius: 10px;
+  padding: 8px 8px 8px 12px; font-size: 13px; line-height: 1.4; box-shadow: 0 14px 40px rgba(0, 0, 0, .45); max-width: 100%;
+}
+.app .toast button { background: none; color: var(--text); border: 1px solid var(--line-2); border-radius: 7px; padding: 5px 9px; flex: none; }
+.app .toast button:hover { border-color: var(--bone); }
+.app .toast .toast-msg { min-width: 0; }
+.app .bm-chip { border-radius: 10px; background: rgba(20, 19, 17, .96); max-width: 100%; }
+.app .bm-chip .bm-why { color: var(--text); }
+.app .motion-note { border-radius: 10px; }
+@media (prefers-reduced-motion: no-preference) {
+  .app .toast { animation: note-in .2s var(--ease-out); }
+  @keyframes note-in { from { opacity: 0; transform: translateX(-6px); } }
+}
+
+/* ---------- deck: the history strip and the dice ---------- */
+.app .deck { background: var(--deck-bg); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, .5); padding: 7px; gap: 0; }
+.app .deck .nav { gap: 2px; padding-right: 8px; margin-right: 8px; border-right: 1px solid var(--line); }
+.app .deck .nav button { width: 32px; height: 44px; border-radius: 7px; border: 1px solid transparent; background: none; color: var(--muted); }
+.app .deck .nav button:hover:not(:disabled) { color: var(--text); background: var(--field); border-color: var(--line); }
+.app .deck .nav button:disabled { opacity: .3; }
+.app .strip-box { flex: 1; min-width: 0; }
+.app .strip { gap: 4px; padding: 2px 2px; }
+/* the strip's edge cues: slim tabs the height of the thumbnails, not buttons floating over them */
+@media (pointer: fine) {
+  .app .strip-box .srow-btn { min-width: 22px; padding: 0; }
+  .app .strip-box .srow-btn::before { inset: 2px 0; height: auto; transform: none; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line-2); }
+}
+.app .thumb { width: 58px; height: 40px; border-radius: 4px; border: 1px solid var(--line); }
+.app .thumb:hover { border-color: var(--line-2); }
+.app .thumb[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.app .thumb .n { left: 0; bottom: 0; padding: 2px 3px 1px; border-top-right-radius: 3px; background: rgba(8, 7, 7, .72); font: 600 10px/1 var(--font-mono); text-shadow: none; }
+.app .thumb[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); }
+.app .deck .acts { gap: 2px; padding-left: 8px; margin-left: 8px; border-left: 1px solid var(--line); }
+.app .act { height: 44px; border-radius: 8px; border: 1px solid transparent; background: none; padding: 0 10px; gap: 7px; font: 600 13px/1 var(--font-ui); color: var(--text); }
+.app .act.ghost { color: var(--muted); }
+.app .act.ghost:hover { color: var(--text); background: var(--field); border-color: var(--line); }
+.app .act.ghost .lbl { color: var(--text); }
+.app .act.fav[aria-pressed="true"] { color: var(--accent); background: var(--signal-soft); border-color: rgba(255, 91, 31, .35); }
+.app .act[aria-pressed="true"]:not(.fav) { color: var(--text); background: var(--field-2); border-color: var(--line); }
+/* the dice: the key control of the deck */
+.app .act.dice { background: var(--bone); color: var(--ink); padding: 0 12px 0 11px; margin: 0 4px; }
+.app .act.dice:hover { background: #fff; filter: none; }
+.app .act.dice kbd { color: rgba(12, 11, 10, .66); border-color: rgba(12, 11, 10, .3); opacity: 1; }
+.pop-anchor { position: relative; }
+
+/* the seed line: the strip's label, hanging from the deck's top left */
+@media (min-width: 901px) {
+  .app .seedline {
+    bottom: calc(16px + 60px - 1px); transform: none; left: calc(50% - var(--panel-w) / 2 - var(--deck-w) / 2);
+    max-width: var(--deck-w); padding: 5px 5px 5px 12px; border-radius: 10px 10px 0 0; border: 1px solid var(--line-2); border-bottom: 0;
+    background: var(--deck-bg); color: var(--muted);
+  }
+  .app.panel-off .seedline, .app.ui-off .seedline { left: calc(50% - var(--deck-w) / 2); }
+  .app .deck { bottom: 16px; height: 60px; border-top-left-radius: 0; }
+  .app .seedline .sep { color: var(--dim); }
+  .app .seedline button { background: none; border: 1px solid transparent; border-radius: 6px; padding: 4px 7px; color: var(--muted); }
+  .app .seedline button:hover:not(:disabled) { color: var(--text); border-color: var(--line); background: var(--field); }
+  .app .seedline button:disabled { opacity: .3; }
+  .app .seed-acts { display: contents; }
+  .app .seed-hist::before, .app .seed-acts::before { content: none; }
+}
+
+/* ---------- popovers, sheets, cards ---------- */
+.app .pop { border-radius: 12px; background: var(--panel-2); border-color: var(--line-2); }
+.app .pop h3 { font-size: 10px; letter-spacing: .15em; }
+.app .locks button { border-radius: 6px; }
+.app dialog.sheet { border-radius: 14px; }
+.app .sheet-head { padding: 14px 16px 13px 18px; }
+.app .sheet-tabs .tab { font-size: 13px; }
+.app .close { border-radius: 8px; background: none; color: var(--muted); }
+.app .close:hover { color: var(--text); background: var(--field); border-color: var(--line-2); }
+.app .ex-card { border-radius: 10px; }
+.app .fav-card, .app .comp-card { border-radius: 10px; }
+.app .comp-controls, .app .comp-stage { border-radius: 10px; }
+.app .fav-card .ops button { border-radius: 6px; }
+
+/* ---------- loading: the ramp turning ---------- */
+.mt-spin::before { content: '·'; display: inline-block; width: 1ch; margin-right: 6px; font-family: var(--font-mono); color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .mt-spin::before { animation: mt-ramp .9s steps(1) infinite; }
+  @keyframes mt-ramp {
+    0% { content: '.'; } 12% { content: ':'; } 25% { content: '-'; } 37% { content: '='; } 50% { content: '+'; }
+    62% { content: '*'; } 75% { content: '#'; } 87% { content: '%'; }
+  }
+}
+html[data-motion="low"] .mt-spin::before { animation: none; }
+
+/* ---------- phones ---------- */
+@media (max-width: 900px) {
+  .tb-sep { display: none; }
+  .app .tb-right { gap: 4px; margin-left: 6px; }
+  .tb-group { gap: 4px; }
+  .app .ib.primary { margin-left: 0; padding: 0; }
+  .app .ib { height: 44px; min-width: 44px; padding: 0; }
+  .app .tb-go .ib:not(.ghost) { border-color: var(--line); }
+  .app .q-btn { padding: 0; }
+  .app .brand::after { display: none; }
+  .app .brand { padding: 6px 4px; margin: 0; }
+  .app .panel-head { padding: 0 12px 10px; }
+  .app .ptabs .tab { flex-direction: row; gap: 7px; min-height: 44px; padding: 0 14px; font-size: 14px; }
+  .app .ptabs .tab + .tab { box-shadow: none; }
+  .app .ptabs .tab[aria-selected="true"] { box-shadow: inset 0 -2px 0 var(--accent); }
+  .app .recipes .chip { height: auto; min-height: 44px; padding: 0 14px 0 10px; font-size: 14px; border-radius: 8px; }
+  .app .deck { border-radius: 14px; }
+  .app .deck .nav { border-right: 0; margin-right: 0; padding-right: 0; }
+  .app .deck .acts { border-left: 0; margin-left: 0; padding-left: 0; gap: 4px; }
+  .app .act.dice { margin: 0; }
+  .app .act.ghost { border-color: var(--line); background: var(--field); color: var(--text); }
+  .app .thumb { width: 66px; height: 44px; }
+  .app .strip-box { flex-basis: 100%; order: -1; }
+  .app .strip { padding: 1px; }
+  .app .seedline { border-radius: 14px; }
+}
+/* phones with the settings sheet open: little room is left above it, so the notes keep their tag and
+   their buttons in one compact line (the sentence stays for screen readers) and toasts take two lines */
+@media (max-width: 900px) {
+  .app:not(.panel-off) .notices .bm-line { position: absolute; width: 1px; height: 1px; overflow: visible; clip-path: inset(50%); white-space: nowrap; }
+  .app:not(.panel-off) .notices .bm-chip { flex-wrap: nowrap; }
+  .app:not(.panel-off) .notices .toast-msg { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+}
+@media (max-width: 900px), (pointer: coarse) {
+  .app .deck .nav button { width: 44px; }
+  .app .ctl output, .app .ctl .val { font-size: 12.5px; }
+}
+
+/* low motion (preview quality «Ligera», weak devices): the interface's own small movements go too */
+html[data-motion="low"] .app .spaces button::after, html[data-motion="low"] .app .toast, html[data-motion="low"] .app .wl-choice,
+html[data-motion="low"] .pk-pop, html[data-motion="low"] .app .tab-ic, html[data-motion="low"] .app .sp-ic {
+  transition: none !important; animation: none !important;
+}

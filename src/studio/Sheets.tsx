@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Recipe } from '../engine/recipe';
 import { ARCHETYPES } from '../random/archetypes';
 import { GEN_VERSION, GEN_VERSIONS } from '../random/generator';
@@ -24,6 +24,7 @@ import { storageProblem } from './Keeping';
 import { Sheet, trapTab } from './Sheet';
 import { Picker } from './ui/Picker';
 import './css/data.css';
+import { useSwap } from './motion/hooks';
 
 export { Sheet, trapTab };
 
@@ -214,6 +215,9 @@ export function ExploreSheet() {
   const [amount, setAmount] = useState(amount0);
   const [cands, setCands] = useState<Array<{ r: Recipe; url?: string }>>([]);
   const [gen, setGen] = useState(0);
+  // «Otras ocho»: the grid recomposes
+  const grid = useRef<HTMLDivElement>(null);
+  useSwap(grid, gen, 'tab');
   useEffect(() => {
     if (!open) return;
     const sig = { cancelled: false };
@@ -233,7 +237,7 @@ export function ExploreSheet() {
           </label>
           <button type="button" className="mini" onClick={() => setGen(g => g + 1)}><IDice width={14} /> Otras ocho</button>
         </div>
-        <div className="explore-grid">
+        <div className="explore-grid" ref={grid}>
           {cands.map((c, i) => (
             <button key={i} type="button" style={c.url ? thumbBg(c.url) : undefined} aria-label={`Variación ${i + 1}`}
               onClick={() => { applyRecipe(c.r, 'variación', 'Variación'); close(); }}>

@@ -5,6 +5,7 @@ import { HelpMore, HelpToggle, HintText, useHelp, type Help } from './ui/Help';
 import type { HelpText } from './ui/copy';
 import { Picker, type PickOpt, type PickerProps } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { useScramble } from './motion/hooks';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Field<T> { key: string; get: (r: Recipe) => T; set: (r: Recipe, v: T) => void }
@@ -82,7 +83,8 @@ export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare }: 
       field={(
         <input
           id={id} type="range" min={min} max={max} step={step} value={v} aria-describedby={h?.hintId} {...h?.focus}
-          style={{ '--p': pct + '%' } as CSSProperties}
+          // --d: where the initial value sits (a small mark over the track; double click on the name goes back to it)
+          style={{ '--p': pct + '%', ...(typeof d === 'number' && d >= min && d <= max ? { '--d': (d - min) / (max - min) } : {}) } as CSSProperties}
           onChange={e => edit(r => f.set(r, parseFloat(e.target.value)), f.key)}
         />
       )}
@@ -143,14 +145,16 @@ export function Seg<T extends string | number>({ f, label, opts, onPick, help, d
   const id = useId();
   const h = useHelp(label ? f.key : undefined, help);
   const said = v !== undefined ? desc?.[v] : undefined;
+  // what the chosen option does: a new line resolves out of glyphs
+  const saidRef = useScramble<HTMLParagraphElement>(said);
   const group = (
     <SegGroup label={label} labelId={label ? id + 'l' : undefined} value={v} opts={opts} icons={icons} activate={activate} describedBy={[h?.hintId, said ? id + 'd' : ''].filter(Boolean).join(' ') || undefined}
       onPick={val => { edit(r => f.set(r, val), f.key); onPick?.(val); }} />
   );
-  if (!label) return <div className="ctl cx seg-only">{group}{said && <p className="seg-desc" id={id + 'd'}>{said}</p>}</div>;
+  if (!label) return <div className="ctl cx seg-only">{group}{said && <p className="seg-desc" id={id + 'd'} ref={saidRef}>{said}</p>}</div>;
   return (
     <Frame id={id} label={label} h={h} labelTag="span"
-      field={<>{group}{said && <p className="seg-desc" id={id + 'd'}>{said}</p>}</>} />
+      field={<>{group}{said && <p className="seg-desc" id={id + 'd'} ref={saidRef}>{said}</p>}</>} />
   );
 }
 

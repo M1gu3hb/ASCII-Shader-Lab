@@ -2,6 +2,8 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom';
 import { typeAhead } from './rowMath';
 import '../css/controls.css';
+import { scrambleEl } from '../motion/scramble';
+import { swap } from '../motion/swap';
 
 /**
  * The studio's select: a button that opens a listbox (the WAI-ARIA «select-only combobox»). Focus stays
@@ -143,6 +145,12 @@ export function Picker<T extends string | number>(p: PickerProps<T>) {
   };
 
   useEffect(() => { onOpenChange?.(open); }, [open, onOpenChange]);
+  // a new value: its name resolves out of glyphs (the button keeps its real text for everyone)
+  const shown = useRef(value);
+  useLayoutEffect(() => {
+    if (shown.current !== value) scrambleEl(btn.current?.querySelector<HTMLElement>('.pk-txt'));
+    shown.current = value;
+  }, [value]);
   // measure where the list goes before it paints, and again when anything around it moves
   useLayoutEffect(() => { if (open) place(); }, [open, place, options.length]);
   useEffect(() => {
@@ -172,6 +180,8 @@ export function Picker<T extends string | number>(p: PickerProps<T>) {
   useEffect(() => { if (open && sheet) list.current?.focus({ preventScroll: true }); }, [open, sheet]);
   // the highlighted option stays in view (the chosen one is in view as the list opens)
   const placed = open && pos.visibility !== 'hidden';
+  // once placed, the options resolve in (lightly; the list is usable at once)
+  useLayoutEffect(() => { if (placed) swap(list.current, 'choice'); }, [placed]);
   useEffect(() => {
     if (!placed || active < 0) return;
     const el = document.getElementById(optId(active));

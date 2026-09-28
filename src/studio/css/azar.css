@@ -45,9 +45,6 @@
 .q-list button[aria-pressed="true"] { background: var(--bone); color: var(--ink); border-color: transparent; }
 .q-list button[aria-pressed="true"] span { color: #4a453e; }
 .q-pop .note { margin: 0; }
-@media (max-width: 1440px) { .q-btn .q-lbl { display: none; } }
-/* 1101–1280 px: the space buttons, a little tighter, leave the room the quality button takes */
-@media (min-width: 1101px) and (max-width: 1280px) { .topbar .spaces button { padding-left: 9px; padding-right: 9px; } }
 @media (max-width: 900px) {
   .q-wrap .q-pop { position: fixed; left: 10px; right: 10px; top: calc(var(--top-h) + 8px); width: auto; }
 }

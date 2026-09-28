@@ -8,6 +8,7 @@ import { PalabraRhythm, PalabraStyle, PalabraTake, PalabraWord } from './Palabra
 import { PATHS, STEP_COUNT, validWord, type PathId } from './paths';
 import { exitGuide, goStep, useGuide } from './state';
 import '../css/guide.css';
+import { useScramble, useSwap } from '../motion/hooks';
 
 const STEPS: Record<PathId, Array<() => React.ReactNode>> = {
   foto: [FotoPick, FotoStyle, FotoAdjust, FotoTake],
@@ -40,6 +41,9 @@ export function Guide() {
   const missing = useGate(path, step);
   const title = useRef<HTMLHeadingElement>(null);
   const body = useRef<HTMLDivElement>(null);
+  // a new step: its title resolves out of glyphs and its body recomposes (the step is usable at once)
+  const stepName = useScramble<HTMLSpanElement>(path ? PATHS[path].steps[step] : null, { duration: 320 });
+  useSwap(body, `${path}|${step}`, 'step');
 
   // each step starts at its top, with focus on its title (screen readers hear «Paso 2 de 4 …»)
   useEffect(() => {
@@ -60,7 +64,7 @@ export function Guide() {
         </div>
         <h2 ref={title} id="guide-title" tabIndex={-1}>
           <span className="guide-n">Paso {step + 1} de {STEP_COUNT}</span>
-          <span className="guide-step">{info.steps[step]}</span>
+          <span className="guide-step" ref={stepName}>{info.steps[step]}</span>
         </h2>
         <div className="guide-bar" aria-hidden="true">
           {info.steps.map((_, i) => <i key={i} className={i < step ? 'done' : i === step ? 'now' : ''} />)}
