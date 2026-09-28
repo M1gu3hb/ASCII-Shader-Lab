@@ -185,6 +185,10 @@
 .app .icon-btn { border-radius: 6px; background: none; border-color: var(--line); color: var(--muted); }
 .app .icon-btn:hover:not(:disabled) { color: var(--text); background: var(--field); border-color: var(--line-2); }
 .app .btn { border-radius: 8px; }
+/* inside the panel (and a guide), the key action of a group is bone: vermilion stays with Exportar */
+.app .panel .btn.primary { background: var(--bone); color: var(--ink); border-color: transparent; }
+.app .panel .btn.primary:hover { background: #fff; filter: none; }
+.app .panel .btn.primary:disabled { background: var(--field-2); color: var(--muted); }
 .app .btn:not(.primary):hover { border-color: var(--line-2); }
 .app .note { color: var(--muted); }
 .app .palettes .pal { border-radius: 6px; }
@@ -252,7 +256,11 @@
 .app .deck .nav button:disabled { opacity: .3; }
 .app .strip-box { flex: 1; min-width: 0; }
 .app .strip { gap: 4px; padding: 2px 2px; }
-.app .strip-box .srow-btn::before { background: var(--panel-2); }
+/* the strip's edge cues: slim tabs the height of the thumbnails, not buttons floating over them */
+@media (pointer: fine) {
+  .app .strip-box .srow-btn { min-width: 22px; padding: 0; }
+  .app .strip-box .srow-btn::before { inset: 2px 0; height: auto; transform: none; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line-2); }
+}
 .app .thumb { width: 58px; height: 40px; border-radius: 4px; border: 1px solid var(--line); }
 .app .thumb:hover { border-color: var(--line-2); }
 .app .thumb[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
