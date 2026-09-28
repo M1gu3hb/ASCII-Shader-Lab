@@ -293,6 +293,16 @@ function drawXforms(rng: Rng, A: Archetype, n: number, moving: boolean, pool?: X
   return out.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 }
 
+/**
+ * One to three transformations drawn like the dice draw them, for «Otra combinación» (the style: the piece's,
+ * or any). `moving`: the source moves (video, camera, letters that move), so Estela may come up.
+ */
+export function randomXforms(seed: string, arch: string | undefined, moving: boolean, pool?: XformKind[]): Xform[] {
+  const rng = new Rng('xf|' + seed);
+  const A = ARCHETYPES.find(a => a.id === arch) ?? rng.pick(ARCHETYPES);
+  return drawXforms(rng, A, Number(rng.weighted({ 1: 3, 2: 4, 3: 1.5 })), moving, pool);
+}
+
 function genCreative(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, base: Recipe) {
   if (space === 'media' && rng.chance(0.6)) {
     const moving = r.source === 'video' || r.source === 'camera';

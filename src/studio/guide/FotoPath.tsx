@@ -79,11 +79,14 @@ export function FotoPick() {
 
 /* 2 · Elige un estilo ------------------------------------------------ */
 
+/** The guide keeps the six plain looks; the ones that transform the photo live in the Imagen space. */
+const GUIDE_LOOKS = ['retrato', 'periodico', 'fosforo', 'bloques', 'contornos', 'revelado'];
+
 export function FotoStyle() {
   const recipe = useRecipe();
   const entry = useEntry();
   const mediaKey = recipe ? JSON.stringify([recipe.source, recipe.media]) : '';
-  const looks = useMemo(() => PRESETS.media.map(p => ({ p, recipe: p.make(currentRecipe()) })), [mediaKey]);
+  const looks = useMemo(() => PRESETS.media.filter(p => GUIDE_LOOKS.includes(p.id)).map(p => ({ p, recipe: p.make(currentRecipe()) })), [mediaKey]);
   const items: StyleItem[] = looks.map(({ p, recipe: r }) => ({
     id: p.id, name: p.name, recipe: r,
     pressed: !!entry && entry.label === p.name && (entry.kind === 'receta' || entry.kind === 'espacio'),

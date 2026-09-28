@@ -140,7 +140,7 @@ export interface XformInfo {
 
 const deg = (p: number) => Math.round(p * 360) + '°';
 export const XFORMS: XformInfo[] = [
-  { id: 'semitono', name: 'Semitono', desc: 'Puntos de imprenta: cada punto crece con el brillo de su zona.', amount: 'Fuerza', p: 'Tamaño del punto', pFmt: p => xformK('semitono', p).toFixed(1) + ' celdas', defaults: { amount: 1, p: 0.35 } },
+  { id: 'semitono', name: 'Semitono', desc: 'Puntos de imprenta: cada punto crece con el brillo de su zona.', amount: 'Fuerza', p: 'Tamaño del punto', pFmt: p => xformK('semitono', p).toFixed(1) + ' celdas', defaults: { amount: 1, p: 0.12 } },
   { id: 'contorno', name: 'Contorno neón', desc: 'Sólo quedan los bordes, encendidos con su propio color.', amount: 'Fuerza', p: 'Grosor', pFmt: p => xformK('contorno', p) + ' celdas', defaults: { amount: 1, p: 0.2 } },
   { id: 'bandas', name: 'Bandas', desc: 'Pocas tintas planas, como un cartel serigrafiado.', amount: 'Fuerza', p: 'Tintas', pFmt: p => xformK('bandas', p) + ' por canal', defaults: { amount: 1, p: 0.15 } },
   { id: 'arrastre', name: 'Arrastre', desc: 'Lo claro se ordena en franjas verticales, del más oscuro arriba al más claro abajo.', amount: 'Largo', p: 'Umbral', pFmt: p => Math.round((0.15 + 0.7 * p) * 100) + ' % de brillo', defaults: { amount: 0.5, p: 0.4 } },
@@ -174,14 +174,14 @@ export function xformK(kind: XformKind, p: number): number {
 export interface AnimInfo { id: LetterAnimKind; name: string; desc: string; amount: string; icon: string }
 /** Animations of the big text (Texto) and of the message (Mensaje): the same name means the same idea. */
 export const LETTER_ANIMS: Record<LetterAnimKind, AnimInfo> = {
-  ola: { id: 'ola', name: 'Ola', desc: 'Las letras suben y bajan en una ola que recorre la palabra.', amount: 'Altura', icon: '∿' },
-  rebote: { id: 'rebote', name: 'Rebote', desc: 'Cada letra salta a su turno, como una pelota.', amount: 'Altura', icon: '⤒' },
-  latido: { id: 'latido', name: 'Latido', desc: 'Las letras se hinchan una tras otra.', amount: 'Tamaño', icon: '◉' },
+  ola: { id: 'ola', name: 'Ola', desc: 'Las letras suben y bajan en una ola que recorre la palabra.', amount: 'Altura', icon: '∿∿' },
+  rebote: { id: 'rebote', name: 'Rebote', desc: 'Cada letra salta a su turno, como una pelota.', amount: 'Altura', icon: '╭╮' },
+  latido: { id: 'latido', name: 'Latido', desc: 'Las letras se hinchan una tras otra.', amount: 'Tamaño', icon: 'oO' },
   revolver: { id: 'revolver', name: 'Revolver', desc: 'Las letras se revuelven en otros caracteres y vuelven a su sitio.', amount: 'Cuántas letras', icon: '#?' },
   palabras: { id: 'palabras', name: 'Palabra a palabra', desc: 'Las palabras aparecen una tras otra, se quedan y se van.', amount: 'Salto', icon: 'A·B' },
-  explosion: { id: 'explosion', name: 'Explosión', desc: 'Las letras salen volando, giran y se recomponen.', amount: 'Alcance', icon: '✺' },
-  brillo: { id: 'brillo', name: 'Luz que recorre', desc: 'Un brillo pasa letra a letra; con la paleta por brillo, cambia su color.', amount: 'Contraste', icon: '◐' },
-  color: { id: 'color', name: 'Color por letra', desc: 'Cada letra toma otro color de la paleta y los colores avanzan.', amount: 'Mezcla', icon: '▚' },
+  explosion: { id: 'explosion', name: 'Explosión', desc: 'Las letras salen volando, giran y se recomponen.', amount: 'Alcance', icon: '<*>' },
+  brillo: { id: 'brillo', name: 'Luz que recorre', desc: 'Un brillo pasa letra a letra; con la paleta por brillo, cambia su color.', amount: 'Contraste', icon: '░▓' },
+  color: { id: 'color', name: 'Color por letra', desc: 'Cada letra toma otro color de la paleta y los colores avanzan.', amount: 'Mezcla', icon: '▚▞' },
 };
 
 /* ------------------------------------------------------------------ */

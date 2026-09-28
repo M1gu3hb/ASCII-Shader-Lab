@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import {
-  BLEND_NAMES, CHARSETS, COLOR_MAP_NAMES, FAMILY_NAMES, FONTS, INTERACT_NAMES, MSG_MODE_NAMES, PATTERNS, fontById, patternById, type PatternFamily,
+  BLEND_NAMES, CHARSETS, COLOR_MAP_NAMES, FAMILY_NAMES, FONTS, INTERACT_NAMES, LETTER_ANIMS, MSG_MODE_NAMES, PATTERNS, XFORMS, fontById, patternById, type PatternFamily,
 } from '../../engine/catalog';
-import { DEFAULT_LAYER, cloneRecipe, defaultRecipe, type BlendMode, type ColorMap, type InteractMode, type MsgMode, type Recipe } from '../../engine/recipe';
+import {
+  DEFAULT_LAYER, cloneRecipe, defaultRecipe, type BlendMode, type ColorMap, type InteractMode, type LetterAnimKind, type MsgMode, type Recipe, type Xform, type XformKind,
+} from '../../engine/recipe';
 import { ARCHETYPES } from '../../random/archetypes';
 import { renderCrops, type CropSpec, type Signal } from '../guide/thumbs';
 import {
@@ -38,8 +40,8 @@ export function charsetOptions(asciiOnly: boolean): PickOpt<string>[] {
 }
 
 /** A character set's ramp on the piece's colours, in the piece's font (decoration: hidden from assistive tech). */
-export function CharsetRamp({ id, recipe, n = 12 }: { id: string; recipe?: Recipe; n?: number }) {
-  const c = CHARSETS.find(x => x.id === id);
+export function CharsetRamp({ id, chars, recipe, n = 12 }: { id: string; chars?: string; recipe?: Recipe; n?: number }) {
+  const c = chars !== undefined ? { chars } : CHARSETS.find(x => x.id === id);
   if (!c) return null;
   const font = fontById(recipe?.glyph.font ?? 'jetbrains');
   const stops = recipe?.color.stops ?? ['#ede6da'];
@@ -51,10 +53,10 @@ export function CharsetRamp({ id, recipe, n = 12 }: { id: string; recipe?: Recip
 }
 
 /** A character set in the list: its name and ramp on one line, its use under them. */
-export function CharsetOption({ o, recipe }: { o: PickOpt<string>; recipe?: Recipe }) {
+export function CharsetOption({ o, recipe, chars }: { o: PickOpt<string>; recipe?: Recipe; chars?: string }) {
   return (
     <span className="pk-main pk-cs">
-      <span className="pk-cs-top"><span className="pk-name">{o.label}</span>{o.value !== 'custom' && <CharsetRamp id={o.value} recipe={recipe} />}</span>
+      <span className="pk-cs-top"><span className="pk-name">{o.label}</span>{o.value !== 'custom' && <CharsetRamp id={o.value} chars={chars} recipe={recipe} />}</span>
       {o.desc && <span className="pk-desc">{o.desc}</span>}
     </span>
   );
@@ -240,11 +242,67 @@ export function PiecePreview({ recipe, label }: { recipe: Recipe | null; label: 
   );
 }
 
-/** The current piece with another character set (for the preview). */
-export function withCharset(r: Recipe, id: string): Recipe | null {
-  const c = CHARSETS.find(x => x.id === id);
+/** The current piece with another character set (for the preview): a built-in one, or these characters. */
+export function withCharset(r: Recipe, id: string, chars?: string): Recipe | null {
+  const c = chars ?? CHARSETS.find(x => x.id === id)?.chars;
   if (!c) return null;
   const out = cloneRecipe(r);
-  out.glyph.charset = c.chars;
+  out.glyph.charset = c;
   return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Transformations of the source, letters that move                    */
+/* ------------------------------------------------------------------ */
+
+/** Where each transformation is listed: what it does to the source. */
+const XF_GROUP: Record<XformKind, string> = {
+  caleido: 'Mueven la imagen', desplazar: 'Mueven la imagen', ondular: 'Mueven la imagen', bloques: 'Mueven la imagen',
+  semitono: 'Tinta y color', bandas: 'Tinta y color', contorno: 'Tinta y color',
+  arrastre: 'Error de señal', canales: 'Error de señal',
+  estela: 'Con movimiento',
+};
+
+/** The transformations as picker options; those already in the stack (but `own`) cannot be chosen twice. */
+export function xformOptions(used: XformKind[], own?: XformKind): PickOpt<XformKind>[] {
+  const order = ['Mueven la imagen', 'Tinta y color', 'Error de señal', 'Con movimiento'];
+  return [...XFORMS].sort((a, b) => order.indexOf(XF_GROUP[a.id]) - order.indexOf(XF_GROUP[b.id])).map(x => ({
+    value: x.id, label: x.name, desc: x.desc + (x.id !== own && used.includes(x.id) ? ' (ya está en la lista)' : ''),
+    disabled: x.id !== own && used.includes(x.id), group: XF_GROUP[x.id],
+  }));
+}
+
+/** The piece with this transformation stack (what a transformation's picture shows). */
+export function withXforms(base: Recipe, list: Xform[]): Recipe {
+  const r = cloneRecipe(base);
+  r.media.xform = list.map(x => ({ ...x }));
+  r.interact = { ...r.interact, mode: 'none' };
+  return r;
+}
+
+/** A transformation's picture in the list: the piece with it, rendered once it scrolls into view. */
+export function XformThumb({ base, list }: { base?: Recipe; list: Xform[] }) {
+  const ref = useRef<HTMLElement>(null);
+  const [url, setUrl] = useState<string | null | undefined>(undefined);
+  const key = base ? JSON.stringify([base.media, base.source, base.color, base.glyph, base.text.content, list]) : '';
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !base) return;
+    let alive = true;
+    const go = () => requestThumb(withXforms(base, list), THUMB, u => { if (alive) setUrl(u); });
+    if (typeof IntersectionObserver !== 'function') { go(); return () => { alive = false; }; }
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); go(); } }, { root: el.closest('.pk-list'), rootMargin: '120px 0px' });
+    io.observe(el);
+    return () => { alive = false; io.disconnect(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return <i ref={ref} className={'pk-thumb' + (url ? '' : ' wait')} style={url ? { backgroundImage: `url(${url})` } : undefined} />;
+}
+
+/** Per-letter animations as picker options (with «none» first). */
+export function letterAnimOptions(kinds: readonly LetterAnimKind[]): PickOpt<string>[] {
+  return [
+    { value: '', label: 'Quietas', desc: 'Las letras no se mueven solas.', icon: 'Aa' },
+    ...kinds.map(k => ({ value: k, label: LETTER_ANIMS[k].name, desc: LETTER_ANIMS[k].desc, icon: LETTER_ANIMS[k].icon })),
+  ];
 }
