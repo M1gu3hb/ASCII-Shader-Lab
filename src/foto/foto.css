@@ -362,8 +362,9 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .foto-phone .fvt-hold .lbl, .foto-land .fvt-hold .lbl { display: none; }
 .foto-phone .fvt-hold .lbl-s, .foto-land .fvt-hold .lbl-s { display: inline; }
 .foto-phone .fsuggest, .foto-land .fsuggest { top: 60px; left: 8px; right: 8px; max-width: none; }
-.foto-phone .fnotes, .foto-land .fnotes { top: calc(8px + env(safe-area-inset-top, 0px)); bottom: auto; width: calc(100vw - 120px); }
-.app.foto.foto-phone.editing .fnotes { top: 60px; bottom: auto; }
+.app.foto.foto-phone.editing .fnotes { top: auto; bottom: calc(var(--bar-h) + 14px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); }
+.app.foto.foto-land.editing .fnotes { top: auto; bottom: 12px; left: calc(50% - 38px); width: min(520px, calc(100vw - 110px)); }
+.app.foto.foto-phone .fstatus, .app.foto.foto-land .fstatus { font-size: 13px; border-radius: 12px; }
 .app.foto.foto-land { --bar-h: 0px; }
 .app.foto.foto-land.editing { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); }
 .foto-land.editing > .topbar { grid-column: 1 / -1; }
