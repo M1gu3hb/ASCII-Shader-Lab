@@ -243,6 +243,16 @@ const PIECES = {
     msg: { on: true, text: 'teje luz', mode: 'static', y: 0.88, box: 0.9 }, interact: { mode: 'none' },
     meta: { name: 'Verificación texto', space: 'tipo' },
   },
+  // big text whose letters move (a wave) through three source transformations, with a message whose
+  // letters bounce: image, video, code and text exports must all carry them
+  transformada: {
+    v: 2, source: 'text', text: { content: 'LUZ', font: 'martian', weight: 800, size: 0.9, anim: { kind: 'ola', amount: 0.7, speed: 1 } },
+    media: { xform: [{ kind: 'semitono', on: true, amount: 0.6, p: 0.5 }, { kind: 'ondular', on: true, amount: 0.5, p: 0.4 }, { kind: 'canales', on: true, amount: 0.5, p: 0.5 }] },
+    layers: [{ pattern: 'franjas', a: 0.25, b: 0.35 }],
+    glyph: { cell: 10, charset: ' .:-=+*#%@', font: 'jetbrains' }, color: { stops: ['#10131c', '#3f7bd9', '#f4e9c8'], bg: '#07090f' },
+    msg: { on: true, text: 'se mueve', mode: 'static', y: 0.86, box: 0.8, anim: { kind: 'rebote', amount: 0.6, speed: 1 } },
+    interact: { mode: 'none' }, meta: { name: 'Verificación transformada', space: 'tipo' },
+  },
   imagen: {
     v: 2, source: 'image', glyph: { cell: 10, aspect: 1.2, charset: DETALLADO, font: 'jetbrains' },
     color: { mode: 'source', vivid: 0.8, stops: ['#000000', '#ffffff'], bg: '#050505' }, interact: { mode: 'none' }, fx: { cellBg: 0.35 },
@@ -1507,6 +1517,8 @@ async function reactProject(compReact) {
   mkdirSync(join(app, 'src'), { recursive: true });
   mkdirSync(join(app, 'public'), { recursive: true });
   if (!existsSync(join(app, 'node_modules'))) symlinkSync(join(ROOT, 'node_modules'), join(app, 'node_modules'), 'dir');
+  // the photo «Revelar» shows, at the site's root (dev server and build)
+  for (const pub of [join(app, 'public'), SITE_DIR]) copyFileSync(SYNTH, join(pub, 'tu-foto.jpg'));
   const pieces = Object.keys(codeOut).filter(k => codeOut[k]?.react);
   const imports = [], uses = [];
   for (const k of pieces) {
@@ -2111,8 +2123,9 @@ async function terminalExports(key, page, dir, files) {
   const t = (files.term = { cols, rows, ans: {} });
   await sh.getByRole('button', { name: 'Sin color' }).click();
   await settle();
-  t.txt = await download(page, dir, () => sh.getByRole('button', { name: '.txt', exact: true }).click());
-  t.html = await download(page, dir, () => sh.getByRole('button', { name: 'HTML', exact: true }).click());
+  // a folder of their own: the text HTML has the same name as the Code tab's page .html
+  t.txt = await download(page, join(dir, 'texto'), () => sh.getByRole('button', { name: '.txt', exact: true }).click());
+  t.html = await download(page, join(dir, 'texto'), () => sh.getByRole('button', { name: 'HTML', exact: true }).click());
   await sh.getByRole('button', { name: 'Saludo de shell' }).click();
   await settle();
   t.shell = join(dir, 'saludo.sh');
@@ -2348,6 +2361,102 @@ const COMP_PROBES = {
   halo: { async probe(root, p) { const b = root.locator('button').first(); const box = await b.boundingBox(); await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 }); await p.waitForTimeout(400); const ink = await b.evaluate(el => { const c = el.querySelector('canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; }); await p.mouse.move(0, 0); assert(ink > 50, 'no se enciende'); return `${ink} píxeles encendidos`; } },
   spinners: { async probe(root, p) { const s = root.locator('[role="status"]').first(); const a = await s.innerText(); await p.waitForTimeout(250); const b = await s.innerText(); assert(a !== b, 'no gira'); return `«${a}» → «${b}»`; } },
   progress: { async probe(root) { const t = await root.locator('pre').first().innerText(); assert(/42%/.test(t), t); return `«${t.trim()}»`; } },
+  // the creative lane's pieces
+  reveal: {
+    async probe(root, p) {
+      const img = root.locator('img').first();
+      await img.waitFor();
+      await p.waitForTimeout(800);
+      // opaque characters over the photo; under the cursor they open onto the photo
+      const ink = (fx, fy) => root.evaluate((el, [fx, fy]) => {
+        const c = el.querySelector('canvas');
+        if (!c || !c.width || getComputedStyle(c).display === 'none') return -1;
+        const cx = Math.round(c.width * fx), cy = Math.round(c.height * fy), rr = Math.max(4, Math.round(c.width * 0.03));
+        const d = c.getContext('2d').getImageData(Math.max(0, cx - rr), Math.max(0, cy - rr), rr * 2, rr * 2).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 200) n++;
+        return n / (d.length / 4);
+      }, [fx, fy]);
+      const before = await ink(0.3, 0.5);
+      const box = await img.boundingBox();
+      await p.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5, { steps: 4 });
+      await p.waitForTimeout(700);
+      const after = await ink(0.3, 0.5);
+      await p.mouse.move(0, 0);
+      assert(before > 0.5 && after < before - 0.3, `caracteres ${fmt(before)} → bajo el cursor ${fmt(after)}`);
+      return `caracteres sobre la foto (${fmt(before)} opaco); bajo el cursor, la foto (${fmt(after)})`;
+    },
+  },
+  spotlight: {
+    async probe(root, p) {
+      const cv = root.locator('canvas').first();
+      await cv.waitFor({ state: 'attached' });
+      const lit = (fx, fy) => cv.evaluate((c, [fx, fy]) => {
+        const d = c.getContext('2d').getImageData(Math.round(c.width * fx) - 30, Math.round(c.height * fy) - 30, 60, 60).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) n += d[i];
+        return n / (d.length / 4) / 255;
+      }, [fx, fy]);
+      await p.waitForTimeout(500);
+      const before = await lit(0.2, 0.5);
+      const box = await cv.boundingBox();
+      await p.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5, { steps: 5 });
+      await p.waitForTimeout(700);
+      const after = await lit(0.2, 0.5);
+      await p.mouse.move(0, 0);
+      assert(after > before + 0.05, `luz ${fmt(before)} → ${fmt(after)}`);
+      assert((await cv.getAttribute('aria-hidden')) === 'true', 'el lienzo no está oculto a los lectores de pantalla');
+      return `la luz sigue al cursor (${fmt(before)} → ${fmt(after)})`;
+    },
+  },
+  loader: {
+    async probe(root, p) {
+      const bar = root.getByRole('progressbar').first();
+      await bar.waitFor({ state: 'attached' });
+      const v0 = Number(await bar.getAttribute('aria-valuenow'));
+      const art = await root.locator('pre').first().innerText().catch(() => '');
+      let v = v0;
+      for (let i = 0; i < 12 && v === v0; i++) { await p.waitForTimeout(250); v = Number(await bar.getAttribute('aria-valuenow')); }
+      assert(Number.isFinite(v0) && /█/.test(art), `aria-valuenow «${v0}», barra «${art.trim().slice(0, 30)}»`);
+      return `barra de progreso accesible («${(await bar.getAttribute('aria-label')) ?? ''}», ${v0} %${v !== v0 ? ` → ${v} %` : ''}), dibujada con █`;
+    },
+  },
+  ticker: {
+    async probe(root, p) {
+      const track = root.locator('span[aria-hidden="true"]').first();
+      const x = () => track.evaluate(el => new DOMMatrix(getComputedStyle(el).transform).m41);
+      const a = await x();
+      await p.waitForTimeout(700);
+      const b = await x();
+      assert(a !== b, 'no desfila');
+      return `desfila (${a.toFixed(0)} → ${b.toFixed(0)} px)`;
+    },
+  },
+  blocktext: {
+    async probe(root) {
+      const s = root.locator('[role="img"]').first();
+      const t = await s.innerText();
+      assert(t.split('\n').length >= 6 && /█/.test(t), 'rótulo vacío: ' + t.slice(0, 40));
+      return `${t.split('\n').length} líneas de █, leído como «${await s.getAttribute('aria-label')}»`;
+    },
+  },
+  glitch: {
+    async probe(root, p) {
+      const link = root.getByRole('link').first();
+      const name = (await link.innerText()).trim();
+      await root.evaluate(el => {
+        const seen = (window.__seen = []);
+        new MutationObserver(() => { for (const s of el.querySelectorAll('a span[aria-hidden="true"]')) seen.push(s.textContent ?? ''); })
+          .observe(el, { childList: true, subtree: true, characterData: true });
+      });
+      await link.hover();
+      await p.waitForTimeout(600);
+      await p.mouse.move(0, 0);
+      await p.waitForTimeout(900);
+      const seen = await p.evaluate(() => window.__seen);
+      assert(seen.some(t => t !== name && t.length === name.length), 'no se revuelve');
+      assert((await link.innerText()).trim() === name, 'el enlace cambia de nombre');
+      return `«${name}» se revuelve bajo el cursor y vuelve a «${name}»`;
+    },
+  },
 };
 
 async function componentsFlow() {
@@ -2363,7 +2472,19 @@ async function componentsFlow() {
   await sp.locator('.comp-card').first().waitFor();
   const cards = (await sp.locator('.comp-card h2').allTextContents()).map(t => t.trim());
   const tabsById = {};
-  const names = { scramble: 'Descifrar', typewriter: 'Máquina de escribir', magnet: 'Imán', trail: 'Estela', halo: 'Halo', spinners: 'Indicadores', progress: 'Barra de progreso', banner: 'Rótulo' };
+  const names = {
+    scramble: 'Descifrar', typewriter: 'Máquina de escribir', magnet: 'Imán', trail: 'Estela', halo: 'Halo', spinners: 'Indicadores', progress: 'Barra de progreso', banner: 'Rótulo',
+    reveal: 'Revelar', spotlight: 'Foco', loader: 'Pantalla de carga', ticker: 'Separador', blocktext: 'Letras de bloque', glitch: 'Enlaces con interferencia',
+  };
+  // a piece added to the library must be added here too: none goes out unverified (the two cards that
+  // open a studio space are checked with the studio's own exports)
+  const library = (await sp.locator('.comp-card').filter({ has: sp.getByRole('button', { name: /^Personalizar y copiar/ }) }).locator('h2').allTextContents()).map(t => t.trim());
+  await check('componentes', 'cada pieza de la biblioteca está en el verificador', () => {
+    const known = new Set(Object.values(names));
+    const extra = library.filter(c => !known.has(c));
+    assert(library.length && !extra.length, 'sin verificar: ' + extra.join(', '));
+    return `${library.length} piezas: ${library.join(', ')}`;
+  });
   for (const [id, name] of Object.entries(names)) {
     if (!cards.includes(name)) { record('componentes', `${id}: tarjeta en la galería`, 'FAIL', 'no aparece'); continue; }
     await sp.locator('.comp-card', { has: sp.locator('h2', { hasText: name }) }).first().locator('.comp-open').click();
@@ -2380,6 +2501,8 @@ async function componentsFlow() {
   await ctx.close();
   const dir = join(SITE_DIR, 'componentes');
   mkdirSync(dir, { recursive: true });
+  // «Revelar» shows a photo of the page (its snippet names tu-foto.jpg next to it)
+  copyFileSync(SYNTH, join(dir, 'tu-foto.jpg'));
   const react = [];
   for (const [id, tabs] of Object.entries(tabsById)) {
     const probe = COMP_PROBES[id];
@@ -2398,6 +2521,23 @@ async function componentsFlow() {
       scramble: async root => { const t = (await root.locator('h1 [aria-hidden="true"]').innerText()).trim(); assert(t === 'Teje luz con caracteres', `«${t}»`); return `texto completo al instante («${t}»)`; },
       typewriter: async (root, p) => { const a = await root.innerText(); await p.waitForTimeout(700); const b = await root.innerText(); assert(a === b && /Teje luz con caracteres/.test(a), `«${a}» → «${b}»`); return `frase completa y quieta («${a.trim()}»)`; },
       spinners: async (root, p) => { const s = root.locator('[role="status"]').first(); const a = await s.innerText(); await p.waitForTimeout(400); const b = await s.innerText(); assert(a === b, `«${a}» → «${b}»`); return `indicador quieto («${a}»)`; },
+      ticker: async (root, p) => {
+        const track = root.locator('span[aria-hidden="true"]').first();
+        const a = await track.evaluate(el => getComputedStyle(el).transform);
+        await p.waitForTimeout(600);
+        const b = await track.evaluate(el => getComputedStyle(el).transform);
+        assert(a === b, `se mueve (${a} → ${b})`);
+        return 'letrero quieto';
+      },
+      glitch: async (root, p) => {
+        const link = root.getByRole('link').first();
+        const name = (await link.innerText()).trim();
+        await link.hover();
+        await p.waitForTimeout(600);
+        const now = (await link.innerText()).trim();
+        assert(now === name && !(await link.locator('span').count()), `«${now}» bajo el cursor`);
+        return `«${name}» no se revuelve`;
+      },
     }[id];
     if (still && tabs['HTML para pegar']) await check('componentes', `${id}: con «reducir movimiento» no anima`, async () => {
       const { ctx: c, p, errors: e } = await visitSite(`${SITE}/componentes/${id}.html`, { settle: 500, reducedMotion: 'reduce' });
@@ -2432,7 +2572,15 @@ async function componentsFlow() {
       if (tabs.React) {
         const name = /export default function (\w+)/.exec(tabs.React)?.[1];
         const moduleFile = /from '\.\/([\w.]+)'/.exec(tabs.React)?.[1];
-        const jsxEl = id === 'scramble' ? `<${name}>Teje luz</${name}>` : id === 'magnet' ? `<${name}>ACÉRCATE</${name}>` : id === 'halo' ? `<${name} type="button" style={{ padding: 24 }}>Halo</${name}>` : `<${name} />`;
+        const jsxEl = {
+          scramble: `<${name}>Teje luz</${name}>`,
+          magnet: `<${name}>ACÉRCATE</${name}>`,
+          halo: `<${name} type="button" style={{ padding: 24 }}>Halo</${name}>`,
+          reveal: `<${name} src="/tu-foto.jpg" alt="Una foto" style={{ width: 320 }} />`,
+          loader: `<${name} value={0.5} label="Mitad" />`,
+          glitch: `<${name}><a href="#a">Proyectos</a> <a href="#b">Contacto</a></${name}>`,
+          spotlight: `<${name} style={{ height: 160 }}><a href="#c">Enlace</a></${name}>`,
+        }[id] ?? `<${name} />`;
         react.push({ id, name, file: `${name}.jsx`, code: tabs.React, moduleFile, module: mod, jsx: jsxEl, probe: probe?.probe ?? (async () => 'monta') });
       }
     }
@@ -2505,6 +2653,7 @@ async function main() {
       await runPiece('patron', { video: true, code: true, transparent: true, svgNote: /Sin efectos de píxel/, svgInfo: true });
       await runPiece('limpio', { formats: ['png'], sizes: ['hd', 'sq', 'story', 'og', '4k'] });
       await runPiece('texto', { formats: ['png'], code: true, bg: '#f2ecdf' });
+      await runPiece('transformada', { formats: ['png'], video: true, code: true, terminal: true });
       await runPiece('imagen', { formats: ['png'], image, code: true });
       await runPiece('bloques', { formats: ['png'], svgNote: /Bloques .* formas exactas/, svgInfo: true });
       await runPiece('braille', { formats: ['png'], svgNote: /braille van como formas exactas/, svgInfo: true });
@@ -2520,7 +2669,7 @@ async function main() {
     let compReact = [];
     if (want('componentes')) compReact = await componentsFlow().catch(e => { record('componentes', 'flujo', 'FAIL', e.message); return []; });
     if (want('react') || want('codigo')) await reactProject(compReact).catch(e => record('react', 'proyecto', 'FAIL', e.message));
-    if (want('terminal') || want('texto')) for (const k of ['terminal', 'anchos']) await terminalChecks(k).catch(e => record('terminal', k, 'FAIL', e.message));
+    if (want('terminal') || want('texto')) for (const k of ['terminal', 'anchos', 'transformada']) await terminalChecks(k).catch(e => record('terminal', k, 'FAIL', e.message));
     if (want('proyectos')) await projectFlows().catch(e => record('proyectos', 'flujo', 'FAIL', e.message));
     if (want('camara')) await cameraFlows().catch(e => record('camara', 'flujo', 'FAIL', e.message));
   } finally {
