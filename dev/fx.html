@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acabados · QA</title>
+<style>
+  :root { --ink: #0c0b0a; --bone: #ede6da; --line: #2a2723; --soft: #8f877c; --verm: #ff5b1f; --card: #151412; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--bone); font: 14px/1.45 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 12px 20px; background: var(--ink); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0 8px 0 0; letter-spacing: .02em; }
+  header label { display: flex; gap: 6px; align-items: center; color: var(--soft); }
+  select, button { background: var(--card); color: var(--bone); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; min-height: 36px; }
+  button.primary { border-color: var(--verm); color: var(--verm); }
+  #status { color: var(--soft); font: 12px ui-monospace, monospace; }
+  main { padding: 18px 20px 60px; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--soft); margin: 28px 0 12px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+  body.big .grid { grid-template-columns: repeat(auto-fill, minmax(640px, 1fr)); }
+  .grid.algos { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  figure .pair { display: grid; grid-template-columns: 1.6fr 1fr; align-items: center; gap: 1px; background: var(--line); }
+  figure canvas { display: block; width: 100%; height: auto; background: #1d1b18; }
+  canvas.alpha { background-color: #ddd8cf; background-image: conic-gradient(#b9b3a8 25%, transparent 0 50%, #b9b3a8 0 75%, transparent 0); background-size: 16px 16px; }
+  canvas.zoom { image-rendering: pixelated; }
+  figcaption { padding: 8px 10px 10px; display: grid; gap: 2px; }
+  figcaption b { font-weight: 600; }
+  figcaption .meta { display: flex; justify-content: space-between; color: var(--soft); font: 11px ui-monospace, monospace; }
+  figcaption p { margin: 0; color: var(--soft); font-size: 12px; }
+  table { border-collapse: collapse; font: 12px ui-monospace, monospace; min-width: 520px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 5px 12px 5px 0; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--soft); font-weight: 500; }
+  td.slow { color: var(--verm); }
+  .note { color: var(--soft); max-width: 70ch; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Acabados · QA</h1>
+  <label>Escala <select id="scale"><option value="0.5">vista previa (0.5)</option><option value="1">final (1)</option><option value="0.25">ligera (0.25)</option></select></label>
+  <button id="time" class="primary" type="button">Medir tiempos (1080×1350)</button>
+  <span id="status">preparando…</span>
+</header>
+<main>
+  <section><h2>Cada acabado con sus valores por defecto · foto y recorte (ms: primera pasada, sin calentar)</h2><div class="grid" id="finishes"></div></section>
+  <section><h2>Tramado: los 17 métodos (1 bit, píxel 1, detalle 260×200 ampliado)</h2><div class="grid algos" id="algos"></div></section>
+  <section><h2>Modos de color, paletas y formas</h2><div class="grid" id="variants"></div></section>
+  <section><h2>Looks de las referencias (pilas de acabados)</h2><div class="grid" id="looks"></div></section>
+  <section><h2>Tiempos (laboratorio)</h2><p class="note" id="timenote">Pulsa «Medir tiempos»: cada acabado con sus valores por defecto sobre una foto de 1080×1350 (final, escala 1) y de 540×675 (vista previa, escala 0.5); el mejor de 5 pasadas tras una de calentamiento (el más cercano al coste propio en una máquina compartida), incluida la lectura y escritura del lienzo, que la primera fila mide sola.</p><div id="times"></div></section>
+</main>
+<script type="module" src="./fx.ts"></script>
+</body>
+</html>
