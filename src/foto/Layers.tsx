@@ -11,6 +11,7 @@ import type { CompositeBlend, Id, Layer, LayerKind, Mask, Project } from '../pro
 import { IEye, IEyeOff, ILock, IUnlock, IPlus, ITrash } from '../studio/icons';
 import { Picker } from '../studio/ui/Picker';
 import { Slider } from './controls';
+import { CanvasSection } from './inspect/CanvasSection';
 import { IDup, IGrip, KindIcon } from './icons';
 import { addLayerOf, deleteLayer, duplicateLayer, KIND_BLURB, KIND_LABEL, nudgeLayer, renameLayer } from './layerOps';
 import { viewCompositor } from './scheduler';
@@ -103,6 +104,7 @@ export function Layers({ onOpenMask }: { onOpenMask?: () => void }) {
           <button type="button" className="icon-btn" title="Eliminar la capa (Supr)" aria-label="Eliminar la capa" onClick={() => deleteLayer(sel.id)}><ITrash /></button>
         </div>
       )}
+      <div className="fl-canvas"><CanvasSection /></div>
     </div>
   );
 }

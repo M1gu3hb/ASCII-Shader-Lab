@@ -43,6 +43,7 @@ export function StudioSwitch({ current }: { current: 'lab' | 'foto' }) {
 export function TopBar({ editing }: { editing: boolean }) {
   const name = useProject(s => s.project?.name ?? '');
   const storage = useProject(s => s.storage);
+  const saving = useFoto(s => s.saving);
   const canUndo = useProject(s => s.canUndo);
   const canRedo = useProject(s => s.canRedo);
   const [editName, setEditName] = useState(false);
@@ -61,7 +62,7 @@ export function TopBar({ editing }: { editing: boolean }) {
             <button type="button" className="fproj-name" onClick={() => setEditName(true)} title="Cambiar el nombre">{name}</button>
           )}
           <span className={'fsave ' + storage} role="status" title={storage === 'ok' ? 'Guardado en este navegador' : storage === 'full' ? 'No queda espacio en el navegador: descarga el proyecto' : storage === 'unavailable' ? 'El navegador no deja guardar: descarga el proyecto' : 'Se guarda solo'}>
-            {storage === 'ok' ? 'guardado' : storage === 'full' ? 'sin espacio' : storage === 'unavailable' ? 'sin guardar' : ''}
+            {saving && storage !== 'full' && storage !== 'unavailable' ? 'guardando…' : storage === 'ok' ? 'guardado' : storage === 'full' ? 'sin espacio' : storage === 'unavailable' ? 'sin guardar' : ''}
           </span>
         </div>
       )}

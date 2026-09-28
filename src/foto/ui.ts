@@ -60,6 +60,8 @@ export interface FotoUI {
   playing: boolean;
   /** A version to compare with the current one (the versions sheet). */
   compareWith: string | null;
+  /** An edit waits to be saved. */
+  saving: boolean;
   /** Bumped when the tool list changes (the palette re-reads TOOLS). */
   toolsV: number;
 }
@@ -74,7 +76,7 @@ export const useFoto = create<FotoUI>(() => ({
   screen: 'start', tool: null, op: 'add', maskView: 'tint', compare: false, split: 0.5, holding: false,
   zoom: 'fit', zk: 1, pan: { x: 0, y: 0 }, sheet: 'none', cutout: false, snap: 'closed', mtab: 'capas', sheetH: 0, immersive: narrow(),
   status: '', live: '', diceScope: 'capa', quality: loadQuality(),
-  render: { ms: 0, scale: 0, light: false, w: 0, h: 0, warnings: [], n: 0 }, playing: false, compareWith: null, toolsV: 0,
+  render: { ms: 0, scale: 0, light: false, w: 0, h: 0, warnings: [], n: 0 }, playing: false, compareWith: null, toolsV: 0, saving: false,
 }));
 
 export const ui = () => useFoto.getState();

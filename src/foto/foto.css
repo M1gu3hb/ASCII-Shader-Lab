@@ -163,6 +163,11 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .lr-mask.inv { border-style: dashed; }
 .fl-foot { display: flex; gap: 4px; padding: 6px 12px 10px; }
 .fl-foot .icon-btn { font: 600 14px/1 var(--font-ui); }
+.fl-canvas { padding: 0 12px; }
+.fl-canvas .fsec { border-top: 1px solid var(--line); }
+.fcanvas-wh { display: flex; align-items: flex-end; gap: 8px; margin: 0 0 12px; }
+.fcanvas-wh label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.fcanvas-wh input { width: 84px; background: var(--field); border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; font: 500 12.5px/1 var(--font-mono); }
 
 .finsp { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px 40px; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; overscroll-behavior: contain; }
 .finsp.empty { display: grid; place-items: center; text-align: center; }

@@ -32,15 +32,15 @@ import { projectFromLab } from './bridge';
 import { startKeys } from './keys';
 import { startScheduler } from './scheduler';
 import { openSavedProject, startEditing } from './session';
-import { projectThumb } from './thumbs';
+import { startFotoAutosave } from './autosave';
 import { say, setUI } from './ui';
-import { refreshSaved, startAutosave } from '../project/store';
+import { refreshSaved } from '../project/store';
 import { installQA } from './qa';
 
 startScheduler();
 startKeys();
 // the open project saves itself a moment after each change (with a small picture for the list)
-startAutosave({ thumb: p => projectThumb(p, 320) });
+startFotoAutosave();
 
 async function boot() {
   const h = new URLSearchParams(location.hash.slice(1));

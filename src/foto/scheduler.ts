@@ -21,7 +21,7 @@ export const IDLE_MS = 260;
 /** Light renders keep the frame's long side at least this many px (below it the picture is mush). */
 const LIGHT_MIN_SIDE = 360;
 
-export interface Rendered { state: FrameState; report: RenderReport; scale: number; light: boolean; project: Project }
+export interface Rendered { state: FrameState; report: RenderReport; scale: number; light: boolean; project: Project; seq: number }
 
 let comp: Compositor | null = null;
 /** The viewport's compositor (created on first use; ASCII engines are pooled per layer inside it). */
@@ -33,6 +33,8 @@ let art: HTMLCanvasElement | null = null;
 let raf = 0;
 let idleT = 0;
 let busy = false;
+/** Renders started so far (a render reports the number it started with). */
+let seq = 0;
 let dirty = false;
 let needFinal = false;
 let lastChange = 0;
@@ -134,6 +136,7 @@ async function run(light: boolean) {
   if (!p || !canvas) { dirty = false; return; }
   busy = true;
   dirty = false;
+  const mine = ++seq;
   const scale = scaleFor(p, light);
   const t = useProject.getState().time;
   const state = evaluate(p, t);
@@ -144,7 +147,7 @@ async function run(light: boolean) {
     if (!light || forced !== null) finalScale = scale;
     const prev = ui().render;
     setUI({ render: { ms: report.ms, scale, light: lightDone || ui().quality === 'ligera', w: report.w, h: report.h, warnings: report.warnings, n: prev.n + 1 } });
-    for (const fn of listeners) fn({ state, report, scale, light, project: p });
+    for (const fn of listeners) fn({ state, report, scale, light, project: p, seq: mine });
   } catch (e) {
     console.warn('foto: render failed', e);
   } finally {
@@ -193,9 +196,11 @@ export function releaseViewport() {
 
 /** Waits for the next final (not light) render (tests, exports that want the viewport settled). */
 export function settled(timeout = 20_000): Promise<Rendered | null> {
+  // only a render that starts after this call shows what the project is now
+  const want = seq + 1;
   return new Promise(res => {
     const t = setTimeout(() => { off(); res(null); }, timeout);
-    const off = onRendered(r => { if (!r.light || forced !== null) { clearTimeout(t); off(); res(r); } });
+    const off = onRendered(r => { if (r.seq >= want && (!r.light || forced !== null)) { clearTimeout(t); off(); res(r); } });
     request(false);
   });
 }
