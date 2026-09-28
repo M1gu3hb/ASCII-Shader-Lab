@@ -7,6 +7,8 @@
  *
  * Accesible: el texto real queda disponible para lectores de pantalla.
  * Respeta prefers-reduced-motion (muestra el texto sin animar).
+ * En bucle ('loop') se repite unos segundos (loopFor) y se queda quieto; pasar el cursor o llegar con el
+ * teclado lo repite una vez. (Lo que se mueve solo más de cinco segundos tiene que poder pararse.)
  * Funciona mejor con tipografías monoespaciadas.
  */
 export const scrambleDefaults = {
@@ -15,6 +17,7 @@ export const scrambleDefaults = {
   stagger: 'left',         // 'left' | 'right' | 'center' | 'random'
   trigger: 'view',         // 'load' | 'view' | 'hover' | 'loop'
   loopDelay: 2600,         // ms de pausa entre repeticiones (trigger 'loop')
+  loopFor: 5000,           // ms durante los que se repite (trigger 'loop'); 0 = siempre: entonces ofrece tú cómo pararlo
   noiseColor: '',          // color de los caracteres aún sin resolver ('' = heredado)
 };
 
@@ -46,7 +49,7 @@ export function scramble(el, options = {}) {
   // resolves (with a monospaced font nothing around it moves)
   const HOLD = ' ';
   const blank = letters.map(c => (c === ' ' || c === '\n' ? c : HOLD)).join('');
-  let raf = 0, timer = 0, t0 = 0, seen = false;
+  let raf = 0, timer = 0, t0 = 0, seen = false, until = 0;
 
   function frame(now) {
     const p = (now - t0) / o.duration;
@@ -66,7 +69,8 @@ export function scramble(el, options = {}) {
     if (p < 1) raf = requestAnimationFrame(frame);
     else {
       vis.textContent = text;
-      if (o.trigger === 'loop') timer = setTimeout(play, o.loopDelay);
+      // (another round only if it also ends within loopFor)
+      if (o.trigger === 'loop' && (!(o.loopFor > 0) || performance.now() + o.loopDelay + o.duration <= until)) timer = setTimeout(play, o.loopDelay);
     }
   }
 
@@ -75,6 +79,7 @@ export function scramble(el, options = {}) {
     clearTimeout(timer);
     if (reduced) { vis.textContent = text; return; }
     t0 = performance.now();
+    if (!until) until = t0 + o.loopFor;
     frame(t0); // the first frame now: never an empty element in between
   }
 
@@ -84,6 +89,11 @@ export function scramble(el, options = {}) {
     vis.textContent = text;
     el.addEventListener('pointerenter', onEnter);
     el.addEventListener('focus', onEnter);
+  } else if (o.trigger === 'loop') {
+    // once the loop has stopped, the cursor or the keyboard plays it once more
+    el.addEventListener('pointerenter', onEnter);
+    el.addEventListener('focusin', onEnter);
+    play();
   } else if (o.trigger === 'view' && typeof IntersectionObserver !== 'undefined') {
     vis.textContent = blank; // holds the text's place until it scrolls into view
     io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && !seen) { seen = true; play(); } }), { threshold: 0.4 });
@@ -100,6 +110,7 @@ export function scramble(el, options = {}) {
       io?.disconnect();
       el.removeEventListener('pointerenter', onEnter);
       el.removeEventListener('focus', onEnter);
+      el.removeEventListener('focusin', onEnter);
       el.textContent = text;
     },
   };

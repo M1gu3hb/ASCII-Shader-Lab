@@ -2,13 +2,15 @@
 /**
  * Foco — el fondo de una sección es una trama de caracteres casi apagada; donde está el cursor (o el
  * elemento que tiene el foco del teclado) se enciende una luz que la revela.
- * Monotrama · sin dependencias (Canvas 2D, sólo dibuja cuando algo cambia).
+ * Monotrama · sin dependencias (Canvas 2D; dibuja sólo cuando algo cambia: el cursor, el foco, el tamaño,
+ * y mientras hay luz, la trama que respira; sin nadie, la trama se queda quieta y no gasta nada).
  *
  *   spotlight(document.querySelector('.hero'), { texture: 'ondas' });
  *
  * - Decorativo: el lienzo va detrás del contenido (z-index -1 dentro de la sección) y está oculto para los
  *   lectores de pantalla. El contenido de la sección no cambia.
  * - Con el teclado, la luz va al elemento enfocado dentro de la sección.
+ * - La trama respira sólo mientras la luz está encendida (nada se mueve solo más de unos instantes).
  * - Con «reducir movimiento» la trama no respira y la luz salta sin deslizarse.
  */
 export const spotlightDefaults = {
@@ -70,11 +72,13 @@ export function spotlight(section, options = {}) {
     last = now;
     const e = reduced ? 1 : 1 - Math.exp(-dt * 9);
     x += (tx - x) * e; y += (ty - y) * e; on += (onT - on) * e;
-    if (!reduced && o.idle > 0) t += dt;
+    if (Math.abs(onT - on) <= 0.01) on = onT;
+    // the texture breathes while the light is on (never with reduced motion): with nobody there, nothing moves
+    const breathing = !reduced && o.idle > 0 && o.texture !== 'puntos' && on > 0;
+    if (breathing) t += dt;
     draw();
     const moving = Math.abs(tx - x) > 0.5 || Math.abs(ty - y) > 0.5 || Math.abs(onT - on) > 0.01;
-    // the texture breathes while the section is in view (never with reduced motion)
-    if (visible && (moving || (!reduced && o.idle > 0 && o.texture !== 'puntos'))) raf = requestAnimationFrame(tick);
+    if (visible && (moving || breathing)) raf = requestAnimationFrame(tick);
     else last = 0;
   }
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };

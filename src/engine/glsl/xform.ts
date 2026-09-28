@@ -16,7 +16,7 @@ uniform sampler2D uPrevIn;
 uniform sampler2D uTrail;
 uniform sampler2D uText;
 uniform int uKind;
-uniform float uAmt, uP, uK, uTime, uDecay, uHave, uAspect;
+uniform float uAmt, uP, uK, uTime, uTimeB, uDecay, uHave, uAspect;
 uniform vec2 uGrid, uRes, uCell;
 out vec4 o;
 ${GLSL_CORE}
@@ -118,7 +118,8 @@ void main(){
   } else if (uKind == 6){
     // ondular: a flag in the wind (uK waves down the grid)
     float ox = sin((cf.y + .5) / uGrid.y * uK * PI + uTime * 2.) * uAmt * 6.;
-    float oy = cos((cf.x + .5) / uGrid.x * uK * .7 * PI - uTime * 1.6) * uAmt * 3.;
+    // (uTime and uTimeB: the same time, or with a loop each wave's own, see engine/loop.ts)
+    float oy = cos((cf.x + .5) / uGrid.x * uK * .7 * PI - uTimeB * 1.6) * uAmt * 3.;
     R = If(cf + .5 + vec2(ox, oy));
   } else if (uKind == 7){
     // estela: the trail (updated just before, pass 20) lights the source up (screen)

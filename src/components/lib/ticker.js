@@ -7,7 +7,8 @@
  *   ticker(document.querySelector('.separador'), { text: 'NUEVA COLECCIÓN · ENVÍO GRATIS' });
  *
  * - El texto se lee una vez, entero, para los lectores de pantalla; las copias que desfilan están ocultas.
- * - Hay un botón «Pausar» (visible al enfocarlo con el teclado) para detenerlo cuando quieras.
+ * - Un botón «Pausar» / «Reanudar» lo detiene cuando quieras: aparece al pasar el cursor, con el foco del
+ *   teclado y mientras está en pausa; en pantallas táctiles se ve siempre, y tocar la franja también lo pausa.
  * - Con «reducir movimiento» no se mueve: queda quieto y completo.
  */
 export const tickerDefaults = {
@@ -18,6 +19,15 @@ export const tickerDefaults = {
   ramp: ' .:-=+*#%@',       // para 'onda'
   color: '',                // '' = el color del texto
 };
+
+/** The first colour behind `el` that is not transparent (the button sits on it, over the moving text). */
+function backgroundOf(el) {
+  for (let e = el; e; e = e.parentElement) {
+    const c = getComputedStyle(e).backgroundColor;
+    if (c && c !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(c)) return c;
+  }
+  return 'Canvas';
+}
 
 export function ticker(el, options = {}) {
   const o = { ...tickerDefaults, ...options };
@@ -33,20 +43,26 @@ export function ticker(el, options = {}) {
   const track = document.createElement('span');
   track.setAttribute('aria-hidden', 'true');
   track.style.cssText = `display:inline-block;will-change:transform;${o.color ? 'color:' + o.color : ''}`;
+  // the pause button: what it shows is what it is called («Pausar el letrero» / «Reanudar el letrero»)
+  const touch = typeof matchMedia === 'function' && matchMedia('(hover: none), (pointer: coarse)').matches;
+  const what = o.mode === 'letrero' ? 'el letrero' : 'la animación del separador';
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.textContent = 'Pausar';
-  btn.setAttribute('aria-pressed', 'false');
-  btn.setAttribute('aria-label', o.mode === 'letrero' ? 'Pausar el letrero' : 'Pausar la animación del separador');
-  // out of sight until it has the keyboard focus
-  const hide = 'position:absolute;right:4px;top:50%;transform:translateY(-50%);font:inherit;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid currentColor;background:inherit;color:inherit;cursor:pointer;';
-  btn.style.cssText = hide + 'opacity:0;pointer-events:none';
-  btn.addEventListener('focus', () => { btn.style.cssText = hide + 'opacity:1'; });
-  btn.addEventListener('blur', () => { btn.style.cssText = hide + 'opacity:0;pointer-events:none'; });
+  const look = 'position:absolute;right:4px;top:50%;transform:translateY(-50%);font:inherit;font-size:12px;line-height:1.2;padding:4px 10px;border-radius:6px;border:1px solid currentColor;color:inherit;cursor:pointer;'
+    + `background:${backgroundOf(el)};` + (touch ? 'min-height:24px;min-width:44px;' : '');
   el.append(sr, track);
   if (!reduced && o.mode !== 'puntos') el.append(btn);
 
   let raf = 0, x = 0, last = 0, t = 0, hover = false, focus = false, paused = false, visible = true, unit = 1;
+  // shown with the cursor over the strip, with the keyboard on it, while paused, and always on touch screens
+  function label() {
+    const verb = paused ? 'Reanudar' : 'Pausar';
+    btn.textContent = verb;
+    btn.setAttribute('aria-label', `${verb} ${what}`);
+    const shown = touch || hover || paused || document.activeElement === btn;
+    btn.style.cssText = look + (shown ? 'opacity:1' : 'opacity:0;pointer-events:none');
+  }
+  label();
   const chars = () => Math.max(8, Math.ceil(el.clientWidth / Math.max(4, charW())) + 4);
   let cw = 0;
   function charW() {
@@ -95,20 +111,22 @@ export function ticker(el, options = {}) {
     else last = 0;
   }
   const kick = () => { if (!raf && !reduced && o.mode !== 'puntos') raf = requestAnimationFrame(tick); };
-  const onEnter = () => { hover = true; };
-  const onLeave = () => { hover = false; };
-  const onFocusIn = e => { if (e.target !== btn) focus = true; };
-  const onFocusOut = () => { focus = false; };
+  const onEnter = e => { if (e.pointerType === 'mouse') { hover = true; label(); } };
+  const onLeave = e => { if (e.pointerType === 'mouse') { hover = false; label(); } };
+  const onFocusIn = e => { if (e.target !== btn) focus = true; else label(); };
+  const onFocusOut = () => { focus = false; requestAnimationFrame(label); };
   const onBtn = () => {
     paused = !paused;
-    btn.textContent = paused ? 'Seguir' : 'Pausar';
-    btn.setAttribute('aria-pressed', String(paused));
+    label();
     kick();
   };
+  // on a touch screen the whole strip is a big target: a tap on it pauses or resumes too
+  const onTap = e => { if (touch && e.target !== btn && !reduced && o.mode !== 'puntos') onBtn(); };
   el.addEventListener('pointerenter', onEnter);
   el.addEventListener('pointerleave', onLeave);
   el.addEventListener('focusin', onFocusIn);
   el.addEventListener('focusout', onFocusOut);
+  el.addEventListener('click', onTap);
   btn.addEventListener('click', onBtn);
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { cw = 0; build(); }) : null;
   ro?.observe(el);
@@ -128,6 +146,7 @@ export function ticker(el, options = {}) {
       el.removeEventListener('pointerleave', onLeave);
       el.removeEventListener('focusin', onFocusIn);
       el.removeEventListener('focusout', onFocusOut);
+      el.removeEventListener('click', onTap);
       el.innerHTML = prev;
     },
   };

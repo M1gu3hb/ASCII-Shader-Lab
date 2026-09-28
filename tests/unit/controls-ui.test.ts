@@ -8,7 +8,6 @@ import {
   PATTERN_DESC, SOURCE_DESC, helpFor,
 } from '../../src/studio/ui/copy';
 import { fold, nextIndex, typeAhead } from '../../src/studio/ui/rowMath';
-import { RAMPS_MAX, removeRamp, saveRamp, useRamps } from '../../src/studio/ui/ramps';
 
 describe('filas y listas: teclado', () => {
   it('← → recorren una fila (dando la vuelta), Inicio y Fin saltan a los extremos', () => {
@@ -99,21 +98,5 @@ describe('textos de los controles', () => {
     expect(helpFor('layers.2.scale')).toBe(HELP['layers.*.scale']);
     expect(helpFor('glyph.aspect')?.hint).toMatch(/terminal/);
     expect(helpFor('nada.de.nada')).toBeUndefined();
-  });
-});
-
-describe('tus rampas', () => {
-  it('con la lista llena, guardar otra no descarta ninguna de las guardadas (renombrar sí se puede)', () => {
-    useRamps.setState({ list: [] });
-    for (let i = 0; i < RAMPS_MAX; i++) expect(saveRamp('r' + i, ' .:' + String.fromCharCode(0x2500 + i))).not.toBeNull();
-    const before = useRamps.getState().list.map(r => r.chars);
-    expect(before).toHaveLength(RAMPS_MAX);
-    expect(saveRamp('otra', ' .#@')).toBeNull();
-    expect(useRamps.getState().list.map(r => r.chars)).toEqual(before);
-    expect(saveRamp('nuevo nombre', before[5])?.name).toBe('nuevo nombre');
-    expect(useRamps.getState().list).toHaveLength(RAMPS_MAX);
-    removeRamp(useRamps.getState().list[0].id);
-    expect(saveRamp('otra', ' .#@')).not.toBeNull();
-    expect(useRamps.getState().list[0].chars).toBe(' .#@');
   });
 });

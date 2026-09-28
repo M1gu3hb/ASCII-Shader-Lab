@@ -4,13 +4,16 @@
  * A port of SELECT_FS in ../glsl/programs.ts; its outputs are exactly what GridSnapshot reports.
  * Pure: no DOM.
  */
+import { wordsRate } from '../loop';
 import type { Recipe } from '../recipe';
 import { PI, TAU, fbm, hash12 } from './core';
 
 export interface SelectFrame {
   cols: number; rows: number;
-  /** Held time (stop motion applied). */
+  /** Held time (stop motion applied; with a loop, the loop's time). */
   time: number;
+  /** The piece's «Bucle perfecto» in seconds (0: none; see loop.ts). */
+  loop?: number;
   r: Recipe;
   /** Field outputs (8-bit). */
   fa: Uint8Array; fr: Uint8Array; fg: Uint8Array; fb: Uint8Array;
@@ -26,8 +29,8 @@ export interface SelectFrame {
     data: Uint8Array; width: number;
     cursorX: number; cursorY: number; cursorOn: boolean;
     color: [number, number, number] | null;
-    /** «Color por letra» (letters.ts): its speed and amount, or null. */
-    anim?: { speed: number; amount: number } | null;
+    /** «Color por letra» (letters.ts): its speed, amount and the time it reads (msgColorTime), or null. */
+    anim?: { speed: number; amount: number; time?: number } | null;
   };
   imode: number; ptrCellX: number; ptrCellY: number; ptrOn: number; istr: number; iradCells: number;
   /** Cell height / width. */
@@ -96,7 +99,12 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
   const hue = co.hue * TAU, ch = Math.cos(hue), sh = Math.sin(hue), sat = co.sat, vivid = co.vivid;
   const ax = cols / (rows * s.aspect);
   const wordsN = s.words.length;
-  const wordsT = Math.floor(T * jitter * 8);
+  const loop = s.loop ?? 0;
+  // «Palabras» with a loop: a whole number of passes over the words in it (loop.ts)
+  const wordsT = loop > 0 ? Math.floor(T * wordsRate(jitter, wordsN, loop)) : Math.floor(T * jitter * 8);
+  // with a loop, what drifts (the colour cycle, the noise map) fades from its state one loop earlier into its start
+  const fadeLoop = loop > 0 && (co.cycle !== 0 || cmap === 5) && !useSource;
+  const shift0 = co.shift + co.cycle * (T - loop), fadeW = loop > 0 ? T / loop : 0;
   const scrT = T * (1 + jitter * 14);
   const edgeTh = gmode === 1 ? (Math.max(edge, 0.35)) : edge;
   const edgeLim = 2.2 + (0.12 - 2.2) * edgeTh;
@@ -162,6 +170,7 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
       else if (cmap === 3) { const dx = (ux - 0.5) * ax, dy = uy - 0.5; g = Math.sqrt(dx * dx + dy * dy) * 1.5; }
       else if (cmap === 4) g = Math.atan2(uy - 0.5, (ux - 0.5) * ax) / TAU + 0.5;
       else if (cmap === 5) g = smooth(0.25, 0.75, fbm(ux * ax * 2.2 + T * 0.03, uy * 2.2 + T * 0.03));
+      const g0 = g;
       g = tri(g + shift);
       let br: number, bg: number, bb: number;
       if (useSource) {
@@ -170,6 +179,11 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
         br = br * (1 - vivid) + (br / d) * vivid; bg = bg * (1 - vivid) + (bg / d) * vivid; bb = bb * (1 - vivid) + (bb / d) * vivid;
       } else {
         const c = gradAt(s.grad, g); br = c[0]; bg = c[1]; bb = c[2];
+        if (fadeLoop) {
+          const g1 = cmap === 5 ? smooth(0.25, 0.75, fbm(ux * ax * 2.2 + (T - loop) * 0.03, uy * 2.2 + (T - loop) * 0.03)) : g0;
+          const c1 = gradAt(s.grad, tri(g1 + shift0));
+          br += (c1[0] - br) * fadeW; bg += (c1[1] - bg) * fadeW; bb += (c1[2] - bb) * fadeW;
+        }
       }
       if (hue > 0) {
         // Rodrigues rotation around the grey axis
@@ -194,7 +208,7 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
           let mr = msgCol[0], mg = msgCol[1], mb = msgCol[2];
           if (M.anim) {
             // «Color por letra», as SELECT_FS
-            const ph = ord * 0.07 - T * M.anim.speed * 0.35, a = M.anim.amount;
+            const ph = ord * 0.07 - (M.anim.time ?? T) * M.anim.speed * 0.35, a = M.anim.amount;
             let lr: number, lg: number, lb: number;
             if (M.color) {
               const hh = ph * TAU, c = Math.cos(hh), sn = Math.sin(hh), q = 0.57735;
