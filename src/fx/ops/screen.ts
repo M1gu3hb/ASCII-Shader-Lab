@@ -50,7 +50,7 @@ export const halftone: Op = (src, dst, p, run) => {
   const scale = run.scale;
   const cell = 100 / (p.freq as number); // output px
   const shape = p.shape as string, mode = p.color as string;
-  const contrast = p.contrast as number, clear = p.clear === true;
+  const contrast = p.contrast as number, bright = p.bright as number, clear = p.clear === true;
   const ink = rgbOf(p.ink), paper = rgbOf(p.paper);
   const W = w / scale, H = h / scale, cx = W / 2, cy = H / 2;
   const rgbTone = mode !== 'tinta';
@@ -97,7 +97,7 @@ export const halftone: Op = (src, dst, p, run) => {
         a = tmp[1];
         if (a > 0.004) dark = inkShare(tmp[0] / a);
       }
-      if (a > 0.004) dark = sat((dark - 0.5) * contrast + 0.5) * Math.min(1, a * 1.5);
+      if (a > 0.004) dark = sat((dark - 0.5) * contrast + 0.5 - bright) * Math.min(1, a * 1.5);
       g[j * gw + i] = round ? (dark > 0.002 ? dotRadius(dark, rmax) : -1) : dark;
     }
     return { cos, sin, g, gi0, gj0, gw, gh, col };
@@ -194,7 +194,8 @@ export const crosshatch: Op = (src, dst, p, run) => {
   // tone: premultiplied luma + alpha, averaged over about a third of the spacing
   const tone = coarseTone(s, w, h, sp * scale * 0.33, 2, n => run.scratch.f32('hatch.c', n), n => run.scratch.f32('hatch.t', n));
   const darkMap = run.scratch.f32('hatch.d', w * h);
-  expandCoarse2(tone, w, h, darkMap, inkShareFor(fromSrc ? null : ink, paper));
+  const share = inkShareFor(fromSrc ? null : ink, paper), bright = p.bright as number;
+  expandCoarse2(tone, w, h, darkMap, bright === 0 ? share : l => sat(share(l) - bright));
 
   const lo = 0.1, band = (1 - lo) / layers;
   const L = layers;

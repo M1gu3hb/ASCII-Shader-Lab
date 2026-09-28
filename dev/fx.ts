@@ -205,8 +205,8 @@ async function renderAll() {
   // 4. looks of the references: stacks of finishes (and layers)
   const O = asciiOverlay(W, H);
   const looks: Array<[string, string, () => { c: HTMLCanvasElement; alpha?: boolean }]> = [
-    ['Jardín de tramas', 'recorte · tramado Atkinson 1 bit en bloques', () => ({ c: stack(F.width, F.height, '#ede6da', [finished(F, [f('dither', { algo: 'atkinson', pixel: 3, clear: true })]).c]) })],
-    ['Figura en semitono', 'recorte · semitono de puntos, papel transparente', () => ({ c: stack(F.width, F.height, '#efe9df', [finished(F, [f('halftone', { clear: true, freq: 10, contrast: 1.4 })]).c]) })],
+    ['Jardín de tramas', 'recorte · tramado Atkinson 1 bit en bloques', () => ({ c: stack(F.width, F.height, '#ede6da', [finished(F, [f('dither', { algo: 'atkinson', pixel: 3, clear: true, contrast: 1.2, bright: -0.3 })]).c]) })],
+    ['Figura en semitono', 'recorte · semitono de puntos, papel transparente', () => ({ c: stack(F.width, F.height, '#efe9df', [finished(F, [f('halftone', { clear: true, freq: 10, bright: -0.3 })]).c]) })],
     ['Overlay ASCII brillante', 'foto + caracteres con resplandor y estela (hosqo)', () => {
       const ov = finished(O, [f('motionblur', { trail: true, distance: 70, angle: 200 }), f('glow', { threshold: 0, radius: 26, strength: 1.2, tint: '#ffb27a' })]).c;
       return { c: stack(W, H, null, [finished(P, [f('levels', { gamma: 0.8 }), f('vignette')]).c, ov]) };
