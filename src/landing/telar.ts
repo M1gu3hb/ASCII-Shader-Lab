@@ -13,7 +13,7 @@ import { magnet } from '../components/lib/magnet.js';
 import { scramble } from '../components/lib/scramble.js';
 import { progress, spinner } from '../components/lib/spinners.js';
 import { typewriter } from '../components/lib/typewriter.js';
-import { live, morph, reduced, still, track } from './live';
+import { isPaused, live, morph, onPause, reduced, still, track } from './live';
 import { swapText } from './motion';
 import { tabset } from './tabs';
 
@@ -94,10 +94,16 @@ export function mountTelar(root: HTMLElement) {
     stage.querySelectorAll<HTMLElement>('[data-over]').forEach(o => { o.hidden = o.dataset.over !== space; });
     caps.querySelectorAll<HTMLElement>('[data-cap]').forEach(c => { c.hidden = c.dataset.cap !== space; });
     if (user && changed) glyphCurtain(caps, { bg: '#0c0b0a', origin: 'left', duration: 260, cell: 9 });
-    stopPieces?.();
-    stopPieces = space === 'componentes' ? startPieces(stage) : null;
+    pieces();
     if (changed || !user) show('space');
   };
+
+  // the interface pieces move like the canvases: «Pausar» in the header stops them too
+  const pieces = () => {
+    stopPieces?.();
+    stopPieces = space === 'componentes' && !isPaused() ? startPieces(stage) : null;
+  };
+  onPause(() => pieces());
 
   const tabs = tabset(list, (i, _t, user) => select(i, user));
   moreBtn?.addEventListener('click', () => {
