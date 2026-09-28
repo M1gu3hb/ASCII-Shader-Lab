@@ -214,7 +214,7 @@ function ImageTab({ req }: { req: ExportRequest | null }) {
         {!images && <p className="note" aria-live="polite">Comprobando qué formatos guarda este navegador…</p>}
         {images && missing.map(f => <Unavailable key={f} what={`${FORMAT_NAME[f]}: no disponible.`}>{formatGap(f, images)}</Unavailable>)}
         <label className="toggle"><span>Fondo transparente {format === 'jpeg' && '(no en JPEG)'}</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} disabled={format === 'jpeg'} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
-        {transparent && <p className="note">Sólo quedan los caracteres (y el relleno de celda). Ideal para componer en Figma, Photoshop o After Effects.</p>}
+        {transparent && <p className="note">Sólo quedan los caracteres (y el relleno de celda), sobre transparencia real: para componerlos encima de otra imagen o video.</p>}
         <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Generando…' : 'Descargar imagen'}</button>
       </div>
       <div className="ex-card">
@@ -330,7 +330,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
           ? <Unavailable what={`MP4 (H.264) a ${sz.W}×${sz.H}: no disponible.`} action={switchTo(alts.mp4)}>Este navegador no puede codificar H.264 a este tamaño; a {alts.mp4.W}×{alts.mp4.H} sí. A este tamaño, usa WebM.</Unavailable>
           : alts && <Unavailable what="MP4 (H.264): no disponible.">Este navegador no puede codificar H.264, así que aquí no hay MP4. Usa WebM o prueba en otro navegador.</Unavailable>)}
         {!cur.webm && <Unavailable what="WebM: no disponible.">Este navegador no puede codificar VP9 ni VP8 a {sz.W}×{sz.H}. Usa MP4.</Unavailable>}
-        <p className="note">{sz.W}×{sz.H} · {Math.round(secs * fps)} fotogramas. MP4 funciona en redes sociales, Keynote y editores de video.</p>
+        <p className="note">{sz.W}×{sz.H} · {Math.round(secs * fps)} fotogramas. MP4 (H.264) es el formato que suelen pedir redes sociales, presentaciones y editores de video; WebM, el de la web.</p>
       </>
     );
   };

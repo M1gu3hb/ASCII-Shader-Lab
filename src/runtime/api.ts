@@ -169,14 +169,32 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
       engine.setMedia('video', v);
     }
   }
-  return {
+  let unwatch = () => {};
+  const ctl: Controller = {
     engine,
     kind,
     play: () => engine.play(),
     pause: () => engine.pause(),
     set: (next: unknown) => engine.set(calm(normalizeRecipe(next)), { transition: true }),
-    destroy: () => { engine.destroy(); remove(); },
+    destroy: () => { unwatch(); engine.destroy(); remove(); },
   };
+  // a pasted block that its page takes away (a site that changes views without reloading) has nobody to
+  // call destroy(): once its canvas has left the document for a moment, it stops and lets go of the context
+  // (the Web Component and the React component clean up on their own)
+  if (!created && !(canvas.getRootNode() instanceof ShadowRoot)) unwatch = watchRemoval(canvas, () => ctl.destroy());
+  return ctl;
+}
+
+function watchRemoval(canvas: HTMLCanvasElement, done: () => void): () => void {
+  if (typeof MutationObserver === 'undefined') return () => {};
+  let t: ReturnType<typeof setTimeout> | null = null;
+  const mo = new MutationObserver(() => {
+    if (canvas.isConnected || t) return;
+    // moved rather than removed: it is back before the check
+    t = setTimeout(() => { t = null; if (!canvas.isConnected) done(); }, 400);
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+  return () => { mo.disconnect(); if (t) clearTimeout(t); };
 }
 
 class MonotramaField extends HTMLElement {

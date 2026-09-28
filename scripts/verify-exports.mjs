@@ -14,7 +14,9 @@
  * devices (see docs/compatibilidad.md).
  *
  * Env: PORT (preview port, default 4173) · OUT (artifact folder, default a new temp folder)
- *      ONLY (comma-separated groups) · NODE18 (path to a Node 18 binary; otherwise `npx -y node@18`)
+ *      ONLY (comma-separated groups: imagen, vector, video — with webm, gif, directo and reproduccion —,
+ *      mp4, codigo, react, componentes, texto, terminal, proyectos, camara) · PIECES (only these test
+ *      pieces, while developing) · NODE18 (path to a Node 18 binary; otherwise `npx -y node@18`)
  *      BROWSER (engine that drives the studio and visits the pasted code: chromium — Playwright's, the
  *      default —, chrome — Google Chrome stable, which encodes H.264 —, firefox or webkit)
  *      PW_EXTRA (folder with Playwright's firefox-N and webkit-N builds when they are not in the default
@@ -592,6 +594,19 @@ async function studioPiece(key, o = {}) {
 
     if (want('vector')) {
       await openSheet(page, 'Vector');
+      if (PIECES[key].fx && Object.values(PIECES[key].fx).some(v => v > 0.02 && v !== PIECES[key].fx.cellBg)) {
+        // pixel effects: before downloading, the tab shows the frame with them and without them, side by side
+        await check('vector', `${key}: antes de exportar, la pestaña muestra el SVG sin efectos de píxel junto a la vista`, async () => {
+          const imgs = page.locator('.svg-cmp img');
+          for (let i = 0; i < 100 && (await imgs.count()) < 2; i++) await pump(page, 100);
+          assert((await imgs.count()) === 2, `${await imgs.count()} imágenes en la comparación`);
+          const nat = await imgs.evaluateAll(els => els.map(e => e.naturalWidth));
+          assert(nat.every(w => w > 0), 'imágenes vacías');
+          const said = (await page.locator('.svg-fx').innerText()).replace(/\s+/g, ' ');
+          assert(/efectos de píxel que no existen en un SVG/.test(said), 'sin explicación: ' + said.slice(0, 120));
+          return said.slice(0, 150);
+        });
+      }
       await page.getByRole('button', { name: 'Contornos (fiel)' }).click();
       files.svgOutline = await download(page, join(dir, 'svg-contornos'), () => page.getByRole('button', { name: 'Descargar SVG' }).click());
       const notes = await page.locator('.ex-card .warn').allTextContents();
@@ -653,7 +668,7 @@ async function svgChecks(key, files, cw, chh, notes, o) {
       assert(r.status === 0 && existsSync(dst), r.stderr.slice(0, 200));
       renders.rsvg = dst;
       return identify(dst, '%w×%h');
-    });
+    }, 'rsvg-convert (herramienta)');
     await check('vector', `${label}: Inkscape lo exporta a PNG`, () => {
       need('inkscape');
       const dst = f.replace(/\.svg$/, '.inkscape.png');
@@ -661,20 +676,23 @@ async function svgChecks(key, files, cw, chh, notes, o) {
       assert(existsSync(dst), (r.stderr || '').slice(-200));
       renders.inkscape = dst;
       return identify(dst, '%w×%h');
-    });
-    await check('vector', `${label}: Chromium lo muestra`, async () => {
-      const p = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-      const b64 = Buffer.from(text).toString('base64');
-      await p.setContent(`<body style="margin:0"><img id="i" src="data:image/svg+xml;base64,${b64}"></body>`);
-      await p.waitForFunction(() => document.getElementById('i').complete);
-      const nat = await p.evaluate(() => { const i = document.getElementById('i'); return [i.naturalWidth, i.naturalHeight]; });
-      const dst = f.replace(/\.svg$/, '.chromium.png');
-      await p.locator('#i').screenshot({ path: dst });
-      await p.close();
-      assert(nat[0] > 0, 'no carga');
-      renders.chromium = dst;
-      return `${nat[0]}×${nat[1]}`;
-    });
+    }, 'inkscape (herramienta)');
+    // the SVG as an image in each browser engine (<img>, like a web page or a document would show it)
+    const showIn = async (b, tag) => {
+      const p = await b.newPage({ viewport: { width: 1600, height: 1000 } });
+      try {
+        const b64 = Buffer.from(text).toString('base64');
+        await p.setContent(`<body style="margin:0"><img id="i" src="data:image/svg+xml;base64,${b64}"></body>`);
+        await p.waitForFunction(() => document.getElementById('i').complete, null, { timeout: 60_000 });
+        const nat = await p.evaluate(() => { const i = document.getElementById('i'); return [i.naturalWidth, i.naturalHeight]; });
+        assert(nat[0] > 0, 'no carga');
+        const dst = f.replace(/\.svg$/, `.${tag}.png`);
+        await p.locator('#i').screenshot({ path: dst });
+        renders[tag] = dst;
+        return `${nat[0]}×${nat[1]}`;
+      } finally { await p.close(); }
+    };
+    await inEngines('vector', `${label}: el navegador lo muestra`, (b, n) => showIn(b, n), [BROWSER, ...PLAY.filter(n => n !== BROWSER)]);
     if (o.svgNote && mode === 'svgOutline') await check('vector', `${label}: la interfaz avisa de lo que el SVG no reproduce igual`, () => {
       assert(notes.some(t => o.svgNote.test(t)), 'sin aviso; avisos: ' + (notes.join(' | ') || 'ninguno'));
       const texts = (text.match(/<text\b/g) ?? []).length, geo = (text.match(/<circle\b/g) ?? []).length;
@@ -683,13 +701,15 @@ async function svgChecks(key, files, cw, chh, notes, o) {
     if (pngRef) {
       for (const [tool, png] of Object.entries(renders)) {
         // text mode needs the typeface installed: rsvg/Inkscape here fall back to another mono (fontconfig)
-        const limit = o.svgInfo ? Infinity : (mode === 'svgOutline' ? 0.03 : tool === 'chromium' ? 0.04 : 0.08);
-        await check('vector', `${label}: ${tool} ≈ PNG del mismo fotograma${o.svgInfo ? ' (informativo)' : ''}`, () => {
+        const browserEngine = ['chromium', 'chrome', 'firefox', 'webkit'].includes(tool);
+        const limit = o.svgInfo ? Infinity : (mode === 'svgOutline' ? 0.03 : CHROMIUMS.has(tool) ? 0.04 : 0.08);
+        const eng = browserEngine ? (await engine(tool)).label ?? tool : `${tool === 'rsvg' ? 'rsvg-convert' : tool} (herramienta)`;
+        await check('vector', `${label}: ${browserEngine ? 'visto en el navegador' : tool} ≈ PNG del mismo fotograma${o.svgInfo ? ' (informativo)' : ''}`, () => {
           const e = rmse(pngRef, png, { bg: o.bg });
           const eBlur = rmse(pngRef, png, { bg: o.bg, blur: 2 });
           assert(eBlur < limit, `RMSE ${fmt(e)}, desenfocado ${fmt(eBlur)} (límite ${limit})`);
           return `RMSE ${fmt(e)}, desenfocado ${fmt(eBlur)}`;
-        });
+        }, eng);
       }
     }
   }
@@ -1208,6 +1228,19 @@ async function codeChecks(key) {
       assert(!errors.length, errors.slice(0, 2).join(' | '));
       assert(hidden === 0 && shown > 0, `oculto ${hidden}, visible ${shown} dibujos/1.2 s`);
       return `oculto 0 dibujos/1.2 s; visible otra vez ${shown}`;
+    } finally { await ctx.close(); }
+  });
+  await check('codigo', `${key}: quitar el bloque de la página lo detiene y libera el contexto`, async () => {
+    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`);
+    try {
+      await p.evaluate(() => { window.__cv = document.querySelector('.monotrama canvas'); document.querySelector('.monotrama').remove(); });
+      await p.waitForTimeout(900);
+      const d = await drawRate(p, 800), raf = await rafRate(p, 800);
+      const lost = await p.evaluate(() => { const g = window.__cv.getContext('webgl2'); return g ? g.isContextLost() : 'sin WebGL'; });
+      assert(!errors.length, errors.slice(0, 2).join(' | '));
+      assert(d === 0 && raf === 0, `tras quitarlo: ${d} dibujos, ${raf} requestAnimationFrame`);
+      assert(lost === true || lost === 'sin WebGL', 'el contexto WebGL sigue vivo');
+      return `0 dibujos y 0 requestAnimationFrame tras quitarlo; contexto ${lost === true ? 'liberado' : lost}`;
     } finally { await ctx.close(); }
   });
   await check('codigo', `${key}: «reducir movimiento» → un fotograma y quieto`, async () => {
