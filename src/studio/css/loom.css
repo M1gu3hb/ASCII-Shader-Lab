@@ -242,6 +242,7 @@
 .app .toast button:hover { border-color: var(--bone); }
 .app .toast .toast-msg { min-width: 0; }
 .app .bm-chip { border-radius: 10px; background: rgba(20, 19, 17, .96); max-width: 100%; }
+.app .bm-chip .bm-why { color: var(--text); }
 .app .motion-note { border-radius: 10px; }
 @media (prefers-reduced-motion: no-preference) {
   .app .toast { animation: note-in .2s var(--ease-out); }
@@ -346,6 +347,13 @@ html[data-motion="low"] .mt-spin::before { animation: none; }
   .app .strip-box { flex-basis: 100%; order: -1; }
   .app .strip { padding: 1px; }
   .app .seedline { border-radius: 14px; }
+}
+/* phones with the settings sheet open: little room is left above it, so the notes keep their tag and
+   their buttons in one compact line (the sentence stays for screen readers) and toasts take two lines */
+@media (max-width: 900px) {
+  .app:not(.panel-off) .notices .bm-line { position: absolute; width: 1px; height: 1px; overflow: visible; clip-path: inset(50%); white-space: nowrap; }
+  .app:not(.panel-off) .notices .bm-chip { flex-wrap: nowrap; }
+  .app:not(.panel-off) .notices .toast-msg { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 }
 @media (max-width: 900px), (pointer: coarse) {
   .app .deck .nav button { width: 44px; }
