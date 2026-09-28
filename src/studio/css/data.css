@@ -39,9 +39,17 @@ dialog.sheet:has(.share-body) { width: min(520px, calc(100vw - 24px)); }
 .data-storage p:last-child { margin-bottom: 0; }
 .data-storage .plain { color: var(--text); }
 
-/* collection cards: five actions must fit (or wrap) in a narrow card */
+/* the collection's own actions: a full backup (.zip with media), recipes only, import */
+.data-coll { margin-bottom: 16px; }
+.data-coll .note { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; }
+.data-coll-acts { justify-content: flex-start; margin-bottom: 8px; }
+
+/* the piece's name is edited in place: where the keyboard is must show (a faint underline did not) */
+.app .fav-card .meta input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+/* collection cards: five or six actions must fit (or wrap) in a narrow card */
 .fav-card .ops { flex-wrap: wrap; }
-.fav-card .ops button { min-width: 0; }
+.fav-card .ops button { flex: 1 0 auto; white-space: nowrap; }
 
 /* ---------- export sheet, «Receta» tab ---------- */
 .seed-big { margin: 0 0 12px; font: 500 13px/1.4 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }

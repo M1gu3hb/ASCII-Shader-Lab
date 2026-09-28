@@ -1,0 +1,306 @@
+/* Controls that explain themselves and never hide options (lane: controls): ScrollRow, Picker, hints,
+   the settings panel's head and tabs, and the view bar. Tokens from studio.css / tokens.css.
+   This file may load before studio.css: rules that must win over it are prefixed with .app.
+   The Picker's list and the hint bubble live outside .app (document.body or the open dialog). */
+
+:root {
+  --cx-radius: 8px;
+  --cx-pop: #1a1917;
+  --cx-pop-line: rgba(237, 230, 218, .16);
+  --cx-hover: rgba(237, 230, 218, .07);
+  --cx-on: var(--bone, #ede6da);
+  --cx-on-ink: var(--ink, #0c0b0a);
+  --cx-fade: 40px;
+  --cx-shadow: 0 18px 50px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .35);
+}
+
+/* ---------- ScrollRow ---------- */
+.srow { position: relative; min-width: 0; }
+.srow-list {
+  display: flex; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+  --fl: 0px; --fr: 0px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent);
+}
+.srow-list::-webkit-scrollbar { display: none; }
+.srow.at-prev > .srow-list { --fl: var(--cx-fade); }
+.srow.at-next > .srow-list { --fr: calc(var(--cx-fade) + 24px); }
+.srow-btn {
+  position: absolute; top: 0; bottom: 0; z-index: 2; display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+  min-width: 30px; padding: 0 4px; border: 0; background: none; color: var(--text); cursor: pointer;
+}
+.srow-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.srow-prev { left: 0; }
+.srow-next { right: 0; }
+.srow-more {
+  font: 600 10px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
+.srow-btn:hover .srow-more, .srow-btn:hover { color: var(--text); }
+.srow-btn::before {
+  content: ''; position: absolute; inset: 50% 2px auto 2px; height: 24px; transform: translateY(-50%); z-index: -1;
+  border-radius: 999px; background: var(--panel-2, #1b1917); border: 1px solid var(--line-2);
+}
+.srow-btn:hover::before { border-color: var(--bone); }
+@media (pointer: coarse) {
+  .srow-list { scroll-snap-type: x proximity; scroll-padding-inline: var(--cx-fade); }
+  .srow-list > * { scroll-snap-align: start; }
+  /* a whole 44 px target, centred on the row, whatever the row's height */
+  .srow-btn { min-width: 44px; top: 50%; bottom: auto; height: 44px; transform: translateY(-50%); }
+}
+@media (prefers-reduced-motion: reduce) { .srow-list { scroll-behavior: auto; } }
+
+/* ---------- settings panel: recipes and sections ---------- */
+.app .panel-head { padding-bottom: 10px; }
+.app .recipes { gap: 5px; padding: 2px 1px 3px; overflow-x: auto; }
+.app .recipes .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 7px; font-size: 12.5px; line-height: 1.2; }
+.chip .chip-sw { width: 10px; height: 10px; border-radius: 2px; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
+.app .chip[aria-pressed="true"] .chip-sw { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
+.app .ptabs {
+  gap: 2px; padding: 4px 10px 8px; margin: 0; border-bottom: 1px solid var(--line); flex: none;
+}
+.app .ptabs-box { flex: none; }
+.app .ptabs .tab {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 0 10px;
+  border: 0; border-radius: 7px; background: none; color: var(--muted); font-size: 13px; font-weight: 500; margin: 0; white-space: nowrap;
+}
+.app .ptabs .tab:hover { color: var(--text); background: var(--cx-hover); }
+.app .ptabs .tab[aria-selected="true"] { color: var(--text); background: var(--field-2); box-shadow: inset 0 -2px 0 var(--accent); font-weight: 600; }
+.tab-n { font: 500 10px/1 var(--font-mono); color: var(--dim); }
+.app .ptabs .tab[aria-selected="true"] .tab-n { color: var(--accent); }
+
+/* wide screens: nothing hides — the recipes wrap and the sections form a compact grid */
+@media (min-width: 901px) {
+  .app .recipes { flex-wrap: wrap; overflow: visible; }
+  .app .ptabs { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); overflow: visible; }
+  .app .ptabs .tab { padding: 0 4px; min-width: 0; }
+}
+
+/* ---------- controls framed with their name, value, «?» and explanation ---------- */
+.ctl.cx { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 8px; position: relative; }
+.ctl.cx > .lbl { grid-column: 1; grid-row: 1; font-size: 13px; color: var(--muted); user-select: none; min-width: 0; }
+.ctl.cx > .lbl[data-reset]:hover { color: var(--text); cursor: pointer; }
+.ctl.cx:not(.has-val) > .lbl { grid-column: 1 / 3; }
+.ctl.cx > output, .ctl.cx > .row { grid-column: 2; grid-row: 1; }
+.ctl.cx > .help-q { grid-column: 3; grid-row: 1; }
+.ctl.cx > input[type=range], .ctl.cx > textarea, .ctl.cx > input[type=text], .ctl.cx > .pk, .ctl.cx > .srow,
+.ctl.cx > .seg-desc, .ctl.cx > .help-more { grid-column: 1 / -1; }
+.ctl.cx.seg-only { display: block; }
+.seg-desc { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.seg-ic { font: 500 11px/1 var(--font-mono); color: var(--dim); margin-right: 5px; letter-spacing: -.02em; }
+.app .seg button[aria-checked="true"] { background: var(--bone); color: var(--ink); font-weight: 600; }
+.app .seg button[aria-checked="true"] .seg-ic { color: rgba(12, 11, 10, .62); }
+.app .seg.srow-list { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+
+.toggle-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.toggle-row > .toggle { flex: 1; margin: 0; min-width: 0; }
+.toggle-row > .help-more { flex-basis: 100%; }
+/* toggles without «?» keep their switch in the same column as those with one */
+.toggle-row:not(.has-help)::after { content: ''; width: 20px; flex: none; }
+
+.help-q {
+  width: 20px; height: 20px; flex: none; display: inline-grid; place-items: center; padding: 0; border-radius: 50%;
+  border: 1px solid var(--line-2); background: none; color: var(--muted); font: 600 10.5px/1 var(--font-display);
+}
+.help-q:hover { color: var(--text); border-color: var(--bone); }
+.help-q[aria-expanded="true"] { background: var(--bone); color: var(--ink); border-color: transparent; }
+.help-more {
+  margin: 6px 0 2px; padding: 9px 11px 10px; border-radius: var(--cx-radius); background: var(--field); border-left: 2px solid var(--line-2);
+  font-size: 12.5px; line-height: 1.5; color: var(--muted);
+}
+.help-more p { margin: 0 0 6px; }
+.help-more p:last-child { margin-bottom: 0; }
+.help-more .help-hint { color: var(--text); }
+.help-more .cmp, .help-more .cs-grid { margin-top: 8px; }
+.help-reset { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px !important; font-size: 12px; }
+.help-reset .mini { height: 28px; }
+
+.hint-bubble {
+  position: fixed; z-index: 180; width: max-content; max-width: 300px; padding: 7px 10px; border-radius: 8px;
+  background: var(--bone, #ede6da); color: var(--ink, #0c0b0a); font: 500 12.5px/1.4 var(--font-ui);
+  box-shadow: var(--cx-shadow); pointer-events: auto;
+}
+
+@media (pointer: coarse), (max-width: 900px) {
+  /* the «?» sits beside the control (44 px), so the name row keeps its height */
+  .ctl.cx.has-help:not(.ctl-color) > .help-q { grid-row: 2; align-self: center; }
+  .ctl.cx.has-help:not(.ctl-color) > input[type=range], .ctl.cx.has-help > .pk, .ctl.cx.has-help > .srow,
+  .ctl.cx.has-help > textarea, .ctl.cx.has-help > input[type=text] { grid-column: 1 / 3; grid-row: 2; }
+  .app .help-q { width: 44px; height: 44px; border: 0; position: relative; font-size: 12px; }
+  .app .help-q::before { content: ''; position: absolute; inset: 11px; border-radius: 50%; border: 1px solid var(--line-2); }
+  .app .help-q[aria-expanded="true"] { background: none; color: var(--ink); }
+  .app .help-q[aria-expanded="true"]::before { background: var(--bone); border-color: transparent; }
+  .app .help-q > span { position: relative; }
+  .app .ctl.cx > .lbl { font-size: 14px; }
+  .app .seg-desc, .app .help-more { font-size: 13px; }
+  .app .help-reset .mini { min-height: 44px; }
+  .toggle-row:not(.has-help)::after { width: 44px; }
+  .app .ptabs .tab { min-height: 44px; padding: 0 12px; font-size: 14px; }
+  .app .seg button { min-width: 44px; }
+  .app .recipes .chip { min-height: 44px; padding: 0 14px 0 10px; font-size: 14px; }
+}
+
+/* ---------- Picker ---------- */
+.pk {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 6px 8px 6px 10px; text-align: left;
+  background: var(--field); border: 1px solid var(--line); border-radius: var(--cx-radius); color: var(--text); font-size: 13px; cursor: pointer;
+}
+.pk:hover { border-color: var(--line-2); }
+.pk.open { border-color: var(--bone); }
+.pk:disabled { opacity: .45; cursor: not-allowed; }
+.pk-sm { min-height: 30px; padding: 3px 6px 3px 9px; width: auto; }
+.pk-val { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.pk-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-ph { color: var(--muted); }
+.pk-caret { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s var(--ease-out); }
+.pk.open .pk-caret { transform: rotate(180deg); }
+
+.pk-pop {
+  position: fixed; z-index: 160; display: flex; flex-direction: column; min-width: 180px; overflow: hidden;
+  background: var(--cx-pop); border: 1px solid var(--cx-pop-line); border-radius: 12px; box-shadow: var(--cx-shadow);
+  color: var(--text, #ede6da); font: 13px/1.35 var(--font-ui); color-scheme: dark;
+}
+.pk-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px; outline: none; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.pk-opt {
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 6px 30px 6px 8px; border-radius: 7px; cursor: pointer;
+}
+.pk-opt.on { background: var(--cx-hover); box-shadow: inset 0 0 0 1px var(--line-2); }
+.pk-opt.off { opacity: .45; cursor: default; }
+.pk-tick { position: absolute; right: 8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
+.pk-opt.sel .pk-tick { visibility: visible; }
+.pk-opt.sel .pk-name { font-weight: 600; }
+.pk-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pk-name { color: var(--text, #ede6da); }
+.pk-desc { font-size: 12px; line-height: 1.35; color: var(--muted, #a39c90); }
+.pk-ic { flex: none; display: inline-grid; place-items: center; min-width: 28px; font: 500 12px/1 var(--font-mono); color: var(--muted); }
+.pk-group + .pk-group, .pk-opt + .pk-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+.pk-gh { padding: 8px 8px 4px; font: 600 10.5px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim, #948d81); }
+.pk-preview { flex: none; padding: 8px 8px 0; }
+
+/* phones and touch screens: a sheet at the bottom of the screen */
+.pk-scrim { position: fixed; inset: 0; z-index: 159; background: rgba(5, 4, 3, .6); }
+.pk-pop.pk-sheet {
+  left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: min(76dvh, 620px); border-radius: 18px 18px 0 0; border-bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pk-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line); flex: none; }
+.pk-sheet-t { font: 600 13px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pk-sheet-x { min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--field); color: var(--text); font: 600 14px var(--font-ui); }
+.pk-sheet .pk-opt { min-height: 52px; padding: 8px 36px 8px 10px; font-size: 15px; }
+.pk-sheet .pk-desc { font-size: 13px; }
+.pk-sheet .pk-list { padding: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+  /* the list fades in where it stays (its options recompose out of glyphs, motion/swap.ts): nothing
+     moves under a finger, «Cerrar» included */
+  .pk-pop { animation: pk-in .12s var(--ease-out); }
+  @keyframes pk-in { from { opacity: 0; } }
+}
+@media (pointer: coarse), (max-width: 900px) {
+  .app .pk { min-height: 44px; font-size: 16px; }
+}
+
+/* pictures inside options */
+.pk-font-sample { font-size: 17px; line-height: 1; min-width: 64px; color: var(--text); }
+.pk-thumb { width: 64px; height: 40px; border-radius: 5px; background: var(--ink-3, #1e1c19) center / cover no-repeat; box-shadow: inset 0 0 0 1px var(--line); }
+.pk-thumb.wait { background-image: repeating-linear-gradient(135deg, var(--ink-3, #1e1c19) 0 6px, var(--ink-2, #151412) 6px 12px); }
+.pk-diagram { width: 40px; height: 26px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line-2); display: block; }
+.pk-preview-img {
+  position: relative; height: 96px; border-radius: 8px; background: var(--ink-3, #1e1c19) center / cover no-repeat; box-shadow: inset 0 0 0 1px var(--line);
+}
+.pk-preview-img.wait { background-image: repeating-linear-gradient(135deg, var(--ink-3, #1e1c19) 0 8px, var(--ink-2, #151412) 8px 16px); }
+.pk-preview-img span {
+  position: absolute; left: 6px; bottom: 5px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 0, 0, .72); color: #fff;
+  font: 500 11px/1.3 var(--font-mono);
+}
+
+/* ---------- the guide's eyebrow: the path's whole name, on two lines if needed (it was cut with «…») ---------- */
+.app .guide-top .eyebrow { white-space: normal; overflow: visible; text-overflow: clip; min-width: 0; }
+
+/* ---------- tab rows of the sheets and of a component's code ---------- */
+.sheet-tabs-box { flex: none; border-bottom: 1px solid var(--line); }
+.sheet-tabs-box > .sheet-tabs { border-bottom: 0; }
+.comp-tabs { margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+.comp-tabs > .sheet-tabs { border-bottom: 0; }
+.ex-anim { display: grid; gap: 4px; }
+
+/* ---------- top bar: the spaces as a picker where their buttons do not fit (≤ 1100 px) ---------- */
+.app .topbar .pk.space-select { display: none; }
+@media (max-width: 1100px) {
+  .app .topbar .pk.space-select {
+    display: flex; width: auto; min-width: 150px; max-width: 220px; margin: 0 auto; min-height: 34px; padding: 0 8px 0 12px;
+    background-image: none; font: 600 11px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase;
+  }
+}
+@media (max-width: 900px) {
+  .app .topbar .pk.space-select { flex: 0 1 auto; min-width: 0; width: 100%; max-width: 190px; min-height: 44px; font-size: 13px; letter-spacing: .06em; }
+}
+
+/* ---------- view bar: pressed states that always read ---------- */
+.app .vseg { gap: 2px; flex-wrap: wrap; }
+.app .vseg.srow-list { overflow: visible; -webkit-mask-image: none; mask-image: none; }
+.app .vseg button[aria-checked="true"], .app .vseg button[aria-checked="true"]:hover {
+  background: var(--bone); color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent);
+}
+.app .vseg button[aria-checked="false"]:hover { color: var(--text); background: var(--field); }
+.app .vbar-seg button[aria-pressed="true"], .app .vbar-seg button[aria-pressed="true"]:hover { background: var(--bone); color: var(--ink); }
+.vbar-alt {
+  display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--field);
+  font-size: 13px; font-weight: 600; white-space: nowrap; color: var(--text);
+}
+.vbar-alt:hover { border-color: var(--bone); }
+.app .vbar .vsel-pk { display: none; }
+@media (max-width: 900px) {
+  .app .vbar .vsel-pk { display: flex; min-width: 170px; width: auto; flex: 1; font-weight: 600; font-size: 14px; }
+  .vbar-alt { min-height: 44px; font-size: 14px; }
+}
+
+/* ---------- Historia / Reel 9:16 and Pantalla de móvil ---------- */
+.vw-safe.vw-safe-right {
+  left: auto; right: 0; align-items: center; justify-content: flex-end; padding-bottom: 10px;
+  border-left: 1px dashed rgba(255, 255, 255, .55);
+}
+.vw-safe-icons { display: flex; flex-direction: column; gap: 10px; align-items: center; color: #fff; font: 600 16px/1 var(--font-ui); text-shadow: 0 1px 3px #000; }
+.vw-safe-icons i { font-style: normal; }
+.vw-story .vw-cap { position: absolute; left: 0; right: 18%; z-index: 3; padding: 0 12px; margin: 0; }
+@media (max-width: 900px) {
+  .app .vbar .vseg-box { display: none; }
+}
+.vw-handset {
+  position: relative; flex: none; border-radius: 34px; padding: 12px; background: #0b0a09;
+  box-shadow: 0 0 0 1px var(--line-2), 0 0 0 5px #1b1a18, 0 30px 90px rgba(0, 0, 0, .6);
+}
+.vw-handset-box { position: relative; flex: none; }
+.vw-handset-box > .vw-handset { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.vw-handset-screen { position: relative; overflow: hidden; border-radius: 24px; container-type: size; }
+.vw-handset-bar {
+  position: absolute; z-index: 5; top: 0; left: 0; right: 0; height: 30px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px; font: 600 12px/1 var(--font-ui); color: var(--pc, #fff); pointer-events: none;
+}
+.vw-handset-bar i { width: 72px; height: 20px; border-radius: 12px; background: #000; }
+.vw-mobile-content {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none; display: flex; flex-direction: column; gap: 14px;
+  padding: 44px 20px 22px; color: var(--pc, #fff); font-family: var(--font-ui);
+}
+.vw-mobile-content .pc-nav { display: flex; justify-content: space-between; align-items: center; font: 700 14px var(--font-ui); }
+.vw-mobile-content .pc-burger { width: 20px; height: 12px; border-top: 2px solid currentColor; border-bottom: 2px solid currentColor; position: relative; }
+.vw-mobile-content .pc-burger::after { content: ''; position: absolute; left: 0; right: 0; top: 3px; border-top: 2px solid currentColor; }
+.vw-mobile-content .pc-hero { margin-top: auto; }
+.vw-mobile-content .pc-h { font: 700 34px/1.04 var(--font-ui); letter-spacing: -.035em; margin: 0 0 12px; }
+.vw-mobile-content .pc-p { font-size: 16px; line-height: 1.45; margin: 0 0 18px; opacity: .9; }
+.vw-mobile-content .pc-btns { display: flex; flex-direction: column; gap: 10px; }
+.vw-mobile-content .pc-btn { display: block; text-align: center; font-weight: 600; font-size: 16px; padding: 14px 18px; border-radius: 12px; background: var(--pc, #fff); color: var(--pcb, #000); }
+.vw-mobile-content .pc-btn.ghost { background: none; color: var(--pc, #fff); box-shadow: inset 0 0 0 1.5px var(--pc, #fff); }
+
+/* layers: the pattern picker takes the row, its description under it */
+.layer-head .pk { flex: 1; min-width: 0; }
+.layer-head .help-q { flex: none; }
+.layer-desc { margin: -4px 0 10px 22px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.layer > .help-more { margin: -2px 0 10px; }
+@media (pointer: coarse), (max-width: 900px) { .app .layer-desc { font-size: 13px; } }
+
+/* character sets: name and ramp on one line, their use under them */
+.pk-cs { flex: 1; }
+.pk-cs-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.pk-ramp-box { display: inline-flex; align-items: center; flex: none; padding: 3px 7px; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--line); max-width: 60%; overflow: hidden; }
+.pk-ramp { font-size: 13px; line-height: 1.1; letter-spacing: .08em; white-space: pre; }
+.pk-val .pk-ramp-box { margin-left: auto; }
+.pk-val .pk-txt { flex: 0 1 auto; }

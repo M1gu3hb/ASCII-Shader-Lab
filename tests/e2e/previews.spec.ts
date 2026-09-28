@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { download, openStudio } from './helpers';
+import { choose } from './clip';
 
 /** Destination previews: the stage canvas sized to where the piece is going, and the export for it. */
 
-const bar = (page: Page) => page.getByRole('group', { name: 'Vista', exact: true });
-const pick = (page: Page, name: string) => bar(page).getByRole('button', { name, exact: true }).click();
+const bar = (page: Page) => page.getByRole('radiogroup', { name: 'Vista' });
+const pick = (page: Page, name: string) => bar(page).getByRole('radio', { name, exact: true }).click();
 const canvasSize = (page: Page) => page.locator('.stage canvas').first().evaluate(c => [c.clientWidth, c.clientHeight]);
 
 async function noHorizontalOverflow(page: Page) {
@@ -39,20 +40,20 @@ function correlation(a: number[], b: number[]) {
 test.describe('vistas de destino', () => {
   test('cada vista dimensiona el lienzo real como su destino y lleva a su exportación', async ({ page }) => {
     const errors = await openStudio(page);
-    await expect(bar(page).getByRole('button', { name: 'Libre' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(bar(page).getByRole('radio', { name: 'Libre' })).toHaveAttribute('aria-checked', 'true');
     const free = await canvasSize(page);
 
     // Fondo web: a page over the piece, and an estimate that says it is one
     await pick(page, 'Fondo web');
-    await expect(page.locator('.preview-content h1')).toBeVisible();
+    await expect(page.locator('.preview-content .pc-h')).toBeVisible();
     await expect(page.getByText('Tu pieza como fondo de una página')).toBeVisible();
-    const est = page.locator('.vbar-legib');
-    await expect(est).toContainText('Contraste estimado del titular');
-    await expect(est.locator('b')).toHaveText(/^\d+\.\d:1$/, { timeout: 20_000 });
+    const est = page.locator('.vbar .legib-line');
+    await expect(est).toContainText('Legibilidad (estimación)');
+    await expect(est.locator('.legib-say')).toHaveText(/^(Se lee bien|Cuesta leer .+|Se lee con esfuerzo .+)$/, { timeout: 30_000 });
     await page.getByRole('group', { name: 'Texto' }).getByRole('button', { name: 'Oscuro' }).click();
-    await expect(page.locator('.preview-content h1')).toHaveCSS('color', 'rgb(17, 17, 17)');
+    await expect(page.locator('.preview-content .pc-h')).toHaveCSS('color', 'rgb(17, 17, 17)');
     await page.getByRole('group', { name: 'Texto' }).getByRole('button', { name: 'Claro' }).click();
-    await expect(page.locator('.preview-content h1')).toHaveCSS('color', 'rgb(255, 255, 255)');
+    await expect(page.locator('.preview-content .pc-h')).toHaveCSS('color', 'rgb(255, 255, 255)');
     await page.getByRole('button', { name: 'Exportar para este destino' }).click();
     await expect(page.getByRole('tab', { name: 'Código' })).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Escape');
@@ -64,22 +65,24 @@ test.describe('vistas de destino', () => {
     await expect(page.locator('.vw-card')).toHaveCount(3);
     await page.getByRole('button', { name: 'Exportar para este destino' }).click();
     await expect(page.getByRole('tab', { name: 'Imagen' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('#ex-size')).toHaveValue('v2');
+    await expect(page.locator('#ex-size')).toHaveAttribute('data-value', 'v2');
     await expect(page.getByText('Resultado: 720×450 px.')).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // Vertical 9:16, with the bands where app interfaces sit
-    await pick(page, 'Vertical 9:16');
+    // Historia / Reel 9:16: a clean frame; the bands where app interfaces usually sit only on request
+    await pick(page, 'Historia / Reel 9:16');
     await expect.poll(async () => { const [w, h] = await canvasSize(page); return Math.abs(w / h - 9 / 16) < 1e-9 && Number.isInteger(w); }).toBe(true);
-    await expect(page.locator('.vw-safe')).toHaveCount(2);
+    await expect(page.locator('.vw-safe')).toHaveCount(0);
+    await page.locator('.vbar-switch').getByText(/Zonas de interfaz/).click();
+    await expect(page.locator('.vw-safe')).toHaveCount(3);
     await expect(page.locator('.vw-safe').first()).toContainText('interfaz de la app');
-    await page.locator('.vbar-switch').getByText('Pie de texto').click();
-    await expect(page.getByRole('switch', { name: 'Pie de texto' })).toBeChecked();
+    await page.locator('.vbar-switch').getByText('Pie de texto de ejemplo').click();
+    await expect(page.getByRole('switch', { name: 'Pie de texto de ejemplo' })).toBeChecked();
     await expect(page.locator('.vw-cap')).toContainText('@tu_cuenta');
     await page.getByRole('button', { name: 'Exportar para este destino' }).click();
     await expect(page.getByRole('tab', { name: 'Video y GIF' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#v-size').or(page.getByText(/no tiene WebCodecs/))).toBeVisible();
-    if (await page.locator('#v-size').count()) await expect(page.locator('#v-size')).toHaveValue('story');
+    if (await page.locator('#v-size').count()) await expect(page.locator('#v-size')).toHaveAttribute('data-value', 'story');
     await page.keyboard.press('Escape');
 
     // README: an image 2:1 at the README's width and a text block of 80 columns
@@ -95,7 +98,7 @@ test.describe('vistas de destino', () => {
     await page.getByRole('button', { name: 'Exportar GIF para README' }).click();
     await expect(page.getByRole('tab', { name: 'Video y GIF' })).toHaveAttribute('aria-selected', 'true');
     const [w] = await canvasSize(page);
-    await expect(page.locator('#gif-w')).toHaveValue(String([320, 480, 640, 800].find(g => g >= w)));
+    await expect(page.getByRole('radiogroup', { name: 'Ancho del GIF' }).getByRole('radio', { name: `${[320, 480, 640, 800].find(g => g >= w)} px` })).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('Escape');
 
     // Terminal: exactly cols × rows cells of the text export's size
@@ -104,7 +107,7 @@ test.describe('vistas de destino', () => {
     const [tw, th] = await canvasSize(page);
     expect(tw % 80).toBe(0);
     expect(th % 24).toBe(0);
-    await page.getByLabel('Tamaño').selectOption('100x30');
+    await choose(page, page.getByRole('combobox', { name: 'Tamaño', exact: true }), '100×30');
     await expect(page.locator('.term-bar span')).toContainText('100×30');
     await expect.poll(async () => (await canvasSize(page))[0] % 100).toBe(0);
     await page.getByRole('button', { name: 'Exportar para este destino' }).click();
@@ -117,12 +120,12 @@ test.describe('vistas de destino', () => {
 
     // remembered per space: another space keeps its own, a reload keeps both
     await page.getByRole('button', { name: 'Fondos', exact: true }).click();
-    await expect(bar(page).getByRole('button', { name: 'Libre' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(bar(page).getByRole('radio', { name: 'Libre' })).toHaveAttribute('aria-checked', 'true');
     await page.getByRole('button', { name: 'Arte', exact: true }).click();
-    await expect(bar(page).getByRole('button', { name: 'Terminal' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(bar(page).getByRole('radio', { name: 'Terminal' })).toHaveAttribute('aria-checked', 'true');
     await page.waitForTimeout(700);
     await page.reload();
-    await expect(bar(page).getByRole('button', { name: 'Terminal' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(bar(page).getByRole('radio', { name: 'Terminal' })).toHaveAttribute('aria-checked', 'true');
     await pick(page, 'Libre');
     await expect.poll(() => canvasSize(page)).toEqual(free);
     // «Piezas» has no stage and no view
@@ -162,18 +165,18 @@ test.describe('vistas de destino', () => {
   test('README avisa cuando el juego de caracteres no es ASCII', async ({ page }) => {
     await openStudio(page);
     await page.getByRole('tab', { name: 'Glifos' }).click();
-    await page.locator('#cs-sel').selectOption('bloques');
+    await choose(page, page.getByRole('combobox', { name: 'Caracteres', exact: true }), /^Bloques/);
     await pick(page, 'README');
     await expect(page.getByRole('note').filter({ hasText: 'Caracteres fuera de ASCII' })).toBeVisible();
     await expect(page.locator('.vbar-warn')).toContainText('░');
-    await page.locator('#cs-sel').selectOption('clasico');
+    await choose(page, page.getByRole('combobox', { name: 'Caracteres', exact: true }), /^Clásico/);
     await expect(page.locator('.vbar-warn')).toHaveCount(0, { timeout: 20_000 });
   });
 
-  test('Vertical 9:16: el marco es exactamente lo que compone la exportación 1080×1920', async ({ page }) => {
+  test('Historia / Reel 9:16: el marco es exactamente lo que compone la exportación 1080×1920', async ({ page }) => {
     await openStudio(page);
     await page.keyboard.press(' ');
-    await pick(page, 'Vertical 9:16');
+    await pick(page, 'Historia / Reel 9:16');
     await expect.poll(async () => { const [w, h] = await canvasSize(page); return w / h; }).toBeCloseTo(9 / 16, 6);
     await page.waitForTimeout(800);
     // the live canvas as shown, without the app-interface bands (or a toast) drawn over it
@@ -182,12 +185,12 @@ test.describe('vistas de destino', () => {
 
     await page.keyboard.press('e');
     await page.getByRole('tab', { name: 'Imagen' }).click();
-    await page.locator('#ex-size').selectOption('story');
+    await choose(page, '#ex-size', /^1080×1920/);
     await expect(page.getByText('Resultado: 1080×1920 px.')).toBeVisible();
     const story = await download(page, () => page.getByRole('button', { name: 'Descargar imagen' }).click());
     const png = readFileSync(story.path);
     expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1080, 1920]);
-    await page.locator('#ex-size').selectOption('sq');
+    await choose(page, '#ex-size', /^1080×1080/);
     const square = readFileSync((await download(page, () => page.getByRole('button', { name: 'Descargar imagen' }).click())).path);
 
     const [a, b, c] = await Promise.all([lumaGrid(page, live, 9, 16), lumaGrid(page, png, 9, 16), lumaGrid(page, square, 9, 16)]);
@@ -207,7 +210,7 @@ test.describe('vistas de destino', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByText('Movimiento reducido activo')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reproducir animación' })).toBeVisible();
-    await pick(page, 'Vertical 9:16');
+    await pick(page, 'Historia / Reel 9:16');
     await expect.poll(async () => { const [w, h] = await canvasSize(page); return w / h; }).toBeCloseTo(9 / 16, 6);
     for (const sel of ['.panel', '.vbar', '.stage-wrap']) {
       expect(await page.locator(sel).first().evaluate(el => getComputedStyle(el).transitionDuration.split(',').every(d => parseFloat(d) === 0))).toBe(true);

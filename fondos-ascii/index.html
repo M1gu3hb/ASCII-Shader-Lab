@@ -38,8 +38,8 @@
         <h2 id="que-title">Un fondo con carácter que no se come tu contenido.</h2>
       </div>
       <div class="principles">
-        <article><span class="glyph" aria-hidden="true">▤</span><h3>Seis puntos de partida</h3><p>Bruma, Papel vivo, Marea, Constelación, Retícula y Ámbar lento, o «Azar» para descubrir combinaciones nuevas.</p></article>
-        <article><span class="glyph" aria-hidden="true">◧</span><h3>Prueba de legibilidad</h3><p>«Probar con contenido encima» coloca un titular, un párrafo y un botón sobre tu fondo antes de exportarlo.</p></article>
+        <article><span class="glyph" aria-hidden="true">▤</span><h3>Ocho puntos de partida</h3><p>Bruma, Papel vivo, Marea, Constelación, Retícula, Ámbar lento, Órbita y Relieve, o «Azar» para descubrir combinaciones nuevas.</p></article>
+        <article><span class="glyph" aria-hidden="true">◧</span><h3>Vista «Fondo web»</h3><p>Pone un titular, un párrafo y un botón sobre tu fondo antes de exportarlo, con una estimación de legibilidad para cada zona de texto.</p></article>
         <article><span class="glyph" aria-hidden="true">◉</span><h3>Reacciona al cursor</h3><p>Linterna, ondas, lupa, empuje o remolino. Puedes apagarlo al exportar si prefieres un fondo quieto al tacto.</p></article>
         <article><span class="glyph" aria-hidden="true">∞</span><h3>Bucle perfecto</h3><p>Fija una duración y el movimiento se repite sin corte, también en el video y el GIF.</p></article>
         <article><span class="glyph" aria-hidden="true">⧉</span><h3>Tres colocaciones</h3><p>Fondo de página fijo, portada o bloque dentro de tu maqueta, con el código listo para cada caso.</p></article>
@@ -55,8 +55,8 @@
         <h2 id="como-title">Del estudio a tu web en tres pasos.</h2>
       </div>
       <ol class="steps">
-        <li><h3>Elige un punto de partida</h3><p>En el espacio Fondos, prueba los seis estilos o pulsa «Azar» (R) hasta que algo te guste.</p></li>
-        <li><h3>Comprueba que se lee</h3><p>Activa el contenido de prueba. Si cuesta leer, baja el contraste o sube el tamaño de la celda.</p></li>
+        <li><h3>Elige un punto de partida</h3><p>En el espacio Fondos, prueba los puntos de partida o pulsa «Azar» (R) hasta que algo te guste.</p></li>
+        <li><h3>Comprueba que se lee</h3><p>En la vista «Fondo web», mira «Legibilidad (estimación)» en cada zona de texto. Si cuesta leer, sube la «Zona protegida»: una capa regulable detrás de tu contenido que también viaja en el código.</p></li>
         <li><h3>Copia el código</h3><p>En «Exportar», pestaña «Código»: HTML para pegar, Web Component o React, con la colocación que necesites.</p></li>
       </ol>
     </div>
@@ -69,9 +69,9 @@
         <h2 id="formatos-title">Qué te llevas, y qué no.</h2>
       </div>
       <dl class="outputs">
-        <div><dt>HTML para pegar</dt><dd>Un bloque autónomo con el motor y tu receta: pégalo donde tu web acepte HTML personalizado.<span class="limit"><b>Límite:</b> el motor usa WebGL 2; en un navegador sin él, el fondo se queda en su color de base y tu contenido sigue legible.</span></dd></div>
-        <div><dt>Web Component</dt><dd>Un archivo <code>monotrama-field.js</code> y una etiqueta para usarlo en cualquier framework.<span class="limit"><b>Límite:</b> el motor va dentro del archivo, sólo con los patrones que usa tu pieza, así que cada fondo pesa decenas de KB.</span></dd></div>
-        <div><dt>React</dt><dd>Un componente <code>MonotramaBackground.jsx</code> que sólo necesita React, listo para Next.js y Vite.<span class="limit"><b>Límite:</b> se dibuja en el cliente: el HTML del servidor muestra el color de fondo hasta que el componente se monta.</span></dd></div>
+        <div><dt>HTML para pegar</dt><dd>Un bloque autónomo con el motor y tu receta: pégalo donde tu web acepte HTML personalizado. Si usas la zona protegida, va incluida (opción <code>scrim</code> y clase <code>.monotrama-zona</code>).<span class="limit"><b>Límite:</b> el motor usa WebGL 2; en un navegador sin él dibuja el motor básico incluido (Canvas 2D, más despacio). Si eliges el código ligero, sin WebGL 2 el fondo se queda en su color de base (o en el póster que indiques) y tu contenido sigue encima.</span></dd></div>
+        <div><dt>Web Component</dt><dd>Un archivo <code>monotrama-field.js</code> y una etiqueta HTML estándar, que no depende de ningún framework.<span class="limit"><b>Límite:</b> el motor va dentro del archivo, sólo con los patrones que usa tu pieza, así que cada fondo pesa decenas de KB.</span></dd></div>
+        <div><dt>React</dt><dd>Un componente <code>MonotramaBackground.jsx</code> que sólo necesita React. Probado con React 19 en Vite; en Next.js va como componente de cliente.<span class="limit"><b>Límite:</b> se dibuja en el cliente: el HTML del servidor muestra el color de fondo hasta que el componente se monta.</span></dd></div>
         <div><dt>Tipografía</dt><dd>Por defecto, la tipografía de los caracteres se carga de Google Fonts.<span class="limit"><b>Límite:</b> si no quieres peticiones externas, activa «Sin dependencias externas» y se usará la mono del sistema.</span></dd></div>
         <div><dt>PNG, SVG, MP4 y GIF</dt><dd>Para presentaciones, redes o un póster: el mismo fondo como imagen, vector o video.<span class="limit"><b>Límite:</b> MP4 depende del codificador H.264 de tu navegador; el SVG deja fuera los efectos de píxel.</span></dd></div>
       </dl>
@@ -100,7 +100,7 @@
       <div class="faq">
         <div><h3>¿Hará lenta mi web?</h3><p>El fondo se pausa fuera de pantalla y en pestañas ocultas, limita la resolución y la baja si los fotogramas se retrasan. Aun así, pruébalo en los equipos de tu público.</p></div>
         <div><h3>¿Necesito dar crédito?</h3><p>No. El código que exporta el estudio es MIT-0: úsalo, modifícalo y véndelo sin atribución. Más en <a href="/licencia/">Licencia y uso</a>.</p></div>
-        <div><h3>¿Funciona con Webflow, WordPress o Framer?</h3><p>Donde puedas pegar HTML personalizado o un script, sí. En React y otros frameworks, usa el componente o el Web Component.</p></div>
+        <div><h3>¿Funciona con Webflow, WordPress o Framer?</h3><p>No lo hemos probado en cada plataforma. Donde puedas pegar HTML personalizado con su script, el fondo se comporta como en cualquier página; algunas plataformas limitan los scripts, así que pruébalo antes en un borrador. En React, usa el componente.</p></div>
         <div><h3>¿Y si alguien prefiere menos movimiento?</h3><p>Si su sistema pide reducir movimiento, el fondo empieza en pausa y muestra un fotograma quieto.</p></div>
       </div>
     </div>

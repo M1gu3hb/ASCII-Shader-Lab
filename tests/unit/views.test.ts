@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SCRIM } from '../../src/shared/scrim';
 import {
-  GIF_WIDTHS, cardMedia, defaultView, exportFor, markdownBlock, nonAscii, normalizeViewOpts, normalizeViews, readmeGrid, readmeImage,
-  terminalWindow, verticalFrame, viewFor,
+  GIF_WIDTHS, PHONE, VIEWS, cardMedia, defaultView, exportAlt, exportFor, markdownBlock, nonAscii, normalizeViewOpts, normalizeViews, phoneFit,
+  readmeGrid, readmeImage, terminalWindow, verticalFrame, viewFor,
 } from '../../src/studio/views/views';
 
 describe('vistas de destino', () => {
@@ -18,7 +19,19 @@ describe('vistas de destino', () => {
     expect(normalizeViews({ arte: 'vertical', tipo: 'x', componentes: 'web' })).toEqual({ arte: 'vertical' });
     expect(normalizeViews(null, true)).toEqual({ fondos: 'web' });
     expect(normalizeViews({ fondos: 'readme' }, true)).toEqual({ fondos: 'readme' });
-    expect(normalizeViewOpts({ ink: 'dark', page: 'x', caption: 1 })).toEqual({ ink: 'dark', page: 'light', caption: false });
+    expect(normalizeViewOpts({ ink: 'dark', page: 'x', caption: 1 })).toEqual({ ink: 'dark', page: 'light', caption: false, zones: false, scrim: DEFAULT_SCRIM });
+    // preferences saved before the story/phone split: «vertical» is the story frame now, its bands start hidden
+    expect(normalizeViews({ arte: 'vertical', fondos: 'movil' })).toEqual({ arte: 'vertical', fondos: 'movil' });
+    expect(normalizeViewOpts({ ink: 'light', page: 'dark', caption: true })).toEqual({ ink: 'light', page: 'dark', caption: true, zones: false, scrim: DEFAULT_SCRIM });
+    expect(normalizeViewOpts({ zones: true }).zones).toBe(true);
+  });
+
+  it('las preferencias de antes de la zona protegida la dejan apagada; las nuevas se leen como se guardaron', () => {
+    // exactly what the previous version stored in localStorage (mt.v2.prefs → ui.viewOpts)
+    const old = JSON.parse('{"ink":"light","page":"light","caption":false,"zones":true}');
+    expect(normalizeViewOpts(old)).toEqual({ ink: 'light', page: 'light', caption: false, zones: true, scrim: { mode: 'off', opacity: 0.5, blur: 2, shape: 'block' } });
+    const saved = { ...old, scrim: { mode: 'custom', opacity: 0.66, blur: 7, shape: 'gradient' } };
+    expect(normalizeViewOpts(JSON.parse(JSON.stringify(saved))).scrim).toEqual({ mode: 'custom', opacity: 0.66, blur: 7, shape: 'gradient' });
   });
 
   it('el marco vertical es 9:16 exacto, en pasos que dejan un ancho entero', () => {
@@ -90,7 +103,26 @@ describe('vistas de destino', () => {
     expect(exportFor('web')).toEqual({ tab: 'codigo' });
     expect(exportFor('tarjeta')).toEqual({ tab: 'imagen', size: 'v2' });
     expect(exportFor('vertical')).toEqual({ tab: 'video', size: 'story' });
+    expect(exportFor('movil')).toEqual({ tab: 'codigo' });
     expect(exportFor('readme', { gifW: 800 })).toEqual({ tab: 'video', gifW: 800 });
     expect(exportFor('terminal', { term: { cols: 100, rows: 30 } })).toEqual({ tab: 'terminal', term: { cols: 100, rows: 30 } });
+  });
+
+  it('Historia / Reel y Pantalla de móvil: dos vistas distintas, ninguna llamada «app»', () => {
+    expect(VIEWS.map(v => v.name)).toEqual(['Libre', 'Fondo web', 'Pantalla de móvil', 'Tarjeta', 'Historia / Reel 9:16', 'README', 'Terminal']);
+    for (const v of VIEWS) expect(v.name, v.id).not.toMatch(/\bapp\b/i);
+    // the story leads to a 1080×1920 video, or a still of the same size; the phone to code, or its screen at ×3
+    expect(exportAlt('vertical')?.req).toEqual({ tab: 'imagen', size: 'story' });
+    expect(exportAlt('movil')?.req).toEqual({ tab: 'imagen', size: 'v4' });
+    expect(exportAlt('movil')?.label).toBe(`Imagen ${PHONE.w * 3}×${PHONE.h * 3}`);
+    expect(exportAlt('web')).toBeNull();
+  });
+
+  it('el teléfono conserva su pantalla de 390×844 y sólo se dibuja más pequeño', () => {
+    expect(phoneFit(2000, 2000)).toEqual({ w: 390, h: 844, k: 1 });
+    const short = phoneFit(1000, 439);
+    expect([short.w, short.h]).toEqual([390, 844]);
+    expect(short.k).toBeCloseTo(439 / (844 + 34), 6);
+    expect(phoneFit(0, 0).k).toBe(1);
   });
 });

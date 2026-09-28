@@ -9,7 +9,7 @@ import { download, openStudio } from './helpers';
  */
 test.use({ launchOptions: { args: ['--disable-3d-apis'] } });
 
-test('la portada dibuja el héroe, las demos, el azar y el texto de terminal', async ({ page }) => {
+test('la portada dibuja el héroe, el escenario de los espacios, el azar y el final', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
@@ -22,16 +22,18 @@ test('la portada dibuja el héroe, las demos, el azar y el texto de terminal', a
   await expect(page.locator('#hero-basic-why')).toContainText('WebGL');
   await expect(note).toHaveAttribute('aria-expanded', 'true');
 
-  for (const kind of ['fondos', 'arte', 'media', 'tipo']) {
-    await page.locator(`canvas[data-demo="${kind}"]`).scrollIntoViewIfNeeded();
-    await drawn(page, `canvas[data-demo="${kind}"]`);
+  // the six spaces share one stage: it draws, and keeps drawing when another space is chosen
+  await page.locator('#telar-panel canvas').scrollIntoViewIfNeeded();
+  await drawn(page, '#telar-panel canvas');
+  expect(await contextOf(page, '#telar-panel canvas')).toBe('2d');
+  for (const space of ['Imagen', 'Terminal']) {
+    await page.getByRole('tablist', { name: 'Espacios del estudio' }).getByRole('tab', { name: new RegExp(space) }).click();
+    await drawn(page, '#telar-panel canvas');
   }
-  const term = page.locator('[data-terminal]');
-  await term.scrollIntoViewIfNeeded();
-  await expect.poll(async () => ((await term.textContent()) ?? '').trim().length).toBeGreaterThan(200);
   await page.locator('[data-azar]').scrollIntoViewIfNeeded();
   await drawn(page, '[data-azar]');
-  await expect(page.locator('[data-azar-strip] button')).toHaveCount(7);
+  await page.getByRole('button', { name: 'Tirar', exact: true }).click();
+  await expect(page.locator('[data-azar-strip] button')).toHaveCount(4);
   await page.locator('.final-canvas').scrollIntoViewIfNeeded();
   await drawn(page, '.final-canvas');
   expect(errors).toEqual([]);
@@ -51,7 +53,7 @@ test('el estudio usa el motor básico, lo explica y exporta PNG y TXT', async ({
   const sheet = page.getByRole('dialog', { name: 'Modo básico' });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByText('Qué cambia en modo básico')).toBeVisible();
-  await expect(sheet.getByText(/necesita WebGL 2 en el navegador de quien la visite/)).toBeVisible();
+  await expect(sheet.getByText(/lleva también el motor básico: sin WebGL 2, quien la visite la ve como tú ahora/)).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'Volver a intentar' })).toBeVisible();
   await sheet.getByRole('button', { name: 'Volver a intentar' }).click();
   await expect(sheet.getByText(/Lo probé de nuevo y sigue igual/)).toBeVisible();
@@ -83,6 +85,20 @@ test('el estudio usa el motor básico, lo explica y exporta PNG y TXT', async ({
   await page.getByRole('tab', { name: 'Código' }).click();
   await expect(page.getByText('Tu vista previa usa el motor básico.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Descargar póster (PNG)' })).toHaveCount(1);
+  // the exported page carries the basic engine by default: in this browser (no WebGL at all) it draws in 2D
+  await expect(page.getByRole('button', { name: /^Motor básico \(\+\d+ KB\)$/ })).toHaveAttribute('aria-pressed', 'true');
+  const [d] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Descargar página .html' }).click()]);
+  const file = test.info().outputPath('sin-webgl.html');
+  await d.saveAs(file);
+  const other = await page.context().newPage();
+  const otherErrors: string[] = [];
+  other.on('pageerror', e => otherErrors.push(e.message));
+  await other.goto('file://' + file);
+  await drawn(other, 'canvas');
+  expect(await contextOf(other, 'canvas')).toBe('2d');
+  expect(await other.evaluate(() => (window as unknown as { Monotrama: { __basic?: unknown } }).Monotrama.__basic !== undefined)).toBe(true);
+  expect(otherErrors).toEqual([]);
+  await other.close();
 
   // dismissing the chip lasts for the session
   await page.keyboard.press('Escape');

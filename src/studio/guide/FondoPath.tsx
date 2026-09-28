@@ -3,9 +3,8 @@ import type { Recipe } from '../../engine/recipe';
 import { openExport } from '../exportTab';
 import { IDice } from '../icons';
 import { PRESETS } from '../presets';
-import { applyRecipe, currentRecipe, edit, rollDice, useEntry, useRecipe, useStudio } from '../store';
-import { announce } from '../toast';
-import { VERDICT, inkFor, useLegibility } from '../views/legibility';
+import { applyRecipe, currentRecipe, edit, rollDice, useEntry, useRecipe } from '../store';
+import { LegibilityReport, ScrimFine, ScrimSeg } from '../views/PageMock';
 import { currentView, setView, useView } from '../views/state';
 import { FONDO_SPEEDS, applyPresence, nearestChoice, presence, presenceWord } from './paths';
 import { CodeBox, StyleGrid, type StyleItem } from './parts';
@@ -20,10 +19,7 @@ export function FondoStyle() {
     pressed: !!entry && entry.label === p.name && (entry.kind === 'receta' || entry.kind === 'espacio'),
     pick: () => applyRecipe(p.make(), 'receta', p.name),
   }));
-  const roll = () => {
-    const e = rollDice();
-    announce(`Fondo al azar: ${e.seed?.replace(/-/g, ' ') ?? ''}`);
-  };
+  const roll = () => { rollDice(); }; // the history announces the new piece
   return (
     <>
       <p className="guide-lead">Fondos pensados para ir detrás de tu contenido. Elige uno o pide otro al dado.</p>
@@ -40,8 +36,6 @@ export function FondoPresence() {
   const recipe = useRecipe();
   // the test content is the «Fondo web» destination preview, which also measures the headline
   const preview = useView() === 'web';
-  const ink = useStudio(s => inkFor(s.ui.viewOpts.ink, s.entries[s.cursor]?.recipe.color.bg ?? '#000000'));
-  const est = useLegibility(s => s.est);
   const id = useId();
   // the base the slider works from: taken when the step opens, and again whenever the piece
   // changes by other means (another style, undo, the full panel)
@@ -74,19 +68,14 @@ export function FondoPresence() {
         <span>Ver un titular, un texto y un botón encima</span>
         <span className="switch"><input type="checkbox" role="switch" checked={preview} onChange={e => setView(e.target.checked ? 'web' : 'libre')} /><span /></span>
       </label>
-      {preview && (
-        <div className={'legib ' + (est?.level ?? 'wait')}>
-          <p>
-            <span className="legib-dot" aria-hidden="true" />
-            Contraste estimado del titular: <b>{est ? `${est.ratio.toFixed(1)}:1` : '…'}</b>
-          </p>
-          <p className="legib-say" aria-live="polite">{est ? VERDICT[est.level] : 'Midiendo…'}</p>
-        </div>
-      )}
-      <p className="note">
-        Es una estimación: mide el fondo real detrás del titular de prueba ({ink === '#ffffff' ? 'texto blanco' : 'texto oscuro'}), en sus zonas más difíciles.
-        Para texto normal se recomienda 4.5:1; para titulares grandes, 3:1.
-      </p>
+      {preview
+        ? (
+          <LegibilityReport guide>
+            <ScrimSeg className="seg guide-seg scrim-seg" />
+            <ScrimFine segClass="seg guide-seg scrim-seg" />
+          </LegibilityReport>
+        )
+        : <p className="note">Con el contenido de prueba encima, el estudio estima si se lee y te dice qué probar.</p>}
     </>
   );
 }

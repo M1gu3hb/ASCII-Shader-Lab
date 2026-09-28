@@ -1,0 +1,6 @@
+/* Export sheet, «Código» tab: what the code does without WebGL 2, and what it weighs (lane: exports). */
+.code-fallback { margin: 0 0 12px; }
+.code-fallback .lbl { display: block; margin-bottom: 6px; }
+.code-fallback .seg { max-width: 460px; }
+.code-fallback .note { margin: 8px 0 0; }
+.code-size { margin: 10px 0 0; }

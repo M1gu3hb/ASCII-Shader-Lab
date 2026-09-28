@@ -5,21 +5,31 @@
  *   npm run build && npx vite preview --port 4177 --strictPort &
  *   PORT=4177 npm run verify:exports
  *
- * Drives the studio in Chromium (Playwright), downloads each export and inspects it with the real
+ * Drives the studio in a browser (Playwright), downloads each export and inspects it with the real
  * tools (ffprobe/ffmpeg, ImageMagick, rsvg-convert, Inkscape, gifsicle, xmllint, python3 + pyte,
- * asciinema, Node 18). Pasted code is loaded from a different origin; the React component is built
- * in a throwaway Vite project. A missing tool turns its checks into SKIP (with the reason), never FAIL.
+ * asciinema, Node 18), and opens the final files in the browser engines at hand (video playback, SVG,
+ * images). Pasted code is loaded from a different origin; the React component is built in a throwaway
+ * Vite project. A missing tool or engine turns its checks into SKIP (with the reason), never FAIL.
+ * Every result records the engine it ran in: an automated check in an engine is not a claim about real
+ * devices (see docs/compatibilidad.md).
  *
  * Env: PORT (preview port, default 4173) · OUT (artifact folder, default a new temp folder)
- *      ONLY (comma-separated groups) · NODE18 (path to a Node 18 binary; otherwise `npx -y node@18`)
+ *      ONLY (comma-separated groups: imagen, vector, video — with webm, gif, directo and reproduccion —,
+ *      mp4, codigo, react, componentes, texto, terminal, proyectos, camara) · PIECES (only these test
+ *      pieces, while developing) · NODE18 (path to a Node 18 binary; otherwise `npx -y node@18`)
+ *      BROWSER (engine that drives the studio and visits the pasted code: chromium — Playwright's, the
+ *      default —, chrome — Google Chrome stable, which encodes H.264 —, firefox or webkit)
+ *      PW_EXTRA (folder with Playwright's firefox-N and webkit-N builds when they are not in the default
+ *      browsers folder; default /opt/pw-extra) · PLAY (engines for the playback/decoding checks;
+ *      default chromium,chrome,firefox,webkit, those available)
  */
 import { spawnSync } from 'node:child_process';
 import { X509Certificate, createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, extname, join, resolve } from 'node:path';
-import { chromium } from '@playwright/test';
+import { basename, dirname, extname, join, resolve } from 'node:path';
+import { chromium, firefox, webkit } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const PORT = Number(process.env.PORT ?? 4173);
@@ -29,8 +39,14 @@ const DEV_PORT = SITE_PORT + 1;                                  // throwaway Re
 const SITE = `http://127.0.0.1:${SITE_PORT}`;
 const OUT = process.env.OUT ? resolve(process.env.OUT) : mkdtempSync(join(tmpdir(), 'monotrama-verify-'));
 const ONLY = (process.env.ONLY ?? '').split(',').map(s => s.trim()).filter(Boolean);
+/** PIECES=patron,texto: only those test pieces (while developing; a full run uses all of them). */
+const ONLY_PIECES = (process.env.PIECES ?? '').split(',').map(s => s.trim()).filter(Boolean);
 const PY = join(ROOT, 'scripts/verify-exports.py');
 const GL_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+const BROWSER = (process.env.BROWSER ?? 'chromium').toLowerCase();
+const PW_EXTRA = process.env.PW_EXTRA ?? '/opt/pw-extra';
+const CHROMIUMS = new Set(['chromium', 'chrome']);
+if (!['chromium', 'chrome', 'firefox', 'webkit'].includes(BROWSER)) { console.error('BROWSER: chromium, chrome, firefox o webkit'); process.exit(2); }
 /** VERIFY_CA=<pem>: a CA that re-signs HTTPS on this network (corporate/agent proxy). Chromium trusts exactly that key. */
 if (process.env.VERIFY_CA) {
   const cert = new X509Certificate(readFileSync(process.env.VERIFY_CA));
@@ -46,21 +62,88 @@ mkdirSync(OUT, { recursive: true });
 
 const results = [];
 const want = g => !ONLY.length || ONLY.includes(g);
-function record(group, name, status, detail = '') {
-  results.push({ group, name, status, detail: String(detail).replace(/\s+/g, ' ').trim() });
+/** Engine of the main browser, e.g. «chromium 141.0.7390.37» (set once it is launched). */
+let ENGINE = BROWSER;
+function record(group, name, status, detail = '', engine = ENGINE) {
+  results.push({ group, name, status, detail: String(detail).replace(/\s+/g, ' ').trim(), engine });
   const mark = status === 'PASS' ? '✓' : status === 'SKIP' ? '·' : '✗';
-  console.log(`  ${mark} [${group}] ${name}${detail ? ' — ' + String(detail).replace(/\s+/g, ' ').slice(0, 160) : ''}`);
+  console.log(`  ${mark} [${group}·${engine.split(' ')[0]}] ${name}${detail ? ' — ' + String(detail).replace(/\s+/g, ' ').slice(0, 160) : ''}`);
 }
 class Skip extends Error {}
 const skip = reason => { throw new Skip(reason); };
-/** Runs one check: return a string (PASS detail), throw Skip (SKIP) or anything else (FAIL). */
-async function check(group, name, fn) {
+/**
+ * Runs one check: return a string (PASS detail), throw Skip (SKIP) or anything else (FAIL).
+ * `engine`: the engine the check ran in, when it is not the main browser (a file opened in Firefox…).
+ */
+async function check(group, name, fn, engine = ENGINE) {
   try {
     const d = await fn();
-    record(group, name, 'PASS', d ?? '');
+    record(group, name, 'PASS', d ?? '', engine);
   } catch (e) {
-    if (e instanceof Skip) record(group, name, 'SKIP', e.message);
-    else record(group, name, 'FAIL', e?.message ?? String(e));
+    if (e instanceof Skip) record(group, name, 'SKIP', e.message, engine);
+    else record(group, name, 'FAIL', e?.message ?? String(e), engine);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Engines                                                             */
+/* ------------------------------------------------------------------ */
+
+/** An executable inside a Playwright build folder of PW_EXTRA (firefox-1495/firefox/firefox…). */
+function extraExe(prefix, rel) {
+  try {
+    const dir = readdirSync(PW_EXTRA).filter(d => d.startsWith(prefix + '-')).sort().at(-1);
+    const f = dir && join(PW_EXTRA, dir, rel);
+    return f && existsSync(f) ? f : undefined;
+  } catch { return undefined; }
+}
+const CHROME_EXE = ['/opt/google/chrome/chrome', '/usr/bin/google-chrome'].find(f => existsSync(f));
+/** Launch options per engine: Chromium and Chrome draw WebGL with SwiftShader; Firefox and WebKit come from PW_EXTRA. */
+function launchOptions(name, o = {}) {
+  if (name === 'chromium') return [chromium, { args: [...GL_ARGS, ...(o.args ?? [])] }];
+  if (name === 'chrome') return [chromium, { channel: 'chrome', args: [...GL_ARGS, ...(o.args ?? [])] }];
+  if (name === 'firefox') return [firefox, { executablePath: extraExe('firefox', 'firefox/firefox'), firefoxUserPrefs: o.prefs }];
+  return [webkit, { executablePath: extraExe('webkit', 'pw_run.sh') }];
+}
+/** Why an engine cannot run here ('' when it can be tried). */
+function engineGap(name) {
+  if (name === 'chrome' && !CHROME_EXE) return 'Google Chrome no está instalado';
+  if ((name === 'firefox' || name === 'webkit') && !extraExe(name, name === 'firefox' ? 'firefox/firefox' : 'pw_run.sh')) {
+    // the default Playwright folder may still have it
+    try { const [t] = launchOptions(name); if (existsSync(t.executablePath())) return ''; } catch { /* not there */ }
+    return `${name} de Playwright no está en ${PW_EXTRA} ni en la carpeta de navegadores`;
+  }
+  return '';
+}
+async function launch(name, o = {}) {
+  const [type, opts] = launchOptions(name, o);
+  if (!opts.executablePath) delete opts.executablePath;
+  return type.launch(opts);
+}
+const label = b => `${b.browserType().name() === 'chromium' && b.__channel ? 'chrome' : b.browserType().name()} ${b.version()}`;
+/** Other engines, launched once each when a check needs them (null with the reason when not available). */
+const others = new Map();
+async function engine(name) {
+  if (!others.has(name)) {
+    others.set(name, (async () => {
+      const gap = engineGap(name);
+      if (gap) return { gap };
+      try {
+        const b = await launch(name);
+        b.__channel = name === 'chrome';
+        return { b, label: label(b) };
+      } catch (e) { return { gap: `${name} no arranca: ${String(e.message).split('\n')[0]}` }; }
+    })());
+  }
+  return others.get(name);
+}
+const PLAY = (process.env.PLAY ?? 'chromium,chrome,firefox,webkit').split(',').map(s => s.trim()).filter(Boolean);
+/** Runs `fn(browser)` as a check in each playback engine, recorded under that engine. */
+async function inEngines(group, name, fn, list = PLAY) {
+  for (const n of list) {
+    const e = await engine(n);
+    if (!e.b) { record(group, name, 'SKIP', e.gap, n); continue; }
+    await check(group, name, () => fn(e.b, n), e.label);
   }
 }
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
@@ -160,6 +243,16 @@ const PIECES = {
     msg: { on: true, text: 'teje luz', mode: 'static', y: 0.88, box: 0.9 }, interact: { mode: 'none' },
     meta: { name: 'Verificación texto', space: 'tipo' },
   },
+  // big text whose letters move (a wave) through three source transformations, with a message whose
+  // letters bounce: image, video, code and text exports must all carry them
+  transformada: {
+    v: 2, source: 'text', text: { content: 'LUZ', font: 'martian', weight: 800, size: 0.9, anim: { kind: 'ola', amount: 0.7, speed: 1 } },
+    media: { xform: [{ kind: 'semitono', on: true, amount: 0.6, p: 0.5 }, { kind: 'ondular', on: true, amount: 0.5, p: 0.4 }, { kind: 'canales', on: true, amount: 0.5, p: 0.5 }] },
+    layers: [{ pattern: 'franjas', a: 0.25, b: 0.35 }],
+    glyph: { cell: 10, charset: ' .:-=+*#%@', font: 'jetbrains' }, color: { stops: ['#10131c', '#3f7bd9', '#f4e9c8'], bg: '#07090f' },
+    msg: { on: true, text: 'se mueve', mode: 'static', y: 0.86, box: 0.8, anim: { kind: 'rebote', amount: 0.6, speed: 1 } },
+    interact: { mode: 'none' }, meta: { name: 'Verificación transformada', space: 'tipo' },
+  },
   imagen: {
     v: 2, source: 'image', glyph: { cell: 10, aspect: 1.2, charset: DETALLADO, font: 'jetbrains' },
     color: { mode: 'source', vivid: 0.8, stops: ['#000000', '#ffffff'], bg: '#050505' }, interact: { mode: 'none' }, fx: { cellBg: 0.35 },
@@ -203,11 +296,26 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /** Opens the studio with a piece. Reduced motion makes the studio start paused at t = 0; the fake clock
  * lets us advance the engine by exact amounts (each animation frame is exactly 16 ms). */
+/**
+ * Firefox and WebKit have no clipboard permissions to grant: there the studio's copy lands in
+ * window.__copied (what it wrote to the clipboard, or the selection it copied), read by clipboard().
+ */
+const CLIP_STUB = `(() => {
+  window.__copied = '';
+  const write = async t => { window.__copied = String(t); };
+  try {
+    if (navigator.clipboard) Object.defineProperty(navigator.clipboard, 'writeText', { value: write, configurable: true });
+    else Object.defineProperty(navigator, 'clipboard', { value: { writeText: write, readText: async () => window.__copied }, configurable: true });
+  } catch {}
+  document.addEventListener('copy', () => { const s = String(document.getSelection() || ''); if (s) window.__copied = s; }, true);
+})();`;
+const studioContext = (o = {}) => browser.newContext({
+  viewport: { width: 1366, height: 860 }, deviceScaleFactor: 1, acceptDownloads: true, reducedMotion: 'reduce',
+  ...(CHROMIUMS.has(BROWSER) ? { permissions: ['clipboard-read', 'clipboard-write'] } : {}), ...o,
+});
 async function openStudio(recipe, o = {}) {
-  const ctx = await browser.newContext({
-    viewport: { width: 1366, height: 860 }, deviceScaleFactor: 1, acceptDownloads: true, reducedMotion: 'reduce',
-    permissions: ['clipboard-read', 'clipboard-write'], ...(o.context ?? {}),
-  });
+  const ctx = await studioContext(o.context ?? {});
+  if (!CHROMIUMS.has(BROWSER)) await ctx.addInitScript(CLIP_STUB);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -265,6 +373,24 @@ async function openSheet(page, tab) {
   await pump(page, 200);
 }
 async function closeSheet(page) { await page.keyboard.press('Escape'); await pump(page, 200); }
+const SIZE_NAMES = { v1: 'Como la vista', v2: 'Vista ×2', v4: 'Vista ×3', hd: '1920×1080', '4k': '3840×2160 (4K)', sq: '1080×1080', story: '1080×1920 vertical', og: '1200×630 (redes)' };
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Chooses a size in the sheet's size picker (a combobox with a listbox of presets). */
+async function pickSize(page, id, value) {
+  const btn = page.locator('#' + id);
+  if ((await btn.getAttribute('data-value')) === value) return;
+  await btn.click();
+  await pump(page, 100);
+  await page.getByRole('listbox').getByRole('option', { name: new RegExp('^' + reEsc(SIZE_NAMES[value])) }).first().click();
+  for (let i = 0; i < 50 && (await btn.getAttribute('data-value')) !== value; i++) await pump(page, 50);
+  assert((await btn.getAttribute('data-value')) === value, `tamaño ${value} no elegido`);
+  await pump(page, 100);
+}
+/** Chooses one of a few values in a radio group (frames per second, GIF width). */
+async function pickNumber(page, group, name) {
+  await page.locator('.sheet-body').getByRole('radiogroup', { name: group }).getByRole('radio', { name, exact: true }).click();
+  await pump(page, 100);
+}
 async function setSwitch(page, name, on) {
   const s = page.locator('.sheet-body').getByRole('switch', { name });
   if ((await s.isChecked()) !== on) await s.click({ force: true });
@@ -285,13 +411,46 @@ async function stageShot(page, file) {
   await page.screenshot({ path: file, clip });
   await page.evaluate(() => { for (const el of document.querySelectorAll('body *')) el.style.visibility = ''; });
 }
+/**
+ * The stage of a piece in real time, paused at t = 0 by «reducir movimiento» (the same instant as the
+ * fake-clock page's first capture), with everything else hidden, as stageShot does.
+ */
+async function realTimeStage(key, file, image) {
+  const ctx = await studioContext();
+  if (!CHROMIUMS.has(BROWSER)) await ctx.addInitScript(CLIP_STUB);
+  const p = await ctx.newPage();
+  try {
+    await p.goto(`${BASE}/studio/#r=${encode(PIECES[key])}`);
+    await p.locator('.stage canvas').first().waitFor();
+    if (await p.locator('dialog.welcome[open]').count()) await p.keyboard.press('Escape');
+    if (image) {
+      const chooser = p.waitForEvent('filechooser');
+      await p.getByRole('button', { name: 'Elegir imagen' }).first().click();
+      await (await chooser).setFiles({ name: 'sintetica.png', mimeType: 'image/png', buffer: image });
+      await p.getByRole('region', { name: 'Cargar fuente' }).waitFor({ state: 'detached' });
+    }
+    await p.waitForTimeout(3000);
+    await p.evaluate(() => {
+      const c = document.querySelector('.stage canvas');
+      for (const el of document.querySelectorAll('body *')) if (!el.contains(c)) el.style.visibility = 'hidden';
+    });
+    await p.waitForTimeout(500);
+    const clip = await p.evaluate(() => {
+      const c = document.querySelector('.stage canvas'), r = c.getBoundingClientRect();
+      return { x: Math.round(r.x), y: Math.round(r.y), width: c.clientWidth, height: c.clientHeight };
+    });
+    await p.screenshot({ path: file, clip });
+  } finally { await ctx.close(); }
+}
 async function playFor(page, frames) {
   await page.getByRole('button', { name: 'Reproducir animación' }).click();
   await page.clock.runFor(16 * frames);
   await page.getByRole('button', { name: 'Pausar animación' }).click();
   await pump(page, 64);
 }
-async function clipboard(page) { return page.evaluate(() => navigator.clipboard.readText()); }
+async function clipboard(page) {
+  return CHROMIUMS.has(BROWSER) ? page.evaluate(() => navigator.clipboard.readText()) : page.evaluate(() => window.__copied);
+}
 
 /** A synthetic photo-like image (gradients, shapes, text) drawn in the browser. */
 async function syntheticImage() {
@@ -339,11 +498,19 @@ const page = (title, body, head = '') => `<!doctype html>
 <style>body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#fafafa;color:#111}main{max-width:760px;margin:0 auto;padding:24px}</style></head>
 <body>${body}</body></html>`;
 
-/** Counts WebGL draw calls so a page can tell whether an exported canvas keeps rendering. */
+/**
+ * Counts what an exported canvas draws, whichever engine draws it (WebGL draw calls; the basic engine's
+ * putImageData on a canvas that is on the page), and the animation frames asked for: after removing a
+ * piece, both must stop.
+ */
 const COUNT_DRAWS = `(() => {
+  window.__draws = 0; window.__raf = 0;
   const P = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
-  window.__draws = 0;
   if (P) { const d = P.drawArrays; P.drawArrays = function (...a) { window.__draws++; return d.apply(this, a); }; }
+  const C = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+  if (C) { const p = C.putImageData; C.putImageData = function (...a) { if (this.canvas && this.canvas.isConnected) window.__draws++; return p.apply(this, a); }; }
+  const raf = window.requestAnimationFrame;
+  window.requestAnimationFrame = function (cb) { window.__raf++; return raf.call(window, cb); };
 })();`;
 const NO_WEBGL2 = `(() => {
   const g = HTMLCanvasElement.prototype.getContext;
@@ -351,8 +518,9 @@ const NO_WEBGL2 = `(() => {
 })();`;
 
 let no3d = null;
+/** `o.browser`: visit with another engine; `o.no3d`: Chromium/Chrome with --disable-3d-apis (no WebGL at all). */
 async function visitSite(url, o = {}) {
-  const b = o.no3d ? (no3d ??= await chromium.launch({ args: [...GL_ARGS, '--disable-3d-apis'] })) : browser;
+  const b = o.no3d ? (no3d ??= await launch(BROWSER, { args: ['--disable-3d-apis'] })) : o.browser ?? browser;
   const ctx = await b.newContext({ viewport: o.viewport ?? { width: 1280, height: 800 }, deviceScaleFactor: 1, reducedMotion: o.reducedMotion ?? 'no-preference' });
   await ctx.addInitScript(COUNT_DRAWS);
   if (o.noWebgl2) await ctx.addInitScript(NO_WEBGL2);
@@ -362,6 +530,8 @@ async function visitSite(url, o = {}) {
   p.on('console', m => {
     if (m.type() !== 'error') return;
     if (FONT_HOSTS.test(m.location()?.url ?? '')) { fontIssues.add(m.text()); return; }
+    // a full browser (Chrome) asks every test page for its /favicon.ico: the test pages have none
+    if (/\/favicon\.ico$/.test(m.location()?.url ?? '')) return;
     errors.push('console: ' + m.text() + (m.location()?.url ? ' @ ' + m.location().url : ''));
   });
   p.on('requestfailed', r => { if (FONT_HOSTS.test(r.url())) fontIssues.add(r.failure()?.errorText ?? 'error'); else errors.push('requestfailed: ' + r.url()); });
@@ -371,6 +541,9 @@ async function visitSite(url, o = {}) {
 }
 const draws = p => p.evaluate(() => window.__draws);
 async function drawRate(p, ms = 1200) { const a = await draws(p); await p.waitForTimeout(ms); return (await draws(p)) - a; }
+async function rafRate(p, ms = 800) { const a = await p.evaluate(() => window.__raf); await p.waitForTimeout(ms); return (await p.evaluate(() => window.__raf)) - a; }
+/** Which engine draws a canvas: 'webgl2', '2d' or 'none' (asking a canvas for another kind of context returns null). */
+const contextKind = el => el.evaluate(c => (c.getContext('webgl2') ? 'webgl2' : c.getContext('2d') ? '2d' : 'none'));
 /** Standard deviation of the luminance of a screenshot: ~0 means a blank (flat) area. */
 function spread(png) { return imgStat(png, 'standard_deviation'); }
 
@@ -399,18 +572,24 @@ async function studioPiece(key, o = {}) {
 
     if (want('imagen')) {
       await openSheet(page, 'Imagen');
-      await page.locator('#ex-size').selectOption('v1');
+      // WebKit once sized the sheet's body from a zero basis: one visible line, every option clipped
+      await check('estudio', `${key}: la hoja de exportación enseña sus opciones (no queda recortada)`, async () => {
+        const [h, sh] = await page.locator('.sheet-body').evaluate(b => [b.clientHeight, b.scrollHeight]);
+        assert(h >= Math.min(sh, 240), `cuerpo de ${h} px para ${sh} px de contenido`);
+        return `cuerpo de ${h} px (contenido ${sh} px)`;
+      });
+      await pickSize(page, 'ex-size', 'v1');
       for (const f of o.formats ?? ['png', 'webp', 'jpeg']) {
         await page.getByRole('button', { name: f.toUpperCase(), exact: true }).click();
         files[f] = await download(page, dir, () => page.getByRole('button', { name: 'Descargar imagen' }).click());
       }
       await page.getByRole('button', { name: 'PNG', exact: true }).click();
-      await page.locator('#ex-size').selectOption('v2');
+      await pickSize(page, 'ex-size', 'v2');
       files.png2 = await download(page, dir, () => page.getByRole('button', { name: 'Descargar imagen' }).click());
       const FIXED = { hd: [1920, 1080], sq: [1080, 1080], story: [1080, 1920], og: [1200, 630], '4k': [3840, 2160] };
       const fixedOut = [];
       for (const id of o.sizes ?? []) {
-        await page.locator('#ex-size').selectOption(id);
+        await pickSize(page, 'ex-size', id);
         const f = await download(page, join(dir, 'tamanos'), () => page.getByRole('button', { name: 'Descargar imagen' }).click());
         fixedOut.push([id, f]);
       }
@@ -421,7 +600,7 @@ async function studioPiece(key, o = {}) {
         return got.map(([, d]) => d).join(', ');
       });
       if (o.transparent) {
-        await page.locator('#ex-size').selectOption('v1');
+        await pickSize(page, 'ex-size', 'v1');
         await setSwitch(page, /Fondo transparente/, true);
         files.pngT = await download(page, join(dir, 'transparente'), () => page.getByRole('button', { name: 'Descargar imagen' }).click());
         await setSwitch(page, /Fondo transparente/, false);
@@ -437,10 +616,18 @@ async function studioPiece(key, o = {}) {
         }
         return out.join(', ');
       });
-      await check('imagen', `${key}: PNG = lienzo en vivo en el mismo instante (RMSE)`, () => {
-        const e = rmse(files.live0, files.png);
-        assert(e < 0.03, 'RMSE ' + fmt(e));
-        return 'RMSE ' + fmt(e);
+      await check('imagen', `${key}: PNG = lienzo en vivo en el mismo instante (RMSE)`, async () => {
+        let ref = files.live0, how = '';
+        // with the fake clock, WebKit's screenshot does not reliably hold the WebGL stage's last frame (black,
+        // or a frame before the image arrived): there the same piece is captured in real time, at t = 0
+        if (BROWSER === 'webkit') {
+          ref = join(dir, 'vivo-t0-tiempo-real.png');
+          await realTimeStage(key, ref, o.image);
+          how = ` (lienzo capturado en tiempo real; con el reloj simulado la captura de WebKit ${spread(files.live0) < 0.005 ? 'salía negra' : 'no era la del último fotograma'})`;
+        }
+        const e = rmse(ref, files.png);
+        assert(e < 0.03, 'RMSE ' + fmt(e) + how);
+        return 'RMSE ' + fmt(e) + how;
       });
       if (files.webp) await check('imagen', `${key}: WebP/JPEG ≈ PNG (compresión con pérdida)`, () => {
         const a = rmse(files.png, files.webp), b = rmse(files.png, files.jpeg);
@@ -464,6 +651,19 @@ async function studioPiece(key, o = {}) {
 
     if (want('vector')) {
       await openSheet(page, 'Vector');
+      if (PIECES[key].fx && Object.values(PIECES[key].fx).some(v => v > 0.02 && v !== PIECES[key].fx.cellBg)) {
+        // pixel effects: before downloading, the tab shows the frame with them and without them, side by side
+        await check('vector', `${key}: antes de exportar, la pestaña muestra el SVG sin efectos de píxel junto a la vista`, async () => {
+          const imgs = page.locator('.svg-cmp img');
+          for (let i = 0; i < 100 && (await imgs.count()) < 2; i++) await pump(page, 100);
+          assert((await imgs.count()) === 2, `${await imgs.count()} imágenes en la comparación`);
+          const nat = await imgs.evaluateAll(els => els.map(e => e.naturalWidth));
+          assert(nat.every(w => w > 0), 'imágenes vacías');
+          const said = (await page.locator('.svg-fx').innerText()).replace(/\s+/g, ' ');
+          assert(/efectos de píxel que no existen en un SVG/.test(said), 'sin explicación: ' + said.slice(0, 120));
+          return said.slice(0, 150);
+        });
+      }
       await page.getByRole('button', { name: 'Contornos (fiel)' }).click();
       files.svgOutline = await download(page, join(dir, 'svg-contornos'), () => page.getByRole('button', { name: 'Descargar SVG' }).click());
       const notes = await page.locator('.ex-card .warn').allTextContents();
@@ -473,10 +673,17 @@ async function studioPiece(key, o = {}) {
       await svgChecks(key, files, cw, chh, notes, o);
     }
 
+    if (!files.png && ((want('video') && o.video) || (want('codigo') && o.code))) {
+      // video frames and pasted code are compared with a PNG of the same instant (the imagen group makes it)
+      await openSheet(page, 'Imagen');
+      await pickSize(page, 'ex-size', 'v1');
+      files.png = await download(page, dir, () => page.getByRole('button', { name: 'Descargar imagen' }).click());
+      await closeSheet(page);
+    }
     if (want('video') && o.video) await videoChecks(key, page, files, dir, cw, chh);
     if (want('codigo') && o.code) codeOut[key] = await readCodeTab(page, dir, files);
     if (want('terminal') && o.terminal) await terminalExports(key, page, dir, files);
-    if (want('video') && o.video) await liveRecording(key, page, dir);
+    if (want('video') && o.video) await liveRecording(key, page, dir, files);
 
     await check('estudio', `${key}: sin errores en consola durante las exportaciones`, () => {
       assert(!errors.length, errors.slice(0, 3).join(' | '));
@@ -518,7 +725,7 @@ async function svgChecks(key, files, cw, chh, notes, o) {
       assert(r.status === 0 && existsSync(dst), r.stderr.slice(0, 200));
       renders.rsvg = dst;
       return identify(dst, '%w×%h');
-    });
+    }, 'rsvg-convert (herramienta)');
     await check('vector', `${label}: Inkscape lo exporta a PNG`, () => {
       need('inkscape');
       const dst = f.replace(/\.svg$/, '.inkscape.png');
@@ -526,20 +733,23 @@ async function svgChecks(key, files, cw, chh, notes, o) {
       assert(existsSync(dst), (r.stderr || '').slice(-200));
       renders.inkscape = dst;
       return identify(dst, '%w×%h');
-    });
-    await check('vector', `${label}: Chromium lo muestra`, async () => {
-      const p = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-      const b64 = Buffer.from(text).toString('base64');
-      await p.setContent(`<body style="margin:0"><img id="i" src="data:image/svg+xml;base64,${b64}"></body>`);
-      await p.waitForFunction(() => document.getElementById('i').complete);
-      const nat = await p.evaluate(() => { const i = document.getElementById('i'); return [i.naturalWidth, i.naturalHeight]; });
-      const dst = f.replace(/\.svg$/, '.chromium.png');
-      await p.locator('#i').screenshot({ path: dst });
-      await p.close();
-      assert(nat[0] > 0, 'no carga');
-      renders.chromium = dst;
-      return `${nat[0]}×${nat[1]}`;
-    });
+    }, 'inkscape (herramienta)');
+    // the SVG as an image in each browser engine (<img>, like a web page or a document would show it)
+    const showIn = async (b, tag) => {
+      const p = await b.newPage({ viewport: { width: 1600, height: 1000 } });
+      try {
+        const b64 = Buffer.from(text).toString('base64');
+        await p.setContent(`<body style="margin:0"><img id="i" src="data:image/svg+xml;base64,${b64}"></body>`);
+        await p.waitForFunction(() => document.getElementById('i').complete, null, { timeout: 60_000 });
+        const nat = await p.evaluate(() => { const i = document.getElementById('i'); return [i.naturalWidth, i.naturalHeight]; });
+        assert(nat[0] > 0, 'no carga');
+        const dst = f.replace(/\.svg$/, `.${tag}.png`);
+        await p.locator('#i').screenshot({ path: dst });
+        renders[tag] = dst;
+        return `${nat[0]}×${nat[1]}`;
+      } finally { await p.close(); }
+    };
+    await inEngines('vector', `${label}: el navegador lo muestra`, (b, n) => showIn(b, n), [BROWSER, ...PLAY.filter(n => n !== BROWSER)]);
     if (o.svgNote && mode === 'svgOutline') await check('vector', `${label}: la interfaz avisa de lo que el SVG no reproduce igual`, () => {
       assert(notes.some(t => o.svgNote.test(t)), 'sin aviso; avisos: ' + (notes.join(' | ') || 'ninguno'));
       const texts = (text.match(/<text\b/g) ?? []).length, geo = (text.match(/<circle\b/g) ?? []).length;
@@ -548,13 +758,19 @@ async function svgChecks(key, files, cw, chh, notes, o) {
     if (pngRef) {
       for (const [tool, png] of Object.entries(renders)) {
         // text mode needs the typeface installed: rsvg/Inkscape here fall back to another mono (fontconfig)
-        const limit = o.svgInfo ? Infinity : (mode === 'svgOutline' ? 0.03 : tool === 'chromium' ? 0.04 : 0.08);
-        await check('vector', `${label}: ${tool} ≈ PNG del mismo fotograma${o.svgInfo ? ' (informativo)' : ''}`, () => {
+        const browserEngine = ['chromium', 'chrome', 'firefox', 'webkit'].includes(tool);
+        // the limits are set against a PNG rasterized by Chromium or Firefox; WebKit's canvas draws the same
+        // characters, in the same cells, with heavier strokes (seen side by side), so with the studio in
+        // WebKit the numbers are reported, not judged
+        const info = o.svgInfo || BROWSER === 'webkit';
+        const limit = info ? Infinity : (mode === 'svgOutline' ? 0.03 : CHROMIUMS.has(tool) ? 0.04 : 0.08);
+        const eng = browserEngine ? (await engine(tool)).label ?? tool : `${tool === 'rsvg' ? 'rsvg-convert' : tool} (herramienta)`;
+        await check('vector', `${label}: ${browserEngine ? 'visto en el navegador' : tool} ≈ PNG del mismo fotograma${info ? ' (informativo)' : ''}`, () => {
           const e = rmse(pngRef, png, { bg: o.bg });
           const eBlur = rmse(pngRef, png, { bg: o.bg, blur: 2 });
           assert(eBlur < limit, `RMSE ${fmt(e)}, desenfocado ${fmt(eBlur)} (límite ${limit})`);
-          return `RMSE ${fmt(e)}, desenfocado ${fmt(eBlur)}`;
-        });
+          return `RMSE ${fmt(e)}, desenfocado ${fmt(eBlur)}${info && !o.svgInfo ? ' (PNG de referencia dibujado por WebKit, de trazo más grueso)' : ''}`;
+        }, eng);
       }
     }
   }
@@ -562,75 +778,116 @@ async function svgChecks(key, files, cw, chh, notes, o) {
 
 async function videoChecks(key, page, files, dir, cw, chh) {
   const speed = PIECES[key].motion?.speed ?? 1;
+
   await openSheet(page, 'Video y GIF');
   const sh = page.locator('.sheet-body');
-  await page.locator('#v-size').selectOption('v1');
-  await sh.getByLabel('Duración (s)').fill('2');
-  await sh.getByLabel('Fotogramas/s').selectOption('30');
-  await pump(page, 100);
-  const mp4Btn = sh.getByRole('button', { name: 'MP4 (H.264)' });
-  const webmBtn = sh.getByRole('button', { name: 'WebM' });
-  await pumping(page, webmBtn.isEnabled());
-  await pump(page, 300);
-  const avc = await page.evaluate(async () => (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 640, height: 360 })).supported);
-  // an MP4 the browser cannot encode is not a (disabled) button but an explanation row
-  const mp4Enabled = (await mp4Btn.count()) > 0 && await mp4Btn.isEnabled();
-  const sheetText = (await sh.locator('.ex-na').allTextContents()).join(' ');
-  await check('mp4', `${key}: MP4 coherente con lo que el navegador codifica`, () => {
-    if (avc) { assert(mp4Enabled, 'H.264 disponible pero no hay botón MP4 activo'); return 'H.264 disponible y botón activo'; }
-    assert(!mp4Enabled, 'el navegador no codifica H.264 pero el botón MP4 está activo');
-    assert(/H\.264|MP4/i.test(sheetText) && /no puede|no codifica|no disponible/i.test(sheetText), 'la interfaz no explica por qué no hay MP4: «' + sheetText.slice(0, 200) + '»');
-    return 'VideoEncoder.isConfigSupported(avc1) = false → sin botón MP4 y aviso: «' + sheetText.trim() + '»';
-  });
-  if (await webmBtn.isEnabled()) {
-    files.webm = await download(page, dir, () => webmBtn.click());
+  // a browser without video encoders (the WebKit here: asking it about codecs closes the page) gets an
+  // explanation instead of the buttons; the GIF does not need them
+  const noEncoders = (await sh.getByText('MP4 y WebM: no disponibles.').count()) > 0;
+  if (noEncoders) {
+    files.noEncoders = true;
+    const why = (await sh.locator('.ex-na').allTextContents()).join(' ').replace(/\s+/g, ' ');
+    const videoButtons = await sh.getByRole('button', { name: /^(WebM|MP4)/ }).count();
+    for (const g of ['webm', 'mp4']) await check(g, `${key}: sin codificadores de video, la interfaz lo explica y ofrece el GIF`, () => {
+      assert(/MP4 y WebM: no disponibles/.test(why) && /GIF/.test(why), 'sin explicación: ' + why.slice(0, 200));
+      assert(videoButtons === 0, `${videoButtons} botones de video`);
+      return why.slice(0, 200);
+    });
+    await sh.getByLabel('Duración (s)').fill('2');
+    await pickNumber(page, 'Fotogramas por segundo', '30');
+    await pickNumber(page, 'Ancho del GIF', '640 px');
+    files.gif = await download(page, dir, () => page.getByRole('button', { name: 'Descargar GIF' }).click());
+    await closeSheet(page);
+  } else {
+    await pickSize(page, 'v-size', 'v1');
+    await sh.getByLabel('Duración (s)').fill('2');
+    await pickNumber(page, 'Fotogramas por segundo', '30');
+    await pump(page, 100);
+    const mp4Btn = sh.getByRole('button', { name: 'MP4 (H.264)' });
+    const webmBtn = sh.getByRole('button', { name: 'WebM' });
+    await pumping(page, webmBtn.isEnabled());
+    await pump(page, 300);
+    const avc = await page.evaluate(async () => typeof VideoEncoder !== 'undefined' && (await VideoEncoder.isConfigSupported({ codec: 'avc1.42001f', width: 640, height: 360 })).supported);
+    // an MP4 the browser cannot encode is not a (disabled) button but an explanation row
+    const mp4Enabled = (await mp4Btn.count()) > 0 && await mp4Btn.isEnabled();
+    const sheetText = (await sh.locator('.ex-na').allTextContents()).join(' ');
+    await check('mp4', `${key}: MP4 coherente con lo que el navegador codifica`, () => {
+      if (avc) { assert(mp4Enabled, 'H.264 disponible pero no hay botón MP4 activo'); return 'H.264 disponible y botón activo'; }
+      assert(!mp4Enabled, 'el navegador no codifica H.264 pero el botón MP4 está activo');
+      assert(/H\.264|MP4/i.test(sheetText) && /no puede|no codifica|no disponible/i.test(sheetText), 'la interfaz no explica por qué no hay MP4: «' + sheetText.slice(0, 200) + '»');
+      return 'VideoEncoder.isConfigSupported(avc1) = false → sin botón MP4 y aviso: «' + sheetText.trim() + '»';
+    });
+    if (await webmBtn.isEnabled()) {
+      files.webm = await download(page, dir, () => webmBtn.click());
+    }
+    if (mp4Enabled) files.mp4 = await download(page, dir, () => mp4Btn.click());
+    await pickNumber(page, 'Ancho del GIF', '640 px');
+    files.gif = await download(page, dir, () => page.getByRole('button', { name: 'Descargar GIF' }).click());
+    await closeSheet(page);
   }
-  if (mp4Enabled) files.mp4 = await download(page, dir, () => mp4Btn.click());
-  await page.locator('#gif-w').selectOption('640');
-  files.gif = await download(page, dir, () => page.getByRole('button', { name: 'Descargar GIF' }).click());
-  await closeSheet(page);
 
   const n = 60;
-  await check('webm', `${key}: ffprobe (códec, fps, duración, fotogramas)`, () => {
-    assert(files.webm, 'botón WebM desactivado');
-    const j = ffprobe(files.webm), s = j.streams[0];
-    const [a, b] = s.avg_frame_rate.split('/').map(Number);
-    const fps = a / b, dur = Number(j.format.duration), frames = Number(s.nb_read_frames);
-    assert(/vp9|vp8/.test(s.codec_name) && s.width === cw + (cw % 2) && s.height === chh + (chh % 2), `${s.codec_name} ${s.width}×${s.height}`);
-    assert(Math.abs(fps - 30) < 0.01 && Math.abs(dur - 2) < 0.05 && frames === n, `fps ${fps}, duración ${dur}, fotogramas ${frames}`);
-    return `${s.codec_name} ${s.width}×${s.height}, ${fps} fps, ${dur} s, ${frames} fotogramas, ${j.format.format_name}`;
-  });
-  await check('webm', `${key}: decodificación completa sin errores (ffmpeg -v error)`, () => {
-    need('ffmpeg'); assert(files.webm, 'sin WebM');
-    const r = run('ffmpeg', ['-v', 'error', '-i', files.webm, '-f', 'null', '-']);
-    assert(r.status === 0 && !r.stderr.trim(), r.stderr.slice(0, 200));
-    return 'sin errores';
-  });
-  // video is YUV 4:2:0: thin coloured glyphs lose chroma, so frames are compared slightly blurred (σ = 2 px)
-  await check('webm', `${key}: fotograma 0 = PNG en t = 0`, () => {
-    assert(files.webm, 'sin WebM');
-    const f0 = frameAt(files.webm, 0, join(dir, 'webm-f0.png'));
-    const e = rmse(files.png, f0, { blur: 2 }), raw = rmse(files.png, f0);
-    assert(e < 0.035, `RMSE desenfocado ${fmt(e)} (sin desenfocar ${fmt(raw)})`);
-    return `RMSE desenfocado ${fmt(e)} (sin desenfocar ${fmt(raw)}: croma 4:2:0 de VP9)`;
-  });
+  const clips = [['webm', files.webm], ['mp4', files.mp4]];
+  for (const [kind, f] of clips) {
+    const codecRe = kind === 'webm' ? /vp9|vp8/ : /h264/;
+    const missing = kind === 'webm' ? 'botón WebM desactivado' : null;
+    const gate = () => {
+      if (f) return;
+      if (files.noEncoders) skip(`${ENGINE}: el estudio no ofrece video renderizado aquí (sin codificadores de video; la hoja lo explica)`);
+      if (missing) throw new Error(missing);
+      skip(`${ENGINE} no codifica H.264 (usa BROWSER=chrome para el MP4)`);
+    };
+    await check(kind, `${key}: ffprobe (códec, fps, duración, fotogramas${kind === 'mp4' ? ', perfil, moov al principio' : ''})`, () => {
+      gate();
+      const j = ffprobe(f), st = j.streams[0];
+      const [a, b] = st.avg_frame_rate.split('/').map(Number);
+      const fps = a / b, dur = Number(j.format.duration), frames = Number(st.nb_read_frames);
+      assert(codecRe.test(st.codec_name) && st.width === cw + (cw % 2) && st.height === chh + (chh % 2), `${st.codec_name} ${st.width}×${st.height}`);
+      assert(Math.abs(fps - 30) < 0.01 && Math.abs(dur - 2) < 0.05 && frames === n, `fps ${fps}, duración ${dur}, fotogramas ${frames}`);
+      let extra = '';
+      if (kind === 'mp4') {
+        // fast start: the index (moov) before the data (mdat), so it plays while it downloads
+        const buf = readFileSync(f), moov = buf.indexOf('moov'), mdat = buf.indexOf('mdat');
+        assert(moov > 0 && moov < mdat, `moov en ${moov}, mdat en ${mdat}: sin fast start`);
+        assert(st.pix_fmt === 'yuv420p', 'pix_fmt ' + st.pix_fmt);
+        extra = `, perfil ${st.profile} nivel ${st.level}, ${st.pix_fmt}, moov antes que mdat (fast start), marca ${j.format.tags?.major_brand ?? '?'}`;
+      }
+      return `${st.codec_name} ${st.width}×${st.height}, ${fps} fps, ${dur} s, ${frames} fotogramas, ${j.format.format_name}${extra}`;
+    });
+    await check(kind, `${key}: decodificación completa sin errores (ffmpeg -v error)`, () => {
+      need('ffmpeg'); gate();
+      const r = run('ffmpeg', ['-v', 'error', '-i', f, '-f', 'null', '-']);
+      assert(r.status === 0 && !r.stderr.trim(), r.stderr.slice(0, 200));
+      return 'sin errores';
+    });
+    // video is YUV 4:2:0: thin coloured glyphs lose chroma, so frames are compared slightly blurred (σ = 2 px)
+    await check(kind, `${key}: fotograma 0 = PNG en t = 0`, () => {
+      gate();
+      const f0 = frameAt(f, 0, join(dir, `${kind}-f0.png`));
+      const e = rmse(files.png, f0, { blur: 2 }), raw = rmse(files.png, f0);
+      assert(e < 0.035, `RMSE desenfocado ${fmt(e)} (sin desenfocar ${fmt(raw)})`);
+      return `RMSE desenfocado ${fmt(e)} (sin desenfocar ${fmt(raw)}: croma 4:2:0)`;
+    });
+  }
   // 50 frames of 16 ms at motion.speed → engine time 0.8·speed = frame 24 at 30 fps (when exports follow the speed)
   await playFor(page, 50);
   await openSheet(page, 'Imagen');
-  await page.locator('#ex-size').selectOption('v1');
+  await pickSize(page, 'ex-size', 'v1');
   files.pngMid = await download(page, join(dir, 'medio'), () => page.getByRole('button', { name: 'Descargar imagen' }).click());
   await closeSheet(page);
   const tMid = 0.8 * speed, iMid = Math.round(tMid * 30 / speed);
-  await check('webm', `${key}: fotograma ${iMid} (t = ${tMid.toFixed(2)}, velocidad ${speed}) = PNG en el mismo instante`, () => {
-    assert(files.webm, 'sin WebM');
-    const mid = frameAt(files.webm, iMid, join(dir, `webm-f${iMid}.png`));
-    const e = rmse(files.pngMid, mid, { blur: 2 });
-    const control = rmse(files.png, mid, { blur: 2 });
-    const wrong = Math.round(tMid * 30);   // where the PNG would land if clips ignored motion.speed
-    const other = speed !== 1 ? rmse(files.pngMid, frameAt(files.webm, wrong, join(dir, `webm-f${wrong}.png`)), { blur: 2 }) : NaN;
-    assert(e < 0.035 && e < control, `RMSE desenfocado ${fmt(e)} (control contra t = 0: ${fmt(control)}; fotograma ${wrong}: ${fmt(other)})`);
-    return `RMSE desenfocado ${fmt(e)} · controles: fotograma 0 ${fmt(control)}${speed !== 1 ? `, fotograma ${wrong} ${fmt(other)}` : ''}`;
-  });
+  for (const [kind, f] of clips) {
+    await check(kind, `${key}: fotograma ${iMid} (t = ${tMid.toFixed(2)}, velocidad ${speed}) = PNG en el mismo instante`, () => {
+      if (!f) { if (files.noEncoders) skip(`${ENGINE}: sin codificadores de video`); if (kind === 'webm') throw new Error('sin WebM'); skip(`${ENGINE} no codifica H.264`); }
+      const mid = frameAt(f, iMid, join(dir, `${kind}-f${iMid}.png`));
+      const e = rmse(files.pngMid, mid, { blur: 2 });
+      const control = rmse(files.png, mid, { blur: 2 });
+      const wrong = Math.round(tMid * 30);   // where the PNG would land if clips ignored motion.speed
+      const other = speed !== 1 ? rmse(files.pngMid, frameAt(f, wrong, join(dir, `${kind}-f${wrong}.png`)), { blur: 2 }) : NaN;
+      assert(e < 0.035 && e < control, `RMSE desenfocado ${fmt(e)} (control contra t = 0: ${fmt(control)}; fotograma ${wrong}: ${fmt(other)})`);
+      return `RMSE desenfocado ${fmt(e)} · controles: fotograma 0 ${fmt(control)}${speed !== 1 ? `, fotograma ${wrong} ${fmt(other)}` : ''}`;
+    });
+  }
   await check('gif', `${key}: gifsicle --info (fotogramas, retardos, bucle)`, () => {
     need('gifsicle');
     const info = run('gifsicle', ['--info', files.gif]).stdout;
@@ -655,44 +912,112 @@ async function videoChecks(key, page, files, dir, cw, chh) {
     assert(e < 0.06, 'RMSE ' + fmt(e));
     return `RMSE (desenfocado) ${fmt(e)} — 128 colores, 640 px`;
   });
-  if (files.mp4) await check('mp4', `${key}: ffprobe del MP4`, () => {
-    const j = ffprobe(files.mp4), s = j.streams[0];
-    assert(s.codec_name === 'h264', s.codec_name);
-    return `${s.codec_name} ${s.profile} ${s.width}×${s.height}, ${s.nb_read_frames} fotogramas`;
-  });
 }
 
-async function liveRecording(key, page, dir) {
-  const mimes = await page.evaluate(() => ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4;codecs=vp9']
+/**
+ * What players need from a live recording: a duration, no alpha channel declared (WebKit's player refuses
+ * a WebM that declares one) and, for MP4, the index before the data. Throws when one is missing.
+ */
+function recordingShape(f, j) {
+  const st = j.streams[0], dur = Number(j.format.duration);
+  assert(Number.isFinite(dur) && dur >= 0, 'sin duración en la cabecera (' + j.format.duration + ')');
+  assert(!st.tags?.alpha_mode || st.tags.alpha_mode === '0', 'declara canal alfa (alpha_mode ' + st.tags?.alpha_mode + ')');
+  if (extname(f) === '.mp4') {
+    const buf = readFileSync(f), moov = buf.indexOf('moov'), mdat = buf.indexOf('mdat');
+    assert(moov > 0 && moov < mdat, `moov en ${moov}, mdat en ${mdat}`);
+    assert(buf.indexOf('moof') < 0, 'MP4 fragmentado (moof)');
+  }
+  return `duración ${dur.toFixed(2)} s en la cabecera, sin canal alfa declarado${extname(f) === '.mp4' ? ', MP4 normal con moov al principio' : ''}`;
+}
+
+async function liveRecording(key, studioPage, dir, files) {
+  const mimes = await studioPage.evaluate(() => typeof MediaRecorder === 'undefined' ? 'sin MediaRecorder' : ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4;codecs=vp9']
     .map(t => `${t}: ${MediaRecorder.isTypeSupported(t) ? 'sí' : 'no'}`).join(', '));
   await check('directo', `MediaRecorder: tipos admitidos`, () => mimes);
-  await page.clock.resume();
-  await page.getByRole('button', { name: 'Reproducir animación' }).click();
-  await openSheet(page, 'Video y GIF');
-  await page.getByRole('button', { name: 'Empezar a grabar' }).click();
-  await sleep(2500);
-  const ev = page.waitForEvent('download');
-  await page.getByRole('button', { name: /Detener y guardar/ }).click();
-  const d = await ev;
+  // a live recording happens in real time, as a person makes it: a page of its own, without the fake clock
+  const ctx = await studioContext({ reducedMotion: 'no-preference' });
+  if (!CHROMIUMS.has(BROWSER)) await ctx.addInitScript(CLIP_STUB);
+  const page = await ctx.newPage();
+  try {
+    await page.goto(`${BASE}/studio/#r=${encode(PIECES[key])}`);
+    await page.locator('.stage canvas').first().waitFor();
+    if (await page.locator('dialog.welcome[open]').count()) await page.keyboard.press('Escape');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('e');
+    await page.getByRole('tab', { name: 'Video y GIF' }).click();
+    await page.waitForTimeout(500);
+    const startBtn = page.getByRole('button', { name: 'Empezar a grabar' });
+    if (!(await startBtn.count())) {
+      // no recorder here: the sheet must say so, with what to use instead
+      const why = (await page.locator('.sheet-body .ex-na').allTextContents()).join(' ');
+      await check('directo', `${key}: sin grabación en directo, la interfaz lo explica`, () => {
+        assert(/Grabación en directo: no disponible/.test(why), 'sin explicación: ' + why.slice(0, 200));
+        return why.replace(/\s+/g, ' ').slice(0, 160);
+      });
+      return;
+    }
+    await startBtn.click();
+    const t0 = Date.now();
+    // a few seconds, as a person records: with WebGL by software on a shared machine the stage of a piece
+    // with pixel effects can draw under one frame per second, and a recording with no frame is not a file
+    await sleep(5000);
+    const ev = page.waitForEvent('download', { timeout: 90_000 });
+    ev.catch(() => undefined);
+    await page.getByRole('button', { name: /Detener y guardar/ }).click();
+    const d = await ev.catch(async e => {
+      // no download: say what the studio said (an empty recording is explained in a notice, not downloaded)
+      const said = (await page.locator('.toast-msg').allTextContents().catch(() => [])).join(' · ');
+      throw new Error(`sin descarga tras «Detener y guardar» (${String(e).split('\n')[0].slice(0, 80)}); avisos: ${said || 'ninguno'}`);
+    });
+    await recordingChecks(key, d, t0, dir, files);
+  } finally { await ctx.close(); }
+}
+
+async function recordingChecks(key, d, t0, dir, files) {
+  const secs = Math.round((Date.now() - t0) / 100) / 10;
   const f = join(dir, d.suggestedFilename());
   await d.saveAs(f);
-  await check('directo', `${key}: grabación en directo (ffprobe)`, () => {
+  files.live = f;
+  await check('directo', `${key}: grabación en directo (ffprobe, decodificación, duración)`, () => {
     need('ffprobe', 'ffmpeg');
-    const r = run('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', f]);
-    const j = JSON.parse(r.stdout), s = j.streams[0];
+    const r = run('ffprobe', ['-v', 'error', '-count_frames', '-show_streams', '-show_format', '-of', 'json', f]);
+    const j = JSON.parse(r.stdout), st = j.streams[0];
     const ext = extname(f).slice(1), container = j.format.format_name;
     assert(ext === 'webm' ? /webm|matroska/.test(container) : /mp4|mov/.test(container), `extensión .${ext} pero contenedor ${container}`);
     // .mp4 is only honest with H.264 inside (what social networks, Keynote and editors expect)
-    assert(ext !== 'mp4' || s.codec_name === 'h264', `.mp4 con ${s.codec_name} dentro: no se abre en QuickTime/Keynote ni en muchas redes`);
+    assert(ext !== 'mp4' || st.codec_name === 'h264', `.mp4 con ${st.codec_name} dentro: no se abre en QuickTime/Keynote ni en muchas redes`);
     const dec = run('ffmpeg', ['-v', 'error', '-i', f, '-f', 'null', '-']);
     assert(dec.status === 0, dec.stderr.slice(0, 200));
-    return `${d.suggestedFilename()}: ${container}, ${s.codec_name} ${s.width}×${s.height}${dec.stderr.trim() ? ' (avisos: ' + dec.stderr.trim().slice(0, 80) + ')' : ', decodifica sin errores'}`;
+    const frames = Number(st.nb_read_frames);
+    // a live recording keeps what the stage drew: with WebGL by software on a busy machine that is a few
+    // frames per second, so this checks a valid, decodable video and reports the rate it reached
+    assert(frames >= 1, `${frames} fotogramas en unos ${secs} s de grabación`);
+    const tidy = recordingShape(f, j);
+    return `${d.suggestedFilename()}: ${container}, ${st.codec_name} ${st.width}×${st.height}, ${frames} fotogramas en ${secs} s (≈ ${(frames / secs).toFixed(1)} fps: lo que el lienzo dibujó); ${tidy}${dec.stderr.trim() ? ' (avisos: ' + dec.stderr.trim().slice(0, 80) + ')' : ', decodifica sin errores'}`;
   });
 }
 
 /* ------------------------------------------------------------------ */
 /* 2. MP4 muxing path, independently of H.264                          */
 /* ------------------------------------------------------------------ */
+
+/**
+ * The WebKit here has no MediaRecorder and closes the page when asked VideoEncoder.isConfigSupported,
+ * whatever the codec. Asked once on a page of its own; returns why there is no video there ('' if it
+ * answered).
+ */
+async function encoderCrash(url) {
+  const p = await browser.newPage();
+  let crashed = false;
+  p.on('crash', () => { crashed = true; });
+  try {
+    await p.goto(url);
+    if (await p.evaluate(() => typeof MediaRecorder !== 'undefined' || typeof VideoEncoder === 'undefined')) return '';
+    await p.evaluate(() => VideoEncoder.isConfigSupported({ codec: 'vp8', width: 640, height: 360 })).catch(() => undefined);
+    await sleep(500);
+    return crashed ? 'VideoEncoder.isConfigSupported cierra la página en este motor (comprobado en una página sin el estudio) y no hay MediaRecorder: aquí no hay video renderizado ni grabación; el estudio no lo pregunta y lo explica' : '';
+  } finally { await p.close().catch(() => undefined); }
+}
 
 async function mp4Muxing() {
   const dir = join(SITE_DIR, 'mp4');
@@ -721,12 +1046,16 @@ window.mux = async codec => {
 };
 window.canAvc = () => mb.canEncodeVideo('avc', { width: 640, height: 360 });
 </script>`));
+  if (BROWSER === 'webkit') {
+    const crash = await encoderCrash(`${SITE}/mp4/`);
+    if (crash) { record('mp4', `${ENGINE.split(' ')[0]}: ¿codifica video con WebCodecs?`, 'SKIP', crash, ENGINE); return; }
+  }
   const p = await browser.newPage();
   await p.goto(`${SITE}/mp4/`);
   await p.waitForFunction(() => typeof window.mux === 'function');
   const avc = await p.evaluate(() => window.canAvc());
-  await check('mp4', 'Chromium de esta máquina: ¿codifica H.264 con WebCodecs?', () => {
-    return avc ? 'sí' : 'no (VideoEncoder.isConfigSupported(avc1.*) = false a 640×360, 1280×720, 1366×768, 1920×1080): el H.264 no se puede verificar aquí';
+  await check('mp4', `${ENGINE.split(' ')[0]}: ¿codifica H.264 con WebCodecs?`, () => {
+    return avc ? 'sí' : 'no (VideoEncoder.isConfigSupported(avc1.*) = false): en este navegador el estudio no ofrece MP4 renderizado; el H.264 se verifica con BROWSER=chrome';
   });
   for (const codec of ['vp9', 'av1']) {
     await check('mp4', `muxer MP4 de mediabunny (mismo código) con ${codec}`, async () => {
@@ -751,6 +1080,107 @@ window.canAvc = () => mb.canEncodeVideo('avc', { width: 640, height: 360 });
 }
 
 /* ------------------------------------------------------------------ */
+/* 2b. The final files, opened in each browser engine                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Plays a video file in <video> (served from another origin, muted, as a web page would): it must load,
+ * report its size and duration, and its time must advance. Returns a description, or throws.
+ */
+async function playIn(b, url, o = {}) {
+  const ctx = await b.newContext({ viewport: { width: 900, height: 700 } });
+  const p = await ctx.newPage();
+  try {
+    await p.goto(`${SITE}/archivos/blank.html`);
+    const r = await p.evaluate(async ({ url, type }) => {
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      const can = v.canPlayType(type);
+      document.body.appendChild(v);
+      const ev = await new Promise(res => {
+        const t = setTimeout(() => res('tiempo agotado'), 10_000);
+        v.addEventListener('loadeddata', () => { clearTimeout(t); res('ok'); }, { once: true });
+        v.addEventListener('error', () => { clearTimeout(t); res('error ' + (v.error?.code ?? '?') + ' ' + (v.error?.message ?? '')); }, { once: true });
+        v.src = url;
+      });
+      if (ev !== 'ok') return { can, ev };
+      const t0 = v.currentTime;
+      let played = 'ok';
+      try { await v.play(); } catch (e) { played = String(e.name || e); }
+      await new Promise(r => setTimeout(r, 1500));
+      const t1 = v.currentTime;
+      // a frame really arrives: draw it and look at it
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 36;
+      const x = c.getContext('2d');
+      let lum = -1;
+      try { x.drawImage(v, 0, 0, 64, 36); const d = x.getImageData(0, 0, 64, 36).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; lum = s / (d.length / 4) / 765; } catch { /* tainted or no frame */ }
+      return { can, ev, played, w: v.videoWidth, h: v.videoHeight, dur: v.duration, t0, t1, err: v.error?.code ?? 0, lum };
+    }, { url, type: o.type });
+    return r;
+  } finally { await ctx.close(); }
+}
+
+/** Where a produced file is served for the playback checks (another origin, like a real site). */
+function publish(f) {
+  const dir = join(SITE_DIR, 'archivos');
+  mkdirSync(dir, { recursive: true });
+  if (!existsSync(join(dir, 'blank.html'))) writeFileSync(join(dir, 'blank.html'), page('archivos', '<main></main>'));
+  const name = basename(f);
+  copyFileSync(f, join(dir, name));
+  return `${SITE}/archivos/${encodeURIComponent(name)}`;
+}
+
+const VIDEO_TYPES = { mp4: 'video/mp4; codecs="avc1.42E01E"', webm: 'video/webm; codecs="vp9"' };
+
+async function playbackChecks(key) {
+  const files = studioFiles[key];
+  if (!files) return;
+  const videos = [['WebM renderizado', files.webm, 'webm'], ['MP4 (H.264) renderizado', files.mp4, 'mp4'], ['grabación en directo', files.live, files.live?.endsWith('.mp4') ? 'mp4' : 'webm']];
+  for (const [what, f, kind] of videos) {
+    if (!f) {
+      record('reproduccion', `${key}: ${what} se reproduce en <video>`, 'SKIP', kind === 'mp4' ? `${ENGINE} no produjo MP4 (no codifica H.264: usa BROWSER=chrome)` : `${ENGINE} no produjo este archivo`);
+      continue;
+    }
+    const url = publish(f);
+    await inEngines('reproduccion', `${key}: ${what} (${basename(f)}) se reproduce en <video>`, async (b, n) => {
+      const r = await playIn(b, url, { type: VIDEO_TYPES[kind] });
+      if (r.ev !== 'ok') {
+        // an engine without that codec: said as what it is, not as a failure of the file
+        if (!r.can && ((kind === 'mp4' && n === 'chromium') || (kind === 'webm' && n === 'webkit'))) skip(`${n} no reproduce ${kind === 'mp4' ? 'H.264 (el Chromium de Playwright no trae códecs propietarios)' : 'WebM'}: canPlayType «${r.can}», ${r.ev}`);
+        throw new Error(`no carga: ${r.ev} (canPlayType «${r.can}»)`);
+      }
+      assert(r.err === 0, 'error de reproducción ' + r.err);
+      // a short live recording may end within the 1.5 s: it has to reach (most of) its end
+      assert(r.t1 > r.t0 + Math.min(0.3, 0.8 * (Number.isFinite(r.dur) ? r.dur : 1)), `el tiempo no avanza (${fmt(r.t0)} → ${fmt(r.t1)} s; play: ${r.played})`);
+      assert(r.w > 0 && r.h > 0, `sin tamaño (${r.w}×${r.h})`);
+      return `${r.w}×${r.h}, ${Number.isFinite(r.dur) ? fmt(r.dur) + ' s' : 'duración ' + r.dur}, avanza ${fmt(r.t0)} → ${fmt(r.t1)} s en 1,5 s, fotograma dibujado (luminancia ${fmt(r.lum)}), canPlayType «${r.can}»`;
+    });
+  }
+  const images = [['PNG', files.png], ['WebP', files.webp], ['JPEG', files.jpeg], ['GIF', files.gif], ['PNG transparente', files.pngT]].filter(([, f]) => f);
+  for (const [what, f] of images) {
+    const url = publish(f);
+    const [w, h] = identify(f + '[0]', '%w %h').split(' ').map(Number);
+    await inEngines('imagen', `${key}: ${what} se abre en el navegador (${w}×${h})`, async b => {
+      const ctx = await b.newContext();
+      const p = await ctx.newPage();
+      try {
+        await p.goto(`${SITE}/archivos/blank.html`);
+        const r = await p.evaluate(async u => {
+          const i = new Image();
+          i.src = u;
+          try { await i.decode(); } catch (e) { return { err: String(e) }; }
+          return { w: i.naturalWidth, h: i.naturalHeight };
+        }, url);
+        assert(!r.err, r.err);
+        assert(r.w === w && r.h === h, `${r.w}×${r.h}`);
+        return `decodifica, ${r.w}×${r.h}`;
+      } finally { await ctx.close(); }
+    });
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* 3. Code: HTML snippet, standalone page, Web Component, React         */
 /* ------------------------------------------------------------------ */
 
@@ -760,6 +1190,13 @@ async function readCodeTab(page, dir, files) {
   const code = () => page.getByRole('textbox', { name: 'Código' }).inputValue();
   const media = page.getByPlaceholder(/URL de tu imagen/);
   if (await media.isVisible().catch(() => false)) { await media.fill('foto.png'); await pump(page, 100); }
+  const fallback = async which => {
+    await page.getByRole('button', { name: which === 'basic' ? /^Motor básico/ : 'Póster o color' }).click();
+    await pump(page, 150);
+  };
+  // what the tab says before copying: the choice without WebGL 2, and the weight of each option
+  out.fallbackButton = await page.getByRole('button', { name: /^Motor básico/ }).innerText().catch(() => '');
+  out.fallbackPressed = await page.getByRole('button', { name: /^Motor básico/ }).getAttribute('aria-pressed').catch(() => null);
   await page.getByRole('button', { name: 'HTML para pegar' }).click();
   for (const [id, name] of [['fixed', 'Fondo de página'], ['hero', 'Portada'], ['block', 'Bloque']]) {
     await page.getByRole('button', { name, exact: true }).click();
@@ -767,6 +1204,8 @@ async function readCodeTab(page, dir, files) {
     out.html[id] = await code();
   }
   await page.getByRole('button', { name: 'Bloque', exact: true }).click();
+  await pump(page, 400);
+  out.sizeLine = (await page.locator('.sheet-body .code-size').innerText().catch(() => '')).replace(/\s+/g, ' ');
   out.pagePath = await download(page, dir, () => page.getByRole('button', { name: /Descargar página/ }).click());
   const poster = page.getByRole('button', { name: /Descargar póster/ });
   out.posterPath = (await poster.isVisible().catch(() => false)) ? await download(page, join(dir, 'poster'), () => poster.click()) : null;
@@ -778,11 +1217,24 @@ async function readCodeTab(page, dir, files) {
   await page.getByRole('button', { name: 'React' }).click();
   await pump(page, 100);
   out.react = await code();
+  // the lighter code: poster or background colour without WebGL 2
+  await fallback('poster');
+  out.posterNote = (await page.locator('.sheet-body .code-fallback').innerText().catch(() => '')).replace(/\s+/g, ' ');
+  out.reactPoster = await code();
+  await page.getByRole('button', { name: 'Web Component' }).click();
+  await pump(page, 100);
+  out.wcPosterUsage = await code();
+  out.wcPosterPath = await download(page, join(dir, 'sin-basico'), () => page.getByRole('button', { name: /Descargar monotrama-field/ }).click());
+  await page.getByRole('button', { name: 'HTML para pegar' }).click();
+  await pump(page, 100);
+  out.htmlPoster = await code();
+  await fallback('basic');
   await closeSheet(page);
   return out;
 }
 
 const HEADER_RE = /Hecho con Monotrama · https:\/\/monotrama\.vercel\.app · Licencia MIT-0/;
+const rgbOf = hex => `rgb(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)})`;
 
 async function codeChecks(key) {
   const c = codeOut[key];
@@ -794,15 +1246,32 @@ async function codeChecks(key) {
   if (media) copyFileSync(SYNTH, join(dir, 'foto.png'));
   const poster = c.posterPath;
   if (poster) copyFileSync(poster, join(dir, 'poster.png'));
+  const bgRgb = rgbOf(PIECES[key].color.bg);
 
   await check('codigo', `${key}: cabecera MIT-0 en todo el código exportado`, () => {
     const missing = [];
     for (const [id, s] of Object.entries(c.html)) if (!HEADER_RE.test(s)) missing.push('HTML ' + id);
-    if (!HEADER_RE.test(readFileSync(c.wcPath, 'utf8'))) missing.push('monotrama-field.js');
+    if (!HEADER_RE.test(c.htmlPoster)) missing.push('HTML sin motor básico');
+    for (const [n, f] of [['monotrama-field.js', c.wcPath], ['monotrama-field.js sin motor básico', c.wcPosterPath], ['página .html', c.pagePath]]) if (!HEADER_RE.test(readFileSync(f, 'utf8'))) missing.push(n);
     if (!HEADER_RE.test(c.react)) missing.push('React');
-    if (!HEADER_RE.test(readFileSync(c.pagePath, 'utf8'))) missing.push('página .html');
+    if (!HEADER_RE.test(c.reactPoster)) missing.push('React sin motor básico');
     assert(!missing.length, 'falta en: ' + missing.join(', '));
-    return 'HTML ×3, página, Web Component, React';
+    return 'HTML ×3 (+ sin motor básico), página, Web Component ×2, React ×2';
+  });
+  await check('codigo', `${key}: antes de copiar, la pestaña dice qué pasa sin WebGL 2 y cuánto pesa`, () => {
+    assert(c.fallbackPressed === 'true', 'el motor básico no es la opción por defecto');
+    assert(/^Motor básico \(\+\d+ KB\)$/.test(c.fallbackButton.trim()), 'botón sin tamaño: «' + c.fallbackButton + '»');
+    assert(/Canvas 2D/.test(c.codeNote) && /Si tampoco puede dibujar, se ve tu póster o el color de fondo/.test(c.codeNote), 'no explica el respaldo');
+    assert(/Este código: \d+ KB/.test(c.sizeLine), 'sin tamaño del código: «' + c.sizeLine + '»');
+    assert(/Sin WebGL 2 la pieza no se mueve/.test(c.posterNote), 'la opción ligera no explica su límite: «' + c.posterNote + '»');
+    const kb = s => new Blob([s]).size / 1024;
+    const snippet = c.html.block, light = c.htmlPoster;
+    const ids = [...new Set(PIECES[key].layers?.map(l => l.pattern) ?? [])];
+    // only this piece's CPU patterns travel with it
+    const carried = [...snippet.matchAll(/B\.has\("(\w+)"\)/g)].map(m => m[1]);
+    assert(!/B\.has\(/.test(light), 'la versión ligera lleva patrones del motor básico');
+    assert(carried.length && carried.every(id => ids.includes(id) || id === 'nube'), `patrones incluidos ${carried.join(', ')} (la pieza usa ${ids.join(', ') || 'ninguno'})`);
+    return `«${c.fallbackButton.trim()}»; ${c.sizeLine.split('.')[0]}; con motor básico ${kb(snippet).toFixed(0)} KB, sin él ${kb(light).toFixed(0)} KB; patrones incluidos: ${carried.join(', ')}`;
   });
 
   for (const [id, snippet] of Object.entries(c.html)) {
@@ -817,32 +1286,88 @@ async function codeChecks(key) {
         const cv = p.locator('.monotrama canvas');
         await cv.screenshot({ path: shot });
         const box = await cv.boundingBox();
-        const sd = spread(shot), rate = await drawRate(p);
+        const sd = spread(shot), rate = await drawRate(p), kind = await contextKind(cv);
         assert(!errors.length, errors.slice(0, 2).join(' | '));
-        assert(sd > 0.02 && rate > 5, `desviación ${fmt(sd)}, draws/1.2 s ${rate}`);
+        assert(sd > 0.02 && rate > 1, `desviación ${fmt(sd)}, dibujos/1.2 s ${rate}`);
         let off = '';
         if (id !== 'fixed') {
           await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
           await p.waitForTimeout(400);
           const offRate = await drawRate(p);
-          assert(offRate === 0, `fuera de pantalla sigue dibujando (${offRate} draws/1.2 s)`);
-          off = ', fuera de pantalla 0 draws';
+          assert(offRate === 0, `fuera de pantalla sigue dibujando (${offRate} dibujos/1.2 s)`);
+          await p.evaluate(() => window.scrollTo(0, 0));
+          await p.waitForTimeout(400);
+          const back = await drawRate(p);
+          assert(back > 0, 'al volver a la vista no reanuda');
+          off = `, fuera de pantalla 0 dibujos y al volver ${back}`;
         }
-        return `${Math.round(box.width)}×${Math.round(box.height)} px, desviación ${fmt(sd)}, ${rate} draws/1.2 s${off}, sin errores`;
+        return `${kind === 'webgl2' ? 'WebGL 2' : 'motor básico (2D)'}, ${Math.round(box.width)}×${Math.round(box.height)} px, desviación ${fmt(sd)}, ${rate} dibujos/1.2 s${off}, sin errores`;
       } finally { await ctx.close(); }
     });
   }
-  await check('codigo', `${key}: pegado al tamaño del lienzo del estudio = PNG del estudio (t = 0)`, async () => {
-    const [w, h] = identify(studioFiles[key].png, '%w %h').split(' ').map(Number);
-    writeFileSync(join(dir, 'parecido.html'), page('parecido', `<style>.monotrama{width:${w}px;height:${h}px!important;border-radius:0!important}</style>${c.html.block}`));
-    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/parecido.html`, { reducedMotion: 'reduce', settle: 3500, viewport: { width: w + 100, height: h + 100 } });
+  const [w, h] = identify(studioFiles[key].png, '%w %h').split(' ').map(Number);
+  writeFileSync(join(dir, 'parecido.html'), page('parecido', `<style>.monotrama{width:${w}px;height:${h}px!important;border-radius:0!important}</style>${c.html.block}`));
+  const sameSize = async (label, o) => {
+    await check('codigo', `${key}: ${label}`, async () => {
+      const { ctx, p, errors } = await visitSite(`${SITE}/${key}/parecido.html`, { reducedMotion: 'reduce', settle: 4000, viewport: { width: w + 100, height: h + 100 }, ...o });
+      try {
+        const shot = join(OUT, key, `sitio-parecido${o.noWebgl2 ? '-basico' : ''}.png`);
+        const cv = p.locator('.monotrama canvas');
+        await cv.screenshot({ path: shot });
+        const kind = await contextKind(cv);
+        assert(!errors.length, errors.slice(0, 2).join(' | '));
+        if (o.noWebgl2) assert(kind === '2d', 'no dibuja el motor básico: ' + kind);
+        const e = rmse(studioFiles[key].png, shot), eb = rmse(studioFiles[key].png, shot, { blur: 2 });
+        assert(eb < 0.05, `RMSE ${fmt(e)}, desenfocado ${fmt(eb)} (${kind})`);
+        return `${w}×${h}, ${kind === 'webgl2' ? 'WebGL 2' : 'motor básico (2D)'}: RMSE ${fmt(e)}, desenfocado ${fmt(eb)} (Google Fonts frente a la fuente local del estudio)`;
+      } finally { await ctx.close(); }
+    });
+  };
+  await sameSize('pegado al tamaño del lienzo del estudio = PNG del estudio (t = 0)', {});
+  await sameSize('sin WebGL 2, el motor básico incluido = PNG del estudio (t = 0)', { noWebgl2: true });
+  await check('codigo', `${key}: se adapta al tamaño de su contenedor`, async () => {
+    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`);
     try {
-      const shot = join(OUT, key, 'sitio-parecido.png');
-      await p.locator('.monotrama canvas').screenshot({ path: shot });
+      const cv = p.locator('.monotrama canvas');
+      const size = () => cv.evaluate(c => ({ w: c.width, h: c.height, cw: c.clientWidth, ch: c.clientHeight }));
+      const a = await size();
+      await p.evaluate(() => { const m = document.querySelector('.monotrama'); m.style.width = '520px'; m.style.height = '300px'; });
+      await p.waitForTimeout(900);
+      const b = await size();
+      const rate = await drawRate(p, 800);
       assert(!errors.length, errors.slice(0, 2).join(' | '));
-      const e = rmse(studioFiles[key].png, shot), eb = rmse(studioFiles[key].png, shot, { blur: 2 });
-      assert(eb < 0.05, `RMSE ${fmt(e)}, desenfocado ${fmt(eb)}`);
-      return `${w}×${h}: RMSE ${fmt(e)}, desenfocado ${fmt(eb)} (Google Fonts frente a fuente local del estudio)`;
+      assert(b.cw === 520 && b.ch === 300, `caja ${b.cw}×${b.ch}`);
+      // the backing store follows the box (its pixel ratio may drop while frames are slow, never its shape)
+      assert(Math.abs(b.w / b.h - 520 / 300) < 0.03 && b.w < a.w, `lienzo ${a.w}×${a.h} → ${b.w}×${b.h}`);
+      assert(rate > 0, 'deja de dibujar al cambiar de tamaño');
+      return `caja ${a.cw}×${a.ch} → 520×300; lienzo ${a.w}×${a.h} → ${b.w}×${b.h}; sigue dibujando (${rate}/0.8 s)`;
+    } finally { await ctx.close(); }
+  });
+  await check('codigo', `${key}: oculto (display:none) no dibuja; al mostrarlo vuelve`, async () => {
+    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`);
+    try {
+      await p.evaluate(() => { document.querySelector('.monotrama').style.display = 'none'; });
+      await p.waitForTimeout(400);
+      const hidden = await drawRate(p);
+      await p.evaluate(() => { document.querySelector('.monotrama').style.display = ''; });
+      await p.waitForTimeout(600);
+      const shown = await drawRate(p);
+      assert(!errors.length, errors.slice(0, 2).join(' | '));
+      assert(hidden === 0 && shown > 0, `oculto ${hidden}, visible ${shown} dibujos/1.2 s`);
+      return `oculto 0 dibujos/1.2 s; visible otra vez ${shown}`;
+    } finally { await ctx.close(); }
+  });
+  await check('codigo', `${key}: quitar el bloque de la página lo detiene y libera el contexto`, async () => {
+    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-block.html`);
+    try {
+      await p.evaluate(() => { window.__cv = document.querySelector('.monotrama canvas'); document.querySelector('.monotrama').remove(); });
+      await p.waitForTimeout(900);
+      const d = await drawRate(p, 800), raf = await rafRate(p, 800);
+      const lost = await p.evaluate(() => { const g = window.__cv.getContext('webgl2'); return g ? g.isContextLost() : 'sin WebGL'; });
+      assert(!errors.length, errors.slice(0, 2).join(' | '));
+      assert(d === 0 && raf === 0, `tras quitarlo: ${d} dibujos, ${raf} requestAnimationFrame`);
+      assert(lost === true || lost === 'sin WebGL', 'el contexto WebGL sigue vivo');
+      return `0 dibujos y 0 requestAnimationFrame tras quitarlo; contexto ${lost === true ? 'liberado' : lost}`;
     } finally { await ctx.close(); }
   });
   await check('codigo', `${key}: «reducir movimiento» → un fotograma y quieto`, async () => {
@@ -852,20 +1377,20 @@ async function codeChecks(key) {
       await p.locator('.monotrama canvas').screenshot({ path: shot });
       const rate = await drawRate(p, 1500), sd = spread(shot);
       assert(!errors.length, errors.slice(0, 2).join(' | '));
-      assert(rate === 0 && sd > 0.02, `draws/1.5 s ${rate}, desviación ${fmt(sd)}`);
-      return `0 draws en 1.5 s, imagen fija visible (desviación ${fmt(sd)})`;
+      assert(rate === 0 && sd > 0.02, `dibujos/1.5 s ${rate}, desviación ${fmt(sd)}`);
+      return `0 dibujos en 1.5 s, imagen fija visible (desviación ${fmt(sd)})`;
     } finally { await ctx.close(); }
   });
-  await check('codigo', `${key}: sin WebGL 2 → color de fondo${poster ? ' + póster' : ''}, sin excepciones`, async () => {
-    const posterSnippet = poster ? c.html.block.replace(/"poster":""/, '"poster":"poster.png"') : c.html.block;
-    writeFileSync(join(dir, 'html-sin-webgl.html'), page('sin webgl', `<main><h1>Mi web</h1>${posterSnippet}</main>`));
+  const posterSnippet = poster ? c.htmlPoster.replace(/"poster":""/, '"poster":"poster.png"') : c.htmlPoster;
+  writeFileSync(join(dir, 'html-sin-webgl.html'), page('sin webgl', `<main><h1>Mi web</h1>${posterSnippet}</main>`));
+  writeFileSync(join(dir, 'html-sin-webgl-basico.html'), page('sin webgl', `<main><h1>Mi web</h1>${c.html.block}</main>`));
+  await check('codigo', `${key}: sin motor básico y sin WebGL 2 → color de fondo${poster ? ' + póster' : ''}, sin excepciones`, async () => {
     const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-sin-webgl.html`, { noWebgl2: true });
     try {
       const pageErrors = errors.filter(e => e.startsWith('pageerror'));
       assert(!pageErrors.length, pageErrors.join(' | '));
       const st = await p.evaluate(() => { const c = document.querySelector('.monotrama canvas'); const s = getComputedStyle(c); const w = getComputedStyle(c.parentElement); return { bg: s.backgroundColor, img: s.backgroundImage, wrap: w.backgroundColor }; });
-      const hex = PIECES[key].color.bg, rgb = `rgb(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)})`;
-      assert(st.wrap === rgb, `fondo ${st.wrap}, esperado ${rgb}`);
+      assert(st.wrap === bgRgb, `fondo ${st.wrap}, esperado ${bgRgb}`);
       if (poster) {
         assert(/poster\.png/.test(st.img), 'sin póster: ' + st.img);
         const shot = join(OUT, key, 'sitio-sin-webgl.png');
@@ -878,17 +1403,30 @@ async function codeChecks(key) {
       return `fondo ${st.wrap}, 0 excepciones`;
     } finally { await ctx.close(); }
   });
-  await check('codigo', `${key}: Chromium con --disable-3d-apis → sin excepciones${poster ? ', póster' : ''}`, async () => {
-    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/html-sin-webgl.html`, { no3d: true });
+  await check('codigo', `${key}: navegador sin WebGL (Chromium --disable-3d-apis): el motor básico dibuja; sin él, póster`, async () => {
+    if (!CHROMIUMS.has(BROWSER)) skip(`--disable-3d-apis sólo existe en Chromium y Chrome (${BROWSER} se comprueba con WebGL 2 anulado)`);
+    const a = await visitSite(`${SITE}/${key}/html-sin-webgl-basico.html`, { no3d: true });
+    let basic;
     try {
-      const gl = await p.evaluate(() => !!document.createElement('canvas').getContext('webgl2'));
+      const gl = await a.p.evaluate(() => !!document.createElement('canvas').getContext('webgl2'));
       assert(!gl, 'WebGL 2 sigue disponible');
-      const pe = errors.filter(e => e.startsWith('pageerror'));
+      const pe = a.errors.filter(e => e.startsWith('pageerror'));
       assert(!pe.length, pe.join(' | '));
-      const img = await p.evaluate(() => getComputedStyle(document.querySelector('.monotrama canvas')).backgroundImage);
+      const cv = a.p.locator('.monotrama canvas');
+      const shot = join(OUT, key, 'sitio-sin-3d.png');
+      await cv.screenshot({ path: shot });
+      const kind = await contextKind(cv), sd = spread(shot), rate = await drawRate(a.p);
+      assert(kind === '2d' && sd > 0.02 && rate > 0, `${kind}, desviación ${fmt(sd)}, ${rate} dibujos`);
+      basic = `motor básico: 2D, desviación ${fmt(sd)}, ${rate} dibujos/1.2 s`;
+    } finally { await a.ctx.close(); }
+    const b = await visitSite(`${SITE}/${key}/html-sin-webgl.html`, { no3d: true });
+    try {
+      const pe = b.errors.filter(e => e.startsWith('pageerror'));
+      assert(!pe.length, pe.join(' | '));
+      const img = await b.p.evaluate(() => getComputedStyle(document.querySelector('.monotrama canvas')).backgroundImage);
       assert(!poster || /poster\.png/.test(img), 'sin póster: ' + img);
-      return `getContext('webgl2') = null; ${poster ? 'póster visible; ' : ''}0 excepciones`;
-    } finally { await ctx.close(); }
+      return `getContext('webgl2') = null; ${basic}; sin motor básico: ${poster ? 'póster visible' : 'color de fondo'}; 0 excepciones`;
+    } finally { await b.ctx.close(); }
   });
   await check('codigo', `${key}: página .html descargada funciona sola (otro origen)`, async () => {
     copyFileSync(c.pagePath, join(dir, 'pagina.html'));
@@ -902,41 +1440,74 @@ async function codeChecks(key) {
       return `desviación ${fmt(sd)}, sin errores`;
     } finally { await ctx.close(); }
   });
+  copyFileSync(c.wcPath, join(dir, 'monotrama-field.js'));
+  mkdirSync(join(dir, 'ligero'), { recursive: true });
+  copyFileSync(c.wcPosterPath, join(dir, 'ligero', 'monotrama-field.js'));
+  writeFileSync(join(dir, 'wc.html'), page('wc', `<main><h1>Mi web</h1>${filler(2)}\n${c.wcUsage}\n${filler(40)}</main>`));
+  const wcShot = join(OUT, key, 'sitio-wc.png');
   await check('codigo', `${key}: Web Component (<monotrama-field> + monotrama-field.js)`, async () => {
-    copyFileSync(c.wcPath, join(dir, 'monotrama-field.js'));
-    writeFileSync(join(dir, 'wc.html'), page('wc', `<main><h1>Mi web</h1>${filler(2)}\n${c.wcUsage}\n${filler(40)}</main>`));
-    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/wc.html`);
+    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/wc.html`, { settle: 3500 });
     try {
-      const shot = join(OUT, key, 'sitio-wc.png');
-      await p.locator('monotrama-field').screenshot({ path: shot });
-      const sd = spread(shot), rate = await drawRate(p);
+      await p.locator('monotrama-field').screenshot({ path: wcShot });
+      const sd = spread(wcShot), rate = await drawRate(p);
       assert(!errors.length, errors.slice(0, 2).join(' | '));
-      assert(sd > 0.02 && rate > 5, `desviación ${fmt(sd)}, draws ${rate}`);
+      assert(sd > 0.02 && rate > 1, `desviación ${fmt(sd)}, dibujos ${rate}`);
       let off = '';
       if (!/position:fixed/.test(c.wcUsage)) {
         await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
         await p.waitForTimeout(400);
         const r2 = await drawRate(p);
         assert(r2 === 0, `fuera de pantalla sigue dibujando (${r2})`);
-        off = ', fuera de pantalla 0 draws';
+        await p.evaluate(() => window.scrollTo(0, 0));
+        await p.waitForTimeout(400);
+        off = ', fuera de pantalla 0 dibujos';
       }
-      await p.evaluate(() => document.querySelector('monotrama-field').remove());
-      await p.waitForTimeout(200);
-      const r3 = await drawRate(p, 800);
-      assert(r3 === 0, `tras quitar el elemento sigue dibujando (${r3})`);
-      return `desviación ${fmt(sd)}, ${rate} draws/1.2 s${off}, al quitarlo 0 draws, sin errores`;
+      // removal: no canvas, no drawing, no animation frames left, the WebGL context released
+      await p.evaluate(() => { const el = document.querySelector('monotrama-field'); window.__cv = el.shadowRoot.querySelector('canvas'); el.remove(); });
+      await p.waitForTimeout(300);
+      const r3 = await drawRate(p, 800), raf = await rafRate(p, 800);
+      const lost = await p.evaluate(() => { const g = window.__cv.getContext('webgl2'); return g ? g.isContextLost() : 'sin WebGL'; });
+      assert(r3 === 0 && raf === 0, `tras quitar el elemento: ${r3} dibujos, ${raf} peticiones de fotograma`);
+      assert(lost === true || lost === 'sin WebGL', 'el contexto WebGL sigue vivo');
+      return `desviación ${fmt(sd)}, ${rate} dibujos/1.2 s${off}; al quitarlo 0 dibujos, 0 requestAnimationFrame, contexto ${lost === true ? 'liberado' : lost}; sin errores`;
     } finally { await ctx.close(); }
   });
-  if (/poster/.test(readFileSync(c.wcPath, 'utf8'))) await check('codigo', `${key}: Web Component sin WebGL 2 → póster`, async () => {
-    writeFileSync(join(dir, 'wc-sin-webgl.html'), page('wc', `<main>${c.wcUsage.replace('<monotrama-field', '<monotrama-field poster="poster.png"')}</main>`));
-    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/wc-sin-webgl.html`, { noWebgl2: true });
+  await check('codigo', `${key}: Web Component = PNG del estudio (misma imagen, no sólo «algo se mueve»)`, async () => {
+    // a component started before its patterns were registered drew a blank field with the vignette only
+    writeFileSync(join(dir, 'wc-parecido.html'), page('wc', c.wcUsage.replace(/style="[^"]*"/, `style="display:block;width:${w}px;height:${h}px;background:${PIECES[key].color.bg}"`)));
+    const { ctx, p, errors } = await visitSite(`${SITE}/${key}/wc-parecido.html`, { reducedMotion: 'reduce', settle: 4000, viewport: { width: w + 100, height: h + 100 } });
     try {
-      const pe = errors.filter(e => e.startsWith('pageerror'));
-      assert(!pe.length, pe.join(' | '));
-      const img = await p.evaluate(() => { const el = document.querySelector('monotrama-field'); const cv = el.shadowRoot.querySelector('canvas'); return getComputedStyle(cv).backgroundImage; });
-      assert(/poster\.png/.test(img), 'sin póster: ' + img);
-      return 'póster en el lienzo, 0 excepciones';
+      const shot = join(OUT, key, 'sitio-wc-parecido.png');
+      await p.locator('monotrama-field').screenshot({ path: shot });
+      assert(!errors.length, errors.slice(0, 2).join(' | '));
+      const eb = rmse(studioFiles[key].png, shot, { blur: 2 });
+      assert(eb < 0.05, `RMSE desenfocado ${fmt(eb)}`);
+      return `${w}×${h}: RMSE desenfocado ${fmt(eb)}`;
     } finally { await ctx.close(); }
+  });
+  await check('codigo', `${key}: Web Component sin WebGL 2: motor básico; sin él (no-basic), póster`, async () => {
+    writeFileSync(join(dir, 'wc-sin-webgl.html'), page('wc', `<main>${c.wcUsage}</main>`));
+    writeFileSync(join(dir, 'ligero', 'wc-sin-webgl.html'), page('wc', `<main>${c.wcPosterUsage.replace('<monotrama-field', '<monotrama-field poster="../poster.png"')}</main>`));
+    const a = await visitSite(`${SITE}/${key}/wc-sin-webgl.html`, { noWebgl2: true, settle: 3500 });
+    let basic;
+    try {
+      const pe = a.errors.filter(e => e.startsWith('pageerror'));
+      assert(!pe.length, pe.join(' | '));
+      const shot = join(OUT, key, 'sitio-wc-basico.png');
+      await a.p.locator('monotrama-field').screenshot({ path: shot });
+      const kind = await a.p.evaluate(() => { const cv = document.querySelector('monotrama-field').shadowRoot.querySelector('canvas'); return cv.getContext('2d') ? '2d' : 'otro'; });
+      const sd = spread(shot);
+      assert(kind === '2d' && sd > 0.02, `${kind}, desviación ${fmt(sd)}`);
+      basic = `motor básico 2D (desviación ${fmt(sd)})`;
+    } finally { await a.ctx.close(); }
+    const b = await visitSite(`${SITE}/${key}/ligero/wc-sin-webgl.html`, { noWebgl2: true });
+    try {
+      const pe = b.errors.filter(e => e.startsWith('pageerror'));
+      assert(!pe.length, pe.join(' | '));
+      const img = await b.p.evaluate(() => { const el = document.querySelector('monotrama-field'); const cv = el.shadowRoot.querySelector('canvas'); return getComputedStyle(cv).backgroundImage; });
+      assert(/poster\.png/.test(img), 'sin póster: ' + img);
+      return `${basic}; sin él: póster en el lienzo; 0 excepciones`;
+    } finally { await b.ctx.close(); }
   });
 }
 
@@ -946,17 +1517,22 @@ async function reactProject(compReact) {
   mkdirSync(join(app, 'src'), { recursive: true });
   mkdirSync(join(app, 'public'), { recursive: true });
   if (!existsSync(join(app, 'node_modules'))) symlinkSync(join(ROOT, 'node_modules'), join(app, 'node_modules'), 'dir');
+  // the photo «Revelar» shows, at the site's root (dev server and build)
+  for (const pub of [join(app, 'public'), SITE_DIR]) copyFileSync(SYNTH, join(pub, 'tu-foto.jpg'));
   const pieces = Object.keys(codeOut).filter(k => codeOut[k]?.react);
   const imports = [], uses = [];
   for (const k of pieces) {
     const name = 'Fondo' + k[0].toUpperCase() + k.slice(1);
     writeFileSync(join(app, 'src', name + '.jsx'), codeOut[k].react.replace(/export default function \w+/, `export default function ${name}`));
+    // the lighter variant (no basic engine): poster or colour without WebGL 2
+    writeFileSync(join(app, 'src', name + 'Ligero.jsx'), codeOut[k].reactPoster.replace(/export default function \w+/, `export default function ${name}Ligero`));
     for (const pub of [join(app, 'public'), SITE_DIR]) {
       if (codeOut[k].posterPath) copyFileSync(codeOut[k].posterPath, join(pub, `poster-${k}.png`));
       if (PIECES[k].source === 'image') for (const n of ['tu-imagen.jpg', 'foto.png']) copyFileSync(SYNTH, join(pub, n));
     }
-    imports.push(`import ${name} from './${name}.jsx';`);
+    imports.push(`import ${name} from './${name}.jsx';`, `import ${name}Ligero from './${name}Ligero.jsx';`);
     uses.push(`{on && <section className="pieza" data-k="${k}"><${name} poster="/poster-${k}.png"><h2 style={{ color: '#fff', margin: 0, padding: 16 }}>${k}</h2></${name}></section>}`);
+    uses.push(`{on && <section className="pieza ligera" data-k="${k}-ligero"><${name}Ligero poster="/poster-${k}.png"><h2 style={{ color: '#fff', margin: 0, padding: 16 }}>${k} (ligero)</h2></${name}Ligero></section>}`);
   }
   for (const c of compReact) {
     writeFileSync(join(app, 'src', c.file), c.code);
@@ -991,9 +1567,11 @@ createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMo
   const exercise = async (url, mode) => {
     const { ctx, p, errors } = await visitSite(url, { settle: 3500 });
     try {
-      for (const k of pieces) {
+      for (const k of pieces.flatMap(x => [x, x + '-ligero'])) {
         await check('react', `${mode}: ${k} se ve (StrictMode)`, async () => {
           const el = p.locator(`.pieza[data-k="${k}"] canvas`);
+          await el.scrollIntoViewIfNeeded();
+          await p.waitForTimeout(600);
           const shot = join(OUT, 'react-app', `${mode}-${k}.png`);
           await el.screenshot({ path: shot });
           const sd = spread(shot);
@@ -1002,18 +1580,24 @@ createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMo
         });
       }
       await check('react', `${mode}: sin errores en consola`, () => { assert(!errors.length, errors.slice(0, 3).join(' | ')); return 'ninguno'; });
-      await check('react', `${mode}: desmontar limpia (lienzos fuera, 0 draws)`, async () => {
+      await check('react', `${mode}: desmontar limpia (lienzos fuera, 0 dibujos, 0 requestAnimationFrame, contextos liberados)`, async () => {
+        await p.evaluate(() => { window.__cvs = [...document.querySelectorAll('.pieza canvas')]; });
         await p.click('#toggle');
         await p.waitForTimeout(300);
         const left = await p.locator('.pieza canvas').count();
         const rate = await drawRate(p, 800);
-        assert(left === 0 && rate === 0, `${left} lienzos, ${rate} draws`);
+        const raf = await rafRate(p, 800);
+        const alive = await p.evaluate(() => window.__cvs.filter(c => { const g = c.getContext('webgl2'); return g && !g.isContextLost(); }).length);
+        assert(left === 0 && rate === 0 && raf === 0, `${left} lienzos, ${rate} dibujos, ${raf} requestAnimationFrame`);
+        assert(alive === 0, `${alive} contextos WebGL siguen vivos`);
         await p.click('#toggle');
         await p.waitForTimeout(1500);
-        const again = await drawRate(p, 800);
+        // with WebGL by software a page of eight fields draws a frame every second or two: a longer window
+        await p.locator('.pieza canvas').first().scrollIntoViewIfNeeded().catch(() => undefined);
+        const again = await drawRate(p, 3000);
         assert(again > 0 || !pieces.length, 'al volver a montar no dibuja');
         assert(!errors.length, errors.slice(0, 3).join(' | '));
-        return `0 lienzos y 0 draws tras desmontar; al volver a montar dibuja (${again} draws/0.8 s)`;
+        return `0 lienzos, 0 dibujos, 0 requestAnimationFrame y ${alive} contextos vivos tras desmontar; al volver a montar dibuja (${again} dibujos/0.8 s)`;
       });
       for (const c of compReact) {
         await check('react', `${mode}: componente ${c.id}`, async () => {
@@ -1034,17 +1618,504 @@ createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMo
   } catch (e) {
     record('react', 'vite dev (StrictMode)', 'FAIL', e.message);
   } finally { await server?.close(); }
-  await check('react', 'sin WebGL 2: póster, sin excepciones', async () => {
+  await check('react', 'sin WebGL 2: el motor básico dibuja; la versión ligera muestra su póster; sin excepciones', async () => {
     if (!built) skip('no compiló');
-    const { ctx, p, errors } = await visitSite(`${SITE}/react/`, { noWebgl2: true });
+    const { ctx, p, errors } = await visitSite(`${SITE}/react/`, { noWebgl2: true, settle: 4000 });
     try {
       const pe = errors.filter(e => e.startsWith('pageerror'));
       assert(!pe.length, pe.join(' | '));
-      const imgs = await p.evaluate(() => [...document.querySelectorAll('.pieza')].map(s => { const c = s.querySelector('canvas'); return c ? getComputedStyle(c).backgroundImage : 'sin lienzo'; }));
-      assert(imgs.every(i => /poster-/.test(i)), 'sin póster: ' + imgs.join(' | '));
-      return `${imgs.length} fondos muestran su póster`;
+      const st = await p.evaluate(() => [...document.querySelectorAll('.pieza')].map(s => {
+        const c = s.querySelector('canvas');
+        if (!c) return { k: s.dataset.k, what: 'sin lienzo' };
+        const light = s.classList.contains('ligera');
+        return { k: s.dataset.k, light, img: getComputedStyle(c).backgroundImage, kind: light ? '' : (c.getContext('2d') ? '2d' : 'otro') };
+      }));
+      const bad = st.filter(x => (x.light ? !/poster-/.test(x.img) : x.kind !== '2d'));
+      assert(!bad.length, 'mal: ' + JSON.stringify(bad).slice(0, 300));
+      return `${st.filter(x => !x.light).length} fondos con el motor básico (2D), ${st.filter(x => x.light).length} ligeros con su póster`;
     } finally { await ctx.close(); }
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* 5b. Projects, sessions and collections with real media               */
+/* ------------------------------------------------------------------ */
+
+/** Realistic files made with ffmpeg: a large photo, an H.264 MP4 and a VP9 WebM, both with motion. */
+function realMedia() {
+  need('ffmpeg');
+  const dir = join(OUT, 'medios-reales');
+  mkdirSync(dir, { recursive: true });
+  const make = (name, args) => {
+    const f = join(dir, name);
+    if (!existsSync(f)) {
+      const r = run('ffmpeg', ['-v', 'error', '-y', ...args, f], { timeout: 180_000 });
+      if (r.status !== 0) throw new Error('ffmpeg: ' + r.stderr.slice(0, 200));
+    }
+    return f;
+  };
+  return {
+    photo: (() => {
+      // a 12-megapixel photo-like picture (a phone's size): cloudy colour fields with fine texture
+      const f = join(dir, 'foto-grande.jpg');
+      need('convert');
+      if (!existsSync(f)) run('convert', ['-seed', '7', '-size', '4032x3024', 'plasma:#1b3a6b-#e8a33d', '-blur', '0x2', '-quality', '95', f], { timeout: 180_000 });
+      return f;
+    })(),
+    mp4: make('clip-h264.mp4', ['-f', 'lavfi', '-i', 'mandelbrot=s=1280x720:r=30', '-t', '4', '-c:v', 'libx264', '-preset', 'veryfast', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-movflags', '+faststart']),
+    webm: make('clip-vp9.webm', ['-f', 'lavfi', '-i', 'testsrc2=s=1280x720:r=30', '-t', '4', '-c:v', 'libvpx-vp9', '-b:v', '1500k', '-deadline', 'realtime', '-cpu-used', '8']),
+  };
+}
+const sha = f => createHash('sha256').update(readFileSync(f)).digest('hex');
+/** Entry names and SHA-256 of a zip's files (python's zipfile: an independent reader). */
+function zipIndex(f) {
+  need('python3');
+  const r = run('python3', ['-c', 'import zipfile,sys,hashlib,json;z=zipfile.ZipFile(sys.argv[1]);print(json.dumps({n:hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist()}))', f]);
+  if (r.status !== 0) throw new Error('zip ilegible: ' + r.stderr.slice(0, 200));
+  return JSON.parse(r.stdout);
+}
+function zipJson(f, name) {
+  const r = run('python3', ['-c', 'import zipfile,sys;sys.stdout.write(zipfile.ZipFile(sys.argv[1]).read(sys.argv[2]).decode())', f, name]);
+  return JSON.parse(r.stdout);
+}
+
+/**
+ * A new browser profile. WebKit's in-memory contexts behave like a private window, whose storage refuses
+ * files (IndexedDB: «Error preparing Blob/File data»): there a new profile is a new folder on disk, as a
+ * normal window uses. Closing the context closes that browser too.
+ */
+async function profileContext() {
+  if (BROWSER !== 'webkit') return studioContext();
+  const [type, opts] = launchOptions('webkit');
+  if (!opts.executablePath) delete opts.executablePath;
+  return type.launchPersistentContext(mkdtempSync(join(OUT, 'perfil-')), {
+    ...opts, viewport: { width: 1366, height: 860 }, deviceScaleFactor: 1, acceptDownloads: true, reducedMotion: 'reduce',
+  });
+}
+/** A fresh browser profile on the studio, in real time (no fake clock), paused by «reducir movimiento». */
+async function freshStudio(recipe) {
+  const ctx = await profileContext();
+  if (!CHROMIUMS.has(BROWSER)) await ctx.addInitScript(CLIP_STUB);
+  const p = await ctx.newPage();
+  const errors = [];
+  p.on('pageerror', e => errors.push(e.message));
+  await p.goto(recipe ? `${BASE}/studio/#r=${encode(recipe)}` : `${BASE}/studio/`);
+  await p.locator('.stage canvas').first().waitFor();
+  if (await p.locator('dialog.welcome[open]').count()) { await p.keyboard.press('Escape'); await p.waitForTimeout(300); }
+  await p.waitForTimeout(800);
+  return { ctx, p, errors };
+}
+const toastText = (p, re) => p.locator('.toast').filter({ hasText: re }).first().waitFor({ timeout: 90_000 });
+async function freshDownload(p, dir, click) {
+  const ev = p.waitForEvent('download', { timeout: 180_000 });
+  await click();
+  const d = await ev;
+  mkdirSync(dir, { recursive: true });
+  const f = join(dir, d.suggestedFilename());
+  await d.saveAs(f);
+  return f;
+}
+async function openExportTab(p, tab) {
+  if (!(await p.getByRole('tab', { name: tab }).isVisible().catch(() => false))) await p.keyboard.press('e');
+  await p.getByRole('tab', { name: tab }).click();
+  await p.waitForTimeout(300);
+}
+/** The piece's recipe as the Receta tab downloads it. */
+async function recipeOf(p, dir) {
+  await openExportTab(p, 'Receta');
+  const f = await freshDownload(p, dir, () => p.getByRole('button', { name: /Descargar receta/ }).click());
+  await p.keyboard.press('Escape');
+  return JSON.parse(readFileSync(f, 'utf8')).recipe;
+}
+/** A PNG of the stage as the Imagen tab exports it («Como la vista»). */
+async function pngOf(p, dir) {
+  await openExportTab(p, 'Imagen');
+  const btn = p.locator('#ex-size');
+  if ((await btn.getAttribute('data-value')) !== 'v1') {
+    await btn.click();
+    await p.getByRole('listbox').getByRole('option', { name: /^Como la vista/ }).first().click();
+  }
+  const f = await freshDownload(p, dir, () => p.getByRole('button', { name: 'Descargar imagen' }).click());
+  await p.keyboard.press('Escape');
+  return f;
+}
+/** The piece's video paused at a known instant, so two browsers draw the same frame. */
+const holdVideo = (p, t) => p.evaluate(t => new Promise(res => {
+  const v = [...document.querySelectorAll('body > video')].find(x => !x.srcObject && x.src);
+  if (!v) { res(false); return; }
+  v.pause();
+  const done = () => res(true);
+  v.addEventListener('seeked', done, { once: true });
+  v.currentTime = t;
+  setTimeout(done, 4000);
+}), t);
+const panelHas = async (p, name) => {
+  await p.getByRole('tab', { name: 'Fuente' }).click().catch(() => undefined);
+  // isVisible() answers at once (its timeout is ignored): wait for it, as a person waits for the restore
+  return p.locator('.panel').getByText(name).first().waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false);
+};
+const strip = r => { const x = JSON.parse(JSON.stringify(r)); delete x.meta; if (x.media?.ref) delete x.media.ref.id; return x; };
+
+async function projectFlows() {
+  let media;
+  try { media = realMedia(); } catch (e) { record('proyectos', 'medios de prueba (ffmpeg)', e instanceof Skip ? 'SKIP' : 'FAIL', e.message); return; }
+  const dir = join(OUT, 'proyectos');
+  await check('proyectos', 'medios de prueba reales (ffmpeg)', () => {
+    const d = f => { const j = ffprobe(f), s = j.streams[0]; return `${basename(f)} ${s.codec_name} ${s.width}×${s.height}${j.format.duration ? ', ' + Number(j.format.duration).toFixed(1) + ' s' : ''}, ${(statSync(f).size / 1048576).toFixed(1)} MB`; };
+    return [d(media.photo), d(media.mp4), d(media.webm)].join(' · ');
+  });
+  const base = { ...PIECES.imagen, meta: { name: 'Proyecto real', space: 'media' } };
+  const cases = [
+    ['foto', media.photo, { ...base, source: 'image' }, 'image/jpeg'],
+    ['mp4', media.mp4, { ...base, source: 'video' }, 'video/mp4'],
+    ['webm', media.webm, { ...base, source: 'video' }, 'video/webm'],
+  ];
+  const session = { made: [] };
+  // WebKit in memory is a private window: its storage refuses files, and the studio must say so
+  if (BROWSER === 'webkit') await check('proyectos', 'ventana privada (perfil en memoria): el estudio dice que no pudo guardar la foto', async () => {
+    const ctx = await studioContext();
+    await ctx.addInitScript(CLIP_STUB);
+    const p = await ctx.newPage();
+    try {
+      await p.goto(`${BASE}/studio/#r=${encode(cases[0][2])}`);
+      await p.locator('.stage canvas').first().waitFor();
+      if (await p.locator('dialog.welcome[open]').count()) await p.keyboard.press('Escape');
+      const chooser = p.waitForEvent('filechooser');
+      await p.getByRole('button', { name: 'Elegir imagen' }).first().click();
+      await (await chooser).setFiles(media.photo);
+      const t = p.locator('.toast').filter({ hasText: /no dejó guardarla/ }).first();
+      await t.waitFor({ timeout: 60_000 });
+      return '«' + (await t.innerText()).replace(/\s+/g, ' ').slice(0, 170) + '»';
+    } finally { await ctx.close(); }
+  });
+  for (const [id, file, recipe, type] of cases) {
+    const name = basename(file);
+    const A = await freshStudio(recipe);
+    let zip = null, ref = {};
+    try {
+      // 1. a person picks the file
+      const chooser = A.p.waitForEvent('filechooser');
+      await A.p.getByRole('button', { name: recipe.source === 'image' ? 'Elegir imagen' : 'Elegir video' }).first().click();
+      await (await chooser).setFiles(file);
+      const loaded = await Promise.race([
+        A.p.getByRole('region', { name: 'Cargar fuente' }).waitFor({ state: 'detached', timeout: 60_000 }).then(() => 'ok'),
+        A.p.locator('.warn').filter({ hasText: /no puede reproducir|No se pudo abrir/ }).first().waitFor({ timeout: 60_000 }).then(async () => 'error: ' + await A.p.locator('.warn').first().innerText()),
+      ]).catch(e => 'tiempo agotado: ' + e.message);
+      if (loaded !== 'ok') {
+        // a browser that cannot decode this format must say so (never a silent blank)
+        await check('proyectos', `${id}: ${name} en el estudio`, () => {
+          if (/no puede reproducir/.test(loaded) && type === 'video/mp4' && BROWSER === 'chromium') skip(`el Chromium de Playwright no decodifica H.264; el estudio lo dice: «${loaded.slice(7)}»`);
+          throw new Error(loaded);
+        });
+        continue;
+      }
+      if (recipe.source === 'video') await holdVideo(A.p, 1.0);
+      await A.p.waitForTimeout(800);
+      const pngA = await pngOf(A.p, join(dir, id, 'a'));
+      const rA = await recipeOf(A.p, join(dir, id, 'a'));
+      ref = rA.media.ref ?? {};
+      // 2. the project .zip
+      await openExportTab(A.p, 'Receta');
+      const said = await A.p.locator('.ex-card').filter({ hasText: 'Proyecto (.zip)' }).innerText();
+      zip = await freshDownload(A.p, join(dir, id, 'a'), () => A.p.getByRole('button', { name: 'Exportar proyecto (.zip)' }).click());
+      await A.p.keyboard.press('Escape');
+      session.made.push({ id, name });
+      await check('proyectos', `${id}: el proyecto .zip lleva el archivo original, byte a byte`, () => {
+        const idx = zipIndex(zip);
+        const entry = Object.keys(idx).find(n => n.startsWith('medios/'));
+        assert(entry, 'sin carpeta medios/: ' + Object.keys(idx).join(', '));
+        assert(idx[entry] === sha(file), `SHA-256 distinto (${entry})`);
+        const rec = zipJson(zip, Object.keys(idx).find(n => n.endsWith('.json')));
+        const r = rec.recipe.media.ref;
+        assert(r && r.name === name && r.size === statSync(file).size && r.w > 0 && r.h > 0, 'referencia: ' + JSON.stringify(r));
+        assert(new RegExp(reEsc(name)).test(said), 'la pestaña no nombra el archivo: ' + said.slice(0, 160));
+        return `${Object.keys(idx).join(', ')}; ${entry} = original (SHA-256), ${r.w}×${r.h}, ${(r.size / 1048576).toFixed(1)} MB; la pestaña lo dice antes`;
+      });
+      // 3. another browser profile that has never seen the file
+      const B = await freshStudio();
+      try {
+        await B.p.getByRole('button', { name: /Colección/ }).first().click();
+        const ch = B.p.waitForEvent('filechooser');
+        await B.p.getByRole('button', { name: 'Importar receta, colección o proyecto' }).click();
+        await (await ch).setFiles(zip);
+        await toastText(B.p, /Proyecto abierto/);
+        await B.p.keyboard.press('Escape');
+        await check('proyectos', `${id}: abierto en un perfil nuevo, la pieza y su archivo vuelven`, async () => {
+          assert(await panelHas(B.p, name), 'el panel no muestra ' + name);
+          assert(!(await B.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'pide el archivo otra vez');
+          const rB = await recipeOf(B.p, join(dir, id, 'b'));
+          assert(JSON.stringify(strip(rA)) === JSON.stringify(strip(rB)), 'la receta cambió');
+          assert(!B.errors.length, B.errors.slice(0, 2).join(' | '));
+          return `receta idéntica; ${name} en el panel, sin pedir el archivo`;
+        });
+        // a reload starts both profiles alike (paused at t = 0 by «reducir movimiento»), and proves the file was stored
+        await check('proyectos', `${id}: tras recargar sigue en este navegador y dibuja lo mismo que el original`, async () => {
+          await B.p.waitForTimeout(1000);
+          await B.p.reload();
+          await B.p.locator('.stage canvas').first().waitFor();
+          if (!(await panelHas(B.p, name))) {
+            const shot = join(dir, id, 'b', 'tras-recargar.png');
+            await B.p.screenshot({ path: shot }).catch(() => undefined);
+            const seed = (await B.p.locator('.seedline').innerText().catch(() => '')).replace(/\s+/g, ' ');
+            const prompt = (await B.p.locator('.prompt .card').innerText().catch(() => '')).replace(/\s+/g, ' ');
+            const stage = ((await B.p.locator('.stage').innerText().catch(() => '')).match(/Recuperando[^\n]*/) ?? [''])[0];
+            // slow or stuck: what the media store holds, and whether it comes back given more time
+            const stored = await B.p.evaluate(() => new Promise(res => {
+              const r = indexedDB.open('mt-media');
+              r.onsuccess = () => { try { const k = r.result.transaction('blobs').objectStore('blobs').getAllKeys(); k.onsuccess = () => res(`${k.result.length} archivo(s) guardado(s)`); k.onerror = () => res('no se lee'); } catch (e) { res('sin almacén'); } };
+              r.onerror = () => res('no abre');
+              setTimeout(() => res('sin respuesta'), 5000);
+            }));
+            const later = await B.p.locator('.panel').getByText(name).first().waitFor({ state: 'visible', timeout: 40_000 }).then(() => true, () => false);
+            throw new Error(`tras recargar no aparece ${name} en 20 s${later ? ' (aparece más tarde, antes de 60 s)' : ' (ni en 60 s)'} (pieza «${seed.slice(0, 60)}»${prompt ? `; aviso «${prompt.slice(0, 120)}»` : ''}${stage ? `; el lienzo dice «${stage.slice(0, 80)}»` : ''}; almacén de medios: ${stored}; captura ${shot})`);
+          }
+          assert(!(await B.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'tras recargar pide el archivo');
+          if (recipe.source === 'video') await holdVideo(B.p, 1.0);
+          await B.p.waitForTimeout(1500);
+          const pngB = await pngOf(B.p, join(dir, id, 'b'));
+          const e = rmse(pngA, pngB), eb = rmse(pngA, pngB, { blur: 2 });
+          // WebKit (GStreamer) does not land on the very same video frame when seeking to 1.0 s in two
+          // profiles (the moving part differs, the rest is identical): there the composition is compared
+          const nearFrame = recipe.source === 'video' && BROWSER === 'webkit';
+          if (nearFrame) {
+            assert(eb < 0.04, `imagen distinta: RMSE ${fmt(e)}, desenfocado ${fmt(eb)}`);
+            return `${name} restaurado desde IndexedDB; PNG ≈ PNG del perfil original (RMSE desenfocado ${fmt(eb)}, sin desenfocar ${fmt(e)}: WebKit no cae en el mismo fotograma del video al buscar 1,0 s)`;
+          }
+          assert(e < (recipe.source === 'image' ? 0.01 : 0.05), `imagen distinta: RMSE ${fmt(e)}, desenfocado ${fmt(eb)}`);
+          return `${name} restaurado desde IndexedDB; PNG = PNG del perfil original (RMSE ${fmt(e)}${recipe.source === 'video' ? ', mismo instante del video' : ''})`;
+        });
+      } finally { await B.ctx.close(); }
+      // the session carries the history (with this piece) and the collection
+      if (id === 'foto') {
+        await A.p.keyboard.press('s');
+        await A.p.waitForTimeout(400);
+        session.foto = A;
+      }
+    } catch (e) {
+      record('proyectos', `${id}: flujo`, 'FAIL', e.message);
+    } finally {
+      if (!session[id]) await A.ctx.close();
+    }
+  }
+  // 4. a session (history + collection + media) and a collection .zip, opened in a fresh profile
+  const A = session.foto;
+  if (!A) { record('proyectos', 'sesión y colección', 'SKIP', 'no hay pieza con medios'); return; }
+  try {
+    // the video pieces join the same history: each opens as a new piece in this profile, with its file
+    for (const m of session.made.filter(x => x.id !== 'foto')) {
+      const [, f, r] = cases.find(c => c[0] === m.id);
+      await A.p.goto('about:blank');
+      await A.p.goto(`${BASE}/studio/#r=${encode({ ...r, meta: { name: 'Sesión ' + m.id, space: 'media' } })}`);
+      await A.p.locator('.stage canvas').first().waitFor();
+      const ch = A.p.waitForEvent('filechooser');
+      await A.p.getByRole('region', { name: 'Cargar fuente' }).getByRole('button', { name: 'Elegir video' }).click();
+      await (await ch).setFiles(f);
+      await A.p.getByRole('region', { name: 'Cargar fuente' }).waitFor({ state: 'detached', timeout: 60_000 });
+      await A.p.waitForTimeout(1500);
+    }
+    await A.p.getByRole('button', { name: /Colección/ }).first().click();
+    const sess = await freshDownload(A.p, join(dir, 'sesion'), () => A.p.getByRole('button', { name: 'Guardar sesión' }).first().click());
+    const coll = await freshDownload(A.p, join(dir, 'coleccion'), () => A.p.getByRole('button', { name: /Guardar colección/ }).click());
+    const count = await A.p.locator('.count-line').innerText();
+    await check('proyectos', 'sesión .zip: lleva el historial, la colección y cada archivo original', () => {
+      const idx = zipIndex(sess);
+      const want = session.made.map(m => m.name);
+      const found = want.filter(n => Object.keys(idx).some(k => k.startsWith('medios/') && k.endsWith(n)));
+      const orig = session.made.map(m => sha(cases.find(c => c[0] === m.id)[1]));
+      const exact = orig.filter(h => Object.values(idx).includes(h)).length;
+      assert(found.length === want.length && exact === want.length, `archivos ${found.length}/${want.length}, idénticos ${exact}`);
+      return `${Object.keys(idx).length} entradas; ${want.join(', ')} idénticos (SHA-256); ${count}`;
+    });
+    const C = await freshStudio();
+    try {
+      await C.p.getByRole('button', { name: /Colección/ }).first().click();
+      const ch = C.p.waitForEvent('filechooser');
+      await C.p.getByRole('button', { name: 'Abrir sesión' }).click();
+      await (await ch).setFiles(sess);
+      await toastText(C.p, /Sesión abierta/);
+      await check('proyectos', 'sesión abierta en un perfil nuevo: historial, colección y archivos', async () => {
+        const favs = await C.p.locator('.fav-card').count();
+        const line = await C.p.locator('.count-line').innerText();
+        await C.p.keyboard.press('Escape');
+        const thumbs = C.p.locator('.thumb');
+        const n = await thumbs.count();
+        const seen = new Set();
+        for (let i = 0; i < n; i++) {
+          await thumbs.nth(i).click();
+          await C.p.waitForTimeout(1500);
+          await C.p.getByRole('tab', { name: 'Fuente' }).click().catch(() => undefined);
+          await C.p.waitForTimeout(300);
+          for (const m of session.made) if (await C.p.locator('.panel').getByText(m.name).first().isVisible().catch(() => false)) seen.add(m.name);
+        }
+        assert(favs >= 1, 'la colección llegó vacía');
+        assert(seen.size === session.made.length, `archivos vistos ${[...seen].join(', ') || 'ninguno'} de ${session.made.map(m => m.name).join(', ')}`);
+        return `${line}; colección ${favs}; ${[...seen].join(', ')} vuelven con su pieza`;
+      });
+    } finally { await C.ctx.close(); }
+    const D = await freshStudio();
+    try {
+      await D.p.getByRole('button', { name: /Colección/ }).first().click();
+      const ch = D.p.waitForEvent('filechooser');
+      await D.p.getByRole('button', { name: 'Importar receta, colección o proyecto' }).click();
+      await (await ch).setFiles(coll);
+      await toastText(D.p, /Colección abierta|pieza/);
+      await check('proyectos', 'colección .zip abierta en un perfil nuevo, con su imagen', async () => {
+        const cards = D.p.locator('.fav-card');
+        const n = await cards.count();
+        assert(n >= 1, 'sin piezas');
+        await cards.first().locator('.ops').getByRole('button', { name: 'Abrir', exact: true }).click();
+        const name = session.made.find(m => m.id === 'foto').name;
+        assert(await panelHas(D.p, name), 'la pieza de la colección no trae ' + name);
+        assert(!(await D.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'pide el archivo');
+        return `${n} pieza(s) en la colección; ${name} vuelve con ella`;
+      });
+    } finally { await D.ctx.close(); }
+  } catch (e) {
+    record('proyectos', 'sesión y colección', 'FAIL', e.message);
+  } finally {
+    for (const k of ['foto', 'mp4', 'webm']) await session[k]?.ctx.close().catch(() => undefined);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 5c. Camera: a fake device for the working path; denied, missing, busy */
+/* ------------------------------------------------------------------ */
+
+const FAKE_DEV = '--use-fake-device-for-media-stream', FAKE_UI = '--use-fake-ui-for-media-stream';
+/** How to make the browser answer each case for real (Chromium/Chrome flags, Firefox preferences). */
+function cameraLaunch(kind) {
+  if (CHROMIUMS.has(BROWSER)) {
+    return { ok: { args: [FAKE_DEV, FAKE_UI] }, denied: { args: [FAKE_DEV, FAKE_UI + '=deny'] }, none: { args: [FAKE_UI] } }[kind];
+  }
+  if (BROWSER === 'firefox') {
+    return {
+      ok: { prefs: { 'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true } },
+      denied: { prefs: { 'media.navigator.streams.fake': true, 'permissions.default.camera': 2 } },
+      none: { prefs: { 'media.navigator.permission.disabled': true } },
+    }[kind];
+  }
+  return null;
+}
+/** A camera another program holds cannot be faked by the browser: this answers like one (NotReadableError). */
+const BUSY_CAMERA = `(() => {
+  const md = navigator.mediaDevices;
+  if (md) md.getUserMedia = () => Promise.reject(new DOMException('Could not start video source', 'NotReadableError'));
+})();`;
+
+async function cameraFlows() {
+  const recipe = {
+    v: 2, source: 'camera', glyph: { cell: 10, charset: DETALLADO, font: 'jetbrains' },
+    color: { mode: 'source', vivid: 0.8, stops: ['#000000', '#ffffff'], bg: '#050505' }, interact: { mode: 'none' },
+    meta: { name: 'Verificación cámara', space: 'media' },
+  };
+  const cases = [
+    ['ok', 'con permiso y una cámara (dispositivo simulado del navegador)', null],
+    ['denied', 'permiso denegado', /permiso de la cámara está denegado/],
+    ['none', 'sin ninguna cámara', /No hay ninguna cámara/],
+    ['busy', 'cámara ocupada por otra aplicación (respuesta simulada: NotReadableError)', /ocupada/],
+  ];
+  for (const [kind, what, expect] of cases) {
+    const opts = cameraLaunch(kind === 'busy' ? 'ok' : kind);
+    if (!opts) { record('camara', `cámara: ${what}`, 'SKIP', `${BROWSER} no tiene cámara simulada en Playwright`); continue; }
+    let b;
+    try { b = await launch(BROWSER, opts); } catch (e) { record('camara', `cámara: ${what}`, 'SKIP', 'no arranca: ' + e.message.split('\n')[0]); continue; }
+    const ctx = await b.newContext({ viewport: { width: 1366, height: 860 }, deviceScaleFactor: 1, acceptDownloads: true });
+    if (kind === 'busy') await ctx.addInitScript(BUSY_CAMERA);
+    const p = await ctx.newPage();
+    const errors = [];
+    p.on('pageerror', e => errors.push(e.message));
+    try {
+      await p.goto(`${BASE}/studio/#r=${encode(recipe)}`);
+      await p.locator('.stage canvas').first().waitFor();
+      if (await p.locator('dialog.welcome[open]').count()) { await p.keyboard.press('Escape'); await p.waitForTimeout(300); }
+      const card = p.getByRole('region', { name: 'Cargar fuente' });
+      await card.getByRole('button', { name: 'Activar cámara' }).click();
+      if (kind !== 'ok') {
+        await check('camara', `cámara: ${what} → el estudio lo explica`, async () => {
+          const warn = card.locator('.warn');
+          await warn.waitFor({ timeout: 15_000 }).catch(async () => {
+            // say what the card and the page show instead (a dialog in front, the camera still starting…)
+            const shows = (await card.innerText().catch(() => '(sin tarjeta)')).replace(/\s+/g, ' ').slice(0, 160);
+            const dialogs = await p.locator('dialog[open]').count();
+            throw new Error(`sin aviso en 15 s; la tarjeta dice «${shows}»; diálogos abiertos: ${dialogs}`);
+          });
+          const t = (await warn.innerText()).trim();
+          assert(expect.test(t), '«' + t + '»');
+          assert(await card.getByRole('button', { name: 'Activar cámara' }).isVisible(), 'sin botón para volver a intentarlo');
+          assert(!errors.length, errors.slice(0, 2).join(' | '));
+          return `«${t}»`;
+        });
+        continue;
+      }
+      await check('camara', `cámara: ${what} → se ve en el lienzo y se mueve`, async () => {
+        await card.waitFor({ state: 'detached', timeout: 20_000 });
+        await p.waitForTimeout(1500);
+        const cv = p.locator('.stage canvas').first();
+        const a = join(OUT, 'camara', 'lienzo-a.png'), c = join(OUT, 'camara', 'lienzo-b.png');
+        mkdirSync(join(OUT, 'camara'), { recursive: true });
+        await cv.screenshot({ path: a });
+        await p.waitForTimeout(1200);
+        await cv.screenshot({ path: c });
+        const sd = spread(a), moved = rmse(a, c);
+        const label = await p.evaluate(() => [...document.querySelectorAll('body > video')].map(v => v.srcObject?.getVideoTracks?.()[0]?.label).find(Boolean) ?? '');
+        assert(sd > 0.02, 'lienzo plano: desviación ' + fmt(sd));
+        assert(moved > 0.002, 'la imagen no cambia (RMSE entre capturas ' + fmt(moved) + ')');
+        assert(!errors.length, errors.slice(0, 2).join(' | '));
+        return `«${label}»; desviación ${fmt(sd)}; cambia entre capturas (RMSE ${fmt(moved)})`;
+      });
+      // the camera only exists live: the sheet says so and offers the live recording
+      await p.keyboard.press('e');
+      await p.getByRole('tab', { name: 'Video y GIF' }).click();
+      await p.waitForTimeout(400);
+      const why = (await p.locator('.sheet-body .ex-na').allTextContents()).join(' ').replace(/\s+/g, ' ');
+      await check('camara', 'cámara: la hoja explica que no hay render fotograma a fotograma', () => {
+        assert(/no con la cámara/.test(why), 'sin explicación: ' + why.slice(0, 200));
+        return why.slice(0, 160);
+      });
+      const startBtn = p.getByRole('button', { name: 'Empezar a grabar' });
+      if (!(await startBtn.count())) {
+        await check('camara', 'cámara: grabación en directo', () => {
+          assert(/Grabación en directo: no disponible/.test(why), 'ni botón ni explicación');
+          skip(`${ENGINE} no graba el lienzo (la hoja lo dice)`);
+        });
+        continue;
+      }
+      await startBtn.click();
+      const t0 = Date.now();
+      await p.waitForTimeout(3000);
+      const ev = p.waitForEvent('download', { timeout: 60_000 });
+      await p.getByRole('button', { name: /Detener y guardar/ }).click();
+      const d = await ev;
+      const f = join(OUT, 'camara', d.suggestedFilename());
+      await d.saveAs(f);
+      const secs = Math.round((Date.now() - t0) / 100) / 10;
+      await check('camara', 'cámara: la grabación en directo es un video que se abre', () => {
+        const j = ffprobe(f), st = j.streams[0];
+        const dec = run('ffmpeg', ['-v', 'error', '-i', f, '-f', 'null', '-']);
+        assert(dec.status === 0, dec.stderr.slice(0, 200));
+        // what the stage drew while recording: with WebGL by software and a busy processor, very few frames
+        const frames = Number(st.nb_read_frames);
+        assert(frames >= 1, `${frames} fotogramas`);
+        assert(extname(f) !== '.mp4' || st.codec_name === 'h264', `.mp4 con ${st.codec_name}`);
+        return `${basename(f)}: ${j.format.format_name}, ${st.codec_name} ${st.width}×${st.height}, ${frames} fotogramas en ${secs} s (≈ ${(frames / secs).toFixed(1)} fps: lo que el lienzo dibujó), ${recordingShape(f, j)}, decodifica sin errores`;
+      });
+      const url = publish(f);
+      await inEngines('camara', `cámara: la grabación (${extname(f).slice(1)}) se reproduce en <video>`, async (bb, n) => {
+        const r = await playIn(bb, url, { type: VIDEO_TYPES[extname(f).slice(1)] });
+        if (r.ev !== 'ok') {
+          if (!r.can && ((extname(f) === '.mp4' && n === 'chromium') || (extname(f) === '.webm' && n === 'webkit'))) skip(`${n} no reproduce este formato: canPlayType «${r.can}»`);
+          throw new Error(`no carga: ${r.ev}`);
+        }
+        assert(r.err === 0 && r.w > 0, `error ${r.err}, ${r.w}×${r.h}`);
+        return `${r.w}×${r.h}, ${Number.isFinite(r.dur) ? fmt(r.dur) + ' s' : r.dur}, avanza ${fmt(r.t0)} → ${fmt(r.t1)} s`;
+      });
+    } catch (e) {
+      record('camara', `cámara: ${what}`, 'FAIL', e.message);
+    } finally {
+      await ctx.close();
+      await b.close();
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1064,8 +2135,9 @@ async function terminalExports(key, page, dir, files) {
   const t = (files.term = { cols, rows, ans: {} });
   await sh.getByRole('button', { name: 'Sin color' }).click();
   await settle();
-  t.txt = await download(page, dir, () => sh.getByRole('button', { name: '.txt', exact: true }).click());
-  t.html = await download(page, dir, () => sh.getByRole('button', { name: 'HTML', exact: true }).click());
+  // a folder of their own: the text HTML has the same name as the Code tab's page .html
+  t.txt = await download(page, join(dir, 'texto'), () => sh.getByRole('button', { name: '.txt', exact: true }).click());
+  t.html = await download(page, join(dir, 'texto'), () => sh.getByRole('button', { name: 'HTML', exact: true }).click());
   await sh.getByRole('button', { name: 'Saludo de shell' }).click();
   await settle();
   t.shell = join(dir, 'saludo.sh');
@@ -1087,7 +2159,7 @@ async function terminalExports(key, page, dir, files) {
   t.js = join(dir, 'banner.mjs');
   writeFileSync(t.js, await clipboard(page));
   await sh.getByLabel('Duración (s)').fill('2');
-  await sh.getByLabel('Fotogramas/s').selectOption('12');
+  await pickNumber(page, 'Fotogramas por segundo', '12');
   await settle();
   t.node = await download(page, dir, () => sh.getByRole('button', { name: /Script de Node/ }).click());
   t.python = await download(page, dir, () => sh.getByRole('button', { name: 'Script de Python' }).click());
@@ -1301,6 +2373,103 @@ const COMP_PROBES = {
   halo: { async probe(root, p) { const b = root.locator('button').first(); const box = await b.boundingBox(); await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 }); await p.waitForTimeout(400); const ink = await b.evaluate(el => { const c = el.querySelector('canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; }); await p.mouse.move(0, 0); assert(ink > 50, 'no se enciende'); return `${ink} píxeles encendidos`; } },
   spinners: { async probe(root, p) { const s = root.locator('[role="status"]').first(); const a = await s.innerText(); await p.waitForTimeout(250); const b = await s.innerText(); assert(a !== b, 'no gira'); return `«${a}» → «${b}»`; } },
   progress: { async probe(root) { const t = await root.locator('pre').first().innerText(); assert(/42%/.test(t), t); return `«${t.trim()}»`; } },
+  // the creative lane's pieces
+  reveal: {
+    async probe(root, p) {
+      const img = root.locator('img').first();
+      await img.waitFor();
+      await p.waitForTimeout(800);
+      // opaque characters over the photo; under the cursor they open onto the photo
+      const ink = (fx, fy) => root.evaluate((el, [fx, fy]) => {
+        const c = el.querySelector('canvas');
+        if (!c || !c.width || getComputedStyle(c).display === 'none') return -1;
+        const cx = Math.round(c.width * fx), cy = Math.round(c.height * fy), rr = Math.max(4, Math.round(c.width * 0.03));
+        const d = c.getContext('2d').getImageData(Math.max(0, cx - rr), Math.max(0, cy - rr), rr * 2, rr * 2).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 200) n++;
+        return n / (d.length / 4);
+      }, [fx, fy]);
+      const before = await ink(0.3, 0.5);
+      const box = await img.boundingBox();
+      await p.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5, { steps: 4 });
+      await p.waitForTimeout(700);
+      const after = await ink(0.3, 0.5);
+      await p.mouse.move(0, 0);
+      assert(before > 0.5 && after < before - 0.3, `caracteres ${fmt(before)} → bajo el cursor ${fmt(after)}`);
+      return `caracteres sobre la foto (${fmt(before)} opaco); bajo el cursor, la foto (${fmt(after)})`;
+    },
+  },
+  spotlight: {
+    async probe(root, p) {
+      const cv = root.locator('canvas').first();
+      await cv.waitFor({ state: 'attached' });
+      const lit = (fx, fy) => cv.evaluate((c, [fx, fy]) => {
+        const d = c.getContext('2d').getImageData(Math.round(c.width * fx) - 30, Math.round(c.height * fy) - 30, 60, 60).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) n += d[i];
+        return n / (d.length / 4) / 255;
+      }, [fx, fy]);
+      await p.waitForTimeout(500);
+      const before = await lit(0.2, 0.5);
+      const box = await cv.boundingBox();
+      await p.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5, { steps: 5 });
+      await p.waitForTimeout(700);
+      const after = await lit(0.2, 0.5);
+      await p.mouse.move(0, 0);
+      // with nobody there it draws nothing; under the cursor, a soft light (a faint weave, not a lamp)
+      assert(before < 0.002 && after > before + 0.002, `luz ${fmt(before)} → ${fmt(after)}`);
+      assert((await cv.getAttribute('aria-hidden')) === 'true', 'el lienzo no está oculto a los lectores de pantalla');
+      return `sin nadie no dibuja (${fmt(before)}); bajo el cursor, luz (${fmt(after)})`;
+    },
+  },
+  loader: {
+    async probe(root, p) {
+      const bar = root.getByRole('progressbar').first();
+      await bar.waitFor({ state: 'attached' });
+      const v0 = Number(await bar.getAttribute('aria-valuenow'));
+      const art = await root.locator('pre').first().innerText().catch(() => '');
+      let v = v0;
+      for (let i = 0; i < 12 && v === v0; i++) { await p.waitForTimeout(250); v = Number(await bar.getAttribute('aria-valuenow')); }
+      assert(Number.isFinite(v0) && /█/.test(art), `aria-valuenow «${v0}», barra «${art.trim().slice(0, 30)}»`);
+      return `barra de progreso accesible («${(await bar.getAttribute('aria-label')) ?? ''}», ${v0} %${v !== v0 ? ` → ${v} %` : ''}), dibujada con █`;
+    },
+  },
+  ticker: {
+    async probe(root, p) {
+      const track = root.locator('span[aria-hidden="true"]').first();
+      const x = () => track.evaluate(el => new DOMMatrix(getComputedStyle(el).transform).m41);
+      const a = await x();
+      await p.waitForTimeout(700);
+      const b = await x();
+      assert(a !== b, 'no desfila');
+      return `desfila (${a.toFixed(0)} → ${b.toFixed(0)} px)`;
+    },
+  },
+  blocktext: {
+    async probe(root) {
+      const s = root.locator('[role="img"]').first();
+      const t = await s.innerText();
+      assert(t.split('\n').length >= 6 && /█/.test(t), 'rótulo vacío: ' + t.slice(0, 40));
+      return `${t.split('\n').length} líneas de █, leído como «${await s.getAttribute('aria-label')}»`;
+    },
+  },
+  glitch: {
+    async probe(root, p) {
+      const link = root.getByRole('link').first();
+      const name = (await link.innerText()).trim();
+      await root.evaluate(el => {
+        const seen = (window.__seen = []);
+        new MutationObserver(() => { for (const s of el.querySelectorAll('a span[aria-hidden="true"]')) seen.push(s.textContent ?? ''); })
+          .observe(el, { childList: true, subtree: true, characterData: true });
+      });
+      await link.hover();
+      await p.waitForTimeout(600);
+      await p.mouse.move(0, 0);
+      await p.waitForTimeout(900);
+      const seen = await p.evaluate(() => window.__seen);
+      assert(seen.some(t => t !== name && t.length === name.length), 'no se revuelve');
+      assert((await link.innerText()).trim() === name, 'el enlace cambia de nombre');
+      return `«${name}» se revuelve bajo el cursor y vuelve a «${name}»`;
+    },
+  },
 };
 
 async function componentsFlow() {
@@ -1316,7 +2485,19 @@ async function componentsFlow() {
   await sp.locator('.comp-card').first().waitFor();
   const cards = (await sp.locator('.comp-card h2').allTextContents()).map(t => t.trim());
   const tabsById = {};
-  const names = { scramble: 'Descifrar', typewriter: 'Máquina de escribir', magnet: 'Imán', trail: 'Estela', halo: 'Halo', spinners: 'Indicadores', progress: 'Barra de progreso', banner: 'Rótulo' };
+  const names = {
+    scramble: 'Descifrar', typewriter: 'Máquina de escribir', magnet: 'Imán', trail: 'Estela', halo: 'Halo', spinners: 'Indicadores', progress: 'Barra de progreso', banner: 'Rótulo',
+    reveal: 'Revelar', spotlight: 'Foco', loader: 'Pantalla de carga', ticker: 'Separador', blocktext: 'Letras de bloque', glitch: 'Enlaces con interferencia',
+  };
+  // a piece added to the library must be added here too: none goes out unverified (the two cards that
+  // open a studio space are checked with the studio's own exports)
+  const library = (await sp.locator('.comp-card').filter({ has: sp.getByRole('button', { name: /^Personalizar y copiar/ }) }).locator('h2').allTextContents()).map(t => t.trim());
+  await check('componentes', 'cada pieza de la biblioteca está en el verificador', () => {
+    const known = new Set(Object.values(names));
+    const extra = library.filter(c => !known.has(c));
+    assert(library.length && !extra.length, 'sin verificar: ' + extra.join(', '));
+    return `${library.length} piezas: ${library.join(', ')}`;
+  });
   for (const [id, name] of Object.entries(names)) {
     if (!cards.includes(name)) { record('componentes', `${id}: tarjeta en la galería`, 'FAIL', 'no aparece'); continue; }
     await sp.locator('.comp-card', { has: sp.locator('h2', { hasText: name }) }).first().locator('.comp-open').click();
@@ -1333,6 +2514,8 @@ async function componentsFlow() {
   await ctx.close();
   const dir = join(SITE_DIR, 'componentes');
   mkdirSync(dir, { recursive: true });
+  // «Revelar» shows a photo of the page (its snippet names tu-foto.jpg next to it)
+  copyFileSync(SYNTH, join(dir, 'tu-foto.jpg'));
   const react = [];
   for (const [id, tabs] of Object.entries(tabsById)) {
     const probe = COMP_PROBES[id];
@@ -1351,6 +2534,23 @@ async function componentsFlow() {
       scramble: async root => { const t = (await root.locator('h1 [aria-hidden="true"]').innerText()).trim(); assert(t === 'Teje luz con caracteres', `«${t}»`); return `texto completo al instante («${t}»)`; },
       typewriter: async (root, p) => { const a = await root.innerText(); await p.waitForTimeout(700); const b = await root.innerText(); assert(a === b && /Teje luz con caracteres/.test(a), `«${a}» → «${b}»`); return `frase completa y quieta («${a.trim()}»)`; },
       spinners: async (root, p) => { const s = root.locator('[role="status"]').first(); const a = await s.innerText(); await p.waitForTimeout(400); const b = await s.innerText(); assert(a === b, `«${a}» → «${b}»`); return `indicador quieto («${a}»)`; },
+      ticker: async (root, p) => {
+        const track = root.locator('span[aria-hidden="true"]').first();
+        const a = await track.evaluate(el => getComputedStyle(el).transform);
+        await p.waitForTimeout(600);
+        const b = await track.evaluate(el => getComputedStyle(el).transform);
+        assert(a === b, `se mueve (${a} → ${b})`);
+        return 'letrero quieto';
+      },
+      glitch: async (root, p) => {
+        const link = root.getByRole('link').first();
+        const name = (await link.innerText()).trim();
+        await link.hover();
+        await p.waitForTimeout(600);
+        const now = (await link.innerText()).trim();
+        assert(now === name && !(await link.locator('span').count()), `«${now}» bajo el cursor`);
+        return `«${name}» no se revuelve`;
+      },
     }[id];
     if (still && tabs['HTML para pegar']) await check('componentes', `${id}: con «reducir movimiento» no anima`, async () => {
       const { ctx: c, p, errors: e } = await visitSite(`${SITE}/componentes/${id}.html`, { settle: 500, reducedMotion: 'reduce' });
@@ -1385,7 +2585,15 @@ async function componentsFlow() {
       if (tabs.React) {
         const name = /export default function (\w+)/.exec(tabs.React)?.[1];
         const moduleFile = /from '\.\/([\w.]+)'/.exec(tabs.React)?.[1];
-        const jsxEl = id === 'scramble' ? `<${name}>Teje luz</${name}>` : id === 'magnet' ? `<${name}>ACÉRCATE</${name}>` : id === 'halo' ? `<${name} type="button" style={{ padding: 24 }}>Halo</${name}>` : `<${name} />`;
+        const jsxEl = {
+          scramble: `<${name}>Teje luz</${name}>`,
+          magnet: `<${name}>ACÉRCATE</${name}>`,
+          halo: `<${name} type="button" style={{ padding: 24 }}>Halo</${name}>`,
+          reveal: `<${name} src="/tu-foto.jpg" alt="Una foto" style={{ width: 320 }} />`,
+          loader: `<${name} value={0.5} label="Mitad" />`,
+          glitch: `<${name}><a href="#a">Proyectos</a> <a href="#b">Contacto</a></${name}>`,
+          spotlight: `<${name} style={{ height: 160 }}><a href="#c">Enlace</a></${name}>`,
+        }[id] ?? `<${name} />`;
         react.push({ id, name, file: `${name}.jsx`, code: tabs.React, moduleFile, module: mod, jsx: jsxEl, probe: probe?.probe ?? (async () => 'monta') });
       }
     }
@@ -1431,21 +2639,34 @@ async function componentsFlow() {
 /* Main                                                                */
 /* ------------------------------------------------------------------ */
 
+// a promise left behind by a check that failed half-way must not end the whole run
+process.on('unhandledRejection', e => record('verificador', 'promesa sin atender', 'FAIL', String(e?.message ?? e).split('\n')[0]));
+
 async function main() {
   console.log(`Monotrama · verificación de exportaciones\n  estudio ${BASE} · sitio ajeno ${SITE} · artefactos ${OUT}\n`);
   const up = await fetch(`${BASE}/studio/`).then(r => r.ok).catch(() => false);
   if (!up) { console.error(`No hay estudio en ${BASE}. Ejecuta: npm run build && npx vite preview --port ${PORT} --strictPort`); process.exit(2); }
-  browser = await chromium.launch({ args: GL_ARGS });
+  const gap = engineGap(BROWSER);
+  if (gap) { console.error(gap); process.exit(2); }
+  browser = await launch(BROWSER);
+  browser.__channel = BROWSER === 'chrome';
+  ENGINE = label(browser);
+  others.set(BROWSER, Promise.resolve({ b: browser, label: ENGINE }));
+  console.log(`  navegador principal: ${ENGINE}\n`);
   const site = await startSite();
   try {
     const image = await syntheticImage();
     writeFileSync(SYNTH, image);
 
-    const runPiece = async (key, o) => { try { await studioPiece(key, o); } catch (e) { record('estudio', `${key}: flujo del estudio`, 'FAIL', e.message); } };
+    const runPiece = async (key, o) => {
+      if (ONLY_PIECES.length && !ONLY_PIECES.includes(key)) return;
+      try { await studioPiece(key, o); } catch (e) { record('estudio', `${key}: flujo del estudio`, 'FAIL', e.message); }
+    };
     if (want('imagen') || want('vector') || want('video') || want('codigo')) {
       await runPiece('patron', { video: true, code: true, transparent: true, svgNote: /Sin efectos de píxel/, svgInfo: true });
       await runPiece('limpio', { formats: ['png'], sizes: ['hd', 'sq', 'story', 'og', '4k'] });
       await runPiece('texto', { formats: ['png'], code: true, bg: '#f2ecdf' });
+      await runPiece('transformada', { formats: ['png'], video: true, code: true, terminal: true });
       await runPiece('imagen', { formats: ['png'], image, code: true });
       await runPiece('bloques', { formats: ['png'], svgNote: /Bloques .* formas exactas/, svgInfo: true });
       await runPiece('braille', { formats: ['png'], svgNote: /braille van como formas exactas/, svgInfo: true });
@@ -1456,25 +2677,41 @@ async function main() {
       await runPiece('anchos', { formats: ['png'], terminal: true, svgNote: /quedan como texto/, svgInfo: true });
     }
     if (want('mp4')) await mp4Muxing().catch(e => record('mp4', 'muxer MP4', 'FAIL', e.message));
+    if (want('video') || want('imagen')) await playbackChecks('patron').catch(e => record('reproduccion', 'patron', 'FAIL', e.message));
     if (want('codigo')) for (const k of Object.keys(codeOut)) await codeChecks(k).catch(e => record('codigo', k, 'FAIL', e.message));
     let compReact = [];
     if (want('componentes')) compReact = await componentsFlow().catch(e => { record('componentes', 'flujo', 'FAIL', e.message); return []; });
     if (want('react') || want('codigo')) await reactProject(compReact).catch(e => record('react', 'proyecto', 'FAIL', e.message));
-    if (want('terminal') || want('texto')) for (const k of ['terminal', 'anchos']) await terminalChecks(k).catch(e => record('terminal', k, 'FAIL', e.message));
+    if (want('terminal') || want('texto')) for (const k of ['terminal', 'anchos', 'transformada']) await terminalChecks(k).catch(e => record('terminal', k, 'FAIL', e.message));
+    if (want('proyectos')) await projectFlows().catch(e => record('proyectos', 'flujo', 'FAIL', e.message));
+    if (want('camara')) await cameraFlows().catch(e => record('camara', 'flujo', 'FAIL', e.message));
   } finally {
-    await browser.close();
+    for (const e of others.values()) await (await e).b?.close().catch(() => undefined);
     await no3d?.close();
     site.close();
   }
   if (want('codigo')) record('codigo', 'Google Fonts desde el código exportado', fontIssues.size ? 'SKIP' : 'PASS',
     fontIssues.size ? 'no accesible desde este navegador (' + [...fontIssues][0] + '); define VERIFY_CA si hay un proxy con su propia CA' : 'se carga (o no hizo falta)');
   const pad = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s.padEnd(n));
-  console.log('\n' + pad('Grupo', 12) + ' ' + pad('Resultado', 6) + ' ' + pad('Comprobación', 72) + ' Detalle');
-  console.log('-'.repeat(160));
-  for (const r of results) console.log(`${pad(r.group, 12)} ${pad(r.status, 6)} ${pad(r.name, 72)} ${r.detail.slice(0, 140)}`);
+  console.log('\n' + pad('Grupo', 12) + ' ' + pad('Motor', 22) + ' ' + pad('Resultado', 6) + ' ' + pad('Comprobación', 72) + ' Detalle');
+  console.log('-'.repeat(180));
+  for (const r of results) console.log(`${pad(r.group, 12)} ${pad(r.engine, 22)} ${pad(r.status, 6)} ${pad(r.name, 72)} ${r.detail.slice(0, 140)}`);
+  // per group and engine: what an automated check in that engine said (not a claim about real devices)
+  const cells = new Map();
+  for (const r of results) {
+    const k = `${r.group}\u0000${r.engine}`;
+    const c = cells.get(k) ?? { group: r.group, engine: r.engine, PASS: 0, FAIL: 0, SKIP: 0 };
+    c[r.status]++;
+    cells.set(k, c);
+  }
+  console.log('\n' + pad('Grupo', 12) + ' ' + pad('Motor', 26) + ' PASS  FAIL  SKIP');
+  for (const c of [...cells.values()].sort((a, b) => a.group.localeCompare(b.group) || a.engine.localeCompare(b.engine))) {
+    console.log(`${pad(c.group, 12)} ${pad(c.engine, 26)} ${String(c.PASS).padStart(4)}  ${String(c.FAIL).padStart(4)}  ${String(c.SKIP).padStart(4)}`);
+  }
   const n = s => results.filter(r => r.status === s).length;
-  console.log(`\nPASS ${n('PASS')} · FAIL ${n('FAIL')} · SKIP ${n('SKIP')} · artefactos en ${OUT}`);
+  console.log(`\nPASS ${n('PASS')} · FAIL ${n('FAIL')} · SKIP ${n('SKIP')} · navegador principal ${ENGINE} · artefactos en ${OUT}`);
   writeFileSync(join(OUT, 'results.json'), JSON.stringify(results, null, 2));
+  writeFileSync(join(OUT, 'summary.json'), JSON.stringify({ browser: ENGINE, only: ONLY, cells: [...cells.values()] }, null, 2));
   process.exit(n('FAIL') ? 1 : 0);
 }
 

@@ -3,6 +3,12 @@ declare module 'virtual:mt-runtime' {
   const code: string;
   export default code;
 }
+declare module 'virtual:mt-runtime-basic' {
+  /** The runtime with the basic engine (Canvas 2D). */
+  export const runtime: string;
+  /** One self-registering script per CPU pattern (id → code). */
+  export const patterns: Record<string, string>;
+}
 declare module 'opentype.js' {
   const opentype: { parse(buf: ArrayBuffer): unknown };
   export default opentype;

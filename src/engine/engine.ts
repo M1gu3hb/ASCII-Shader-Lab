@@ -3,11 +3,19 @@ import { BLENDS, cloneRecipe, type Recipe } from './recipe';
 import { fontById } from './catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from './color';
 import { createFontLoader, type FontLoader } from './fonts';
-import { compileProgram, createTex, fboFor, halfFloatRenderable, loc, resizeTex, type Program, type Tex } from './gl';
+import {
+  compileProgram, createTex, dropProgram, fboFor, finishProgram, halfFloatRenderable, loc, programDone, resizeTex, startProgram,
+  type PendingProgram, type Program, type Tex,
+} from './gl';
 import { BLUR_FS, COMPOSE_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
 import type { PatternLibrary } from './glsl/patterns';
-import { drawTextSource, layoutMessage, messageState, type MsgLayout } from './text';
-import type { Renderer } from './renderer';
+import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from './text';
+import { XFORM_FS } from './glsl/xform';
+import { XF_COPY, XF_MEDIA, XF_TEXT, XF_TRAIL, activeXforms, needsPattern, trailDecay, trailStage, xformStages, type XformStage } from './xform';
+import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } from './letters';
+import { fold, morphPeriod, loopTime, ondularTimes, pieceTime, wordsRate } from './loop';
+import type { PreviewQuality, Renderer } from './renderer';
+import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
 
 export type MediaKind = 'image' | 'video' | 'camera';
 type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
@@ -31,6 +39,8 @@ export interface EngineOptions {
   alpha?: boolean;
   /** Stop rendering while the canvas is scrolled out of view. */
   observeVisibility?: boolean;
+  /** Offscreen engines read their frames back often (thumbnails): the basic engine then keeps its canvas in memory. */
+  readback?: boolean;
   onError?: (msg: string) => void;
   onStats?: (s: EngineStats) => void;
 }
@@ -53,6 +63,28 @@ export interface GridSnapshot {
 const SRC_OF = (r: Recipe, hasMedia: boolean): FieldSource =>
   r.source === 'text' ? 'text' : r.source === 'pattern' ? 'pattern' : hasMedia ? 'media' : 'pattern';
 
+/** Longest a live change waits for its shader and fonts before it is shown anyway (the old piece keeps moving meanwhile). */
+const PREP_BUDGET_MS = 700;
+
+/** A change a live engine is getting ready for (see set()). */
+interface Pending {
+  r: Recipe;
+  trans: TransitionSpec | null;
+  /** When the first change still waiting was asked for: the budget runs from there. */
+  since: number;
+  frames: number;
+  key: string;
+  prog: PendingProgram | null;
+  /** Fence after the compile: once passed, asking for the program's status does not wait (without the extension). */
+  compiled: WebGLSync | null;
+  /** Fence after a first draw with the new program (drivers that compile at the first draw do it then). */
+  warm: WebGLSync | null;
+  fonts: boolean;
+}
+
+/** Whether the GPU got past a fence (never blocks; WebGL updates the status between tasks). */
+const passed = (gl: WebGL2RenderingContext, sync: WebGLSync | null) => !sync || gl.getSyncParameter(sync, gl.SYNC_STATUS) === gl.SIGNALED;
+
 export class AsciiEngine implements Renderer {
   readonly kind = 'webgl2' as const;
   readonly canvas: HTMLCanvasElement;
@@ -72,9 +104,29 @@ export class AsciiEngine implements Renderer {
   private tSim: Tex[] = []; private fbSim: WebGLFramebuffer[] = []; private simIdx = 0;
   private tBloomA!: Tex; private tBloomB!: Tex; private fbBloomA!: WebGLFramebuffer; private fbBloomB!: WebGLFramebuffer;
   private tAtlas!: Tex; private tGrad!: Tex; private tMedia!: Tex; private tText!: Tex; private tMsg!: Tex; private tWords!: Tex;
-  private tPrev: Tex | null = null; private fbPrev: WebGLFramebuffer | null = null;
+  /** The frame a transition dissolves from; two, so a new transition can start from one in progress. */
+  private prevT: Array<Tex | null> = [null, null]; private prevFb: Array<WebGLFramebuffer | null> = [null, null]; private prevIdx = 0;
+  /** 1×1 target for warm-up draws of a new program. */
+  private tWarm!: Tex; private fbWarm!: WebGLFramebuffer;
+  /**
+   * Transformations of the source (xform.ts): their program (compiled the first time a piece uses one),
+   * two grids they write in turn, the pattern's values (Desplazar) and Estela's trail and last input.
+   */
+  private pXf: Program | null = null;
+  private xf: { size: string; grid: Tex[]; fbGrid: WebGLFramebuffer[]; pat: Tex; fbPat: WebGLFramebuffer; trail: Tex[]; fbTrail: WebGLFramebuffer[]; prev: Tex[]; fbPrev: WebGLFramebuffer[] } | null = null;
+  /** Estela's state: which trail and input buffers are current, whether they hold a frame yet, and when. */
+  private trail = { i: 0, have: false, t: 0, key: '' };
+  /** The transformation program did not compile here: pieces show their source untransformed. */
+  private xfBroken = false;
+  /** Bumped when a media element changes (a new picture starts a new trail). */
+  private mediaGen = 0;
   private halfFloat = false;
   private maxTex = 4096;
+  /** KHR_parallel_shader_compile, when the browser has it: shaders compile without blocking. */
+  private parallel: unknown = null;
+  private pending: Pending | null = null;
+  private q: PreviewQuality = {};
+  private adaptiveHold = 0;
 
   // sizes
   private cssW = 1; private cssH = 1; private pr = 1; private prCap = 1;
@@ -88,6 +140,8 @@ export class AsciiEngine implements Renderer {
   private textKey = '';
   private msg: MsgLayout | null = null;
   private msgKey = '';
+  /** The message as last uploaded when its letters move (see letters.ts). */
+  private msgAnimKey = '';
   private wordsKey = '';
   private wordsN = 1;
   private gradKey = '';
@@ -103,13 +157,21 @@ export class AsciiEngine implements Renderer {
   private playing: boolean;
   private raf = 0;
   private last = 0;
+  private lastDraw = 0;
   private alive = true;
   private lost = false;
   private visible = true;
   private needsRender = true;
   private sizeDirty = true;
   private trans = -1;
-  private transStart = 0;
+  /** realT of the transition's first frame (NaN until that frame is drawn). */
+  private transStart = NaN;
+  /**
+   * Seconds of transition shown on a live canvas. Each frame adds its real interval up to 0.2 s: a slow
+   * device still sees the transition in about its time, and one long stall cannot swallow it.
+   */
+  private transElapsed = 0;
+  private transSpec: TransitionSpec = DEFAULT_TRANSITION;
   private frames = 0; private fps = 0; private fpsT = 0; private ema = 16; private slow = 0; private fast = 0;
   private fontGen = 0;
 
@@ -134,8 +196,17 @@ export class AsciiEngine implements Renderer {
     this.initGL();
     if (opts.fixedSize) this.resize();
     this.requestFonts();
+    this.watchLateFonts();
 
-    const onLost = (e: Event) => { e.preventDefault(); this.lost = true; };
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      this.lost = true;
+      // what was being prepared belongs to the context that went away: the recipe is kept, not its shader
+      const p = this.pending;
+      this.pending = null;
+      this.trans = -1;
+      if (p) this.applyRecipe(p.r);
+    };
     const onRestored = () => { this.lost = false; this.progs.clear(); this.initGL(); this.invalidate(); };
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
@@ -157,7 +228,8 @@ export class AsciiEngine implements Renderer {
   /* Public API                                                        */
   /* ---------------------------------------------------------------- */
 
-  get recipe(): Recipe { return cloneRecipe(this.r); }
+  /** The recipe last given to set() (it may still be getting ready to show). */
+  get recipe(): Recipe { return cloneRecipe(this.pending?.r ?? this.r); }
   get time() { return this.t; }
   set time(v: number) { this.t = v; this.needsRender = true; }
   get isPlaying() { return this.playing; }
@@ -165,11 +237,50 @@ export class AsciiEngine implements Renderer {
     return { cols: this.cols, rows: this.rows, fps: this.fps, pixelRatio: this.pr, width: this.W, height: this.H, ms: this.ema };
   }
   get glyphChars(): string[] { return this.atlas ? this.atlas.chars.slice() : []; }
+  get busy() { return !!this.pending || this.trans >= 0; }
 
-  set(next: Recipe, o: { transition?: boolean } = {}) {
-    if (o.transition && !this.o.reducedMotion && this.atlas && !this.lost) this.captureTransition();
+  /**
+   * A live engine keeps drawing the current piece while the new one gets ready: its field shader compiles
+   * (without blocking when KHR_parallel_shader_compile is there), is drawn once off screen so drivers that
+   * compile at the first draw do it then, and, for a transition, its fonts load. Then the new piece shows
+   * and the transition's clock starts with its first frame, so a slow compile never eats the transition.
+   * Never waits longer than PREP_BUDGET_MS. Changes that arrive meanwhile replace the one waiting.
+   */
+  set(next: Recipe, o: { transition?: boolean | TransitionSpec } = {}) {
+    const trans = this.o.reducedMotion ? null : transitionOf(o.transition);
+    const r = cloneRecipe(next);
+    if (this.o.fixedSize || this.lost || !this.atlas) {
+      this.dropPending();
+      if (trans && this.atlas && !this.lost) this.captureTransition(trans);
+      this.applyRecipe(r);
+      return;
+    }
+    const key = this.fieldKeyOf(r);
+    const needProg = !this.progs.has(key);
+    let p = this.pending;
+    if (!p && !trans && !needProg) { this.applyRecipe(r); return; }
+    if (!p) p = this.pending = { r, trans, since: performance.now(), frames: 0, key, prog: null, compiled: null, warm: null, fonts: false };
+    else {
+      if (p.key !== key) { this.dropPendingGL(p); p.key = key; p.frames = 0; }
+      p.r = r;
+      p.trans = trans ?? p.trans;
+      p.fonts = false;
+    }
+    if (needProg && !p.prog) {
+      try {
+        p.prog = startProgram(this.gl, VERT, this.fieldSource(r, key));
+        p.compiled = this.fence();
+      } catch { /* an unknown pattern: fieldProgram() reports it when the piece shows */ }
+    }
+    const want = p;
+    void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
+    this.needsRender = true;
+  }
+
+  private applyRecipe(next: Recipe) {
     const prev = this.r;
-    this.r = cloneRecipe(next);
+    this.r = next;
+    if (this.o.fixedSize) this.trail.have = false;
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
       || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
@@ -179,10 +290,168 @@ export class AsciiEngine implements Renderer {
     this.needsRender = true;
   }
 
+  private dropPendingGL(p: Pending) {
+    if (p.prog) { try { dropProgram(this.gl, p.prog); } catch { /* context gone */ } p.prog = null; }
+    for (const k of ['compiled', 'warm'] as const) {
+      const f = p[k];
+      if (f) { try { this.gl.deleteSync(f); } catch { /* context gone */ } p[k] = null; }
+    }
+  }
+
+  private fence(): WebGLSync | null {
+    const f = this.gl.fenceSync(this.gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    this.gl.flush();
+    return f;
+  }
+
+  private dropPending() {
+    if (this.pending) this.dropPendingGL(this.pending);
+    this.pending = null;
+  }
+
+  /** Checks on the change being prepared (once per display frame) and shows it once it is ready. */
+  private stepPending(now: number) {
+    const p = this.pending!, gl = this.gl;
+    const over = now - p.since > PREP_BUDGET_MS;
+    p.frames++;
+    if (p.prog) {
+      // without the extension the status query blocks until the GPU process has compiled it: after the fence
+      const done = this.parallel ? programDone(gl, p.prog, this.parallel) : passed(gl, p.compiled);
+      if (!done && !over) return;
+      this.adoptProgram(p);
+      if (!over && !this.lost) p.warm = this.warmUp(p.key);
+      if (!over) return;
+    }
+    if (p.warm && !over && !passed(gl, p.warm)) return;
+    if (p.trans && !p.fonts && !over) return;
+    this.applyPending();
+  }
+
+  /** The pending program, checked (this waits for the driver if it is not done yet) and cached. */
+  private adoptProgram(p: Pending) {
+    const pp = p.prog;
+    if (!pp) return;
+    p.prog = null;
+    try {
+      this.cacheProgram(p.key, finishProgram(this.gl, pp));
+    } catch (e) {
+      this.o.onError?.((e as Error).message);
+    }
+  }
+
+  /** One draw with a new program into a 1×1 target, and a fence to know when the GPU got through it. */
+  private warmUp(key: string): WebGLSync | null {
+    const prog = this.progs.get(key), gl = this.gl;
+    if (!prog) return null;
+    gl.bindVertexArray(this.vao);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbWarm);
+    gl.viewport(0, 0, 1, 1);
+    gl.useProgram(prog.prog);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
+    return sync;
+  }
+
+  /**
+   * Fixed-size engines (exports, thumbnails): compiles the current recipe's field shader ahead of the
+   * first render without blocking (see set()), so rendering does not wait for the driver (at most 2 s).
+   */
+  private async compileAhead() {
+    if (this.lost) return;
+    const gl = this.gl, key = this.fieldKeyOf(this.r);
+    if (this.progs.has(key)) return;
+    let pp: PendingProgram;
+    try { pp = startProgram(gl, VERT, this.fieldSource(this.r, key)); } catch { return; }
+    const compiled = this.fence();
+    const t0 = performance.now(), later = () => new Promise(res => setTimeout(res, 16));
+    await later();
+    while (this.alive && !this.lost && (this.parallel ? !programDone(gl, pp, this.parallel) : !passed(gl, compiled)) && performance.now() - t0 < 2000) await later();
+    if (compiled && !this.lost) gl.deleteSync(compiled);
+    if (!this.alive || this.lost) return;
+    if (this.progs.has(key)) { dropProgram(gl, pp); return; }
+    // (no warm-up draw here: the render that follows is the first draw, and nothing waits on screen for it)
+    try { this.cacheProgram(key, finishProgram(gl, pp)); } catch (e) { this.o.onError?.((e as Error).message); }
+  }
+
+  /**
+   * Pixels of a region of the last frame (top-left origin), read without making the page wait for the
+   * GPU: into a pixel buffer, then copied out once a fence says the GPU is done. Needs
+   * preserveDrawingBuffer (offscreen engines). Null if the context went away (also before its event arrives:
+   * a lost context reads as zeros, and a blank picture must never pass for the piece, e.g. as a thumbnail).
+   */
+  async snapshot(sx: number, sy: number, sw: number, sh: number): Promise<ImageData | null> {
+    const gl = this.gl;
+    const gone = () => this.lost || gl.isContextLost();
+    if (gone()) return null;
+    sx = Math.max(0, Math.min(this.W - 1, Math.round(sx))); sy = Math.max(0, Math.min(this.H - 1, Math.round(sy)));
+    sw = Math.max(1, Math.min(this.W - sx, Math.round(sw))); sh = Math.max(1, Math.min(this.H - sy, Math.round(sh)));
+    const size = sw * sh * 4;
+    const pbo = gl.createBuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+    gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ);
+    gl.readPixels(sx, this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    const sync = this.fence();
+    // no fence: the context went away between two calls (some browsers return null then)
+    if (!sync || gone()) { if (sync) gl.deleteSync(sync); gl.deleteBuffer(pbo); return null; }
+    const t0 = performance.now();
+    while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
+    if (gone()) return null;
+    const raw = new Uint8Array(size);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+    gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    gl.deleteBuffer(pbo);
+    gl.deleteSync(sync);
+    // GL rows run bottom to top
+    const out = new ImageData(sw, sh), row = sw * 4;
+    for (let y = 0; y < sh; y++) out.data.set(raw.subarray((sh - 1 - y) * row, (sh - y) * row), y * row);
+    return out;
+  }
+
+  /** Shows the change being prepared now (compiling its shader here if it is not ready yet). */
+  private applyPending() {
+    const p = this.pending;
+    if (!p) return;
+    this.adoptProgram(p);
+    this.dropPendingGL(p);
+    this.pending = null;
+    if (p.trans && this.atlas && !this.lost) this.captureTransition(p.trans);
+    this.applyRecipe(p.r);
+  }
+
+  private fontsFor(r: Recipe): Promise<unknown> {
+    const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
+    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    return Promise.all(jobs).catch(() => undefined);
+  }
+
+  setFixedSize(width: number, height: number, pixelRatio: number) {
+    if (!this.o.fixedSize) return;
+    const f = this.o.fixedSize;
+    if (f.width === width && f.height === height && f.pixelRatio === pixelRatio) return;
+    this.o = { ...this.o, fixedSize: { width, height, pixelRatio } };
+    this.sizeDirty = true;
+    this.needsRender = true;
+  }
+
+  holdAdaptive(until: number) { this.adaptiveHold = until; }
+
+  setQuality(q: PreviewQuality) {
+    this.q = { ...q };
+    this.sizeDirty = true;
+    this.needsRender = true;
+  }
+
   play() { if (!this.playing) { this.playing = true; this.needsRender = true; } }
   pause() { this.playing = false; this.needsRender = true; }
 
   setMedia(kind: MediaKind, el: MediaEl | null) {
+    if (this.media[kind] !== el) this.mediaGen++;
     this.media[kind] = el;
     this.mediaUploaded = null;
     this.mediaOK = false;
@@ -195,26 +464,28 @@ export class AsciiEngine implements Renderer {
     await this.requestFonts();
     this.atlasKey = '';
     this.textKey = '';
+    if (this.o.fixedSize) await this.compileAhead();
   }
 
   /** Renders a frame synchronously at time t (export engines drive time themselves). */
   renderAt(t: number, realT = t) {
+    this.applyPending();
     this.t = t;
     this.realT = realT;
     this.render(0);
   }
 
-  renderNow() { this.render(0); }
+  renderNow() { this.applyPending(); this.render(0); }
 
   /** Draws the current frame into a 2D context (e.g. thumbnails). Synchronous. */
   drawTo(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    this.render(0);
+    this.renderNow();
     ctx.drawImage(this.canvas, 0, 0, w, h);
   }
 
   /** Reads the character grid of the current frame (for text, ANSI and SVG export). */
   readGrid(): GridSnapshot {
-    this.render(0);
+    this.renderNow();
     const gl = this.gl, n = this.cols * this.rows;
     const bc = new Uint8Array(n * 4), bg = new Uint8Array(n * 4);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbSel);
@@ -251,6 +522,7 @@ export class AsciiEngine implements Renderer {
   destroy() {
     this.alive = false;
     cancelAnimationFrame(this.raf);
+    this.dropPending();
     this.ro?.disconnect();
     this.io?.disconnect();
     this.cleanup.forEach(f => f());
@@ -266,6 +538,7 @@ export class AsciiEngine implements Renderer {
     const gl = this.gl;
     this.maxTex = Math.min(8192, gl.getParameter(gl.MAX_TEXTURE_SIZE) as number);
     this.halfFloat = halfFloatRenderable(gl);
+    this.parallel = gl.getExtension('KHR_parallel_shader_compile');
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -304,7 +577,12 @@ export class AsciiEngine implements Renderer {
     this.tText = createTex(gl, 1, 1, { filter: gl.LINEAR });
     this.tMsg = createTex(gl, 1, 1);
     this.tWords = createTex(gl, 1, 1);
-    this.tPrev = null; this.fbPrev = null;
+    this.tWarm = createTex(gl, 1, 1);
+    this.fbWarm = fboFor(gl, this.tWarm);
+    this.prevT = [null, null]; this.prevFb = [null, null]; this.prevIdx = 0;
+    this.trans = -1;
+    // (a restored context lost them all: made again when a piece needs them)
+    this.pXf = null; this.xf = null; this.xfBroken = false; this.trail.have = false;
   }
 
   private invalidate() {
@@ -327,6 +605,19 @@ export class AsciiEngine implements Renderer {
       this.textKey = '';
       this.needsRender = true;
     });
+  }
+
+  /**
+   * A web font that lands after requestFonts() stopped waiting (a slow connection: exported code fetches
+   * its fonts) must still be drawn: glyphs, big text and message are drawn again when a font finishes
+   * loading. Without this a piece on a slow page kept the fallback face for good (still more so when paused).
+   */
+  private watchLateFonts() {
+    const set = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (!set || typeof set.addEventListener !== 'function') return;
+    const landed = () => { this.atlasKey = this.textKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; };
+    set.addEventListener('loadingdone', landed);
+    this.cleanup.push(() => set.removeEventListener('loadingdone', landed));
   }
 
   private bindPointer() {
@@ -381,32 +672,42 @@ export class AsciiEngine implements Renderer {
   private loop = (now: number) => {
     if (!this.alive) return;
     this.raf = requestAnimationFrame(this.loop);
-    const dt = this.last ? Math.min(0.1, (now - this.last) / 1000) : 0;
+    if (!this.visible || this.lost) { this.last = 0; return; }
+    if (this.pending) this.stepPending(performance.now());
+    // a frame-rate cap (preview quality): the frames in between are skipped
+    const cap = this.q.maxFps ?? 0;
+    if (cap > 0 && this.lastDraw && now - this.lastDraw < 1000 / cap - 2) return;
+    const raw = this.last ? (now - this.last) / 1000 : 0;
+    const dt = Math.min(0.1, raw);
     this.last = now;
-    if (!this.visible || this.lost) return;
     this.realT += dt;
     if (this.playing) this.t += dt * this.r.motion.speed;
+    if (this.trans >= 0 && !Number.isNaN(this.transStart)) this.transElapsed += Math.min(0.2, raw);
     const interactive = this.stepPointer(dt, now);
     const video = this.r.source === 'video' || this.r.source === 'camera';
     const sim = ['ripple', 'erase', 'paint'].includes(this.r.interact.mode);
     if (this.playing || this.needsRender || interactive || video || sim || this.trans >= 0) {
       this.needsRender = false;
+      this.lastDraw = now;
       const t0 = performance.now();
+      const inTrans = this.trans >= 0;
       this.render(dt);
-      this.measure(now, performance.now() - t0, dt);
+      this.measure(now, performance.now() - t0, dt, inTrans);
     }
   };
 
-  private measure(now: number, _cpu: number, dt: number) {
+  private measure(now: number, _cpu: number, dt: number, inTrans = false) {
     this.frames++;
     if (now - this.fpsT > 500) {
       this.fps = Math.round((this.frames * 1000) / (now - this.fpsT));
       this.frames = 0; this.fpsT = now;
       this.o.onStats?.(this.stats);
     }
-    if (!this.playing || dt <= 0) return;
+    // frames of a transition (the first frame of a new piece builds its glyphs) say nothing about the piece
+    if (!this.playing || dt <= 0 || inTrans) return;
     this.ema = this.ema * 0.95 + dt * 1000 * 0.05;
-    if (!(this.o.adaptive ?? true)) return;
+    if (!(this.q.adaptive ?? this.o.adaptive ?? true)) return;
+    if (performance.now() < this.adaptiveHold) { this.slow = 0; return; }
     if (this.ema > 26) { this.slow++; this.fast = 0; } else if (this.ema < 18) { this.fast++; this.slow = 0; } else { this.slow = this.fast = 0; }
     if (this.slow > 90 && this.pr > 0.75) { this.pr = Math.max(0.75, this.pr * 0.8); this.slow = 0; this.sizeDirty = true; this.ema = 16; }
     if (this.fast > 300 && this.pr < this.prCap) { this.pr = Math.min(this.prCap, this.pr * 1.15); this.fast = 0; this.sizeDirty = true; }
@@ -443,7 +744,7 @@ export class AsciiEngine implements Renderer {
     } else {
       this.cssW = Math.max(1, this.canvas.clientWidth || 300);
       this.cssH = Math.max(1, this.canvas.clientHeight || 150);
-      const cap = Math.min(this.o.maxPixelRatio ?? 2, Math.max(1, window.devicePixelRatio || 1));
+      const cap = Math.min(this.q.maxPixelRatio ?? 2, this.o.maxPixelRatio ?? 2, Math.max(1, window.devicePixelRatio || 1));
       if (cap !== this.prCap) { this.prCap = cap; this.pr = cap; }
       if (this.pr > this.prCap) this.pr = this.prCap;
     }
@@ -467,7 +768,8 @@ export class AsciiEngine implements Renderer {
       this.resetSim();
       this.msgKey = '';
     }
-    if (this.tPrev && (this.tPrev.w !== this.W || this.tPrev.h !== this.H)) { this.trans = -1; }
+    const prev = this.prevT[this.prevIdx];
+    if (prev && (prev.w !== this.W || prev.h !== this.H)) this.trans = -1;
     this.textKey = '';
   }
 
@@ -510,11 +812,13 @@ export class AsciiEngine implements Renderer {
   private updateText() {
     if (this.r.source !== 'text') return;
     const t = this.r.text;
-    const key = JSON.stringify(t) + this.W + 'x' + this.H;
+    // letters that move are drawn again at each moment (at a resolution the cells need, see text.ts)
+    const anim = textAnimated(t) ? { time: this.timeQ(), cols: this.cols, loop: this.r.motion.loop } : undefined;
+    const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}|${anim.loop}` : '');
     if (key === this.textKey) return;
     this.textKey = key;
     this.textCanvas ??= document.createElement('canvas');
-    drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font));
+    drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font), anim);
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.tText.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, this.textCanvas);
@@ -524,12 +828,21 @@ export class AsciiEngine implements Renderer {
     const m = this.r.msg;
     if (!m.on || !this.atlas) { this.msg = null; return; }
     const key = [m.text, m.mode === 'marquee', m.x, m.y, m.align, this.cols, this.rows, this.atlasKey].join('|');
-    if (key === this.msgKey && this.msg) return;
-    this.msgKey = key;
-    const idx = this.atlas.index;
-    this.msg = layoutMessage(m.text, this.cols, this.rows, m.x, m.y, m.align, m.mode === 'marquee', c => idx.get(c) ?? this.atlas!.spaceIdx);
-    const gl = this.gl;
-    resizeTex(gl, this.tMsg, this.msg.width, this.rows, this.msg.data);
+    if (key !== this.msgKey || !this.msg) {
+      this.msgKey = key;
+      const idx = this.atlas.index;
+      this.msg = layoutMessage(m.text, this.cols, this.rows, m.x, m.y, m.align, m.mode === 'marquee', c => idx.get(c) ?? this.atlas!.spaceIdx);
+      this.msgAnimKey = '';
+    }
+    // letters that move are placed again at each moment (letters.ts); still ones are uploaded once
+    const a = m.anim && m.anim.kind !== 'color' ? m.anim : null;
+    const tq = this.timeQ();
+    const loop = this.r.motion.loop;
+    const akey = a ? `${key}|${a.kind}|${a.amount}|${a.speed}|${tq}|${loop}` : key;
+    if (akey === this.msgAnimKey) return;
+    this.msgAnimKey = akey;
+    const data = a ? animateMessage(this.msg, a, tq, this.rows, scramblePool(this.atlas.n), loop) : this.msg.data;
+    resizeTex(this.gl, this.tMsg, this.msg.width, this.rows, data);
   }
 
   private updateWords() {
@@ -549,8 +862,10 @@ export class AsciiEngine implements Renderer {
     resizeTex(this.gl, this.tWords, list.length, 1, data);
   }
 
-  private currentMedia(): MediaEl | null {
-    const s = this.r.source;
+  private currentMedia(): MediaEl | null { return this.currentMediaOf(this.r); }
+
+  private currentMediaOf(r: Recipe): MediaEl | null {
+    const s = r.source;
     if (s === 'image' || s === 'video' || s === 'camera') return this.media[s] ?? null;
     return null;
   }
@@ -581,20 +896,42 @@ export class AsciiEngine implements Renderer {
     }
   }
 
+  private static patternsOf(r: Recipe) {
+    const layers = r.layers.filter(l => l.on).slice(0, 4);
+    return layers.length ? layers.map(l => l.pattern) : ['nube'];
+  }
+
+  /**
+   * Program key of the field pass for a recipe. Without `src`, the one it will most likely need: a media
+   * source counts as media once this engine has that kind of media.
+   */
+  private fieldKeyOf(r: Recipe, src?: FieldSource): string {
+    const s = src ?? SRC_OF(r, r.source === this.r.source && this.mediaOK ? true : !!this.currentMediaOf(r));
+    return fieldKey(AsciiEngine.patternsOf(r), s, r.motion.loop > 0);
+  }
+
+  private fieldSource(r: Recipe, key: string): string {
+    const src = key.split('|')[0] as FieldSource;
+    return buildFieldShader(AsciiEngine.patternsOf(r), src, r.motion.loop > 0, this.lib);
+  }
+
+  private cacheProgram(key: string, p: Program) {
+    const old = this.progs.get(key);
+    if (old && old !== p) this.gl.deleteProgram(old.prog);
+    this.progs.set(key, p);
+    if (this.progs.size > 48) {
+      const first = this.progs.keys().next().value as string;
+      if (first !== key) { this.gl.deleteProgram(this.progs.get(first)!.prog); this.progs.delete(first); }
+    }
+  }
+
   private fieldProgram(src: FieldSource): Program | null {
-    const layers = this.r.layers.filter(l => l.on).slice(0, 4);
-    const pats = layers.length ? layers.map(l => l.pattern) : ['nube'];
-    const loop = this.r.motion.loop > 0;
-    const key = fieldKey(pats, src, loop);
+    const key = this.fieldKeyOf(this.r, src);
     let p = this.progs.get(key);
     if (!p) {
       try {
-        p = compileProgram(this.gl, VERT, buildFieldShader(pats, src, loop, this.lib));
-        this.progs.set(key, p);
-        if (this.progs.size > 48) {
-          const first = this.progs.keys().next().value as string;
-          if (first !== key) { this.gl.deleteProgram(this.progs.get(first)!.prog); this.progs.delete(first); }
-        }
+        p = compileProgram(this.gl, VERT, this.fieldSource(this.r, key));
+        this.cacheProgram(key, p);
       } catch (e) {
         this.o.onError?.((e as Error).message);
         return null;
@@ -603,16 +940,25 @@ export class AsciiEngine implements Renderer {
     return p;
   }
 
-  private captureTransition() {
-    const gl = this.gl;
-    if (!this.tPrev || this.tPrev.w !== this.W || this.tPrev.h !== this.H) {
-      if (this.tPrev) { gl.deleteTexture(this.tPrev.tex); if (this.fbPrev) gl.deleteFramebuffer(this.fbPrev); }
-      this.tPrev = createTex(gl, this.W, this.H);
-      this.fbPrev = fboFor(gl, this.tPrev);
+  /**
+   * Keeps the frame on screen (an ongoing transition included) to dissolve from. Two buffers: the new one
+   * is written while the current one, which that frame may show in part, is read.
+   */
+  private captureTransition(spec: TransitionSpec) {
+    const gl = this.gl, i = this.prevIdx ^ 1;
+    let t = this.prevT[i];
+    if (!t || t.w !== this.W || t.h !== this.H) {
+      if (t) gl.deleteTexture(t.tex);
+      if (this.prevFb[i]) gl.deleteFramebuffer(this.prevFb[i]);
+      t = this.prevT[i] = createTex(gl, this.W, this.H);
+      this.prevFb[i] = fboFor(gl, t);
     }
-    this.compose(this.fbPrev, -1);
+    const cur = this.prevT[this.prevIdx];
+    this.compose(this.prevFb[i], cur && cur.w === this.W && cur.h === this.H ? this.trans : -1);
+    this.prevIdx = i;
     this.trans = 0;
-    this.transStart = this.realT;
+    this.transStart = NaN;
+    this.transSpec = spec;
   }
 
   /* ---------------------------------------------------------------- */
@@ -629,24 +975,43 @@ export class AsciiEngine implements Renderer {
     this.updateWords();
     this.updateMedia();
     if (this.trans >= 0) {
-      this.trans = (this.realT - this.transStart) / 0.85;
-      if (this.trans >= 1) this.trans = -1;
+      // the clock starts with the first frame of the new piece
+      if (Number.isNaN(this.transStart)) { this.transStart = this.realT; this.transElapsed = 0; }
+      const shown = this.o.fixedSize ? this.realT - this.transStart : this.transElapsed;
+      this.trans = shown / this.transSpec.duration;
+      if (this.trans >= 1 || this.trans < 0) {
+        this.trans = -1;
+        // the second buffer is only for a transition that starts during another: let it go
+        const j = this.prevIdx ^ 1, spare = this.prevT[j];
+        if (spare) { this.gl.deleteTexture(spare.tex); this.gl.deleteFramebuffer(this.prevFb[j]); this.prevT[j] = null; this.prevFb[j] = null; }
+      }
     }
     const gl = this.gl;
     gl.bindVertexArray(this.vao);
     this.runSim(dt);
     const src = SRC_OF(this.r, this.mediaOK);
     const fp = this.fieldProgram(src);
-    if (fp) this.runField(fp, src);
+    const stages = fp && !this.xfBroken ? xformStages(activeXforms(this.r, src), this.cols, this.rows, this.ch / this.cw) : [];
+    let grid: Tex | null = null;
+    if (stages.length) {
+      try {
+        grid = this.runXforms(fp!, src, stages);
+      } catch (e) {
+        this.xfBroken = true;
+        this.o.onError?.((e as Error).message);
+      }
+    }
+    if (!stages.some(x => x.kind === 'estela')) this.trail.have = false;
+    if (fp) this.runField(fp, src, grid);
     this.runSelect(src);
     if (this.r.fx.bloom > 0) this.runBloom();
     this.compose(null, this.trans);
     this.ptr.impulse = 0;
   }
 
+  /** The piece's time as the passes read it: stop motion, and with «Bucle perfecto» the loop's time (loop.ts). */
   private timeQ(): number {
-    const h = this.r.motion.hold;
-    return h > 0 ? Math.floor(this.t * h) / h : this.t;
+    return pieceTime(this.t, this.r.motion);
   }
 
   private runSim(dt: number) {
@@ -678,9 +1043,13 @@ export class AsciiEngine implements Renderer {
     this.simIdx = dst;
   }
 
-  private runField(p: Program, src: FieldSource) {
+  /**
+   * The field pass. `grid`: the last transformation's grid, read instead of the picture or the text.
+   * `patternInto`: draws only the pattern's values, into that target (for Desplazar).
+   */
+  private runField(p: Program, src: FieldSource, grid: Tex | null = null, patternInto: WebGLFramebuffer | null = null) {
     const gl = this.gl, r = this.r;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbField);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, patternInto ?? this.fbField);
     gl.viewport(0, 0, this.cols, this.rows);
     gl.useProgram(p.prog);
     const tq = this.timeQ();
@@ -705,16 +1074,105 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uPulse'), this.pulse(tq));
     gl.uniform1f(loc(gl, p, 'uMediaMix'), r.media.mix);
     gl.uniform1i(loc(gl, p, 'uMediaBlend'), Math.max(0, BLENDS.indexOf(r.media.blend)));
-    gl.uniform1f(loc(gl, p, 'uMorph'), r.text.morph);
+    gl.uniform1f(loc(gl, p, 'uMorph'), morphPeriod(r.text.morph, r.motion.loop));
     this.bindMediaUniforms(p, 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.tText.tex);
     gl.uniform1i(loc(gl, p, 'uText'), 3);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.tSim[this.simIdx].tex);
     gl.uniform1i(loc(gl, p, 'uSim'), 4);
     gl.uniform1f(loc(gl, p, 'uSimEnc'), this.halfFloat ? 0 : 1);
+    // (never a texture this pass draws into: the gradient stands in when there is no grid)
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, (grid ?? this.tGrad).tex);
+    gl.uniform1i(loc(gl, p, 'uXGrid'), 5);
+    gl.uniform1i(loc(gl, p, 'uXOn'), grid ? 1 : 0);
+    gl.uniform1i(loc(gl, p, 'uPatOnly'), patternInto ? 1 : 0);
     this.bindPointerUniforms(p);
     void src;
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  /** Grids for the transformations at the current grid size (made, or made again, when needed). */
+  private ensureXf() {
+    const gl = this.gl, size = `${this.cols}x${this.rows}`;
+    this.pXf ??= compileProgram(gl, VERT, XFORM_FS);
+    if (this.xf?.size === size) return;
+    if (this.xf) {
+      const X = this.xf;
+      for (const t of [...X.grid, X.pat, ...X.trail, ...X.prev]) gl.deleteTexture(t.tex);
+      for (const f of [...X.fbGrid, X.fbPat, ...X.fbTrail, ...X.fbPrev]) gl.deleteFramebuffer(f);
+    }
+    const mk = () => { const t = createTex(gl, this.cols, this.rows); return { t, fb: fboFor(gl, t) }; };
+    const g = [mk(), mk()], pat = mk(), tr = [mk(), mk()], pr = [mk(), mk()];
+    this.xf = {
+      size, grid: g.map(x => x.t), fbGrid: g.map(x => x.fb), pat: pat.t, fbPat: pat.fb,
+      trail: tr.map(x => x.t), fbTrail: tr.map(x => x.fb), prev: pr.map(x => x.t), fbPrev: pr.map(x => x.fb),
+    };
+    this.trail.have = false;
+  }
+
+  /**
+   * Runs the transformations (xform.ts) on the cell grid and returns the last grid: the source averaged
+   * per cell, then each stage in order, each reading the grid the previous one wrote.
+   */
+  private runXforms(fp: Program, src: FieldSource, stages: XformStage[]): Tex {
+    const gl = this.gl;
+    this.ensureXf();
+    const X = this.xf!, p = this.pXf!;
+    if (needsPattern(stages)) this.runField(fp, src, null, X.fbPat);
+    gl.useProgram(p.prog);
+    gl.viewport(0, 0, this.cols, this.rows);
+    gl.uniform2f(loc(gl, p, 'uGrid'), this.cols, this.rows);
+    gl.uniform2f(loc(gl, p, 'uRes'), this.W, this.H);
+    gl.uniform2f(loc(gl, p, 'uCell'), this.cw, this.ch);
+    gl.uniform1f(loc(gl, p, 'uAspect'), this.ch / this.cw);
+    // (Ondular's two waves: the piece's time, or with a loop each its own, see loop.ts)
+    const [ta, tb] = ondularTimes(this.timeQ(), this.r.motion.loop);
+    gl.uniform1f(loc(gl, p, 'uTime'), ta);
+    gl.uniform1f(loc(gl, p, 'uTimeB'), tb);
+    const bind = (unit: number, t: Tex, name: string) => {
+      gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.uniform1i(loc(gl, p, name), unit);
+    };
+    this.bindMediaUniforms(p, 5);
+    bind(6, this.tText, 'uText');
+    bind(1, X.pat, 'uPat');
+    const ti = this.trail.i;
+    bind(2, X.prev[ti], 'uPrevIn');
+    bind(3, X.trail[ti], 'uTrail');
+    const draw = (code: number, into: WebGLFramebuffer, input: Tex, s?: XformStage) => {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, into);
+      bind(0, input, 'uIn');
+      gl.uniform1i(loc(gl, p, 'uKind'), code);
+      gl.uniform1f(loc(gl, p, 'uAmt'), s?.amount ?? 0);
+      gl.uniform1f(loc(gl, p, 'uP'), s?.p ?? 0);
+      gl.uniform1f(loc(gl, p, 'uK'), s?.k ?? 1);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+    draw(src === 'text' ? XF_TEXT : XF_MEDIA, X.fbGrid[0], X.grid[1]);
+    let cur = 0;
+    const trail = trailStage(stages);
+    if (trail) {
+      // a new source (another picture, another kind) starts a new trail
+      const key = `${src}|${this.mediaGen}`;
+      if (key !== this.trail.key) { this.trail.key = key; this.trail.have = false; }
+      const dt = this.trail.have ? Math.min(0.25, Math.max(0, this.realT - this.trail.t)) : 0;
+      this.trail.t = this.realT;
+      gl.uniform1f(loc(gl, p, 'uDecay'), trailDecay(dt, trail.k));
+      gl.uniform1f(loc(gl, p, 'uHave'), this.trail.have ? 1 : 0);
+    }
+    for (const s of stages) {
+      if (s.kind === 'estela') {
+        const i = this.trail.i, j = i ^ 1;
+        // the trail, then this frame's input kept for the next one, then the stage itself
+        draw(XF_TRAIL, X.fbTrail[j], X.grid[cur], s);
+        draw(XF_COPY, X.fbPrev[j], X.grid[cur], s);
+        bind(3, X.trail[j], 'uTrail');
+        this.trail.i = j;
+        this.trail.have = true;
+      }
+      draw(s.code, X.fbGrid[cur ^ 1], X.grid[cur], s);
+      cur ^= 1;
+    }
+    return X.grid[cur];
   }
 
   private pulse(tq: number): number {
@@ -774,7 +1232,10 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uInvert'), r.tone.invert ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uLevels'), r.tone.levels);
     gl.uniform1i(loc(gl, p, 'uGMode'), ['density', 'lines', 'scramble', 'words'].indexOf(r.glyph.mode));
-    gl.uniform1f(loc(gl, p, 'uJitter'), r.glyph.jitter);
+    const loop = r.motion.loop;
+    // «Palabras» with a loop: a whole number of passes over the words in it (loop.ts)
+    gl.uniform1f(loc(gl, p, 'uJitter'), loop > 0 && r.glyph.mode === 'words' ? wordsRate(r.glyph.jitter, this.wordsN, loop) / 8 : r.glyph.jitter);
+    gl.uniform1f(loc(gl, p, 'uLoop'), loop > 0 ? loop : 0);
     gl.uniform1f(loc(gl, p, 'uWordsN'), this.wordsN);
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
@@ -790,17 +1251,25 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uMsgOn'), m.on && lay ? 1 : 0);
     let cursor: [number, number] = [-9, -9], cursorOn = 0;
     if (m.on && lay) {
-      const st = messageState(m, lay.count, this.t);
-      gl.uniform1i(loc(gl, p, 'uMsgMode'), ['static', 'type', 'decode', 'marquee'].indexOf(m.mode));
+      // with a loop, a whole number of the message's cycles fits in it
+      const st = messageState(m, lay.count, loop > 0 ? loopTime(this.t, loop, messageCycle(m, lay.count, lay.width)) : this.t, lay.spans);
+      gl.uniform1i(loc(gl, p, 'uMsgMode'), ['static', 'type', 'decode', 'marquee', 'words'].indexOf(m.mode));
       gl.uniform1f(loc(gl, p, 'uMsgProg'), st.prog);
       gl.uniform1f(loc(gl, p, 'uMsgWin'), 6);
       gl.uniform1f(loc(gl, p, 'uMsgShift'), Math.floor(st.shift));
       gl.uniform1f(loc(gl, p, 'uMsgW'), lay.width);
       if (st.cursorOn && st.cursor >= 0 && lay.cells.length) {
         const cell = lay.cells[Math.min(lay.cells.length - 1, st.cursor)];
-        cursor = cell; cursorOn = 1;
+        // the cursor goes where the letters it follows went
+        cursor = m.anim ? movedCell(lay, m.anim, tq, this.rows, cell, st.cursor, loop) : cell;
+        cursorOn = cursor[0] >= 0 ? 1 : 0;
       }
     }
+    const ca = msgColorAnim(m);
+    gl.uniform1i(loc(gl, p, 'uMsgAnim'), ca ? 1 : 0);
+    gl.uniform1f(loc(gl, p, 'uMsgSp'), ca?.speed ?? 0);
+    gl.uniform1f(loc(gl, p, 'uMsgAmt'), ca?.amount ?? 0);
+    gl.uniform1f(loc(gl, p, 'uMsgTime'), msgColorTime(m, tq, loop));
     const mc = m.color ? hexToRgb(m.color) : [1, 1, 1];
     gl.uniform3f(loc(gl, p, 'uMsgColor'), mc[0], mc[1], mc[2]);
     gl.uniform1f(loc(gl, p, 'uMsgUseColor'), m.color ? 1 : 0);
@@ -847,8 +1316,9 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uAtlas'), 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.tBloomB.tex);
     gl.uniform1i(loc(gl, p, 'uBloom'), 3);
-    // never sample the texture we are rendering into (feedback loop)
-    const prevTex = this.tPrev && target !== this.fbPrev ? this.tPrev.tex : this.tField.tex;
+    // the frame a transition dissolves from; never the texture being rendered into (feedback loop)
+    const pt = this.prevT[this.prevIdx];
+    const prevTex = pt && target !== this.prevFb[this.prevIdx] ? pt.tex : this.tField.tex;
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, prevTex);
     gl.uniform1i(loc(gl, p, 'uPrev'), 4);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, this.tSim[this.simIdx].tex);
@@ -870,13 +1340,20 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uScan'), fx.scan);
     gl.uniform1f(loc(gl, p, 'uVig'), fx.vig);
     gl.uniform1f(loc(gl, p, 'uCurve'), fx.curve);
-    gl.uniform1f(loc(gl, p, 'uChroma'), fx.chroma);
+    // simplified preview: no chromatic aberration (it samples every pixel three times)
+    gl.uniform1f(loc(gl, p, 'uChroma'), this.q.simplify ? 0 : fx.chroma);
     gl.uniform1f(loc(gl, p, 'uGrain'), fx.grain);
     gl.uniform1f(loc(gl, p, 'uFlicker'), fx.flicker);
     gl.uniform1f(loc(gl, p, 'uGridAmt'), fx.grid);
     gl.uniform1f(loc(gl, p, 'uTime'), this.realT);
+    gl.uniform1f(loc(gl, p, 'uFxTime'), r.motion.loop > 0 ? fold(this.t, r.motion.loop) : this.realT);
     gl.uniform1f(loc(gl, p, 'uMsgBox'), r.msg.on ? r.msg.box : 0);
     gl.uniform1f(loc(gl, p, 'uTrans'), trans);
+    const ts = this.transSpec;
+    gl.uniform1i(loc(gl, p, 'uTransKind'), TRANSITION_INDEX[ts.kind] ?? 0);
+    gl.uniform2f(loc(gl, p, 'uTransOrigin'), ts.origin?.[0] ?? 0.5, ts.origin?.[1] ?? 0.5);
+    gl.uniform1f(loc(gl, p, 'uTransDir'), ts.dir ?? 1);
+    gl.uniform1f(loc(gl, p, 'uTransSeed'), ts.seed ?? 0);
     gl.uniform1f(loc(gl, p, 'uTransparent'), this.transparent ? 1 : 0);
     const hasMedia = this.mediaOK && ['image', 'video', 'camera'].includes(r.source);
     gl.uniform1f(loc(gl, p, 'uHasMedia'), hasMedia ? 1 : 0);

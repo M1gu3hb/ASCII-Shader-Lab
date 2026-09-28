@@ -9,6 +9,10 @@ import { getEngine } from './engineBridge';
 import { mediaElement } from './media';
 import { offscreenEngine, stageSize, type OffscreenSize } from './offscreen';
 import { toast } from './toast';
+import { repairAvcDescription } from '../exporters/avc';
+import { xformK } from '../engine/catalog';
+import type { Renderer } from '../engine/renderer';
+import { activeXforms } from '../engine/xform';
 
 export type SizeSpec = { kind: 'view'; scale: number } | { kind: 'fixed'; w: number; h: number };
 
@@ -127,6 +131,60 @@ function videoFrames(r: Recipe) {
   };
 }
 
+/**
+ * Seconds drawn, unseen, before a clip starts, so that Estela's trail is already there on its first frame
+ * (0 when the piece has no Estela). Estela keeps a trail from one frame to the next: a clip that starts cold
+ * opens with none, a seam when it loops. After six times the trail's duration what is left of the cold
+ * start is e^-6 of it, under one level in 255: frame 0 then carries the trail a playing piece has there,
+ * which for a perfect loop is the one its last frame hands on (the trail is the same recurrence). At most 15 s.
+ */
+export function trailWarmup(r: Recipe): number {
+  const src = r.source === 'pattern' ? 'pattern' : r.source === 'text' ? 'text' : 'media';
+  const estela = activeXforms(r, src).find(x => x.kind === 'estela');
+  return estela ? Math.min(15, 6 * xformK('estela', estela.p)) : 0;
+}
+
+/** Draws the frames before `start` at the clip's own rate (see trailWarmup); nothing to capture. */
+async function warmTrail(r: Recipe, eng: Renderer, clip: ReturnType<typeof videoFrames>, start: number, fps: number, progress: Progress, cancel: Cancel) {
+  const n = Math.round(trailWarmup(r) * fps);
+  if (!n) return;
+  progress(0, 'Preparando la estela…');
+  for (let i = n; i >= 1; i--) {
+    if (cancel.cancelled) return;
+    await clip.seek(start - i / fps);
+    eng.renderAt(clipTime(r, start, -i / fps), start - i / fps);
+    if (i % 8 === 0) await nextFrame();
+  }
+}
+
+/**
+ * While a render runs, the video encoder's AVC description goes through repairAvcDescription before the
+ * muxer sees it (the encoder is created inside mediabunny). Returns the function that puts things back.
+ */
+function withRepairedAvc(): () => void {
+  const g = globalThis as unknown as { VideoEncoder?: typeof VideoEncoder };
+  const Orig = g.VideoEncoder;
+  if (!Orig) return () => {};
+  class Repairing extends Orig {
+    constructor(init: VideoEncoderInit) {
+      super({
+        ...init,
+        output: (chunk, meta) => {
+          const d = meta?.decoderConfig?.description;
+          if (d && meta?.decoderConfig) {
+            const bytes = ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength) : new Uint8Array(d);
+            const fixed = /^avc1/.test(meta.decoderConfig.codec) ? repairAvcDescription(bytes) : null;
+            if (fixed) meta = { ...meta, decoderConfig: { ...meta.decoderConfig, description: fixed } };
+          }
+          init.output(chunk, meta);
+        },
+      });
+    }
+  }
+  g.VideoEncoder = Repairing;
+  return () => { if (g.VideoEncoder === Repairing) g.VideoEncoder = Orig; };
+}
+
 /** Deterministic, frame-by-frame render: no dropped frames even on slow machines. */
 export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
   const mb = await import('mediabunny');
@@ -140,9 +198,11 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
   const output = new mb.Output({ format: o.format === 'mp4' ? new mb.Mp4OutputFormat({ fastStart: 'in-memory' }) : new mb.WebMOutputFormat(), target });
   const src = new mb.CanvasSource(eng.canvas, { codec, quality: mb.QUALITY_HIGH, keyFrameInterval: 2 });
   output.addVideoTrack(src, { frameRate: o.fps });
+  const restore = codec === 'avc' ? withRepairedAvc() : () => {};
   try {
     await output.start();
     const n = Math.max(1, Math.round(o.seconds * o.fps));
+    await warmTrail(r, eng, clip, o.start, o.fps, progress, cancel);
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) { await output.cancel(); throw new Error('cancelado'); }
       const t = clipTime(r, o.start, i / o.fps);
@@ -155,6 +215,7 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
     await output.finalize();
     return new Blob([target.buffer!], { type: o.format === 'mp4' ? 'video/mp4' : 'video/webm' });
   } finally {
+    restore();
     eng.destroy();
     clip.done();
   }
@@ -180,10 +241,15 @@ export class LiveRecorder {
   }
   stop(): Promise<{ blob: Blob; ext: string }> {
     return new Promise(res => {
-      if (!this.rec) { res({ blob: new Blob(), ext: 'webm' }); return; }
-      this.rec.onstop = () => res({ blob: new Blob(this.chunks, { type: this.mime }), ext: this.mime.includes('mp4') ? 'mp4' : 'webm' });
-      this.rec.stop();
+      const rec = this.rec;
+      const done = () => res({ blob: new Blob(this.chunks, { type: this.mime }), ext: this.mime.includes('mp4') ? 'mp4' : 'webm' });
       this.rec = null;
+      if (!rec) { res({ blob: new Blob(), ext: 'webm' }); return; }
+      // a recorder that already stopped on its own (an error, the canvas went away) never fires «stop» again
+      if (rec.state === 'inactive') { done(); return; }
+      rec.onstop = done;
+      rec.onerror = done;
+      rec.stop();
     });
   }
   get active() { return !!this.rec; }
@@ -210,8 +276,35 @@ export async function stopRecording(why?: string) {
   if (!rec) return;
   useRecording.setState({ rec: null, since: 0 });
   const { blob, ext } = await rec.stop();
-  downloadBlob(`${base}-directo.${ext}`, blob);
+  // a recording stopped before the browser handed over any video (a very short one, or a machine too busy
+  // to draw while recording) would download as an empty file that no player opens
+  if (blob.size < 1024) {
+    toast('La grabación salió vacía: el navegador no llegó a entregar video. Graba unos segundos más, o usa el video renderizado (no depende de la fluidez del equipo).', undefined, 9000);
+    return;
+  }
+  downloadBlob(`${base}-directo.${ext}`, await tidyRecording(blob, ext === 'mp4' ? 'mp4' : 'webm'));
   if (why) toast(why, undefined, 6000);
+}
+
+/**
+ * A live recording as players expect it. MediaRecorder writes WebM without its duration or seek index
+ * (and, from a canvas, declaring an alpha channel that some players refuse to open) or MP4 in fragments.
+ * The same video packets, not re-encoded, go into a regular WebM or a fast-start MP4; if that fails, the
+ * recording goes out as the browser made it.
+ */
+async function tidyRecording(blob: Blob, ext: 'mp4' | 'webm'): Promise<Blob> {
+  try {
+    const mb = await import('mediabunny');
+    const input = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
+    const target = new mb.BufferTarget();
+    const output = new mb.Output({ format: ext === 'mp4' ? new mb.Mp4OutputFormat({ fastStart: 'in-memory' }) : new mb.WebMOutputFormat(), target });
+    const conv = await mb.Conversion.init({ input, output, video: { alpha: 'discard' }, audio: { discard: true } });
+    if (!conv.isValid) return blob;
+    await conv.execute();
+    return target.buffer && target.buffer.byteLength > 1024 ? new Blob([target.buffer], { type: ext === 'mp4' ? 'video/mp4' : 'video/webm' }) : blob;
+  } catch {
+    return blob;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -233,6 +326,7 @@ export async function exportGif(r: Recipe, width: number, o: { fps: number; seco
   // GIF delays are whole centiseconds: accumulate them so the clip keeps its exact length (e.g. 24 fps)
   const cs = (i: number) => Math.round((i * 100) / o.fps);
   try {
+    await warmTrail(r, eng, clip, o.start, o.fps, progress, cancel);
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) throw new Error('cancelado');
       const delay = (cs(i + 1) - cs(i)) * 10;
@@ -279,6 +373,7 @@ export async function captureFrames(
   const frames: string[] = [];
   const n = Math.max(1, Math.round(o.seconds * o.fps));
   try {
+    await warmTrail(r, eng, clip, o.start, o.fps, progress, cancel);
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) throw new Error('cancelado');
       await clip.seek(o.start + i / o.fps);

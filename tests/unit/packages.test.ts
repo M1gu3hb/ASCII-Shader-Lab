@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultRecipe, normalizeRecipe, sameRecipe, type Recipe } from '../../src/engine';
 import { generate, fingerprint } from '../../src/random';
 import { buildProject, isProject, readProject, safeFileName, PROJECT_README, PROJECT_RECIPE } from '../../src/shared/project';
-import { buildSession, isSession, readSession, sessionFileName } from '../../src/shared/session';
+import { buildSession, collectionFileName, isSession, readSession, sessionFileName } from '../../src/shared/session';
 import { decodeRecipe, encodeRecipe, parseRecipe, publicRecipe } from '../../src/shared/share';
 import { unzip, zip } from '../../src/shared/zip';
 
@@ -149,6 +149,31 @@ describe('session package', () => {
     expect(leeme).toContain('2 resultados del historial y 1 pieza de la colección, con 1 archivo de imagen o video.');
     expect(leeme).toContain('se descartan los más antiguos');
     expect(leeme).not.toContain('no se borra nada');
+  });
+
+  it('a collection backup is a session archive with only the collection and its media', async () => {
+    const r = imagePiece();
+    const favorites = [{ id: 'F', name: 'Retrato', recipe: r, created: 3, updated: 4, space: 'media' }];
+    const blob = await buildSession({ entries: [], favorites, cursor: -1 }, [{ id: ID, kind: 'image', name: 'foto de mamá.jpg', type: 'image/jpeg', size: 4, w: 1600, h: 1200, data: bytes }], 'collection');
+    const files = await unzip(blob);
+    expect(isSession(files)).toBe(true);
+    const s = (await readSession(files))!;
+    expect(s.scope).toBe('collection');
+    expect(s.data.entries).toEqual([]);
+    expect(s.data.favorites).toEqual(JSON.parse(JSON.stringify(favorites)));
+    expect(await s.media[0].read()).toEqual(bytes);
+    const leeme = await files.find(f => f.name === 'LEEME.txt')!.text();
+    expect(leeme).toContain('1 pieza de tu colección');
+    expect(collectionFileName(new Date(2026, 8, 7))).toBe('monotrama-coleccion-2026-09-07.zip');
+  });
+
+  it('sessions saved by the previous version (no scope) still open as whole sessions', async () => {
+    // the sesion.json the previous version wrote: no «scope» field
+    const doc = { monotrama: 'session', version: 1, exported: '2026-09-01T10:00:00.000Z', cursor: 0, entries: [{ id: 'e1', recipe: defaultRecipe(), origin: defaultRecipe(), kind: 'inicio', space: 'arte', created: 1, edited: false }], favorites: [], media: [] };
+    const s = (await readSession(await unzip(await zip([{ name: 'sesion.json', data: JSON.stringify(doc) }]))))!;
+    expect(s.scope).toBe('all');
+    expect(s.data.entries).toHaveLength(1);
+    expect(s.data.cursor).toBe(0);
   });
 
   it('names the file by date and rejects other archives', async () => {

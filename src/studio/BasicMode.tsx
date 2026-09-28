@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { explainWebGL, probeWebGL, type GLExplanation, type GLStatus } from '../engine/support';
 import { basicRequestedBy, clearBasicRequest, markSeen, preferBasic, seen, useCaps } from './caps';
 import { Note } from './controls';
+import { slowNoticeAnswered } from './Quality';
 import { getEngine } from './engineBridge';
 import { IClose } from './icons';
 import { Sheet } from './Sheet';
@@ -80,7 +81,8 @@ function SoftwareHint({ onWhy }: { onWhy: () => void }) {
     let slow = 0;
     const id = setInterval(() => {
       const e = getEngine();
-      if (!e || e.kind !== 'webgl2' || !useStudio.getState().playing || document.hidden) { slow = 0; return; }
+      // lowering the preview quality comes first (Quality.tsx): this suggestion only after that
+      if (!e || e.kind !== 'webgl2' || !useStudio.getState().playing || document.hidden || !slowNoticeAnswered()) { slow = 0; return; }
       const f = e.stats.fps;
       slow = f > 0 && f < 20 ? slow + 1 : 0;
       if (slow >= 3) { clearInterval(id); markSeen(SOFT_KEY, 'local'); setFps(f); }
@@ -131,7 +133,7 @@ function EngineSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
             ? <li><b>Puede ir más lento.</b> En piezas pesadas baja a 15 fotogramas por segundo. Lo que más cuesta: curvatura CRT, resplandor y celdas muy pequeñas.</li>
             : <li><b>La fluidez depende de la pieza.</b> Frente a WebGL por software puede ir más fluido o no; en las piezas pesadas baja a 15 fotogramas por segundo. Pruébalo: puedes volver al motor completo cuando quieras.</li>}
           <li><b>Las exportaciones salen igual</b> (imagen, vector, texto, GIF), sólo tardan algo más. El video depende además de lo que este navegador sepa codificar: la pestaña «Video y GIF» te lo dice.</li>
-          <li><b>El código para tu web</b> usa el motor completo y necesita WebGL 2 en el navegador de quien la visite. Sin WebGL 2, esa persona ve el color de fondo (o tu póster, si lo subes con tu página y pones su URL en «poster»).</li>
+          <li><b>El código para tu web</b> usa el motor completo donde hay WebGL 2 y lleva también el motor básico: sin WebGL 2, quien la visite la ve como tú ahora. Si en la pestaña «Código» eliges «Póster o color» (un código más ligero), sin WebGL 2 esa persona ve el color de fondo o tu póster.</li>
         </ul>
         {exp.steps.length > 0 && !forced && (
           <>

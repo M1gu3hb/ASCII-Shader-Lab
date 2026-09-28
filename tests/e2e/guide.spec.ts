@@ -225,22 +225,22 @@ test.describe('caminos', () => {
 
     // 2 · Presencia with the test content on and a legibility estimate
     await expect(stepTitle(page)).toContainText('Que se lea el contenido');
-    await expect(page.locator('.preview-content h1')).toBeVisible();
+    await expect(page.locator('.preview-content .pc-h')).toBeVisible();
     const slider = guide(page).getByRole('slider', { name: 'Presencia' });
-    // the estimate samples the moving stage about every second and a half: poll it
-    const ratio = async () => {
-      const t = (await guide(page).locator('.legib b').textContent()) ?? '';
-      return /^\d+\.\d:1$/.test(t) ? parseFloat(t) : NaN;
-    };
-    await expect.poll(ratio, { timeout: 20_000 }).toBeGreaterThan(1);
+    // the estimate samples the moving stage several times: poll the worst share of background too close
+    // to the text colour, around the letters (per mille)
+    const line = guide(page).locator('.legib-line');
+    const clash = async () => { const v = await line.getAttribute('data-clash'); return v == null ? NaN : +v; };
+    await expect.poll(clash, { timeout: 30_000 }).toBeGreaterThanOrEqual(0);
     await slider.fill('1');
     await expect(guide(page).locator('output')).toHaveText('protagonista');
-    await page.waitForTimeout(3500); // two fresh samples, well after the style's crossfade
-    const loud = await ratio();
+    await expect.poll(clash, { timeout: 30_000 }).toBeGreaterThanOrEqual(0);
+    await page.waitForTimeout(3000); // fresh samples of the loud version
+    const loud = await clash();
     await slider.fill('0');
     await expect(guide(page).locator('output')).toHaveText('sutil');
-    await expect.poll(ratio, { timeout: 30_000 }).toBeGreaterThan(loud);
-    await expect(guide(page).locator('.legib-say')).toHaveText(/Se lee bien|titulares grandes|Cuesta leer/);
+    await expect.poll(async () => { const c = await clash(); return Number.isNaN(c) ? Infinity : c; }, { timeout: 30_000 }).toBeLessThanOrEqual(loud);
+    await expect(guide(page).locator('.legib-say')).toHaveText(/^(Se lee bien|Cuesta leer .+|Se lee con esfuerzo .+)$/);
     await expect(guide(page).getByText(/Es una estimación/)).toBeVisible();
     // each drag is one undoable edit
     await expect(page.locator('.seedline')).toContainText('editado');
@@ -378,11 +378,11 @@ test.describe('comparar', () => {
     await expect(page.locator('.seedline')).toContainText('editado');
   });
 
-  test('«Comparar» en Glifos: tres tamaños de celda y los juegos de caracteres, aplicables con un clic', async ({ page }) => {
+  test('«?» en Glifos: tres tamaños de celda y los juegos de caracteres para comparar, aplicables con un clic', async ({ page }) => {
     await openStudio(page);
     await page.getByRole('tab', { name: 'Glifos' }).click();
     const panel = page.locator('.panel');
-    await panel.getByRole('button', { name: 'Comparar tamaños de celda' }).click();
+    await panel.getByRole('button', { name: 'Qué es «Tamaño de celda»' }).click();
     const strip = panel.getByRole('group', { name: 'Tamaños de celda' });
     await expect(strip.getByRole('button')).toHaveCount(3);
     for (const b of await strip.getByRole('button').all()) await expect(b).toHaveAttribute('style', /background-image/, { timeout: 60_000 });
@@ -392,10 +392,10 @@ test.describe('comparar', () => {
     await page.keyboard.press('Control+z');
     await expect(panel.getByLabel('Tamaño de celda')).not.toHaveValue('6');
 
-    await panel.getByRole('button', { name: 'Comparar juegos de caracteres' }).click();
+    await panel.getByRole('button', { name: 'Qué es «Caracteres»' }).click();
     const sets = panel.getByRole('group', { name: 'Juegos de caracteres' });
     await sets.getByRole('button', { name: /Bloques/ }).click();
-    await expect(panel.locator('#cs-sel')).toHaveValue('bloques');
+    await expect(panel.getByRole('combobox', { name: 'Caracteres', exact: true })).toHaveAttribute('data-value', 'bloques');
     await expect(sets.getByRole('button', { name: /Bloques/ })).toHaveAttribute('aria-pressed', 'true');
   });
 });

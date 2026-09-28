@@ -1,0 +1,69 @@
+/* Transformations of the source, the ramp editor, letters that move (lane «creative») */
+
+/* The pane holds its own absolutely positioned parts (every .sr-only text): otherwise they hang from the
+   panel, give its hidden overflow a scroll range, and a centring scrollIntoView near the end of a long
+   tab (the ramp editor's) slid the whole panel, recipes and sections, under the top bar for good. */
+.app .pane { position: relative; }
+
+/* ---------- Transformar: the add row (a picker and the dice) ---------- */
+.xf-add { display: flex; gap: 6px; align-items: center; margin: 0 0 10px; }
+.xf-add > .pk { flex: 1; min-width: 0; }
+@media (min-width: 901px) and (pointer: fine) { .app .xf-add > .icon-btn { width: 36px; height: 36px; } }
+.app .xf-card .layer-desc { margin-left: 22px; }
+.app .xf-card .note { margin: -2px 0 10px 22px; }
+
+/* ---------- the ramp editor ---------- */
+.ramp-ed { margin: 0 0 4px; }
+.ramp-meter { margin: -4px 0 12px; padding: 8px 8px 6px; border: 1px solid var(--line); border-radius: 9px; background: rgba(0, 0, 0, .18); }
+.ramp-cap {
+  display: flex; justify-content: space-between; gap: 10px; margin: 0 0 6px;
+  font: 500 10.5px/1.3 var(--font-mono); color: var(--dim); letter-spacing: .02em;
+}
+.ramp-n { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ramp-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 3px 2px; }
+.ramp-bars li {
+  position: relative; display: grid; grid-template-rows: 30px auto; justify-items: center; width: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.ramp-bars li i {
+  align-self: end; width: 10px; border-radius: 2px 2px 0 0; background: var(--muted); opacity: .75;
+  transition: height .18s var(--ease-out, ease-out);
+}
+.ramp-bars li b { font-weight: inherit; font-size: 15px; line-height: 20px; color: var(--text); white-space: pre; }
+/* out of order (sorting off): the bar and a mark under the glyph say it, not the colour alone */
+.ramp-bars li.bad i { background: repeating-linear-gradient(135deg, var(--bone) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--bone); opacity: 1; }
+.ramp-bars li.bad::after { content: '↓'; position: absolute; bottom: -12px; font: 600 9px/1 var(--font-mono); color: var(--text); }
+.ramp-bars.dense { gap: 2px 1px; }
+.ramp-bars.dense li { width: 14px; grid-template-rows: 22px auto; }
+.ramp-bars.dense li i { width: 7px; }
+.ramp-bars.dense li b { font-size: 12px; line-height: 16px; }
+@media (prefers-reduced-motion: reduce) { .ramp-bars li i { transition: none; } }
+[data-motion="low"] .ramp-bars li i { transition: none; }
+
+.ramp-save { display: grid; gap: 6px; margin: 0 0 12px; }
+.ramp-save input[type=text] {
+  width: 100%; min-height: 36px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--field); color: var(--text); font: 13px var(--font-ui);
+}
+.ramp-save .row2 { margin: 0; }
+.ramp-save .btn { margin: 0; }
+
+.ramp-mine { margin: 4px 0 8px; }
+.ramp-mine ul { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+/* (min-width: a long name shortens with «…» instead of widening the list and pushing «Borrar» out of the pane) */
+.ramp-mine li { display: flex; gap: 4px; align-items: stretch; min-width: 0; }
+.ramp-chip {
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; padding: 4px 10px;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--text); text-align: left; font-size: 13px;
+}
+.ramp-chip:hover { border-color: var(--line-2); }
+.ramp-chip[aria-pressed="true"] { border-color: var(--bone); box-shadow: inset 0 -2px 0 var(--accent); }
+.ramp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ramp-sample { flex: none; font-size: 13px; letter-spacing: .08em; white-space: pre; color: var(--muted); }
+.ramp-mine .icon-btn { height: auto; min-height: 34px; }
+
+@media (pointer: coarse), (max-width: 900px) {
+  .ramp-save input[type=text] { min-height: 44px; font-size: 16px; }
+  .ramp-chip { min-height: 44px; font-size: 14px; }
+  .ramp-mine .icon-btn { min-height: 44px; }
+  .ramp-bars li { width: 24px; }
+}

@@ -10,6 +10,8 @@ import { PI, TAU, blendf, clamp, fbm, hash12 } from './core';
 
 const fr = Math.fround;
 import { basicPattern, setPX, type BasicPattern } from './patterns';
+import { XformState, runStage, updateTrail, type StageEnv } from './xform';
+import type { XformStage } from '../xform';
 
 export type FieldSource = 'pattern' | 'media' | 'text';
 
@@ -39,6 +41,11 @@ export interface FieldFrame {
   /** Index in INTERACT_MODES; pointer in device px from the top-left. */
   imode: number; ptrX: number; ptrY: number; ptrOn: number; istr: number; irad: number;
   sim: { h: Float32Array; tr: Float32Array } | null;
+  /**
+   * Transformations of the picture or the text (../xform.ts), their grids and Estela's state, and how much
+   * the trail keeps this frame. Null: none.
+   */
+  xform?: { stages: XformStage[]; state: XformState; decay: number; times?: [number, number] } | null;
 }
 
 export const INTERACT_MODES = ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'] as const;
@@ -179,6 +186,17 @@ function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array) {
   }
 }
 
+/** The domain warp of the sample positions at time t (B.ppx/ppy → B.qx/qy), as the first step of runField. */
+function warpInto(f: FieldFrame, B: FieldBuffers, t: number) {
+  const n = f.cols * f.rows;
+  for (let i = 0; i < n; i++) {
+    const ppx = B.ppx[i], ppy = B.ppy[i];
+    const wx = ppx * f.warpScale * 1.2, wy = ppy * f.warpScale * 1.2;
+    B.qx[i] = ppx + f.warp * (fbm(wx + t * 0.15, wy + t * 0.15) - 0.5) * 1.6;
+    B.qy[i] = ppy + f.warp * (fbm(wx + 5.2 - t * 0.15, wy + 1.3 - t * 0.15) - 0.5) * 1.6;
+  }
+}
+
 /** Runs the field pass; fills B.a (luminance) and B.r/g/b (media colour, white otherwise). */
 export function runField(f: FieldFrame, B: FieldBuffers) {
   const { W, H, cw, ch, cols, rows, time: T } = f;
@@ -225,7 +243,12 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   // 2. pattern stack (twice when looping, to crossfade the end of the loop into its start)
   const loop = f.loop > 0;
   let tl = T, w = 0;
-  if (loop) { tl = T - f.loop * Math.floor(T / f.loop); w = tl / f.loop; stack(f, B, tl, B.v0); stack(f, B, tl - f.loop, B.v1); }
+  if (loop) {
+    tl = T - f.loop * Math.floor(T / f.loop); w = tl / f.loop; stack(f, B, tl, B.v0);
+    // the warp drifts too: the second stack reads it as it was one loop earlier (as the field shader)
+    if (f.warp > 0) warpInto(f, B, tl - f.loop);
+    stack(f, B, tl - f.loop, B.v1);
+  }
   else stack(f, B, T, B.v0);
   const loopK = 1 + 0.41 * Math.sin(PI * w);
 
@@ -236,26 +259,43 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const csx = (cw / W) * 0.25, csy = (ch / H) * 0.25;
   const env = f.morph > 0 ? 0.5 - 0.5 * Math.cos((TAU * T) / f.morph) : 0;
   const morphK = f.morph > 0 ? smooth01(env) : 0;
+  const pvOf = (i: number) => {
+    if (!loop) return B.v0[i];
+    const v = B.v0[i] * (1 - w) + B.v1[i] * w;
+    return clamp(0.5 + (v - 0.5) * loopK, 0, 1);
+  };
+  // the source transformed (xform.ts): the grid its last transformation wrote, read per cell
+  const grid = f.xform && (media || text) ? runXforms(f, f.xform, media, text, pvOf) : null;
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       const i = row * cols + col;
-      let pv = B.v0[i];
-      if (loop) { pv = B.v0[i] * (1 - w) + B.v1[i] * w; pv = clamp(0.5 + (pv - 0.5) * loopK, 0, 1); }
+      const pv = pvOf(i);
       let l = pv, cr = 1, cg = 1, cb = 1;
       if (media || text) {
         const sx = B.ppx[i] * (H / W) + 0.5, sy = 0.5 - B.ppy[i];
+        let gi = -1;
+        if (grid) {
+          let gx = Math.floor((sx * W) / cw), gy = Math.floor((sy * H) / ch);
+          gx = gx < 0 ? 0 : gx >= cols ? cols - 1 : gx; gy = gy < 0 ? 0 : gy >= rows ? rows - 1 : gy;
+          gi = (gy * cols + gx) * 3;
+        }
         if (media) {
-          ACC[0] = ACC[1] = ACC[2] = 0;
-          // a cell cut by the canvas edge samples up to the edge (as the WebGL engine does)
-          const x0 = clamp(sx - csx, 0, 1), x1 = clamp(sx + csx, 0, 1), y0 = clamp(sy - csy, 0, 1), y1 = clamp(sy + csy, 0, 1);
-          mediaTap(media, x0, y0); mediaTap(media, x1, y0);
-          mediaTap(media, x0, y1); mediaTap(media, x1, y1);
-          cr = ACC[0] * 0.25; cg = ACC[1] * 0.25; cb = ACC[2] * 0.25;
+          if (grid) { cr = grid[gi] / 255; cg = grid[gi + 1] / 255; cb = grid[gi + 2] / 255; }
+          else {
+            ACC[0] = ACC[1] = ACC[2] = 0;
+            // a cell cut by the canvas edge samples up to the edge (as the WebGL engine does)
+            const x0 = clamp(sx - csx, 0, 1), x1 = clamp(sx + csx, 0, 1), y0 = clamp(sy - csy, 0, 1), y1 = clamp(sy + csy, 0, 1);
+            mediaTap(media, x0, y0); mediaTap(media, x1, y0);
+            mediaTap(media, x0, y1); mediaTap(media, x1, y1);
+            cr = ACC[0] * 0.25; cg = ACC[1] * 0.25; cb = ACC[2] * 0.25;
+          }
           const ml = cr * 0.299 + cg * 0.587 + cb * 0.114;
           l = f.mediaMix > 0 ? blendf(ml, pv, f.mediaBlend, f.mediaMix) : ml;
         } else if (text) {
-          const tm = (sampleRed(text, sx - csx, sy - csy) + sampleRed(text, sx + csx, sy - csy)
-            + sampleRed(text, sx - csx, sy + csy) + sampleRed(text, sx + csx, sy + csy)) * 0.25;
+          const tm = grid
+            ? (grid[gi] * 0.299 + grid[gi + 1] * 0.587 + grid[gi + 2] * 0.114) / 255
+            : (sampleRed(text, sx - csx, sy - csy) + sampleRed(text, sx + csx, sy - csy)
+              + sampleRed(text, sx - csx, sy + csy) + sampleRed(text, sx + csx, sy + csy)) * 0.25;
           l = f.mediaMix > 0 ? blendf(tm, pv, f.mediaBlend, f.mediaMix) : tm;
           if (f.morph > 0) l = hash12(col * 1.37, row * 1.37) < morphK ? pv : l;
         }
@@ -274,6 +314,52 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
       B.r[i] = Math.round(clamp(cr, 0, 1) * 255); B.g[i] = Math.round(clamp(cg, 0, 1) * 255); B.b[i] = Math.round(clamp(cb, 0, 1) * 255);
     }
   }
+}
+
+/**
+ * The transformation passes (glsl/xform.ts) on the CPU: the source averaged per cell (the four taps of
+ * the field pass, at the cell centre), then each stage in order. Returns the last grid.
+ */
+function runXforms(f: FieldFrame, X: NonNullable<FieldFrame['xform']>, media: MediaBuffer | null, text: TextBuffer | null, pvOf: (i: number) => number): Uint8Array {
+  const { W, H, cw, ch, cols, rows } = f;
+  const st = X.state;
+  st.resize(cols * rows);
+  const q = (v: number) => Math.round((v < 0 ? 0 : v > 1 ? 1 : v) * 255);
+  let cur = st.grid[0];
+  const csx = (cw / W) * 0.25, csy = (ch / H) * 0.25;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const i = row * cols + col, o = i * 3;
+      const sx = ((col + 0.5) * cw) / W, sy = ((row + 0.5) * ch) / H;
+      if (media) {
+        ACC[0] = ACC[1] = ACC[2] = 0;
+        const x0 = clamp(sx - csx, 0, 1), x1 = clamp(sx + csx, 0, 1), y0 = clamp(sy - csy, 0, 1), y1 = clamp(sy + csy, 0, 1);
+        mediaTap(media, x0, y0); mediaTap(media, x1, y0);
+        mediaTap(media, x0, y1); mediaTap(media, x1, y1);
+        cur[o] = q(ACC[0] * 0.25); cur[o + 1] = q(ACC[1] * 0.25); cur[o + 2] = q(ACC[2] * 0.25);
+      } else if (text) {
+        const tm = (sampleRed(text, sx - csx, sy - csy) + sampleRed(text, sx + csx, sy - csy)
+          + sampleRed(text, sx - csx, sy + csy) + sampleRed(text, sx + csx, sy + csy)) * 0.25;
+        cur[o] = cur[o + 1] = cur[o + 2] = q(tm);
+      }
+    }
+  }
+  if (X.stages.some(s => s.kind === 'desplazar')) for (let i = 0; i < cols * rows; i++) st.pat[i] = q(pvOf(i));
+  const env: StageEnv = { cols, rows, aspect: ch / cw, time: X.times?.[0] ?? f.time, timeB: X.times?.[1] ?? f.time, pat: st.pat, trail: st.trail[st.i] };
+  let other = st.grid[1];
+  for (const s of X.stages) {
+    if (s.kind === 'estela') {
+      const j = st.i ^ 1;
+      updateTrail(cur, st.prev[st.i], st.trail[st.i], st.trail[j], X.decay, st.have);
+      st.prev[j].set(cur);
+      st.i = j;
+      st.have = true;
+      env.trail = st.trail[j];
+    }
+    runStage(s, cur, other, env);
+    const t = cur; cur = other; other = t;
+  }
+  return cur;
 }
 
 /** smoothstep(.1, .9, x) */

@@ -388,6 +388,471 @@ float P_cubo(vec2 p, float t, float a, float b){
   float edge = smoothstep(.43, .53, mid);
   return sat(mix(.1 + .85 * dif, max(edge, .08 + .2 * dif), b));
 }`,
+  /*
+   * More 3D objects. Same camera as the solids above (eye at z = -3 looking at the origin; the object turns,
+   * the light stays put). Each one marches only inside its bounding volume, with a bounded number of steps,
+   * and names its helpers with its own prefix (several chunks can share one shader).
+   */
+  nudo: `
+vec2 nu_pq(float b){
+  float k = floor(b * 5.999);
+  return k < 1. ? vec2(2., 3.) : k < 2. ? vec2(3., 2.) : k < 3. ? vec2(2., 5.) : k < 4. ? vec2(3., 4.) : k < 5. ? vec2(5., 2.) : vec2(3., 5.);
+}
+// distance to a (P, Q) torus knot: in the cross-section plane of the torus the knot crosses P times; the tube
+// leans through that plane, so the offset along its lean is shortened by the cosine of the lean
+float nu_sd(vec3 p, vec2 pq, float th){
+  float an = atan(p.z, p.x);
+  vec2 cp = vec2(length(p.xz) - .46, p.y);
+  float d = 1e3;
+  for (int k = 0; k < 5; k++){
+    if (float(k) >= pq.x) break;
+    float s = (an + TAU * float(k)) / pq.x;
+    vec2 c = vec2(cos(pq.y * s), sin(pq.y * s));
+    vec2 v = cp - .22 * c;
+    float sp = pq.x * (.46 + .22 * c.x), sq = pq.y * .22;
+    float dn = dot(v, c), dt = dot(v, vec2(-c.y, c.x)) * sp / sqrt(sp * sp + sq * sq);
+    d = min(d, sqrt(dn * dn + dt * dt));
+  }
+  return d - th;
+}
+float P_nudo(vec2 p, float t, float a, float b){
+  mat3 R = rotXY(.7 + .25 * sin(t * .21), t * .32);
+  vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(p, 1.6));
+  vec2 pq = nu_pq(b);
+  float th = .06 + a * .07;
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + .81;
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = -bb - h, dmax = -bb + h;
+  bool hit = false; vec3 pos = vec3(0.);
+  for (int i = 0; i < 80; i++){
+    pos = ro + rd * d;
+    float s = nu_sd(pos, pq, th);
+    if (s < .002){ hit = true; break; }
+    d += s * .85; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  vec2 k = vec2(1., -1.);
+  vec3 n = normalize(k.xyy * nu_sd(pos + k.xyy * .002, pq, th) + k.yyx * nu_sd(pos + k.yyx * .002, pq, th)
+                   + k.yxy * nu_sd(pos + k.yxy * .002, pq, th) + k.xxx * nu_sd(pos + k.xxx * .002, pq, th));
+  // candy stripes wound around the tube, flowing along it
+  float an = atan(pos.z, pos.x);
+  vec2 cp = vec2(length(pos.xz) - .46, pos.y);
+  float best = 1e3, ss = 0., psi = 0.;
+  for (int j = 0; j < 5; j++){
+    if (float(j) >= pq.x) break;
+    float s = (an + TAU * float(j)) / pq.x;
+    vec2 dv = cp - .22 * vec2(cos(pq.y * s), sin(pq.y * s));
+    float dl = length(dv);
+    if (dl < best){ best = dl; ss = s; psi = atan(dv.y, dv.x); }
+  }
+  float stripe = smoothstep(-.35, .35, sin(psi * 2. - ss * pq.y * 3. + t * 2.5));
+  vec3 L = normalize(R * vec3(-.5, .65, -.55));
+  float dif = max(dot(n, L), 0.), hl = max(dot(n, -rd), 0.);
+  float spec = pow(max(dot(reflect(-L, n), -rd), 0.), 28.);
+  return sat(.04 + (.5 * dif + .42 * hl) * mix(.4, 1., stripe) + .4 * spec);
+}`,
+  poliedro: `
+const vec3 PO_N[22] = vec3[22](
+  vec3(.57735027, .57735027, .57735027), vec3(-.57735027, .57735027, .57735027), vec3(.57735027, -.57735027, .57735027), vec3(.57735027, .57735027, -.57735027),
+  vec3(0., .35682209, .93417236), vec3(0., -.35682209, .93417236), vec3(.93417236, 0., .35682209), vec3(-.93417236, 0., .35682209), vec3(.35682209, .93417236, 0.), vec3(-.35682209, .93417236, 0.),
+  vec3(0., .85065081, .52573111), vec3(0., -.85065081, .52573111), vec3(.52573111, 0., .85065081), vec3(-.52573111, 0., .85065081), vec3(.85065081, .52573111, 0.), vec3(-.85065081, .52573111, 0.),
+  vec3(.70710678, .70710678, 0.), vec3(.70710678, -.70710678, 0.), vec3(.70710678, 0., .70710678), vec3(.70710678, 0., -.70710678), vec3(0., .70710678, .70710678), vec3(0., .70710678, -.70710678)
+);
+vec3 PO_n;
+// kind 0 octahedron, 1 rhombic dodecahedron, 2 dodecahedron, 3 icosahedron, 4 truncated icosahedron (a football)
+vec2 po_sd(vec3 p, float kind){
+  int i0 = kind < 1. ? 0 : kind < 2. ? 16 : kind < 3. ? 10 : 0;
+  int i1 = kind < 1. ? 4 : kind < 2. ? 22 : kind < 3. ? 16 : kind < 4. ? 10 : 16;
+  float r = kind < 1. ? .44 : kind < 2. ? .53 : kind < 4. ? .6 : .68;
+  float m1 = -1e3, m2 = -1e3;
+  for (int i = 0; i < 22; i++){
+    if (i < i0) continue;
+    if (i >= i1) break;
+    float dp = dot(p, PO_N[i]);
+    float v = abs(dp) - (kind > 3.5 && i >= 10 ? r * 1.0266 : r);
+    if (v > m1){ m2 = m1; m1 = v; PO_n = PO_N[i] * sign(dp); } else if (v > m2) m2 = v;
+  }
+  return vec2(m1, m1 - m2);
+}
+float P_poliedro(vec2 p, float t, float a, float b){
+  mat3 R = rotXY(t * .31 + .5, t * .47);
+  vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(p, 1.6));
+  float kind = floor(a * 4.999);
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + .64;
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = -bb - h, dmax = -bb + h;
+  vec2 s = vec2(1.);
+  bool hit = false;
+  for (int i = 0; i < 48; i++){
+    s = po_sd(ro + rd * d, kind);
+    if (s.x < .001){ hit = true; break; }
+    d += s.x; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  vec3 n = PO_n;
+  vec3 L = normalize(R * vec3(-.45, .7, -.55));
+  float dif = max(dot(n, L), 0.);
+  float spec = pow(max(dot(reflect(-L, n), -rd), 0.), 20.);
+  // flat faces, each with its own tone, so neighbours stay apart even under the same light
+  float face = .08 + .62 * dif + .22 * hash13(floor(n * 7. + 7.5)) + .18 * max(dot(n, -rd), 0.) + .3 * spec;
+  float edge = 1. - smoothstep(PX * .3, PX * 1.1, s.y);
+  return sat(mix(face * (1. - .6 * edge), max(edge * (.55 + .45 * dif), .05 + .12 * dif), b));
+}`,
+  giroide: `
+// a gyroid network (the solid side of the surface) carved out of a ball
+float gy_sd(vec3 p, float k, float c, float ph){
+  vec3 q = p * k;
+  q.z += ph;
+  float g = (dot(sin(q), cos(q.yzx)) - c) / k * .55;
+  return max(g, length(p) - .66);
+}
+float P_giroide(vec2 p, float t, float a, float b){
+  mat3 R = rotXY(t * .17 + .4, t * .23);
+  vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(p, 1.6));
+  float k = 5. + a * 7., c = -.7 + b * 1.4, ph = t * .5;
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + .4356;
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = -bb - h, dmax = -bb + h;
+  bool hit = false; vec3 pos = vec3(0.); float it = 0.;
+  for (int i = 0; i < 72; i++){
+    pos = ro + rd * d;
+    float s = gy_sd(pos, k, c, ph);
+    if (s < .0015){ hit = true; break; }
+    d += s; it += 1.; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  vec2 e = vec2(1., -1.);
+  vec3 n = normalize(e.xyy * gy_sd(pos + e.xyy * .0015, k, c, ph) + e.yyx * gy_sd(pos + e.yyx * .0015, k, c, ph)
+                   + e.yxy * gy_sd(pos + e.yxy * .0015, k, c, ph) + e.xxx * gy_sd(pos + e.xxx * .0015, k, c, ph));
+  vec3 L = normalize(R * vec3(-.4, .75, -.5));
+  float dif = max(dot(n, L), 0.), hl = max(dot(n, -rd), 0.);
+  float spec = pow(max(dot(reflect(-L, n), -rd), 0.), 16.);
+  // tunnels: the deeper inside the ball (and the more steps it took to get there), the darker
+  float depth = smoothstep(.2, .66, length(pos));
+  return sat((.05 + .55 * dif + .4 * hl + .25 * spec) * mix(.2, 1., depth) * (1. - .4 * it / 72.));
+}`,
+  moebius: `
+float mo_sd(vec3 p, float w, float tw){
+  float an = atan(p.z, p.x);
+  vec2 q = rot2(vec2(length(p.xz) - .5, p.y), an * tw * .5);
+  vec2 d = abs(q) - vec2(w, .045);
+  return length(max(d, 0.)) + min(max(d.x, d.y), 0.);
+}
+float P_moebius(vec2 p, float t, float a, float b){
+  mat3 R = rotXY(.8 + .2 * sin(t * .23), t * .3);
+  vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(p, 1.6));
+  float w = .12 + a * .2, tw = 1. + 2. * floor(b * 2.999);
+  float rb = .55 + w;
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + rb * rb;
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = -bb - h, dmax = -bb + h;
+  bool hit = false; vec3 pos = vec3(0.);
+  for (int i = 0; i < 90; i++){
+    pos = ro + rd * d;
+    float s = mo_sd(pos, w, tw);
+    if (s < .0015){ hit = true; break; }
+    d += s * .6; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  vec2 e = vec2(1., -1.);
+  vec3 n = normalize(e.xyy * mo_sd(pos + e.xyy * .0015, w, tw) + e.yyx * mo_sd(pos + e.yyx * .0015, w, tw)
+                   + e.yxy * mo_sd(pos + e.yxy * .0015, w, tw) + e.xxx * mo_sd(pos + e.xxx * .0015, w, tw));
+  if (dot(n, rd) > 0.) n = -n;
+  // along the band: a dark centre line and bars that travel round its one side
+  float an = atan(pos.z, pos.x);
+  vec2 q = rot2(vec2(length(pos.xz) - .5, pos.y), an * tw * .5);
+  float u = q.x / w;
+  float line = 1. - smoothstep(.1, .22, abs(u));
+  float bars = smoothstep(.35, .5, abs(fract(an * 12. / TAU - t * .6) - .5)) * step(.4, abs(u));
+  vec3 L = normalize(R * vec3(-.5, .7, -.5));
+  float dif = max(dot(n, L), 0.), hl = max(dot(n, -rd), 0.);
+  float spec = pow(max(dot(reflect(-L, n), -rd), 0.), 24.);
+  return sat(.06 + (.55 * dif + .4 * hl) * (1. - .55 * max(line, bars)) + .35 * spec);
+}`,
+  adn: `
+float DN_m;
+float dn_sd(vec3 p, float k, float kk, float sp, float ph){
+  // two strands on a helix of radius .3 around y, the second 2.3 rad behind (a major and a minor groove)
+  float a1 = p.y * k + ph, a2 = a1 + 2.3;
+  vec2 c1 = vec2(cos(a1), sin(a1)), c2 = vec2(cos(a2), sin(a2));
+  vec2 v1 = p.xz - .3 * c1, v2 = p.xz - .3 * c2;
+  // a strand leans along its tangent: shorten the tangential offset so the distance stays honest
+  float s1 = length(vec2(dot(v1, c1), dot(v1, vec2(-c1.y, c1.x)) * kk)) - .065;
+  float s2 = length(vec2(dot(v2, c2), dot(v2, vec2(-c2.y, c2.x)) * kk)) - .065;
+  float yi = (floor(p.y / sp) + .5) * sp;
+  float b1 = yi * k + ph, b2 = b1 + 2.3;
+  vec3 A = vec3(.3 * cos(b1), yi, .3 * sin(b1)), B = vec3(.3 * cos(b2), yi, .3 * sin(b2));
+  vec3 pa = p - A, ba = B - A;
+  float hh = clamp(dot(pa, ba) / dot(ba, ba), 0., 1.);
+  float rg = length(pa - ba * hh) - .03;
+  float s = min(s1, s2);
+  DN_m = rg < s ? (hh < .5 ? 1. : 2.) : 0.;
+  return min(s, rg);
+}
+float P_adn(vec2 p, float t, float a, float b){
+  mat3 R = rotXY(.35, 0.);
+  vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(rot2(p, .5), 1.6));
+  float k = 3.5 + a * 5., kk = 1. / sqrt(1. + .09 * k * k), sp = .2 - b * .12, ph = t * 1.1;
+  // bounding cylinder around the axis
+  vec2 o = ro.xz, v = rd.xz;
+  float A2 = dot(v, v), B2 = dot(o, v), h = B2 * B2 - A2 * (dot(o, o) - .1521);
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = (-B2 - h) / A2, dmax = (-B2 + h) / A2;
+  bool hit = false; vec3 pos = vec3(0.);
+  for (int i = 0; i < 80; i++){
+    pos = ro + rd * d;
+    float s = dn_sd(pos, k, kk, sp, ph);
+    if (s < .002){ hit = true; break; }
+    d += s * .8; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  float m = DN_m;
+  vec2 e = vec2(1., -1.);
+  vec3 n = normalize(e.xyy * dn_sd(pos + e.xyy * .002, k, kk, sp, ph) + e.yyx * dn_sd(pos + e.yyx * .002, k, kk, sp, ph)
+                   + e.yxy * dn_sd(pos + e.yxy * .002, k, kk, sp, ph) + e.xxx * dn_sd(pos + e.xxx * .002, k, kk, sp, ph));
+  vec3 L = normalize(R * vec3(-.5, .6, -.6));
+  float dif = max(dot(n, L), 0.), hl = max(dot(n, -rd), 0.);
+  float spec = pow(max(dot(reflect(-L, n), -rd), 0.), 30.);
+  // strands bright and glossy; each rung in two halves (a base pair)
+  float tone = m < .5 ? 1. : m < 1.5 ? .75 : .45;
+  return sat(.04 + (.55 * dif + .42 * hl) * tone + .4 * spec * step(m, .5));
+}`,
+  planeta: `
+float pl_ring(float rr, float an, float a, float t){
+  float r0 = .56, r1 = .66 + a * .36;
+  float x = (rr - r0) / (r1 - r0);
+  float band = smoothstep(0., .04, x) * smoothstep(1., .94, x);
+  float dens = .35 + .65 * vnoise(vec2(x * 36., 3.7));
+  dens *= 1. - .9 * exp(-(x - .62) * (x - .62) * 480.);
+  dens *= .82 + .18 * vnoise(vec2(an * 5. - t * .15, x * 6.));
+  return band * dens;
+}
+float P_planeta(vec2 p, float t, float a, float b){
+  mat3 R = rotXY(.12 + b * .75 + .04 * sin(t * .17), -.5 + t * .03);
+  vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(p, 1.7));
+  vec3 L = normalize(R * vec3(-.75, .35, -.45));
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + .1521;
+  float ts = h > 0. ? -bb - sqrt(h) : 1e3;
+  float col = 0.;
+  if (ts < 1e3){
+    vec3 ps = ro + rd * ts, n = ps / .39;
+    // cloud bands swirled by noise; the planet turns under them
+    float lon = atan(n.z, n.x) + t * .12;
+    float tex = .5 + .5 * sin(n.y * 15. + 2.6 * fbm(vec2(lon * 1.3, n.y * 4.)));
+    float dif = max(dot(n, L), 0.);
+    float sr = -ps.y / L.y;
+    if (sr > 0.){ vec3 q = ps + L * sr; dif *= 1. - .75 * pl_ring(length(q.xz), atan(q.z, q.x), a, t); }
+    col = .03 + dif * (.45 + .55 * tex) + .2 * pow(1. - max(dot(n, -rd), 0.), 2.) * dif;
+  } else {
+    col = .12 * exp(-(length(ro - rd * bb) - .39) * 22.);
+  }
+  float tr = -ro.y / rd.y;
+  if (tr > 0. && tr < ts){
+    vec3 q = ro + rd * tr;
+    float den = pl_ring(length(q.xz), atan(q.z, q.x), a, t);
+    if (den > 0.){
+      // the planet's shadow falls across the rings
+      float b2 = dot(q, L), h2 = b2 * b2 - dot(q, q) + .1521;
+      float lit = h2 > 0. && -b2 - sqrt(h2) > 0. ? .15 : 1.;
+      col = mix(col, (.35 + .6 * den) * lit, min(den * 1.3, .95));
+    }
+  }
+  return sat(col);
+}`,
+  voxeles: `
+float vx_h(vec2 c, float lv, float b){
+  vec2 q = c * (.05 + b * .12);
+  float v = vnoise(q) * .7 + vnoise(q * 2.7 + 5.3) * .3;
+  return floor(v * v * lv * 1.6) + step(.985, hash12(c)) * (2. + floor(hash12(c + 7.) * 3.));
+}
+float P_voxeles(vec2 p, float t, float a, float b){
+  float lv = 2. + floor(a * 7.);
+  vec3 ro = vec3(t * .35, lv + 1.5, t * 1.4);
+  vec3 rd = normalize(vec3(p, 1.1));
+  // look down (.45 rad), and sway a little from side to side
+  rd = vec3(rd.x, rd.y * .9004471 - rd.z * .4349655, rd.y * .4349655 + rd.z * .9004471);
+  float yw = .3 * sin(t * .11), cy = cos(yw), sy = sin(yw);
+  rd = vec3(rd.x * cy + rd.z * sy, rd.y, rd.z * cy - rd.x * sy);
+  vec2 cell = floor(ro.xz), sg = sign(rd.xz), dl = abs(1. / rd.xz);
+  vec2 tm = (sg * (cell - ro.xz) + sg * .5 + .5) * dl;
+  float tc = 0., face = 0., hh = -1.;
+  for (int i = 0; i < 72; i++){
+    float hc = vx_h(cell, lv, b);
+    float tn = min(tm.x, tm.y);
+    if (ro.y + rd.y * tc < hc){ hh = hc; break; }
+    if (ro.y + rd.y * tn < hc){ tc = (hc - ro.y) / rd.y; face = 0.; hh = hc; break; }
+    if (tm.x < tm.y){ tc = tm.x; tm.x += dl.x; cell.x += sg.x; face = 1.; }
+    else { tc = tm.y; tm.y += dl.y; cell.y += sg.y; face = 2.; }
+    if (tc > 60.) break;
+  }
+  if (hh < 0.) return .05 * exp(-max(rd.y, 0.) * 10.);
+  // three tones like a drawing: tops bright, one side mid, the other dark; outlines fade with distance
+  vec3 hp = ro + rd * tc;
+  float fade = exp(-tc * .07);
+  float lum;
+  if (face < .5){
+    vec2 f = fract(hp.xz);
+    float e = min(min(f.x, 1. - f.x), min(f.y, 1. - f.y));
+    lum = .95 - .45 * fade * (1. - smoothstep(.05, .12, e));
+  } else {
+    lum = face < 1.5 ? (sg.x > 0. ? .62 : .4) : .28;
+  }
+  lum *= .6 + .4 * sat(hh / (lv * 1.2));
+  return sat(lum * exp(-tc * .018));
+}`,
+  metabolas: `
+float mb_sd(vec3 p, vec3 C[5], float r, float k){
+  float d = 1e3;
+  for (int i = 0; i < 5; i++){
+    float s = length(p - C[i]) - r * (.8 + .25 * sin(float(i) * 1.7));
+    float hh = max(k - abs(d - s), 0.) / k;
+    d = min(d, s) - hh * hh * k * .25;
+  }
+  return d;
+}
+float P_metabolas(vec2 p, float t, float a, float b){
+  vec3 C[5];
+  for (int i = 0; i < 5; i++){
+    float fi = float(i);
+    C[i] = vec3(.42 * sin(t * (.41 + fi * .11) + fi * 2.1), .24 * cos(t * (.37 + fi * .09) + fi * 1.3), .28 * sin(t * (.29 + fi * .07) + fi * .7));
+  }
+  float r = .2 + a * .14, k = .12 + b * .36;
+  vec3 ro = vec3(0., 0., -3.), rd = normalize(vec3(p, 1.6));
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + 1.;
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = -bb - h, dmax = -bb + h;
+  bool hit = false; vec3 pos = vec3(0.);
+  for (int i = 0; i < 64; i++){
+    pos = ro + rd * d;
+    float s = mb_sd(pos, C, r, k);
+    if (s < .002){ hit = true; break; }
+    d += s; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  vec2 e = vec2(1., -1.);
+  vec3 n = normalize(e.xyy * mb_sd(pos + e.xyy * .002, C, r, k) + e.yyx * mb_sd(pos + e.yyx * .002, C, r, k)
+                   + e.yxy * mb_sd(pos + e.yxy * .002, C, r, k) + e.xxx * mb_sd(pos + e.xxx * .002, C, r, k));
+  // liquid metal: it mirrors a studio (bright ceiling, dark floor, a light band on the horizon, a softbox)
+  vec3 rf = reflect(rd, n);
+  float env = mix(.3, .55 + .35 * rf.y, smoothstep(-.2, .2, rf.y)) + .55 * exp(-abs(rf.y + .05) * 12.) + .35 * exp(-abs(rf.y - .5) * 18.);
+  float box = smoothstep(.72, .9, dot(rf, vec3(-.49, .64, -.59)));
+  float fres = .5 + .5 * pow(1. - max(dot(n, -rd), 0.), 3.);
+  float dif = max(dot(n, vec3(-.49, .64, -.59)), 0.);
+  return sat(.06 + .35 * dif + .7 * env * fres + .55 * box);
+}`,
+  engranajes: `
+float ge_gear(vec3 p, vec2 c, float R, float N, float ang, float S){
+  vec2 q = p.xy - c;
+  float r = length(q), an = atan(q.y, q.x) - ang;
+  float hg = 2.3 * R / N;
+  float tooth = clamp(cos(an * N) * 2.2, -1., 1.) * .5 + .5;
+  float d = (r - (R - hg * .5 + hg * tooth)) * .7;
+  d = max(d, .05 - r);
+  // round windows between the spokes
+  float sec = TAU / S;
+  float ar = mod(an, sec) - sec * .5;
+  float win = length(r * vec2(cos(ar), sin(ar)) - vec2(R * .55, 0.)) - R * (.13 + .48 / S);
+  d = max(d, -win);
+  vec2 w = vec2(d, abs(p.z) - .09);
+  return min(max(w.x, w.y), 0.) + length(max(w, 0.));
+}
+float P_engranajes(vec2 p, float t, float a, float b){
+  float NA = 10. + floor(a * 10.), NB = max(6., floor(NA * .55));
+  float RA = .55, RB = RA * NB / NA, S = 3. + floor(b * 3.999);
+  float D = RA + RB, sh = (RA - RB) * .5;
+  vec2 cA = vec2(-D * .5 + sh, 0.), cB = vec2(D * .5 + sh, 0.);
+  // meshed: B turns the other way, NA/NB times as fast, with a gap facing each tooth of A
+  float angA = t * .4, angB = -angA * NA / NB + PI - PI / NB;
+  mat3 R = rotXY(.38 + .08 * sin(t * .2), -.25 + .1 * sin(t * .13));
+  vec3 ro = R * vec3(0., 0., -3.), rd = R * normalize(vec3(p, 1.6));
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + 1.;
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = -bb - h, dmax = -bb + h;
+  bool hit = false; vec3 pos = vec3(0.);
+  for (int i = 0; i < 80; i++){
+    pos = ro + rd * d;
+    float s = min(ge_gear(pos, cA, RA, NA, angA, S), ge_gear(pos, cB, RB, NB, angB, S));
+    if (s < .0015){ hit = true; break; }
+    d += s * .8; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  vec2 e = vec2(1., -1.);
+  vec3 n = normalize(e.xyy * min(ge_gear(pos + e.xyy * .0015, cA, RA, NA, angA, S), ge_gear(pos + e.xyy * .0015, cB, RB, NB, angB, S))
+                   + e.yyx * min(ge_gear(pos + e.yyx * .0015, cA, RA, NA, angA, S), ge_gear(pos + e.yyx * .0015, cB, RB, NB, angB, S))
+                   + e.yxy * min(ge_gear(pos + e.yxy * .0015, cA, RA, NA, angA, S), ge_gear(pos + e.yxy * .0015, cB, RB, NB, angB, S))
+                   + e.xxx * min(ge_gear(pos + e.xxx * .0015, cA, RA, NA, angA, S), ge_gear(pos + e.xxx * .0015, cB, RB, NB, angB, S)));
+  // the faces catch the light, the flanks of the teeth and the windows stay dark; faint turning marks
+  float onA = step(ge_gear(pos, cA, RA, NA, angA, S), ge_gear(pos, cB, RB, NB, angB, S));
+  float rr = length(pos.xy - mix(cB, cA, onA));
+  float front = smoothstep(.6, .9, abs(n.z));
+  float tex = mix(.45, .9 + .1 * sin(rr * 90.), front);
+  vec3 L = normalize(R * vec3(-.5, .65, -.6));
+  float dif = max(dot(n, L), 0.), hl = max(dot(n, -rd), 0.);
+  float spec = pow(max(dot(reflect(-L, n), -rd), 0.), 18.);
+  return sat(.04 + (.58 * dif + .5 * hl) * tex + .3 * spec);
+}`,
+  cristales: `
+const vec3 CR_D[9] = vec3[9](vec3(.059964, .998201, .0), vec3(.619408, .751806, .226102), vec3(-.541688, .710914, .448527), vec3(-.25202, .777573, -.576079), vec3(.193155, .471328, .860547), vec3(-.811904, .523366, -.25865), vec3(.550397, .380925, -.74294), vec3(.378189, .913089, -.152452), vec3(.928233, .286715, .237017));
+const vec3 CR_U[9] = vec3[9](vec3(.996404, -.059856, -.059964), vec3(.687084, -.379801, -.619408), vec3(.797432, .265852, .541688), vec3(.959701, .124336, -.25202), vec3(.979947, -.048931, -.193155), vec3(.476274, .337602, -.811904), vec3(.826192, -.120291, .550397), vec3(.875893, -.29964, .378189), vec3(.303472, -.215146, -.928233));
+const vec3 CR_V[9] = vec3[9](vec3(-.059856, .003596, -.998201), vec3(-.379801, .539017, -.751806), vec3(.265852, .651095, -.710914), vec3(-.124336, -.616377, -.777573), vec3(-.048931, .880599, -.471328), vec3(-.337602, -.782376, -.523366), vec3(.120291, -.916748, -.380925), vec3(.29964, -.276559, -.913089), vec3(-.215146, .933545, -.286715));
+const float CR_L[9] = float[9](1.0, .78, .72, .76, .55, .53, .47, .66, .42);
+const float CR_R[9] = float[9](.13, .11, .105, .11, .09, .095, .085, .09, .08);
+float CR_id;
+float cr_sd(vec3 p, float n, float lk){
+  vec3 q = p - vec3(0., -.5, 0.);
+  // the rock they grow from
+  float d = (length(q * vec3(1., 1.6, 1.)) - .22) * .62;
+  CR_id = -1.;
+  for (int i = 0; i < 9; i++){
+    if (float(i) >= n) break;
+    // each one roots a little off the centre, towards where it leans
+    vec3 qi = q - vec3(CR_D[i].x, 0., CR_D[i].z) * .14;
+    float y = dot(qi, CR_D[i]);
+    vec2 w = abs(vec2(dot(qi, CR_U[i]), dot(qi, CR_V[i])));
+    float r = CR_R[i];
+    // a hexagonal prism with a six-sided point
+    float hx = max(w.x * .866025 + w.y * .5, w.y) - r;
+    float tip = (y - CR_L[i] * lk + (hx + r) * 1.4) * .58;
+    float c = max(max(hx, tip), -y);
+    if (c < d){ d = c; CR_id = float(i); }
+  }
+  return d;
+}
+float P_cristales(vec2 p, float t, float a, float b){
+  mat3 R = rotXY(-.18 + .05 * sin(t * .21), t * .22);
+  vec3 ro = R * vec3(0., 0., -3.) - vec3(0., .05, 0.), rd = R * normalize(vec3(p + vec2(0., .05), 1.9));
+  float n = 4. + floor(a * 5.999), lk = .65 + b * .5;
+  float bb = dot(ro, rd), h = bb * bb - dot(ro, ro) + .9025;
+  if (h < 0.) return 0.;
+  h = sqrt(h);
+  float d = -bb - h, dmax = -bb + h;
+  bool hit = false; vec3 pos = vec3(0.);
+  for (int i = 0; i < 72; i++){
+    pos = ro + rd * d + vec3(0., .05, 0.);
+    float s = cr_sd(pos, n, lk);
+    if (s < .0015){ hit = true; break; }
+    d += s * .8; if (d > dmax) break;
+  }
+  if (!hit) return 0.;
+  float id = CR_id;
+  vec2 e = vec2(1., -1.);
+  vec3 nn = normalize(e.xyy * cr_sd(pos + e.xyy * .0015, n, lk) + e.yyx * cr_sd(pos + e.yyx * .0015, n, lk)
+                    + e.yxy * cr_sd(pos + e.yxy * .0015, n, lk) + e.xxx * cr_sd(pos + e.xxx * .0015, n, lk));
+  vec3 L = normalize(R * vec3(-.45, .7, -.55));
+  float dif = max(dot(nn, L), 0.), hl = max(dot(nn, -rd), 0.);
+  float spec = pow(max(dot(reflect(-L, nn), -rd), 0.), 40.);
+  float fres = pow(1. - hl, 2.);
+  // every crystal its own clarity; the rock stays dull
+  float tone = id < 0. ? .4 : .7 + .3 * fract(id * .618);
+  return sat(.04 + (.5 * dif + .35 * hl) * tone + .45 * spec + .3 * fres * step(0., id));
+}`,
   julia: `
 float P_julia(vec2 p, float t, float a, float b){
   vec2 z = p * (2.6 - a * 1.8);

@@ -9,6 +9,9 @@ import { useView } from './views/state';
 import { ViewBar, ViewStage, useStageInsets, type Insets } from './views/Views';
 import { StorageNote } from './Keeping';
 import { RecordingChip } from './Recording';
+import { SlowNotice } from './Quality';
+import { useNoticeHost, useNoticesHeight } from './Notices';
+import { useSwap } from './motion/hooks';
 
 export function Stage() {
   // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
@@ -25,6 +28,12 @@ export function Stage() {
   const recipe = useRecipe();
   const view = useView() ?? 'libre';
   const ins = useStageInsets(wrap, top);
+  // the toasts go under the stage's bar, with its notes
+  const noticeHost = (el: HTMLDivElement | null) => { if (el && useNoticeHost.getState().el !== el) useNoticeHost.setState({ el }); };
+  useEffect(() => () => useNoticeHost.setState({ el: null }), []);
+  // a new destination view recomposes out of glyphs, over the room the views use (never over the bars)
+  const veil = useRef<HTMLDivElement>(null);
+  useSwap(veil, view, 'view');
 
   useEffect(() => {
     void mountStudioEngine(host);
@@ -48,15 +57,24 @@ export function Stage() {
       onDrop={onDrop}
     >
       <ViewStage view={view} host={host} ins={ins} />
+      <div className="vw-veil" ref={veil} aria-hidden="true" style={{ top: ins.top, bottom: ins.bottom }} />
       <StageFatal />
       <MediaPrompt ins={ins} />
+      {/* registration marks at the stage's corners: the loom's frame (decoration) */}
+      <i className="stage-marks" aria-hidden="true" />
       <div className="stage-top" ref={top}>
         <ViewBar view={view} />
-        <div className="stage-notes">
-          <RecordingChip />
-          <EngineNotes />
-          <StorageNote />
-          <MotionNote />
+        {/* the studio's one notification area (Notices.tsx): it hangs under this bar, wherever the bar ends,
+            and never changes the room the views use */}
+        <div className="notices">
+          <div className="stage-notes">
+            <RecordingChip />
+            <SlowNotice />
+            <EngineNotes />
+            <StorageNote />
+            <MotionNote />
+          </div>
+          <div className="notices-toasts" ref={noticeHost} />
         </div>
       </div>
     </div>
@@ -71,8 +89,9 @@ function describe(r: ReturnType<typeof useRecipe>): string {
 
 function MediaPrompt({ ins }: { ins: Insets }) {
   const source = useStudio(s => s.entries[s.cursor]?.recipe.source);
-  // in the room between the bar at the top of the stage and the seed line (or the sheet on phones)
-  const area = { top: ins.top, bottom: ins.bottom };
+  // in the room between the bar at the top of the stage (and the notes under it) and the seed line (or the sheet on phones)
+  const notes = useNoticesHeight();
+  const area = { top: ins.top + (notes ? notes + 6 : 0), bottom: ins.bottom };
   const media = useMedia();
   const need = (source === 'image' && !media.image) || (source === 'video' && !media.video) || (source === 'camera' && media.camera !== 'on');
   if (!need) return null;

@@ -7,7 +7,8 @@ export const GLOSSARY: Array<[string, string]> = [
   ['Receta', 'Un .json con todos los ajustes de la pieza. Exacta; de tu imagen o video guarda el nombre y las medidas, no el archivo.'],
   ['Colección (★)', 'Las piezas que guardas con ★, en este navegador, con su imagen o video. El historial nunca las descarta.'],
   ['Enlace', 'La receta dentro de una dirección web. Exacto, pero sin tu imagen o video ni su nombre: quien lo abre elige los suyos.'],
-  ['Proyecto exportado', 'Un .zip con la receta y la imagen o el video original. Exacto y completo: se abre igual en otro equipo.'],
+  ['Proyecto exportado', 'Un .zip con la receta y la imagen o el video original. Exacto y con su archivo: en otro equipo se abre con él (si ese navegador puede leer esa imagen o ese video).'],
+  ['Colección (.zip)', 'Todo lo que guardaste con ★, con sus imágenes y videos, en un solo archivo. Para tener una copia o llevarla a otro equipo; el historial no va.'],
   ['Sesión', 'Un .zip con todo tu historial y tu colección y, si quieres, sus imágenes y videos. Para tener una copia o cambiar de equipo.'],
 ];
 

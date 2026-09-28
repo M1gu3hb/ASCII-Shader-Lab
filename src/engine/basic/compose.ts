@@ -2,8 +2,9 @@
  * Compose pass on the CPU: turns the selected glyph grid into pixels, a port of BLUR_FS and COMPOSE_FS in
  * ../glsl/programs.ts. Glyph coverage comes from the same atlas the GPU samples (buildAtlas), so glyph
  * shapes are pixel-identical. Background, cell fills, glow, message plate, picture reveal, bloom, cell grid,
- * scanlines, vignette, flicker, CRT curvature, chromatic aberration and the dissolve transition follow
- * the shader. Film grain uses a fast random generator instead of the shader's hash (same amplitude).
+ * scanlines, vignette, flicker, CRT curvature and chromatic aberration follow the shader (transitions are
+ * drawn over the finished frame, see transition.ts). Film grain uses a fast random generator instead of
+ * the shader's hash (same amplitude).
  * Writes RGBA pixels into a Uint32 view of an ImageData buffer (little-endian byte order, which is what
  * every browser platform uses). Pure: no DOM.
  */
@@ -41,9 +42,6 @@ export interface ComposeFrame {
   /** Blurred grid for bloom (cols × rows × 3, 0..1). */
   bloom: Float32Array | null;
   realT: number;
-  /** Transition progress 0..1, or -1. */
-  trans: number;
-  prev: Uint32Array | null;
 }
 
 // int32 on purpose (no >>> 0): values above 2^31 would be boxed doubles; Uint32Array stores the same bits
@@ -243,7 +241,7 @@ export function shadePass(f: ComposeFrame, dst: Uint32Array) {
  *     the shaded pixel into a 10-bit-per-channel buffer (value × 4, so colours up to 4.0 survive until
  *     scanlines and vignette darken them);
  *  B. every output pixel gathers its shaded pixel (itself, or through the cached curvature map, plus the
- *     chromatic offsets) and applies scanlines, vignette, flicker, grain, the edge fade and the transition.
+ *     chromatic offsets) and applies scanlines, vignette, flicker, grain and the edge fade.
  * Sampling bloom / grid at the shaded pixel instead of the exact curved position moves them by less than
  * a pixel; the chromatic offset is rounded to whole pixels (exact without curvature).
  */
@@ -274,11 +272,11 @@ function curveMap(W: number, H: number, curve: number) {
 }
 
 /**
- * Effects that move pixels (CRT curvature, chromatic aberration, the dissolve transition) need the
- * per-pixel post passes below; everything else is drawn by overlays.ts on the canvas.
+ * Effects that move pixels (CRT curvature, chromatic aberration) need the per-pixel post passes below;
+ * everything else is drawn by overlays.ts on the canvas.
  */
 export function needsPixelPost(f: ComposeFrame): boolean {
-  return f.fx.curve > 0 || f.fx.chroma > 0 || f.trans >= 0;
+  return f.fx.curve > 0 || f.fx.chroma > 0;
 }
 
 let tenBuf = new Int32Array(0);
@@ -303,14 +301,13 @@ export function postPass(f: ComposeFrame, src: Uint32Array, dst: Uint32Array) {
   if (f.transparent) { passB(f, null, src, dst); return; }
   if (tenBuf.length !== f.W * f.H) tenBuf = new Int32Array(f.W * f.H);
   passA(f, src, tenBuf);
-  if (f.trans < 0) passBOpaque(f, tenBuf, dst);
-  else passB(f, tenBuf, src, dst);
+  passBOpaque(f, tenBuf, dst);
 }
 
 /**
- * B for opaque frames without a transition (CRT curvature and/or chromatic aberration): the same math as
- * passB in a lean loop, with the darkening factors (scanlines × vignette × flicker × edge fade) turned
- * into one integer per pixel of the row first.
+ * B for opaque frames (CRT curvature and/or chromatic aberration): the same math as passB in a lean loop,
+ * with the darkening factors (scanlines × vignette × flicker × edge fade) turned into one integer per pixel
+ * of the row first.
  */
 function passBOpaque(f: ComposeFrame, F: Int32Array, dst: Uint32Array) {
   const { W, H, cw, fx } = f;
@@ -432,11 +429,11 @@ function passA(f: ComposeFrame, src: Uint32Array, F: Int32Array) {
 }
 
 /**
- * B: gather + scanlines, vignette, flicker, grain, edge fade, transition. `F` holds 10-bit channels
- * (opaque frames); without it (transparent frames) pixels come straight from the shaded RGBA `src`.
+ * B: gather + scanlines, vignette, flicker, grain, edge fade. `F` holds 10-bit channels (opaque frames);
+ * without it (transparent frames) pixels come straight from the shaded RGBA `src`.
  */
 function passB(f: ComposeFrame, F: Int32Array | null, src: Uint32Array, dst: Uint32Array) {
-  const { W, H, cw, ch, cols, rows, fx, atlas } = f;
+  const { W, H, cw, fx } = f;
   const T = f.realT;
   const flick = fx.flicker > 0 ? 1 - fx.flicker * 0.12 * (0.5 + 0.5 * Math.sin(T * 53)) * hash12(Math.floor(T * 12), 3) : 1;
   // scanlines by row (gl_FragCoord.y counts from the bottom); vignette split into row and column terms
@@ -453,20 +450,6 @@ function passB(f: ComposeFrame, F: Int32Array | null, src: Uint32Array, dst: Uin
   const bg4R = Math.round(f.bg[0] * 1020), bg4G = Math.round(f.bg[1] * 1020), bg4B = Math.round(f.bg[2] * 1020);
   const grain4 = transparent ? 0 : Math.round(fx.grain * 0.16 * 1020);
   let sd = (Math.imul(Math.floor(T * 240) + 7, 0x9e3779b1) | 1) >>> 0;
-
-  // dissolve transition: per-cell threshold and random glyph
-  const trans = f.trans, prog = trans * 1.3 - 0.15, prev = f.prev;
-  let cellH: Float32Array | null = null, cellG: Uint16Array | null = null;
-  if (trans >= 0) {
-    cellH = new Float32Array(cols * rows); cellG = new Uint16Array(cols * rows);
-    const tt = Math.floor(T * 30), N = atlas.n;
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      cellH[r * cols + c] = hash12(c * 1.13, r * 1.13) * 0.3;
-      cellG[r * cols + c] = 1 + Math.floor(hash12(c + tt, r + tt) * Math.max(N - 1, 1));
-    }
-  }
-  const ar = f.accent[0] * 255, ag = f.accent[1] * 255, ab = f.accent[2] * 255;
-  const bgR = f.bg[0] * 255, bgG = f.bg[1] * 255, bgB = f.bg[2] * 255;
 
   for (let y = 0; y < H; y++) {
     const m0 = rowMul[y], vyy = vy[y];
@@ -506,21 +489,6 @@ function passB(f: ComposeFrame, F: Int32Array | null, src: Uint32Array, dst: Uin
         sd ^= sd << 13; sd ^= sd >>> 17; sd ^= sd << 5;
         const n = ((((sd & 0xffff) - 32768) * grain4) >> 16) * e >> 8;
         r += n; g += n; b += n;
-      }
-      if (trans >= 0) {
-        const sx = s < 0 ? x : s % W, sy = s < 0 ? y : (s / W) | 0;
-        const cx = (sx / cw) | 0, cy = (sy / ch) | 0;
-        const ci = (cy >= rows ? rows - 1 : cy) * cols + (cx >= cols ? cols - 1 : cx);
-        const h = cellH![ci] + ((sx + 0.5) / W) * 0.55 + ((sy + 0.5) / H) * 0.15;
-        if (h > prog + 0.07 && prev) { dst[o] = prev[o]; continue; }
-        if (h > prog) {
-          const gi = cellG![ci];
-          const ay = Math.floor(gi / atlas.cols) * ch + (sy - cy * ch);
-          const cv = ay < atlas.h ? atlas.cov[ay * atlas.w + (gi % atlas.cols) * cw + (sx - cx * cw)] / 255 : 0;
-          dst[o] = transparent ? pack(c8(ar), c8(ag), c8(ab), c8(cv * 255))
-            : pack(c8(bgR + (ar - bgR) * cv), c8(bgG + (ag - bgG) * cv), c8(bgB + (ab - bgB) * cv), 255);
-          continue;
-        }
       }
       r = (r + 2) >> 2; g = (g + 2) >> 2; b = (b + 2) >> 2;
       dst[o] = pack(r < 0 ? 0 : r > 255 ? 255 : r, g < 0 ? 0 : g > 255 ? 255 : g, b < 0 ? 0 : b > 255 ? 255 : b, a);

@@ -6,7 +6,8 @@ import type { Renderer } from '../engine/renderer';
 import { probeWebGL } from '../engine/support';
 import { useCaps } from './caps';
 import { attachEngine, pauseVideo, resumeVideo, stopCamera } from './media';
-import { currentEntry, currentRecipe, setStats, setThumb, useStudio } from './store';
+import { pickTransition, qualityFor, usePreview, type TransitionContext } from './preview';
+import { currentRecipe, setStats, useStudio } from './store';
 import { toast } from './toast';
 
 /**
@@ -17,7 +18,7 @@ import { toast } from './toast';
 let engine: Renderer | null = null;
 let host: HTMLElement | null = null;
 let unsub: (() => void) | null = null;
-let thumbT = 0;
+let unsubQ: (() => void) | null = null;
 let lostT = 0;
 let unwatch: (() => void) | null = null;
 /** Bumped by every mount and destroy: a mount still waiting for the basic engine's chunk knows it is stale. */
@@ -96,28 +97,78 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   useCaps.setState({ renderer: e.kind, gl: created.status, fatal: null, ...(o.force ? {} : { lost: false }) });
   if (e.kind === 'webgl2') watchContext(e.canvas);
   attachEngine(e);
+  // preview quality (TopBar): only how the stage draws, never the recipe
+  e.setQuality(qualityFor(usePreview.getState().quality, e.kind));
+  unsubQ = usePreview.subscribe((q, p) => { if (q.quality !== p.quality && engine === e) e.setQuality(qualityFor(q.quality, e.kind)); });
+  trackPointer(container);
   let prevSource = currentRecipe(s).source;
-  const follow = (r: Recipe, transition: boolean) => {
-    e.set(r, { transition });
+  // the canvas says while the engine prepares a change or runs a transition (data-busy): what it shows
+  // is not yet the current piece (tests wait on it before comparing the stage)
+  let busyRaf = 0;
+  const markBusy = () => {
+    cancelAnimationFrame(busyRaf);
+    const tick = () => {
+      const b = engine === e && e.busy;
+      e.canvas.toggleAttribute('data-busy', b);
+      if (b) busyRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  };
+  const follow = (r: Recipe, transition: ReturnType<typeof pickTransition>) => {
+    e.set(r, { transition: transition ?? false });
+    markBusy();
     if (r.source !== prevSource) {
       if (prevSource === 'camera') stopCamera();
       if (prevSource === 'video') pauseVideo();
       if (r.source === 'video') resumeVideo();
       prevSource = r.source;
     }
-    scheduleThumb();
   };
   // the history may have moved while the basic engine's chunk was loading
   const now = useStudio.getState();
-  if (currentRecipe(now) !== currentRecipe(s)) follow(currentRecipe(now), false);
+  if (currentRecipe(now) !== currentRecipe(s)) follow(currentRecipe(now), null);
   if (now.playing !== s.playing) { if (now.playing) e.play(); else e.pause(); }
   unsub = useStudio.subscribe((st, prev) => {
     if (engine !== e) return;
-    if (st.change.n !== prev.change.n || st.cursor !== prev.cursor) follow(currentRecipe(st), st.change.kind !== 'edit' && !st.reducedMotion);
+    if (st.change.n !== prev.change.n || st.cursor !== prev.cursor) {
+      const cause = st.change.kind === 'edit' || st.reducedMotion ? null : causeOf(st, prev);
+      follow(currentRecipe(st), cause ? pickTransition({ cause, renderer: e.kind, pointer: recentPointer() }) : null);
+    }
     if (st.playing !== prev.playing) { if (st.playing) e.play(); else e.pause(); }
   });
-  scheduleThumb();
 }
+
+type StudioState = ReturnType<typeof useStudio.getState>;
+
+/** What brought the new piece on stage, for the choice of its transition. */
+function causeOf(st: StudioState, prev: StudioState): TransitionContext['cause'] {
+  const e = st.entries[st.cursor];
+  if (st.change.kind === 'roll') return e?.kind === 'variación' ? 'vary' : 'roll';
+  if (st.change.kind === 'load') return e?.kind === 'espacio' ? 'space' : e?.kind === 'variación' ? 'vary' : 'open';
+  // a step through the history (or a space that kept the piece)
+  if (st.cursor === prev.cursor) return 'space';
+  if (st.cursor === prev.cursor - 1) return 'back';
+  if (st.cursor === prev.cursor + 1) return 'forward';
+  return st.cursor < prev.cursor ? 'back' : 'jump';
+}
+
+/** Where the pointer was over the stage, and when: an iris opens there if it was a moment ago. */
+let pointer: { x: number; y: number; t: number } | null = null;
+let untrack: (() => void) | null = null;
+function trackPointer(container: HTMLElement) {
+  untrack?.();
+  const move = (ev: PointerEvent) => {
+    const rc = container.getBoundingClientRect();
+    if (!rc.width || !rc.height) return;
+    pointer = { x: (ev.clientX - rc.left) / rc.width, y: (ev.clientY - rc.top) / rc.height, t: performance.now() };
+  };
+  const leave = () => { pointer = null; };
+  container.addEventListener('pointermove', move, { passive: true });
+  container.addEventListener('pointerleave', leave);
+  untrack = () => { container.removeEventListener('pointermove', move); container.removeEventListener('pointerleave', leave); };
+}
+const recentPointer = (): [number, number] | null =>
+  pointer && performance.now() - pointer.t < 4000 && pointer.x >= 0 && pointer.x <= 1 && pointer.y >= 0 && pointer.y <= 1 ? [pointer.x, pointer.y] : null;
 
 /**
  * A GPU reset takes the WebGL context away; the browser usually hands it back within a moment. If it
@@ -147,6 +198,8 @@ export function destroyStudioEngine() {
   clearTimeout(lostT);
   unwatch?.(); unwatch = null;
   unsub?.(); unsub = null;
+  unsubQ?.(); unsubQ = null;
+  untrack?.(); untrack = null;
   if (engine) engine.externalPulse = 0;
   attachEngine(null);
   engine?.destroy();
@@ -155,41 +208,12 @@ export function destroyStudioEngine() {
   host = null;
 }
 
-function scheduleThumb() {
-  clearTimeout(thumbT);
-  thumbT = window.setTimeout(() => {
-    const e = currentEntry();
-    if (!e || !engine) return;
-    const url = captureThumb(192, 120);
-    if (url) setThumb(e.id, url);
-  }, 1100);
-}
-
-export function captureThumb(w: number, h: number): string | null {
-  if (!engine) return null;
-  try {
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const ctx = c.getContext('2d')!;
-    engine.renderNow();
-    const W = engine.canvas.width, H = engine.canvas.height, a = w / h;
-    let sw = W, sh = W / a;
-    if (sh > H) { sh = H; sw = H * a; }
-    ctx.drawImage(engine.canvas, (W - sw) / 2, (H - sh) / 2, sw, sh, 0, 0, w, h);
-    const url = c.toDataURL('image/webp', 0.72);
-    return url.startsWith('data:image/webp') ? url : c.toDataURL('image/jpeg', 0.75);
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Shows a recipe on stage without touching the history (hold-to-compare: «ver original»);
  * null returns to the current piece. Any history change while it shows also returns to it.
+ * (History thumbnails are rendered apart from the stage, see thumbs.ts, so this never reaches them.)
  */
 export function previewRecipe(r: ReturnType<typeof currentRecipe> | null) {
   if (!engine) return;
   engine.set(r ?? currentRecipe(), { transition: false });
-  // a thumbnail taken while the original showed would label the edited piece with it: take it again
-  if (!r) scheduleThumb();
 }

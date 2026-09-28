@@ -5,7 +5,7 @@ import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type Sp
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import {
   HISTORY_LIMIT, HISTORY_WARN, allRecipes, entryBody, mediaIdsOf, mergeSession, normalizeEntry, normalizeFavorite, pruneHistory,
-  sameBody, thumbOf, uid, type Entry, type EntryKind, type Favorite,
+  recipeVersion, sameBody, thumbOf, uid, type Entry, type EntryKind, type Favorite,
 } from './history';
 import { idbKeys, idbRead, idbValues, idbWrite, isQuotaError } from './idb';
 import { gcMedia } from './mediaStore';
@@ -98,6 +98,11 @@ export const useStudio = create<State>(() => ({
 
 const set = useStudio.setState;
 const S = useStudio.getState;
+
+// the system setting can change while the studio is open: transitions and autoplay follow it
+if (typeof matchMedia === 'function') {
+  matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', ev => set(ev.matches ? { reducedMotion: true, playing: false } : { reducedMotion: false }));
+}
 
 /* ------------------------------------------------------------------ */
 /* Selectors                                                           */
@@ -289,10 +294,18 @@ function pushEntry(e: Omit<Entry, 'id' | 'created' | 'edited' | 'origin'> & { or
   return entry;
 }
 
-export function rollDice(seed?: string) {
+/** The latest results of the current space, oldest first: the dice make repeating them less likely. */
+function recentIn(s: State, n = 10): Recipe[] {
+  const out: Recipe[] = [];
+  for (let i = s.entries.length - 1; i >= 0 && out.length < n; i--) if (s.entries[i].space === s.space) out.push(s.entries[i].recipe);
+  return out.reverse();
+}
+
+/** A new result from the dice; `seed` (and its generator version `gen`) reproduces a given one. */
+export function rollDice(seed?: string, gen?: number) {
   const s = S();
   const base = currentRecipe(s);
-  const res = roll({ space: s.space, arch: s.arch ?? undefined, base, locks: s.locks, seen, seed });
+  const res = roll({ space: s.space, arch: s.arch ?? undefined, base, locks: s.locks, seen, seed, gen, recent: recentIn(s) });
   seen.add(res.fp);
   return pushEntry({ recipe: res.recipe, kind: 'azar', seed: res.seed, arch: res.recipe.meta.arch, space: s.space });
 }
@@ -378,14 +391,27 @@ export function restoreOrigin() {
   edit(r => Object.assign(r, cloneRecipe(e.origin)), 'restore');
 }
 
-export function setThumb(entryId: string, thumb: string) {
+/**
+ * Stores the thumbnail rendered from version `v` of an entry's recipe (thumbs.ts), only while the entry
+ * still has that recipe: a picture never lands on an entry that changed in the meantime. A favourite
+ * saved from that same recipe takes it too.
+ */
+export function setThumb(entryId: string, thumb: string, v: string): boolean {
   const s = S();
   const i = s.entries.findIndex(e => e.id === entryId);
-  if (i < 0 || (s.entries[i].thumb && mediaLink?.holdThumb(s.entries[i]))) return;
+  if (i < 0 || recipeVersion(s.entries[i].recipe) !== v) return false;
+  const e = s.entries[i];
   const entries = s.entries.slice();
-  entries[i] = { ...entries[i], thumb };
-  set({ entries });
-  persistSoon();
+  entries[i] = { ...e, thumb, thumbV: v };
+  const fav = e.favId ? s.favorites.find(f => f.id === e.favId) : undefined;
+  if (fav && fav.thumb !== thumb && recipeVersion(fav.recipe) === v) {
+    set({ entries, favorites: s.favorites.map(f => (f === fav ? { ...f, thumb } : f)) });
+    saveNow();
+  } else {
+    set({ entries });
+    persistSoon();
+  }
+  return true;
 }
 
 export function clearHistory() {
@@ -639,7 +665,11 @@ function setStorage(storage: State['storage']) {
  * `now`: a normal save, written only while this tab still owns the data. `leave`: the page is going
  * away. `claim`: this tab takes the data over (hydrate): writes its token and drops a v2 history.
  */
+/** A v2 history to delete: kept until a save that carries the deletion lands (a save made as the page is
+ * hidden can take the place of the load's one, and would otherwise leave it behind to be added again). */
+let dropV2Pending = false;
 async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Promise<void> {
+  if (dropV2) dropV2Pending = true;
   const s = S();
   if (!s.ready || paused) return;
   const at = edits;
@@ -661,13 +691,17 @@ async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Pr
   if (nSeen !== savedSeen) puts.push([K_SEEN, [...seen].slice(-6000)]);
   const claim = kind === 'claim' || !tokenStored;
   if (claim) puts.push([K_OWNER, token]);
-  if (dropV2) dels.push(K_HIST_V2);
+  const dropping = dropV2Pending;
+  if (dropping) dels.push(K_HIST_V2);
   if (!puts.length && !dels.length) { if (at === edits) guardUnload(false); return; }
   try {
     // one transaction: the records, the index that points to them and what nothing points to any more
     const r = await idbWrite(puts, dels, kind === 'now' && !claim ? { fence: [K_OWNER, token] } : { commit: kind === 'leave' });
     if (r === 'fenced') { lose(); return; }
+    // the page is being left: the save made then carries these changes too
+    if (r === 'superseded') return;
     if (claim) tokenStored = true;
+    if (dropping) dropV2Pending = false;
     saved = next;
     if (index) { savedIds = ids; savedCursor = s.cursor; }
     savedFavs = favs;

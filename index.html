@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- @head -->
 <style>html,body{background:#0c0b0a;margin:0}</style>
+<noscript><style>[data-noscript-show][hidden]{display:block!important}.sal-panel[hidden]{display:grid!important;margin-top:48px}</style></noscript>
 </head>
 <body>
 <a class="skip" href="#espacios">Saltar al contenido</a>
@@ -12,12 +13,13 @@
 <header class="nav" id="top">
   <a class="nav-brand" href="/" aria-label="Monotrama, inicio"><span class="logo"><!-- @mark --></span><span class="word">monotrama</span></a>
   <nav class="nav-links" aria-label="Secciones">
-    <a href="#espacios">Espacios</a>
-    <a href="#azar">Azar</a>
-    <a href="#exportar">Exportar</a>
-    <a href="#piezas">Piezas</a>
-    <a href="#guias">Guías</a>
+    <a href="#espacios"><span class="n" aria-hidden="true">01</span>Espacios</a>
+    <a href="#azar"><span class="n" aria-hidden="true">02</span>Azar</a>
+    <a href="#exportar"><span class="n" aria-hidden="true">03</span>Salidas</a>
+    <a href="#guias"><span class="n" aria-hidden="true">04</span>Guías</a>
+    <a href="#oficio"><span class="n" aria-hidden="true">05</span>Oficio</a>
   </nav>
+  <button class="nav-motion" type="button" data-motion-toggle hidden><span class="ic" aria-hidden="true">❚❚</span><span class="lb">Pausar</span><span class="vh"> las animaciones de la página</span></button>
   <a class="btn-cta small" href="/studio/">Abrir el estudio <span aria-hidden="true">→</span></a>
 </header>
 
@@ -25,128 +27,285 @@
   <section class="hero" aria-labelledby="hero-title">
     <canvas class="hero-canvas" aria-hidden="true"></canvas>
     <div class="hero-scrim" aria-hidden="true"></div>
-    <div class="hero-inner">
-      <p class="kicker"><span class="dot" aria-hidden="true"></span> Estudio de arte ASCII en tiempo real</p>
-      <h1 id="hero-title" class="hero-title"><span data-scramble>Teje</span> <em>luz</em><br><span data-scramble>con caracteres.</span></h1>
-      <p class="hero-sub">Un laboratorio para jugar durante horas con patrones, imágenes, cámara y tipografía hechos de letras. Cuando algo te guste, guárdalo y llévatelo a tu web, tu interfaz o tu terminal.</p>
-      <div class="hero-actions">
-        <a class="btn-cta" href="/studio/">Abrir el estudio <span aria-hidden="true">→</span></a>
-        <button class="btn-ghost" type="button" data-hero-roll><span class="dice" aria-hidden="true">⚄</span> Tirar el dado</button>
-      </div>
-      <p class="hero-seed" aria-live="polite"><span data-hero-seed>receta: Bermellón</span> · <a href="/studio/" data-hero-open>abrir esta pieza en el estudio</a></p>
-    </div>
-    <div class="ticker" aria-hidden="true"><div class="ticker-track">PNG 4K · SVG VECTORIAL · MP4 · WEBM · GIF · ANSI 256 · COLOR REAL · NODE · PYTHON · ASCIINEMA · HTML · WEB COMPONENT · REACT · RECETA JSON · ENLACE · PNG 4K · SVG VECTORIAL · MP4 · WEBM · GIF · ANSI 256 · COLOR REAL · NODE · PYTHON · ASCIINEMA · HTML · WEB COMPONENT · REACT · RECETA JSON · ENLACE ·</div></div>
-  </section>
-
-  <section class="sec dark" id="espacios" aria-labelledby="esp-title">
-    <div class="sec-head">
-      <p class="eyebrow">01 · Espacios</p>
-      <h2 id="esp-title" data-scramble-view>Seis talleres, un solo telar.</h2>
-      <p class="lead">Cada espacio afina el azar y los controles para un tipo de trabajo. Todos comparten el mismo motor, el mismo historial y la misma colección.</p>
-    </div>
-    <div class="bento">
-      <a class="tile t-wide" href="/studio/#space=fondos">
-        <div class="tile-art"><canvas data-demo="fondos" aria-hidden="true"></canvas>
-          <div class="tile-mock" aria-hidden="true"><b>Tu titular</b><i>Así se lee tu contenido encima.</i></div></div>
-        <div class="tile-txt"><h3>Fondos</h3><p>Fondos animados discretos y legibles, con vista de prueba bajo contenido real. Se exportan como HTML, Web Component o React.</p></div>
-      </a>
-      <a class="tile" href="/studio/#space=arte">
-        <div class="tile-art"><canvas data-demo="arte" aria-hidden="true"></canvas></div>
-        <div class="tile-txt"><h3>Arte</h3><p>Hasta cuatro capas, 45 patrones, sólidos 3D, fractales y efectos de pantalla.</p></div>
-      </a>
-      <a class="tile" href="/studio/#space=media">
-        <div class="tile-art"><canvas data-demo="media" aria-hidden="true"></canvas></div>
-        <div class="tile-txt"><h3>Imagen</h3><p>Tu foto, video o cámara en caracteres, con lupa y borrador que revela el original. Todo en tu navegador.</p></div>
-      </a>
-      <a class="tile" href="/studio/#space=tipo">
-        <div class="tile-art"><canvas data-demo="tipo" aria-hidden="true"></canvas></div>
-        <div class="tile-txt"><h3>Tipo</h3><p>Palabras rellenas de patrón, mensajes que se escriben, se borran y se descifran.</p></div>
-      </a>
-      <a class="tile" href="/studio/#space=terminal">
-        <div class="tile-art term"><div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>donut.c — 64×20</span></div><pre data-terminal aria-hidden="true"></pre></div>
-        <div class="tile-txt"><h3>Terminal</h3><p>80 columnas, ASCII puro. Texto real, ANSI y animaciones que corren en tu shell con Node o Python.</p></div>
-      </a>
-      <a class="tile" href="/studio/#space=componentes">
-        <div class="tile-art pieces">
-          <span class="pc-type" data-type aria-hidden="true"></span>
-          <span class="pc-row" aria-hidden="true"><span data-spin></span><span data-spin="barras"></span><span data-spin="trama"></span><span data-spin="rebote"></span></span>
+    <div class="hero-inner wrap">
+      <div class="hero-copy">
+        <p class="kicker"><span class="dot" aria-hidden="true"></span> Monotrama <span class="tag">Teje luz con caracteres</span></p>
+        <h1 id="hero-title" class="hero-title">Haz arte ASCII<br> que <em>se mueve.</em></h1>
+        <p class="hero-sub">Con tus fotos, video, texto o el azar. Explora sin configurar nada, guarda lo que te guste y llévalo a tu web, a un video o a tu terminal.</p>
+        <div class="hero-actions">
+          <a class="btn-cta" href="/studio/">Abrir el estudio <span aria-hidden="true">→</span></a>
+          <button class="btn-ghost" type="button" data-hero-roll><span class="dice" aria-hidden="true">⚄</span> Tirar el dado</button>
         </div>
-        <div class="tile-txt"><h3>Piezas</h3><p>Componentes listos: descifrar, máquina de escribir, imán, estela, halo, indicadores y rótulos.</p></div>
-      </a>
+      </div>
+      <aside class="hero-plate" aria-label="Pieza del fondo">
+        <p class="pl-h"><span>En el fondo</span><span data-hero-no>N.º 1</span></p>
+        <p class="pl-name" data-hero-name aria-hidden="true">Bermellón</p>
+        <p class="hero-seed" aria-live="polite"><span data-hero-seed>receta: Bermellón</span></p>
+        <p class="hero-open"><a href="/studio/" data-hero-open>abrir esta pieza en el estudio <span aria-hidden="true">→</span></a></p>
+      </aside>
+    </div>
+    <div class="hero-spec">
+      <p class="wrap"><b>Entra</b> <span>foto</span> · <span>video</span> · <span>cámara</span> · <span>texto</span> · <span>azar</span> <span class="arrow" aria-hidden="true">──→</span> <b>Sale</b> <span>PNG</span> · <span>SVG</span> · <span>video</span> · <span>GIF</span> · <span>texto ANSI</span> · <span>Node</span> · <span>Python</span> · <span>HTML</span> · <span>React</span> · <span>receta</span></p>
     </div>
   </section>
 
-  <section class="sec paper" id="azar" aria-labelledby="azar-title">
-    <div class="split">
+  <section class="sec telar" id="espacios" aria-labelledby="esp-title">
+    <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">02 · Azar con memoria</p>
-        <h2 id="azar-title" data-scramble-view>Tira diez veces. Vuelve a la cuarta.</h2>
-        <p class="lead">Cada resultado tiene una semilla legible — <code>faro-lunar-417</code> — y queda en tu historial. Retrocede, avanza, edítalo, guárdalo con ★. El dado dirige su suerte con trece estilos de arte, respeta lo que bloquees (forma, color, glifos…) y evita repetirte combinaciones que ya viste.</p>
-        <ul class="facts">
+        <p class="sec-rule"><span class="idx">01</span> Espacios <span class="ramp" aria-hidden="true"> .:-=+*#%@</span></p>
+        <h2 id="esp-title" data-resolve>Seis talleres, un solo <em>telar</em>.</h2>
+        <p class="lead">Cada espacio afina el azar y los controles para un tipo de trabajo. Todos comparten el mismo motor, el mismo historial y la misma colección. Elige uno y míralo en vivo.</p>
+      </div>
+      <div class="telar-grid" data-telar>
+        <div class="telar-list" role="tablist" aria-label="Espacios del estudio" aria-orientation="vertical">
+          <button class="t-tab" type="button" role="tab" id="t-fondos" aria-selected="true" aria-controls="telar-panel" data-space="fondos"><span class="n" aria-hidden="true">01</span><span class="name">Fondos</span><span class="mark" aria-hidden="true">→</span><span class="kind">un fondo animado para tu web</span></button>
+          <button class="t-tab" type="button" role="tab" id="t-arte" aria-selected="false" aria-controls="telar-panel" tabindex="-1" data-space="arte"><span class="n" aria-hidden="true">02</span><span class="name">Arte</span><span class="mark" aria-hidden="true">→</span><span class="kind">composiciones y objetos en 3D</span></button>
+          <button class="t-tab" type="button" role="tab" id="t-media" aria-selected="false" aria-controls="telar-panel" tabindex="-1" data-space="media"><span class="n" aria-hidden="true">03</span><span class="name">Imagen</span><span class="mark" aria-hidden="true">→</span><span class="kind">tu foto, video o cámara</span></button>
+          <button class="t-tab" type="button" role="tab" id="t-tipo" aria-selected="false" aria-controls="telar-panel" tabindex="-1" data-space="tipo"><span class="n" aria-hidden="true">04</span><span class="name">Tipo</span><span class="mark" aria-hidden="true">→</span><span class="kind">palabras hechas de patrón</span></button>
+          <button class="t-tab" type="button" role="tab" id="t-terminal" aria-selected="false" aria-controls="telar-panel" tabindex="-1" data-space="terminal"><span class="n" aria-hidden="true">05</span><span class="name">Terminal</span><span class="mark" aria-hidden="true">→</span><span class="kind">80 columnas para tu consola</span></button>
+          <button class="t-tab" type="button" role="tab" id="t-componentes" aria-selected="false" aria-controls="telar-panel" tabindex="-1" data-space="componentes"><span class="n" aria-hidden="true">06</span><span class="name">Piezas</span><span class="mark" aria-hidden="true">→</span><span class="kind">componentes de interfaz</span></button>
+        </div>
+        <div class="telar-panel" id="telar-panel" role="tabpanel" aria-labelledby="t-fondos">
+          <div class="stage" data-stage>
+            <img src="/ex/fondos-ascii-640.webp" width="640" height="400" alt="" loading="lazy" decoding="async" fetchpriority="low">
+            <canvas role="img" aria-label="Fondos: «Marea» en vivo, con un titular, un párrafo y un botón de ejemplo encima"></canvas>
+            <div class="stage-over" data-over="fondos"><div class="mock" aria-hidden="true"><b>Tu titular</b><i>Así se lee tu contenido encima del fondo.</i><span>Botón principal</span></div></div>
+            <div class="stage-over" data-over="terminal" hidden><div class="termbar" aria-hidden="true"><i></i><i></i><i></i><span data-term-title>donut.c — pieza.mjs</span></div><p class="termline" aria-hidden="true"><b>~ $</b> node pieza.mjs</p></div>
+            <div class="stage-over" data-over="componentes" hidden>
+              <div class="pieces" aria-hidden="true">
+                <div><span class="pc-lbl">Descifrar</span><span class="pc-big" data-pc-scramble>Teje luz</span></div>
+                <div><span class="pc-lbl">Máquina de escribir</span><span class="pc-type" data-pc-type>&gt; hola, mundo</span></div>
+                <div><span class="pc-lbl">Imán · pasa el cursor</span><span class="pc-big" data-pc-magnet>caracteres</span></div>
+                <div><span class="pc-lbl">Indicadores</span><span class="pc-row"><span data-spin>⠋</span><span data-spin="barras">▁</span><span data-spin="trama">░</span><span data-spin="rebote">[=   ]</span><span data-spin="orbita">◐</span></span></div>
+                <div><span class="pc-lbl">Barra de progreso</span><span class="pc-bar" data-pc-bar>██████████████░░░░░░░░  64%</span></div>
+              </div>
+            </div>
+            <p class="stage-hud" aria-hidden="true"><span data-hud-l>FONDOS · MAREA</span><span data-hud-r>en vivo · 1/3</span></p>
+          </div>
+          <div class="t-caps">
+            <div class="t-cap" data-cap="fondos"><p>Fondos animados y discretos que pruebas bajo un titular, un párrafo y un botón antes de copiarlos como HTML, Web Component o React.</p><a href="/studio/#space=fondos">Abrir Fondos en el estudio <span aria-hidden="true">→</span></a></div>
+            <div class="t-cap" data-cap="arte" hidden data-noscript-show><p>Hasta cuatro capas de 55 patrones, trece objetos en 3D, fractales y efectos de pantalla. Aquí, Saturno, Geoda y Nudo de neón.</p><a href="/studio/#space=arte">Abrir Arte en el estudio <span aria-hidden="true">→</span></a></div>
+            <div class="t-cap" data-cap="media" hidden data-noscript-show><p>Tu foto, video o cámara en caracteres, con lupa y borrador que revelan el original. Se procesa en tu navegador: nada se sube.</p><a href="/studio/#space=media">Abrir Imagen en el estudio <span aria-hidden="true">→</span></a></div>
+            <div class="t-cap" data-cap="tipo" hidden data-noscript-show><p>Palabras rellenas de patrón y mensajes que se escriben, se borran y se descifran, con acentos y eñes.</p><a href="/studio/#space=tipo">Abrir Tipo en el estudio <span aria-hidden="true">→</span></a></div>
+            <div class="t-cap" data-cap="terminal" hidden data-noscript-show><p>Rejillas de 80 columnas: texto, ANSI y animaciones que corren con Node o Python sin instalar nada.</p><a href="/studio/#space=terminal">Abrir Terminal en el estudio <span aria-hidden="true">→</span></a></div>
+            <div class="t-cap" data-cap="componentes" hidden data-noscript-show><p>Piezas de interfaz listas para copiar: descifrar, máquina de escribir, imán, estela, halo, indicadores y rótulos, sobre texto HTML real.</p><a href="/studio/#space=componentes">Abrir Piezas en el estudio <span aria-hidden="true">→</span></a></div>
+            <div class="t-more" data-more><span data-more-name>Ejemplo 1 de 3: Marea</span><button class="btn-line" type="button" data-more-btn>Otro ejemplo</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec paper azar" id="azar" aria-labelledby="azar-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="sec-rule"><span class="idx">02</span> Azar con memoria <span class="ramp" aria-hidden="true"> .:-=+*#%@</span></p>
+        <h2 id="azar-title" data-resolve>Tira sin saber nada.<br> Vuelve a la que te <em>gustó</em>.</h2>
+        <p class="lead">No hace falta saber de patrones ni de color: pulsa «Tirar» y el dado teje una pieza con su semilla legible. Sigue explorando; lo que te gustó sigue ahí, un paso atrás.</p>
+      </div>
+      <div class="azar-grid">
+        <div class="azar-demo" data-azar-demo>
+          <div class="azar-stage">
+            <img src="/ex/azar/glifo-organico-174.webp" width="480" height="300" alt="" loading="lazy" decoding="async">
+            <canvas data-azar role="img" aria-label="Resultado 3 de 3: semilla glifo-organico-174, estilo Orgánico"></canvas>
+          </div>
+          <div class="azar-bar">
+            <button class="btn-roll" type="button" data-azar-roll><span class="dice" aria-hidden="true">⚄</span> Tirar</button>
+            <button class="btn-step" type="button" data-azar-prev aria-label="Resultado anterior" disabled>←</button>
+            <p class="azar-count" data-azar-count aria-live="polite"><b>3</b> de 3</p>
+            <button class="btn-step" type="button" data-azar-next aria-label="Resultado siguiente" disabled>→</button>
+            <a class="azar-open" href="/studio/" data-azar-open>Abrir en el estudio <span aria-hidden="true">→</span></a>
+          </div>
+          <p class="azar-seed" data-azar-seed>semilla <b>glifo-organico-174</b> · Orgánico</p>
+          <ol class="azar-strip" data-azar-strip aria-label="Resultados de esta página">
+            <li data-seed="faro-cosmico-100"><span class="shot"><img src="/ex/azar/faro-cosmico-100.webp" width="480" height="300" alt="Resultado 1: faro-cosmico-100, Cósmico" loading="lazy" decoding="async"><span aria-hidden="true">1</span></span></li>
+            <li data-seed="telar-neon-211"><span class="shot"><img src="/ex/azar/telar-neon-211.webp" width="480" height="300" alt="Resultado 2: telar-neon-211, Neón" loading="lazy" decoding="async"><span aria-hidden="true">2</span></span></li>
+            <li data-seed="glifo-organico-174"><span class="shot" aria-current="true"><img src="/ex/azar/glifo-organico-174.webp" width="480" height="300" alt="Resultado 3: glifo-organico-174, Orgánico" loading="lazy" decoding="async"><span aria-hidden="true">3</span></span></li>
+          </ol>
+          <p class="azar-note">Esta muestra recuerda tus últimos 40 resultados mientras la página está abierta. En el estudio, tu historial guarda tus últimos 1000 resultados en este navegador.</p>
+        </div>
+        <ul class="facts azar-side" data-weave>
+          <li><b>Variedad amplia.</b> El dado trabaja con catorce estilos de arte, 55 patrones y 13 objetos en 3D, y evita repetirte lo que acabas de ver. No promete que una combinación no vuelva nunca.</li>
+          <li><b>Con memoria.</b> Retrocede y avanza por tu historial, edita un resultado o guárdalo con ★: el historial nunca descarta lo que guardas (borrar los datos del sitio, sí). Tirar desde uno viejo añade, no borra.</li>
           <li><b>Reproducible.</b> La misma semilla, en el mismo espacio y estilo, teje la misma pieza.</li>
-          <li><b>Con memoria.</b> Tu historial guarda tus últimos 1000 resultados en este navegador, y tirar desde uno viejo añade, no borra. Lo que guardas con ★ nunca se descarta, y puedes guardar la sesión entera en un archivo.</li>
-          <li><b>Compartible.</b> Un enlace lleva la receta completa; nada pasa por un servidor.</li>
+          <li><b>Compartible.</b> Un enlace lleva la receta completa y nada pasa por un servidor.</li>
         </ul>
       </div>
-      <div class="azar-demo">
-        <div class="azar-stage"><canvas data-azar aria-label="Pieza del historial seleccionada" role="img"></canvas></div>
-        <div class="azar-strip" role="list" aria-label="Historial de ejemplo" data-azar-strip></div>
-        <p class="azar-seed" data-azar-seed aria-live="polite">&nbsp;</p>
+      <div class="contact">
+        <p class="contact-h"><span>Hoja de contactos · una tirada por estilo</span><span>catorce resultados reales del dado, elegidos sin retocar. Pulsa uno para tejerlo arriba.</span></p>
+        <ol class="contact-grid" aria-label="Hoja de contactos del dado" data-weave>
+          <!-- @contacts -->
+        </ol>
       </div>
     </div>
   </section>
 
-  <section class="sec dark" id="exportar" aria-labelledby="exp-title">
-    <div class="sec-head">
-      <p class="eyebrow">03 · Sale del laboratorio</p>
-      <h2 id="exp-title" data-scramble-view>Lo que haces aquí, funciona allá.</h2>
-      <p class="lead">Cada formato se genera en tu navegador y se prueba contra lo que ves. Cuando algo no puede ser fiel — un bloom no es vector — te lo decimos y te damos la alternativa.</p>
+  <section class="sec salidas" id="exportar" aria-labelledby="exp-title">
+    <div class="wrap" data-salidas>
+      <div class="sec-head">
+        <p class="sec-rule"><span class="idx">03</span> Salidas <span class="ramp" aria-hidden="true"> .:-=+*#%@</span></p>
+        <h2 id="exp-title" data-resolve>Lo que haces aquí, funciona <em>allá</em>.</h2>
+        <p class="lead">Una misma pieza, «Saturno», llevada a cinco destinos. Cada archivo de abajo es real: lo generaron, en un navegador, las mismas funciones que usa «Exportar» en el estudio. Si algo no puede ser fiel, el estudio lo dice antes.</p>
+      </div>
+      <div class="sal-tabs" role="tablist" aria-label="Destinos">
+        <button class="sal-tab" type="button" role="tab" id="sal-t-imagen" aria-selected="true" aria-controls="sal-imagen"><span class="n" aria-hidden="true">A</span><span class="name">Imagen</span></button>
+        <button class="sal-tab" type="button" role="tab" id="sal-t-mov" aria-selected="false" aria-controls="sal-mov" tabindex="-1"><span class="n" aria-hidden="true">B</span><span class="name">Movimiento</span></button>
+        <button class="sal-tab" type="button" role="tab" id="sal-t-web" aria-selected="false" aria-controls="sal-web" tabindex="-1"><span class="n" aria-hidden="true">C</span><span class="name">Web</span></button>
+        <button class="sal-tab" type="button" role="tab" id="sal-t-term" aria-selected="false" aria-controls="sal-term" tabindex="-1"><span class="n" aria-hidden="true">D</span><span class="name">Terminal</span></button>
+        <button class="sal-tab" type="button" role="tab" id="sal-t-receta" aria-selected="false" aria-controls="sal-receta" tabindex="-1"><span class="n" aria-hidden="true">E</span><span class="name">Receta</span></button>
+      </div>
+
+      <div class="sal-panel" id="sal-imagen" role="tabpanel" aria-labelledby="sal-t-imagen" data-salida="imagen">
+        <figure class="sal-art">
+          <div class="sal-frame"><img src="/ex/salidas/monotrama-saturno.webp" width="1200" height="630" alt="«Saturno»: un planeta con anillos hecho de caracteres dorados, entre estrellas de glifos" loading="lazy" decoding="async"></div>
+          <figcaption>En la página ves una copia WebP más ligera; el archivo exportado es el PNG que se descarga al lado.</figcaption>
+        </figure>
+        <div class="sal-txt">
+          <h3>Una imagen, dibujada de nuevo al tamaño que pides.</h3>
+          <p>El PNG no es una captura ampliada: el motor vuelve a tejer la pieza a esa resolución. El SVG guarda el contorno de cada letra y se amplía sin perder nitidez.</p>
+          <dl class="spec">
+            <div><dt>Archivo</dt><dd>monotrama-saturno.png</dd></div>
+            <div><dt>Medidas</dt><dd>1200 × 630 px («1200×630 redes»)</dd></div>
+            <div><dt>Peso</dt><dd data-size="png"><!-- @salida:png --></dd></div>
+            <div><dt>Vector</dt><dd>monotrama-saturno.svg · <!-- @salida:svgsize --> · <span data-size="svg"><!-- @salida:svg --></span></dd></div>
+          </dl>
+          <p class="limit"><b>Límite:</b> el SVG deja fuera el resplandor, el bloom y la viñeta, que no existen como vector.</p>
+          <p class="sal-links"><a href="/ex/salidas/monotrama-saturno.png" download>Descargar el PNG</a><a href="/ex/salidas/monotrama-saturno.svg">Abrir el SVG</a></p>
+        </div>
+      </div>
+
+      <div class="sal-panel" id="sal-mov" role="tabpanel" aria-labelledby="sal-t-mov" data-salida="movimiento" hidden>
+        <figure class="sal-art">
+          <div class="sal-frame">
+            <video muted loop playsinline controls preload="none" width="1200" height="630" data-poster="/ex/salidas/monotrama-saturno.webp" aria-label="Video en bucle de «Saturno»: el planeta de caracteres gira despacio entre estrellas">
+              <source src="/ex/salidas/monotrama-saturno.mp4" type="video/mp4">
+              <source src="/ex/salidas/monotrama-saturno.webm" type="video/webm">
+            </video>
+            <button class="sal-play" type="button" data-play hidden>Reproducir</button>
+          </div>
+          <figcaption>El video exportado, sin retocar: <!-- @salida:secs --> s que terminan donde empiezan.</figcaption>
+        </figure>
+        <div class="sal-txt">
+          <h3>Un bucle hecho fotograma a fotograma.</h3>
+          <p>El estudio dibuja cada fotograma por separado, así que el video no pierde cuadros aunque tu equipo vaya lento. Con «Bucle perfecto», el final enlaza con el principio.</p>
+          <dl class="spec">
+            <div><dt>MP4</dt><dd>H.264 · 1200 × 630 · 24 fps · <!-- @salida:secs --> s · <span data-size="mp4"><!-- @salida:mp4 --></span></dd></div>
+            <div><dt>WebM</dt><dd>VP9 · el mismo clip · <span data-size="webm"><!-- @salida:webm --></span></dd></div>
+            <div><dt>GIF</dt><dd>también, hasta 25 fps y 128 colores</dd></div>
+          </dl>
+          <p class="limit"><b>Límite:</b> el MP4 sólo sale si tu navegador codifica H.264, y el estudio te lo dice antes. Los videos no llevan audio.</p>
+          <p class="sal-links"><a href="/ex/salidas/monotrama-saturno.mp4" download>Descargar el MP4</a><a href="/ex/salidas/monotrama-saturno.webm" download>Descargar el WebM</a></p>
+        </div>
+      </div>
+
+      <div class="sal-panel" id="sal-web" role="tabpanel" aria-labelledby="sal-t-web" data-salida="web" hidden>
+        <figure class="sal-art">
+          <div class="browser">
+            <div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>tu-web.com</span></div>
+            <div class="sal-frame"><iframe title="Página de ejemplo que usa el Web Component exportado" data-src="/ex/salidas/web/" src="about:blank" loading="lazy"></iframe></div>
+          </div>
+          <pre class="snip" tabindex="0" aria-label="Código para poner la pieza en tu web (receta abreviada)"><code><!-- @salida:usage --></code></pre>
+        </figure>
+        <div class="sal-txt">
+          <h3>Tu web, con la pieza viva.</h3>
+          <p>Lo de arriba no es un video: es una página de ejemplo que carga el Web Component exportado y dibuja «Saturno» en tu navegador. Pasa el cursor por encima.</p>
+          <dl class="spec">
+            <div><dt>Archivo</dt><dd>monotrama-field.js · <span data-size="wc"><!-- @salida:wc --></span></dd></div>
+            <div><dt>Incluye</dt><dd>el motor y sólo los patrones que usa la pieza</dd></div>
+            <div><dt>También</dt><dd>HTML para pegar y componente de React</dd></div>
+            <div><dt>Licencia</dt><dd>MIT-0: úsalo sin atribución</dd></div>
+          </dl>
+          <p class="limit"><b>Límite:</b> el motor usa WebGL 2; sin él, el código incluye un motor básico que dibuja lo mismo, más despacio. Si eliges el código ligero, sin WebGL 2 queda el color de fondo o el póster que indiques.</p>
+          <p class="limit" data-no-webgl hidden><b>Aquí mismo:</b> tu navegador no tiene WebGL 2 ahora, así que la página de ejemplo la dibuja el motor básico incluido, como la verían tus visitantes en tu caso.</p>
+          <p class="sal-links"><a href="/ex/salidas/web/">Abrir la página de ejemplo</a><a href="/ex/salidas/web/monotrama-field.js">Ver monotrama-field.js</a></p>
+        </div>
+      </div>
+
+      <div class="sal-panel" id="sal-term" role="tabpanel" aria-labelledby="sal-t-term" data-salida="terminal" hidden>
+        <figure class="sal-art">
+          <div class="tty">
+            <div class="termbar" aria-hidden="true"><i></i><i></i><i></i><span>terminal — 80×24</span></div>
+            <div class="tty-body">
+              <p class="tty-cmd" aria-hidden="true"><b>~ $</b> node monotrama-saturno.mjs</p>
+              <pre data-frames="/ex/salidas/monotrama-saturno.mjs" role="img" aria-label="Animación de texto en color: Saturno en caracteres, 80 columnas por 24 filas"><!-- @include:ex/salidas-terminal.txt --></pre>
+            </div>
+          </div>
+          <button class="btn-line sal-term-play" type="button" data-play hidden>Animar</button>
+          <figcaption>Los fotogramas salen del propio script: la página lo descarga y muestra lo que imprimiría tu terminal.</figcaption>
+        </figure>
+        <div class="sal-txt">
+          <h3>Una animación que corre en tu terminal.</h3>
+          <p>Un script de Node sin dependencias guarda los fotogramas y los imprime con color ANSI. Ctrl+C lo detiene y deja la terminal como estaba.</p>
+          <dl class="spec">
+            <div><dt>Archivo</dt><dd>monotrama-saturno.mjs · <span data-size="mjs"><!-- @salida:mjs --></span></dd></div>
+            <div><dt>Rejilla</dt><dd>80 × 24 · ANSI de 256 colores</dd></div>
+            <div><dt>Ritmo</dt><dd><!-- @salida:frames --> fotogramas a 12 fps</dd></div>
+            <div><dt>Necesita</dt><dd>Node 18 o posterior</dd></div>
+          </dl>
+          <p class="limit"><b>Límite:</b> reproduce fotogramas ya calculados, así que el archivo crece con la duración y el color. También hay script de Python, texto (.txt) y ANSI (.ans).</p>
+          <p class="sal-links"><a href="/ex/salidas/monotrama-saturno.mjs" download>Descargar el script</a></p>
+        </div>
+      </div>
+
+      <div class="sal-panel" id="sal-receta" role="tabpanel" aria-labelledby="sal-t-receta" data-salida="receta" hidden>
+        <div class="sal-art">
+          <dl class="carry">
+            <div><dt>Receta (.json)</dt><dd><span class="k">Lleva</span>todos los ajustes de la pieza</dd><dd class="no"><span class="k">¿Tu imagen o video?</span>No: sólo su tipo y medidas</dd><dd><span class="k">Sirve para</span>reabrirla tal cual o editarla a mano</dd></div>
+            <div><dt>Enlace</dt><dd><span class="k">Lleva</span>la receta comprimida tras el «#», que no llega a ningún servidor</dd><dd class="no"><span class="k">¿Tu imagen o video?</span>No, ni su nombre</dd><dd><span class="k">Sirve para</span>compartir piezas de patrones, texto o azar</dd></div>
+            <div><dt>Proyecto (.zip)</dt><dd><span class="k">Lleva</span>la receta, tu archivo original y un LEEME.txt</dd><dd class="yes"><span class="k">¿Tu imagen o video?</span>Sí</dd><dd><span class="k">Sirve para</span>llevar la pieza completa a otro equipo</dd></div>
+          </dl>
+          <pre class="json" tabindex="0" aria-label="Principio de la receta de «Saturno»"><code><!-- @salida:json --></code></pre>
+        </div>
+        <div class="sal-txt">
+          <h3>La pieza entera, en unas líneas de texto.</h3>
+          <p>Una receta describe la pieza completa: pesa unos pocos KB y el estudio vuelve a tejer lo mismo al abrirla. Guárdala, edítala o envíala.</p>
+          <dl class="spec">
+            <div><dt>Archivo</dt><dd>monotrama-saturno.monotrama.json · <span data-size="monotrama.json"><!-- @salida:monotrama.json --></span></dd></div>
+            <div><dt>Enlace</dt><dd><!-- @salida:linklen --> caracteres tras /studio/#r=</dd></div>
+          </dl>
+          <p class="limit"><b>Límite:</b> un enlace no lleva tu imagen ni tu video: quien lo abra verá el patrón hasta cargar uno suyo. Para enviarlos, exporta el proyecto (.zip).</p>
+          <p class="sal-links"><a href="<!-- @salida:link -->">Abrir «Saturno» en el estudio</a><a href="/ex/salidas/monotrama-saturno.monotrama.json" download>Descargar la receta</a></p>
+        </div>
+      </div>
     </div>
-    <div class="formats">
-      <article><h3>Imagen</h3><p><b>PNG</b> hasta 4K, re-renderizado (no escalado), con fondo transparente. <b>SVG</b> con el contorno real de cada letra.</p></article>
-      <article><h3>Movimiento</h3><p><b>MP4 y WebM</b> fotograma a fotograma: sin saltos aunque tu equipo sea modesto. Bucles perfectos. <b>GIF</b> para README.</p></article>
-      <article><h3>Web</h3><p><b>HTML</b> para pegar, <b>Web Component</b> y <b>React</b>. El motor incluido, sólo con los patrones que usas.</p></article>
-      <article><h3>Terminal</h3><p><b>TXT</b>, <b>ANSI</b> en 16, 256 o color real, scripts de <b>Node</b> y <b>Python</b> sin dependencias, y grabaciones <b>asciinema</b>.</p></article>
-      <article><h3>Receta</h3><p><b>JSON</b> editable, <b>enlace</b> que reabre la pieza exacta y <b>semilla</b>. Abre también tus ajustes del laboratorio original.</p></article>
-    </div>
-    <pre class="snippet" tabindex="0" aria-label="Ejemplo de código exportado"><code><span class="c">&lt;!-- Monotrama · fondo ASCII animado --&gt;</span>
-<span class="t">&lt;div</span> <span class="a">class</span>=<span class="s">"monotrama"</span> <span class="a">style</span>=<span class="s">"position:fixed;inset:0;z-index:-1"</span><span class="t">&gt;</span>
-  <span class="t">&lt;canvas&gt;&lt;/canvas&gt;</span>
-<span class="t">&lt;/div&gt;</span>
-<span class="t">&lt;script&gt;</span> <span class="c">/* motor incluido · ~70 KB */</span>
-  Monotrama.<span class="f">mount</span>(canvas, receta, { pointer: <span class="s">'window'</span> });
-<span class="t">&lt;/script&gt;</span></code></pre>
   </section>
 
-  <section class="sec paper" id="piezas" aria-labelledby="pie-title">
-    <div class="sec-head">
-      <p class="eyebrow">04 · Oficio</p>
-      <h2 id="pie-title" data-scramble-view>Hecho con cuidado.</h2>
-    </div>
-    <div class="principles">
-      <article><span class="glyph" aria-hidden="true">▣</span><h3>Tus archivos no salen de tu equipo</h3><p>Imágenes y videos se procesan en el navegador y, si caben, se guardan en él para reabrir tus piezas. No hay subida, ni cuentas, ni servidores de por medio.</p></article>
-      <article><span class="glyph" aria-hidden="true">◉</span><h3>La cámara, sólo si la pides</h3><p>El permiso se solicita cuando pulsas «Activar cámara», y se apaga al cambiar de fuente.</p></article>
-      <article><span class="glyph" aria-hidden="true">≋</span><h3>Movimiento con respeto</h3><p>Si tu sistema pide reducir movimiento, todo empieza en pausa y las transiciones son instantáneas.</p></article>
-      <article><span class="glyph" aria-hidden="true">▤</span><h3>Fluido en equipos modestos</h3><p>El motor ajusta la resolución si los fotogramas se retrasan y se detiene fuera de pantalla.</p></article>
-      <article><span class="glyph" aria-hidden="true">⌨</span><h3>Teclado y tacto</h3><p>Atajos para todo (R, ←, →, S, E), controles grandes y un panel que en el móvil se vuelve hoja inferior.</p></article>
-      <article><span class="glyph" aria-hidden="true">∞</span><h3>Guardado en tu navegador</h3><p>Historial (tus últimos 1000 resultados), colección y ajustes se quedan en este navegador; lo guardado con ★ nunca se descarta. Guarda la sesión en un archivo para tener una copia o llevarla a otro equipo.</p></article>
+  <section class="sec paper guias" id="guias" aria-labelledby="guias-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="sec-rule"><span class="idx">04</span> Guías <span class="ramp" aria-hidden="true"> .:-=+*#%@</span></p>
+        <h2 id="guias-title" data-resolve>Qué puedes hacer.</h2>
+        <p class="lead">Cinco trabajos concretos, paso a paso: qué sale, en qué formatos y con qué límites.</p>
+      </div>
+      <!-- @guides -->
     </div>
   </section>
 
-  <section class="sec dark" id="guias" aria-labelledby="guias-title">
-    <div class="sec-head">
-      <p class="eyebrow">05 · Guías</p>
-      <h2 id="guias-title" data-scramble-view>Qué puedes hacer.</h2>
-      <p class="lead">Cinco trabajos concretos, paso a paso: qué sale, en qué formatos y con qué límites.</p>
+  <section class="sec oficio" id="oficio" aria-labelledby="ofi-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="sec-rule"><span class="idx">05</span> Oficio <span class="ramp" aria-hidden="true"> .:-=+*#%@</span></p>
+        <h2 id="ofi-title" data-resolve>Hecho con cuidado.</h2>
+        <p class="lead">Lo que Monotrama hace con tus archivos, tu tiempo y tu equipo, y cómo comprobarlo tú.</p>
+      </div>
+      <dl class="ledger" data-weave>
+        <div><dt>Privacidad</dt><dd class="say">Tus fotos y videos se procesan en tu navegador. No hay subida, ni cuentas, ni servidores de por medio.</dd><dd class="check">Compruébalo: abre la pestaña Red de tu navegador y carga una foto en el estudio. La política de seguridad del sitio sólo permite conexiones a este mismo dominio.</dd></div>
+        <div><dt>Cámara y micrófono</dt><dd class="say">Se piden sólo cuando pulsas «Activar cámara» o el micrófono, y la cámara se apaga al cambiar de fuente.</dd><dd class="check">Tu navegador te pregunta antes de encenderlos, y su indicador te dice cuándo están activos.</dd></div>
+        <div><dt>Guardado</dt><dd class="say">Tu historial (los últimos 1000 resultados), tu colección y tus ajustes se quedan en este navegador. El historial nunca descarta lo que guardas con ★.</dd><dd class="check">El estudio muestra siempre el contador. Borrar los datos del sitio lo borra todo: para tener copia, «Guardar colección» (.zip, con sus imágenes y videos) o guarda la sesión en un archivo.</dd></div>
+        <div><dt>Movimiento</dt><dd class="say">Con «reducir movimiento» activado, el estudio empieza en pausa, las transiciones son instantáneas y esta página se queda quieta.</dd><dd class="check">Actívalo en los ajustes de accesibilidad de tu sistema y recarga. Aquí también puedes pausar todo desde la cabecera.</dd></div>
+        <div><dt>Rendimiento</dt><dd class="say">Los lienzos se detienen fuera de pantalla y bajan su resolución si los fotogramas se retrasan. Sin WebGL 2, un motor básico dibuja lo mismo, más lento.</dd><dd class="check">Medido en laboratorio, no en tu equipo: pruébalo en los equipos de tu público.</dd></div>
+        <div><dt>Accesibilidad</dt><dd class="say">Teclado para cada control, foco visible, textos alternativos y objetivos táctiles de 44 px en teléfonos, revisados con axe.</dd><dd class="check">Es trabajo continuo, no una certificación. Si algo te estorba, <a href="https://github.com/M1gu3hb/ASCII-Shader-Lab/issues">cuéntalo en el repositorio</a>.</dd></div>
+        <div><dt>Licencias</dt><dd class="say">Lo que creas es tuyo. El código que exportas es MIT-0, sin atribución; el del editor, MIT; las tipografías, OFL.</dd><dd class="check"><a href="/licencia/">Licencia y uso</a> lo explica, y el <a href="https://github.com/M1gu3hb/ASCII-Shader-Lab">código fuente</a> está abierto.</dd></div>
+      </dl>
     </div>
-    <!-- @guides -->
   </section>
 
   <section class="final" aria-labelledby="final-title">
     <canvas class="final-canvas" aria-hidden="true"></canvas>
-    <div class="final-inner">
-      <h2 id="final-title" data-scramble-view>Empieza a tejer.</h2>
+    <div class="final-inner wrap">
+      <h2 id="final-title" data-resolve>Empieza a tejer.</h2>
       <a class="btn-cta big" href="/studio/" data-halo>Abrir el estudio <span aria-hidden="true">→</span></a>
+      <p class="final-paths">O empieza por un camino guiado: <a href="/studio/?camino=foto">convertir una foto</a> · <a href="/studio/?camino=fondo">crear un fondo para tu web</a> · <a href="/studio/?camino=palabra">animar una palabra</a></p>
       <p class="final-note">Gratis, en tu navegador, sin registrarte.</p>
     </div>
   </section>

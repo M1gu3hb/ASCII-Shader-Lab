@@ -15,10 +15,11 @@ export function Sheet({ open, title, sub, onClose, children, wide }: { open: boo
   }, [open]);
   return (
     <dialog ref={ref} className={'sheet' + (wide ? ' wide' : '')}
-      // Escape: 'cancel' comes at once; 'close' may come late on a busy page, when another sheet may
-      // already be open: only a sheet that is still open closes itself
+      // Escape: 'cancel' comes at once; 'close' may come late on a busy page, when another sheet (or this
+      // one again, reopened at once) may already be open: only a sheet whose dialog really is closed now
+      // closes itself
       onCancel={() => { if (open) onClose(); }}
-      onClose={() => { if (open) onClose(); }}
+      onClose={() => { if (open && !ref.current?.open) onClose(); }}
       onClick={e => { if (e.target === ref.current) onClose(); }} onKeyDown={e => trapTab(e, ref.current)} aria-label={title}>
       {open && (
         <>
@@ -40,7 +41,8 @@ export function Sheet({ open, title, sub, onClose, children, wide }: { open: boo
 export function trapTab(e: React.KeyboardEvent, d: HTMLElement | null) {
   if (e.key !== 'Tab' || !d) return;
   const all = [...d.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-    .filter(el => !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0 && !el.closest('[inert]'));
+    // tabIndex -1: roving items of a tab row and scroll chevrons are not Tab stops
+    .filter(el => !(el as HTMLButtonElement).disabled && el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[inert]'));
   if (!all.length) return;
   const first = all[0], last = all[all.length - 1];
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }

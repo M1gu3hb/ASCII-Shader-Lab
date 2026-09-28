@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>glyphfx · QA</title>
+<style>
+  body{margin:0;background:#0c0b0a;color:#ede6da;font:15px/1.4 system-ui;display:grid;grid-template-columns:1fr 340px;min-height:100vh}
+  .stage{background:radial-gradient(circle at 40% 40%,#3a1c10,#0c0b0a);position:relative}
+  .panel{background:#151412;border-left:1px solid #2a2723;padding:70px 18px 18px;display:grid;gap:12px;align-content:start}
+  .tabs{display:flex;gap:6px}.tabs button{background:#1e1c19;color:inherit;border:1px solid #2a2723;border-radius:8px;padding:8px 10px}
+  .card{background:#1e1c19;border-radius:10px;padding:14px;min-height:120px}
+  .top{position:fixed;left:0;right:0;top:0;height:52px;border-bottom:1px solid #2a2723;background:#0c0b0a;display:flex;align-items:center;gap:12px;padding:0 14px;z-index:2}
+  .top button{background:none;color:inherit;border:1px solid #2a2723;border-radius:8px;padding:7px 10px}
+  .deck{position:fixed;left:calc(50% - 340px/2);transform:translateX(-50%);bottom:16px;width:min(600px,60vw);height:60px;background:#151412;border:1px solid #2a2723;border-radius:12px}
+</style></head>
+<body><div class="stage"><div class="top"><b>monotrama</b><button id="intro" type="button">Tejer (apertura)</button><label><input id="low" type="checkbox"> Movimiento bajo</label></div><div class="deck"></div></div>
+<div class="panel"><div class="tabs"><button id="a">Capas</button><button id="b">Color</button><button id="c">Glifos</button></div>
+<div class="card" id="body"><b>Capas</b><p>Hasta cuatro patrones que se mezclan.</p></div></div>
+<script type="module" src="./glyphfx.ts"></script></body></html>

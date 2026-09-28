@@ -72,6 +72,10 @@ export async function idbValues(prefix: string): Promise<unknown[]> {
   });
 }
 
+/** Readwrite transactions still on their way (a save made as the page is left supersedes them). */
+const inflight = new Set<IDBTransaction>();
+const superseded = new WeakSet<IDBTransaction>();
+
 export interface WriteOpts {
   /**
    * Written only while `key` holds `value` (or nothing): the tab that owns the studio data writes
@@ -80,21 +84,30 @@ export interface WriteOpts {
   fence?: [string, string];
   /**
    * Commit at once instead of when the requests come back: for saves made as the page is left
-   * (no fence then, since that needs a round trip first).
+   * (no fence then, since that needs a round trip first). Saves still on their way are aborted first
+   * (they resolve 'superseded'): a fenced one waits for this page to answer its fence check, and a page
+   * that is closing may never answer, so the save queued behind it would be lost with it. The caller
+   * includes their changes in this one.
    */
   commit?: boolean;
 }
 
 /**
  * Puts and deletes in one readwrite transaction. Resolves 'fenced' when the fence did not match
- * (nothing was written); rejects with the browser's error (QuotaExceededError when full).
+ * (nothing was written), 'superseded' when a save made as the page was left took its place;
+ * rejects with the browser's error (QuotaExceededError when full).
  */
-export function idbWrite(puts: Array<[string, unknown]>, dels: string[], o: WriteOpts = {}): Promise<'ok' | 'fenced'> {
-  const run = (d: IDBDatabase) => new Promise<'ok' | 'fenced'>((res, rej) => {
+export function idbWrite(puts: Array<[string, unknown]>, dels: string[], o: WriteOpts = {}): Promise<'ok' | 'fenced' | 'superseded'> {
+  const run = (d: IDBDatabase) => new Promise<'ok' | 'fenced' | 'superseded'>((res, rej) => {
     let tx: IDBTransaction;
     let fenced = false;
+    if (o.commit) {
+      for (const t of inflight) { superseded.add(t); try { t.abort(); } catch { /* already finishing */ } }
+      inflight.clear();
+    }
     try {
       tx = d.transaction(STORE, 'readwrite');
+      inflight.add(tx);
       const st = tx.objectStore(STORE);
       if (o.fence) {
         const [key, value] = o.fence;
@@ -108,11 +121,17 @@ export function idbWrite(puts: Array<[string, unknown]>, dels: string[], o: Writ
     } catch (err) {
       // e.g. DataCloneError from put(): nothing is written
       try { tx!.abort(); } catch { /* already finished */ }
+      if (tx!) inflight.delete(tx);
       rej(err);
       return;
     }
-    tx.oncomplete = () => res('ok');
-    tx.onabort = () => (fenced ? res('fenced') : rej(tx.error ?? aborted()));
+    tx.oncomplete = () => { inflight.delete(tx); res('ok'); };
+    tx.onabort = () => {
+      inflight.delete(tx);
+      if (fenced) res('fenced');
+      else if (superseded.has(tx)) res('superseded');
+      else rej(tx.error ?? aborted());
+    };
   });
   // synchronous start while the database is open (see above)
   return db ? run(db) : openDb().then(run);

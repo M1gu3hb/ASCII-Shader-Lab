@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { ARCHETYPES, archById } from '../random/archetypes';
+import { archById } from '../random/archetypes';
 import { LOCK_GROUPS, LOCK_NAMES, spaceById } from '../random/spaces';
 import { IDice, IExplore, ILock, INext, IPrev, IRedo, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH } from './icons';
 import {
@@ -12,11 +12,18 @@ import { setAuto, useLive } from './live';
 import { historyLabel, thumbBg } from './history';
 import { shareLink } from './ShareSheet';
 import { HoldCompare } from './guide/HoldCompare';
+import { Picker } from './ui/Picker';
+import { ScrollRow } from './ui/ScrollRow';
+import { useScramble } from './motion/hooks';
+import { archetypeOptions } from './ui/options';
+import { setStripRange, startThumbs, useThumbs } from './thumbs';
+import { setTransitionChoice, setTransitionPace, usePreview, type TransitionChoice } from './preview';
+import { TRANSITIONS } from '../engine/transitions';
+import './css/azar.css';
 
+/** A new roll (the Deck announces it, like every move through the history). */
 export function dice() {
-  const e = rollDice();
-  const s = useStudio.getState();
-  announce(`Resultado ${s.cursor + 1}: ${e.seed?.replace(/-/g, ' ') ?? ''}, estilo ${archById(e.arch)?.name ?? ''}`);
+  rollDice();
 }
 
 export async function favorite() {
@@ -57,36 +64,76 @@ export function Deck() {
   const limit = useStudio(s => s.histLimit);
   const counter = historyLabel(entries.length, limit);
 
+  // the current item comes into view by itself (ScrollRow reveals what is current)
+  useEffect(() => startThumbs(), []);
+  useStripRange(strip, entries.length);
+  // moving through the history (arrows, thumbnails, ← →) or a new roll of the dice: say where you are
+  const moved = useStudio(s => (s.change.kind === 'nav' || s.change.kind === 'roll' ? s.change.n : 0));
+  const was = useRef(cursor);
   useEffect(() => {
-    const el = strip.current?.querySelector('[aria-current="true"]') as HTMLElement | null;
-    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  }, [cursor, entries.length]);
+    if (!moved || was.current === cursor || !e) { was.current = cursor; return; }
+    was.current = cursor;
+    const arch = e.kind === 'azar' ? archById(e.arch)?.name : undefined;
+    announce(`Resultado ${cursor + 1} de ${entries.length}: ${e.label ?? e.seed?.replace(/-/g, ' ') ?? spaceById(e.space).name}${arch ? `, estilo ${arch}` : ''}${e.edited ? ', editado' : ''}`);
+  }, [moved]); // only when the history moves (entries and e are read at that moment)
 
   return (
     <>
       <SeedLine e={e} n={cursor + 1} total={entries.length} />
       <div className="deck" role="region" aria-label="Azar e historial">
         <div className="nav">
-          <button type="button" onClick={back} disabled={cursor <= 0} aria-label="Resultado anterior (←)" title="Anterior (←)"><IPrev /></button>
+          <button type="button" onClick={back} disabled={cursor <= 0} aria-label="Resultado anterior (←)" title={cursor <= 0 ? 'Estás en el primer resultado' : 'Anterior (←)'}><IPrev /></button>
           <button type="button" onClick={forward} aria-label={cursor < entries.length - 1 ? 'Resultado siguiente (→)' : 'Nuevo resultado al azar (→)'} title={cursor < entries.length - 1 ? 'Siguiente (→)' : 'Nuevo al azar (→)'}><INext /></button>
         </div>
-        <div className="strip" ref={strip} role="list" aria-label={counter} title={counter}>
+        {/* the history: a row that says when more waits on a side (and scrolls to what is current) */}
+        <ScrollRow role="list" className="strip" boxClassName="strip-box" listRef={strip} aria-label={counter} title={counter} more="">
           {entries.map((x, i) => <Thumb key={x.id} e={x} i={i} current={i === cursor} fav={!!x.favId && favIds.has(x.favId)} />)}
-        </div>
+        </ScrollRow>
         <div className="acts">
-          <button type="button" className="act" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
-          <button type="button" className="act hide-md" onClick={() => setUI({ sheet: 'explore' })} title="Explorar variaciones (X)" aria-label="Explorar variaciones"><IExplore /></button>
-          <button type="button" className="act fav" aria-pressed={fav} onClick={() => void favorite()} title="Guardar en la colección (S)" aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
+          <button type="button" className="act ghost" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
+          <button type="button" className="act ghost hide-md" onClick={() => setUI({ sheet: 'explore' })} title="Explorar ocho variaciones (X)" aria-label="Explorar variaciones"><IExplore /></button>
+          <button type="button" className="act ghost fav" aria-pressed={fav} onClick={() => void favorite()} title={fav ? 'En tu colección: guarda los cambios (S)' : 'Guardar en la colección (S)'} aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
           <button type="button" className="act dice" onClick={dice} title="Nueva combinación al azar (R)"><IDice /><span className="lbl">Azar</span><kbd>R</kbd></button>
-          <div style={{ position: 'relative' }}>
-            <button type="button" className="act" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
+          <div className="pop-anchor">
+            <button type="button" className="act ghost" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
             {pop && <DicePop onClose={() => setPop(false)} />}
           </div>
-          <button type="button" className="act mobile-only" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza"><ISlidersH /></button>
+          <button type="button" className="act ghost mobile-only" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza"><ISlidersH /></button>
         </div>
       </div>
     </>
   );
+}
+
+/**
+ * Tells the thumbnail pipeline which items the strip shows (they are rendered first). Items have one
+ * width, so the range comes from the scroll position; measured again on scroll, resize and new entries.
+ */
+function useStripRange(strip: React.RefObject<HTMLDivElement | null>, count: number) {
+  useEffect(() => {
+    const el = strip.current;
+    if (!el) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const first = el.firstElementChild as HTMLElement | null;
+      if (!first) { setStripRange(0, -1); return; }
+      const next = first.nextElementSibling as HTMLElement | null;
+      const pitch = next ? next.offsetLeft - first.offsetLeft : first.offsetWidth + 5;
+      if (pitch <= 0) return;
+      const from = Math.max(0, Math.floor((el.scrollLeft - first.offsetLeft) / pitch));
+      const to = Math.min(count - 1, Math.ceil((el.scrollLeft + el.clientWidth - first.offsetLeft) / pitch));
+      setStripRange(from, to);
+    };
+    const soon = () => { if (!raf) raf = requestAnimationFrame(measure); };
+    measure();
+    el.addEventListener('scroll', soon, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
+    ro?.observe(el);
+    // smooth scrolling to the current item ends a moment later
+    const t = setTimeout(soon, 450);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); el.removeEventListener('scroll', soon); ro?.disconnect(); };
+  }, [strip, count]);
 }
 
 /** One observer per strip: which thumbnails are within a few widths of its visible part. */
@@ -116,41 +163,51 @@ function watchNear(el: Element, onNear: () => void): () => void {
  * setting a thousand of them at load took most of a second on a phone-speed CPU.
  */
 const Thumb = memo(function Thumb({ e, i, current, fav }: { e: Entry; i: number; current: boolean; fav: boolean }) {
-  const label = `${i + 1}. ${e.label ?? e.seed?.replace(/-/g, ' ') ?? e.kind}${e.edited ? ', editado' : ''}${fav ? ', en la colección' : ''}`;
+  const preparing = useThumbs(s => !!s.preparing[e.id]);
+  const standIn = useThumbs(s => s.fallback[e.id]);
+  const label = `${i + 1}. ${e.label ?? e.seed?.replace(/-/g, ' ') ?? e.kind}${e.edited ? ', editado' : ''}${fav ? ', en la colección' : ''}${preparing ? ', preparando la miniatura' : ''}`;
   const ref = useRef<HTMLButtonElement>(null);
   const [near, setNear] = useState(false);
   useEffect(() => (near || !ref.current ? undefined : watchNear(ref.current, () => setNear(true))), [near]);
+  const pic = e.thumb ?? standIn;
+  // the list item wraps the button, so a screen reader hears both «3 de 17» and «botón»
   return (
-    <button
-      ref={ref} type="button" role="listitem" className="thumb" aria-current={current} aria-label={label} title={label}
-      style={near && e.thumb ? thumbBg(e.thumb) : undefined}
-      onClick={() => go(i)}
-    >
-      <span className="n">{i + 1}</span>
-      {fav && <span className="star">★</span>}
-      {e.edited && <span className="dot" />}
-    </button>
+    <div role="listitem" className="thumb-li">
+      <button
+        ref={ref} type="button" className="thumb" aria-current={current} aria-label={label} title={label}
+        data-prep={preparing || undefined} data-standin={!e.thumb && !!standIn ? true : undefined}
+        style={near && pic ? thumbBg(pic) : undefined}
+        onClick={() => go(i)}
+      >
+        <span className="n">{i + 1}</span>
+        {fav && <span className="star">★</span>}
+        {e.edited && <span className="dot" />}
+        {preparing && <span className="prep" aria-hidden="true" />}
+      </button>
+    </div>
   );
 });
 
 function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
   useStudio(s => s.undoTick);
+  const arch = e ? archById(e.arch)?.name : undefined;
+  const title = !e ? '' : e.seed ? e.seed : e.label ?? spaceById(e.space).name;
+  // a new result's name resolves out of glyphs (its real text is in place all along)
+  const name = useScramble<HTMLElement>(e ? e.id + '\u0000' + title : null, { duration: 320 });
   if (!e) return null;
-  const arch = archById(e.arch)?.name;
-  const title = e.seed ? e.seed : e.label ?? spaceById(e.space).name;
   return (
     <div className="seedline" role="status" aria-live="off">
       {/* one pill on wide screens; on phones, what it is (with undo / redo) and then its actions */}
       <span className="seed-info">
         <span>N.º <b>{n}</b>/{total}</span>
         <span className="sep">·</span>
-        <b className="ell" title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
+        <b className="ell" ref={name} title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
         {arch && <><span className="sep arch">·</span><span className="arch">{arch}</span></>}
         {e.edited && <><span className="sep">·</span><span>editado</span></>}
       </span>
       <span className="seed-hist">
-        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
-        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
+        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title={canUndo() ? 'Deshacer (Ctrl+Z)' : 'Nada que deshacer en este resultado'}><IUndo width={13} height={13} /></button>
+        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title={canRedo() ? 'Rehacer (Ctrl+Mayús+Z)' : 'Nada que rehacer'}><IRedo width={13} height={13} /></button>
       </span>
       <span className="seed-acts">
         {e.edited && <HoldCompare origin={e.origin} />}
@@ -187,15 +244,9 @@ function DicePop({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </div>
-      <h3>Estilo del azar</h3>
-      <div className="ctl">
-        <select aria-label="Estilo del azar" value={arch ?? ''} onChange={e => setArch(e.target.value || null)} style={{ gridColumn: '1 / -1' }}>
-          <option value="">Cualquiera (según el espacio)</option>
-          {ARCHETYPES.filter(a => pool.includes(a.id)).map(a => <option key={a.id} value={a.id}>{a.name} — {a.blurb}</option>)}
-          <optgroup label="Otros estilos">
-            {ARCHETYPES.filter(a => !pool.includes(a.id)).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </optgroup>
-        </select>
+      <h3 id="dice-arch-l">Estilo del azar</h3>
+      <div className="ctl cx">
+        <Picker value={arch ?? ''} label="Estilo del azar" labelId="dice-arch-l" minWidth={280} options={archetypeOptions(pool)} onChange={v => setArch(v || null)} />
       </div>
       <h3>Variar</h3>
       <div className="ctl">
@@ -204,6 +255,7 @@ function DicePop({ onClose }: { onClose: () => void }) {
         <input type="range" min={0.05} max={1} step={0.01} value={amount} onChange={e => setAmount(parseFloat(e.target.value))} style={{ '--p': ((amount - 0.05) / 0.95) * 100 + '%' } as React.CSSProperties} aria-label="Intensidad de la variación" />
       </div>
       <button type="button" className="btn" onClick={() => { onClose(); setUI({ sheet: 'explore' }); }}><IExplore width={16} /> Explorar ocho variaciones</button>
+      <TransitionPick />
       <h3>Modo exposición</h3>
       <div className="seg" role="group" aria-label="Tirar solo cada" style={{ marginBottom: 8 }}>
         {[0, 5, 10, 20, 40].map(n => <button key={n} type="button" aria-pressed={auto === n} onClick={() => setAuto(n)}>{n ? n + ' s' : 'No'}</button>)}
@@ -211,5 +263,37 @@ function DicePop({ onClose }: { onClose: () => void }) {
       <p className="note">El dado tira solo. Pulsa <b>H</b> para ocultar la interfaz y dejar la pieza a pantalla completa.</p>
       <p className="note" style={{ margin: 0 }}>Cada resultado tiene una semilla: la misma semilla, en el mismo espacio y estilo, repite exactamente la pieza. El dado evita combinaciones que ya viste.</p>
     </div>
+  );
+}
+
+const TRANSITION_CHOICES: Array<{ id: TransitionChoice; name: string; blurb: string }> = [
+  { id: 'auto', name: 'Auto', blurb: 'cambia según lo que pase: el dado, el historial, un espacio nuevo' },
+  ...TRANSITIONS.map(t => ({ id: t.id as TransitionChoice, name: t.name, blurb: t.blurb })),
+  { id: 'ninguna', name: 'Ninguna', blurb: 'la pieza nueva aparece sin transición' },
+];
+
+/** How one piece gives way to the next on stage (a preview matter: nothing of it goes into the recipe). */
+function TransitionPick() {
+  const choice = usePreview(s => s.transition);
+  const pace = usePreview(s => s.pace);
+  const reduced = useStudio(s => s.reducedMotion);
+  const cur = TRANSITION_CHOICES.find(c => c.id === choice) ?? TRANSITION_CHOICES[0];
+  return (
+    <>
+      <h3 id="tr-h">Transición</h3>
+      <div className="seg tr-seg" role="group" aria-labelledby="tr-h">
+        {TRANSITION_CHOICES.map(c => (
+          <button key={c.id} type="button" aria-pressed={choice === c.id} title={c.blurb} onClick={() => setTransitionChoice(c.id)}>{c.name}</button>
+        ))}
+      </div>
+      <div className="seg tr-pace" role="group" aria-label="Duración de la transición">
+        {(['corta', 'normal'] as const).map(p => (
+          <button key={p} type="button" aria-pressed={pace === p} disabled={choice === 'ninguna'} onClick={() => setTransitionPace(p)}>{p === 'corta' ? 'Corta' : 'Normal'}</button>
+        ))}
+      </div>
+      <p className="note tr-note" aria-live="polite">
+        {reduced ? 'Tu sistema pide menos movimiento: las piezas cambian sin transición.' : `${cur.name}: ${cur.blurb}.`}
+      </p>
+    </>
   );
 }

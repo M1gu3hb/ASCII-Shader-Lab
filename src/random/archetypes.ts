@@ -44,7 +44,7 @@ export interface Archetype {
 export const ARCHETYPES: Archetype[] = [
   {
     id: 'minimal', name: 'Minimal', blurb: 'Pocos caracteres, movimiento lento, mucho aire.',
-    patterns: { nube: 3, ondas: 1.5, degradado: 1, franjas: 0.8, interferencia: 1, crestas: 1, aurora: 1, trama: 0.8, marmol: 1 },
+    patterns: { nube: 1.2, ondas: 1.3, degradado: 1.1, franjas: 0.8, interferencia: 1, crestas: 1, aurora: 1, trama: 0.8, marmol: 1, moire: 0.5, esfera: 0.4, planeta: 0.3 },
     layers: [1, 2], blends: { multiply: 2, screen: 1, overlay: 1, normal: 0.6 },
     palettes: { mono: 3, gris: 2, curado: 1.2, papel: 1.4, analogo: 0.8 },
     charsets: { minimo: 3, suave: 2, puntos: 1.5, clasico: 1.2, lineas: 0.6, geometria: 0.6 },
@@ -56,7 +56,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'neon', name: 'Neón', blurb: 'Colores saturados que brillan sobre negro.',
-    patterns: { plasma: 1.5, tunel: 1.2, espiral: 1, anillos: 1, interferencia: 1, lissajous: 1, rejilla: 0.8, hiper: 1, rayos: 0.8, lava: 1, forma: 0.6 },
+    patterns: { plasma: 1.3, tunel: 1.1, espiral: 1, anillos: 1, interferencia: 1, lissajous: 1, rejilla: 0.8, hiper: 1, rayos: 0.8, lava: 1, forma: 0.6, nudo: 0.5, adn: 0.5, metabolas: 0.4 },
     layers: [1, 2], blends: { screen: 2, add: 1.5, difference: 1, multiply: 1 },
     palettes: { neon: 3, curado: 1.5, cosmico: 1, duotono: 1 },
     charsets: { clasico: 1, detallado: 1, simbolos: 1, puntos: 1, estrellas: 0.8, braille: 0.8, hex: 0.6 },
@@ -68,7 +68,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'organico', name: 'Orgánico', blurb: 'Materia viva: nubes, mármol, cáusticas, lava.',
-    patterns: { nube: 2, marmol: 2, crestas: 1.5, fuego: 1, aurora: 1.2, causticas: 1.5, lava: 1, celulas: 1.2, grietas: 1 },
+    patterns: { nube: 1.3, marmol: 1.4, crestas: 1.3, fuego: 1, aurora: 1.1, causticas: 1.3, lava: 1, celulas: 1.1, grietas: 1, giroide: 0.5, metabolas: 0.4 },
     overlays: { celulas: 1, grietas: 1, ondas: 1, nube: 1 },
     layers: [1, 3], blends: { multiply: 2, overlay: 1.5, screen: 1, lighten: 0.8, difference: 0.5 },
     palettes: { tierra: 2, curado: 2, analogo: 2, hielo: 1, fuego: 0.8, mono: 0.8 },
@@ -81,7 +81,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'geometrico', name: 'Geométrico', blurb: 'Retículas, laberintos, panales y figuras.',
-    patterns: { anillos: 1.2, cuadros: 1.2, rayos: 0.8, tablero: 1, truchet: 1.5, hex: 1.3, trama: 1.3, rombos: 1, franjas: 0.8, caleido: 1, forma: 1 },
+    patterns: { anillos: 1.1, cuadros: 1.1, rayos: 0.8, tablero: 1, truchet: 1.3, hex: 1.2, trama: 1.1, rombos: 1, franjas: 0.8, caleido: 1, forma: 1, poliedro: 0.5, voxeles: 0.4, engranajes: 0.4 },
     layers: [1, 2], blends: { multiply: 1.5, difference: 1.5, screen: 1, mask: 1, overlay: 0.8 },
     palettes: { duotono: 2, curado: 1.5, mono: 1, riso: 1, papel: 0.8 },
     charsets: { clasico: 1.5, cajas: 1.2, bloques: 1, geometria: 1.2, simbolos: 1, lineas: 0.8, medios: 0.8 },
@@ -93,7 +93,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'glitch', name: 'Glitch', blurb: 'Señal corrupta, saltos, estática y caos.',
-    patterns: { glitch: 2, ruido: 1, lluvia: 1.2, ecualizador: 1, franjas: 0.8, tablero: 0.6, plasma: 0.8, interferencia: 0.6 },
+    patterns: { glitch: 1.6, ruido: 1, lluvia: 1.2, ecualizador: 1, franjas: 0.8, tablero: 0.6, plasma: 0.8, interferencia: 0.6, cubo: 0.3, poliedro: 0.3 },
     overlays: { ruido: 1, glitch: 1, lluvia: 0.8 },
     layers: [1, 3], blends: { difference: 2, add: 1, screen: 1, subtract: 0.8 },
     palettes: { neon: 1.5, curado: 1, duotono: 1, fosforo: 0.8, riso: 0.5 },
@@ -106,7 +106,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'retro', name: 'Terminal retro', blurb: 'Fósforo, tubo de rayos catódicos y 80 columnas.',
-    patterns: { lluvia: 1.2, nube: 1, plasma: 1, horizonte: 1, radar: 1.2, ecualizador: 1, rejilla: 0.8, dona: 1.2, cubo: 1, esfera: 0.8, tunel: 0.7 },
+    patterns: { lluvia: 1.2, nube: 0.8, plasma: 0.9, horizonte: 1, radar: 1.2, ecualizador: 1, rejilla: 0.8, dona: 0.6, cubo: 0.4, esfera: 0.3, tunel: 0.7, voxeles: 0.6, poliedro: 0.5, planeta: 0.4, engranajes: 0.3 },
     layers: [1, 2], blends: { screen: 1.5, multiply: 1, add: 1 },
     palettes: { fosforo: 5, curado: 0.6 },
     charsets: { clasico: 2, detallado: 2, binario: 1, hex: 0.8, letras: 0.8, simbolos: 0.8 },
@@ -118,7 +118,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'cosmico', name: 'Cósmico', blurb: 'Túneles, galaxias, polvo de estrellas.',
-    patterns: { estrellas: 1.5, hiper: 1.5, galaxia: 1.5, tunel: 1.2, espiral: 1, nube: 0.8, julia: 0.8, aurora: 0.8 },
+    patterns: { estrellas: 1.4, hiper: 1.4, galaxia: 1.4, tunel: 1.1, espiral: 1, nube: 0.7, julia: 0.8, aurora: 0.8, planeta: 0.9 },
     overlays: { estrellas: 2, nube: 1 },
     layers: [1, 3], blends: { screen: 2, add: 1.5, lighten: 1 },
     palettes: { cosmico: 3, hielo: 1, neon: 1, curado: 1 },
@@ -131,7 +131,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'tinta', name: 'Tinta y papel', blurb: 'Impresión: tinta oscura sobre papel, tramas y serifas.',
-    patterns: { trama: 2, marmol: 1.5, crestas: 1.2, nube: 1.2, celulas: 1, grietas: 1, horizonte: 1, rosa: 0.8, caleido: 0.8, causticas: 0.6 },
+    patterns: { trama: 1.6, marmol: 1.3, crestas: 1.1, nube: 0.9, celulas: 1, grietas: 1, horizonte: 1, rosa: 0.8, caleido: 0.8, causticas: 0.6, giroide: 0.4 },
     layers: [1, 2], blends: { multiply: 2, darken: 1, mask: 0.8 },
     palettes: { papel: 3, riso: 2, curado: 0.5 },
     charsets: { clasico: 1.5, detallado: 1.5, letras: 1.2, tipografico: 1, suave: 1, puntos: 0.8 },
@@ -143,7 +143,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'brutal', name: 'Brutalista', blurb: 'Bloques enormes, alto contraste, sin concesiones.',
-    patterns: { cuadros: 1, tablero: 1, franjas: 1, forma: 1.2, anillos: 1, glitch: 0.8, ecualizador: 0.8, estrella: 0.8, latido: 0.6 },
+    patterns: { cuadros: 1, tablero: 1, franjas: 1, forma: 1.1, anillos: 1, glitch: 0.8, ecualizador: 0.8, estrella: 0.8, latido: 0.6, engranajes: 0.5, voxeles: 0.4, cubo: 0.3 },
     layers: [1, 2], blends: { difference: 2, multiply: 1, mask: 1, cutout: 1 },
     palettes: { duotono: 2, curado: 1, riso: 1.2, gris: 1, papel: 0.8 },
     charsets: { bloques: 2, medios: 1.2, cajas: 1, clasico: 1, binario: 0.6 },
@@ -155,7 +155,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'vapor', name: 'Vapor', blurb: 'Rejillas infinitas, soles partidos y pasteles eléctricos.',
-    patterns: { rejilla: 2.5, ondas: 1, plasma: 1, forma: 1, estrella: 0.8, latido: 0.6, tunel: 0.8 },
+    patterns: { rejilla: 1.8, ondas: 1, plasma: 1, forma: 1, estrella: 0.8, latido: 0.6, tunel: 0.8, voxeles: 0.8, poliedro: 0.4, planeta: 0.4, dona: 0.3 },
     overlays: { estrellas: 1, franjas: 0.5 },
     layers: [1, 2], blends: { screen: 2, add: 1, lighten: 1 },
     palettes: { curado: 1, pastel: 2, neon: 1.2, cosmico: 0.8 },
@@ -167,8 +167,8 @@ export const ARCHETYPES: Archetype[] = [
     contrast: [1, 1.3], cycle: [0.3, 0.02, 0.08],
   },
   {
-    id: 'solidos', name: 'Sólidos', blurb: 'Donas, esferas y cubos iluminados con caracteres.',
-    patterns: { dona: 3, esfera: 2, cubo: 2 },
+    id: 'solidos', name: 'Sólidos', blurb: 'Objetos en 3D iluminados con caracteres: nudos, poliedros, cristales, planetas…',
+    patterns: { dona: 0.8, esfera: 0.7, cubo: 0.7, nudo: 1.1, poliedro: 1.1, giroide: 0.9, moebius: 1, adn: 0.9, planeta: 0.9, metabolas: 1, engranajes: 0.9, cristales: 1, voxeles: 0.6 },
     overlays: { estrellas: 1.5, nube: 1, trama: 0.6, rejilla: 0.6 },
     layers: [1, 2], blends: { screen: 1.5, lighten: 1.5, add: 1 },
     palettes: { fosforo: 1.5, curado: 1.5, mono: 1, neon: 1, gris: 1 },
@@ -181,7 +181,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'op', name: 'Op-art', blurb: 'Vibración óptica: moiré, franjas y espirales.',
-    patterns: { moire: 2, anillos: 1.2, cuadros: 1, franjas: 1.2, rombos: 1.2, tablero: 1, espiral: 1, interferencia: 1 },
+    patterns: { moire: 1.8, anillos: 1.1, cuadros: 1, franjas: 1.1, rombos: 1.1, tablero: 1, espiral: 1, interferencia: 1, poliedro: 0.3, moebius: 0.3 },
     layers: [1, 2], blends: { difference: 3, multiply: 1 },
     palettes: { gris: 2, duotono: 1.5, papel: 1, curado: 0.8 },
     charsets: { bloques: 1.5, medios: 1, clasico: 1, binario: 1, lineas: 1 },
@@ -192,8 +192,8 @@ export const ARCHETYPES: Archetype[] = [
     contrast: [1.4, 2.2], levels: [0.4, 2, 3],
   },
   {
-    id: 'fractal', name: 'Matemático', blurb: 'Julia, rosas polares, Lissajous y simetrías.',
-    patterns: { julia: 2, rosa: 1.5, lissajous: 1.5, caleido: 1.5, galaxia: 0.8, espiral: 0.8 },
+    id: 'fractal', name: 'Matemático', blurb: 'Julia, rosas polares, Lissajous, nudos, cintas y simetrías.',
+    patterns: { julia: 1.8, rosa: 1.4, lissajous: 1.4, caleido: 1.3, galaxia: 0.8, espiral: 0.8, nudo: 0.7, moebius: 0.7, giroide: 0.5, adn: 0.3 },
     overlays: { estrellas: 1, trama: 0.5 },
     layers: [1, 2], blends: { screen: 1.5, add: 1, difference: 1 },
     palettes: { curado: 1.5, neon: 1, analogo: 1.2, cosmico: 1, papel: 0.8 },
@@ -203,6 +203,19 @@ export const ARCHETYPES: Archetype[] = [
     warp: [0.15, 0.05, 0.25], fx: { glow: [0.5, 0.2, 0.6], bloom: [0.4, 0.2, 0.6], vig: [0.5, 0.2, 0.5] },
     interact: { lens: 1.5, swirl: 1.5, light: 1 }, colorMap: { luma: 3, angle: 1, radial: 1 },
     contrast: [1, 1.4], cycle: [0.3, 0.02, 0.1],
+  },
+  {
+    id: 'grabado', name: 'Grabado 3D', blurb: 'Objetos en 3D impresos en tinta sobre papel, con contorno y trama.',
+    patterns: { poliedro: 1.2, engranajes: 1.1, giroide: 1, moebius: 1, nudo: 1, cristales: 1, cubo: 0.8, esfera: 0.8, planeta: 0.8, dona: 0.6, adn: 0.6 },
+    overlays: { trama: 1, franjas: 0.5, rejilla: 0.4 },
+    layers: [1, 2], blends: { multiply: 2, darken: 1 },
+    palettes: { papel: 2.5, riso: 1.5 },
+    charsets: { clasico: 1.5, detallado: 1.5, letras: 1, simbolos: 0.8, lineas: 0.8, tipografico: 0.6 },
+    fonts: { plex: 1.5, serif: 1, courier: 1, jetbrains: 1, space: 0.8 }, weights: [300, 700],
+    cell: [7, 11], glyphModes: { density: 4, lines: 1.5 }, speed: [0.3, 0.8], scale: [0.9, 1.2],
+    warp: [0.05, 0.05, 0.1], fx: { grain: [0.5, 0.05, 0.2] },
+    interact: { lens: 1.5, erase: 1, light: 1, repel: 1 }, colorMap: { luma: 4, y: 0.5 },
+    contrast: [1.1, 1.6], edge: [0.5, 0.25, 0.6], dither: [0.3, 0.3, 0.7], shade: [0, 0.2],
   },
 ];
 

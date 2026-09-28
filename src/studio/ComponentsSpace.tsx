@@ -3,6 +3,9 @@ import { COMPONENTS, compById, type CompDef, type Values } from '../components/c
 import { copyText, downloadText } from './download';
 import { setSpace, setUI, useStudio } from './store';
 import { thumbBg } from './history';
+import { Picker } from './ui/Picker';
+import { ScrollRow } from './ui/ScrollRow';
+import { useSwap } from './motion/hooks';
 
 /** Live mount of a component demo. Re-mounts when its values change. */
 function Demo({ def, values, big }: { def: CompDef; values: Values; big?: boolean }) {
@@ -25,6 +28,8 @@ export function ComponentsSpace() {
   const wrap = useRef<HTMLDivElement>(null);
   const galleryTop = useRef(0);
   const opened = useRef<string | null>(null);
+  // the gallery and a piece's page recompose out of glyphs as one gives way to the other
+  useSwap(wrap, def?.id ?? '', 'gallery');
   // the gallery and a piece's page share this scroller: a piece opens at its top (not at the gallery's
   // scroll, clamped to its end), and going back returns to where the gallery was, on the same card
   useLayoutEffect(() => {
@@ -103,6 +108,8 @@ function Detail({ def }: { def: CompDef }) {
   useEffect(() => { setValues(def.defaults); }, [def]);
   const tabs = def.code(values);
   const cur = tabs.find(t => t.id === tab) ?? tabs[0];
+  const code = useRef<HTMLTextAreaElement>(null);
+  useSwap(code, cur.id, 'tab');
   const set = (k: string, v: string | number | boolean) => setValues(o => ({ ...o, [k]: v }));
   return (
     <div className="comp-detail">
@@ -115,10 +122,10 @@ function Detail({ def }: { def: CompDef }) {
       <div className="comp-layout">
         <div>
           <div className="comp-stage"><Demo def={def} values={values} big /></div>
-          <div className="sheet-tabs" role="tablist" style={{ padding: 0, marginBottom: 10 }}>
+          <ScrollRow role="tablist" aria-label="Formatos del código" className="sheet-tabs" boxClassName="comp-tabs" style={{ padding: 0 }}>
             {tabs.map(t => <button key={t.id} type="button" role="tab" className="tab" aria-selected={cur.id === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}
-          </div>
-          <textarea className="code" readOnly value={cur.code} aria-label={'Código: ' + cur.label} onFocus={e => e.currentTarget.select()} />
+          </ScrollRow>
+          <textarea ref={code} className="code" readOnly value={cur.code} aria-label={'Código: ' + cur.label} onFocus={e => e.currentTarget.select()} />
           <div className="row" style={{ marginTop: 10 }}>
             <button type="button" className="btn primary" style={{ width: 'auto', margin: 0 }} onClick={() => void copyText(cur.code, 'Código copiado')}>Copiar</button>
             {cur.file && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(cur.file!, cur.code)}>Descargar {cur.file}</button>}
@@ -147,8 +154,8 @@ function ParamCtl({ p, v, onChange }: { p: CompDef['params'][number]; v: string 
     );
   }
   if (p.type === 'select') return (
-    <div className="ctl"><label className="lbl" htmlFor={id}>{p.label}</label>
-      <select id={id} value={String(v)} onChange={e => onChange(e.target.value)}>{p.opts!.map(([val, name]) => <option key={val} value={val}>{name}</option>)}</select></div>
+    <div className="ctl cx"><span className="lbl" id={id + '-l'}>{p.label}</span>
+      <Picker id={id} value={String(v)} label={p.label} labelId={id + '-l'} options={p.opts!.map(([value, label]) => ({ value, label }))} onChange={onChange} /></div>
   );
   if (p.type === 'color') return (
     <div className="ctl"><label className="lbl" htmlFor={id}>{p.label}</label>

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Recipe } from '../engine/recipe';
 import { ARCHETYPES } from '../random/archetypes';
+import { GEN_VERSION, GEN_VERSIONS } from '../random/generator';
 import { cleanSeed, freshSeed } from '../random/seeds';
 import { spaceById } from '../random/spaces';
 import { recipeFile } from '../shared/share';
@@ -11,7 +12,7 @@ import { HISTORY_WARN, historyLabel, thumbBg } from './history';
 import { IDice } from './icons';
 import { mediaUsage } from './mediaStore';
 import { renderThumbs } from './offscreen';
-import { fmtSize, saveSession, sessionMediaSize, slug } from './packages';
+import { collectionMediaSize, exportProject, fmtSize, saveCollection, saveSession, sessionMediaSize, slug } from './packages';
 import { shareLink } from './ShareSheet';
 import {
   applyRecipe, clearHistory, duplicateFavorite, openFavorite, removeFavorite, renameFavorite, rollDice, setArch, setUI,
@@ -21,7 +22,9 @@ import { toast } from './toast';
 import { openWelcome } from './guide/state';
 import { storageProblem } from './Keeping';
 import { Sheet, trapTab } from './Sheet';
+import { Picker } from './ui/Picker';
 import './css/data.css';
+import { useSwap } from './motion/hooks';
 
 export { Sheet, trapTab };
 
@@ -34,14 +37,17 @@ export function CollectionSheet() {
   const open = useStudio(s => s.ui.sheet === 'collection');
   const favs = useStudio(s => s.favorites);
   const storage = useStudio(s => s.storage);
+  const [cm, setCm] = useState<{ count: number; bytes: number; missing: number } | null>(null);
+  useEffect(() => { if (!open) return; let alive = true; void collectionMediaSize().then(m => { if (alive) setCm(m); }); return () => { alive = false; }; }, [open, favs]);
+  const usage = useStorageEstimate(open);
   const exportAll = () => {
     const json = JSON.stringify({ monotrama: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
     downloadText(`monotrama-coleccion-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
     // the .json carries recipes only: say so when some piece needs its own image or video
     const media = favs.filter(f => (f.recipe.source === 'image' || f.recipe.source === 'video') && f.recipe.media.ref).length;
     if (media) {
-      toast(`La colección (.json) lleva las recetas, no las imágenes ni los videos: ${media === 1 ? '1 pieza pedirá su archivo' : `${media} piezas pedirán su archivo`} en otro equipo. Para llevarlos, guarda la sesión.`,
-        { label: 'Guardar sesión', run: () => void saveSession(true) }, 9000);
+      toast(`Las recetas (.json) no llevan las imágenes ni los videos: ${media === 1 ? '1 pieza pedirá su archivo' : `${media} piezas pedirán su archivo`} en otro equipo. Para llevarlos, guarda la colección (.zip).`,
+        { label: 'Guardar colección', run: () => void saveCollection() }, 9000);
     }
   };
   const kept = storage === 'ok';
@@ -55,15 +61,27 @@ export function CollectionSheet() {
           </div>
         )}
         {open && <HistoryBox />}
-        <h3 className="data-h">Tu colección</h3>
-        <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
-          <button type="button" className="mini" onClick={exportAll} disabled={!favs.length}>Exportar colección (.json)</button>
-          <button type="button" className="mini" onClick={() => pickFile('recipe')}>Importar receta, colección o proyecto</button>
-        </div>
+        <section className="data-coll" aria-labelledby="data-coll-h">
+          <h3 className="data-h" id="data-coll-h">Tu colección</h3>
+          <p className="note">
+            Lo que guardas con ★ no se descarta nunca y no tiene un número fijo: lo limita el espacio que este navegador da a Monotrama
+            {usage?.usage != null && usage.quota ? <> (ahora usa {fmtSize(usage.usage)} de {fmtSize(usage.quota)})</> : null}.
+          </p>
+          <div className="data-acts data-coll-acts">
+            <button type="button" className="mini" onClick={() => void saveCollection()} disabled={!favs.length}>
+              Guardar colección (.zip, con sus imágenes y videos){cm && cm.count > 0 ? ` · ${fmtSize(cm.bytes)}` : ''}
+            </button>
+            <button type="button" className="mini" onClick={exportAll} disabled={!favs.length}>Sólo las recetas (.json)</button>
+            <button type="button" className="mini" onClick={() => pickFile('recipe')}>Importar receta, colección o proyecto</button>
+          </div>
+          {cm && cm.missing > 0 && (
+            <p className="note">{cm.missing === 1 ? 'Una imagen o video de tu colección ya no está' : `${cm.missing} imágenes o videos de tu colección ya no están`} en este navegador: esas piezas pedirán el archivo al abrirlas.</p>
+          )}
+        </section>
         {!favs.length ? (
           <div className="empty-state">
             <div className="big">{' .:-=+*#%@\n  aquí vivirán\n  tus piezas'}</div>
-            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; para llevarlo a otro equipo, guarda la sesión (lleva también tus imágenes y videos).</p>
+            <p>Pulsa <b>★</b> (o la tecla <b>S</b>) para guardar lo que te guste. Todo se queda en este navegador; para llevarlo a otro equipo, guarda la colección o la sesión (.zip): llevan también tus imágenes y videos.</p>
           </div>
         ) : (
           <div className="card-grid">
@@ -78,7 +96,12 @@ export function CollectionSheet() {
                   <button type="button" onClick={() => { openFavorite(f.id); close(); }}>Abrir</button>
                   <button type="button" onClick={() => duplicateFavorite(f.id)}>Duplicar</button>
                   <button type="button" onClick={() => downloadText(slug(f.name) + '.monotrama.json', recipeFile({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }), 'application/json')}>.json</button>
-                  <button type="button" onClick={() => void shareLink(f.recipe, f.space)}>Enlace</button>
+                  <button type="button" onClick={() => void shareLink(f.recipe, f.space)} title="Un enlace con la receta: sin tu imagen ni tu video"
+                    aria-label={`Copiar enlace a ${f.name} (sólo la receta${usesMedia(f.recipe) ? ', sin su archivo' : ''})`}>Enlace</button>
+                  {usesMedia(f.recipe) && (
+                    <button type="button" onClick={() => void exportProject({ ...f.recipe, meta: { ...f.recipe.meta, space: f.space } }, 'monotrama-' + slug(f.name))}
+                      title="Un .zip con la receta y su imagen o video original" aria-label={`Exportar proyecto de ${f.name} (.zip con su archivo)`}>.zip</button>
+                  )}
                   <button type="button" onClick={() => { if (confirm(`¿Borrar «${f.name}» de tu colección?`)) removeFavorite(f.id); }} aria-label={`Borrar ${f.name}`}>✕</button>
                 </div>
               </div>
@@ -112,8 +135,9 @@ function HistoryBox() {
         <p className="count-line" role="status">{historyLabel(count, limit)}</p>
         <div className={'data-meter' + (count >= limit * HISTORY_WARN ? ' near' : '')} aria-hidden="true"><i style={{ '--v': pct + '%' } as React.CSSProperties} /></div>
         <p className="note">
-          Guarda tus últimos {limit} resultados; al pasar de ahí se descartan los más antiguos.
+          Guarda tus últimos {limit} resultados; al pasar de ahí se descartan los más antiguos, salvo los que están en tu colección (★) y el actual.
           {pruned > 0 && <> En esta visita {pruned === 1 ? 'se descartó 1 resultado' : `se descartaron ${pruned} resultados`}.</>}
+          {' '}Un favorito cuyo resultado se descartó sigue en tu colección y se abre igual.
         </p>
       </div>
       <div className="data-acts">
@@ -134,6 +158,20 @@ function HistoryBox() {
       )}
     </section>
   );
+}
+
+/** What this browser says it lets the site use (StorageManager.estimate; not every browser answers). */
+function useStorageEstimate(on: boolean) {
+  const [est, setEst] = useState<{ usage?: number; quota?: number } | null>(null);
+  const favs = useStudio(s => s.favorites.length);
+  useEffect(() => {
+    if (!on) return;
+    let alive = true;
+    const st = typeof navigator !== 'undefined' ? navigator.storage : undefined;
+    void st?.estimate?.().then(e => { if (alive) setEst({ usage: e.usage, quota: e.quota }); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [on, favs]);
+  return est;
 }
 
 /** How much this browser holds, and the plain truth about clearing it. */
@@ -160,12 +198,14 @@ function StorageBox() {
           {' '}{info.persisted ? 'El navegador aceptó no borrarlo por su cuenta si le falta espacio.' : 'Si al navegador le falta espacio, podría borrarlo por su cuenta.'}
         </p>
       )}
-      <p className="plain">Si borras los datos de navegación de este sitio, se borran el historial, la colección y las imágenes y videos guardados. Guarda la sesión para tener una copia.</p>
+      <p className="plain">Si borras los datos de navegación de este sitio, se borran el historial, la colección y las imágenes y videos guardados. Guarda la colección o la sesión (.zip) para tener una copia.</p>
     </section>
   );
 }
 
 export { slug };
+
+const usesMedia = (r: Recipe) => (r.source === 'image' || r.source === 'video') && !!r.media.ref;
 
 /* ------------------------------------------------------------------ */
 
@@ -175,6 +215,9 @@ export function ExploreSheet() {
   const [amount, setAmount] = useState(amount0);
   const [cands, setCands] = useState<Array<{ r: Recipe; url?: string }>>([]);
   const [gen, setGen] = useState(0);
+  // «Otras ocho»: the grid recomposes
+  const grid = useRef<HTMLDivElement>(null);
+  useSwap(grid, gen, 'tab');
   useEffect(() => {
     if (!open) return;
     const sig = { cancelled: false };
@@ -194,7 +237,7 @@ export function ExploreSheet() {
           </label>
           <button type="button" className="mini" onClick={() => setGen(g => g + 1)}><IDice width={14} /> Otras ocho</button>
         </div>
-        <div className="explore-grid">
+        <div className="explore-grid" ref={grid}>
           {cands.map((c, i) => (
             <button key={i} type="button" style={c.url ? thumbBg(c.url) : undefined} aria-label={`Variación ${i + 1}`}
               onClick={() => { applyRecipe(c.r, 'variación', 'Variación'); close(); }}>
@@ -232,28 +275,55 @@ export function ShortcutsSheet() {
 
 /* ------------------------------------------------------------------ */
 
+/** What each generator version is, for the person choosing one (newest first). */
+const GEN_INFO: Record<number, { label: string; desc: string }> = {
+  3: { label: 'Versión 3', desc: 'La actual: las piezas de la versión 2 y, en Imagen, Tipo y Terminal, transformaciones y letras que se mueven.' },
+  2: { label: 'Versión 2', desc: 'Trece objetos 3D y un azar que rara vez repite lo que acabas de ver.' },
+  1: { label: 'Versión 1', desc: 'La primera: repite las semillas que anotaste con ella.' },
+};
+const genLabel = (g: number) => (GEN_INFO[g]?.label ?? `Versión ${g}`) + (g === GEN_VERSION ? ' (actual)' : '');
+
 export function SeedSheet() {
   const open = useStudio(s => s.ui.sheet === 'seed');
   const cur = useStudio(s => s.entries[s.cursor]?.seed ?? '');
+  // the version that wove the current piece (pieces from before versions were recorded are version 1)
+  const curGen = useStudio(s => { const e = s.entries[s.cursor]; return e?.seed ? e.recipe.meta.gen ?? 1 : GEN_VERSION; });
   const arch = useStudio(s => s.arch);
   const space = useStudio(s => s.space);
   const [v, setV] = useState('');
-  useEffect(() => { if (open) setV(cur); }, [open, cur]);
-  const go = () => { const s = cleanSeed(v); if (!s) return; rollDice(s); close(); toast(`Semilla «${s}» en ${spaceById(space).name}`); };
+  // the version: the one that made the seed on screen, until another is chosen or another seed is written
+  const [picked, setPicked] = useState<number | null>(null);
+  useEffect(() => { if (open) { setV(cur); setPicked(null); } }, [open, cur]);
+  const gen = picked ?? (cleanSeed(v) === cur ? curGen : GEN_VERSION);
+  const go = () => {
+    const s = cleanSeed(v);
+    if (!s) return;
+    rollDice(s, gen);
+    close();
+    toast(`Semilla «${s}» en ${spaceById(space).name}${gen !== GEN_VERSION ? ` · ${GEN_INFO[gen]?.label.toLowerCase() ?? 'versión ' + gen}` : ''}`);
+  };
   return (
-    <Sheet open={open} onClose={close} title="Semilla" sub="Cualquier palabra o frase sirve. La misma semilla, en el mismo espacio y con el mismo estilo, da siempre la misma pieza.">
+    <Sheet open={open} onClose={close} title="Semilla" sub="Cualquier palabra o frase sirve. La misma semilla, en el mismo espacio, con el mismo estilo y la misma versión del generador, da la misma pieza.">
       <div className="sheet-body">
         <div className="ctl">
           <label className="lbl" htmlFor="seed-in">Semilla</label>
           <input id="seed-in" type="text" className="mono" value={v} onChange={e => setV(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') go(); }} autoFocus placeholder="faro-lunar-417" />
         </div>
-        <div className="ctl">
-          <label className="lbl" htmlFor="seed-arch">Estilo</label>
-          <select id="seed-arch" value={arch ?? ''} onChange={e => setArch(e.target.value || null)}>
-            <option value="">Cualquiera (según el espacio)</option>
-            {ARCHETYPES.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+        <div className="ctl cx">
+          <span className="lbl" id="seed-arch-l">Estilo</span>
+          <Picker id="seed-arch" value={arch ?? ''} label="Estilo" labelId="seed-arch-l" minWidth={280} onChange={v => setArch(v || null)}
+            options={[{ value: '', label: 'Cualquiera (según el espacio)', desc: 'El dado elige entre los estilos de este espacio.' }, ...ARCHETYPES.map(a => ({ value: a.id, label: a.name, desc: a.blurb }))]} />
         </div>
+        <div className="ctl cx">
+          <span className="lbl" id="seed-gen-l">Versión del generador</span>
+          <Picker id="seed-gen" value={gen} label="Versión del generador" labelId="seed-gen-l" describedBy="seed-gen-note" minWidth={280} onChange={g => setPicked(g)}
+            options={[...GEN_VERSIONS].reverse().map(g => ({ value: g, label: genLabel(g), desc: GEN_INFO[g]?.desc }))} />
+        </div>
+        <p className="note" id="seed-gen-note">
+          {cur && curGen !== GEN_VERSION
+            ? `La pieza en pantalla salió de la versión ${curGen} del generador: con esa versión, su semilla la repite. Con la actual, la misma semilla teje otra.`
+            : 'Cada versión del generador teje distinto la misma semilla. Tu historial y tu colección guardan la receta completa: no dependen de la versión.'}
+        </p>
         <div className="row2">
           <button type="button" className="btn" onClick={() => setV(freshSeed())}>Inventar una</button>
           <button type="button" className="btn primary" onClick={go}>Tejer esta semilla</button>

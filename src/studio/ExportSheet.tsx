@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Recipe } from '../engine/recipe';
+import { cloneRecipe, type Recipe } from '../engine/recipe';
 import { byteSize, gridToAnsi, gridToHtml, gridToHtmlPage, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
 import { recipeFile, shareUrl } from '../shared/share';
-import { imageFormats, recorderLabel, useCaps, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
+import { imageFormats, recorderLabel, useCaps, videoEncoderWhy, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
 import { copyText, downloadBlob, downloadText } from './download';
 import {
-  SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize,
+  SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize, trailWarmup,
   smallerEncodable, startRecording, stopRecording, useRecording, useStopOnLeave, videoSupport, type Cancel,
 } from './exporting';
 import { Sheet } from './Sheet';
@@ -14,10 +14,19 @@ import { toast } from './toast';
 import { archById } from '../random/archetypes';
 import { spaceById } from '../random/spaces';
 import { Glossary } from './Glossary';
+import { renderThumbs, stageSize } from './offscreen';
 import { exportProject, fmtSize, projectMedia, slug } from './packages';
-import { shareLink } from './ShareSheet';
+import { ShareKinds, shareLink } from './ShareSheet';
 import './css/basic.css';
+import './css/export-notes.css';
 import { takeExportRequest, type ExportRequest } from './exportTab';
+import { SegGroup } from './controls';
+import { Picker, type PickOpt } from './ui/Picker';
+import { ScrollRow } from './ui/ScrollRow';
+import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
+import type { Fallback } from '../exporters/code';
+import './css/export-code.css';
+import { useSwap } from './motion/hooks';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -40,12 +49,15 @@ export function ExportSheet() {
     setOpening(n => n + 1);
     setTab(r?.tab ?? (space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen'));
   }, [open, space]);
+  // another format: its options resolve in (lightly; the sheet itself stays put)
+  const body = useRef<HTMLDivElement>(null);
+  useSwap(body, open ? tab : null, (a, b) => (a && b ? 'tab' : null));
   return (
     <Sheet open={open} onClose={() => setUI({ sheet: 'none' })} wide title="Llevar la pieza fuera" sub="Todo se genera en tu navegador. Elige el formato según dónde la vayas a usar.">
-      <div className="sheet-tabs" role="tablist">
+      <ScrollRow role="tablist" aria-label="Formatos" className="sheet-tabs" boxClassName="sheet-tabs-box">
         {TABS.map(([id, name]) => <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{name}</button>)}
-      </div>
-      <div className="sheet-body">
+      </ScrollRow>
+      <div className="sheet-body" ref={body}>
         {tab === 'imagen' && <ImageTab key={opening} req={req} />}
         {tab === 'video' && <VideoTab key={opening} req={req} />}
         {tab === 'vector' && <VectorTab />}
@@ -58,11 +70,13 @@ export function ExportSheet() {
 }
 
 function Busy({ p, label, onCancel }: { p: number; label?: string; onCancel?: () => void }) {
+  // the bar says the percentage; only the stage (preparing, encoding…) is announced, not every percent
   return (
-    <div aria-live="polite">
-      <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}><i style={{ '--v': Math.round(p * 100) + '%' } as React.CSSProperties} /></div>
+    <div>
+      <span className="sr-only" role="status">{label ?? 'Trabajando…'}</span>
+      <div className="progress" role="progressbar" aria-label={label ?? 'Progreso'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}><i style={{ '--v': Math.round(p * 100) + '%' } as React.CSSProperties} /></div>
       <div className="row" style={{ justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
-        <span>{label ?? 'Trabajando…'} {Math.round(p * 100)} %</span>
+        <span aria-hidden="true">{label ?? 'Trabajando…'} {Math.round(p * 100)} %</span>
         {onCancel && <button type="button" className="mini" onClick={onCancel}>Cancelar</button>}
       </div>
     </div>
@@ -137,6 +151,34 @@ function formatGap(f: ImageFormat, ok: Record<ImageFormat, boolean>): string {
 /** A size preset asked for by the request, when the sheet offers it. */
 const presetOf = (req: ExportRequest | null, fallback: string) => (req?.size && SIZE_PRESETS.some(p => p.id === req.size) ? req.size : fallback);
 
+/** The size presets, each with the pixels it gives now (the «view» ones follow the stage). */
+function sizeOptions(even = false): PickOpt<string>[] {
+  return SIZE_PRESETS.map(p => {
+    const z = resolveSize(p.spec, even);
+    return { value: p.id, label: p.name, group: p.spec.kind === 'view' ? 'Como la ves' : 'Tamaños fijos', desc: `${z.W}×${z.H} px` };
+  });
+}
+
+/** A size picker with its visible label. */
+function SizePicker({ id, value, onChange, even }: { id: string; value: string; onChange: (v: string) => void; even?: boolean }) {
+  return (
+    <div className="ctl cx">
+      <span className="lbl" id={id + '-l'}>Tamaño</span>
+      <Picker id={id} value={value} label="Tamaño" labelId={id + '-l'} options={sizeOptions(even)} onChange={onChange} minWidth={240} />
+    </div>
+  );
+}
+
+/** A few numbers to choose from, all in view (frames per second, GIF widths). */
+function Numbers({ id, label, value, list, unit = '', onPick }: { id: string; label: string; value: number; list: number[]; unit?: string; onPick: (v: number) => void }) {
+  return (
+    <div className="ctl cx">
+      <span className="lbl" id={id}>{label}</span>
+      <SegGroup labelId={id} value={value} opts={list.map(n => [n, n + unit] as [number, string])} onPick={onPick} />
+    </div>
+  );
+}
+
 function ImageTab({ req }: { req: ExportRequest | null }) {
   const e = useCurrent();
   const images = useCaps(s => s.images);
@@ -165,21 +207,20 @@ function ImageTab({ req }: { req: ExportRequest | null }) {
       <div className="ex-card">
         <h3>Imagen fija</h3>
         <p>El fotograma actual, re-renderizado a la resolución que elijas (los glifos se dibujan de nuevo al tamaño final: nítidos, sin escalar).</p>
-        <div className="ctl"><label className="lbl" htmlFor="ex-size">Tamaño</label>
-          <select id="ex-size" value={preset} onChange={ev => setPreset(ev.target.value)}>{SIZE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+        <SizePicker id="ex-size" value={preset} onChange={setPreset} />
         <p className="note">Resultado: <b>{sz.W}×{sz.H}</b> px.</p>
         <div className="ctl"><span className="lbl">Formato</span>
           <div className="seg">{formats.map(f => <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>{f.toUpperCase()}</button>)}</div></div>
         {!images && <p className="note" aria-live="polite">Comprobando qué formatos guarda este navegador…</p>}
         {images && missing.map(f => <Unavailable key={f} what={`${FORMAT_NAME[f]}: no disponible.`}>{formatGap(f, images)}</Unavailable>)}
         <label className="toggle"><span>Fondo transparente {format === 'jpeg' && '(no en JPEG)'}</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} disabled={format === 'jpeg'} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
-        {transparent && <p className="note">Sólo quedan los caracteres (y el relleno de celda). Ideal para componer en Figma, Photoshop o After Effects.</p>}
+        {transparent && <p className="note">Sólo quedan los caracteres (y el relleno de celda), sobre transparencia real: para componerlos encima de otra imagen o video.</p>}
         <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Generando…' : 'Descargar imagen'}</button>
       </div>
       <div className="ex-card">
         <h3>Consejos</h3>
         <p>«Vista ×2» y «×3» mantienen la composición que ves (con la pantalla a una escala intermedia, como 125 %, puede variar en una o dos columnas). Los tamaños fijos (cuadrado, vertical) reencuadran la escena conservando la densidad de caracteres.</p>
-        <p>Para imprimir o escalar sin límite, usa la pestaña <b>Vector</b>.</p>
+        <p>Para imprimir o escalar sin perder nitidez, usa la pestaña <b>Vector</b> (sin efectos de píxel).</p>
       </div>
     </div>
   );
@@ -204,6 +245,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const [preset, setPreset] = useState(() => presetOf(req, 'hd'));
   const [fps, setFps] = useState(30);
   const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
+  /** Seconds drawn before the clip so Estela's trail is there on its first frame (0 without Estela). */
+  const warm = e ? trailWarmup(e.recipe) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 6);
   /** Codec support at the chosen size, and the smaller sizes that would work (keyed by W×H). */
   const [support, setSupport] = useState<{ key: string; s: VideoSupport; failed?: boolean } | null>(null);
@@ -289,7 +332,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
           ? <Unavailable what={`MP4 (H.264) a ${sz.W}×${sz.H}: no disponible.`} action={switchTo(alts.mp4)}>Este navegador no puede codificar H.264 a este tamaño; a {alts.mp4.W}×{alts.mp4.H} sí. A este tamaño, usa WebM.</Unavailable>
           : alts && <Unavailable what="MP4 (H.264): no disponible.">Este navegador no puede codificar H.264, así que aquí no hay MP4. Usa WebM o prueba en otro navegador.</Unavailable>)}
         {!cur.webm && <Unavailable what="WebM: no disponible.">Este navegador no puede codificar VP9 ni VP8 a {sz.W}×{sz.H}. Usa MP4.</Unavailable>}
-        <p className="note">{sz.W}×{sz.H} · {Math.round(secs * fps)} fotogramas. MP4 funciona en redes sociales, Keynote y editores de video.</p>
+        <p className="note">{sz.W}×{sz.H} · {Math.round(secs * fps)} fotogramas. MP4 (H.264) es el formato que suelen pedir redes sociales, presentaciones y editores de video; WebM, el de la web.</p>
       </>
     );
   };
@@ -298,8 +341,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
       {!camera && (
         <div className="ex-clip">
           <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={60} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(60, +ev.target.value || 1)))} /></label>
-          <label className="ctl"><span className="lbl">Fotogramas/s</span><select value={fps} onChange={ev => setFps(+ev.target.value)}>{[24, 25, 30, 60].map(f => <option key={f} value={f}>{f}</option>)}</select></label>
-          <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}</p>
+          <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
+          <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}{warm > 0 ? ` Con Estela, antes del primer fotograma se preparan ${warm.toFixed(1).replace('.', ',')} s sin grabar, para que el clip empiece con su estela${loop > 0 ? ' y enlace' : ''}: tarda algo más.` : ''}</p>
         </div>
       )}
       <div className="ex-grid">
@@ -309,11 +352,10 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
           {camera
             ? <Unavailable what="Render fotograma a fotograma: no con la cámara.">La cámara sólo existe en directo, así que no hay fotogramas que calcular por adelantado. {recorder.ok ? 'Usa la grabación en directo.' : 'La grabación en directo tampoco funciona en este navegador: exporta una imagen.'}</Unavailable>
             : !webcodecs
-              ? <Unavailable what="MP4 y WebM: no disponibles.">Este navegador no tiene WebCodecs, la función con la que se codifica el video fotograma a fotograma. Usa {liveAlt}.</Unavailable>
+              ? <Unavailable what="MP4 y WebM: no disponibles.">{videoEncoderWhy()} Usa {liveAlt}.</Unavailable>
               : (
                 <>
-                  <div className="ctl"><label className="lbl" htmlFor="v-size">Tamaño</label>
-                    <select id="v-size" value={preset} onChange={ev => setPreset(ev.target.value)}>{SIZE_PRESETS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                  <SizePicker id="v-size" value={preset} onChange={setPreset} even />
                   {busy?.kind === 'video' ? progress : renderRows()}
                 </>
               )}
@@ -325,8 +367,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
             ? <Unavailable what="GIF: no con la cámara.">El GIF también se calcula fotograma a fotograma. Con la cámara, graba en directo.</Unavailable>
             : (
               <>
-                <div className="ctl"><label className="lbl" htmlFor="gif-w">Ancho</label>
-                  <select id="gif-w" value={gifW} onChange={ev => setGifW(+ev.target.value)}>{[320, 480, 640, 800].map(w => <option key={w} value={w}>{w} px</option>)}</select></div>
+                <Numbers id="gif-w" label="Ancho del GIF" value={gifW} list={[320, 480, 640, 800]} unit=" px" onPick={setGifW} />
                 {busy?.kind === 'gif' ? progress : <button type="button" className="btn" disabled={!!busy} onClick={() => void run('gif')}>Descargar GIF</button>}
               </>
             )}
@@ -348,6 +389,45 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
 
 /* ------------------------------------------------------------------ */
 
+/** Screen effects the SVG cannot carry (it has no pixels to blur, glow or bend). */
+const PIXEL_FX = ['glow', 'bloom', 'scan', 'curve', 'chroma', 'grain', 'flicker', 'vig'] as const;
+const FX_NAME: Record<(typeof PIXEL_FX)[number], string> = { glow: 'resplandor', bloom: 'bloom', scan: 'barrido', curve: 'curvatura', chroma: 'aberración', grain: 'grano', flicker: 'parpadeo', vig: 'viñeta' };
+const listEs = (xs: string[]) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1]);
+
+/**
+ * The current frame and the same frame without pixel effects, side by side, so the difference is seen
+ * before downloading (the SVG is made of the characters and their colours only).
+ */
+function SvgCompare({ r, used }: { r: Recipe; used: string[] }) {
+  const [urls, setUrls] = useState<[string | null, string | null]>([null, null]);
+  const { cssW, cssH } = stageSize();
+  useEffect(() => {
+    const sig = { cancelled: false };
+    const clean = cloneRecipe(r);
+    for (const k of PIXEL_FX) clean.fx[k] = 0;
+    setUrls([null, null]);
+    void renderThumbs([r, clean], 300, (i, url) => setUrls(u => (i ? [u[0], url] : [url, u[1]])), sig);
+    return () => { sig.cancelled = true; };
+  }, [r]);
+  const box = { aspectRatio: `${cssW} / ${cssH}` };
+  return (
+    <div className="svg-fx" role="note">
+      <p><b>Antes de exportar:</b> tu pieza usa {listEs(used)}, efectos de píxel que no existen en un SVG. El SVG se verá como la imagen de la derecha.</p>
+      <div className="svg-cmp">
+        <figure>
+          {urls[0] ? <img src={urls[0]} alt="El fotograma actual, con sus efectos" style={box} /> : <span className="svg-wait" style={box}>Preparando…</span>}
+          <figcaption>La vista, con efectos</figcaption>
+        </figure>
+        <figure>
+          {urls[1] ? <img src={urls[1]} alt="El mismo fotograma sin efectos de píxel, como saldrá el SVG" style={box} /> : <span className="svg-wait" style={box}>Preparando…</span>}
+          <figcaption>El SVG, sin efectos de píxel</figcaption>
+        </figure>
+      </div>
+      <p className="note">Si los necesitas, exporta PNG (pestaña Imagen): los conserva.</p>
+    </div>
+  );
+}
+
 function VectorTab() {
   const e = useCurrent();
   const [mode, setMode] = useState<'outline' | 'text'>('outline');
@@ -355,6 +435,7 @@ function VectorTab() {
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
   if (!e) return null;
+  const used = PIXEL_FX.filter(k => e.recipe.fx[k] > 0.02).map(k => FX_NAME[k]);
   const go = async () => {
     setBusy(true);
     try {
@@ -370,21 +451,22 @@ function VectorTab() {
     <div className="ex-grid">
       <div className="ex-card">
         <h3>SVG vectorial</h3>
-        <p>Cada carácter se convierte en su contorno real; escala sin límite y se abre igual en Figma, Illustrator o el navegador.</p>
+        <p>Cada carácter se convierte en su contorno real: escala sin perder nitidez. Comprobado en navegadores, Inkscape y rsvg; en Figma o Illustrator no se ha probado.</p>
+        {used.length > 0 ? <SvgCompare r={e.recipe} used={used} /> : <p className="note">Esta pieza no usa efectos de píxel: el SVG se verá como la vista.</p>}
         <div className="ctl"><span className="lbl">Caracteres como</span>
           <div className="seg">
             <button type="button" aria-pressed={mode === 'outline'} onClick={() => setMode('outline')}>Contornos (fiel)</button>
             <button type="button" aria-pressed={mode === 'text'} onClick={() => setMode('text')}>Texto editable</button>
           </div></div>
         <label className="toggle"><span>Sin fondo</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
-        <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Trazando…' : 'Descargar SVG'}</button>
+        <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Trazando…' : used.length ? 'Descargar SVG (sin efectos de píxel)' : 'Descargar SVG'}</button>
         {notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       </div>
       <div className="ex-card">
         <h3>Qué es fiel y qué no</h3>
         <p>Sí: caracteres, colores, fondo, relleno de celda y placas de mensaje.</p>
-        <p>No: resplandor, bloom, barrido, curvatura, grano, viñeta y aberración — son efectos de píxel. Si tu pieza los usa, el SVG se verá más limpio que la vista; para conservarlos exporta PNG.</p>
-        <p>«Texto editable» usa texto real (necesita la tipografía instalada donde lo abras).</p>
+        <p>No: resplandor, bloom, barrido, curvatura, grano, viñeta, parpadeo y aberración: son efectos de píxel. Si tu pieza los usa, el SVG se verá más limpio que la vista; para conservarlos exporta PNG.</p>
+        <p>«Texto editable» usa texto real: necesita la tipografía instalada donde lo abras, o se verá con otra.</p>
       </div>
     </div>
   );
@@ -449,7 +531,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
       <div className="ex-grid">
         <div className="ex-card">
           <h3>Fotograma</h3>
-          <p>{cols}×{rows} caracteres · ANSI {est}. «256» es el más compatible; «Color real» se ve perfecto en terminales modernas.</p>
+          <p>{cols}×{rows} caracteres · ANSI {est}. «256» es el más compatible; «Color real» es el más fiel, en terminales que lo admiten (truecolor).</p>
           <div className="row2">
             <button type="button" className="btn primary" onClick={() => preview && void copy(preview.text, 'Texto copiado')}>Copiar texto</button>
             <button type="button" className="btn" onClick={() => preview && downloadText(name + '.txt', preview.text)}>.txt</button>
@@ -467,9 +549,9 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
         <div className="ex-card">
           <h3>Animación para la consola</h3>
           <p>Scripts autónomos: no necesitan instalar nada. Se detienen con Ctrl+C y restauran la terminal.</p>
-          <div className="row2">
+          <div className="ex-anim">
             <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={30} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(30, +ev.target.value || 1)))} /></label>
-            <label className="ctl"><span className="lbl">Fotogramas/s</span><select value={fps} onChange={ev => setFps(+ev.target.value)}>{[8, 10, 12, 15, 20, 24].map(f => <option key={f} value={f}>{f}</option>)}</select></label>
+            <Numbers id="t-fps" label="Fotogramas por segundo" value={fps} list={[8, 10, 12, 15, 20, 24]} onPick={setFps} />
           </div>
           {busy !== null ? <Busy p={busy} onCancel={() => { cancel.current.cancelled = true; }} /> : (
             <>
@@ -489,6 +571,48 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
 
 /* ------------------------------------------------------------------ */
 
+const kb = (n: number) => (n < 10 * 1024 ? (n / 1024).toLocaleString('es', { maximumFractionDigits: 1 }) : Math.round(n / 1024).toLocaleString('es')) + ' KB';
+
+/** Bytes of `text` once gzip-compressed, as most servers send it (null while counting, or without CompressionStream). */
+function useGzipSize(text: string | null): number | null {
+  const [n, setN] = useState<{ text: string; bytes: number } | null>(null);
+  useEffect(() => {
+    if (!text || typeof CompressionStream === 'undefined') return;
+    let alive = true;
+    const t = setTimeout(() => {
+      const gz = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+      void new Response(gz).arrayBuffer().then(b => { if (alive) setN({ text, bytes: b.byteLength }); }).catch(() => undefined);
+    }, 150);
+    return () => { alive = false; clearTimeout(t); };
+  }, [text]);
+  return n && n.text === text ? n.bytes : null;
+}
+
+type CodeMod = typeof import('../exporters/code');
+
+/**
+ * What the code does in a browser without WebGL 2, chosen before copying: the basic engine (Canvas 2D,
+ * the same piece drawn by the processor) at the size it adds, or the poster / background colour.
+ */
+function FallbackChoice({ mod, r, value, onChange }: { mod: CodeMod | null; r: Recipe; value: Fallback; onChange: (v: Fallback) => void }) {
+  const delta = mod ? mod.runtimeSize(r, 'basic') - mod.runtimeSize(r, 'poster') : 0;
+  const n = mod ? mod.basicPatternIds(r).length : 0;
+  return (
+    <div className="code-fallback">
+      <span className="lbl" id="code-fb-l">Si el navegador no tiene WebGL 2</span>
+      <div className="seg" role="group" aria-labelledby="code-fb-l">
+        <button type="button" aria-pressed={value === 'basic'} onClick={() => onChange('basic')}>Motor básico{mod ? ` (+${kb(delta)})` : ''}</button>
+        <button type="button" aria-pressed={value === 'poster'} onClick={() => onChange('poster')}>Póster o color</button>
+      </div>
+      <p className="note" aria-live="polite">
+        {value === 'basic'
+          ? <>Incluido: sin WebGL 2 (aceleración gráfica desactivada, equipos o navegadores antiguos) el procesador dibuja la misma pieza con Canvas 2D, más despacio (hasta 30 fotogramas por segundo). Añade {mod ? kb(delta) : '…'}: el motor básico y {n === 1 ? 'el patrón' : `los ${n} patrones`} que usa esta pieza. Si tampoco puede dibujar, se ve tu póster o el color de fondo.</>
+          : <>Sin WebGL 2 la pieza no se mueve: se ve el color de fondo, o tu póster si lo subes con tu página y pones su URL en «poster». El código pesa {mod ? kb(delta) : '…'} menos.</>}
+      </p>
+    </div>
+  );
+}
+
 function CodeTab() {
   const e = useCurrent();
   const [kind, setKind] = useState<'html' | 'wc' | 'react'>('html');
@@ -496,24 +620,32 @@ function CodeTab() {
   const [interactive, setInteractive] = useState(true);
   const [systemFont, setSystemFont] = useState(false);
   const [mediaUrl, setMediaUrl] = useState('');
-  const [mod, setMod] = useState<typeof import('../exporters/code') | null>(null);
+  const [fallback, setFallback] = useState<Fallback>('basic');
+  const [mod, setMod] = useState<CodeMod | null>(null);
   const basic = useCaps(s => s.renderer === 'basic');
   const codeRef = useRef<HTMLTextAreaElement>(null);
   const { copy, manual } = useCopy();
+  const zone = useExportScrim();
+  const [withZone, setWithZone] = useState(true);
   useEffect(() => { void import('../exporters/code').then(setMod); }, []);
-  const opts = { placement, interactive, systemFont, height: 420, mediaUrl };
+  const scrim = withZone ? zone : null;
+  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim, fallback };
   const out = useMemo(() => {
     if (!mod || !e) return null;
     if (kind === 'html') { const r = mod.htmlSnippet(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'monotrama.html', extra: null as string | null }; }
     if (kind === 'wc') { const r = mod.webComponent(e.recipe, opts); return { code: r.usage, notes: r.notes, file: 'monotrama-field.js', extra: r.file }; }
     const r = mod.reactComponent(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'MonotramaBackground.jsx', extra: null };
-  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl]);
+  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim, fallback]);
+  // what a visitor downloads: the snippet, monotrama-field.js, or the component
+  const weight = out ? (out.extra ?? out.code) : null;
+  const gz = useGzipSize(weight);
   if (!e) return null;
   const isMedia = e.recipe.source === 'image' || e.recipe.source === 'video';
   const poster = async () => {
     try { downloadBlob(baseName(e.recipe) + '-poster.png', await exportImage(e.recipe, { kind: 'view', scale: 1 }, { transparent: false, format: 'png' })); }
     catch (err) { toast('No se pudo generar el póster: ' + (err as Error).message); }
   };
+  const bytes = weight ? new Blob([weight]).size : 0;
   return (
     <>
       <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -531,14 +663,17 @@ function CodeTab() {
       <div className="row" style={{ gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
         <label className="toggle" style={{ margin: 0 }}><span>Reacciona al cursor</span><span className="switch"><input type="checkbox" role="switch" checked={interactive} onChange={ev => setInteractive(ev.target.checked)} /><span /></span></label>
         <label className="toggle" style={{ margin: 0 }}><span>Sin dependencias externas</span><span className="switch"><input type="checkbox" role="switch" checked={systemFont} onChange={ev => setSystemFont(ev.target.checked)} /><span /></span></label>
+        {zone && <label className="toggle" style={{ margin: 0 }}><span>Zona protegida</span><span className="switch"><input type="checkbox" role="switch" checked={withZone} onChange={ev => setWithZone(ev.target.checked)} /><span /></span></label>}
         {isMedia && <input type="text" className="mono" aria-label={e.recipe.source === 'image' ? 'URL de tu imagen en tu web' : 'URL de tu video en tu web'} placeholder={e.recipe.source === 'image' ? 'URL de tu imagen' : 'URL de tu video'} value={mediaUrl} onChange={ev => setMediaUrl(ev.target.value)} style={{ flex: 1, minWidth: 200, background: 'var(--field)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px' }} />}
       </div>
+      <FallbackChoice mod={mod} r={e.recipe} value={fallback} onChange={setFallback} />
       {basic && (
         <div className="ex-na info" role="note">
-          <p><b>Tu vista previa usa el motor básico.</b> Quien visite tu web con WebGL 2 verá el motor completo; sin WebGL 2, verá el color de fondo (o tu póster, si lo subes con tu página y pones su URL en «poster»).</p>
+          <p><b>Tu vista previa usa el motor básico.</b> Quien visite tu web con WebGL 2 verá el motor completo; sin WebGL 2, {fallback === 'basic' ? 'la verá como aquí, con el motor básico que va en el código' : 'verá el color de fondo (o tu póster, si lo subes con tu página y pones su URL en «poster»)'}.</p>
           <button type="button" className="btn" onClick={() => void poster()}>Descargar póster (PNG)</button>
         </div>
       )}
+      <ScrimCodeNote zone={zone} on={withZone} />
       {out?.notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       <textarea ref={codeRef} className="code" readOnly value={out?.code ?? 'Preparando…'} aria-label="Código" onFocus={ev => ev.currentTarget.select()} />
       <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
@@ -547,10 +682,12 @@ function CodeTab() {
         {kind === 'wc' && out?.extra && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText('monotrama-field.js', out.extra!, 'text/javascript')}>Descargar monotrama-field.js</button>}
         {kind === 'react' && out && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(out.file, out.code, 'text/javascript')}>Descargar {out.file}</button>}
         {!basic && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => void poster()}>Descargar póster (PNG)</button>}
-        <span className="note" style={{ margin: 0 }}>Motor incluido ({mod ? Math.round(mod.runtimeSize() / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».</span>
       </div>
+      <p className="note code-size">
+        {out ? <>{kind === 'wc' ? 'monotrama-field.js' : kind === 'react' ? out.file : 'Este código'}: <b>{kb(bytes)}</b>{gz ? ` (${kb(gz)} comprimido con gzip, como lo sirven la mayoría de servidores)` : ''}. </> : null}
+        Lleva el motor {fallback === 'basic' ? 'WebGL 2 y el básico' : 'WebGL 2'}, sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».
+      </p>
       <CopyFallback manual={manual} />
-      <p className="note">Sin WebGL 2 se ve el color de fondo; el póster se muestra en su lugar si lo subes con tu página y pones su URL en «poster».</p>
     </>
   );
 }
@@ -573,13 +710,15 @@ function RecipeTab() {
   const arch = archById(e.arch)?.name;
   return (
     <>
+      <h3 className="data-h">Enlace o proyecto: qué lleva cada uno</h3>
+      <ShareKinds word={media ? word : undefined} />
       <div className="ex-grid">
         <div className="ex-card">
           <h3>Semilla</h3>
           {e.seed ? (
             <>
               <p>La palabra con la que el dado tejió esta pieza. Escrita en «semilla», en el mismo espacio y estilo, la repite.</p>
-              <p className="seed-big"><b>{e.seed}</b> · {spaceById(e.space).name}{arch ? ` · ${arch}` : ''}</p>
+              <p className="seed-big"><b>{e.seed}</b> · {spaceById(e.space).name}{arch ? ` · ${arch}` : ''} · generador v{e.recipe.meta.gen ?? 1}</p>
               <button type="button" className="btn" onClick={() => void copyText(e.seed!, 'Semilla copiada')}>Copiar semilla</button>
               <p className="note" style={{ margin: '8px 0 0' }}>No lleva tus ediciones{e.edited ? ' (esta pieza está editada)' : ''} ni tus archivos, y depende de la versión del generador. Para algo exacto, usa el enlace, la receta o el proyecto.</p>
             </>
@@ -589,7 +728,7 @@ function RecipeTab() {
         </div>
         <div className="ex-card">
           <h3>Enlace</h3>
-          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve exactamente esta pieza y puede seguir editándola.</p>
+          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve esta pieza y puede seguir editándola{media ? `, pero con ${video ? 'un video suyo' : 'una imagen suya'}` : ''}.</p>
           {media && <p className="warn">El enlace no lleva {word} ni su nombre: quien lo abra verá el patrón de fondo hasta que elija {video ? 'un video suyo' : 'una imagen suya'}. Para enviarla completa, exporta el proyecto.</p>}
           <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace" />
           <button type="button" className="btn primary" style={{ marginTop: 10 }} onClick={() => void shareLink(r, e.space)}>Copiar enlace</button>
@@ -607,7 +746,7 @@ function RecipeTab() {
             {!media
               ? 'La receta y un LEEME con instrucciones, en un solo archivo. Esta pieza no usa imagen ni video.'
               : pm?.available
-                ? <>La receta y {word} original{media.name ? <> «{media.name}»</> : null} ({fmtSize(pm.size)}), con un LEEME. Arrástralo sobre el estudio en cualquier equipo y la pieza se abre igual.</>
+                ? <>La receta y {word} original{media.name ? <> «{media.name}»</> : null} ({fmtSize(pm.size)}), con un LEEME. Arrástralo sobre el estudio en otro equipo y la pieza se abre con su archivo.</>
                 : `${video ? 'El video' : 'La imagen'} de esta pieza ya no está en este navegador: el proyecto saldría sólo con la receta.`}
           </p>
           <button type="button" className="btn primary" onClick={() => void exportProject(r, baseName(r))}>Exportar proyecto (.zip)</button>

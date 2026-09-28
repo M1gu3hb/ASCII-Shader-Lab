@@ -35,3 +35,36 @@ export const IExplore = (p: P) => <svg {...base(p)}><rect x="3" y="3" width="8" 
 export const IMore = (p: P) => <svg {...base(p)}><circle cx="5" cy="12" r="1.3" fill="currentColor" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /><circle cx="19" cy="12" r="1.3" fill="currentColor" /></svg>;
 export const ITerminal = (p: P) => <svg {...base(p)}><rect x="3" y="4.5" width="18" height="15" rx="2" /><path d="m7 9 3 3-3 3M12 15h5" /></svg>;
 export const ITune = (p: P) => <svg {...base(p)}><path d="M5 4v16M12 4v16M19 4v16" /><rect x="3" y="13" width="4" height="3" rx="1" fill="currentColor" /><rect x="10" y="7" width="4" height="3" rx="1" fill="currentColor" /><rect x="17" y="15" width="4" height="3" rx="1" fill="currentColor" /></svg>;
+
+/* ---------- spaces, settings groups and destination views: one small set, drawn on the same 24 px grid ---------- */
+
+export const IFondos = (p: P) => <svg {...base(p)}><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 14c2.8-2.3 5.7-2.3 8.5 0s5.7 2.3 8.5 0M7 8.5h5" /></svg>;
+export const IArte = (p: P) => <svg {...base(p)}><circle cx="9" cy="9.5" r="5" /><rect x="10.5" y="10.5" width="9.5" height="9.5" rx="1.5" /></svg>;
+export const ITipo = (p: P) => <svg {...base(p)}><path d="M3.5 18.5 8 6h1.4l4.5 12.5M5.1 14.3h7.2" /><circle cx="17.6" cy="15.6" r="2.9" /><path d="M20.5 12.6v5.9" /></svg>;
+export const IPiezas = (p: P) => <svg {...base(p)}><path d="m8 7-4.5 5L8 17M16 7l4.5 5-4.5 5M13.5 4.5l-3 15" /></svg>;
+
+export const IForma = (p: P) => <svg {...base(p)}><path d="m12 4 8.5 4.3L12 12.6 3.5 8.3z" /><path d="m3.5 12.4 8.5 4.3 8.5-4.3M3.5 16.4 12 20.7l8.5-4.3" /></svg>;
+export const IColor = (p: P) => <svg {...base(p)}><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" /></svg>;
+export const IGlifos = (p: P) => <svg {...base(p)}><path d="M10 4 8 20M16 4l-2 16M5 9h15M4 15h15" /></svg>;
+export const IMov = (p: P) => <svg {...base(p)}><path d="M3 12c1.5-4 3-6 4.5-6s3 4 4.5 6 3 6 4.5 6 3-2 4.5-6" /></svg>;
+export const IFx = (p: P) => <svg {...base(p)}><path d="M10.5 3.5c.7 4.2 3.3 6.8 7.5 7.5-4.2.7-6.8 3.3-7.5 7.5-.7-4.2-3.3-6.8-7.5-7.5 4.2-.7 6.8-3.3 7.5-7.5zM19 15.5v5M16.5 18h5" /></svg>;
+export const IFuente = (p: P) => <svg {...base(p)}><path d="M12 3.5v9M8.5 9 12 12.5 15.5 9M4 13.5v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" /></svg>;
+/** Transformar: a square of cells that turns into a circle of dots. */
+export const IXform = (p: P) => <svg {...base(p)}><rect x="3.5" y="3.5" width="8" height="8" rx="1" /><path d="M7.5 3.5v8M3.5 7.5h8M13.5 6.5h4a2 2 0 0 1 2 2v2.5M17.5 9l2 2 2-2" /><circle cx="15.5" cy="17" r="3.5" /><circle cx="15.5" cy="17" r=".9" fill="currentColor" stroke="none" /></svg>;
+export const IMsg = (p: P) => <svg {...base(p)}><path d="M3.5 8h11M3.5 12h7M3.5 16h9" /><rect x="15.5" y="12.5" width="4" height="6" rx=".6" fill="currentColor" stroke="none" /></svg>;
+
+export const IVLibre = (p: P) => <svg {...base(p)}><rect x="3.5" y="5.5" width="17" height="13" rx="1.5" /></svg>;
+export const IVWeb = (p: P) => <svg {...base(p)}><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 8.5h17M6.2 6.5h.01M8.4 6.5h.01" /></svg>;
+export const IVMovil = (p: P) => <svg {...base(p)}><rect x="7" y="3" width="10" height="18" rx="2.2" /><path d="M11 5.6h2" /></svg>;
+export const IVTarjeta = (p: P) => <svg {...base(p)}><rect x="3.5" y="5" width="17" height="14" rx="2" /><path d="M3.5 13h17M6.5 16h6" /></svg>;
+export const IVVertical = (p: P) => <svg {...base(p)}><rect x="7.5" y="3" width="9" height="18" rx="1.5" /><path d="m11 10 2.8 2-2.8 2z" fill="currentColor" /></svg>;
+export const IVReadme = (p: P) => <svg {...base(p)}><path d="M6.5 3.5H14l3.5 3.5v13.5h-11z" /><path d="M14 3.5V7h3.5M9 11.5h6M9 14.5h6M9 17.5h4" /></svg>;
+
+type Icon = (p: P) => React.JSX.Element;
+
+/** Each creative space (the top bar, its picker on narrow screens). */
+export const SPACE_ICON: Record<string, Icon> = { fondos: IFondos, arte: IArte, media: IImage, tipo: ITipo, terminal: ITerminal, componentes: IPiezas };
+/** Each settings group, by its id (the same group has a different name in some spaces). */
+export const TAB_ICON: Record<string, Icon> = { forma: IForma, color: IColor, glifos: IGlifos, mov: IMov, fx: IFx, fuente: IFuente, msg: IMsg, term: ITerminal, xform: IXform };
+/** Each destination view. */
+export const VIEW_ICON: Record<string, Icon> = { libre: IVLibre, web: IVWeb, movil: IVMovil, tarjeta: IVTarjeta, vertical: IVVertical, readme: IVReadme, terminal: ITerminal };

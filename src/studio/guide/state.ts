@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { PRESETS } from '../presets';
 import { applyRecipe, currentEntry, currentRecipe, rollDice, setSpace, setUI, useStudio } from '../store';
-import { announce, toast } from '../toast';
+import { announce, quiet, toast } from '../toast';
 import { PATHS, STEP_COUNT, relevantTab, type PathId } from './paths';
 
 /**
@@ -62,8 +62,7 @@ export function closeWelcome(how: 'close' | 'explore' | 'path' | 'silent' = 'clo
   if (how === 'explore') {
     if (G().path) exitGuide('close');
     if (useStudio.getState().space === 'componentes') setSpace('arte');
-    const e = rollDice();
-    announce(`Resultado nuevo: ${e.seed?.replace(/-/g, ' ') ?? ''}`);
+    rollDice(); // the history announces it
   }
   if ((how === 'close' || how === 'explore') && first) diceHint(300);
 }
@@ -106,7 +105,8 @@ export function goStep(step: number) {
   const g = G();
   if (!g.path) return;
   const s = Math.max(0, Math.min(STEP_COUNT - 1, step));
-  if (s !== g.step) setG({ step: s, focusTick: g.focusTick + 1 });
+  // the step's title takes focus and is read out: the live region must not keep «Paso 1 de 4»
+  if (s !== g.step) { quiet(); setG({ step: s, focusTick: g.focusTick + 1 }); }
 }
 
 // the person went to another space (top bar, keys 1–6, an opened recipe): the guide steps aside,
@@ -139,5 +139,8 @@ export function exitGuide(how: 'close' | 'done' | 'panel' | 'switch') {
   }
   panelBefore = null;
   setG({ path: null, step: 0, word: null });
+  // what screen readers last heard was a step of the guide: say it ended
   if (how === 'done') toast('Listo. Tu pieza sigue aquí: ajústala, tira el dado o guárdala con ★.', undefined, 5000);
+  else announce(how === 'panel' ? 'Guía cerrada: tienes todos los controles, con tu pieza.' : how === 'switch' ? 'Saliste de la guía al cambiar de espacio. Tu pieza se queda.' : 'Guía cerrada. Tu pieza se queda.');
+  if (how === 'done') announce('Guía terminada.');
 }

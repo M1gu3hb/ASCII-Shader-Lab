@@ -1,9 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ARCHETYPES } from '../../src/random/archetypes';
 import { GUIDES, MORPHIQ, PAGES, SITE_URL } from '../../src/shared/site';
-import { cleanVerification, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, sitemapXml } from '../../scripts/seo';
+import { cleanVerification, contactSheet, fmtBytes, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, salida, shortUsage, sitemapXml } from '../../scripts/seo';
+import { PATTERNS } from '../../src/engine/catalog';
+import { CONTACTS, contactSrc } from '../../src/landing/contacts';
+import { PRESETS } from '../../src/studio/presets';
 
 const root = join(import.meta.dirname, '../..');
 const page = (id: string) => PAGES.find(p => p.id === id)!;
@@ -25,6 +28,17 @@ describe('site pages', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const words: Record<number, string> = { 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis' };
     expect(html).toContain(`con ${words[ARCHETYPES.length]} estilos de arte`);
+  });
+
+  it('the landing and the guides count the catalog and the presets right', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const solids = PATTERNS.filter(p => p.family === 'solidos').length;
+    expect(html).toContain(`${PATTERNS.length} patrones`);
+    expect(html).toContain(`${solids} objetos en 3D`);
+    const word: Record<number, string> = { 5: 'Cinco', 6: 'Seis', 7: 'Siete', 8: 'Ocho', 9: 'Nueve', 10: 'Diez', 11: 'Once', 12: 'Doce' };
+    expect(readFileSync(join(root, 'fondos-ascii/index.html'), 'utf8')).toContain(`${word[PRESETS.fondos.length]} puntos de partida`);
+    expect(readFileSync(join(root, 'arte-ascii-terminal/index.html'), 'utf8')).toContain(`${word[PRESETS.terminal.length]} puntos de partida`);
+    expect(readFileSync(join(root, 'imagen-a-ascii/index.html'), 'utf8')).toContain(`${word[PRESETS.media.length]} estilos de partida`);
   });
 
   it('guide posters and the Morphiq logo files exist', () => {
@@ -130,5 +144,64 @@ describe('directives', () => {
 
   it('rejects unknown directives instead of shipping them', () => {
     expect(() => renderPage('<!-- @hed -->', page('main'), opts)).toThrow(/@hed/);
+  });
+});
+
+describe('the landing\'s «Azar» contact sheet', () => {
+  it('shows one real draw per style, each with its pre-rendered image', () => {
+    expect(new Set(CONTACTS.map(c => c.arch))).toEqual(new Set(ARCHETYPES.map(a => a.id)));
+    expect(new Set(CONTACTS.map(c => c.seed)).size).toBe(CONTACTS.length);
+    for (const c of CONTACTS) {
+      expect(c.name, c.arch).toBe(ARCHETYPES.find(a => a.id === c.arch)!.name);
+      expect(existsSync(join(root, 'public', contactSrc(c.seed))), c.seed).toBe(true);
+    }
+    // the dice's strip starts with contacts too (their images, their seeds)
+    const landing = readFileSync(join(root, 'index.html'), 'utf8');
+    const strip = [...landing.matchAll(/<li data-seed="([^"]+)"><span class="shot"[^>]*><img src="([^"]+)"/g)];
+    expect(strip).toHaveLength(3);
+    for (const [, seed, src] of strip) {
+      expect(CONTACTS.some(c => c.seed === seed), seed).toBe(true);
+      expect(src).toBe(contactSrc(seed));
+    }
+    const html = contactSheet();
+    expect(html.match(/<li data-contact=/g)).toHaveLength(CONTACTS.length);
+    expect(renderPage('<!-- @contacts -->', page('main'), { readPublic: () => '' })).toBe(html);
+  });
+});
+
+describe('the landing\'s exported files (@salida)', () => {
+  const readPublic = (p: string) => readFileSync(join(root, 'public', p), 'utf8');
+  const manifest = JSON.parse(readPublic('ex/salidas/manifest.json')) as { bytes: Record<string, number>; link: string; frames: number };
+
+  it('quotes the real size of every file it links', () => {
+    const files: Record<string, string> = {
+      png: 'monotrama-saturno.png', svg: 'monotrama-saturno.svg', webm: 'monotrama-saturno.webm', mp4: 'monotrama-saturno.mp4',
+      mjs: 'monotrama-saturno.mjs', 'monotrama.json': 'monotrama-saturno.monotrama.json', wc: 'web/monotrama-field.js',
+    };
+    for (const [key, file] of Object.entries(files)) {
+      const size = statSync(join(root, 'public/ex/salidas', file)).size;
+      expect(manifest.bytes[key], file).toBe(size);
+      expect(salida(key, readPublic)).toBe(fmtBytes(size));
+    }
+    expect(fmtBytes(538 * 1024)).toBe('538 KB');
+    expect(fmtBytes(1.25 * 1024 * 1024)).toMatch(/^1,[23] MB$/);
+  });
+
+  it('links a real recipe and shows the exported code as it is, with the recipe cut short', () => {
+    expect(manifest.link).toMatch(/^\/studio\/#r=z[\w-]+$/);
+    expect(salida('link', readPublic)).toBe(manifest.link);
+    expect(Number(salida('linklen', readPublic))).toBe(manifest.link.length - '/studio/#r='.length);
+    const usage = shortUsage('<x recipe=\'{"v":2,"source":"pattern","layers":[{"on":true,"pattern":"planeta","blend":"normal","mix":1}]}\'>');
+    expect(usage).toMatch(/recipe='\{"v":2.*…\}'>$/);
+    expect(salida('usage', readPublic)).toContain('&lt;script src=&quot;monotrama-field.js&quot; defer&gt;');
+    expect(salida('frames', readPublic)).toBe(String(manifest.frames));
+    expect(() => salida('nada', readPublic)).toThrow();
+  });
+
+  it('every @salida directive of the landing renders', () => {
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const out = renderPage(html, page('main'), { readPublic });
+    expect(out).not.toMatch(/<!--\s*@/);
+    expect(out).not.toContain('{{');
   });
 });

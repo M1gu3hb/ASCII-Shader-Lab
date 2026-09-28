@@ -1,14 +1,14 @@
 import { normMediaRef, type MediaRef, type Recipe } from '../engine/recipe';
 import { spaceById } from '../random/spaces';
 import { buildProject, isProject, readProject } from '../shared/project';
-import { buildSession, isSession, readSession, sessionFileName, type SessionMedia } from '../shared/session';
+import { buildSession, collectionFileName, isSession, readSession, sessionFileName, type SessionMedia } from '../shared/session';
 import { unzip } from '../shared/zip';
 import { downloadBlob } from './download';
 import { allRecipes, mediaIdsOf } from './history';
 import { mediaBlob, rememberFile, syncMedia } from './media';
 import { guessType, kindOfType, put } from './mediaStore';
 import { spaceForOpened } from './presets';
-import { applyRecipe, importSession, onHistoryEvent, planSession, useStudio, type Entry, type Favorite } from './store';
+import { applyRecipe, importSession, onHistoryEvent, planSession, setUI, useStudio, type Entry, type Favorite } from './store';
 import { toast } from './toast';
 
 /**
@@ -73,7 +73,10 @@ async function openProject(files: Awaited<ReturnType<typeof unzip>>, label: stri
       recipe = { ...recipe, media: { ...recipe.media, ref: normMediaRef({ ...ref, kind, id: res.id, name, type, size: blob.size }) } };
       if (!res.stored) note = res.reason === 'too-big'
         ? ' · el archivo es demasiado grande para guardarlo en el navegador: se verá mientras no cierres la pestaña'
-        : ' · no queda espacio para guardar el archivo: se verá mientras no cierres la pestaña';
+        : res.reason === 'no-space'
+          ? ' · no queda espacio para guardar el archivo: se verá mientras no cierres la pestaña'
+          // e.g. a private window of Safari/WebKit, whose storage refuses files
+          : ' · el navegador no dejó guardar el archivo (¿ventana privada?): se verá mientras no cierres la pestaña';
     }
   }
   const space = spaceById(spaceForOpened(recipe, useStudio.getState().space)).id;
@@ -126,6 +129,43 @@ export async function saveSession(withMedia = true) {
   }
 }
 
+/** Local media the collection uses, and how much of it this browser still has. */
+export async function collectionMediaSize(): Promise<{ count: number; bytes: number; missing: number }> {
+  let count = 0, bytes = 0, missing = 0;
+  for (const id of mediaIdsOf(useStudio.getState().favorites.map(f => f.recipe))) {
+    const m = await mediaBlob(id);
+    if (m) { count++; bytes += m.blob.size; } else missing++;
+  }
+  return { count, bytes, missing };
+}
+
+/**
+ * Downloads monotrama-coleccion-YYYY-MM-DD.zip: every piece saved with ★ and the images and videos they
+ * use, to keep a copy or take the collection to another computer (the history stays out: that is a session).
+ */
+export async function saveCollection() {
+  if (saving) return;
+  saving = true;
+  try {
+    const favs = useStudio.getState().favorites;
+    const media: Array<SessionMedia & { data: Blob }> = [];
+    const refs = sessionRefs([], favs);
+    let missing = 0;
+    for (const [id, ref] of refs) {
+      const m = await mediaBlob(id);
+      if (m) media.push({ id, kind: ref.kind, name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, size: m.blob.size, w: ref.w, h: ref.h, data: m.blob });
+      else missing++;
+    }
+    const blob = await buildSession({ entries: [], favorites: favs, cursor: -1 }, media, 'collection');
+    downloadBlob(collectionFileName(), blob);
+    if (missing) toast(`${missing === 1 ? 'Una imagen o video de tu colección ya no estaba' : `${missing} imágenes o videos de tu colección ya no estaban`} en este navegador: esas piezas van sin su archivo.`, undefined, 7000);
+  } catch (err) {
+    toast('No se pudo guardar la colección: ' + (err as Error).message);
+  } finally {
+    saving = false;
+  }
+}
+
 /** Replaces media ids inside raw (not yet normalised) entries and favourites. */
 function remapIds(list: unknown[], map: Map<string, string>) {
   if (!map.size) return list;
@@ -141,9 +181,10 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
   const sess = await readSession(files);
   if (!sess) { toast('Esa sesión está dañada o no es de Monotrama.'); return; }
   const st = useStudio.getState();
+  const onlyCollection = sess.scope === 'collection' || !sess.data.entries.length;
   // past the limit, say exactly what goes: the oldest by date, from here and from the session
   const plan = planSession(sess.data);
-  if (plan.dropOwn + plan.dropIncoming > 0) {
+  if (!onlyCollection && plan.dropOwn + plan.dropIncoming > 0) {
     const n = (k: number, one: string, many: string) => (k === 1 ? `1 ${one}` : `${k} ${many}`);
     const from = [plan.dropOwn ? `${plan.dropOwn} de tu historial` : '', plan.dropIncoming ? `${plan.dropIncoming} de la sesión` : ''].filter(Boolean).join(' y ');
     const total = plan.dropOwn + plan.dropIncoming;
@@ -169,6 +210,13 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
     cursor: sess.data.cursor,
   });
   syncMedia(true);
+  if (onlyCollection) {
+    const bits = [`Colección abierta: ${res.favAdded} ${res.favAdded === 1 ? 'pieza nueva' : 'piezas nuevas'}`];
+    if (res.favUpdated) bits.push(`${res.favUpdated} ${res.favUpdated === 1 ? 'actualizada' : 'actualizadas'} con la versión más reciente`);
+    if (lost) bits.push(lost === 1 ? '1 archivo no cabe en el navegador: se verá hasta que cierres la pestaña' : `${lost} archivos no caben en el navegador: se verán hasta que cierres la pestaña`);
+    toast(bits.join(' · '), { label: 'Ver', run: () => setUI({ sheet: 'collection' }) }, 8000);
+    return;
+  }
   const parts = [`Sesión abierta: ${res.added} ${res.added === 1 ? 'resultado añadido' : 'resultados añadidos'}`];
   if (res.updated) parts.push(`${res.updated} ${res.updated === 1 ? 'actualizado' : 'actualizados'} con la versión más reciente de la sesión (en cada uno, Deshacer vuelve a la tuya)`);
   if (res.skipped) parts.push(`${res.skipped} ya ${res.skipped === 1 ? 'estaba' : 'estaban'}`);

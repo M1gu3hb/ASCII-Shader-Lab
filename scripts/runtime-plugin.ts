@@ -1,36 +1,128 @@
-import { build } from 'esbuild';
+import { build, type Plugin as EsbuildPlugin } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
 /**
- * Exposes `virtual:mt-runtime` — the standalone engine runtime, bundled and minified with
- * esbuild, as a string. The studio inlines it into exported HTML / Web Component / React code,
- * so exports never depend on Function.prototype.toString() of bundled code.
+ * The standalone engine runtime, bundled and minified with esbuild, as strings the studio inlines into
+ * exported HTML / Web Component / React code (so exports never depend on Function.prototype.toString()
+ * of bundled code):
+ *   virtual:mt-runtime        the WebGL 2 runtime (src/runtime/entry.ts)
+ *   virtual:mt-runtime-basic  { runtime, patterns }: the same runtime plus the basic engine (Canvas 2D,
+ *                             src/runtime/entry-basic.ts), and one small script per CPU pattern, so an
+ *                             export carries only the patterns its piece uses.
  */
+const ROOT = resolve(import.meta.dirname, '..');
+const ENTRY = resolve(ROOT, 'src/runtime/entry.ts');
+const ENTRY_BASIC = resolve(ROOT, 'src/runtime/entry-basic.ts');
+const PATTERNS = resolve(ROOT, 'src/engine/basic/patterns.ts');
+const CORE = resolve(ROOT, 'src/engine/basic/core.ts');
+const SHIM = resolve(ROOT, 'src/runtime/basic-patterns.ts');
+
+const common = {
+  bundle: true, minify: true, format: 'iife', target: 'es2020', write: false, legalComments: 'none',
+  define: { 'process.env.NODE_ENV': '"production"' },
+} as const;
+
+/** Splits the body of an object literal at its top-level commas. */
+function topLevel(body: string): string[] {
+  const out: string[] = [];
+  let depth = 0, start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === '(' || c === '{' || c === '[') depth++;
+    else if (c === ')' || c === '}' || c === ']') depth--;
+    else if (c === ',' && depth === 0) { out.push(body.slice(start, i)); start = i + 1; }
+  }
+  out.push(body.slice(start));
+  return out.map(s => s.trim()).filter(Boolean);
+}
+
+const TABLE = /export const BASIC_PATTERNS: Record<string, BasicPattern> = \{([\s\S]*?)\n\};/;
+
+/** id → the expression of each entry of the BASIC_PATTERNS table in patterns.ts. */
+export function patternTable(src = readFileSync(PATTERNS, 'utf8')): Array<[string, string]> {
+  const m = TABLE.exec(src);
+  if (!m) throw new Error('runtime-plugin: no encuentro la tabla BASIC_PATTERNS en ' + PATTERNS);
+  return topLevel(m[1]).map(s => {
+    const i = s.indexOf(':');
+    return i < 0 ? [s, s] : [s.slice(0, i).trim().replace(/^['"]|['"]$/g, ''), s.slice(i + 1).trim()];
+  });
+}
+
+/** Names exported by basic/core.ts (the helpers a pattern script takes from the runtime). */
+function coreNames(): string[] {
+  return [...readFileSync(CORE, 'utf8').matchAll(/^export (?:const|function|let) (\w+)/gm)].map(m => m[1]);
+}
+
+/**
+ * One pattern as a script that registers itself in the runtime (see src/runtime/basic-patterns.ts):
+ * patterns.ts with a table of only that pattern (esbuild drops the others) and core.ts replaced by the
+ * runtime's own helpers (__C), wrapped so it does nothing on a page without the basic engine.
+ */
+async function patternScript(id: string, src: string, table: Array<[string, string]>, names: string[]): Promise<string> {
+  const m = TABLE.exec(src)!;
+  const expr = table.find(([k]) => k === id)![1];
+  // the other patterns' tables and constants are marked pure, so esbuild drops them with their patterns
+  const only = (src.slice(0, m.index) + `export const BASIC_PATTERNS: Record<string, BasicPattern> = { ${JSON.stringify(id)}: ${expr} };` + src.slice(m.index + m[0].length))
+    .replace(/\bnew (Float64Array|Float32Array|Int32Array|Uint32Array|Uint16Array|Uint8Array)\(/g, '/* @__PURE__ */ new $1(')
+    .replace(/= \(\(\) => \{/g, '= /* @__PURE__ */ (() => {');
+  const subset: EsbuildPlugin = {
+    name: 'mt-pattern-subset',
+    setup(b) {
+      b.onLoad({ filter: /[\\/]engine[\\/]basic[\\/]patterns\.ts$/ }, () => ({ contents: only, loader: 'ts' }));
+      b.onResolve({ filter: /^\.\/core$/ }, a => (a.importer === PATTERNS ? { path: 'mt-core', namespace: 'mt' } : undefined));
+      // a call marked pure per helper: esbuild drops the ones this pattern does not use
+      b.onLoad({ filter: /^mt-core$/, namespace: 'mt' }, () => ({ contents: names.map(n => `export const ${n} = /* @__PURE__ */ __G(${JSON.stringify(n)});`).join('\n'), loader: 'js' }));
+    },
+  };
+  const out = await build({
+    ...common,
+    stdin: { contents: `import { BASIC_PATTERNS, setPX } from ${JSON.stringify(PATTERNS)}; const p = BASIC_PATTERNS[${JSON.stringify(id)}]; __OUT = { f: p.f, prep: p.prep, px: setPX };`, resolveDir: ROOT, loader: 'ts' },
+    plugins: [subset],
+    pure: ['Math.cos', 'Math.sin', 'Math.sqrt', 'Math.fround'],
+  });
+  const body = out.outputFiles[0].text.trim();
+  const q = JSON.stringify(id);
+  return `(function(M){var B=M&&M.__basic;if(!B||B.has(${q}))return;var __G=function(n){return B.core[n]},__OUT;${body}B.add(${q},__OUT)})(window.Monotrama);`;
+}
+
+/** The two runtimes and the pattern scripts (also used by the unit tests). */
+export async function buildRuntimes(): Promise<{ runtime: string; basic: string; patterns: Record<string, string> }> {
+  const runtime = (await build({ ...common, entryPoints: [ENTRY] })).outputFiles[0].text;
+  const shim: EsbuildPlugin = {
+    name: 'mt-basic-registry',
+    setup(b) {
+      b.onResolve({ filter: /^\.\/patterns$/ }, a => (/[\\/]engine[\\/]basic[\\/]field\.ts$/.test(a.importer) ? { path: SHIM } : undefined));
+    },
+  };
+  const basic = (await build({ ...common, entryPoints: [ENTRY_BASIC], plugins: [shim] })).outputFiles[0].text;
+  const src = readFileSync(PATTERNS, 'utf8');
+  const table = patternTable(src);
+  const names = coreNames();
+  const patterns: Record<string, string> = {};
+  await Promise.all(table.map(async ([id]) => { patterns[id] = await patternScript(id, src, table, names); }));
+  return { runtime, basic, patterns };
+}
+
 export function runtimePlugin(): Plugin {
-  const id = 'virtual:mt-runtime';
-  const resolved = '\0' + id;
-  const entry = resolve(import.meta.dirname, '../src/runtime/entry.ts');
+  const ids = { 'virtual:mt-runtime': '\0virtual:mt-runtime', 'virtual:mt-runtime-basic': '\0virtual:mt-runtime-basic' } as Record<string, string>;
+  let built: ReturnType<typeof buildRuntimes> | null = null;
   return {
     name: 'mt-runtime',
     resolveId(source) {
-      return source === id ? resolved : null;
+      return ids[source] ?? null;
     },
     async load(source) {
-      if (source !== resolved) return null;
-      const out = await build({
-        entryPoints: [entry],
-        bundle: true,
-        minify: true,
-        format: 'iife',
-        target: 'es2020',
-        write: false,
-        legalComments: 'none',
-        define: { 'process.env.NODE_ENV': '"production"' },
-      });
-      const code = out.outputFiles[0].text;
-      this.addWatchFile(entry);
-      return `export default ${JSON.stringify(code)};`;
+      if (source !== ids['virtual:mt-runtime'] && source !== ids['virtual:mt-runtime-basic']) return null;
+      built ??= buildRuntimes();
+      const b = await built;
+      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, SHIM]) this.addWatchFile(f);
+      return source === ids['virtual:mt-runtime']
+        ? `export default ${JSON.stringify(b.runtime)};`
+        : `export const runtime = ${JSON.stringify(b.basic)};\nexport const patterns = ${JSON.stringify(b.patterns)};`;
     },
+    // in `vite dev`, an edit to the engine rebuilds the strings on the next load
+    watchChange() { built = null; },
   };
 }

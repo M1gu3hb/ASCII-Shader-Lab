@@ -1,8 +1,24 @@
 import type { EngineStats, GridSnapshot, MediaKind } from './engine';
 import type { Recipe } from './recipe';
+import type { TransitionSpec } from './transitions';
 
 export type RendererKind = 'webgl2' | 'basic';
 export type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
+
+/**
+ * How a live canvas trades detail for fluidity (the studio's «Calidad» setting). It only changes how the
+ * preview is drawn: the recipe, and what exports render, stay the same.
+ */
+export interface PreviewQuality {
+  /** Upper bound for the device pixel ratio (the engines' maxPixelRatio option otherwise). */
+  maxPixelRatio?: number;
+  /** Frames per second at most (0 or absent: every display frame; the basic engine caps itself too). */
+  maxFps?: number;
+  /** Lower the resolution (WebGL) or the frame rate (basic) by itself when frames are slow. */
+  adaptive?: boolean;
+  /** Draw costly screen effects the cheap way (see each engine). */
+  simplify?: boolean;
+}
 
 /**
  * What the studio, the exporters and the landing need from a renderer.
@@ -21,17 +37,38 @@ export interface Renderer {
   transparent: boolean;
   /** Live input (e.g. microphone level, 0..1) that drives the pulse instead of the BPM clock. */
   externalPulse: number;
-  set(next: Recipe, o?: { transition?: boolean }): void;
+  /**
+   * Shows another recipe. On a live canvas the change may wait a few frames for what the new piece needs
+   * (its shader, its fonts), drawing the current one meanwhile; `transition` then starts with the first
+   * frame of the new piece. Fixed-size (export) renderers apply it at once.
+   */
+  set(next: Recipe, o?: { transition?: boolean | TransitionSpec }): void;
+  /** A change is still being prepared, or a transition is running (heavy side work should wait). */
+  readonly busy: boolean;
   play(): void;
   pause(): void;
   setMedia(kind: MediaKind, el: MediaEl | null): void;
   hasMedia(kind: MediaKind): boolean;
-  /** Resolves once fonts are loaded and glyph tables are rebuilt with them. */
+  /** Resolves once fonts are loaded and glyph tables are rebuilt with them (and, WebGL, the shader is compiled). */
   ready(): Promise<void>;
+  /** New size for a fixed-size (offscreen) renderer, so one can be reused for renders of any size. */
+  setFixedSize(width: number, height: number, pixelRatio: number): void;
+  /** Live canvases: see PreviewQuality. */
+  setQuality(q: PreviewQuality): void;
+  /**
+   * Frames drawn before `until` (a performance.now() time) do not count as slow for the adaptive
+   * resolution or frame rate: the page is busy with other work for a moment (offscreen renders).
+   */
+  holdAdaptive(until: number): void;
   /** Renders a frame synchronously at time t. */
   renderAt(t: number, realT?: number): void;
   renderNow(): void;
   drawTo(ctx: CanvasRenderingContext2D, w: number, h: number): void;
+  /**
+   * Pixels of a region of the last frame (top-left origin), read without making the page wait for the GPU
+   * (WebGL: through a pixel buffer and a fence; needs preserveDrawingBuffer).
+   */
+  snapshot(sx: number, sy: number, sw: number, sh: number): Promise<ImageData | null>;
   /** Character grid of the current frame (text, ANSI and SVG exports). */
   readGrid(): GridSnapshot;
   accent(): string;
