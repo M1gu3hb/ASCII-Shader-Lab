@@ -351,3 +351,9 @@ html[data-motion="low"] .mt-spin::before { animation: none; }
   .app .deck .nav button { width: 44px; }
   .app .ctl output, .app .ctl .val { font-size: 12.5px; }
 }
+
+/* low motion (preview quality «Ligera», weak devices): the interface's own small movements go too */
+html[data-motion="low"] .app .spaces button::after, html[data-motion="low"] .app .toast, html[data-motion="low"] .app .wl-choice,
+html[data-motion="low"] .pk-pop, html[data-motion="low"] .app .tab-ic, html[data-motion="low"] .app .sp-ic {
+  transition: none !important; animation: none !important;
+}

@@ -68,10 +68,10 @@ function useSize(ref: RefObject<HTMLElement | null>, inner = false) {
 }
 
 /**
- * Room the views can use inside the stage: below the bar at its top (view selector, engine notes)
+ * Room the views can use inside the stage: below the bar at its top (view selector and options)
  * and above the dice deck and seed line, or above the settings sheet on phones. Layout offsets are
- * used (not bounding boxes) so the panel's slide transition does not count. Toasts go just under the
- * stage's top bar, so they never cover it, the deck or the basic-mode chip.
+ * used (not bounding boxes) so the panel's slide transition does not count. The notification area
+ * (notes and toasts, Notices.tsx) hangs under that bar out of flow: it never changes this room.
  */
 export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObject<HTMLElement | null>): Insets {
   const [ins, setIns] = useState<Insets>({ top: 64, bottom: 120 });
