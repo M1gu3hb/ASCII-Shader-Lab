@@ -39,7 +39,8 @@
 .app .topbar { align-items: stretch; gap: 0; padding: 0 10px 0 14px; background: var(--bg); border-bottom: 1px solid var(--line); }
 .app .brand { align-self: center; gap: 9px; padding: 6px 14px 6px 2px; margin-right: 4px; position: relative; }
 .app .brand::after { content: ''; position: absolute; right: 0; top: 7px; bottom: 7px; width: 1px; background: var(--line); }
-.app .brand-word { font: 700 14px/1 var(--font-display); letter-spacing: -.03em; }
+.app .brand-word { display: block; height: 14px; width: auto; flex: none; }
+@media (max-width: 420px) { .app .brand-word { display: none; } } /* phones: the symbol alone, the space picker keeps its room */
 .app .brand-sub { font: 500 9.5px/1 var(--font-display); letter-spacing: .16em; color: var(--dim); }
 
 .app .spaces { align-self: stretch; margin: 0 auto 0 4px; padding: 0; gap: 0; background: none; border-radius: 0; }

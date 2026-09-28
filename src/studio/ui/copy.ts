@@ -212,7 +212,7 @@ export const FONT_DESC: Record<string, string> = {
   system: 'La monoespaciada de tu sistema: cambia según el equipo.',
   jetbrains: 'Mono moderna y clara; buena en tamaños pequeños.',
   plex: 'Mono de IBM, sobria y técnica.',
-  martian: 'Mono ancha y geométrica, la de Monotrama.',
+  martian: 'Mono ancha y geométrica, la de GLYPHOS.',
   space: 'Mono con curvas de los años 70.',
   fira: 'Mono de programación; aquí sin ligaduras.',
   vt: 'Terminal de los 80: píxeles grandes y altos.',

@@ -1,8 +1,8 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Foco — el fondo de una sección es una trama de caracteres casi apagada; donde está el cursor (o el
  * elemento que tiene el foco del teclado) se enciende una luz que la revela.
- * Monotrama · sin dependencias (Canvas 2D; dibuja sólo cuando algo cambia: el cursor, el foco, el tamaño,
+ * GLYPHOS · sin dependencias (Canvas 2D; dibuja sólo cuando algo cambia: el cursor, el foco, el tamaño,
  * y mientras hay luz, la trama que respira; sin nadie, la trama se queda quieta y no gasta nada).
  *
  *   spotlight(document.querySelector('.hero'), { texture: 'ondas' });

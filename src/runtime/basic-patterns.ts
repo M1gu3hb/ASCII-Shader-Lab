@@ -1,7 +1,7 @@
 /**
  * Stand-in for src/engine/basic/patterns.ts inside the exported runtime (scripts/runtime-plugin.ts points
  * the basic engine's field pass here). The exported code carries only the CPU patterns its piece uses:
- * each one is a small script that registers itself (Monotrama.__basic.add) after the runtime, with its own
+ * each one is a small script that registers itself (Glyphos.__basic.add) after the runtime, with its own
  * copy of the cell size PX, so setPX reaches every registered pattern.
  */
 import type { BasicPattern } from '../engine/basic/patterns';

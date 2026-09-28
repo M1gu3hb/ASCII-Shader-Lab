@@ -1,10 +1,10 @@
 /**
- * Monotrama runtime — the engine packaged for other websites (shared by both bundles, see entry.ts and
+ * GLYPHOS runtime — the engine packaged for other websites (shared by both bundles, see entry.ts and
  * entry-basic.ts; scripts/runtime-plugin.ts bundles and minifies them and the studio inlines one into
  * exported code).
- *   Monotrama.register(patterns)            add GLSL pattern chunks
- *   Monotrama.mount(canvasOrElementOrSelector, recipe, options) → controller
- *   <monotrama-field recipe='{…}' poster="imagen.png" scrim="gradient"></monotrama-field>
+ *   Glyphos.register(patterns)            add GLSL pattern chunks
+ *   Glyphos.mount(canvasOrElementOrSelector, recipe, options) → controller
+ *   <glyphos-field recipe='{…}' poster="imagen.png" scrim="gradient"></glyphos-field>
  * It never throws into the host page. Without WebGL 2 it draws with the basic engine (Canvas 2D) when the
  * bundle carries it (entry-basic.ts, plus the CPU patterns the piece uses); otherwise it shows the recipe's
  * background colour and, when given, the poster image (options.poster / poster attribute), and returns a
@@ -64,7 +64,7 @@ interface Api {
 const VERSION = '2.3.0';
 const registry: PatternLibrary = {};
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const win = () => window as unknown as { Monotrama?: Api };
+const win = () => window as unknown as { Glyphos?: Api; Monotrama?: Api };
 
 function toCanvas(target: HTMLCanvasElement | HTMLElement | string): { canvas: HTMLCanvasElement; created: boolean } | null {
   const el = typeof target === 'string' ? document.querySelector<HTMLElement>(target) : target;
@@ -102,7 +102,7 @@ function addScrim(canvas: HTMLCanvasElement, s: ScrimOption | null | undefined):
  * place (same attributes and style). Returns the canvas it ended up drawing on.
  */
 function startBasic(canvas: HTMLCanvasElement, r: Recipe, opts: BasicEngineOptions): { engine: Renderer; canvas: HTMLCanvasElement } | null {
-  const B = win().Monotrama?.__basic;
+  const B = win().Glyphos?.__basic;
   if (!B) return null;
   let c = canvas;
   try {
@@ -121,7 +121,7 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
   const r: Recipe = normalizeRecipe(recipe);
   const found = toCanvas(target);
   if (!found) {
-    console.warn('Monotrama: no encuentro el elemento', target);
+    console.warn('GLYPHOS: no encuentro el elemento', target);
     return null;
   }
   const { created } = found;
@@ -157,7 +157,7 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
       const im = new Image();
       im.crossOrigin = 'anonymous';
       im.onload = () => engine.setMedia('image', im);
-      im.onerror = () => console.warn('Monotrama: no se pudo cargar la imagen (¿ruta o CORS?)', o.media);
+      im.onerror = () => console.warn('GLYPHOS: no se pudo cargar la imagen (¿ruta o CORS?)', o.media);
       im.src = o.media;
     } else {
       const v = document.createElement('video');
@@ -197,7 +197,7 @@ function watchRemoval(canvas: HTMLCanvasElement, done: () => void): () => void {
   return () => { mo.disconnect(); if (t) clearTimeout(t); };
 }
 
-class MonotramaField extends HTMLElement {
+class GlyphosField extends HTMLElement {
   private ctl: Controller | null = null;
   private queued = false;
   connectedCallback() {
@@ -242,19 +242,24 @@ class MonotramaField extends HTMLElement {
 }
 
 /**
- * Defines window.Monotrama and <monotrama-field> once per page. When another export already did, the
+ * Defines window.Glyphos and <glyphos-field> once per page. When another export already did, the
  * first engine stays in charge (its mount is the one every snippet calls); a bundle with the basic engine
  * still lends it to a page that lacks it, since mount looks for it when a piece starts.
  */
 export function install(basic?: BasicSupport) {
   const w = win();
-  if (!w.Monotrama) {
+  if (!w.Glyphos) {
     const api: Api = { version: VERSION, register: (p: PatternLibrary) => { Object.assign(registry, p); }, mount };
     if (basic) api.__basic = basic;
-    w.Monotrama = api;
-    if (typeof customElements !== 'undefined' && !customElements.get('monotrama-field')) customElements.define('monotrama-field', MonotramaField);
+    w.Glyphos = api;
+    if (typeof customElements !== 'undefined') {
+      if (!customElements.get('glyphos-field')) customElements.define('glyphos-field', GlyphosField);
+      // the names from before the rename (Monotrama): pages written for them keep working with this file
+      if (!customElements.get('monotrama-field')) customElements.define('monotrama-field', class extends GlyphosField {});
+    }
+    if (!w.Monotrama) w.Monotrama = api;
   } else {
-    w.Monotrama.register = w.Monotrama.register ?? ((p: PatternLibrary) => { Object.assign(registry, p); });
-    if (basic && !w.Monotrama.__basic) w.Monotrama.__basic = basic;
+    w.Glyphos.register = w.Glyphos.register ?? ((p: PatternLibrary) => { Object.assign(registry, p); });
+    if (basic && !w.Glyphos.__basic) w.Glyphos.__basic = basic;
   }
 }

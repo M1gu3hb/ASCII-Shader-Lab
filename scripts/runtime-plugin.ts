@@ -84,7 +84,7 @@ async function patternScript(id: string, src: string, table: Array<[string, stri
   });
   const body = out.outputFiles[0].text.trim();
   const q = JSON.stringify(id);
-  return `(function(M){var B=M&&M.__basic;if(!B||B.has(${q}))return;var __G=function(n){return B.core[n]},__OUT;${body}B.add(${q},__OUT)})(window.Monotrama);`;
+  return `(function(M){var B=M&&M.__basic;if(!B||B.has(${q}))return;var __G=function(n){return B.core[n]},__OUT;${body}B.add(${q},__OUT)})(window.Glyphos);`;
 }
 
 /** The two runtimes and the pattern scripts (also used by the unit tests). */

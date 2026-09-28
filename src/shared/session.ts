@@ -32,15 +32,15 @@ export type SessionScope = 'all' | 'collection';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-export const sessionFileName = (d = new Date()) => `monotrama-sesion-${ymd(d)}.zip`;
-export const collectionFileName = (d = new Date()) => `monotrama-coleccion-${ymd(d)}.zip`;
+export const sessionFileName = (d = new Date()) => `glyphos-sesion-${ymd(d)}.zip`;
+export const collectionFileName = (d = new Date()) => `glyphos-coleccion-${ymd(d)}.zip`;
 
 /** The studio's history limit (studio/history.ts HISTORY_LIMIT), for the LEEME. */
 const LIMIT = 1000;
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const readme = (n: number, favs: number, media: number) => [
-  'Monotrama · sesión guardada',
+  'GLYPHOS · sesión guardada',
   '===========================',
   '',
   `${count(n, 'resultado', 'resultados')} del historial y ${count(favs, 'pieza', 'piezas')} de la colección${media ? `, con ${count(media, 'archivo', 'archivos')} de imagen o video` : ''}.`,
@@ -55,7 +55,7 @@ const readme = (n: number, favs: number, media: number) => [
 ].join('\r\n');
 
 const readmeCollection = (favs: number, media: number) => [
-  'Monotrama · colección guardada',
+  'GLYPHOS · colección guardada',
   '==============================',
   '',
   `${count(favs, 'pieza', 'piezas')} de tu colección (lo que guardaste con ★)${media ? `, con ${count(media, 'archivo', 'archivos')} de imagen o video que usan` : ''}.`,
@@ -71,7 +71,7 @@ const readmeCollection = (favs: number, media: number) => [
 export async function buildSession(data: SessionData, media: Array<SessionMedia & { data: Blob | Uint8Array }> = [], scope: SessionScope = 'all'): Promise<Blob> {
   const packed = media.map(m => ({ ...m, path: `${MEDIA_DIR}${m.id}-${safeFileName(m.name, m.kind === 'video' ? 'video' : 'imagen')}` }));
   const doc = {
-    monotrama: 'session', version: 1, exported: new Date().toISOString(), ...(scope === 'collection' ? { scope } : {}),
+    glyphos: 'session', version: 1, exported: new Date().toISOString(), ...(scope === 'collection' ? { scope } : {}),
     cursor: data.cursor, entries: data.entries, favorites: data.favorites,
     media: packed.map(({ data: _d, ...meta }) => meta),
   };
@@ -94,7 +94,7 @@ export async function readSession(files: ZipEntry[]): Promise<{ data: SessionDat
   if (!f) return null;
   let doc: Record<string, unknown>;
   try { doc = JSON.parse(await f.text()); } catch { return null; }
-  if (!doc || doc.monotrama !== 'session' || !Array.isArray(doc.entries)) return null;
+  if (!doc || (doc.glyphos ?? doc.monotrama) !== 'session' || !Array.isArray(doc.entries)) return null;
   const prefix = f.name.slice(0, f.name.length - SESSION_FILE.length);
   const byName = new Map(files.map(x => [x.name, x]));
   const media: Array<{ meta: SessionMedia; read: () => Promise<Uint8Array> }> = [];

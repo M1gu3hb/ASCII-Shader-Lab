@@ -1,4 +1,4 @@
-import { logoMark } from '../shared/brand';
+import { logoMark, wordmark } from '../shared/brand';
 import { SPACES, type SpaceId } from '../random/spaces';
 import { IDownload, IFull, IGrid, IKeys, IPause, IPlay, ISliders, SPACE_ICON } from './icons';
 import { setPlaying, setSpace, setUI, useStudio } from './store';
@@ -31,7 +31,7 @@ export function TopBar() {
   const stage = space !== 'componentes';
   return (
     <header className="topbar">
-      <a className="brand" href="/" aria-label="Monotrama, volver a la portada" dangerouslySetInnerHTML={{ __html: logoMark(24) + '<span class="brand-word">monotrama</span><span class="brand-sub">estudio</span>' }} />
+      <a className="brand" href="/" aria-label="GLYPHOS, volver a la portada" dangerouslySetInnerHTML={{ __html: logoMark(24) + wordmark(14, { className: 'brand-word' }) + '<span class="brand-sub">estudio</span>' }} />
       <nav className="spaces" aria-label="Espacios del estudio">
         {SPACES.map((s, i) => {
           const Ic = SPACE_ICON[s.id];

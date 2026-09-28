@@ -13,7 +13,7 @@ type Registered = { f: (x: number, y: number, t: number, a: number, b: number) =
 
 function load(id: string): Registered {
   const got: Record<string, Registered> = {};
-  const window = { Monotrama: { __basic: { core: { ...core }, add: (k: string, p: Registered) => { got[k] = p; }, has: (k: string) => k in got } } };
+  const window = { Glyphos: { __basic: { core: { ...core }, add: (k: string, p: Registered) => { got[k] = p; }, has: (k: string) => k in got } } };
   // the test runs the script as a page would (the exported code itself never evaluates strings)
   new Function('window', built.patterns[id])(window);
   return got[id];
@@ -42,12 +42,12 @@ describe('runtime with the basic engine', () => {
 
   it('a pattern script registers once and does nothing on a page without the basic engine', () => {
     const calls: string[] = [];
-    const window = { Monotrama: { __basic: { core: { ...core }, add: (k: string) => { calls.push(k); }, has: (k: string) => calls.includes(k) } } };
+    const window = { Glyphos: { __basic: { core: { ...core }, add: (k: string) => { calls.push(k); }, has: (k: string) => calls.includes(k) } } };
     new Function('window', built.patterns.marmol)(window);
     new Function('window', built.patterns.marmol)(window);
     expect(calls).toEqual(['marmol']);
     expect(() => new Function('window', built.patterns.marmol)({})).not.toThrow();
-    expect(() => new Function('window', built.patterns.marmol)({ Monotrama: { version: 'x' } })).not.toThrow();
+    expect(() => new Function('window', built.patterns.marmol)({ Glyphos: { version: 'x' } })).not.toThrow();
   });
 
   it('stays CSP-friendly and light', () => {

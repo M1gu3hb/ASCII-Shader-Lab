@@ -246,7 +246,7 @@ test.describe('lo que guarda el navegador', () => {
     pb.once('dialog', d => { asked = d.message(); void d.accept(); });
     await pb.getByRole('button', { name: /Colección/ }).click();
     const [chooser] = await Promise.all([pb.waitForEvent('filechooser'), pb.getByRole('button', { name: 'Abrir sesión' }).click()]);
-    await chooser.setFiles({ name: 'monotrama-sesion.zip', mimeType: 'application/zip', buffer: bytes });
+    await chooser.setFiles({ name: 'glyphos-sesion.zip', mimeType: 'application/zip', buffer: bytes });
     await expect(pb.locator('.toast').filter({ hasText: 'Sesión abierta: 4 resultados añadidos' })).toBeVisible();
     // 9 + 4 = 13 over 10: the three oldest by date go, all from the older session (its current one stays)
     expect(asked).toContain('se descartan los 3 resultados más antiguos por fecha (3 de la sesión)');

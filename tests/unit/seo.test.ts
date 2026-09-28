@@ -95,7 +95,7 @@ describe('structured data', () => {
     const site = g.find(n => n['@type'] === 'WebSite')!;
     const org = g.find(n => n['@type'] === 'Organization')!;
     const app = g.find(n => n['@type'] === 'WebApplication')!;
-    expect(site).toMatchObject({ name: 'Monotrama', alternateName: 'ASCII Shader Lab', url: SITE_URL + '/', inLanguage: 'es', creator: { '@id': org['@id'] }, publisher: { '@id': org['@id'] } });
+    expect(site).toMatchObject({ name: 'GLYPHOS', alternateName: ['Monotrama', 'ASCII Shader Lab'], url: SITE_URL + '/', inLanguage: 'es', creator: { '@id': org['@id'] }, publisher: { '@id': org['@id'] } });
     expect(org).toMatchObject({ name: 'Morphiq', url: 'https://morphiq.com.mx', logo: { url: SITE_URL + MORPHIQ.logo.path } });
     expect(app).toMatchObject({
       url: SITE_URL + '/studio/', applicationCategory: 'DesignApplication', operatingSystem: 'Web', isAccessibleForFree: true,
@@ -175,8 +175,8 @@ describe('the landing\'s exported files (@salida)', () => {
 
   it('quotes the real size of every file it links', () => {
     const files: Record<string, string> = {
-      png: 'monotrama-saturno.png', svg: 'monotrama-saturno.svg', webm: 'monotrama-saturno.webm', mp4: 'monotrama-saturno.mp4',
-      mjs: 'monotrama-saturno.mjs', 'monotrama.json': 'monotrama-saturno.monotrama.json', wc: 'web/monotrama-field.js',
+      png: 'glyphos-saturno.png', svg: 'glyphos-saturno.svg', webm: 'glyphos-saturno.webm', mp4: 'glyphos-saturno.mp4',
+      mjs: 'glyphos-saturno.mjs', 'glyphos.json': 'glyphos-saturno.glyphos.json', wc: 'web/glyphos-field.js',
     };
     for (const [key, file] of Object.entries(files)) {
       const size = statSync(join(root, 'public/ex/salidas', file)).size;
@@ -193,7 +193,7 @@ describe('the landing\'s exported files (@salida)', () => {
     expect(Number(salida('linklen', readPublic))).toBe(manifest.link.length - '/studio/#r='.length);
     const usage = shortUsage('<x recipe=\'{"v":2,"source":"pattern","layers":[{"on":true,"pattern":"planeta","blend":"normal","mix":1}]}\'>');
     expect(usage).toMatch(/recipe='\{"v":2.*…\}'>$/);
-    expect(salida('usage', readPublic)).toContain('&lt;script src=&quot;monotrama-field.js&quot; defer&gt;');
+    expect(salida('usage', readPublic)).toContain('&lt;script src=&quot;glyphos-field.js&quot; defer&gt;');
     expect(salida('frames', readPublic)).toBe(String(manifest.frames));
     expect(() => salida('nada', readPublic)).toThrow();
   });

@@ -378,7 +378,7 @@ function TerminalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   return (
     <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>
       <div className="term-win" style={{ transform: `scale(${Math.max(0.05, k)})` }}>
-        <div className="term-bar" aria-hidden="true"><i /><i /><i /><span>monotrama — {term.cols}×{term.rows}</span></div>
+        <div className="term-bar" aria-hidden="true"><i /><i /><i /><span>glyphos — {term.cols}×{term.rows}</span></div>
         <Slot host={host} className="term-canvas" style={{ width: win.w, height: win.h }} />
       </div>
     </div>

@@ -11,7 +11,7 @@ const ESC = '\x1b[';
 const ANSI_RE = /\x1b\[[0-9;?]*[A-Za-z]/g;
 
 /** One-line licence header of exported code (MIT-0), per comment syntax. */
-export const LICENSE_LINE = 'Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.';
+export const LICENSE_LINE = 'Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.';
 
 /* ---------- display width (what a terminal does with each character) ---------- */
 
@@ -278,8 +278,8 @@ export function toShellBanner(text: string): string {
   // the art may hold any line (a shared piece can write text over it): a line equal to the heredoc
   // delimiter would end it early and run what follows, so pick one that no line matches
   const lines = new Set(safe.split('\n').map(l => l.trim()));
-  let end = 'MONOTRAMA';
-  for (let i = 1; lines.has(end); i++) end = `MONOTRAMA_${i}`;
+  let end = 'GLYPHOS';
+  for (let i = 1; lines.has(end); i++) end = `GLYPHOS_${i}`;
   return `# ${LICENSE_LINE}
 # Pega esto al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).
 case $- in *i*)

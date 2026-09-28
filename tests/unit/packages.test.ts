@@ -86,7 +86,7 @@ describe('project package', () => {
     expect(isProject(files)).toBe(true);
     expect(isSession(files)).toBe(false);
     const readme = await files[2].text();
-    expect(readme).toContain('receta.monotrama.json');
+    expect(readme).toContain('receta.glyphos.json');
     expect(readme).toContain('Arrastra este .zip');
     const p = (await readProject(files))!;
     expect(sameRecipe(p.recipe, r)).toBe(true);
@@ -164,7 +164,7 @@ describe('session package', () => {
     expect(await s.media[0].read()).toEqual(bytes);
     const leeme = await files.find(f => f.name === 'LEEME.txt')!.text();
     expect(leeme).toContain('1 pieza de tu colección');
-    expect(collectionFileName(new Date(2026, 8, 7))).toBe('monotrama-coleccion-2026-09-07.zip');
+    expect(collectionFileName(new Date(2026, 8, 7))).toBe('glyphos-coleccion-2026-09-07.zip');
   });
 
   it('sessions saved by the previous version (no scope) still open as whole sessions', async () => {
@@ -177,7 +177,7 @@ describe('session package', () => {
   });
 
   it('names the file by date and rejects other archives', async () => {
-    expect(sessionFileName(new Date(2026, 8, 7))).toBe('monotrama-sesion-2026-09-07.zip');
+    expect(sessionFileName(new Date(2026, 8, 7))).toBe('glyphos-sesion-2026-09-07.zip');
     expect(await readSession(await unzip(await zip([{ name: 'sesion.json', data: '{"monotrama":"recipe"}' }])))).toBeNull();
     expect(await readSession(await unzip(await buildProject(defaultRecipe())))).toBeNull();
   });

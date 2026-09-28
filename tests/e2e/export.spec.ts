@@ -49,7 +49,7 @@ test.describe('exportar', () => {
     await page.getByRole('tab', { name: 'Receta' }).click();
     const json = await download(page, () => page.getByRole('button', { name: /Descargar receta/ }).click());
     const parsed = JSON.parse(readFileSync(json.path, 'utf8'));
-    expect(parsed.monotrama).toBe('recipe');
+    expect(parsed.glyphos).toBe('recipe');
     expect(parsed.recipe.layers.length).toBeGreaterThan(0);
   });
 
@@ -67,7 +67,7 @@ test.describe('exportar', () => {
     await other.waitForTimeout(1500);
     const size = await other.evaluate(() => { const c = document.querySelector('canvas')!; return [c.width, c.height]; });
     expect(size[0]).toBeGreaterThan(100);
-    expect(await other.evaluate(() => typeof (window as unknown as { Monotrama?: unknown }).Monotrama)).toBe('object');
+    expect(await other.evaluate(() => typeof (window as unknown as { Glyphos?: unknown }).Glyphos)).toBe('object');
     expect(errors).toEqual([]);
   });
 

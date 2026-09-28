@@ -173,7 +173,7 @@ test.describe('caminos', () => {
     await expect(stepTitle(page)).toContainText('Llévatela');
     await tabTo(page, /Descargar PNG/);
     const png = await download(page, () => page.keyboard.press('Enter'));
-    expect(png.name).toMatch(/^monotrama-paisaje-de-ejemplo-\d+x\d+\.png$/);
+    expect(png.name).toMatch(/^glyphos-paisaje-de-ejemplo-\d+x\d+\.png$/);
     const bytes = readFileSync(png.path);
     expect(bytes.subarray(1, 4).toString('latin1')).toBe('PNG');
     const [w, h] = [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
@@ -262,15 +262,15 @@ test.describe('caminos', () => {
 
     // 4 · the code, copied; the test page, downloaded
     await expect(stepTitle(page)).toContainText('Llévalo a tu web');
-    await expect(guide(page).getByRole('textbox', { name: /Código/ })).toHaveValue(/Monotrama\.mount/);
+    await expect(guide(page).getByRole('textbox', { name: /Código/ })).toHaveValue(/GLYPHOS\.mount/);
     await guide(page).getByRole('button', { name: 'Copiar el código' }).click();
     await expect(page.locator('.toast').last()).toContainText('Código copiado');
     const code = await page.evaluate(() => navigator.clipboard.readText());
-    expect(code).toContain('class="monotrama"');
+    expect(code).toContain('class="glyphos"');
     expect(code).toContain('"interactive":false');
     const test1 = await download(page, () => guide(page).getByRole('button', { name: /página de prueba/ }).click());
     expect(test1.name).toMatch(/-prueba\.html$/);
-    expect(readFileSync(test1.path, 'utf8')).toContain('Monotrama.mount');
+    expect(readFileSync(test1.path, 'utf8')).toContain('Glyphos.mount');
     await guide(page).getByRole('button', { name: 'Terminar' }).click();
     await expect(guide(page)).toHaveCount(0);
     await expect(page.locator('.toast').last()).toContainText('Listo');
@@ -308,7 +308,7 @@ test.describe('caminos', () => {
     const video = guide(page).locator('section', { has: page.getByRole('heading', { name: 'Video' }) });
     await expect(video.getByRole('button', { name: /Descargar (MP4|WebM)/ }).or(video.locator('.warn')).first()).toBeVisible();
     const gif = await download(page, () => guide(page).getByRole('button', { name: 'Descargar GIF' }).click());
-    expect(gif.name).toBe('monotrama-faro.gif');
+    expect(gif.name).toBe('glyphos-faro.gif');
     const bytes = readFileSync(gif.path);
     expect(bytes.subarray(0, 6).toString('latin1')).toBe('GIF89a');
     expect(bytes.readUInt16LE(6)).toBe(640);

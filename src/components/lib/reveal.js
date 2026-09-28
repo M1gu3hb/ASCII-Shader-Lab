@@ -1,8 +1,8 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Revelar — una imagen convertida en caracteres que deja ver la foto original bajo el cursor (o el dedo),
  * y entera cuando el enlace que la contiene recibe el foco del teclado.
- * Monotrama · sin dependencias (Canvas 2D).
+ * GLYPHOS · sin dependencias (Canvas 2D).
  *
  *   reveal(document.querySelector('.foto'), { radius: 120 });
  *

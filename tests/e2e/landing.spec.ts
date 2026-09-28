@@ -158,7 +158,7 @@ test('salidas: cada destino muestra su archivo real, y el Web Component exportad
   // imagen: the files it names exist, with the type they claim
   const img = page.locator('#sal-imagen');
   await expect(img).toBeVisible();
-  for (const [href, type] of [['/ex/salidas/monotrama-saturno.png', 'image/png'], ['/ex/salidas/monotrama-saturno.svg', 'image/svg+xml']]) {
+  for (const [href, type] of [['/ex/salidas/glyphos-saturno.png', 'image/png'], ['/ex/salidas/glyphos-saturno.svg', 'image/svg+xml']]) {
     await expect(img.locator(`a[href="${href}"]`)).toHaveCount(1);
     const res = await page.request.get(href);
     expect(res.status(), href).toBe(200);
@@ -177,7 +177,7 @@ test('salidas: cada destino muestra su archivo real, y el Web Component exportad
   await tabs.nth(2).click();
   const frame = page.frameLocator('#sal-web iframe');
   await expect(frame.locator('h1')).toContainText('Tu titular');
-  await expect.poll(() => frame.locator('monotrama-field').evaluate(el => {
+  await expect.poll(() => frame.locator('glyphos-field').evaluate(el => {
     const e = (el as unknown as { ctl?: { engine?: { readGrid(): { chars: string[] } } } }).ctl?.engine;
     return e ? e.readGrid().chars.filter(c => c !== ' ').length : 0;
   }), { timeout: 20_000, message: 'the Web Component draws glyphs' }).toBeGreaterThan(200);
@@ -245,7 +245,7 @@ test('pausar también detiene la página de ejemplo del destino Web, y «Animar�
   await page.goto('/');
   await toSection(page, 'exportar');
   await page.getByRole('tablist', { name: 'Destinos' }).getByRole('tab', { name: 'Web', exact: true }).click();
-  const field = page.frameLocator('#sal-web iframe').locator('monotrama-field');
+  const field = page.frameLocator('#sal-web iframe').locator('glyphos-field');
   const playing = () => field.evaluate(el => (el as unknown as { ctl?: { engine?: { isPlaying: boolean } | null } }).ctl?.engine?.isPlaying ?? null);
   await expect.poll(playing, { timeout: 20_000 }).toBe(true);
   const toggle = page.locator('[data-motion-toggle]');

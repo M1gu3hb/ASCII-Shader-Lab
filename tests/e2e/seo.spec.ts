@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 /** Public site: crawl files, canonical URLs, share tags, structured data, guides and the brand credit. */
-const SITE = 'https://monotrama.vercel.app';
+const SITE = 'https://glyphos-ascii.vercel.app';
 const PATHS = ['/', '/studio/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
 const GUIDES: Array<[string, string]> = [
   ['/imagen-a-ascii/', '/studio/?camino=foto'],
@@ -69,10 +69,10 @@ for (const path of PATHS) {
     expect(await attr(page, 'link[rel="canonical"]', 'href')).toBe(url);
     expect(await attr(page, 'meta[property="og:url"]', 'content')).toBe(url);
     expect(await attr(page, 'meta[property="og:locale"]', 'content')).toBe('es_MX');
-    expect(await attr(page, 'meta[property="og:site_name"]', 'content')).toBe('Monotrama');
+    expect(await attr(page, 'meta[property="og:site_name"]', 'content')).toBe('GLYPHOS');
     expect(await attr(page, 'meta[name="twitter:card"]', 'content')).toBe('summary_large_image');
     const title = await page.title();
-    expect(title).toMatch(/Monotrama/);
+    expect(title).toMatch(/GLYPHOS/);
     expect(await attr(page, 'meta[property="og:title"]', 'content')).toBe(title);
     const description = (await attr(page, 'meta[name="description"]', 'content')) ?? '';
     expect(description.length).toBeGreaterThan(60);
@@ -111,7 +111,7 @@ for (const [path, cta] of GUIDES) {
     await expect(page.locator('h1')).toHaveCount(1);
     await expect(page.locator('main a.btn-cta').first()).toHaveAttribute('href', cta);
     await expect(page.locator(`main a[href="${cta}"]`)).toHaveCount(2);
-    await expect(page.getByRole('navigation', { name: 'Ruta de navegación' }).getByRole('link', { name: 'Monotrama' })).toHaveAttribute('href', '/');
+    await expect(page.getByRole('navigation', { name: 'Ruta de navegación' }).getByRole('link', { name: 'GLYPHOS' })).toHaveAttribute('href', '/');
     for (const heading of ['Qué te llevas, y qué no.', 'Antes de empezar.']) await expect(page.getByRole('heading', { name: heading })).toBeVisible();
     await expect(page.getByText('Límite:').first()).toBeVisible();
 

@@ -53,7 +53,7 @@ button { cursor: pointer; }
 }
 .brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--text); padding: 6px 8px 6px 4px; border-radius: 8px; flex: none; }
 .brand:hover .mt-cursor { animation: blink 1s steps(2) infinite; }
-.brand-word { font: 700 14px/1 var(--font-display); letter-spacing: -.02em; }
+.brand-word { display: block; height: 14px; width: auto; flex: none; }
 .brand-sub { font: 500 11px/1 var(--font-display); color: var(--dim); text-transform: uppercase; letter-spacing: .12em; }
 @keyframes blink { 50% { opacity: 0; } }
 

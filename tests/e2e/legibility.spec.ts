@@ -143,7 +143,7 @@ test.describe('legibilidad de las vistas con contenido', () => {
     await openStudio(page);
     // the studio has one main heading of its own
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Monotrama, estudio de arte ASCII');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('GLYPHOS, estudio de arte ASCII');
     for (const [view, fig] of [['Fondo web', /^Vista previa: tu pieza como fondo de una página web/], ['Pantalla de móvil', /^Vista previa: tu pieza como fondo de una web en un teléfono/]] as const) {
       await pick(page, view);
       await expect(page.getByRole('figure', { name: fig })).toBeVisible();
@@ -179,7 +179,7 @@ test.describe('legibilidad de las vistas con contenido', () => {
     await dlg.getByRole('button', { name: 'Web Component' }).click();
     await expect(code).toHaveValue(/scrim="gradient" scrim-color="#[0-9a-f]{6}" scrim-opacity="0.5" scrim-blur="2"/);
     const usage = await code.inputValue();
-    const wcFile = await download(page, () => dlg.getByRole('button', { name: 'Descargar monotrama-field.js' }).click());
+    const wcFile = await download(page, () => dlg.getByRole('button', { name: 'Descargar glyphos-field.js' }).click());
     const wcJs = readFileSync(wcFile.path, 'utf8');
     await dlg.getByRole('button', { name: 'React' }).click();
     await expect(code).toHaveValue(/const SCRIM = \{"color":"#[0-9a-f]{6}","opacity":0.5,"blur":2,"shape":"gradient"\}/);
@@ -189,16 +189,16 @@ test.describe('legibilidad de las vistas con contenido', () => {
     await page.getByRole('group', { name: 'Forma' }).getByRole('button', { name: 'Tras el texto', exact: true }).click();
     await page.getByRole('button', { name: 'Exportar para este destino' }).click();
     await dlg.getByRole('button', { name: 'HTML para pegar' }).click();
-    await expect(code).toHaveValue(/<style>\.monotrama-zona\{background:rgba\(/);
-    await expect(code).toHaveValue(/pon class="monotrama-zona"/);
+    await expect(code).toHaveValue(/<style>\.glyphos-zona\{background:rgba\(/);
+    await expect(code).toHaveValue(/pon class="glyphos-zona"/);
     // off: nothing of it in the code
     await dlg.getByRole('switch', { name: 'Zona protegida' }).uncheck({ force: true });
-    await expect(code).not.toHaveValue(/<style>\.monotrama-zona|"scrim":\{|class="monotrama-zona"/);
+    await expect(code).not.toHaveValue(/<style>\.glyphos-zona|"scrim":\{|class="glyphos-zona"/);
 
     // the pasted HTML (gradient) draws the layer between the background and the page, in another page
     const other = await context.newPage();
     await other.setContent(`<!doctype html><html><body style="margin:0;height:600px">${html}<main style="position:relative;color:#fff">Hola</main></body></html>`);
-    const layer = other.locator('.monotrama > div[aria-hidden="true"]');
+    const layer = other.locator('.glyphos > div[aria-hidden="true"]');
     await expect(layer).toHaveCount(1);
     const st = await layer.evaluate(el => { const s = getComputedStyle(el); return { bf: s.backdropFilter || (s as unknown as Record<string, string>).webkitBackdropFilter, mask: s.maskImage || (s as unknown as Record<string, string>).webkitMaskImage, bg: s.backgroundColor, pos: s.position }; });
     expect(st.pos).toBe('absolute');
@@ -209,10 +209,10 @@ test.describe('legibilidad de las vistas con contenido', () => {
 
     // the Web Component, with its file, in another page: the same layer inside its shadow root
     const wc = await context.newPage();
-    await wc.setContent(`<!doctype html><html><body style="margin:0">${usage.replace(/<script src="monotrama-field.js" defer><\/script>/, '')}</body></html>`);
+    await wc.setContent(`<!doctype html><html><body style="margin:0">${usage.replace(/<script src="glyphos-field.js" defer><\/script>/, '')}</body></html>`);
     await wc.addScriptTag({ content: wcJs });
     await expect.poll(() => wc.evaluate(() => {
-      const el = document.querySelector('monotrama-field');
+      const el = document.querySelector('glyphos-field');
       const layer = el?.shadowRoot?.querySelector('div[aria-hidden="true"]') as HTMLElement | null;
       return layer ? getComputedStyle(layer).backdropFilter : null;
     })).toContain('blur(2px)');

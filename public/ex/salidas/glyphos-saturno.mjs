@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 // Saturno · 80×24 · 51 fotogramas a 12 fps
 // Ejecuta: node <este-archivo>.mjs · Ctrl+C para salir · redirigido a un archivo escribe un fotograma
 import { gunzipSync } from 'node:zlib';

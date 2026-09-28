@@ -43,7 +43,7 @@ export function App() {
   return (
     <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '') + (guide ? ' ' + guide : '')}>
       {/* the studio's one main heading (Piezas has a visible one of its own) */}
-      {!comps && <h1 className="sr-only">Monotrama, estudio de arte ASCII</h1>}
+      {!comps && <h1 className="sr-only">GLYPHOS, estudio de arte ASCII</h1>}
       <TopBar />
       <main className="stage-wrap" aria-label="Escenario" ref={main}>
         {comps

@@ -202,7 +202,7 @@ export function defaultRecipe(): Recipe {
     layers: [{ ...DEFAULT_LAYER }],
     motion: { speed: 1, warp: 0, warpScale: 1, hold: 0, loop: 0, pulse: 0, bpm: 110 },
     media: { fit: 'cover', zoom: 1, panX: 0, panY: 0, mirror: false, mix: 0, blend: 'multiply', reveal: 0, rate: 1 },
-    text: { content: 'MONOTRAMA', font: 'martian', weight: 800, size: 1, tracking: 0, leading: 1, align: 'center', italic: false, morph: 0 },
+    text: { content: 'GLYPHOS', font: 'martian', weight: 800, size: 1, tracking: 0, leading: 1, align: 'center', italic: false, morph: 0 },
     interact: { mode: 'light', strength: 0.4, radius: 0.18, auto: false },
     glyph: {
       cell: 10, aspect: 1.4, charset: CHARSET_DEFAULT, sort: true, font: 'jetbrains', weight: 500, scale: 1,

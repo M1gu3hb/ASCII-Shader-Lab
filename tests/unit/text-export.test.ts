@@ -141,7 +141,7 @@ describe('text exports on a real terminal', () => {
   });
 
   it('shell greeting only prints in interactive shells; the CLI snippet drops colours when redirected', async () => {
-    expect(toShellBanner('hola\n')).toMatch(/^# Hecho con Monotrama[^\n]*\n# [^\n]*\ncase \$- in \*i\*\)\ncat <<'MONOTRAMA'\nhola\nMONOTRAMA\n;; esac\n$/);
+    expect(toShellBanner('hola\n')).toMatch(/^# Hecho con GLYPHOS[^\n]*\n# [^\n]*\ncase \$- in \*i\*\)\ncat <<'GLYPHOS'\nhola\nGLYPHOS\n;; esac\n$/);
     const { spawnSync } = await import('node:child_process');
     const r = spawnSync(process.execPath, ['--input-type=module', '-e', toJsString('\x1b[38;5;208mhola\x1b[0m\n')], { encoding: 'utf8' });
     expect(r.stdout).toBe('hola\n');
@@ -149,7 +149,7 @@ describe('text exports on a real terminal', () => {
 
   it.skipIf(process.platform === 'win32')('shell greeting: a line of the art never closes the heredoc early', async () => {
     // a shared piece can write any text over the art (the message overlay), including the delimiter itself
-    const art = 'hola\nMONOTRAMA\necho INYECTADO\nMONOTRAMA_1\n: <<\'MONOTRAMA\'';
+    const art = 'hola\nGLYPHOS\necho INYECTADO\nGLYPHOS_1\n: <<\'GLYPHOS\'';
     const sh = toShellBanner(art + '\n');
     const delim = /^cat <<'([^']+)'$/m.exec(sh)![1];
     expect(art.split('\n').some(l => l.trim() === delim)).toBe(false);

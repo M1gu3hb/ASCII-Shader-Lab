@@ -24,9 +24,9 @@ export function fmtSize(bytes: number): string {
   return (bytes > 0 && bytes < 0.1 * MB ? '0,1' : n(bytes / MB)) + ' MB';
 }
 
-export const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'monotrama';
+export const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'glyphos';
 /** File name (without extension) for downloads of a piece. */
-export const pieceFileBase = (r: Recipe) => 'monotrama-' + slug(r.meta.name ?? r.meta.seed ?? new Date().toISOString().slice(0, 16));
+export const pieceFileBase = (r: Recipe) => 'glyphos-' + slug(r.meta.name ?? r.meta.seed ?? new Date().toISOString().slice(0, 16));
 
 const usesMedia = (r: Recipe): MediaRef | null =>
   (r.source === 'image' || r.source === 'video') && r.media.ref?.kind === r.source ? r.media.ref : null;
@@ -43,13 +43,13 @@ export async function projectMedia(r: Recipe): Promise<{ ref: MediaRef | null; a
   return { ref, available: !!m, size: m?.blob.size ?? 0 };
 }
 
-/** Downloads "<name>.monotrama.zip": recipe, original media when available, LEEME.txt. */
+/** Downloads "<name>.glyphos.zip": recipe, original media when available, LEEME.txt. */
 export async function exportProject(r: Recipe, fileBase: string) {
   const ref = usesMedia(r);
   const m = ref?.id ? await mediaBlob(ref.id) : null;
   try {
     const blob = await buildProject(r, m && ref ? { name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, data: m.blob } : null);
-    downloadBlob(`${fileBase}.monotrama.zip`, blob);
+    downloadBlob(`${fileBase}.glyphos.zip`, blob);
     if (ref && !m) toast(`El proyecto sale sin ${ref.kind === 'video' ? 'el video: no está guardado' : 'la imagen: no está guardada'} en este navegador.`, undefined, 6000);
   } catch (err) {
     toast('No se pudo crear el proyecto: ' + (err as Error).message);
@@ -107,7 +107,7 @@ export async function sessionMediaSize(): Promise<{ count: number; bytes: number
 }
 
 let saving = false;
-/** Downloads monotrama-sesion-YYYY-MM-DD.zip with the history, the collection and (optionally) their media. */
+/** Downloads glyphos-sesion-YYYY-MM-DD.zip with the history, the collection and (optionally) their media. */
 export async function saveSession(withMedia = true) {
   if (saving) return;
   saving = true;
@@ -140,7 +140,7 @@ export async function collectionMediaSize(): Promise<{ count: number; bytes: num
 }
 
 /**
- * Downloads monotrama-coleccion-YYYY-MM-DD.zip: every piece saved with ★ and the images and videos they
+ * Downloads glyphos-coleccion-YYYY-MM-DD.zip: every piece saved with ★ and the images and videos they
  * use, to keep a copy or take the collection to another computer (the history stays out: that is a session).
  */
 export async function saveCollection() {
@@ -179,7 +179,7 @@ function remapIds(list: unknown[], map: Map<string, string>) {
 
 async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
   const sess = await readSession(files);
-  if (!sess) { toast('Esa sesión está dañada o no es de Monotrama.'); return; }
+  if (!sess) { toast('Esa sesión está dañada o no es de GLYPHOS.'); return; }
   const st = useStudio.getState();
   const onlyCollection = sess.scope === 'collection' || !sess.data.entries.length;
   // past the limit, say exactly what goes: the oldest by date, from here and from the session
@@ -235,8 +235,8 @@ export async function openPackage(file: Blob, label = '') {
   try { files = await unzip(file); } catch (err) { toast((err as Error).message); return; }
   try {
     if (isSession(files)) await openSession(files);
-    else if (isProject(files)) await openProject(files, label.replace(/\.monotrama$/i, ''));
-    else toast('Ese .zip no es un proyecto ni una sesión de Monotrama.');
+    else if (isProject(files)) await openProject(files, label.replace(/\.(glyphos|monotrama)$/i, ''));
+    else toast('Ese .zip no es un proyecto ni una sesión de GLYPHOS.');
   } catch (err) {
     toast('No se pudo abrir: ' + (err as Error).message);
   }

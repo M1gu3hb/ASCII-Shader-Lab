@@ -14,8 +14,8 @@ const scenes: Record<string, (r: Recipe) => void> = {
     r.layers = [{ ...r.layers[0], pattern: 'nube' }];
     r.color.stops = ['#0a1a10', '#39ff88']; r.color.bg = '#020805';
     r.glyph.font = 'vt'; r.glyph.cell = 12; r.fx.scan = .5; r.fx.curve = .5; r.fx.vig = .6; r.fx.bloom = .6;
-    r.msg = { ...r.msg, on: true, text: 'MONOTRAMA v2\\n> teje luz con caracteres_', mode: 'type', speed: 18, box: .9 };
-    r.msg.text = 'MONOTRAMA v2\n> teje luz con caracteres';
+    r.msg = { ...r.msg, on: true, text: 'GLYPHOS v2\\n> teje luz con caracteres_', mode: 'type', speed: 18, box: .9 };
+    r.msg.text = 'GLYPHOS v2\n> teje luz con caracteres';
   },
   text(r) {
     r.source = 'text'; r.text.content = 'TRAMA'; r.text.font = 'martian'; r.text.weight = 800;
@@ -24,7 +24,7 @@ const scenes: Record<string, (r: Recipe) => void> = {
   },
   words(r) {
     r.layers = [{ ...r.layers[0], pattern: 'dona' }];
-    r.glyph.mode = 'words'; r.glyph.words = 'MONOTRAMA · TEJE LUZ CON CARACTERES · '; r.glyph.cell = 10; r.glyph.jitter = .3;
+    r.glyph.mode = 'words'; r.glyph.words = 'GLYPHOS · TEJE LUZ CON CARACTERES · '; r.glyph.cell = 10; r.glyph.jitter = .3;
     r.color.stops = ['#221133', '#ff3d7f', '#ffd0e0']; r.color.bg = '#0d0712'; r.fx.bloom = .8;
   },
   lines(r) {

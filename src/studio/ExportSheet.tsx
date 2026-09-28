@@ -32,7 +32,7 @@ type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
 
 const useCurrent = () => useStudio(s => s.entries[s.cursor]);
-const baseName = (r: Recipe) => 'monotrama-' + slug(r.meta.name ?? r.meta.seed ?? new Date().toISOString().slice(0, 16));
+const baseName = (r: Recipe) => 'glyphos-' + slug(r.meta.name ?? r.meta.seed ?? new Date().toISOString().slice(0, 16));
 
 export function ExportSheet() {
   const open = useStudio(s => s.ui.sheet === 'export');
@@ -498,14 +498,14 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
     void captureGrid(e.recipe, cols, rows).then(g => {
       if (!alive) return;
       const ansi = gridToAnsi(g, depth, withBg);
-      setPreview({ text: gridToText(g), html: gridToHtml(g), page: gridToHtmlPage(g, e.recipe.meta.name ?? e.recipe.meta.seed ?? 'Monotrama'), ansi });
+      setPreview({ text: gridToText(g), html: gridToHtml(g), page: gridToHtmlPage(g, e.recipe.meta.name ?? e.recipe.meta.seed ?? 'GLYPHOS'), ansi });
       setEst(byteSize(ansi));
     });
     return () => { alive = false; };
   }, [e?.recipe, cols, rows, depth, withBg]);
   if (!e) return null;
   const name = baseName(e.recipe);
-  const title = e.recipe.meta.name ?? e.recipe.meta.seed ?? 'Monotrama';
+  const title = e.recipe.meta.name ?? e.recipe.meta.seed ?? 'GLYPHOS';
   const anim = async (kind: 'cast' | 'node' | 'python') => {
     const job: Cancel = cancel.current = { cancelled: false, active: true };
     setBusy(0);
@@ -632,11 +632,11 @@ function CodeTab() {
   const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim, fallback };
   const out = useMemo(() => {
     if (!mod || !e) return null;
-    if (kind === 'html') { const r = mod.htmlSnippet(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'monotrama.html', extra: null as string | null }; }
-    if (kind === 'wc') { const r = mod.webComponent(e.recipe, opts); return { code: r.usage, notes: r.notes, file: 'monotrama-field.js', extra: r.file }; }
-    const r = mod.reactComponent(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'MonotramaBackground.jsx', extra: null };
+    if (kind === 'html') { const r = mod.htmlSnippet(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'glyphos.html', extra: null as string | null }; }
+    if (kind === 'wc') { const r = mod.webComponent(e.recipe, opts); return { code: r.usage, notes: r.notes, file: 'glyphos-field.js', extra: r.file }; }
+    const r = mod.reactComponent(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'GlyphosBackground.jsx', extra: null };
   }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim, fallback]);
-  // what a visitor downloads: the snippet, monotrama-field.js, or the component
+  // what a visitor downloads: the snippet, glyphos-field.js, or the component
   const weight = out ? (out.extra ?? out.code) : null;
   const gz = useGzipSize(weight);
   if (!e) return null;
@@ -679,12 +679,12 @@ function CodeTab() {
       <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
         <button type="button" className="btn primary" style={{ width: 'auto', margin: 0 }} disabled={!out} onClick={() => out && void copy(out.code, 'Código copiado', codeRef.current)}>Copiar</button>
         {kind === 'html' && mod && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(baseName(e.recipe) + '.html', mod.htmlPage(e.recipe, opts), 'text/html')}>Descargar página .html</button>}
-        {kind === 'wc' && out?.extra && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText('monotrama-field.js', out.extra!, 'text/javascript')}>Descargar monotrama-field.js</button>}
+        {kind === 'wc' && out?.extra && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText('glyphos-field.js', out.extra!, 'text/javascript')}>Descargar glyphos-field.js</button>}
         {kind === 'react' && out && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(out.file, out.code, 'text/javascript')}>Descargar {out.file}</button>}
         {!basic && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => void poster()}>Descargar póster (PNG)</button>}
       </div>
       <p className="note code-size">
-        {out ? <>{kind === 'wc' ? 'monotrama-field.js' : kind === 'react' ? out.file : 'Este código'}: <b>{kb(bytes)}</b>{gz ? ` (${kb(gz)} comprimido con gzip, como lo sirven la mayoría de servidores)` : ''}. </> : null}
+        {out ? <>{kind === 'wc' ? 'glyphos-field.js' : kind === 'react' ? out.file : 'Este código'}: <b>{kb(bytes)}</b>{gz ? ` (${kb(gz)} comprimido con gzip, como lo sirven la mayoría de servidores)` : ''}. </> : null}
         Lleva el motor {fallback === 'basic' ? 'WebGL 2 y el básico' : 'WebGL 2'}, sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».
       </p>
       <CopyFallback manual={manual} />
@@ -737,7 +737,7 @@ function RecipeTab() {
           <h3>Receta (.json)</h3>
           <p>Un archivo con todos los ajustes. Arrástralo sobre el estudio (o usa Colección → Importar) para reabrirlo. También acepta los ajustes JSON del laboratorio original.</p>
           {media && <p className="note">Guarda el nombre y las medidas de {word}, no el archivo.</p>}
-          <button type="button" className="btn primary" onClick={() => downloadText(baseName(r) + '.monotrama.json', recipeFile(r), 'application/json')}>Descargar receta (.json)</button>
+          <button type="button" className="btn primary" onClick={() => downloadText(baseName(r) + '.glyphos.json', recipeFile(r), 'application/json')}>Descargar receta (.json)</button>
           <button type="button" className="btn" onClick={() => void copyText(JSON.stringify(r, null, 2), 'Receta copiada')}>Copiar JSON</button>
         </div>
         <div className="ex-card">

@@ -91,7 +91,7 @@ test.describe('colección', () => {
     await expect(sheet(pa).getByRole('button', { name: /Exportar proyecto de .* \(\.zip con su archivo\)/ })).toHaveCount(1);
     await expect(sheet(pa).getByRole('button', { name: /Copiar enlace a .* \(sólo la receta, sin su archivo\)/ })).toHaveCount(1);
     const file = await download(pa, () => sheet(pa).getByRole('button', { name: /^Guardar colección \(\.zip, con sus imágenes y videos\)/ }).click());
-    expect(file.name).toMatch(/^monotrama-coleccion-\d{4}-\d{2}-\d{2}\.zip$/);
+    expect(file.name).toMatch(/^glyphos-coleccion-\d{4}-\d{2}-\d{2}\.zip$/);
     const bytes = readFileSync(file.path);
     const files = await unzip(new Uint8Array(bytes));
     const names = files.map(f => f.name);

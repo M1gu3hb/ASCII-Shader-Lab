@@ -1,8 +1,8 @@
-// Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
+// Hecho con GLYPHOS · https://glyphos-ascii.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución.
 /**
  * Enlaces con interferencia — al pasar el cursor o al llegar con el teclado, el texto del enlace se
  * revuelve un instante en caracteres y vuelve. Para un menú, un pie de página o una lista de enlaces.
- * Monotrama · sin dependencias.
+ * GLYPHOS · sin dependencias.
  *
  *   glitchLinks(document.querySelector('nav'), { color: '#ff5b1f' });
  *

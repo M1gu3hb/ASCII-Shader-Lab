@@ -13,7 +13,7 @@ import { openStudio } from './helpers';
  */
 
 const SITE = 'http://otra-web.test';
-const HEADER = /Hecho con Monotrama · https:\/\/monotrama\.vercel\.app · Licencia MIT-0/;
+const HEADER = /Hecho con GLYPHOS · https:\/\/glyphos-ascii\.vercel\.app · Licencia MIT-0/;
 
 function png(w = 240, h = 150): Buffer {
   const row = w * 3 + 1, raw = Buffer.alloc(row * h);
