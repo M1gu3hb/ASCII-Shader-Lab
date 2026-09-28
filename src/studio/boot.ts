@@ -40,6 +40,17 @@ export async function bootFromUrl(): Promise<BootOpened> {
           ? `Pieza abierta desde un enlace. ${r.source === 'video' ? 'El video' : 'La imagen'} no viaja en los enlaces: elige ${r.source === 'video' ? 'uno tuyo' : 'una tuya'}.`
           : 'Pieza abierta desde un enlace. Guárdala con ★ para conservarla.'), 400);
       } else setTimeout(() => toast('El enlace no contiene una receta válida.'), 400);
+    } else if (h.get('foto')) {
+      // «Abrir estilo en el laboratorio» from the photo studio (src/foto/bridge.ts): the recipe waits in IndexedDB
+      opened = 'link';
+      const { takeHandoff } = await import('../foto/handoff');
+      const got = await takeHandoff(h.get('foto')!);
+      if (got?.kind === 'foto-to-lab') {
+        const own = got.recipe.source === 'image' || got.recipe.source === 'video';
+        useStudio.setState({ space: own ? 'media' : spaceById(got.recipe.meta.space ?? 'arte').id });
+        applyRecipe(got.recipe, 'importado', got.name);
+        setTimeout(() => toast('Estilo abierto desde el estudio de foto: es una entrada nueva de tu historial.'), 400);
+      } else setTimeout(() => toast('Ese estilo ya no está esperando (se abre una sola vez y caduca en una hora).'), 400);
     } else if (h.get('seed')) {
       opened = 'seed';
       if (space) useStudio.setState({ space: spaceById(space).id });
