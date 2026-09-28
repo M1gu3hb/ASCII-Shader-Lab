@@ -6,7 +6,8 @@ import { Rng } from '../random/prng';
 import type { SpaceId } from '../random/spaces';
 import { Color, F, Note, Seg, SegGroup, Select, Slider, Sub, Text, Toggle, useField } from './controls';
 import { ICamera, IDice, IDown, IEye, IEyeOff, IImage, IPlus, ITrash, IUp } from './icons';
-import { toggleMute, toggleVideo, useMedia, setVideoRate, startCamera, stopCamera } from './media';
+import { chooseCamera, chooseCameraMirror, chooseFacing, toggleMute, toggleVideo, useMedia, setVideoRate, startCamera, stopCamera } from './media';
+import type { Facing } from './cameraMirror';
 import { edit, setUI, useRecipe, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
 import { BasicFxHint } from './BasicMode';
@@ -395,11 +396,7 @@ function FuenteTab({ space }: { space: SpaceId }) {
           <Note>{media.video ? <>Archivo: <b>{media.video.name}</b></> : 'MP4 (H.264) es el formato que más navegadores abren; WebM también sirve en la mayoría.'}</Note>
         </>
       )}
-      {source === 'camera' && (
-        media.camera === 'on'
-          ? <button type="button" className="btn" onClick={stopCamera}>Apagar cámara</button>
-          : <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>
-      )}
+      {source === 'camera' && <CameraControls />}
       {isMedia && <p className="note privacy">Todo se procesa en tu navegador: nada se sube a ningún servidor.</p>}
       {media.error && <p className="warn">{media.error}</p>}
       {isMedia && (
@@ -409,7 +406,7 @@ function FuenteTab({ space }: { space: SpaceId }) {
           <Slider f={F('media.zoom')} label="Zoom" min={0.5} max={4} />
           <Slider f={F('media.panX')} label="Mover horizontal" min={-1} max={1} />
           <Slider f={F('media.panY')} label="Mover vertical" min={-1} max={1} />
-          <Toggle f={F('media.mirror')} label="Espejo" />
+          {source !== 'camera' && <Toggle f={F('media.mirror')} label="Espejo" />}
           <Slider f={F('media.reveal')} label="Dejar ver la foto original" min={0} max={1} />
         </>
       )}
@@ -429,6 +426,53 @@ function RateSync() {
   const rate = useField(F<number>('media.rate')) ?? 1;
   useEffect(() => setVideoRate(rate), [rate]);
   return null;
+}
+
+const FACING_OPTS: Array<[Facing, string]> = [['user', 'Cámara frontal'], ['environment', 'Cámara trasera']];
+
+/**
+ * The camera: on and off, front or rear (or one of the listed devices), and its mirror. The front camera
+ * starts as a mirror and the rear one as it is (cameraMirror.ts); the person's own choice of «Espejo» is
+ * kept for that camera. The mirror is part of the piece, so the still and the recording show the same.
+ */
+function CameraControls() {
+  const media = useMedia();
+  const mirror = !!useField(F<boolean>('media.mirror'));
+  const id = useId();
+  const on = media.camera === 'on';
+  const facing: Facing = on ? media.camFacing ?? 'user' : media.camWant.facing;
+  // asked for the rear camera and got one that looks at the person (a laptop's only webcam)
+  const noRear = on && media.camWant.facing === 'environment' && !media.camWant.deviceId && media.camFacing !== 'environment';
+  const device = media.camDevice ?? media.camWant.deviceId ?? '';
+  return (
+    <>
+      {on
+        ? <button type="button" className="btn" onClick={stopCamera}>Apagar cámara</button>
+        : <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>}
+      <div className="ctl cx cam-which">
+        <span className="lbl" id={id + 'f'}>Qué cámara</span>
+        <SegGroup labelId={id + 'f'} value={facing} opts={FACING_OPTS} onPick={chooseFacing} activate="manual" />
+      </div>
+      {noRear && <Note>Este equipo no ofrece una cámara trasera: sigue la que te mira.</Note>}
+      {media.cameras.length > 1 && (
+        <div className="ctl cx">
+          <span className="lbl" id={id + 'd'}>Dispositivo</span>
+          <Picker value={media.cameras.some(c => c.id === device) ? device : undefined} placeholder="Elige una cámara" label="Dispositivo" labelId={id + 'd'} minWidth={260}
+            options={media.cameras.map(c => ({ value: c.id, label: c.label }))} onChange={chooseCamera} />
+        </div>
+      )}
+      <div className="toggle-row cam-mirror">
+        <label className="toggle">
+          <span>Espejo: como te ves en el espejo</span>
+          <span className="switch"><input type="checkbox" role="switch" checked={mirror} aria-describedby={id + 'h'} onChange={e => chooseCameraMirror(e.target.checked)} /><span /></span>
+        </label>
+      </div>
+      <p className="note cam-honest" id={id + 'h'}>
+        Lo que ves es lo que tendrá el archivo: la imagen fija y la grabación salen con este mismo espejo.{' '}
+        {facing === 'user' ? 'La cámara frontal empieza en espejo, como en la cámara de un teléfono.' : 'La cámara trasera empieza sin espejo, tal como la ves.'}
+      </p>
+    </>
+  );
 }
 
 function TextSource() {

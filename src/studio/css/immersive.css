@@ -1,0 +1,45 @@
+/* «Inmersivo» (ui/Immersive.tsx): the bar and the toggle, shared by the studios. Tokens come from the
+   studio's stylesheet, with the «Telar de precisión» values as fallbacks. What each studio hides while it
+   is on is in that studio's own stylesheet (the lab: css/phone.css). */
+
+.imm-toggle {
+  display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; flex: none;
+  border-radius: 10px; border: 1px solid var(--line-2, rgba(237, 230, 218, .18)); background: rgba(15, 14, 13, .92);
+  color: var(--text, #ede6da); box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+}
+.imm-toggle:hover { border-color: var(--bone, #ede6da); }
+.imm-toggle svg { width: 20px; height: 20px; }
+.imm-toggle[aria-pressed="true"] { background: var(--bone, #ede6da); color: var(--ink, #0c0b0a); }
+
+.imm-bar {
+  position: absolute; z-index: 30; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; padding: 5px; max-width: calc(100% - 16px);
+  border-radius: 14px; border: 1px solid var(--line-2, rgba(237, 230, 218, .18)); background: rgba(15, 14, 13, .86);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.imm-say { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.imm-bar button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 48px; height: 48px; padding: 0 12px;
+  border: 1px solid transparent; border-radius: 10px; background: none; color: var(--text, #ede6da);
+  font: 600 14px/1 var(--font-ui, system-ui, sans-serif); white-space: nowrap;
+}
+.imm-bar button svg { width: 20px; height: 20px; flex: none; }
+.imm-bar button:hover:not(:disabled) { background: var(--field, rgba(237, 230, 218, .055)); border-color: var(--line, rgba(237, 230, 218, .1)); }
+.imm-bar button:disabled { opacity: .35; cursor: not-allowed; }
+.imm-bar button[aria-pressed="true"] { background: var(--field-2, rgba(237, 230, 218, .09)); border-color: var(--line-2, rgba(237, 230, 218, .18)); }
+/* the main action: bone, as the dice are everywhere in the lab */
+.imm-bar .imm-main { background: var(--bone, #ede6da); color: var(--ink, #0c0b0a); padding: 0 16px 0 14px; }
+.imm-bar .imm-main:hover:not(:disabled) { background: #fff; border-color: transparent; }
+.imm-bar .imm-exit { color: var(--muted, #a39c90); }
+.imm-sep { width: 1px; height: 26px; background: var(--line, rgba(237, 230, 218, .1)); margin: 0 2px; flex: none; }
+
+@media (max-width: 420px) {
+  .imm-bar { gap: 2px; padding: 4px; }
+  .imm-bar button { min-width: 46px; padding: 0 10px; }
+  .imm-bar .imm-wide:not(.imm-main) .imm-lbl { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .imm-bar { animation: imm-in .22s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes imm-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+}
+html[data-motion="low"] .imm-bar { animation: none; }

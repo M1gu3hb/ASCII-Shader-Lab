@@ -3,12 +3,14 @@ import type { Recipe } from '../../engine/recipe';
 import { previewRecipe } from '../engineBridge';
 import { useStudio } from '../store';
 import { announce } from '../toast';
+import { IEye, IEyeOff } from '../icons';
 
 /**
  * «ver original»: while pressed (pointer, or Space / Enter held), the stage shows the piece as it
  * came out, before the edits; releasing returns to the edited piece. Nothing is added to the history.
+ * `compact`: an eye instead of the words (the phone's seed line), with the same name.
  */
-export function HoldCompare({ origin }: { origin: Recipe }) {
+export function HoldCompare({ origin, compact }: { origin: Recipe; compact?: boolean }) {
   const [on, setOn] = useState(false);
   const held = useRef(false);
   const show = () => {
@@ -41,7 +43,7 @@ export function HoldCompare({ origin }: { origin: Recipe }) {
       onBlur={hide}
       onContextMenu={e => e.preventDefault()}
     >
-      {on ? 'original' : 'ver original'}
+      {compact ? (on ? <IEyeOff width={18} height={18} /> : <IEye width={18} height={18} />) : on ? 'original' : 'ver original'}
     </button>
   );
 }
