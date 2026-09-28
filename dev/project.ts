@@ -22,7 +22,8 @@ import type { MediaRef, Recipe } from '../src/engine/recipe';
 import { evaluate } from '../src/project/evaluate';
 import { Compositor } from '../src/project/compositor';
 import { createSourceProvider } from '../src/project/sources';
-import { newLayer, newProject, projectFromImage, projectFromRecipe, projectFromVideo, uid } from '../src/project/normalize';
+import { cloneProject, newLayer, newProject, projectFromImage, projectFromRecipe, projectFromSequence, projectFromVideo, uid } from '../src/project/normalize';
+import * as store from '../src/project/store';
 import type { Mask, Project } from '../src/project/types';
 import * as exporting from '../src/project/export';
 import * as persist from '../src/project/persist';
@@ -357,6 +358,90 @@ const mt = {
       preview.destroy(); preview.provider.release();
     }
     return { codec, bytes: blob.size, frames: out };
+  },
+  /**
+   * A photo sequence (three solid colours, half a second each) and a cut-out (a PNG with real transparency)
+   * drawn at several times: the photo of each time, the cut-out's alpha kept on a transparent project.
+   */
+  async sequenceCheck() {
+    const solid = async (css: string, alpha = false) => {
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 40;
+      const x = c.getContext('2d')!;
+      if (alpha) { x.fillStyle = css; x.beginPath(); x.arc(32, 20, 14, 0, Math.PI * 2); x.fill(); } else { x.fillStyle = css; x.fillRect(0, 0, 64, 40); }
+      const blob = await new Promise<Blob>(res => c.toBlob(b => res(b!), 'image/png'));
+      const r = await put(blob, { kind: 'image', name: css + '.png', w: 64, h: 40 });
+      return { id: r.id, kind: 'image' as const, name: css + '.png', type: 'image/png', w: 64, h: 40 };
+    };
+    const refs = [await solid('#ff0000'), await solid('#00ff00'), await solid('#0000ff')];
+    const p = projectFromSequence(refs, 0.5);
+    const at = async (q: Project, t: number, px: [number, number]) => {
+      const c = document.createElement('canvas');
+      await compositor.render(evaluate(q, t), c, { scale: 1 });
+      return Array.from(c.getContext('2d', { willReadFrequently: true })!.getImageData(px[0], px[1], 1, 1).data);
+    };
+    const seq = [];
+    for (const t of [0.25, 0.75, 1.25, 1.75]) seq.push(await at(p, t, [32, 20]));
+    const cut = newProject({ w: 64, h: 40, transparent: true });
+    const ref = await solid('#ffaa00', true);
+    cut.sources.push({ id: 'recorte', kind: 'cutout', name: 'recorte', media: [ref], w: 64, h: 40, cutout: { from: 'recorte', matte: ref } });
+    cut.layers.push(newLayer('photo', { source: 'recorte', fit: 'contain' }));
+    return { seq, cutoutCenter: await at(cut, 0, [32, 20]), cutoutCorner: await at(cut, 0, [1, 1]) };
+  },
+  /** A project with more ASCII layers than the engine budget: a warning, and the same pixels as with room for all. */
+  async budgetCheck() {
+    const p = cloneProject(samples[3].project);
+    for (let i = 0; i < 3; i++) {
+      const l = cloneProject(p).layers[1];
+      p.layers.push({ ...l, id: uid(), opacity: 0.5, xf: { ...l.xf, x: 0.05 * (i + 1) } });
+    }
+    const tight = new Compositor({ maxEngines: 2, ...(BASIC ? { force: 'basic' as const } : {}) });
+    const roomy = new Compositor({ maxEngines: 8, ...(BASIC ? { force: 'basic' as const } : {}) });
+    const a = document.createElement('canvas'), b = document.createElement('canvas');
+    try {
+      const ra = await tight.render(evaluate(p, 1), a, { scale: 0.5 });
+      const rb = await roomy.render(evaluate(p, 1), b, { scale: 0.5 });
+      // a second frame through the shared engine (styles alternate in it)
+      const ra2 = await tight.render(evaluate(p, 1), a, { scale: 0.5 });
+      return { ascii: p.layers.filter(l => l.kind === 'ascii').length, warnings: ra.warnings, shared: ra.engines.shared, roomyWarnings: rb.warnings, again: ra2.warnings.length, ...diff(a, b) };
+    } finally { tight.destroy(); roomy.destroy(); }
+  },
+  /** The store's autosave: an edit is saved a moment later, with its name, in the list of projects. */
+  async autosaveCheck() {
+    const p = cloneProject(samples[0].project);
+    p.id = uid();
+    store.openProject(p);
+    const stop = store.startAutosave({ delay: 150 });
+    store.edit(d => { d.name = 'Guardado solo'; }, 'nombre');
+    await new Promise(res => setTimeout(res, 900));
+    const listed = (await persist.listProjects()).find(x => x.id === p.id);
+    const back = await persist.loadProject(p.id);
+    store.undo();
+    await stop();
+    const after = await persist.loadProject(p.id);
+    await persist.deleteProject(p.id);
+    return { listedName: listed?.name ?? null, savedName: back?.name ?? null, afterUndo: after?.name ?? null, storage: store.useProject.getState().storage };
+  },
+  /** The other exports: one layer alone, a mask, the original file, a chosen width, WebP, and the frame loop. */
+  async exportsCheck() {
+    const p = samples[0].project;
+    const layer = await exporting.exportLayer(p, p.layers[1].id, { t: 3, compositor });
+    const layerC = await decode(layer);
+    const mask = await exporting.exportMask(p, p.layers[1].id, { width: 320 });
+    const maskC = mask ? await decode(mask) : null;
+    const md = maskC ? pixelsOf(maskC) : null;
+    const orig = await exporting.exportOriginal(p, p.sources[0].id);
+    const stored = await (await import('../src/project/sources')).storeBlob(p.sources[0].media[0].id!);
+    const small = await decode(await exporting.exportStill(p, { width: 480, t: 3, compositor }));
+    const webp = await exporting.canEncode('webp') ? (await exporting.exportStill(p, { format: 'webp', t: 3, compositor })).type : 'sin WebP';
+    const hashes: string[] = [];
+    for await (const f of exporting.frames(p, { fps: 4, from: 0.5, to: 1.5, scale: 0.25 })) hashes.push(`${f.i}/${f.n}@${f.t}:${fnv(pixelsOf(f.canvas))}`);
+    return {
+      layer: { type: layer.type, alpha: alphaStats(layerC) },
+      mask: maskC ? { w: maskC.width, h: maskC.height, center: md![((maskC.height >> 1) * maskC.width + (maskC.width * 0.583 | 0)) * 4], corner: md![0], alpha: alphaStats(maskC) } : null,
+      original: { files: orig.length, same: !!stored && orig[0]?.blob.size === stored.blob.size, name: orig[0]?.name },
+      small: [small.width, small.height], webp, frames: hashes,
+    };
   },
   basic: BASIC,
   file, persist, exporting,
