@@ -453,7 +453,8 @@ COMPONENTS.push(
     defaults: { texture: 'ondas', radius: 180, cell: 12, idle: 0.1, ramp: ' .:-=+*#%@', color: '#ff5b1f' },
     mount(stage, v, big) {
       const sec = el('section', `width:100%;height:100%;display:grid;place-content:center;gap:10px;text-align:center;padding:24px;font:500 ${big ? 16 : 12}px/1.5 system-ui,sans-serif;color:#ede6da`);
-      const h = el('h2', `margin:0;font:700 ${big ? 'clamp(24px,3vw,40px)' : '20px'}/1.1 ${MONO};letter-spacing:-.02em`, 'Teje luz con caracteres');
+      // a sample title, not a heading: the gallery's and the detail's outline stay the pieces' own
+      const h = el('p', `margin:0;font:700 ${big ? 'clamp(24px,3vw,40px)' : '20px'}/1.1 ${MONO};letter-spacing:-.02em`, 'Teje luz con caracteres');
       const pp = el('p', 'margin:0;color:#a39c90', 'Mueve el cursor, o recorre los enlaces con Tab.');
       const nav = el('p', 'margin:6px 0 0');
       for (const t of ['Proyectos', 'Estudio', 'Contacto']) nav.appendChild(demoLink(t));

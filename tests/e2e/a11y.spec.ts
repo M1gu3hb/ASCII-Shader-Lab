@@ -345,6 +345,8 @@ test.describe('accesibilidad', () => {
     await openStudio(page);
     await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Fondo web', exact: true }).click();
     await page.locator('.vbar .legib-more').click();
+    // the estimate's detail (its list, with a mark per text) is part of what is measured: wait for it
+    await expect(page.locator('.vbar .legib-say')).not.toHaveText('Midiendo…', { timeout: 30_000 });
     const worst = await page.evaluate(() => {
       const lin = (c: number) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
       const lum = (r: number, g: number, b: number) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
@@ -364,7 +366,13 @@ test.describe('accesibilidad', () => {
           if (s.visibility === 'hidden' || s.display === 'none' || t.closest('button')) continue;
           const [tr, tg, tb] = rgba(s.color);
           const yt = lum(tr, tg, tb);
-          min = Math.min(min, (Math.max(yt, yb) + 0.05) / (Math.min(yt, yb) + 0.05));
+          // text on an opaque fill of its own inside the element (a mark's badge) is read against that fill
+          let yf = yb;
+          for (let p: HTMLElement | null = t; p && p !== el; p = p.parentElement) {
+            const [fr, fg, fb, fa] = rgba(getComputedStyle(p).backgroundColor);
+            if (fa >= 0.99) { yf = lum(fr, fg, fb); break; }
+          }
+          min = Math.min(min, (Math.max(yt, yf) + 0.05) / (Math.min(yt, yf) + 0.05));
         }
         out.push({ sel, ratio: Math.round(min * 10) / 10 });
       }
