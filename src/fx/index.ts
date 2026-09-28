@@ -33,7 +33,7 @@
  *
  * WebGL 2 is not used: on this machine it runs on SwiftShader (the CPU), so a GPU path could not be shown
  * to pay here, and each context would compete with the ASCII layers' engines for the context budget.
- * The blurs (blur, glow, motion blur) are the candidates if real devices need it; see the lane report.
+ * The blurs (blur, glow, motion blur) and the CMYK halftone are the candidates if real devices need one.
  */
 import type { Finish, FinishKind } from '../project/types';
 import { CATALOG } from './catalog';
