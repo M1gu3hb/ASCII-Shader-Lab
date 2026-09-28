@@ -12,31 +12,30 @@ const area = (a: Uint8ClampedArray) => a.reduce((n, v) => n + v / 255, 0);
 const radiusOf = (a: Uint8ClampedArray) => Math.sqrt(area(a) / Math.PI);
 
 describe('foreground colour estimation (blur fusion)', () => {
-  it('removes the old background colour from semi-transparent edge pixels', () => {
+  it.each([[160, 40, 1], [2200, 1200, 4]])('removes the old background colour from semi-transparent edge pixels (%i × %i)', (W, H, S) => {
     // Composite I = αF + (1-α)B: a red subject over a blue-green background that changes across the image,
-    // with a soft 24 px alpha ramp (hair-like).
-    const W = 160, H = 40;
+    // with a soft alpha ramp (hair-like). The large image goes through the reduced-resolution averaging.
     const F = [220, 40, 30];
     const alpha = new Uint8ClampedArray(W * H);
     const rgba = new Uint8ClampedArray(W * H * 4);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const a = Math.min(1, Math.max(0, (x - 60) / 24));
-      const B = [20, 90 + x * 0.5, 200];
+      const a = Math.min(1, Math.max(0, (x - 60 * S) / (24 * S)));
+      const B = [20, 90 + (x / S) * 0.5, 200];
       const i = y * W + x;
       alpha[i] = Math.round(a * 255);
       for (let c = 0; c < 3; c++) rgba[i * 4 + c] = Math.round(a * F[c] + (1 - a) * B[c]);
       rgba[i * 4 + 3] = 255;
     }
-    const est = estimateForeground(rgba, alpha, W, H, { r1: 30, r2: 3 });
+    const est = estimateForeground(rgba, alpha, W, H, { r1: 30 * S, r2: 3 * S });
     let errI = 0, errF = 0, n = 0;
-    for (let y = 5; y < H - 5; y++) for (let x = 66; x < 82; x++) { // the soft band, away from its ends
+    for (let y = 5; y < H - 5; y += S) for (let x = 66 * S; x < 82 * S; x++) { // the soft band, away from its ends
       const i = y * W + x;
       for (let c = 0; c < 3; c++) { errI += Math.abs(rgba[i * 4 + c] - F[c]); errF += Math.abs(est[i * 3 + c] - F[c]); }
       n++;
     }
     expect(errF / n).toBeLessThan(0.4 * (errI / n));
     // Opaque pixels keep the photo's colour exactly.
-    const i = 20 * W + 150;
+    const i = 20 * W + W - 10;
     expect([est[i * 3], est[i * 3 + 1], est[i * 3 + 2]]).toEqual([rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2]]);
   });
 

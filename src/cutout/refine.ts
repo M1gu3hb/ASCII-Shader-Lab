@@ -225,16 +225,18 @@ export function guidedUpsample(rgba: Uint8ClampedArray | Uint8Array, W: number, 
 /** Guided filtering of a full-resolution matte (when the model's low-resolution matte is not at hand). */
 export function guidedRefine(rgba: Uint8ClampedArray | Uint8Array, W: number, H: number, alpha: Uint8ClampedArray, detail: number): Uint8ClampedArray {
   if (detail <= 0) return new Uint8ClampedArray(alpha);
+  const n = W * H;
   const { w: lw, h: lh } = workSize(W, H, 512, 1024);
-  const full = new Float32Array(W * H);
-  for (let i = 0; i < full.length; i++) full[i] = alpha[i] / 255;
-  const low = areaDownsample(full, W, H, lw, lh);
+  const buf = new Float32Array(n);
+  for (let i = 0; i < n; i++) buf[i] = alpha[i] / 255;
+  const low = areaDownsample(buf, W, H, lw, lh);
   const plan = planGuided(rgba, W, H, low, lw, lh, detail);
   const guided = applyGuided(plan, rgba, W, H);
   // Keep the given matte where it is certain (fully in or out in a small neighbourhood): only edges change.
-  const unsure = boxMean(Float32Array.from(alpha, v => (v > 3 && v < 252 ? 1 : 0)), W, H, 3);
-  const out = new Uint8ClampedArray(W * H);
-  for (let i = 0; i < out.length; i++) out[i] = unsure[i] > 0 ? guided[i] : alpha[i];
+  for (let i = 0; i < n; i++) { const v = alpha[i]; buf[i] = v > 3 && v < 252 ? 1 : 0; }
+  const unsure = boxMean(buf, W, H, 3, buf);
+  const out = new Uint8ClampedArray(n);
+  for (let i = 0; i < n; i++) out[i] = unsure[i] > 0 ? guided[i] : alpha[i];
   return out;
 }
 
@@ -262,39 +264,77 @@ export function fusionRadii(W: number, H: number) {
   return { r1: Math.max(8, Math.round(45 * s)), r2: Math.max(1, Math.round(3 * s)) };
 }
 
+/** Box means of F·α / α and B·(1−α) / (1−α) over a (2r+1)² window (the smooth estimates of one step). */
+function fusionMeans(F: Float32Array[], B: Float32Array[], A: Float32Array, w: number, h: number, r: number): { bF: Float32Array[]; bB: Float32Array[] } {
+  const n = w * h;
+  const bA = boxMean(A, w, h, r);
+  const bF: Float32Array[] = [], bB: Float32Array[] = [];
+  for (let c = 0; c < 3; c++) {
+    const fa = new Float32Array(n), b1a = new Float32Array(n);
+    for (let i = 0; i < n; i++) { fa[i] = F[c][i] * A[i]; b1a[i] = B[c][i] * (1 - A[i]); }
+    const mf = boxMean(fa, w, h, r, fa), mb = boxMean(b1a, w, h, r, b1a);
+    for (let i = 0; i < n; i++) { mf[i] /= bA[i] + 1e-5; mb[i] /= 1 - bA[i] + 1e-5; }
+    bF.push(mf); bB.push(mb);
+  }
+  return { bF, bB };
+}
+
+/** One blur-fusion step: F and B re-estimated from the means (Forte & Pitié, eq. 3). */
+function fusionPass(I: Float32Array[], F: Float32Array[], B: Float32Array[], A: Float32Array, w: number, h: number, r: number): { F: Float32Array[]; B: Float32Array[] } {
+  const { bF, bB } = fusionMeans(F, B, A, w, h, r);
+  const outF = bF.map((m, c) => {
+    const f = new Float32Array(w * h);
+    for (let i = 0; i < f.length; i++) { const a = A[i]; f[i] = clamp01(m[i] + a * (I[c][i] - a * m[i] - (1 - a) * bB[c][i])); }
+    return f;
+  });
+  return { F: outF, B: bB };
+}
+
 /**
  * Blur-fusion foreground estimation (two passes: large then small window). Returns the estimated foreground
- * colour F (RGB bytes) wherever 0 < alpha < 255; elsewhere F = the photo.
+ * colour F (RGB bytes) wherever 0 < alpha < 255; elsewhere F = the photo. On large photos both passes average
+ * on a reduced copy (their windows are wider than a reduced pixel) and only the final per-pixel formula runs at
+ * full resolution, on the soft pixels.
  */
 export function estimateForeground(rgba: Uint8ClampedArray | Uint8Array, alpha: Uint8ClampedArray, W: number, H: number, radii = fusionRadii(W, H)): Uint8ClampedArray {
   const n = W * H;
-  const A = new Float32Array(n);
-  const I: Float32Array[] = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
-  for (let i = 0, j = 0; i < n; i++, j += 4) { A[i] = alpha[i] / 255; I[0][i] = rgba[j] / 255; I[1][i] = rgba[j + 1] / 255; I[2][i] = rgba[j + 2] / 255; }
-  const pass = (F: Float32Array[], B: Float32Array[], r: number) => {
-    const bA = boxMean(A, W, H, r);
-    const outF: Float32Array[] = [], outB: Float32Array[] = [];
-    for (let c = 0; c < 3; c++) {
-      const fa = new Float32Array(n), b1a = new Float32Array(n);
-      for (let i = 0; i < n; i++) { fa[i] = F[c][i] * A[i]; b1a[i] = B[c][i] * (1 - A[i]); }
-      const bFA = boxMean(fa, W, H, r), bB1A = boxMean(b1a, W, H, r);
-      const f = new Float32Array(n), bb = new Float32Array(n);
-      for (let i = 0; i < n; i++) {
-        const bF = bFA[i] / (bA[i] + 1e-5), bB = bB1A[i] / (1 - bA[i] + 1e-5), a = A[i];
-        f[i] = clamp01(bF + a * (I[c][i] - a * bF - (1 - a) * bB));
-        bb[i] = bB;
-      }
-      outF.push(f); outB.push(bb);
-    }
-    return { F: outF, B: outB };
-  };
-  const p1 = pass(I, I, radii.r1);
-  const p2 = pass(p1.F, p1.B, radii.r2);
   const out = new Uint8ClampedArray(n * 3);
-  for (let i = 0, j = 0; i < n; i++, j += 3) {
-    const a = alpha[i];
-    if (a === 0 || a === 255) { out[j] = rgba[i * 4]; out[j + 1] = rgba[i * 4 + 1]; out[j + 2] = rgba[i * 4 + 2]; continue; }
-    out[j] = Math.round(p2.F[0][i] * 255); out[j + 1] = Math.round(p2.F[1][i] * 255); out[j + 2] = Math.round(p2.F[2][i] * 255);
+  for (let i = 0, j = 0; i < n; i++, j += 3) { out[j] = rgba[i * 4]; out[j + 1] = rgba[i * 4 + 1]; out[j + 2] = rgba[i * 4 + 2]; }
+  const k = Math.max(1, Math.min(Math.floor(Math.sqrt(n / 600_000)), Math.floor(radii.r2 / 1.5) || 1));
+  const w = Math.ceil(W / k), h = Math.ceil(H / k);
+  // Planes at the averaging resolution.
+  const A = new Float32Array(w * h);
+  const I: Float32Array[] = [new Float32Array(w * h), new Float32Array(w * h), new Float32Array(w * h)];
+  if (k === 1) {
+    for (let i = 0, j = 0; i < n; i++, j += 4) { A[i] = alpha[i] / 255; I[0][i] = rgba[j] / 255; I[1][i] = rgba[j + 1] / 255; I[2][i] = rgba[j + 2] / 255; }
+  } else {
+    const full = new Float32Array(n);
+    for (let i = 0; i < n; i++) full[i] = alpha[i] / 255;
+    A.set(areaDownsample(full, W, H, w, h));
+    for (let c = 0; c < 3; c++) { for (let i = 0; i < n; i++) full[i] = rgba[i * 4 + c] / 255; I[c].set(areaDownsample(full, W, H, w, h)); }
+  }
+  const p1 = fusionPass(I, I, I, A, w, h, Math.max(2, Math.round(radii.r1 / k)));
+  const { bF, bB } = fusionMeans(p1.F, p1.B, A, w, h, Math.max(1, Math.round(radii.r2 / k)));
+  // Final step at full resolution, soft pixels only: F = bF + α (I − α bF − (1 − α) bB).
+  const sx = w / W, sy = h / H;
+  for (let y = 0; y < H; y++) {
+    let v = (y + 0.5) * sy - 0.5; if (v < 0) v = 0; if (v > h - 1) v = h - 1;
+    const y0 = Math.floor(v), y1 = Math.min(y0 + 1, h - 1), fy = v - y0;
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x, a255 = alpha[i];
+      if (a255 === 0 || a255 === 255) continue;
+      let u = (x + 0.5) * sx - 0.5; if (u < 0) u = 0; if (u > w - 1) u = w - 1;
+      const x0 = Math.floor(u), x1 = Math.min(x0 + 1, w - 1), fx = u - x0;
+      const i00 = y0 * w + x0, i01 = y0 * w + x1, i10 = y1 * w + x0, i11 = y1 * w + x1;
+      const w00 = (1 - fx) * (1 - fy), w01 = fx * (1 - fy), w10 = (1 - fx) * fy, w11 = fx * fy;
+      const a = a255 / 255;
+      for (let c = 0; c < 3; c++) {
+        const mf = bF[c][i00] * w00 + bF[c][i01] * w01 + bF[c][i10] * w10 + bF[c][i11] * w11;
+        const mb = bB[c][i00] * w00 + bB[c][i01] * w01 + bB[c][i10] * w10 + bB[c][i11] * w11;
+        const f = mf + a * (rgba[i * 4 + c] / 255 - a * mf - (1 - a) * mb);
+        out[i * 3 + c] = Math.round(clamp01(f) * 255);
+      }
+    }
   }
   return out;
 }
