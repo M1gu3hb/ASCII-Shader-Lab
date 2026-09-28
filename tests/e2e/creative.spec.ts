@@ -130,8 +130,22 @@ test.describe('transformaciones de la fuente', () => {
     await expect(p2.getByRole('combobox', { name: 'Transformación 3' })).toContainText('Estela');
     await other.close();
 
+    // a card that changes kind (it is made again) or goes away keeps the keyboard in the list
+    const third = page.getByRole('combobox', { name: 'Transformación 3' });
+    await third.focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('cal');
+    await page.keyboard.press('Enter');
+    await expect(third).toContainText('Caleidoscopio');
+    await expect(third).toBeFocused();
+    await page.getByRole('button', { name: 'Quitar «Caleidoscopio»' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.xf-card')).toHaveCount(2);
+    await expect(page.getByRole('combobox', { name: 'Transformación 2' })).toBeFocused();
+
     await page.getByRole('button', { name: 'Quitar las transformaciones' }).click();
     await expect(page.locator('.xf-card')).toHaveCount(0);
+    await expect(add).toBeFocused();
     expect(errors).toEqual([]);
   });
 
