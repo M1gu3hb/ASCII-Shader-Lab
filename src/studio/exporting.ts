@@ -10,6 +10,9 @@ import { mediaElement } from './media';
 import { offscreenEngine, stageSize, type OffscreenSize } from './offscreen';
 import { toast } from './toast';
 import { repairAvcDescription } from '../exporters/avc';
+import { xformK } from '../engine/catalog';
+import type { Renderer } from '../engine/renderer';
+import { activeXforms } from '../engine/xform';
 
 export type SizeSpec = { kind: 'view'; scale: number } | { kind: 'fixed'; w: number; h: number };
 
@@ -129,6 +132,32 @@ function videoFrames(r: Recipe) {
 }
 
 /**
+ * Seconds drawn, unseen, before a clip starts, so that Estela's trail is already there on its first frame
+ * (0 when the piece has no Estela). Estela keeps a trail from one frame to the next: a clip that starts cold
+ * opens with none, a seam when it loops. After six times the trail's duration what is left of the cold
+ * start is e^-6 of it, under one level in 255: frame 0 then carries the trail a playing piece has there,
+ * which for a perfect loop is the one its last frame hands on (the trail is the same recurrence). At most 15 s.
+ */
+export function trailWarmup(r: Recipe): number {
+  const src = r.source === 'pattern' ? 'pattern' : r.source === 'text' ? 'text' : 'media';
+  const estela = activeXforms(r, src).find(x => x.kind === 'estela');
+  return estela ? Math.min(15, 6 * xformK('estela', estela.p)) : 0;
+}
+
+/** Draws the frames before `start` at the clip's own rate (see trailWarmup); nothing to capture. */
+async function warmTrail(r: Recipe, eng: Renderer, clip: ReturnType<typeof videoFrames>, start: number, fps: number, progress: Progress, cancel: Cancel) {
+  const n = Math.round(trailWarmup(r) * fps);
+  if (!n) return;
+  progress(0, 'Preparando la estela…');
+  for (let i = n; i >= 1; i--) {
+    if (cancel.cancelled) return;
+    await clip.seek(start - i / fps);
+    eng.renderAt(clipTime(r, start, -i / fps), start - i / fps);
+    if (i % 8 === 0) await nextFrame();
+  }
+}
+
+/**
  * While a render runs, the video encoder's AVC description goes through repairAvcDescription before the
  * muxer sees it (the encoder is created inside mediabunny). Returns the function that puts things back.
  */
@@ -173,6 +202,7 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
   try {
     await output.start();
     const n = Math.max(1, Math.round(o.seconds * o.fps));
+    await warmTrail(r, eng, clip, o.start, o.fps, progress, cancel);
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) { await output.cancel(); throw new Error('cancelado'); }
       const t = clipTime(r, o.start, i / o.fps);
@@ -296,6 +326,7 @@ export async function exportGif(r: Recipe, width: number, o: { fps: number; seco
   // GIF delays are whole centiseconds: accumulate them so the clip keeps its exact length (e.g. 24 fps)
   const cs = (i: number) => Math.round((i * 100) / o.fps);
   try {
+    await warmTrail(r, eng, clip, o.start, o.fps, progress, cancel);
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) throw new Error('cancelado');
       const delay = (cs(i + 1) - cs(i)) * 10;
@@ -342,6 +373,7 @@ export async function captureFrames(
   const frames: string[] = [];
   const n = Math.max(1, Math.round(o.seconds * o.fps));
   try {
+    await warmTrail(r, eng, clip, o.start, o.fps, progress, cancel);
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) throw new Error('cancelado');
       await clip.seek(o.start + i / o.fps);

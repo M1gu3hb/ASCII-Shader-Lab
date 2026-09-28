@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { deflateSync } from 'node:zlib';
+import { deflateSync, gunzipSync } from 'node:zlib';
 import { crc32 } from '../../src/shared/zip';
 import { download, openStudio } from './helpers';
 
@@ -176,6 +176,30 @@ test.describe('exportar', () => {
     const late = await still(true);
     expect(late.before.equals(onTime.after), 'antes de llegar la tipografía se ve la de reserva').toBe(false);
     expect(late.after.equals(onTime.after), 'cuando llega, el mismo fotograma que con ella a tiempo').toBe(true);
+  });
+
+  test('con Estela, un bucle perfecto exportado enlaza: su primer fotograma ya lleva la estela', async ({ page }) => {
+    test.setTimeout(240_000);
+    // Estela keeps a trail from frame to frame: a clip that started cold opened with no trail (a seam when it
+    // loops). Two loops of the piece as terminal frames: frame 0 must be the frame one loop later, character
+    // for character (the frames are exact grids, not compressed video)
+    const recipe = {
+      v: 2, source: 'text', text: { content: 'LUZ', font: 'martian', weight: 800, size: 0.9 },
+      media: { xform: [{ kind: 'ondular', on: true, amount: 0.7, p: 0.5 }, { kind: 'estela', on: true, amount: 0.8, p: 0.35 }] },
+      glyph: { cell: 12, charset: ' .:-=+*#%@', font: 'jetbrains' }, color: { stops: ['#10131c', '#3f7bd9', '#f4e9c8'], bg: '#07090f' },
+      motion: { speed: 1, loop: 2 }, interact: { mode: 'none' }, meta: { name: 'Estela en bucle', space: 'tipo' },
+    };
+    await openStudio(page, '#r=j' + Buffer.from(JSON.stringify(recipe)).toString('base64url'));
+    await page.keyboard.press('e');
+    await page.getByRole('tab', { name: 'Texto y terminal' }).click();
+    await page.locator('.ex-anim').getByLabel('Duración (s)').fill('4');
+    const script = await download(page, () => page.getByRole('button', { name: /Script de Node/ }).click());
+    const src = readFileSync(script.path, 'utf8');
+    const fps = Number(/const FPS = (\d+)/.exec(src)![1]);
+    const frames: string[] = JSON.parse(gunzipSync(Buffer.from(/Buffer\.from\("([^"]+)"/.exec(src)![1], 'base64')).toString('utf8'));
+    expect(frames.length).toBe(4 * fps);
+    expect(frames[fps / 2], 'la pieza se mueve').not.toBe(frames[0]);
+    expect(frames[2 * fps], 'un bucle después, el mismo fotograma').toBe(frames[0]);
   });
 
   test('GIF animado', async ({ page }) => {

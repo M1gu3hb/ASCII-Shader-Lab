@@ -5,7 +5,7 @@ import { recipeFile, shareUrl } from '../shared/share';
 import { imageFormats, recorderLabel, useCaps, videoEncoderWhy, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
 import { copyText, downloadBlob, downloadText } from './download';
 import {
-  SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize,
+  SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize, trailWarmup,
   smallerEncodable, startRecording, stopRecording, useRecording, useStopOnLeave, videoSupport, type Cancel,
 } from './exporting';
 import { Sheet } from './Sheet';
@@ -245,6 +245,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const [preset, setPreset] = useState(() => presetOf(req, 'hd'));
   const [fps, setFps] = useState(30);
   const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
+  /** Seconds drawn before the clip so Estela's trail is there on its first frame (0 without Estela). */
+  const warm = e ? trailWarmup(e.recipe) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 6);
   /** Codec support at the chosen size, and the smaller sizes that would work (keyed by W×H). */
   const [support, setSupport] = useState<{ key: string; s: VideoSupport; failed?: boolean } | null>(null);
@@ -340,7 +342,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
         <div className="ex-clip">
           <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={60} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(60, +ev.target.value || 1)))} /></label>
           <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
-          <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}</p>
+          <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}{warm > 0 ? ` Con Estela, antes del primer fotograma se preparan ${warm.toFixed(1).replace('.', ',')} s sin grabar, para que el clip empiece con su estela${loop > 0 ? ' y enlace' : ''}: tarda algo más.` : ''}</p>
         </div>
       )}
       <div className="ex-grid">
