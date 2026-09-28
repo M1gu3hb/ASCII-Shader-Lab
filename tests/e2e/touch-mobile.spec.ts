@@ -64,6 +64,11 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       expect(t!.y + t!.height).toBeLessThanOrEqual(deck!.y);
 
       await noOverflow(page, 'estudio');
+      // the top bar keeps to the screen (the page clips it, so its own width is what tells): Exportar whole
+      expect(await page.evaluate(() => {
+        const bar = document.querySelector('.topbar')!, exp = bar.querySelector('.ib.primary')!.getBoundingClientRect();
+        return { bar: bar.scrollWidth <= innerWidth, exportar: exp.left >= 0 && exp.right <= innerWidth };
+      })).toEqual({ bar: true, exportar: true });
       expect(await smallTargets(page, '.topbar button, .topbar select, .deck button, .seedline button, .vbar button')).toEqual([]);
 
       // history strip and an edited seed line (it wraps to a second row, still 44 px targets)

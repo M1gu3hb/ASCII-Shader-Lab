@@ -127,6 +127,25 @@ test('azar: empieza con resultados a los que volver, tirar añade más y la hoja
   expect(errors).toEqual([]);
 });
 
+test('azar: pasados 40 resultados la tira guarda los últimos 40, cada uno con su número', async ({ page }) => {
+  await page.goto('/');
+  await toSection(page, 'azar');
+  const count = page.locator('[data-azar-count]');
+  const strip = page.getByRole('list', { name: 'Resultados de esta página' }).getByRole('button');
+  await expect(strip).toHaveCount(3);
+  const roll = page.getByRole('button', { name: 'Tirar', exact: true });
+  for (let i = 0; i < 40; i++) await roll.click();
+  await expect(count).toHaveText('43 de 43');
+  await expect(strip).toHaveCount(40);
+  const names = await strip.evaluateAll(bs => bs.map(b => (b.getAttribute('aria-label') ?? '').split(':')[0]));
+  expect(new Set(names).size, 'no two results share a number').toBe(40);
+  expect(names[0]).toBe('Resultado 4');
+  expect(names[39]).toBe('Resultado 43');
+  await strip.first().click();
+  await expect(count).toHaveText('4 de 43');
+  await expect(page.getByRole('button', { name: 'Resultado anterior' })).toBeDisabled();
+});
+
 test('salidas: cada destino muestra su archivo real, y el Web Component exportado teje la pieza', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -196,4 +215,43 @@ test('pausar: el botón de la cabecera detiene los lienzos y el video; con «red
   await expect(toggle).toHaveAccessibleName('Pausar las animaciones de la página');
   expect(errors).toEqual([]);
   await ctx.close();
+});
+
+test('pausar también detiene las piezas de interfaz del escenario (Piezas), y «Animar» las vuelve a mover', async ({ page }) => {
+  await page.goto('/');
+  await toSection(page, 'espacios');
+  await page.getByRole('tab', { name: /Piezas/ }).click();
+  const bar = page.locator('[data-pc-bar]');
+  await expect.poll(() => bar.textContent(), { timeout: 5000 }).not.toMatch(/ 64%$/);
+  const toggle = page.locator('[data-motion-toggle]');
+  await toggle.click();
+  await expect(toggle).toHaveAccessibleName('Animar la página');
+  // and the page's own blinking mark
+  expect(await page.locator('.kicker .dot').evaluate(el => getComputedStyle(el).animationName)).toBe('none');
+  const still = await bar.textContent();
+  await page.waitForTimeout(1200);
+  expect(await bar.textContent(), 'the progress bar stays still while the page is paused').toBe(still);
+  // a space chosen while paused does not start them either
+  await page.getByRole('tab', { name: /Fondos/ }).click();
+  await page.getByRole('tab', { name: /Piezas/ }).click();
+  const again = await bar.textContent();
+  await page.waitForTimeout(1200);
+  expect(await bar.textContent()).toBe(again);
+  await toggle.click();
+  await expect.poll(() => bar.textContent(), { timeout: 5000 }).not.toBe(again);
+});
+
+test('pausar también detiene la página de ejemplo del destino Web, y «Animar» la vuelve a mover', async ({ page }) => {
+  await page.goto('/');
+  await toSection(page, 'exportar');
+  await page.getByRole('tablist', { name: 'Destinos' }).getByRole('tab', { name: 'Web', exact: true }).click();
+  const field = page.frameLocator('#sal-web iframe').locator('monotrama-field');
+  const playing = () => field.evaluate(el => (el as unknown as { ctl?: { engine?: { isPlaying: boolean } | null } }).ctl?.engine?.isPlaying ?? null);
+  await expect.poll(playing, { timeout: 20_000 }).toBe(true);
+  const toggle = page.locator('[data-motion-toggle]');
+  await toggle.click();
+  await expect(field).toHaveAttribute('paused', '');
+  await expect.poll(playing, { timeout: 20_000 }).toBe(false);
+  await toggle.click();
+  await expect.poll(playing, { timeout: 20_000 }).toBe(true);
 });

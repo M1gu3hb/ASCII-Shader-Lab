@@ -38,7 +38,19 @@ export function mountSalidas(root: HTMLElement) {
     if (kind === 'movimiento') setupVideo(p);
     if (kind === 'web') {
       const f = p.querySelector<HTMLIFrameElement>('iframe[data-src]');
-      if (f) f.src = f.dataset.src!;
+      if (f) {
+        f.src = f.dataset.src!;
+        // the example page's piece follows «Pausar» too: its element (same origin) mounts again, still or moving
+        const follow = () => {
+          const field = f.contentDocument?.querySelector('monotrama-field');
+          if (!field || field.hasAttribute('paused') === isPaused()) return;
+          const next = field.cloneNode(true) as Element;
+          next.toggleAttribute('paused', isPaused());
+          field.replaceWith(next);
+        };
+        f.addEventListener('load', follow);
+        onPause(follow);
+      }
       // the example page falls back to its poster without WebGL 2: say so when that is what you see
       void import('../engine/support').then(m => {
         const note = p.querySelector<HTMLElement>('[data-no-webgl]');

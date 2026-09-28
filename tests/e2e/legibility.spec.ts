@@ -59,6 +59,76 @@ test.describe('legibilidad de las vistas con contenido', () => {
     expect(errors).toEqual([]);
   });
 
+  test('sin poder leer el lienzo (WebGL perdido) no cuenta fotogramas: «se lee bien» espera a los medidos', async ({ page }) => {
+    await page.addInitScript(() => { try { localStorage.setItem('mt.debugLegib', '1'); } catch { /* ignore */ } });
+    await openStudio(page);
+    await pick(page, 'Fondo web');
+    const frames = () => page.evaluate(() => (window as unknown as { __mtLegib?: { n: number } }).__mtLegib?.n ?? 0);
+    await expect.poll(frames, { timeout: 45_000 }).toBeGreaterThanOrEqual(1);
+    const lost = await page.locator('.stage canvas').first().evaluate(c => {
+      const gl = (c as HTMLCanvasElement).getContext('webgl2');
+      const ext = gl?.getExtension('WEBGL_lose_context');
+      ext?.loseContext();
+      return !!ext;
+    });
+    test.skip(!lost, 'this browser cannot lose a WebGL context on request');
+    // (a read already under way when the context went may still land)
+    await page.waitForTimeout(300);
+    const n = await frames();
+    // the studio waits 3 s for the context before it moves to the basic engine: meanwhile nothing is measured
+    await page.waitForTimeout(2200);
+    expect(await frames()).toBe(n);
+  });
+
+  test('los detalles de la estimación se leen enteros: los avisos del escenario no los tapan', async ({ browser }) => {
+    for (const size of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
+      // reduced motion keeps a note on the stage for good
+      const ctx = await browser.newContext({ viewport: size, reducedMotion: 'reduce' });
+      const page = await ctx.newPage();
+      await openStudio(page);
+      await pick(page, 'Fondo web');
+      await expect(page.locator('.notices .motion-note')).toBeVisible();
+      await openDetails(page);
+      await expect(page.locator('.vbar .legib-detail')).toBeVisible();
+      const r = await page.evaluate(() => {
+        const d = document.querySelector('.vbar .legib-detail')!.getBoundingClientRect();
+        let overlaps = 0;
+        const hidden: string[] = [];
+        for (const n of document.querySelectorAll('.notices .stage-notes > *, .notices .toast')) {
+          const b = n.getBoundingClientRect();
+          const x0 = Math.max(b.left, d.left), x1 = Math.min(b.right, d.right), y0 = Math.max(b.top, d.top), y1 = Math.min(b.bottom, d.bottom);
+          if (x1 - x0 < 4 || y1 - y0 < 4) continue;
+          overlaps++;
+          if (!document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2)?.closest('.legib-detail')) hidden.push(n.className);
+        }
+        return { overlaps, hidden };
+      });
+      expect(r.hidden, `${size.width} px`).toEqual([]);
+      if (size.width === 1280) expect(r.overlaps, 'the notes lie where the details open').toBeGreaterThan(0);
+      await ctx.close();
+    }
+  });
+
+  test('en un teléfono, los detalles terminan sobre la línea de la semilla y se desplazan dentro', async ({ browser }) => {
+    for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 800 }]) {
+      const ctx = await browser.newContext({ viewport, screen: viewport, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const page = await ctx.newPage();
+      await openStudio(page);
+      await page.getByRole('combobox', { name: 'Vista' }).tap();
+      await page.getByRole('option', { name: /^Fondo web/ }).tap();
+      await expect(say(page)).not.toHaveText('Midiendo…', { timeout: 45_000 });
+      await page.locator('.vbar .legib-more').tap();
+      await expect(page.locator('.vbar .legib-detail')).toBeVisible();
+      const r = await page.evaluate(() => {
+        const d = document.querySelector('.vbar .legib-detail')!.getBoundingClientRect();
+        const below = Math.min(...[...document.querySelectorAll('.app .seedline, .app .deck')].map(e => e.getBoundingClientRect().top));
+        return { bottom: Math.round(d.bottom), below: Math.round(below) };
+      });
+      expect(r.bottom, `${viewport.width}×${viewport.height}`).toBeLessThanOrEqual(r.below);
+      await ctx.close();
+    }
+  });
+
   test('Pantalla de móvil: mide su propio contenido y la zona protegida también', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 1200 });
     await openStudio(page);

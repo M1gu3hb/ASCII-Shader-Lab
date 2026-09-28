@@ -142,7 +142,8 @@ export function useLegibilityMeter(on: boolean, root: RefObject<HTMLElement | nu
       // one frame, read right away (a live WebGL canvas keeps its pixels only until it is shown)
       eng.renderNow();
       const shots = await Promise.all(boxes.map(b => eng.snapshot(b.x * dp, b.y * dp, b.w * dp, b.h * dp)));
-      if (!alive) return false;
+      // nothing read (the WebGL context went away): not a frame, so it does not count towards «se lee bien»
+      if (!alive || !shots.some(Boolean)) return false;
       found.forEach((f, i) => {
         const img = shots[i], b = boxes[i];
         if (!img) return;

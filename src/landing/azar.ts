@@ -11,7 +11,7 @@ import { encodeRecipe } from '../shared/share';
 import { AZAR_GEN, AZAR_SPACE, CONTACTS, woven } from './azar-data';
 import { live, morph, settled, still, track } from './live';
 
-interface Result { r: Recipe; seed: string; name: string; btn: HTMLButtonElement }
+interface Result { r: Recipe; seed: string; name: string; btn: HTMLButtonElement; n: number }
 
 /** A contact of the sheet (a figure in the HTML) becomes a button that weaves its piece on the stage. */
 function asButton(li: HTMLElement): HTMLButtonElement {
@@ -53,6 +53,8 @@ export function mountAzar(root: HTMLElement) {
   const hist: Result[] = [];
   const seen = new Set<string>();
   let cur = -1;
+  /** Results made on this page (numbers keep counting once the oldest leave the strip). */
+  let made = 0;
   let engine: Renderer | null = null;
   let linkJob = 0;
 
@@ -61,7 +63,7 @@ export function mountAzar(root: HTMLElement) {
   function paint() {
     const h = hist[cur];
     hist.forEach((x, i) => x.btn.setAttribute('aria-current', String(i === cur)));
-    count.innerHTML = `<b>${cur + 1}</b> de ${hist.length}`;
+    count.innerHTML = `<b>${h.n}</b> de ${made}`;
     seedEl.innerHTML = '';
     const b = document.createElement('b');
     b.textContent = h.seed;
@@ -69,7 +71,7 @@ export function mountAzar(root: HTMLElement) {
     prev.disabled = cur <= 0;
     next.disabled = cur >= hist.length - 1;
     contacts.forEach(c => c.setAttribute('aria-pressed', String(c.dataset.contact === h.seed)));
-    canvas.setAttribute('aria-label', `Resultado ${cur + 1} de ${hist.length}: semilla ${h.seed}, estilo ${h.name}`);
+    canvas.setAttribute('aria-label', `Resultado ${h.n} de ${made}: semilla ${h.seed}, estilo ${h.name}`);
     const job = ++linkJob;
     void encodeRecipe({ ...h.r, meta: { ...h.r.meta, space: AZAR_SPACE } }).then(code => { if (job === linkJob) open.href = '/studio/#r=' + code; });
   }
@@ -93,7 +95,7 @@ export function mountAzar(root: HTMLElement) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
-    const n = hist.length + 1;
+    const n = ++made;
     const name = archName(r);
     btn.setAttribute('aria-label', `Resultado ${n}: ${seed}, ${name}`);
     const num = document.createElement('span');
@@ -103,7 +105,7 @@ export function mountAzar(root: HTMLElement) {
     btn.append(num);
     li.append(btn);
     strip.append(li);
-    const res: Result = { r, seed, name, btn };
+    const res: Result = { r, seed, name, btn, n };
     btn.addEventListener('click', () => go(hist.indexOf(res)));
     hist.push(res);
     if (hist.length > PAGE_MAX) { hist.shift()!.btn.parentElement!.remove(); }

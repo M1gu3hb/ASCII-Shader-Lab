@@ -95,6 +95,18 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       await page.locator('.pk-sheet-x').tap();
       await expect(page.getByRole('listbox')).toHaveCount(0);
       await expect(cs).toHaveAttribute('data-value', 'bloques');
+      // a tap on the dimmed page closes the list, and only that: the control under the finger is not pressed
+      await page.getByRole('button', { name: 'Cerrar ajustes' }).tap();
+      const space = page.locator('.topbar button.space-select');
+      await space.tap();
+      await expect(page.getByRole('listbox')).toBeVisible();
+      const view = (await page.locator('.vbar-sel .pk').boundingBox())!;
+      await page.touchscreen.tap(view.x + view.width / 2, view.y + view.height / 2);
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(page.locator('.pk-scrim')).toHaveCount(0);
+      await expect(page.locator('.vbar-sel .pk')).toHaveAttribute('aria-expanded', 'false');
+      await expect(space).toBeFocused();
+      await openPanel(page);
 
       // «?»: 44 px, beside its control, opens the explanation inline
       const q = page.getByRole('button', { name: 'Qué es «Tamaño de celda»' });

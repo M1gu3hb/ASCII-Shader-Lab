@@ -35,7 +35,9 @@ export function QualityReadout() {
     <div className="q-wrap">
       <button
         ref={btn} type="button" className="ib ghost q-btn" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}
-        aria-label={`Calidad de la vista previa: ${nameOf(quality)}. ${stats.cols}×${stats.rows} celdas a ${stats.fps} cuadros por segundo`}
+        // the name stays still: the frame rate changes twice a second, and a focused control whose name
+        // changes is read out again each time (the readout is for the eye)
+        aria-label={`Calidad de la vista previa: ${nameOf(quality)}`}
         title="Calidad de la vista previa (no cambia lo que exportas)"
       >
         <IGauge />
