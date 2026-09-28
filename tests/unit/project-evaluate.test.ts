@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clipTime, hashString, rand01, registerTemplate, templateById, templates } from '../../src/project/clips';
 import { cubicBezier, easeAt } from '../../src/project/ease';
-import { evaluate, frameTimes, getPath, inSpan, sequenceIndex, setPath, sourceTime, trackValue } from '../../src/project/evaluate';
+import { dependsOnTime, evaluate, frameTimes, getPath, inSpan, sequenceIndex, setPath, sourceTime, trackValue } from '../../src/project/evaluate';
 import { newLayer, newProject, uid } from '../../src/project/normalize';
 import type { AnimClip, Ease, Key, Project, Source } from '../../src/project/types';
 
@@ -250,6 +250,24 @@ describe('clips', () => {
     expect(at(1)).toBe('a bc █· ··');
     expect(at(2)).toBe('a bc de fg');
     expect(at(0)[0]).toBe('█');
+  });
+});
+
+describe('time dependence', () => {
+  it('a still project does not change with time; video, keyframes, clips, moving ASCII and animated finishes do', () => {
+    const p = newProject();
+    p.layers.push(newLayer('text'), newLayer('shape'));
+    expect(dependsOnTime(p)).toBe(false);
+    const a = newLayer('ascii');
+    const still = { ...a, style: { ...a.style, motion: { ...a.style.motion, speed: 0 } } };
+    expect(dependsOnTime({ ...p, layers: [still] })).toBe(false);
+    expect(dependsOnTime({ ...p, layers: [a] })).toBe(true);
+    expect(dependsOnTime({ ...p, tracks: [{ layer: p.layers[0].id, path: 'opacity', keys: [key(0, 1)] }] })).toBe(true);
+    expect(dependsOnTime({ ...p, layers: [newLayer('text', { clips: [clip({})] })] })).toBe(true);
+    expect(dependsOnTime({ ...p, layers: [newLayer('text', { finishes: [{ kind: 'grain', on: true, amount: 1, params: { anim: true } }] })] })).toBe(true);
+    expect(dependsOnTime({ ...p, layers: [newLayer('text', { finishes: [{ kind: 'grain', on: true, amount: 1, params: { anim: false } }] })] })).toBe(false);
+    const v = { id: 'v', kind: 'video' as const, name: '', media: [{ id: '0123456789abcdef', kind: 'video' as const, w: 1, h: 1 }], w: 1, h: 1, duration: 2 };
+    expect(dependsOnTime({ ...p, sources: [v], layers: [newLayer('photo', { source: 'v' })] })).toBe(true);
   });
 });
 
