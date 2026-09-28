@@ -9,14 +9,29 @@
  *   - is deterministic for (pixels, finishes, t, seed): grain and noise are seeded, never Math.random();
  *   - measures sizes in OUTPUT pixels and multiplies by ctx.scale, so a preview at half size looks like the
  *     final render at full size.
+ *
+ * Everything runs on the CPU over ImageData (typed arrays), so the studio works without WebGL 2. Module map:
+ *   catalog.ts   names, groups and params (Spanish) of every finish, the dither algorithms
+ *   params.ts    validation of params (clamping, options, colours), `when` visibility rules
+ *   pipeline.ts  runFinishes on plain RGBA buffers (DOM-free: tests, workers) and the op table
+ *   canvas.ts    applyFinishes on canvases with the output-canvas pool and shared scratch memory
+ *   dither.ts, palettes.ts, bluenoise.ts, kernels.ts, ops/*.ts   the algorithms
  */
 import type { Finish, FinishKind } from '../project/types';
+import { CATALOG } from './catalog';
+import { applyFinishesCanvas } from './canvas';
+import { normalizeFinishWith } from './params';
 
-export type ParamDef =
+/**
+ * A param of a finish. `when` (optional) lists values of other params for which this one applies, e.g.
+ * { color: ['bn', 'tonos'] }: the studio hides it otherwise (see paramVisible).
+ */
+export type ParamDef = (
   | { key: string; label: string; type: 'range'; min: number; max: number; step: number; def: number; unit?: string; help?: string }
   | { key: string; label: string; type: 'select'; options: Array<[string, string]>; def: string; help?: string }
   | { key: string; label: string; type: 'toggle'; def: boolean; help?: string }
-  | { key: string; label: string; type: 'color'; def: string; help?: string };
+  | { key: string; label: string; type: 'color'; def: string; help?: string }
+) & { when?: Record<string, Array<string | boolean>> };
 
 export interface FinishDef {
   kind: FinishKind;
@@ -40,7 +55,7 @@ export interface FinishContext {
 export type Source2D = HTMLCanvasElement | OffscreenCanvas | ImageBitmap | HTMLImageElement;
 
 /** The catalog shown in the studio (filled by lane «fx»). */
-export const FINISHES: FinishDef[] = [];
+export const FINISHES: FinishDef[] = CATALOG;
 
 export function finishDef(kind: FinishKind): FinishDef | undefined {
   return FINISHES.find(f => f.kind === kind);
@@ -57,12 +72,21 @@ export function defaultFinish(kind: FinishKind): Finish {
 /**
  * Applies the finishes that are on, in order, to `input` and returns a canvas of the same size with the
  * result. The returned canvas belongs to the caller until the next call with the same `pool` key.
- * STUB: returns a copy of the input until lane «fx» implements it.
+ * Each finish is mixed with its own input by `amount`; with no active finish the result is a copy.
+ * Pooling and memory: see canvas.ts (releaseFinishes frees a key or everything).
  */
 export function applyFinishes(input: Source2D, finishes: Finish[], ctx: FinishContext, pool = 'default'): HTMLCanvasElement {
-  void finishes; void ctx; void pool;
-  const c = document.createElement('canvas');
-  c.width = input.width; c.height = input.height;
-  c.getContext('2d')!.drawImage(input as CanvasImageSource, 0, 0);
-  return c;
+  return applyFinishesCanvas(input, finishes, ctx, pool);
 }
+
+/** A Finish read from untrusted input (project files): null for unknown kinds, params validated. */
+export function normalizeFinish(input: unknown): Finish | null {
+  return normalizeFinishWith(input, finishDef);
+}
+
+export { releaseFinishes, finishPoolStats } from './canvas';
+export { runFinishes, finishValues, activeFinishes, finishesDependOnTime, finishBleed } from './pipeline';
+export { resolveParams, resolveParam, paramVisible } from './params';
+export { DITHER_ALGOS, type DitherAlgo } from './catalog';
+export { PALETTES, type PalettePreset } from './palettes';
+export type { Img as ImageDataLike } from './core';
