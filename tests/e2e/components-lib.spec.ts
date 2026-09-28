@@ -397,3 +397,64 @@ CanvasRenderingContext2D.prototype.clearRect = function (...a) { window.draws++;
     }
   });
 });
+
+test.describe('Descifrar en otra web', () => {
+  test('en bucle se repite unos segundos y se queda quieto; el cursor lo repite una vez', async ({ browser }) => {
+    const src = readFileSync(join(process.cwd(), 'src/components/lib/scramble.js'), 'utf8');
+    const html = doc(`<h1 id="h" style="font-family:monospace">Teje luz con caracteres</h1>
+<script type="module">
+import { scramble } from '/scramble.js';
+window.changes = 0;
+const h = document.getElementById('h');
+new MutationObserver(() => { window.changes++; }).observe(h, { childList: true, subtree: true, characterData: true });
+window.ctl = scramble(h, { trigger: 'loop', duration: 400, loopDelay: 300, loopFor: 2000 });
+</script>`);
+    const { ctx, page, errors } = await otherSite(browser, { '/': html, '/scramble.js': src });
+    await page.goto(SITE + '/');
+    const changes = async (ms: number) => {
+      await page.evaluate(() => { (window as unknown as { changes: number }).changes = 0; });
+      await page.waitForTimeout(ms);
+      return page.evaluate(() => (window as unknown as { changes: number }).changes);
+    };
+    expect(await changes(1000)).toBeGreaterThan(5);
+    await page.waitForTimeout(1300);
+    // past loopFor: still, with the whole text in place
+    expect(await changes(1500)).toBe(0);
+    await expect(page.locator('#h span[aria-hidden="true"]')).toHaveText('Teje luz con caracteres');
+    await page.locator('#h').hover();
+    expect(await changes(600)).toBeGreaterThan(3);
+    expect(await changes(1200)).toBe(0);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
+test.describe('Foco en otra web', () => {
+  test('sin nadie no dibuja nada; con el cursor la luz y la trama se mueven; al irse se queda quieta', async ({ browser }) => {
+    const src = readFileSync(join(process.cwd(), 'src/components/lib/spotlight.js'), 'utf8');
+    const html = doc(`<section id="s" style="height:400px;background:#0b0a09"><h2>Tu titular</h2><a href="#c">Contacto</a></section>
+<script>
+window.draws = 0;
+const clear = CanvasRenderingContext2D.prototype.clearRect;
+CanvasRenderingContext2D.prototype.clearRect = function (...a) { window.draws++; return clear.apply(this, a); };
+</script>
+<script type="module">import { spotlight } from '/spotlight.js'; spotlight(document.getElementById('s'), {});</script>`);
+    const { ctx, page, errors } = await otherSite(browser, { '/': html, '/spotlight.js': src });
+    await page.goto(SITE + '/');
+    const draws = async (ms: number) => {
+      await page.evaluate(() => { (window as unknown as { draws: number }).draws = 0; });
+      await page.waitForTimeout(ms);
+      return page.evaluate(() => (window as unknown as { draws: number }).draws);
+    };
+    await expect(page.locator('#s canvas')).toHaveCount(1);
+    await page.waitForTimeout(300);
+    expect(await draws(800)).toBe(0);
+    const box = (await page.locator('#s').boundingBox())!;
+    await page.mouse.move(box.x + 200, box.y + 150);
+    expect(await draws(500)).toBeGreaterThan(10);
+    await page.mouse.move(box.x + 200, box.y + box.height + 150);
+    await expect.poll(() => draws(500)).toBe(0);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});

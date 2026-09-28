@@ -100,13 +100,13 @@ const TYPE = (big: boolean) => `font:600 ${big ? 'clamp(22px,4vw,44px)' : '19px'
 export const COMPONENTS: CompDef[] = [
   {
     id: 'scramble', name: 'Descifrar', tags: ['texto', 'web'],
-    blurb: 'El texto aparece desde caracteres aleatorios. Al cargar, al entrar en pantalla, al pasar el cursor o en bucle.',
+    blurb: 'El texto aparece desde caracteres aleatorios. Al cargar, al entrar en pantalla, al pasar el cursor o en bucle unos segundos.',
     params: [
       { key: 'text', label: 'Texto', type: 'text' },
       { key: 'chars', label: 'Caracteres del ruido', type: 'text' },
       { key: 'duration', label: 'Duración (ms)', type: 'range', min: 300, max: 4000, step: 50 },
       { key: 'stagger', label: 'Orden', type: 'select', opts: [['left', 'De izquierda a derecha'], ['right', 'De derecha a izquierda'], ['center', 'Desde el centro'], ['random', 'Al azar']] },
-      { key: 'trigger', label: 'Cuándo', type: 'select', opts: [['loop', 'En bucle'], ['view', 'Al entrar en pantalla'], ['hover', 'Al pasar el cursor'], ['load', 'Al cargar']] },
+      { key: 'trigger', label: 'Cuándo', type: 'select', opts: [['loop', 'En bucle (5 s)'], ['view', 'Al entrar en pantalla'], ['hover', 'Al pasar el cursor'], ['load', 'Al cargar']] },
       { key: 'noiseColor', label: 'Color del ruido', type: 'color' },
     ],
     defaults: { text: 'Teje luz con caracteres', chars: '!<>-_\\/[]{}=+*^?#01', duration: 1400, stagger: 'left', trigger: 'loop', noiseColor: '#ff5b1f' },
