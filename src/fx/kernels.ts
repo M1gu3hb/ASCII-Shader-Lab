@@ -283,3 +283,88 @@ export function maxFilter(buf: Float32Array, tmp: Float32Array, w: number, h: nu
     }
   }
 }
+
+/**
+ * A smooth, coarse copy of an image for reading tones: premultiplied area averages over f×f blocks
+ * (f = ⌊sigma⌋, at least 1), then a Gaussian blur of the rest of `sigma` at that resolution. Reading
+ * it bilinearly at ((x + ½) / f − ½, (y + ½) / f − ½) approximates a full-resolution Gaussian blur of
+ * `sigma` at a fraction of the cost. `ch` = 4 (premultiplied RGBA) or 2 (premultiplied luma, alpha; 0..1).
+ */
+export interface Coarse { buf: Float32Array; w: number; h: number; f: number; ch: number }
+
+export function coarseTone(data: Uint8ClampedArray, w: number, h: number, sigma: number, ch: 2 | 4, buf: (n: number) => Float32Array, tmp: (n: number) => Float32Array): Coarse {
+  const f = Math.max(1, Math.floor(sigma));
+  const lw = Math.ceil(w / f), lh = Math.ceil(h / f), n = lw * lh;
+  const out = buf(n * ch);
+  out.fill(0);
+  const cnt = new Float32Array(n);
+  for (let y = 0; y < h; y++) {
+    const row = ((y / f) | 0) * lw;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4, a = data[i + 3];
+      const k = row + ((x / f) | 0);
+      cnt[k]++;
+      if (a === 0) continue;
+      if (ch === 4) {
+        const al = a / 255, o = k * 4;
+        out[o] += data[i] * al; out[o + 1] += data[i + 1] * al; out[o + 2] += data[i + 2] * al; out[o + 3] += a;
+      } else {
+        const al = a / 255, o = k * 2;
+        out[o] += (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255 * al; out[o + 1] += al;
+      }
+    }
+  }
+  for (let k = 0; k < n; k++) {
+    const inv = 1 / cnt[k];
+    for (let c = 0; c < ch; c++) out[k * ch + c] *= inv;
+  }
+  // the block average already has the variance of a box of f px: blur only what is missing
+  const rest = sigma * sigma - (f * f - 1) / 12;
+  if (rest > 0) gaussBlur(out, tmp(n * ch), lw, lh, ch, Math.sqrt(rest) / f);
+  return { buf: out, w: lw, h: lh, f, ch };
+}
+
+/** Bilinear read of a Coarse copy at input pixel coordinates (x, y), into out[0..ch-1]. */
+export function readCoarse(c: Coarse, x: number, y: number, out: Float32Array): void {
+  let sx = (x + 0.5) / c.f - 0.5, sy = (y + 0.5) / c.f - 0.5;
+  const lx = c.w - 1, ly = c.h - 1;
+  if (sx < 0) sx = 0; else if (sx > lx) sx = lx;
+  if (sy < 0) sy = 0; else if (sy > ly) sy = ly;
+  const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0;
+  const x1 = x0 < lx ? x0 + 1 : x0, y1 = y0 < ly ? y0 + 1 : y0;
+  const ch = c.ch, b = c.buf;
+  const i00 = (y0 * c.w + x0) * ch, i10 = (y0 * c.w + x1) * ch, i01 = (y1 * c.w + x0) * ch, i11 = (y1 * c.w + x1) * ch;
+  const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+  for (let k = 0; k < ch; k++) out[k] = b[i00 + k] * w00 + b[i10 + k] * w10 + b[i01 + k] * w01 + b[i11 + k] * w11;
+}
+
+/**
+ * Full-resolution map of one value derived from a 2-channel Coarse copy (premultiplied luma, alpha):
+ * out[i] = fn(luma, alpha) with luma and alpha read bilinearly at each pixel. Rows are interpolated
+ * once, so the per-pixel work is a lerp.
+ */
+export function expandCoarse2(c: Coarse, w: number, h: number, out: Float32Array, lumaOf: (l: number) => number): void {
+  const lx = c.w - 1, ly = c.h - 1, cw = c.w, b = c.buf, f = c.f;
+  const rowL = new Float32Array(cw), rowA = new Float32Array(cw);
+  const x0s = new Int32Array(w), fxs = new Float32Array(w);
+  for (let x = 0; x < w; x++) {
+    let sx = (x + 0.5) / f - 0.5;
+    if (sx < 0) sx = 0; else if (sx > lx) sx = lx;
+    x0s[x] = sx | 0; fxs[x] = sx - (sx | 0);
+  }
+  for (let y = 0; y < h; y++) {
+    let sy = (y + 0.5) / f - 0.5;
+    if (sy < 0) sy = 0; else if (sy > ly) sy = ly;
+    const y0 = sy | 0, fy = sy - y0, y1 = y0 < ly ? y0 + 1 : y0;
+    for (let i = 0; i < cw; i++) {
+      const a = (y0 * cw + i) * 2, z = (y1 * cw + i) * 2;
+      rowL[i] = b[a] + (b[z] - b[a]) * fy; rowA[i] = b[a + 1] + (b[z + 1] - b[a + 1]) * fy;
+    }
+    const o = y * w;
+    for (let x = 0; x < w; x++) {
+      const i0 = x0s[x], i1 = i0 < lx ? i0 + 1 : i0, fx = fxs[x];
+      const al = rowA[i0] + (rowA[i1] - rowA[i0]) * fx;
+      out[o + x] = al > 1e-4 ? lumaOf((rowL[i0] + (rowL[i1] - rowL[i0]) * fx) / al) : 0;
+    }
+  }
+}

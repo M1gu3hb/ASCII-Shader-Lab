@@ -6,8 +6,8 @@
  * output px). The tone that drives a cell is read from a premultiplied Gaussian-blurred copy of the
  * image at the cell centre (an area average), so dots do not shimmer with the fine detail inside a cell.
  */
-import { gaussBlur, maxFilter, sample4 } from '../kernels';
-import { DEG, luma, rgbOf, sat, smoothstep, toPremul, type Img, type Op, type RGB, type Run } from '../core';
+import { coarseTone, expandCoarse2, gaussBlur, maxFilter, readCoarse } from '../kernels';
+import { DEG, luma, rgbOf, sat, type Img, type Op, type RGB, type Run } from '../core';
 
 /* ------------------------------------------------------------------ tone → ink */
 
@@ -46,22 +46,23 @@ const CMYK_INKS: RGB[] = [[0, 174, 239], [236, 0, 140], [255, 242, 0], [35, 31, 
 
 export const halftone: Op = (src, dst, p, run) => {
   const { width: w, height: h } = src;
-  const s = src.data, d = dst.data, n = w * h;
+  const s = src.data, d = dst.data;
   const scale = run.scale;
   const cell = 100 / (p.freq as number); // output px
   const shape = p.shape as string, mode = p.color as string;
   const contrast = p.contrast as number, clear = p.clear === true;
   const ink = rgbOf(p.ink), paper = rgbOf(p.paper);
   const W = w / scale, H = h / scale, cx = W / 2, cy = H / 2;
+  const rgbTone = mode !== 'tinta';
 
-  // blurred premultiplied copy: the tone of a cell is the average around its centre
-  const buf = toPremul(src, run.scratch.f32('f4.a', n * 4));
-  gaussBlur(buf, run.scratch.f32('f4.b', n * 4), w, h, 4, cell * scale * 0.38);
+  // the tone of a cell is the average around its centre: a smooth coarse copy, read at the centres
+  const tone = coarseTone(s, w, h, cell * scale * 0.38, rgbTone ? 4 : 2, n => run.scratch.f32('ht.c', n), n => run.scratch.f32('ht.t', n));
   const tmp = new Float32Array(4);
 
   const angles = mode === 'cmyk'
     ? [-30, 30, -45, 0].map(a => (p.angle as number) + a)
     : [p.angle as number];
+  const round = shape === 'dot' || shape === 'ellipse';
   const rmax = shape === 'ellipse' ? 0.75 : 0.7072;
   const inkShare = inkShareFor(mode === 'fuente' ? null : ink, paper);
 
@@ -79,95 +80,92 @@ export const halftone: Op = (src, dst, p, run) => {
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
       const uc = (i + gi0 + 0.5) * cell, vc = (j + gj0 + 0.5) * cell;
       const X = cx + uc * cos - vc * sin, Y = cy + uc * sin + vc * cos;
-      sample4(buf, w, h, X * scale - 0.5, Y * scale - 0.5, tmp, 0);
-      const a = tmp[3];
-      let dark = 0;
-      if (a > 1) {
-        const r = tmp[0] / a, gg = tmp[1] / a, b = tmp[2] / a; // 0..1
-        if (mode === 'cmyk') {
-          const c = 1 - r, m = 1 - gg, y = 1 - b;
-          const k = Math.min(c, m, y) * 0.9;
-          const v = si === 3 ? k : k < 1 ? ([c, m, y][si] - k) / (1 - k) : 0;
-          dark = v;
-        } else dark = inkShare(0.299 * r + 0.587 * gg + 0.114 * b);
-        if (col) { col[(j * gw + i) * 3] = r * 255; col[(j * gw + i) * 3 + 1] = gg * 255; col[(j * gw + i) * 3 + 2] = b * 255; }
-        dark = sat((dark - 0.5) * contrast + 0.5) * Math.min(1, a / 255 * 1.5);
+      readCoarse(tone, X * scale - 0.5, Y * scale - 0.5, tmp);
+      let dark = 0, a = 0;
+      if (rgbTone) {
+        a = tmp[3] / 255;
+        if (a > 0.004) {
+          const r = tmp[0] / tmp[3], gg = tmp[1] / tmp[3], b = tmp[2] / tmp[3]; // 0..1
+          if (mode === 'cmyk') {
+            const c = 1 - r, m = 1 - gg, y = 1 - b;
+            const k = Math.min(c, m, y) * 0.9;
+            dark = si === 3 ? k : k < 1 ? ([c, m, y][si] - k) / (1 - k) : 0;
+          } else dark = inkShare(0.299 * r + 0.587 * gg + 0.114 * b);
+          if (col) { const o = (j * gw + i) * 3; col[o] = r * 255; col[o + 1] = gg * 255; col[o + 2] = b * 255; }
+        }
+      } else {
+        a = tmp[1];
+        if (a > 0.004) dark = inkShare(tmp[0] / a);
       }
-      g[j * gw + i] = shape === 'dot' || shape === 'ellipse' ? (dark > 0.002 ? dotRadius(dark, rmax) : -1) : dark;
+      if (a > 0.004) dark = sat((dark - 0.5) * contrast + 0.5) * Math.min(1, a * 1.5);
+      g[j * gw + i] = round ? (dark > 0.002 ? dotRadius(dark, rmax) : -1) : dark;
     }
     return { cos, sin, g, gi0, gj0, gw, gh, col };
   });
 
-  const pxc = 1 / (scale * cell); // one input pixel in cell units
-  const inv = 1 / pxc;
+  const inv = scale * cell; // cell units → input px (coverage ramps over one input pixel)
   let winner = 0; // cell index of the strongest candidate (for colour)
 
-  const coverage = (sc: Screen, X: number, Y: number): number => {
-    const u = ((X - cx) * sc.cos + (Y - cy) * sc.sin) / cell, v = (-(X - cx) * sc.sin + (Y - cy) * sc.cos) / cell;
+  /** Ink coverage of the screen at cell coordinates (u, v). */
+  const coverage = (sc: Screen, u: number, v: number): number => {
     const fi = Math.floor(u), fj = Math.floor(v);
     const lx = u - fi - 0.5, ly = v - fj - 0.5;
-    const i = fi - sc.gi0, j = fj - sc.gj0, gw = sc.gw, g = sc.g;
-    const own = j * gw + i;
+    const gw = sc.gw, g = sc.g;
+    const own = (fj - sc.gj0) * gw + fi - sc.gi0;
     winner = own;
-    switch (shape) {
-      case 'square': {
-        const half = Math.sqrt(g[own]) * 0.5;
-        return sat((half - Math.max(Math.abs(lx), Math.abs(ly))) * inv + 0.5);
-      }
-      case 'cross': {
-        const wv = (1 - Math.sqrt(1 - g[own])) * 0.5;
-        return sat((wv - Math.min(Math.abs(lx), Math.abs(ly))) * inv + 0.5);
-      }
-      case 'line': {
-        // thickness follows the tone along the line (interpolated between cell centres)
-        const nb = lx < 0 ? own - 1 : own + 1, t = Math.abs(lx);
-        const dk = g[own] * (1 - t) + g[nb] * t;
-        return sat((dk * 0.5 - Math.abs(ly)) * inv + 0.5);
-      }
-      default: {
-        // dot / ellipse: union of the own disc and the three neighbours towards this corner
-        const si = lx < 0 ? -1 : 1, sj = ly < 0 ? -1 : 1;
-        const ell = shape === 'ellipse';
-        let best = 0;
-        for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) {
-          const k = own + a * si + b * sj * gw;
-          const r = g[k];
-          if (r <= 0) continue;
-          const dx = lx - a * si, dy = ly - b * sj;
-          const dist = ell ? Math.sqrt((dx * dx) / 1.5625 + (dy * dy) / 0.64) : Math.sqrt(dx * dx + dy * dy);
-          const c = (r - dist) * inv + 0.5;
-          if (c > best) { best = c; winner = k; }
-        }
-        return best > 1 ? 1 : best;
-      }
+    if (round) {
+      // union of the own disc and the three neighbours towards this corner
+      const si = lx < 0 ? -1 : 1, sj = ly < 0 ? -gw : gw;
+      const dxa = lx - si, dyb = ly - (sj > 0 ? 1 : -1);
+      let best = -1e9, r: number, dist: number, c: number;
+      const ell = shape === 'ellipse';
+      r = g[own];
+      if (r > 0) { dist = ell ? Math.sqrt(lx * lx * 0.64 + ly * ly * 1.5625) : Math.sqrt(lx * lx + ly * ly); c = r - dist; if (c > best) best = c; }
+      r = g[own + si];
+      if (r > 0) { dist = ell ? Math.sqrt(dxa * dxa * 0.64 + ly * ly * 1.5625) : Math.sqrt(dxa * dxa + ly * ly); c = r - dist; if (c > best) { best = c; winner = own + si; } }
+      r = g[own + sj];
+      if (r > 0) { dist = ell ? Math.sqrt(lx * lx * 0.64 + dyb * dyb * 1.5625) : Math.sqrt(lx * lx + dyb * dyb); c = r - dist; if (c > best) { best = c; winner = own + sj; } }
+      r = g[own + si + sj];
+      if (r > 0) { dist = ell ? Math.sqrt(dxa * dxa * 0.64 + dyb * dyb * 1.5625) : Math.sqrt(dxa * dxa + dyb * dyb); c = r - dist; if (c > best) { best = c; winner = own + si + sj; } }
+      return best === -1e9 ? 0 : sat(best * inv + 0.5);
     }
+    const ax = lx < 0 ? -lx : lx, ay = ly < 0 ? -ly : ly;
+    if (shape === 'square') return sat((Math.sqrt(g[own]) * 0.5 - (ax > ay ? ax : ay)) * inv + 0.5);
+    if (shape === 'cross') return sat(((1 - Math.sqrt(1 - g[own])) * 0.5 - (ax < ay ? ax : ay)) * inv + 0.5);
+    // line: thickness follows the tone along the line (interpolated between cell centres)
+    const dk = g[own] * (1 - ax) + g[lx < 0 ? own - 1 : own + 1] * ax;
+    return sat((dk * 0.5 - ay) * inv + 0.5);
   };
 
-  const covs = new Float32Array(4);
+  const U0 = new Float64Array(screens.length), V0 = new Float64Array(screens.length);
+  const DU = screens.map(sc => sc.cos / scale / cell), DV = screens.map(sc => -sc.sin / scale / cell);
   for (let y = 0; y < h; y++) {
-    const Y = (y + 0.5) / scale;
+    const Y = (y + 0.5) / scale - cy;
+    screens.forEach((sc, k) => {
+      const X = 0.5 / scale - cx;
+      U0[k] = (X * sc.cos + Y * sc.sin) / cell; V0[k] = (-X * sc.sin + Y * sc.cos) / cell;
+    });
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4, a = s[i + 3];
       if (a === 0) { d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0; continue; }
-      const X = (x + 0.5) / scale;
       if (mode === 'cmyk') {
         let r = clear ? 255 : paper[0], g = clear ? 255 : paper[1], b = clear ? 255 : paper[2], keep = 1;
         for (let k = 0; k < 4; k++) {
-          const c = coverage(screens[k], X, Y);
-          covs[k] = c; keep *= 1 - c;
+          const c = coverage(screens[k], U0[k] + x * DU[k], V0[k] + x * DV[k]);
+          keep *= 1 - c;
           const ik = CMYK_INKS[k];
           r *= 1 - c * (1 - ik[0] / 255); g *= 1 - c * (1 - ik[1] / 255); b *= 1 - c * (1 - ik[2] / 255);
         }
         if (clear) {
           const al = 1 - keep;
           if (al < 1e-3) { d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0; continue; }
-          // un-composite from white: colour whose "over white" gives (r, g, b)
+          // un-composite from white: the colour whose «over white» gives (r, g, b)
           d[i] = (r - 255 * (1 - al)) / al; d[i + 1] = (g - 255 * (1 - al)) / al; d[i + 2] = (b - 255 * (1 - al)) / al;
           d[i + 3] = a * al;
         } else { d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a; }
         continue;
       }
-      const c = coverage(screens[0], X, Y);
+      const c = coverage(screens[0], U0[0] + x * DU[0], V0[0] + x * DV[0]);
       let ir = ink[0], ig = ink[1], ib = ink[2];
       if (mode === 'fuente') {
         const col = screens[0].col!;
@@ -188,43 +186,54 @@ const HATCH_ANGLES = [0, 90, 45, -45];
 
 export const crosshatch: Op = (src, dst, p, run) => {
   const { width: w, height: h } = src;
-  const s = src.data, d = dst.data, n = w * h, scale = run.scale;
+  const s = src.data, d = dst.data, scale = run.scale;
   const sp = p.spacing as number, maxW = p.width as number, layers = Math.round(p.layers as number);
   const wob = (p.wobble as number) * sp * 0.22;
   const ink = rgbOf(p.ink), paper = rgbOf(p.paper), clear = p.clear === true, fromSrc = p.color === 'fuente';
 
-  // tone: premultiplied luma + alpha, blurred over about a third of the spacing
-  const tone = run.scratch.f32('hatch.t', n * 2);
-  for (let i = 0; i < n; i++) { const j = i * 4, a = s[j + 3] / 255; tone[i * 2] = luma(s[j], s[j + 1], s[j + 2]) / 255 * a; tone[i * 2 + 1] = a; }
-  gaussBlur(tone, run.scratch.f32('hatch.b', n * 2), w, h, 2, sp * scale * 0.33);
+  // tone: premultiplied luma + alpha, averaged over about a third of the spacing
+  const tone = coarseTone(s, w, h, sp * scale * 0.33, 2, n => run.scratch.f32('hatch.c', n), n => run.scratch.f32('hatch.t', n));
+  const darkMap = run.scratch.f32('hatch.d', w * h);
+  expandCoarse2(tone, w, h, darkMap, inkShareFor(fromSrc ? null : ink, paper));
 
-  const inkShare = inkShareFor(fromSrc ? null : ink, paper);
   const lo = 0.1, band = (1 - lo) / layers;
   const L = layers;
   const cs = HATCH_ANGLES.slice(0, L).map(a => Math.cos(((p.angle as number) + a) * DEG));
   const sn = HATCH_ANGLES.slice(0, L).map(a => Math.sin(((p.angle as number) + a) * DEG));
   const phase = [0, 0.37, 0.71, 0.13];
   const wf = (2 * Math.PI) / (sp * 7.3);
+  const invSp = 1 / sp, dx = 1 / scale;
+  // the wobble sin((X·cos + Y·sin)·wf + k·1.7) advances by a fixed angle per pixel: rotate (sin, cos)
+  const ws = new Float64Array(L), wc = new Float64Array(L), rs = new Float64Array(L), rc = new Float64Array(L);
+  for (let k = 0; k < L; k++) { rs[k] = Math.sin(cs[k] * dx * wf); rc[k] = Math.cos(cs[k] * dx * wf); }
   for (let y = 0; y < h; y++) {
     const Y = (y + 0.5) / scale;
+    for (let k = 0; k < L; k++) { const a0 = (0.5 * dx * cs[k] + Y * sn[k]) * wf + k * 1.7; ws[k] = Math.sin(a0); wc[k] = Math.cos(a0); }
     for (let x = 0; x < w; x++) {
+      if (x > 0 && wob > 0) for (let k = 0; k < L; k++) {
+        const sa = ws[k], ca = wc[k];
+        ws[k] = sa * rc[k] + ca * rs[k]; wc[k] = ca * rc[k] - sa * rs[k];
+      }
       const i = y * w + x, j = i * 4, a = s[j + 3];
       if (a === 0) { d[j] = 0; d[j + 1] = 0; d[j + 2] = 0; d[j + 3] = 0; continue; }
-      const X = (x + 0.5) / scale;
-      const ta = tone[i * 2 + 1];
-      const dark = ta > 1e-4 ? inkShare(tone[i * 2] / ta) : 0;
+      const X = (x + 0.5) * dx;
+      const dark = darkMap[i];
+      if (dark <= lo) {
+        if (clear) { d[j] = ink[0]; d[j + 1] = ink[1]; d[j + 2] = ink[2]; d[j + 3] = 0; }
+        else { d[j] = paper[0]; d[j + 1] = paper[1]; d[j + 2] = paper[2]; d[j + 3] = a; }
+        continue;
+      }
       let keep = 1;
       for (let k = 0; k < L; k++) {
         const t = (dark - lo - k * band) / (band * 1.35);
         if (t <= 0) continue;
         const half = maxW * sp * 0.5 * (t > 1 ? 1 : t);
-        const u = X * cs[k] + Y * sn[k];
-        let v = -X * sn[k] + Y * cs[k];
-        if (wob > 0) v += wob * Math.sin(u * wf + k * 1.7);
-        const q = v / sp + phase[k];
-        const dist = Math.abs(q - Math.round(q)) * sp; // output px to the line centre
-        const c = sat((half - dist) * scale + 0.5);
-        keep *= 1 - c;
+        const v = -X * sn[k] + Y * cs[k] + wob * ws[k];
+        const q = v * invSp + phase[k];
+        const fr = q - Math.floor(q + 0.5);
+        const dist = (fr < 0 ? -fr : fr) * sp; // output px to the line centre
+        const c = (half - dist) * scale + 0.5;
+        if (c > 0) keep *= c >= 1 ? 0 : 1 - c;
       }
       const cov = 1 - keep;
       let ir = ink[0], ig = ink[1], ib = ink[2];
@@ -285,34 +294,35 @@ export const pixelate: Op = (src, dst, p, run) => {
 export function edgeMap(src: Img, run: Run, threshold: number, width: number): Float32Array {
   const { width: w, height: h } = src;
   const s = src.data, n = w * h, scale = run.scale;
-  const L = run.scratch.f32('edge.l', n * 2);
-  for (let i = 0; i < n; i++) { const j = i * 4, a = s[j + 3] / 255; L[i * 2] = luma(s[j], s[j + 1], s[j + 2]) * a; L[i * 2 + 1] = s[j + 3]; }
-  // a light pre-blur (in output px) so photo noise does not become edges
-  gaussBlur(L, run.scratch.f32('edge.b', n * 2), w, h, 2, 0.7 * scale);
+  const Lu = run.scratch.f32('edge.l', n), Al = run.scratch.f32('edge.a', n);
+  for (let i = 0; i < n; i++) { const j = i * 4, a = s[j + 3]; Lu[i] = luma(s[j], s[j + 1], s[j + 2]) * (a / 255); Al[i] = a; }
+  // a light pre-blur (σ ≈ 0.7 output px) so photo noise does not become edges
+  const tmp = run.scratch.f32('edge.t', n);
+  const sigma = 0.7 * scale;
+  if (sigma > 0.35) { gaussBlur(Lu, tmp, w, h, 1, sigma); gaussBlur(Al, tmp, w, h, 1, sigma); }
   const E = run.scratch.f32('edge.e', n);
-  const t0 = 0.03 + threshold * 0.55, t1 = t0 + 0.1;
-  // Sobel responds to a step per pixel: a smooth ramp is steeper at a smaller scale; normalise by it a little
-  const k = 1 / 1020;
+  const t0 = 0.03 + threshold * 0.55, t1 = t0 + 0.1, span = 1 / (t1 - t0);
+  const k = 1 / 1020, ka = 0.8 / 1020;
   for (let y = 0; y < h; y++) {
-    const ym = y > 0 ? y - 1 : 0, yp = y < h - 1 ? y + 1 : h - 1;
+    const rm = (y > 0 ? y - 1 : 0) * w, r0 = y * w, rp = (y < h - 1 ? y + 1 : h - 1) * w;
     for (let x = 0; x < w; x++) {
       const xm = x > 0 ? x - 1 : 0, xp = x < w - 1 ? x + 1 : w - 1;
-      let m = 0;
-      for (let c = 0; c < 2; c++) {
-        const tl = L[(ym * w + xm) * 2 + c], tc = L[(ym * w + x) * 2 + c], tr = L[(ym * w + xp) * 2 + c];
-        const ml = L[(y * w + xm) * 2 + c], mr = L[(y * w + xp) * 2 + c];
-        const bl = L[(yp * w + xm) * 2 + c], bc = L[(yp * w + x) * 2 + c], br = L[(yp * w + xp) * 2 + c];
-        const gx = tr + 2 * mr + br - tl - 2 * ml - bl, gy = bl + 2 * bc + br - tl - 2 * tc - tr;
-        const v = Math.sqrt(gx * gx + gy * gy) * k * (c === 1 ? 0.8 : 1);
-        if (v > m) m = v;
-      }
-      E[y * w + x] = smoothstep(t0, t1, m);
+      let gx = Lu[rm + xp] + 2 * Lu[r0 + xp] + Lu[rp + xp] - Lu[rm + xm] - 2 * Lu[r0 + xm] - Lu[rp + xm];
+      let gy = Lu[rp + xm] + 2 * Lu[rp + x] + Lu[rp + xp] - Lu[rm + xm] - 2 * Lu[rm + x] - Lu[rm + xp];
+      const ml = (gx * gx + gy * gy) * k * k;
+      gx = Al[rm + xp] + 2 * Al[r0 + xp] + Al[rp + xp] - Al[rm + xm] - 2 * Al[r0 + xm] - Al[rp + xm];
+      gy = Al[rp + xm] + 2 * Al[rp + x] + Al[rp + xp] - Al[rm + xm] - 2 * Al[rm + x] - Al[rm + xp];
+      const ma = (gx * gx + gy * gy) * ka * ka;
+      const m = Math.sqrt(ml > ma ? ml : ma);
+      let t = (m - t0) * span;
+      t = t <= 0 ? 0 : t >= 1 ? 1 : t;
+      E[r0 + x] = t * t * (3 - 2 * t);
     }
   }
   const wIn = width * scale;
   if (wIn > 1.5) {
-    maxFilter(E, run.scratch.f32('edge.t', n), w, h, Math.round((wIn - 1) / 2));
-    gaussBlur(E, run.scratch.f32('edge.t', n), w, h, 1, 0.45);
+    maxFilter(E, tmp, w, h, Math.round((wIn - 1) / 2));
+    gaussBlur(E, tmp, w, h, 1, 0.45);
   } else if (wIn < 1) for (let i = 0; i < n; i++) E[i] *= wIn;
   return E;
 }

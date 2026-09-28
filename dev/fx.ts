@@ -235,17 +235,33 @@ async function renderAll() {
 
 interface Row { name: string; final: number; preview: number }
 
-function median(xs: number[]) { const s = [...xs].sort((a, b) => a - b); return s[s.length >> 1]; }
-
-function measure(src: HTMLCanvasElement, list: Finish[], s: number, runs = 3): number {
+/**
+ * Best of `runs` timed calls after one warm-up. The minimum, not the median: on a machine shared with
+ * other work it is the closest to the cost of the finish itself.
+ */
+function measure(src: HTMLCanvasElement, list: Finish[], s: number, runs = 5): number {
   applyFinishes(src, list, ctxAt(s), 'timing'); // warm-up
-  const ts: number[] = [];
+  let best = Infinity;
   for (let i = 0; i < runs; i++) {
     const t0 = performance.now();
     applyFinishes(src, list, ctxAt(s, 0.5 + i / 24), 'timing');
-    ts.push(performance.now() - t0);
+    best = Math.min(best, performance.now() - t0);
   }
-  return median(ts);
+  return best;
+}
+
+/** The canvas round trip every CPU finish pays: draw the input, read its pixels, write them back. */
+function roundTrip(src: HTMLCanvasElement, runs = 5): number {
+  const c = canvas(src.width, src.height), x = c.getContext('2d', { willReadFrequently: true })!;
+  let best = Infinity;
+  for (let i = 0; i < runs + 1; i++) {
+    const t0 = performance.now();
+    x.clearRect(0, 0, c.width, c.height);
+    x.drawImage(src, 0, 0);
+    x.putImageData(x.getImageData(0, 0, c.width, c.height), 0, 0);
+    if (i > 0) best = Math.min(best, performance.now() - t0);
+  }
+  return best;
 }
 
 async function timings(): Promise<Row[]> {
@@ -262,7 +278,7 @@ async function timings(): Promise<Row[]> {
     tr.firstElementChild!.textContent = r.name;
     body.append(tr);
   };
-  add({ name: 'ninguno (copia del lienzo)', final: measure(big, [], 1), preview: measure(half, [], 0.5) });
+  add({ name: 'lienzo: dibujar + leer + escribir (sin acabado)', final: roundTrip(big), preview: roundTrip(half) });
   for (const def of FINISHES) {
     status(`midiendo ${def.kind}…`);
     await tick();
