@@ -368,6 +368,22 @@ test.describe('accesibilidad', () => {
     for (const w of worst) expect(w.ratio, w.sel).toBeGreaterThanOrEqual(4.5);
   });
 
+  test('portada con sus bloques interactivos cargados (espacios, azar, salidas), sin fallos graves', async ({ page }) => {
+    await page.goto('/');
+    for (const id of ['espacios', 'azar', 'exportar', 'guias', 'oficio']) {
+      await page.evaluate(i => document.getElementById(i)!.scrollIntoView({ block: 'start' }), id);
+      await page.waitForTimeout(400);
+    }
+    await expect(page.getByRole('list', { name: 'Hoja de contactos del dado' }).getByRole('button')).toHaveCount(14);
+    await page.getByRole('tablist', { name: 'Espacios del estudio' }).getByRole('tab', { name: /Piezas/ }).click();
+    await page.getByRole('button', { name: 'Tirar', exact: true }).click();
+    await page.getByRole('tablist', { name: 'Destinos' }).getByRole('tab', { name: 'Web' }).click();
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.waitForTimeout(900);
+    await serious(page, '/ (interactiva)');
+    expect(await nestedInteractive(page)).toEqual([]);
+  });
+
   test('portada, una guía y la licencia, sin fallos graves', async ({ page }) => {
     for (const path of ['/', '/imagen-a-ascii/', '/licencia/']) {
       await page.goto(path);

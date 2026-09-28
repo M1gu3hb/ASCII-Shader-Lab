@@ -11,8 +11,12 @@
  *   <!-- @guide-links -->       plain list of links to the guides
  *   <!-- @mark -->              the Monotrama logo mark (inline SVG)
  *   <!-- @include:ex/x.txt -->  HTML-escaped contents of public/ex/x.txt
+ *   <!-- @contacts -->          the landing's «Azar» contact sheet (src/landing/contacts.ts)
+ *   <!-- @salida:key -->        a fact about the landing's exported files, read from public/ex/salidas/manifest.json
+ *                               (sizes, duration, link…), so the page never quotes a stale number
  */
 import { logoMark } from '../src/shared/brand.ts';
+import { CONTACTS, CONTACT_PX, contactSrc } from '../src/landing/contacts.ts';
 import {
   GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
 } from '../src/shared/site.ts';
@@ -187,11 +191,54 @@ export function siteFooter(tone: 'ink' | 'paper' = 'ink'): string {
 </footer>`;
 }
 
+/** The guides as an editorial index: a large row per guide, its poster revealed on hover and focus. */
 export function guideCards(exceptPath?: string): string {
   const items = GUIDES.filter(g => g.path !== exceptPath).map(g => `<li><a class="guide-card" href="${g.path}">
-      <img src="${g.poster}-640.webp" width="640" height="400" alt="" loading="lazy" decoding="async">
-      <span class="gc-txt"><b>${g.name}</b><span>${g.blurb}</span></span></a></li>`);
+      <span class="gc-txt"><b>${g.name}</b><span>${g.blurb}</span></span><span class="gc-go" aria-hidden="true">→</span>
+      <img src="${g.poster}-640.webp" width="640" height="400" alt="" loading="lazy" decoding="async"></a></li>`);
   return `<ul class="guides" role="list">\n    ${items.join('\n    ')}\n  </ul>`;
+}
+
+/** The «Azar» contact sheet: figures in the HTML; the landing turns each into a button that weaves it live. */
+export function contactSheet(): string {
+  return CONTACTS.map((c, i) => `<li data-contact="${escapeHtml(c.seed)}"><figure><img src="${contactSrc(c.seed)}" width="${CONTACT_PX.width}" height="${CONTACT_PX.height}" alt="Tirada del estilo ${escapeHtml(c.name)}" loading="lazy" decoding="async"><figcaption><span class="cn"><span>${String(i + 1).padStart(2, '0')}</span><i>${escapeHtml(c.name)}</i></span><span class="cs">${escapeHtml(c.seed)}</span></figcaption></figure></li>`).join('\n          ');
+}
+
+/* ---------------------------------------------------------------- the landing's exported files */
+
+export interface SalidaManifest {
+  piece: string; loopSeconds: number; frames: number; svgSize: { w: number; h: number };
+  link: string; usage: string; bytes: Record<string, number>;
+}
+const es1 = (n: number) => n.toLocaleString('es', { maximumFractionDigits: 1 });
+/** «538 KB», «1,2 MB» (1024-based, Spanish decimals, like the studio). */
+export const fmtBytes = (n: number) => (n >= 1024 * 1024 ? es1(n / 1048576) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+export const SALIDA_FILES = 'ex/salidas/';
+
+/** The usage snippet with the recipe cut short (the page says so): the rest is the exported code as is. */
+export function shortUsage(usage: string): string {
+  return usage.replace(/recipe='(\{.{0,64})[^']*'/, (_m, head: string) => `recipe='${head}…}'`);
+}
+
+export function salida(key: string, readPublic: (path: string) => string): string {
+  const m = JSON.parse(readPublic(SALIDA_FILES + 'manifest.json')) as SalidaManifest;
+  if (key in m.bytes) {
+    if (!m.bytes[key]) throw new Error(`[mt-seo] falta el archivo exportado «${key}» (node scripts/posters.mjs --portada)`);
+    return fmtBytes(m.bytes[key]);
+  }
+  switch (key) {
+    case 'svgsize': return `${m.svgSize.w} × ${m.svgSize.h} px`;
+    case 'secs': return es1(m.loopSeconds);
+    case 'frames': return String(m.frames);
+    case 'link': return escapeHtml(m.link);
+    case 'linklen': return String(m.link.length - '/studio/#r='.length);
+    case 'usage': return escapeHtml(shortUsage(m.usage));
+    case 'json': {
+      const lines = readPublic(SALIDA_FILES + 'monotrama-saturno.monotrama.json').split('\n');
+      return escapeHtml(lines.slice(0, 18).join('\n') + (lines.length > 18 ? '\n      …' : ''));
+    }
+    default: throw new Error(`[mt-seo] @salida:${key} no existe`);
+  }
 }
 
 export function guideLinks(): string {
@@ -212,6 +259,11 @@ export function renderPage(html: string, p: SitePage, o: { verification?: string
       case 'guides': return guideCards(opt === 'others' ? p.path : undefined);
       case 'guide-links': return guideLinks();
       case 'mark': return mark(24);
+      case 'contacts': return contactSheet();
+      case 'salida': {
+        if (!arg) throw new Error('[mt-seo] @salida necesita una clave');
+        return salida(arg, o.readPublic);
+      }
       case 'include': {
         if (!arg || !/^ex\/[\w.-]+\.txt$/.test(arg)) throw new Error(`[mt-seo] @include only reads public/ex/*.txt (got "${arg}")`);
         // Meant for <pre>: keep every row (drop only the file's final newline) and protect a leading blank

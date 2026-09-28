@@ -1,0 +1,30 @@
+{
+  "piece": "Saturno",
+  "loopSeconds": 4.285714285714286,
+  "frames": 51,
+  "svgSize": {
+    "w": 1280,
+    "h": 720
+  },
+  "svgNotes": [
+    "Sin efectos de píxel (resplandor, bloom, viñeta): no existen como vector."
+  ],
+  "codecs": {
+    "avc": true,
+    "vp9": true,
+    "vp8": true
+  },
+  "link": "/studio/#r=zdVRrd9w0EP0ryyzQAiLYu1myCA6Q5uQDpWkOSXroIwHGsmyrkSVXkr272S6_nTOS2aQ8PnlkyzN35t65WxiAzxh42zshgUOHIUhngIHGjXQe-JstWAM8uF6y_WcOnUYjAwKDQktTAgdjXYsaGLRqDTxn4AVqCTw7WDLwnZTlGDsbgGcM1nQ-nDHYxCPScbFgUFAwZ6DMIF0AXqH2VLtBT-l27L8RSR-c1Br9A0xeOCnN35hS-hFWTiVGWPmHoD5ANB8BLf4f0A2D1gZFoLb3nR4xWKHrYiYKLse6DBqry_haW9sBnzPoeh1TMSi6FnieZzsGrSwVUspKBeAg7CAdMLizto1pOjQv4z8dmlcxaJVz1u0Bpqbvp9H2OqhOb4CBk4NEHb86DARrxyDIdaB6wpogDdU8O39-fnVxfHYMDCobX7XogkKa6UqqugnAl1nGwKu71FxwKG6VqVODEssY5wxQq5p4EtKE2IgKqJW4R2td10R-QdENFBFMa0sSpl8pR-Iikk0dmqgdAl-q3tNhNmOAfbBjvh2DWm8o4RaE1Br4kgH6TlLWnH4VDTovqaXJwaM_frsGxr_9SX-kvv_uzy9-__KHmze7bf7Z4_fX11-F6q1bm34Qdy9fvXh68uyX7Px1u3rXlcVtg_bz6dmvny4_efLjxwTPkkCSNMeBdVquH0zrME5rr4WxvVIarwIxs7Ku9MDh6vTp6eTZi9eTk_Pnk5Pji-OTq9OL08sJMJBlncRSqtBI9yD8WUWiC9pdYPBW0XJE9RK91kgaR-ESkoxFph36EKHU2LYYo38IXctBap-oEVaTwva8OGy7SIvtyCxgmi_y2awABtMiO8rm5BDTaia-Waaoqg5LATcMiho4TLOj7OusogXFDjjovqVrvlHVCHAjdOq16dPTY0I7qEGV42L6BstkDVCtCVyt7SqKguxEx4XJDuZp-U1MM6h6_Fn0bkipReMsTSBjUDtU6WKllbgdh0xCelKPF2J1WlNfU0na_nFeaY9ozZFN2t6UFvZEh00n4d54DkcbXCTPoee_9mQcOZCv2Xh7mWB7ep20lixlFnluyZejE2H0dHSBShps6XSJoXfGwm73Fw",
+  "usage": "<!-- Hecho con Monotrama · https://monotrama.vercel.app · Licencia MIT-0: úsalo, modifícalo y véndelo sin atribución. -->\n<script src=\"monotrama-field.js\" defer></script>\n\n<monotrama-field poster=\"/ex/salidas/monotrama-saturno.webp\"\n  style=\"min-height:100vh;background:#07060f\"\n  recipe='{\"v\":2,\"source\":\"pattern\",\"layers\":[{\"on\":true,\"pattern\":\"planeta\",\"blend\":\"normal\",\"mix\":1,\"scale\":0.8,\"speed\":0.8,\"rot\":0,\"x\":0.42,\"y\":0,\"a\":0.55,\"b\":0.3,\"invert\":false,\"phase\":0},{\"on\":true,\"pattern\":\"estrellas\",\"blend\":\"screen\",\"mix\":0.55,\"scale\":1.3,\"speed\":1,\"rot\":0,\"x\":0,\"y\":0,\"a\":0.3,\"b\":0.5,\"invert\":false,\"phase\":0}],\"motion\":{\"speed\":0.7,\"warp\":0,\"warpScale\":1,\"hold\":0,\"loop\":3,\"pulse\":0,\"bpm\":110},\"media\":{\"fit\":\"cover\",\"zoom\":1,\"panX\":0,\"panY\":0,\"mirror\":false,\"mix\":0,\"blend\":\"multiply\",\"reveal\":0,\"rate\":1},\"text\":{\"content\":\"MONOTRAMA\",\"font\":\"martian\",\"weight\":800,\"size\":1,\"tracking\":0,\"leading\":1,\"align\":\"center\",\"italic\":false,\"morph\":0},\"interact\":{\"mode\":\"swirl\",\"strength\":0.4,\"radius\":0.22,\"auto\":false},\"glyph\":{\"cell\":8,\"aspect\":1.4,\"charset\":\" .&#39;`^\\\",:;Il!i><~+_-?][}{1)(|\\\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&amp;8%B@$\",\"sort\":true,\"font\":\"system\",\"weight\":400,\"scale\":1,\"mode\":\"density\",\"words\":\"TEJE LUZ CON CARACTERES \",\"edge\":0,\"dither\":0,\"ditherKind\":\"bayer\",\"jitter\":0.5},\"tone\":{\"bright\":0,\"contrast\":1,\"gamma\":1,\"invert\":false,\"levels\":0},\"color\":{\"mode\":\"ramp\",\"stops\":[\"#15122b\",\"#b0703a\",\"#f2c98a\",\"#fff4dc\"],\"bg\":\"#07060f\",\"map\":\"luma\",\"shift\":0,\"cycle\":0,\"hue\":0,\"sat\":1,\"vivid\":0.5,\"shade\":0},\"fx\":{\"glow\":0.25,\"bloom\":0.35,\"scan\":0,\"vig\":0.5,\"curve\":0,\"chroma\":0,\"grain\":0,\"flicker\":0,\"cellBg\":0,\"grid\":0},\"msg\":{\"on\":false,\"text\":\"hola, mundo\",\"mode\":\"type\",\"speed\":14,\"x\":0.5,\"y\":0.5,\"align\":\"center\",\"color\":\"\",\"box\":0.85,\"cursor\":true,\"hold\":2.5},\"meta\":{\"name\":\"Saturno\"}}'>\n</monotrama-field>",
+  "runtime": 81428,
+  "bytes": {
+    "png": 551260,
+    "webp": 76234,
+    "svg": 233651,
+    "webm": 4881337,
+    "mp4": 1260605,
+    "mjs": 39385,
+    "monotrama.json": 2738,
+    "wc": 84060
+  }
+}

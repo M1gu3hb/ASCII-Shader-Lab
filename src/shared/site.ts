@@ -105,7 +105,7 @@ export const PAGES: SitePage[] = [
     'Convierte una foto en arte ASCII en tu navegador, sin subirla a ningún servidor. Ajusta glifos y color, y descarga PNG, SVG, texto o video.'),
   guidePage('video', 'video-a-ascii/index.html',
     'Video y cámara a ASCII en tiempo real · Monotrama',
-    'Convierte un video o tu cámara en arte ASCII en tiempo real, en tu navegador. Exporta MP4 o WebM fotograma a fotograma, o graba la cámara en directo.'),
+    'Convierte un video o tu cámara en arte ASCII en tiempo real, en tu navegador. Exporta WebM, o MP4 si tu navegador lo codifica, fotograma a fotograma.'),
   guidePage('fondos', 'fondos-ascii/index.html',
     'Fondos ASCII animados para tu web · Monotrama',
     'Crea un fondo animado hecho de caracteres y pégalo en tu web como HTML, Web Component o React. Motor incluido; se pausa cuando no está a la vista.'),
