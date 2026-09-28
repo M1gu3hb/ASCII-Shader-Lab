@@ -180,10 +180,15 @@ export class LiveRecorder {
   }
   stop(): Promise<{ blob: Blob; ext: string }> {
     return new Promise(res => {
-      if (!this.rec) { res({ blob: new Blob(), ext: 'webm' }); return; }
-      this.rec.onstop = () => res({ blob: new Blob(this.chunks, { type: this.mime }), ext: this.mime.includes('mp4') ? 'mp4' : 'webm' });
-      this.rec.stop();
+      const rec = this.rec;
+      const done = () => res({ blob: new Blob(this.chunks, { type: this.mime }), ext: this.mime.includes('mp4') ? 'mp4' : 'webm' });
       this.rec = null;
+      if (!rec) { res({ blob: new Blob(), ext: 'webm' }); return; }
+      // a recorder that already stopped on its own (an error, the canvas went away) never fires «stop» again
+      if (rec.state === 'inactive') { done(); return; }
+      rec.onstop = done;
+      rec.onerror = done;
+      rec.stop();
     });
   }
   get active() { return !!this.rec; }
@@ -210,6 +215,12 @@ export async function stopRecording(why?: string) {
   if (!rec) return;
   useRecording.setState({ rec: null, since: 0 });
   const { blob, ext } = await rec.stop();
+  // a recording stopped before the browser handed over any video (a very short one, or a machine too busy
+  // to draw while recording) would download as an empty file that no player opens
+  if (blob.size < 1024) {
+    toast('La grabación salió vacía: el navegador no llegó a entregar video. Graba unos segundos más, o usa el video renderizado (no depende de la fluidez del equipo).', undefined, 9000);
+    return;
+  }
   downloadBlob(`${base}-directo.${ext}`, blob);
   if (why) toast(why, undefined, 6000);
 }

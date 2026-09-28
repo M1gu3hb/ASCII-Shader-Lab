@@ -331,6 +331,7 @@ export function cameraProblem(e: unknown): string {
     return 'La cámara está ocupada o no responde: puede que la esté usando otra aplicación o pestaña (una videollamada, por ejemplo). Ciérrala y vuelve a intentarlo.';
   }
   if (name === 'SecurityError') return 'Esta página no puede pedir la cámara aquí (hace falta HTTPS, o el sitio que la incrusta no lo permite).';
+  if (name === 'NotSupportedError') return 'Este navegador no deja pedir la cámara en esta página. Prueba en otra ventana normal del navegador o en otro navegador.';
   return 'No se pudo abrir la cámara. Revisa el permiso del navegador y que ninguna otra aplicación la esté usando.';
 }
 
