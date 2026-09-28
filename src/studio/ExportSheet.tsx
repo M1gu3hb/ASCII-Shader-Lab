@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cloneRecipe, type Recipe } from '../engine/recipe';
 import { byteSize, gridToAnsi, gridToHtml, gridToHtmlPage, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
 import { recipeFile, shareUrl } from '../shared/share';
-import { imageFormats, recorderLabel, useCaps, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
+import { imageFormats, recorderLabel, useCaps, videoEncoderWhy, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
 import { copyText, downloadBlob, downloadText } from './download';
 import {
   SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize,
@@ -350,7 +350,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
           {camera
             ? <Unavailable what="Render fotograma a fotograma: no con la cámara.">La cámara sólo existe en directo, así que no hay fotogramas que calcular por adelantado. {recorder.ok ? 'Usa la grabación en directo.' : 'La grabación en directo tampoco funciona en este navegador: exporta una imagen.'}</Unavailable>
             : !webcodecs
-              ? <Unavailable what="MP4 y WebM: no disponibles.">Este navegador no tiene WebCodecs, la función con la que se codifica el video fotograma a fotograma. Usa {liveAlt}.</Unavailable>
+              ? <Unavailable what="MP4 y WebM: no disponibles.">{videoEncoderWhy()} Usa {liveAlt}.</Unavailable>
               : (
                 <>
                   <SizePicker id="v-size" value={preset} onChange={setPreset} even />

@@ -73,7 +73,10 @@ async function openProject(files: Awaited<ReturnType<typeof unzip>>, label: stri
       recipe = { ...recipe, media: { ...recipe.media, ref: normMediaRef({ ...ref, kind, id: res.id, name, type, size: blob.size }) } };
       if (!res.stored) note = res.reason === 'too-big'
         ? ' · el archivo es demasiado grande para guardarlo en el navegador: se verá mientras no cierres la pestaña'
-        : ' · no queda espacio para guardar el archivo: se verá mientras no cierres la pestaña';
+        : res.reason === 'no-space'
+          ? ' · no queda espacio para guardar el archivo: se verá mientras no cierres la pestaña'
+          // e.g. a private window of Safari/WebKit, whose storage refuses files
+          : ' · el navegador no dejó guardar el archivo (¿ventana privada?): se verá mientras no cierres la pestaña';
     }
   }
   const space = spaceById(spaceForOpened(recipe, useStudio.getState().space)).id;
