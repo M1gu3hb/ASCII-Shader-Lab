@@ -286,14 +286,14 @@ export function maxFilter(buf: Float32Array, tmp: Float32Array, w: number, h: nu
 
 /**
  * A smooth, coarse copy of an image for reading tones: premultiplied area averages over f×f blocks
- * (f = ⌊sigma⌋, at least 1), then a Gaussian blur of the rest of `sigma` at that resolution. Reading
+ * (f = ⌊sigma / div⌋, at least 1), then a Gaussian blur of the rest of `sigma` at that resolution. Reading
  * it bilinearly at ((x + ½) / f − ½, (y + ½) / f − ½) approximates a full-resolution Gaussian blur of
  * `sigma` at a fraction of the cost. `ch` = 4 (premultiplied RGBA) or 2 (premultiplied luma, alpha; 0..1).
  */
 export interface Coarse { buf: Float32Array; w: number; h: number; f: number; ch: number }
 
-export function coarseTone(data: Uint8ClampedArray, w: number, h: number, sigma: number, ch: 2 | 4, buf: (n: number) => Float32Array, tmp: (n: number) => Float32Array): Coarse {
-  const f = Math.max(1, Math.floor(sigma));
+export function coarseTone(data: Uint8ClampedArray, w: number, h: number, sigma: number, ch: 2 | 4, buf: (n: number) => Float32Array, tmp: (n: number) => Float32Array, div = 1): Coarse {
+  const f = Math.max(1, Math.floor(sigma / div));
   const lw = Math.ceil(w / f), lh = Math.ceil(h / f), n = lw * lh;
   const out = buf(n * ch);
   out.fill(0);
@@ -318,8 +318,8 @@ export function coarseTone(data: Uint8ClampedArray, w: number, h: number, sigma:
     const inv = 1 / cnt[k];
     for (let c = 0; c < ch; c++) out[k * ch + c] *= inv;
   }
-  // the block average already has the variance of a box of f px: blur only what is missing
-  const rest = sigma * sigma - (f * f - 1) / 12;
+  // the block average (a box of f px) and the bilinear read (a tent of 2f px) already blur: add the rest
+  const rest = sigma * sigma - (f * f - 1) / 12 - (f * f) / 6;
   if (rest > 0) gaussBlur(out, tmp(n * ch), lw, lh, ch, Math.sqrt(rest) / f);
   return { buf: out, w: lw, h: lh, f, ch };
 }
@@ -366,5 +366,49 @@ export function expandCoarse2(c: Coarse, w: number, h: number, out: Float32Array
       const al = rowA[i0] + (rowA[i1] - rowA[i0]) * fx;
       out[o + x] = al > 1e-4 ? lumaOf((rowL[i0] + (rowL[i1] - rowL[i0]) * fx) / al) : 0;
     }
+  }
+}
+
+/** A 4-channel Coarse copy read bilinearly at every pixel and un-premultiplied into `dst` (w×h). */
+export function expandCoarse4(c: Coarse, dst: Uint8ClampedArray, w: number, h: number): void {
+  const lx = c.w - 1, ly = c.h - 1, cw = c.w, b = c.buf, f = c.f;
+  const row = new Float32Array(cw * 4);
+  const x0s = new Int32Array(w), fxs = new Float32Array(w);
+  for (let x = 0; x < w; x++) {
+    let sx = (x + 0.5) / f - 0.5;
+    if (sx < 0) sx = 0; else if (sx > lx) sx = lx;
+    x0s[x] = sx | 0; fxs[x] = sx - (sx | 0);
+  }
+  for (let y = 0; y < h; y++) {
+    let sy = (y + 0.5) / f - 0.5;
+    if (sy < 0) sy = 0; else if (sy > ly) sy = ly;
+    const y0 = sy | 0, fy = sy - y0, y1 = y0 < ly ? y0 + 1 : y0;
+    for (let i = 0; i < cw * 4; i++) { const a = y0 * cw * 4 + i, z = y1 * cw * 4 + i; row[i] = b[a] + (b[z] - b[a]) * fy; }
+    let o = y * w * 4;
+    for (let x = 0; x < w; x++, o += 4) {
+      const i0 = x0s[x] * 4, i1 = x0s[x] < lx ? i0 + 4 : i0, fx = fxs[x];
+      const a = row[i0 + 3] + (row[i1 + 3] - row[i0 + 3]) * fx;
+      if (a < 0.5) { dst[o] = 0; dst[o + 1] = 0; dst[o + 2] = 0; dst[o + 3] = 0; continue; }
+      const k = 255 / a;
+      dst[o] = (row[i0] + (row[i1] - row[i0]) * fx) * k;
+      dst[o + 1] = (row[i0 + 1] + (row[i1 + 1] - row[i0 + 1]) * fx) * k;
+      dst[o + 2] = (row[i0 + 2] + (row[i1 + 2] - row[i0 + 2]) * fx) * k;
+      dst[o + 3] = a;
+    }
+  }
+}
+
+/** [1 2 1]/4 separable blur of a 1-channel buffer, in place (a Gaussian of σ = 1/√2), clamp-to-edge. */
+export function binomial3(buf: Float32Array, tmp: Float32Array, w: number, h: number): void {
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    for (let x = 0; x < w; x++) {
+      const l = buf[o + (x > 0 ? x - 1 : 0)], r = buf[o + (x < w - 1 ? x + 1 : x)];
+      tmp[o + x] = (l + 2 * buf[o + x] + r) * 0.25;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    const u = (y > 0 ? y - 1 : 0) * w, o = y * w, dn = (y < h - 1 ? y + 1 : y) * w;
+    for (let x = 0; x < w; x++) buf[o + x] = (tmp[u + x] + 2 * tmp[o + x] + tmp[dn + x]) * 0.25;
   }
 }

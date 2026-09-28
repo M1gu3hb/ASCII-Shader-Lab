@@ -98,6 +98,17 @@ describe('finishes pipeline', () => {
     }
   });
 
+  it('does not draw dark or bright rims on the edge of a flat-coloured cutout', () => {
+    const disc = img(60, 60, (x, y) => { const a = Math.max(0, Math.min(1, 20 - Math.hypot(x - 30, y - 30))); return [200, 80, 40, a * 255]; });
+    for (const f of [withP('sharpen', { amount: 3 }), withP('blur', { radius: 3 }), withP('blur', { radius: 9 }), withP('motionblur', { distance: 20 }), withP('chroma', { amount: 0 })]) {
+      const o = run(disc, f);
+      for (let i = 0; i < o.data.length; i += 4) {
+        if (o.data[i + 3] < 8) continue; // colour of nearly invisible pixels is rounding noise
+        expect(Math.abs(o.data[i] - 200) + Math.abs(o.data[i + 1] - 80) + Math.abs(o.data[i + 2] - 40), `${f.kind} at ${i / 4}`).toBeLessThan(12);
+      }
+    }
+  });
+
   it('applies the finishes in order', () => {
     const a = run(P, [defaultFinish('invert'), withP('threshold', { level: 0.5 })]);
     const b = run(P, [withP('threshold', { level: 0.5 }), defaultFinish('invert')]);

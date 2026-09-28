@@ -8,7 +8,7 @@
  * (angles add). A trail is one-sided with an exponential fade; since e^(−λn) is the product over the
  * binary digits of n of e^(−λ·2^j), the doubling passes reproduce the exponential weights exactly.
  */
-import { affineMix4, gaussBlur, shiftMix4 } from '../kernels';
+import { affineMix4, coarseTone, expandCoarse4, gaussBlur, shiftMix4 } from '../kernels';
 import { DEG, fromPremul, frameOf, hash3, toPremul, type Op } from '../core';
 
 const zoomMap = (cx: number, cy: number, m: number) => [m, 0, cx * (1 - m), 0, m, cy * (1 - m)];
@@ -79,29 +79,41 @@ export const motionblur: Op = (src, dst, p, run) => {
 
 export const blur: Op = (src, dst, p, run) => {
   const { width: w, height: h } = src, n = w * h;
+  const sigma = (p.radius as number) * run.scale;
+  if (sigma >= 5) {
+    // wide blurs: area-average to a grid of σ/2.5 px, blur the rest there, read back bilinearly
+    const c = coarseTone(src.data, w, h, sigma, 4, k => run.scratch.f32('blur.c', k), k => run.scratch.f32('blur.t', k), 2.5);
+    expandCoarse4(c, dst.data, w, h);
+    return;
+  }
   const buf = toPremul(src, run.scratch.f32('f4.a', n * 4));
-  gaussBlur(buf, run.scratch.f32('f4.b', n * 4), w, h, 4, (p.radius as number) * run.scale);
+  gaussBlur(buf, run.scratch.f32('f4.b', n * 4), w, h, 4, sigma);
   fromPremul(buf, dst);
 };
 
+/**
+ * Unsharp mask on the luminance, added equally to the three channels: sharper detail without coloured
+ * halos. The blurred reference is alpha-weighted (blur of luma·alpha over blur of alpha), so the
+ * transparent surroundings of a cutout do not count as black and draw no bright rim on its edge.
+ */
 export const sharpen: Op = (src, dst, p, run) => {
   const { width: w, height: h } = src, n = w * h;
   const s = src.data, d = dst.data;
-  const buf = toPremul(src, run.scratch.f32('f4.a', n * 4));
-  const bl = run.scratch.f32('f4.b', n * 4);
-  bl.set(buf);
-  gaussBlur(bl, run.scratch.f32('f4.c', n * 4), w, h, 4, (p.radius as number) * run.scale);
-  const amt = p.amount as number, t1 = (p.threshold as number) * 255, t0 = t1 * 0.5;
-  for (let i = 0; i < n * 4; i += 4) {
-    const a = s[i + 3];
-    if (a === 0) { d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0; continue; }
-    const k = 255 / a;
-    for (let c = 0; c < 3; c++) {
-      const diff = buf[i + c] - bl[i + c], ad = diff < 0 ? -diff : diff;
-      const g = t1 <= 0 ? 1 : ad >= t1 ? 1 : ad <= t0 ? 0 : ((ad - t0) / (t1 - t0)) ** 2 * (3 - 2 * (ad - t0) / (t1 - t0));
-      d[i + c] = (buf[i + c] + amt * diff * g) * k;
-    }
-    d[i + 3] = a;
+  const B = run.scratch.f32('sharp.b', n), A = run.scratch.f32('sharp.a', n), tmp = run.scratch.f32('sharp.t', n);
+  for (let i = 0, j = 0; i < n; i++, j += 4) { const a = s[j + 3] / 255; A[i] = a; B[i] = (0.299 * s[j] + 0.587 * s[j + 1] + 0.114 * s[j + 2]) * a; }
+  const sigma = (p.radius as number) * run.scale;
+  gaussBlur(B, tmp, w, h, 1, sigma);
+  gaussBlur(A, tmp, w, h, 1, sigma);
+  const amt = p.amount as number, t1 = (p.threshold as number) * 255, t0 = t1 * 0.5, span = 1 / Math.max(1e-6, t1 - t0);
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const a = s[j + 3];
+    if (a === 0) { d[j] = 0; d[j + 1] = 0; d[j + 2] = 0; d[j + 3] = 0; continue; }
+    const L = 0.299 * s[j] + 0.587 * s[j + 1] + 0.114 * s[j + 2];
+    const diff = A[i] > 1e-4 ? L - B[i] / A[i] : 0, ad = diff < 0 ? -diff : diff;
+    let g = 1;
+    if (t1 > 0) { if (ad <= t0) g = 0; else if (ad < t1) { const t = (ad - t0) * span; g = t * t * (3 - 2 * t); } }
+    const k = amt * diff * g;
+    d[j] = s[j] + k; d[j + 1] = s[j + 1] + k; d[j + 2] = s[j + 2] + k; d[j + 3] = a;
   }
 };
 
@@ -137,20 +149,46 @@ export const chroma: Op = (src, dst, p, run) => {
     out[o + 1] = P[i00 + 3] * w00 + P[i10 + 3] * w10 + P[i01 + 3] * w01 + P[i11 + 3] * w11;
   };
   const v = new Float32Array(6);
+  if (!radial) {
+    // constant offsets along each row: the taps of each channel are fixed per row, read without calls
+    const offX = [-ux, 0, ux], offY = [-uy, 0, uy];
+    const cx0 = new Int32Array(3), cfx = new Float64Array(3);
+    const ry0 = new Int32Array(3), ry1 = new Int32Array(3), cfy = new Float64Array(3);
+    for (let y = 0; y < h; y++) {
+      for (let c = 0; c < 3; c++) {
+        const ox = rowShift[y] + offX[c], sy = Math.min(ly, Math.max(0, y + offY[c]));
+        cx0[c] = Math.floor(ox); cfx[c] = ox - cx0[c];
+        const y0 = sy | 0; ry0[c] = y0 * w; ry1[c] = (y0 < ly ? y0 + 1 : y0) * w; cfy[c] = sy - y0;
+      }
+      let o = y * w * 4;
+      for (let x = 0; x < w; x++, o += 4) {
+        let a = 0;
+        for (let c = 0; c < 3; c++) {
+          let xa = x + cx0[c], fx = cfx[c];
+          if (xa < 0) { xa = 0; fx = 0; } else if (xa >= lx) { xa = lx; fx = 0; }
+          const xb = xa < lx ? xa + 1 : xa, fy = cfy[c];
+          const i00 = (ry0[c] + xa) * 4, i10 = (ry0[c] + xb) * 4, i01 = (ry1[c] + xa) * 4, i11 = (ry1[c] + xb) * 4;
+          const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+          v[c * 2] = P[i00 + c] * w00 + P[i10 + c] * w10 + P[i01 + c] * w01 + P[i11 + c] * w11;
+          const al = P[i00 + 3] * w00 + P[i10 + 3] * w10 + P[i01 + 3] * w01 + P[i11 + 3] * w11;
+          v[c * 2 + 1] = al;
+          if (al > a) a = al;
+        }
+        if (a < 0.5) { d[o] = 0; d[o + 1] = 0; d[o + 2] = 0; d[o + 3] = 0; continue; }
+        const q = 255 / a;
+        d[o] = v[0] * q; d[o + 1] = v[2] * q; d[o + 2] = v[4] * q; d[o + 3] = a;
+      }
+    }
+    return;
+  }
   for (let y = 0; y < h; y++) {
     const js = rowShift[y];
     for (let x = 0; x < w; x++) {
-      const xs = x + js;
-      if (radial) {
-        const dx = xs - cx, dy = y - cy;
-        sampleCh(cx + dx * (1 + k), cy + dy * (1 + k), 0, v, 0);
-        sampleCh(xs, y, 1, v, 2);
-        sampleCh(cx + dx * (1 - k), cy + dy * (1 - k), 2, v, 4);
-      } else {
-        sampleCh(xs - ux, y - uy, 0, v, 0);
-        sampleCh(xs, y, 1, v, 2);
-        sampleCh(xs + ux, y + uy, 2, v, 4);
-      }
+      // radial: red from further out, blue from further in, around the centre
+      const xs = x + js, dx = xs - cx, dy = y - cy;
+      sampleCh(cx + dx * (1 + k), cy + dy * (1 + k), 0, v, 0);
+      sampleCh(xs, y, 1, v, 2);
+      sampleCh(cx + dx * (1 - k), cy + dy * (1 - k), 2, v, 4);
       const a = Math.max(v[1], v[3], v[5]), i = (y * w + x) * 4;
       if (a < 0.5) { d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0; continue; }
       const q = 255 / a;

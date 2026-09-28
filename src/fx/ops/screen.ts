@@ -6,7 +6,7 @@
  * output px). The tone that drives a cell is read from a premultiplied Gaussian-blurred copy of the
  * image at the cell centre (an area average), so dots do not shimmer with the fine detail inside a cell.
  */
-import { coarseTone, expandCoarse2, gaussBlur, maxFilter, readCoarse } from '../kernels';
+import { binomial3, coarseTone, expandCoarse2, gaussBlur, maxFilter, readCoarse } from '../kernels';
 import { DEG, luma, rgbOf, sat, type Img, type Op, type RGB, type Run } from '../core';
 
 /* ------------------------------------------------------------------ tone → ink */
@@ -300,7 +300,8 @@ export function edgeMap(src: Img, run: Run, threshold: number, width: number): F
   // a light pre-blur (σ ≈ 0.7 output px) so photo noise does not become edges
   const tmp = run.scratch.f32('edge.t', n);
   const sigma = 0.7 * scale;
-  if (sigma > 0.35) { gaussBlur(Lu, tmp, w, h, 1, sigma); gaussBlur(Al, tmp, w, h, 1, sigma); }
+  if (sigma > 0.55 && sigma < 0.9) { binomial3(Lu, tmp, w, h); binomial3(Al, tmp, w, h); }
+  else if (sigma > 0.35) { gaussBlur(Lu, tmp, w, h, 1, sigma); gaussBlur(Al, tmp, w, h, 1, sigma); }
   const E = run.scratch.f32('edge.e', n);
   const t0 = 0.03 + threshold * 0.55, t1 = t0 + 0.1, span = 1 / (t1 - t0);
   const k = 1 / 1020, ka = 0.8 / 1020;
