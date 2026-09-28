@@ -2,14 +2,16 @@ import { create } from 'zustand';
 import { normMediaRef, type MediaRef } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 import { getMedia, guessType, kindOfType, put, type MediaKind, type PutResult } from './mediaStore';
-import { currentRecipe, linkMedia, useStudio } from './store';
+import { currentRecipe, edit, linkMedia, setCameraMirror, useStudio } from './store';
+import { cameraConstraints, cameraList, facingOf, mirrorFor, parseChoices, rememberMirror, type CameraDevice, type Facing, type MirrorChoices } from './cameraMirror';
 
 /**
  * Local media. Files are decoded in the browser and never uploaded anywhere.
  * Images and videos are also kept in this browser's media store (mediaStore.ts), and each recipe
  * names the file it was made with (`media.ref`), so the media follows the current piece: going
  * back in the history, opening a favourite or a project brings its own image back.
- * The camera is only requested when the person presses "Activar cámara" and is never stored.
+ * The camera is only requested when the person presses "Activar cámara" and is never stored; the front
+ * camera shows as a mirror by default, in the recipe (cameraMirror.ts), so exports show what the stage shows.
  */
 export interface MediaInfo { name: string; w: number; h: number; size: number; id?: string; type?: string }
 
@@ -21,6 +23,17 @@ export interface MediaInfo { name: string; w: number; h: number; size: number; i
  */
 export interface MediaNeed { state: 'restoring' | 'missing' | 'unreadable' | 'foreign'; ref: MediaRef }
 
+/** The camera asked for last in this browser session, and the person's «Espejo» choices (sessionStorage). */
+const K_CAM = 'mt.camera', K_MIRROR = 'mt.camMirror';
+
+/** The camera asked for last in this browser session (the front one by default). */
+function loadCamWant(): { facing: Facing; deviceId: string | null } {
+  try {
+    const o = JSON.parse(sessionStorage.getItem(K_CAM) || '{}') as { facing?: string; deviceId?: unknown };
+    return { facing: o.facing === 'environment' ? 'environment' : 'user', deviceId: typeof o.deviceId === 'string' && o.deviceId ? o.deviceId : null };
+  } catch { return { facing: 'user', deviceId: null }; }
+}
+
 interface MediaState {
   /** What the stage shows right now (null: the pattern shows instead). */
   image: MediaInfo | null;
@@ -30,9 +43,20 @@ interface MediaState {
   videoMuted: boolean;
   error: string | null;
   need: MediaNeed | null;
+  /** The camera asked for: which way it should look, or one device the person picked (cameraMirror.ts). */
+  camWant: { facing: Facing; deviceId: string | null };
+  /** Which way the camera that is on really looks (null while it is off). */
+  camFacing: Facing | null;
+  /** The device of the camera that is on. */
+  camDevice: string | null;
+  /** The cameras this browser lists (their names only once the permission was granted: see cameraList). */
+  cameras: CameraDevice[];
 }
 
-export const useMedia = create<MediaState>(() => ({ image: null, video: null, camera: 'off', videoPaused: false, videoMuted: true, error: null, need: null }));
+export const useMedia = create<MediaState>(() => ({
+  image: null, video: null, camera: 'off', videoPaused: false, videoMuted: true, error: null, need: null,
+  camWant: loadCamWant(), camFacing: null, camDevice: null, cameras: [],
+}));
 
 type Img = ImageBitmap | HTMLCanvasElement;
 interface Slot<T> { el: T; info: MediaInfo }
@@ -335,16 +359,96 @@ export function cameraProblem(e: unknown): string {
   return 'No se pudo abrir la cámara. Revisa el permiso del navegador y que ninguna otra aplicación la esté usando.';
 }
 
-export async function startCamera(): Promise<boolean> {
-  if (camStream && camEl) { engine?.setMedia('camera', camEl); return true; }
+/* The camera: which one, and its mirror ----------------------------- */
+
+function saveCamWant(want: { facing: Facing; deviceId: string | null }) {
+  useMedia.setState({ camWant: want });
+  try { sessionStorage.setItem(K_CAM, JSON.stringify(want)); } catch { /* storage unavailable: kept for this page */ }
+}
+
+/** The person's «Espejo» choices for the camera, per way of looking, for this browser session. */
+let mirrorChoices: MirrorChoices = (() => { try { return parseChoices(sessionStorage.getItem(K_MIRROR)); } catch { return {}; } })();
+
+/** Which way the camera looks for the mirror: the one that is on, else the one asked for. */
+const facingNow = (): Facing => useMedia.getState().camFacing ?? useMedia.getState().camWant.facing;
+
+/**
+ * The person flipped «Espejo» while the piece uses the camera: the choice is kept for this way of looking
+ * (front or rear) and wins over the default when the camera starts again in this browser session.
+ */
+export function chooseCameraMirror(mirror: boolean) {
+  mirrorChoices = rememberMirror(mirrorChoices, facingNow(), mirror);
+  try { sessionStorage.setItem(K_MIRROR, JSON.stringify(mirrorChoices)); } catch { /* kept for this page */ }
+  edit(r => { r.media.mirror = mirror; }, 'media.mirror');
+}
+
+/**
+ * The current camera piece takes the mirror of the camera that is on: the front camera as a mirror, the
+ * rear one as it is, unless the person chose otherwise for it. It is the camera's orientation rather than
+ * an edit of the piece (store.setCameraMirror), and it lives in the recipe, so every export shows the same.
+ */
+function adoptMirror() {
+  const st = useMedia.getState();
+  if (st.camera !== 'on' || !st.camFacing || currentRecipe().source !== 'camera') return;
+  setCameraMirror(mirrorFor(st.camFacing, mirrorChoices));
+}
+
+let camFollow = false;
+/** Moving through the history onto another camera piece while the camera is on: it takes the camera's mirror too. */
+function followCameraPieces() {
+  if (camFollow) return;
+  camFollow = true;
+  useStudio.subscribe((st, prev) => {
+    if (st.change.n !== prev.change.n && st.change.kind !== 'edit') adoptMirror();
+  });
+}
+
+/** The cameras this browser lists (after the permission, with their names). */
+async function listCameras() {
+  try {
+    const cams = cameraList(await navigator.mediaDevices.enumerateDevices());
+    const cur = useMedia.getState().cameras;
+    if (cams.length !== cur.length || cams.some((c, i) => c.id !== cur[i].id || c.label !== cur[i].label)) useMedia.setState({ cameras: cams });
+  } catch { /* not listed: the front / rear choice still works */ }
+}
+
+let watchingDevices = false;
+function watchDevices() {
+  if (watchingDevices || !navigator.mediaDevices?.addEventListener) return;
+  watchingDevices = true;
+  navigator.mediaDevices.addEventListener('devicechange', () => void listCameras());
+}
+
+/**
+ * Turns the camera on: the one asked for (`facing`, or a `deviceId` the person picked), or else the one
+ * asked for last. With the camera already on, asking for another one switches to it; asking for none keeps it.
+ */
+export async function startCamera(ask: { facing?: Facing; deviceId?: string | null } = {}): Promise<boolean> {
+  const prevWant = useMedia.getState().camWant;
+  const want = {
+    facing: ask.facing ?? prevWant.facing,
+    // a way of looking asked for replaces a device picked before
+    deviceId: ask.deviceId !== undefined ? ask.deviceId : ask.facing ? null : prevWant.deviceId,
+  };
+  const switching = ask.facing !== undefined || ask.deviceId !== undefined;
+  if (camStream && camEl && !switching) {
+    engine?.setMedia('camera', camEl);
+    // the caller may make the piece a camera piece right after this call
+    queueMicrotask(adoptMirror);
+    return true;
+  }
   if (!navigator.mediaDevices?.getUserMedia) {
     useMedia.setState({ camera: 'error', error: typeof isSecureContext !== 'undefined' && !isSecureContext ? 'La cámara sólo se puede usar en una página segura (HTTPS).' : 'Este navegador no da acceso a la cámara.' });
     return false;
   }
+  saveCamWant(want);
+  // phones open one camera at a time: the one that is on stops before the other opens
+  if (camStream) releaseCamera();
   useMedia.setState({ camera: 'starting', error: null });
+  followCameraPieces();
   let stream: MediaStream | null = null;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: false });
+    stream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints(want), audio: false });
     const el = document.createElement('video');
     el.muted = true; el.playsInline = true;
     el.setAttribute('playsinline', '');
@@ -361,26 +465,48 @@ export async function startCamera(): Promise<boolean> {
         useMedia.setState({ camera: 'error', error: 'La cámara se desconectó o dejó de enviar imagen. Vuelve a activarla cuando esté lista.' });
       });
     }
+    // which way it really looks: a desktop webcam usually says nothing, and faces the person
+    const settings = (stream.getVideoTracks()[0]?.getSettings?.() ?? {}) as MediaTrackSettings;
     engine?.setMedia('camera', camEl);
-    useMedia.setState({ camera: 'on' });
+    useMedia.setState({ camera: 'on', camFacing: facingOf(settings.facingMode), camDevice: settings.deviceId || null });
+    adoptMirror();
+    watchDevices();
+    void listCameras();
     return true;
   } catch (err) {
     // a stream that opened but could not play must not keep the camera (and its light) on
     stream?.getTracks().forEach(t => t.stop());
     camStream = null;
     camEl = null;
-    useMedia.setState({ camera: 'error', error: cameraProblem(err) });
+    useMedia.setState({ camera: 'error', camFacing: null, camDevice: null, error: cameraProblem(err) });
     return false;
   }
 }
 
-export function stopCamera() {
+/** Front or rear: with the camera on it switches at once; off, it is the one that opens next time. */
+export function chooseFacing(facing: Facing) {
+  if (useMedia.getState().camera === 'on') { void startCamera({ facing }); return; }
+  saveCamWant({ facing, deviceId: null });
+}
+
+/** One of the listed cameras: with the camera on it switches at once; off, it is the one that opens next time. */
+export function chooseCamera(deviceId: string) {
+  if (useMedia.getState().camera === 'on') { void startCamera({ deviceId }); return; }
+  saveCamWant({ facing: useMedia.getState().camWant.facing, deviceId });
+}
+
+/** Stops the camera's tracks and takes its picture off the stage. */
+function releaseCamera() {
   camStream?.getTracks().forEach(t => t.stop());
   camStream = null;
   camEl?.remove();
   camEl = null;
   engine?.setMedia('camera', null);
-  useMedia.setState({ camera: 'off' });
+}
+
+export function stopCamera() {
+  releaseCamera();
+  useMedia.setState({ camera: 'off', camFacing: null, camDevice: null });
 }
 
 const videoEl = () => video?.el ?? null;
