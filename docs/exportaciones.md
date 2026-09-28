@@ -120,12 +120,24 @@ no hubo forma de probarlo aquí; no es una promesa en ningún sentido.
 - **Ventana privada.** En un perfil en memoria de WebKit (como una ventana privada de Safari) IndexedDB no guarda
   archivos. Al elegir una foto el estudio ya lo decía; al abrir un proyecto decía «no queda espacio», que no era la causa:
   ahora dice que el navegador no dejó guardar el archivo.
+- **Una tipografía que llega tarde.** El código exportado pide su tipografía a Google Fonts y espera hasta 5 s; si
+  llegaba después (una conexión lenta), la pieza se quedaba con la de reserva, y quieta («reducir movimiento») ya no se
+  corregía nunca. Lo encontró el verificador en WebKit (el texto grande de la pieza transformada salía más fino). Ahora
+  los dos motores vuelven a dibujar caracteres, texto grande y mensaje cuando una tipografía termina de cargar.
+- **Estela en clips.** La transformación Estela arrastra un rastro de un fotograma al siguiente: un clip exportado
+  empezaba sin rastro y, en bucle, se notaba el corte. Ahora, antes del primer fotograma se dibujan sin grabar seis veces
+  la duración de la estela (como mucho 15 s): el primer fotograma ya lleva su estela y un bucle perfecto enlaza. Vale para
+  el video, el GIF y la animación de terminal; la pestaña lo dice. (Las imágenes fijas no se preparan así: no se comparó
+  qué estela muestran frente al lienzo.)
 - **Cámara.** Todos los fallos decían «Revisa el permiso del navegador». Ahora el estudio distingue permiso denegado,
   pregunta cerrada sin responder, bloqueo del sistema, ninguna cámara, cámara ocupada por otra aplicación, página no segura
   y navegador que no deja pedirla, y dice qué hacer en cada caso. Una cámara que llega a abrirse pero no se reproduce se
   apaga (antes quedaba encendida, con su luz); si se desconecta a mitad, lo dice en lugar de congelar el último fotograma.
 - **El verificador** seguía usando los `<select>` nativos que la interfaz ya no tiene: no podía correr sobre la versión
   actual. Ahora usa los selectores de la interfaz, corre en cuatro motores y guarda en qué motor pasó cada comprobación.
+  Además, la comprobación «tras recargar, la pieza vuelve con su archivo» no esperaba (`isVisible` responde al instante):
+  fallaba de vez en cuando si la foto de 12 MP tardaba más en restaurarse; ahora espera hasta 20 s, como esperaría una
+  persona, y si no aparece dice qué guarda el almacén de medios.
 
 Pruebas de «antes y después» de la tercera pasada (versión de partida `23f2757` frente a la actual):
 
@@ -138,6 +150,8 @@ Pruebas de «antes y después» de la tercera pasada (versión de partida `23f27
 | Grabación en directo WebM (Chromium) en el WebKit de esta máquina | error 4 (declara canal alfa, sin duración) | se reproduce, con su duración |
 | Hoja de exportación en WebKit 26 | cuerpo de una línea: las opciones no se ven | la hoja entera, con sus opciones |
 | Pestaña «Video y GIF» en el WebKit 26 de Linux | la página se cierra | explica que no hay codificadores de video y ofrece el GIF |
+| Código exportado cuya tipografía llega después de 5 s, pieza quieta (e2e, y el verificador en WebKit) | se queda con la de reserva | vuelve a dibujarse: el mismo fotograma que con la tipografía a tiempo |
+| Dos bucles de una pieza con Estela como fotogramas de terminal (e2e) | el fotograma 0 (sin estela) ≠ el de un bucle después | idénticos, carácter a carácter |
 | MP4 renderizado en Firefox 142, `ffmpeg -v error` | «sps_id 1 out of range» (la cabecera describe un SPS 14 y un PPS que apunta a un SPS 1; el video usa el SPS 0) | sin errores |
 | Cámara con el permiso denegado / sin cámara | «No se pudo abrir la cámara. Revisa el permiso del navegador.» en los dos casos | un mensaje para cada caso, con qué hacer |
 
