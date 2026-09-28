@@ -9,10 +9,11 @@ import {
 } from './gl';
 import { BLUR_FS, COMPOSE_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
 import type { PatternLibrary } from './glsl/patterns';
-import { drawTextSource, layoutMessage, messageState, textAnimated, type MsgLayout } from './text';
+import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from './text';
 import { XFORM_FS } from './glsl/xform';
 import { XF_COPY, XF_MEDIA, XF_TEXT, XF_TRAIL, activeXforms, needsPattern, trailDecay, trailStage, xformStages, type XformStage } from './xform';
-import { animateMessage, movedCell, msgColorAnim, scramblePool } from './letters';
+import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } from './letters';
+import { fold, morphPeriod, loopTime, ondularTimes, pieceTime, wordsRate } from './loop';
 import type { PreviewQuality, Renderer } from './renderer';
 import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
 
@@ -376,11 +377,13 @@ export class AsciiEngine implements Renderer {
   /**
    * Pixels of a region of the last frame (top-left origin), read without making the page wait for the
    * GPU: into a pixel buffer, then copied out once a fence says the GPU is done. Needs
-   * preserveDrawingBuffer (offscreen engines). Null if the context went away.
+   * preserveDrawingBuffer (offscreen engines). Null if the context went away (also before its event arrives:
+   * a lost context reads as zeros, and a blank picture must never pass for the piece, e.g. as a thumbnail).
    */
   async snapshot(sx: number, sy: number, sw: number, sh: number): Promise<ImageData | null> {
     const gl = this.gl;
-    if (this.lost) return null;
+    const gone = () => this.lost || gl.isContextLost();
+    if (gone()) return null;
     sx = Math.max(0, Math.min(this.W - 1, Math.round(sx))); sy = Math.max(0, Math.min(this.H - 1, Math.round(sy)));
     sw = Math.max(1, Math.min(this.W - sx, Math.round(sw))); sh = Math.max(1, Math.min(this.H - sy, Math.round(sh)));
     const size = sw * sh * 4;
@@ -391,15 +394,17 @@ export class AsciiEngine implements Renderer {
     gl.readPixels(sx, this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     const sync = this.fence();
+    // no fence: the context went away between two calls (some browsers return null then)
+    if (!sync || gone()) { if (sync) gl.deleteSync(sync); gl.deleteBuffer(pbo); return null; }
     const t0 = performance.now();
-    while (!this.lost && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
-    if (this.lost) return null;
+    while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
+    if (gone()) return null;
     const raw = new Uint8Array(size);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
     gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     gl.deleteBuffer(pbo);
-    if (sync) gl.deleteSync(sync);
+    gl.deleteSync(sync);
     // GL rows run bottom to top
     const out = new ImageData(sw, sh), row = sw * 4;
     for (let y = 0; y < sh; y++) out.data.set(raw.subarray((sh - 1 - y) * row, (sh - y) * row), y * row);
@@ -794,8 +799,8 @@ export class AsciiEngine implements Renderer {
     if (this.r.source !== 'text') return;
     const t = this.r.text;
     // letters that move are drawn again at each moment (at a resolution the cells need, see text.ts)
-    const anim = textAnimated(t) ? { time: this.timeQ(), cols: this.cols } : undefined;
-    const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}` : '');
+    const anim = textAnimated(t) ? { time: this.timeQ(), cols: this.cols, loop: this.r.motion.loop } : undefined;
+    const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}|${anim.loop}` : '');
     if (key === this.textKey) return;
     this.textKey = key;
     this.textCanvas ??= document.createElement('canvas');
@@ -818,10 +823,11 @@ export class AsciiEngine implements Renderer {
     // letters that move are placed again at each moment (letters.ts); still ones are uploaded once
     const a = m.anim && m.anim.kind !== 'color' ? m.anim : null;
     const tq = this.timeQ();
-    const akey = a ? `${key}|${a.kind}|${a.amount}|${a.speed}|${tq}` : key;
+    const loop = this.r.motion.loop;
+    const akey = a ? `${key}|${a.kind}|${a.amount}|${a.speed}|${tq}|${loop}` : key;
     if (akey === this.msgAnimKey) return;
     this.msgAnimKey = akey;
-    const data = a ? animateMessage(this.msg, a, tq, this.rows, scramblePool(this.atlas.n)) : this.msg.data;
+    const data = a ? animateMessage(this.msg, a, tq, this.rows, scramblePool(this.atlas.n), loop) : this.msg.data;
     resizeTex(this.gl, this.tMsg, this.msg.width, this.rows, data);
   }
 
@@ -989,9 +995,9 @@ export class AsciiEngine implements Renderer {
     this.ptr.impulse = 0;
   }
 
+  /** The piece's time as the passes read it: stop motion, and with «Bucle perfecto» the loop's time (loop.ts). */
   private timeQ(): number {
-    const h = this.r.motion.hold;
-    return h > 0 ? Math.floor(this.t * h) / h : this.t;
+    return pieceTime(this.t, this.r.motion);
   }
 
   private runSim(dt: number) {
@@ -1054,7 +1060,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uPulse'), this.pulse(tq));
     gl.uniform1f(loc(gl, p, 'uMediaMix'), r.media.mix);
     gl.uniform1i(loc(gl, p, 'uMediaBlend'), Math.max(0, BLENDS.indexOf(r.media.blend)));
-    gl.uniform1f(loc(gl, p, 'uMorph'), r.text.morph);
+    gl.uniform1f(loc(gl, p, 'uMorph'), morphPeriod(r.text.morph, r.motion.loop));
     this.bindMediaUniforms(p, 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.tText.tex);
     gl.uniform1i(loc(gl, p, 'uText'), 3);
@@ -1105,7 +1111,10 @@ export class AsciiEngine implements Renderer {
     gl.uniform2f(loc(gl, p, 'uRes'), this.W, this.H);
     gl.uniform2f(loc(gl, p, 'uCell'), this.cw, this.ch);
     gl.uniform1f(loc(gl, p, 'uAspect'), this.ch / this.cw);
-    gl.uniform1f(loc(gl, p, 'uTime'), this.timeQ());
+    // (Ondular's two waves: the piece's time, or with a loop each its own, see loop.ts)
+    const [ta, tb] = ondularTimes(this.timeQ(), this.r.motion.loop);
+    gl.uniform1f(loc(gl, p, 'uTime'), ta);
+    gl.uniform1f(loc(gl, p, 'uTimeB'), tb);
     const bind = (unit: number, t: Tex, name: string) => {
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.uniform1i(loc(gl, p, name), unit);
     };
@@ -1209,7 +1218,10 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uInvert'), r.tone.invert ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uLevels'), r.tone.levels);
     gl.uniform1i(loc(gl, p, 'uGMode'), ['density', 'lines', 'scramble', 'words'].indexOf(r.glyph.mode));
-    gl.uniform1f(loc(gl, p, 'uJitter'), r.glyph.jitter);
+    const loop = r.motion.loop;
+    // «Palabras» with a loop: a whole number of passes over the words in it (loop.ts)
+    gl.uniform1f(loc(gl, p, 'uJitter'), loop > 0 && r.glyph.mode === 'words' ? wordsRate(r.glyph.jitter, this.wordsN, loop) / 8 : r.glyph.jitter);
+    gl.uniform1f(loc(gl, p, 'uLoop'), loop > 0 ? loop : 0);
     gl.uniform1f(loc(gl, p, 'uWordsN'), this.wordsN);
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
@@ -1225,7 +1237,8 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uMsgOn'), m.on && lay ? 1 : 0);
     let cursor: [number, number] = [-9, -9], cursorOn = 0;
     if (m.on && lay) {
-      const st = messageState(m, lay.count, this.t, lay.spans);
+      // with a loop, a whole number of the message's cycles fits in it
+      const st = messageState(m, lay.count, loop > 0 ? loopTime(this.t, loop, messageCycle(m, lay.count, lay.width)) : this.t, lay.spans);
       gl.uniform1i(loc(gl, p, 'uMsgMode'), ['static', 'type', 'decode', 'marquee', 'words'].indexOf(m.mode));
       gl.uniform1f(loc(gl, p, 'uMsgProg'), st.prog);
       gl.uniform1f(loc(gl, p, 'uMsgWin'), 6);
@@ -1234,7 +1247,7 @@ export class AsciiEngine implements Renderer {
       if (st.cursorOn && st.cursor >= 0 && lay.cells.length) {
         const cell = lay.cells[Math.min(lay.cells.length - 1, st.cursor)];
         // the cursor goes where the letters it follows went
-        cursor = m.anim ? movedCell(lay, m.anim, tq, this.rows, cell, st.cursor) : cell;
+        cursor = m.anim ? movedCell(lay, m.anim, tq, this.rows, cell, st.cursor, loop) : cell;
         cursorOn = cursor[0] >= 0 ? 1 : 0;
       }
     }
@@ -1242,6 +1255,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uMsgAnim'), ca ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uMsgSp'), ca?.speed ?? 0);
     gl.uniform1f(loc(gl, p, 'uMsgAmt'), ca?.amount ?? 0);
+    gl.uniform1f(loc(gl, p, 'uMsgTime'), msgColorTime(m, tq, loop));
     const mc = m.color ? hexToRgb(m.color) : [1, 1, 1];
     gl.uniform3f(loc(gl, p, 'uMsgColor'), mc[0], mc[1], mc[2]);
     gl.uniform1f(loc(gl, p, 'uMsgUseColor'), m.color ? 1 : 0);
@@ -1318,6 +1332,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uFlicker'), fx.flicker);
     gl.uniform1f(loc(gl, p, 'uGridAmt'), fx.grid);
     gl.uniform1f(loc(gl, p, 'uTime'), this.realT);
+    gl.uniform1f(loc(gl, p, 'uFxTime'), r.motion.loop > 0 ? fold(this.t, r.motion.loop) : this.realT);
     gl.uniform1f(loc(gl, p, 'uMsgBox'), r.msg.on ? r.msg.box : 0);
     gl.uniform1f(loc(gl, p, 'uTrans'), trans);
     const ts = this.transSpec;

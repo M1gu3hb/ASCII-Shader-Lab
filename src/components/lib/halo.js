@@ -18,6 +18,7 @@ export const haloDefaults = {
 export function halo(el, options = {}) {
   const o = { ...haloDefaults, ...options };
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pos = el.style.position, iso = el.style.isolation;
   if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
   el.style.isolation = 'isolate';
   const cv = document.createElement('canvas');
@@ -63,12 +64,27 @@ export function halo(el, options = {}) {
   }
   const onMove = e => { const r = el.getBoundingClientRect(); px = e.clientX - r.left; py = e.clientY - r.top; target = 1; if (!raf && !reduced) raf = requestAnimationFrame(tick); else if (reduced) { on = 1; draw(); } };
   const onLeave = () => { target = 0; if (!raf && !reduced) raf = requestAnimationFrame(tick); else if (reduced) { on = 0; draw(); } };
+  // the keyboard lights it from the middle (at once, and still, with «reducir movimiento»)
+  const onFocus = () => { px = W / 2; py = H / 2; target = 1; if (reduced) { on = 1; draw(); } else if (!raf) raf = requestAnimationFrame(tick); };
   el.addEventListener('pointermove', onMove, { passive: true });
   el.addEventListener('pointerleave', onLeave);
-  el.addEventListener('focus', () => { px = W / 2; py = H / 2; target = 1; if (!raf) raf = requestAnimationFrame(tick); });
+  el.addEventListener('focus', onFocus);
   el.addEventListener('blur', onLeave);
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
   ro?.observe(el);
   resize();
-  return { destroy() { cancelAnimationFrame(raf); ro?.disconnect(); el.removeEventListener('pointermove', onMove); el.removeEventListener('pointerleave', onLeave); cv.remove(); } };
+  return {
+    destroy() {
+      cancelAnimationFrame(raf);
+      raf = 0;
+      ro?.disconnect();
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerleave', onLeave);
+      el.removeEventListener('focus', onFocus);
+      el.removeEventListener('blur', onLeave);
+      cv.remove();
+      el.style.position = pos;
+      el.style.isolation = iso;
+    },
+  };
 }

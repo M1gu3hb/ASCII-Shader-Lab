@@ -184,3 +184,20 @@ describe('letras que se mueven', () => {
     expect(Math.hypot(out.dx, out.dy)).toBeGreaterThan(50);
   });
 });
+
+describe('tus rampas', () => {
+  it('con la lista llena, guardar otra no borra ninguna de las guardadas (lo dice en vez de descartar la más antigua)', async () => {
+    const { RAMPS_MAX, rampOf, saveRamp, useRamps } = await import('../../src/studio/ui/ramps');
+    useRamps.setState({ list: [], saved: true });
+    for (let i = 0; i < RAMPS_MAX; i++) expect(saveRamp(`R${i}`, ` .:${i}`)).not.toBeNull();
+    expect(useRamps.getState().list).toHaveLength(RAMPS_MAX);
+    // the first one saved is the oldest: it stays
+    expect(saveRamp('Una más', ' .:-=+*#%@x')).toBeNull();
+    expect(useRamps.getState().list).toHaveLength(RAMPS_MAX);
+    expect(rampOf(' .:0')?.name).toBe('R0');
+    expect(rampOf(' .:-=+*#%@x')).toBeUndefined();
+    // the same characters again only rename it, full or not
+    expect(saveRamp('Cero', ' .:0')?.name).toBe('Cero');
+    expect(useRamps.getState().list).toHaveLength(RAMPS_MAX);
+  });
+});

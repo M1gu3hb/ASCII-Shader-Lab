@@ -120,7 +120,14 @@ void main(){
   ${loop ? `
   float tl = mod(uTime, uLoop);
   float w = tl / uLoop;
-  pv = mix(stack(q, tl), stack(q, tl - uLoop), w);
+  // the warp drifts too: the second stack reads it as it was one loop earlier
+  vec2 q2 = pp;
+  if (uWarp > 0.){
+    vec2 wq = pp * uWarpScale * 1.2;
+    float t2 = tl - uLoop;
+    q2 += uWarp * (vec2(fbm(wq + t2 * .15), fbm(wq + vec2(5.2, 1.3) - t2 * .15)) - .5) * 1.6;
+  }
+  pv = mix(stack(q, tl), stack(q2, tl - uLoop), w);
   pv = clamp(.5 + (pv - .5) * (1. + .41 * sin(PI * w)), 0., 1.);` : `
   pv = stack(q, uTime);`}
   // the pattern alone, for a transformation that reads it (Desplazar, see glsl/xform.ts)
@@ -212,7 +219,8 @@ uniform float uMsgProg, uMsgWin, uMsgShift, uMsgW;
 uniform vec3 uMsgColor;
 uniform float uMsgUseColor;
 uniform int uMsgAnim;
-uniform float uMsgSp, uMsgAmt;
+uniform float uMsgSp, uMsgAmt, uMsgTime;
+uniform float uLoop;
 uniform vec2 uCursor;
 uniform float uCursorOn, uBlockIdx;
 uniform int uIMode;
@@ -230,6 +238,16 @@ vec3 hueShift(vec3 c, float a){ vec3 k = vec3(.57735); float ca = cos(a); return
 float tri(float x){ return 1. - abs(1. - mod(x, 2.)); }
 float dec16(vec2 v){ return floor(v.x * 255. + .5) + floor(v.y * 255. + .5) * 256.; }
 vec2 enc16(float i){ return vec2(mod(i, 256.), floor(i / 256.)) / 255.; }
+// where a cell reads the palette at time t
+float gradPos(vec2 uv, float l, float t){
+  float g = l;
+  if (uMap == 1) g = uv.x;
+  else if (uMap == 2) g = 1. - uv.y;
+  else if (uMap == 3) g = length((uv - .5) * vec2(uGrid.x / (uGrid.y * uAspect), 1.)) * 1.5;
+  else if (uMap == 4) g = atan(uv.y - .5, (uv.x - .5) * uGrid.x / (uGrid.y * uAspect)) / TAU + .5;
+  else if (uMap == 5) g = smoothstep(.25, .75, fbm(uv * vec2(uGrid.x / (uGrid.y * uAspect), 1.) * 2.2 + t * .03));
+  return tri(g + uShift + uCycle * t);
+}
 void main(){
   ivec2 c = ivec2(gl_FragCoord.xy);
   vec2 cf = vec2(c);
@@ -280,15 +298,11 @@ void main(){
     }
   }
 
-  float g = l;
   vec2 uv = (cf + .5) / uGrid;
-  if (uMap == 1) g = uv.x;
-  else if (uMap == 2) g = 1. - uv.y;
-  else if (uMap == 3) g = length((uv - .5) * vec2(uGrid.x / (uGrid.y * uAspect), 1.)) * 1.5;
-  else if (uMap == 4) g = atan(uv.y - .5, (uv.x - .5) * uGrid.x / (uGrid.y * uAspect)) / TAU + .5;
-  else if (uMap == 5) g = smoothstep(.25, .75, fbm(uv * vec2(uGrid.x / (uGrid.y * uAspect), 1.) * 2.2 + uTime * .03));
-  g = tri(g + uShift + uCycle * uTime);
-  vec3 base = texture(uGrad, vec2(g, .5)).rgb;
+  vec3 base = texture(uGrad, vec2(gradPos(uv, l, uTime), .5)).rgb;
+  // with a loop, what drifts (the colour cycle, the noise map) fades from its state one loop earlier into its
+  // start, as the pattern layers do (uTime is then the loop's time)
+  if (uLoop > 0. && (uCycle != 0. || uMap == 5)) base = mix(base, texture(uGrad, vec2(gradPos(uv, l, uTime - uLoop), .5)).rgb, uTime / uLoop);
   if (uCMode == 1 && uIsMedia == 1){
     base = f.rgb;
     float mx = max(max(base.r, base.g), base.b);
@@ -308,7 +322,7 @@ void main(){
       if (uMsgAnim == 1){
         // «Color por letra»: each letter a colour of its own (the palette's upper part, or the own colour's
         // hue turned), moving along the message
-        float ph = ord * .07 - uTime * uMsgSp * .35;
+        float ph = ord * .07 - uMsgTime * uMsgSp * .35;
         vec3 lc = uMsgUseColor > .5 ? clamp(hueShift(uMsgColor, ph * TAU), 0., 1.) : texture(uGrad, vec2(.35 + .65 * tri(ph * 2.), .5)).rgb;
         mcol = mix(mcol, lc, uMsgAmt);
       }
@@ -364,6 +378,7 @@ uniform float uTrans, uTransparent, uReveal, uEraseReveal, uHasMedia, uN;
 uniform int uTransKind;
 uniform vec2 uTransOrigin;
 uniform float uTransDir, uTransSeed;
+uniform float uFxTime;
 ${GLSL_MEDIA}
 out vec4 o;
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -500,8 +515,9 @@ void main(){
   }
   if (uScan > 0.) col *= 1. - uScan * .45 * (.5 + .5 * cos(fc.y * 1.5708));
   if (uVig > 0.){ vec2 vv = fc / uRes - .5; col *= 1. - uVig * dot(vv, vv) * 2.2; }
-  if (uFlicker > 0.) col *= 1. - uFlicker * .12 * (.5 + .5 * sin(uTime * 53.)) * hash12(vec2(floor(uTime * 12.), 3.));
-  if (uGrain > 0. && uTransparent < .5) col += (hash12(fc + fract(uTime * 13.7) * 311.) - .5) * uGrain * .16;
+  // (uFxTime: the real time, or with a loop the loop's time, so flicker and grain repeat with it)
+  if (uFlicker > 0.) col *= 1. - uFlicker * .12 * (.5 + .5 * sin(uFxTime * 53.)) * hash12(vec2(floor(uFxTime * 12.), 3.));
+  if (uGrain > 0. && uTransparent < .5) col += (hash12(fc + fract(uFxTime * 13.7) * 311.) - .5) * uGrain * .16;
   col *= edgeMask;
   if (uTrans >= 0.){
     vec2 st = transCell(tc, uTrans);

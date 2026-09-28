@@ -132,7 +132,7 @@ function LayerCard({ i, n }: { i: number; n: number }) {
           )}
           onChange={v => edit(r => { r.layers[i].pattern = v; }, `layers.${i}.pattern`)} />
         <button type="button" className="icon-btn" title="Otro patrón al azar" aria-label="Otro patrón al azar" onClick={reroll}><IDice /></button>
-        <button type="button" className="icon-btn" aria-pressed={!on} title={n === 1 ? 'La única capa no se oculta' : on ? 'Ocultar capa' : 'Mostrar capa'} aria-label={on ? 'Ocultar capa' : 'Mostrar capa'}
+        <button type="button" className="icon-btn" aria-pressed={!on} title={n === 1 ? 'La única capa no se oculta' : on ? 'Ocultar capa' : 'Oculta: pulsa para mostrarla'} aria-label={`Ocultar la capa ${i + 1}`}
           onClick={() => edit(r => { r.layers[i].on = !r.layers[i].on; }, 'toggle' + Date.now())} disabled={n === 1}>{on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={`Patrón de la capa ${i + 1}`} />}
       </div>

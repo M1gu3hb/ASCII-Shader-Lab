@@ -49,7 +49,8 @@
 
 .ramp-mine { margin: 4px 0 8px; }
 .ramp-mine ul { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
-.ramp-mine li { display: flex; gap: 4px; align-items: stretch; }
+/* (min-width: a long name shortens with «…» instead of widening the list and pushing «Borrar» out of the pane) */
+.ramp-mine li { display: flex; gap: 4px; align-items: stretch; min-width: 0; }
 .ramp-chip {
   flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; padding: 4px 10px;
   border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--text); text-align: left; font-size: 13px;

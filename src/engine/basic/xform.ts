@@ -36,8 +36,10 @@ export interface StageEnv {
   cols: number; rows: number;
   /** Cell height / width. */
   aspect: number;
-  /** Held time. */
+  /** Held time (with a loop, Ondular's first wave's time: see loop.ts). */
   time: number;
+  /** Ondular's second wave's time (absent, or without a loop: `time`). */
+  timeB?: number;
   /** Pattern values (Desplazar). */
   pat: Uint8Array;
   /** Current trail (Estela), already updated for this frame. */
@@ -149,7 +151,7 @@ export function runStage(s: XformStage, inp: Uint8Array, out: Uint8Array, e: Sta
         }
         case 6: { // ondular
           const ox = Math.sin(((y + 0.5) / rows) * K * PI + e.time * 2) * amt * 6;
-          const oy = Math.cos(((x + 0.5) / cols) * K * 0.7 * PI - e.time * 1.6) * amt * 3;
+          const oy = Math.cos(((x + 0.5) / cols) * K * 0.7 * PI - (e.timeB ?? e.time) * 1.6) * amt * 3;
           const sv = I(inp, cols, rows, Math.floor(x + 0.5 + ox), Math.floor(y + 0.5 + oy));
           put(i, sv[0], sv[1], sv[2]);
           break;
