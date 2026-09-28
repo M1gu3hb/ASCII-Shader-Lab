@@ -1,7 +1,11 @@
 /**
- * Filters shared by several finishes: a Gaussian blur made of three "extended box" passes per axis
- * (O(1) per pixel whatever the radius, continuous in the radius), a bilinear sampler of premultiplied
- * float buffers and a separable max filter.
+ * Filters shared by several finishes:
+ *   - gaussBlur: three "extended box" passes per axis (O(1) per pixel whatever the radius, continuous in
+ *     the radius), binomial3 for σ ≈ 0.7;
+ *   - shiftMix4 / affineMix4 / fromPremulAffine: bilinear resampling passes of the directional blurs;
+ *   - coarseTone + readCoarse / expandCoarse2 / expandCoarse4: a smooth area-averaged copy on a coarser
+ *     grid, for reading tones at cell centres and for wide blurs at a fraction of the cost;
+ *   - sample1, maxFilter: single-channel helpers (shadows, edges).
  *
  * Float buffers hold `ch` interleaved channels per pixel (1 for masks, 4 for premultiplied RGBA).
  */
@@ -133,24 +137,6 @@ export function gaussBlur(buf: Float32Array, tmp: Float32Array, w: number, h: nu
   const acc = accScratch;
   boxH(buf, tmp, w, h, ch, r, a, acc); boxH(tmp, buf, w, h, ch, r, a, acc); boxH(buf, tmp, w, h, ch, r, a, acc);
   boxV(tmp, buf, w, h, ch, r, a, acc); boxV(buf, tmp, w, h, ch, r, a, acc); boxV(tmp, buf, w, h, ch, r, a, acc);
-}
-
-/**
- * Bilinear sample of a premultiplied 4-channel float buffer at (x, y) (pixel centres at integer + 0.5
- * are NOT assumed: x, y are in pixel-index space), clamp-to-edge. Writes to out[o..o+3].
- */
-export function sample4(buf: Float32Array, w: number, h: number, x: number, y: number, out: Float32Array, o: number): void {
-  if (x < 0) x = 0; else if (x > w - 1) x = w - 1;
-  if (y < 0) y = 0; else if (y > h - 1) y = h - 1;
-  const x0 = x | 0, y0 = y | 0;
-  const fx = x - x0, fy = y - y0;
-  const x1 = x0 + 1 < w ? x0 + 1 : x0, y1 = y0 + 1 < h ? y0 + 1 : y0;
-  const i00 = (y0 * w + x0) * 4, i10 = (y0 * w + x1) * 4, i01 = (y1 * w + x0) * 4, i11 = (y1 * w + x1) * 4;
-  const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
-  out[o] = buf[i00] * w00 + buf[i10] * w10 + buf[i01] * w01 + buf[i11] * w11;
-  out[o + 1] = buf[i00 + 1] * w00 + buf[i10 + 1] * w10 + buf[i01 + 1] * w01 + buf[i11 + 1] * w11;
-  out[o + 2] = buf[i00 + 2] * w00 + buf[i10 + 2] * w10 + buf[i01 + 2] * w01 + buf[i11 + 2] * w11;
-  out[o + 3] = buf[i00 + 3] * w00 + buf[i10 + 3] * w10 + buf[i01 + 3] * w01 + buf[i11 + 3] * w11;
 }
 
 /** Bilinear sample of a 1-channel float buffer, clamp-to-edge. */

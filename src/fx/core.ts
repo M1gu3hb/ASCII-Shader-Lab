@@ -172,6 +172,3 @@ export function fromPremul(buf: Float32Array, dst: Img): void {
     d[i] = buf[i] * k; d[i + 1] = buf[i + 1] * k; d[i + 2] = buf[i + 2] * k; d[i + 3] = a;
   }
 }
-
-/** Copies src into dst. */
-export function copyImg(src: Img, dst: Img): void { dst.data.set(src.data); }

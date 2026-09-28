@@ -7,7 +7,8 @@
  * Colour modes: 1 bit (ink/paper), N tones between ink and paper, N levels per RGB channel, a palette.
  * Work happens at a coarser grid when `pixel` > 1 (area average down, nearest up: «blocky pixel»).
  * Values are floats in 0..1, in sRGB or, with `linear`, in linear light (so a 50 % grey dithers to the
- * share of paper that reflects half the light).
+ * share of paper that reflects half the light). In 1 bit and tones the value is the share of paper whose
+ * mix with the ink has the pixel's brightness, so light ink on dark paper keeps the picture positive.
  *
  * Alpha: fully transparent pixels take no part (no error comes out of them, error sent to them is
  * dropped), and the output keeps the input alpha — times the ink coverage when the paper is transparent.
@@ -111,11 +112,13 @@ function matrixFor(algo: string): { m: Float32Array; n: number } | null {
 
 /* ------------------------------------------------------------------ gilbert curve */
 
-let curveCache: { w: number; h: number; path: Int32Array } | null = null;
+/** The last two curves (a preview and a final render alternate sizes). */
+const curveCache: Array<{ w: number; h: number; path: Int32Array }> = [];
 
 /** Pixel indices of a w×h rectangle in the order of the generalised Hilbert curve (Červený's gilbert2d). */
 export function gilbertPath(w: number, h: number): Int32Array {
-  if (curveCache && curveCache.w === w && curveCache.h === h) return curveCache.path;
+  const hit = curveCache.find(c => c.w === w && c.h === h);
+  if (hit) return hit.path;
   const out = new Int32Array(w * h);
   let n = 0;
   const sgn = (v: number) => (v > 0 ? 1 : v < 0 ? -1 : 0);
@@ -138,7 +141,8 @@ export function gilbertPath(w: number, h: number): Int32Array {
     }
   };
   if (w > 0 && h > 0) { if (w >= h) gen(0, 0, w, 0, 0, h); else gen(0, 0, 0, h, w, 0); }
-  curveCache = { w, h, path: out };
+  curveCache.unshift({ w, h, path: out });
+  curveCache.length = Math.min(curveCache.length, 2);
   return out;
 }
 
@@ -150,7 +154,6 @@ const SRGB_N = 4096;
 const TO_SRGB = new Float32Array(SRGB_N + 1);
 for (let i = 0; i <= SRGB_N; i++) { const c = i / SRGB_N; TO_SRGB[i] = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
 const linToSrgb = (v: number) => TO_SRGB[v <= 0 ? 0 : v >= 1 ? SRGB_N : (v * SRGB_N + 0.5) | 0];
-export const srgbToLin = (byte: number) => TO_LIN[byte];
 
 /* ------------------------------------------------------------------ the core */
 

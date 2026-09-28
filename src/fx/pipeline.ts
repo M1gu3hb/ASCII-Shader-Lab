@@ -134,7 +134,7 @@ export function finishBleed(finishes: readonly Finish[] | null | undefined): num
       case 'shadow': m += n('distance') + n('blur') * 1.5; break;
       case 'blur': m += n('radius') * 3; break;
       case 'motionblur': m = p.mode === 'linear' ? m + n('distance') : Infinity; break;
-      case 'chroma': m += n('amount') * (p.mode === 'radial' ? 1 : 1) + (n('jitter') > 0 ? 40 : 0); break;
+      case 'chroma': m += n('amount') + n('jitter') * 33; break; // the shift, plus the widest VHS tear
       case 'edges': m += n('width') + 2; break;
       case 'pixelate': m += n('size'); break;
       default: break;
