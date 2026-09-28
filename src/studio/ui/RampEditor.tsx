@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { measureDensity, uniqueChars } from '../../engine/atlas';
 import { CHARSETS, fontById } from '../../engine/catalog';
-import type { GlyphMode } from '../../engine/recipe';
+import { CHARSET_DEFAULT, type GlyphMode } from '../../engine/recipe';
 import { F, Note, Text, Toggle, useField } from '../controls';
 import { studioFonts } from '../engineBridge';
 import { ITrash } from '../icons';
@@ -94,6 +94,7 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
           })}
         </ol>
       </div>
+      {!glyphs.length && <Note>Sin caracteres, la pieza usa la rampa por defecto: <code>{CHARSET_DEFAULT}</code></Note>}
       {outOfOrder && <Note>Los marcados tienen menos tinta que el anterior: la pieza los usará en este orden. Ordénalos si quieres un degradado suave.</Note>}
       {outOfOrder && (
         <button type="button" className="btn" onClick={() => {
