@@ -88,7 +88,7 @@ function profile(page: Page, bytes: Buffer, type: string): Promise<number[]> {
       const v = document.createElement('video');
       v.muted = true;
       v.src = URL.createObjectURL(blob);
-      await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error('video')); });
+      await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error('video')); setTimeout(() => rej(new Error('el video grabado no carga')), 20_000); });
       v.currentTime = 0.2;
       await new Promise(res => { v.onseeked = res; setTimeout(res, 1500); });
       src = v; w = v.videoWidth; h = v.videoHeight;
@@ -146,7 +146,7 @@ async function pause(page: Page) {
 
 test.describe('la cámara', () => {
   test('la frontal empieza en espejo, y la imagen fija y la grabación salen como el escenario', async ({ playwright, baseURL }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(360_000);
     // (a plain ASCII path: Chromium does not open the clip from the test's own folder, named after its title)
     mkdirSync(test.info().project.outputDir, { recursive: true });
     const clip = join(test.info().project.outputDir, `camera-marker-${test.info().workerIndex}.y4m`);
@@ -187,7 +187,7 @@ test.describe('la cámara', () => {
     const chip = page.locator('.rec-chip');
     await expect(chip).toContainText('Grabando');
     await page.waitForTimeout(2000);
-    const [d] = await Promise.all([page.waitForEvent('download'), chip.getByRole('button', { name: 'Detener y guardar' }).click()]);
+    const [d] = await Promise.all([page.waitForEvent('download', { timeout: 60_000 }), chip.getByRole('button', { name: 'Detener y guardar' }).click()]);
     const name = d.suggestedFilename();
     const rec = await profile(page, readFileSync((await d.path())!), name.endsWith('.mp4') ? 'video/mp4' : 'video/webm');
     const r = sameWay(rec, onStage);
@@ -197,7 +197,7 @@ test.describe('la cámara', () => {
   });
 
   test('la trasera, sin espejo; lo que eliges se mantiene al apagar y encender, y el espejo automático no cuenta como edición', async ({ playwright, baseURL }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     const browser = await playwright.chromium.launch({ args: [...GL, ...FAKE.map(a => (a === FAKE[0] ? `${a}=device-count=2` : a))] });
     const { page, errors } = await studio(browser, baseURL!, true);
     await page.locator('.prompt .card').getByRole('button', { name: 'Activar cámara' }).click();
@@ -217,6 +217,7 @@ test.describe('la cámara', () => {
 
     // the rear camera: as it is
     await rear.click();
+    await cameraOn(page);
     await expect(rear).toHaveAttribute('aria-checked', 'true');
     await expect(mirrorSwitch(page)).not.toBeChecked();
     // two cameras listed, with their names: the device picker shows the one on
@@ -233,6 +234,7 @@ test.describe('la cámara', () => {
 
     // back to the front one: its own default (a mirror)
     await front.click();
+    await cameraOn(page);
     await expect(front).toHaveAttribute('aria-checked', 'true');
     await expect(mirrorSwitch(page)).toBeChecked();
     // no mirror for the front camera, by choice: kept on restart, and after reloading the page

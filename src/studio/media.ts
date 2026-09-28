@@ -444,7 +444,8 @@ export async function startCamera(ask: { facing?: Facing; deviceId?: string | nu
   saveCamWant(want);
   // phones open one camera at a time: the one that is on stops before the other opens
   if (camStream) releaseCamera();
-  useMedia.setState({ camera: 'starting', error: null });
+  // until the new camera says which way it looks, the one asked for counts (an «Espejo» flipped meanwhile is its)
+  useMedia.setState({ camera: 'starting', camFacing: null, camDevice: null, error: null });
   followCameraPieces();
   let stream: MediaStream | null = null;
   try {
