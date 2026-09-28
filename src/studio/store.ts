@@ -665,7 +665,11 @@ function setStorage(storage: State['storage']) {
  * `now`: a normal save, written only while this tab still owns the data. `leave`: the page is going
  * away. `claim`: this tab takes the data over (hydrate): writes its token and drops a v2 history.
  */
+/** A v2 history to delete: kept until a save that carries the deletion lands (a save made as the page is
+ * hidden can take the place of the load's one, and would otherwise leave it behind to be added again). */
+let dropV2Pending = false;
 async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Promise<void> {
+  if (dropV2) dropV2Pending = true;
   const s = S();
   if (!s.ready || paused) return;
   const at = edits;
@@ -687,7 +691,8 @@ async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Pr
   if (nSeen !== savedSeen) puts.push([K_SEEN, [...seen].slice(-6000)]);
   const claim = kind === 'claim' || !tokenStored;
   if (claim) puts.push([K_OWNER, token]);
-  if (dropV2) dels.push(K_HIST_V2);
+  const dropping = dropV2Pending;
+  if (dropping) dels.push(K_HIST_V2);
   if (!puts.length && !dels.length) { if (at === edits) guardUnload(false); return; }
   try {
     // one transaction: the records, the index that points to them and what nothing points to any more
@@ -696,6 +701,7 @@ async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Pr
     // the page is being left: the save made then carries these changes too
     if (r === 'superseded') return;
     if (claim) tokenStored = true;
+    if (dropping) dropV2Pending = false;
     saved = next;
     if (index) { savedIds = ids; savedCursor = s.cursor; }
     savedFavs = favs;

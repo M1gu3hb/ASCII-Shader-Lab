@@ -291,7 +291,9 @@ async function mediaFor(r: Recipe, current: boolean): Promise<Media> {
   if (!ref.id) return 'missing';
   if (onStage && shown?.id === ref.id) return { el: onStage };
   const hit = decoded.get(ref.id);
-  if (hit) return { el: hit.el };
+  // a hit counts as a use: it becomes the newest and the 30 s release starts again, so the bitmap is
+  // never closed under a render that is about to draw it
+  if (hit) { keepDecoded(ref.id, hit.el); return { el: hit.el }; }
   const found = await mediaBlob(ref.id).catch(() => null);
   if (!found) return 'missing';
   const el = src === 'image' ? await decodeSmall(found.blob) : await videoFrame(found.blob);

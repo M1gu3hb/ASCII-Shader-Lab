@@ -84,6 +84,14 @@ export function ScrollRow({ children, role = 'group', roving, activate = 'auto',
     el.addEventListener('scroll', onScroll, { passive: true });
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
     ro?.observe(el);
+    // the row's own box can keep its size while its content grows (labels, swatches, items added by a
+    // child that re-renders alone): watch the items too, and new items as they arrive
+    const watchItems = () => { for (const c of Array.from(el.children)) ro?.observe(c); };
+    watchItems();
+    const mo = typeof MutationObserver === 'function'
+      ? new MutationObserver(() => { watchItems(); cancelAnimationFrame(raf); raf = requestAnimationFrame(measure); })
+      : null;
+    mo?.observe(el, { childList: true });
     // web fonts change the width of labels after the first layout
     void document.fonts?.ready.then(measure);
     // the wheel scrolls the row sideways only while it can still go that way: at either end the
@@ -104,6 +112,7 @@ export function ScrollRow({ children, role = 'group', roving, activate = 'auto',
       el.removeEventListener('scroll', onScroll);
       el.removeEventListener('wheel', onWheel);
       ro?.disconnect();
+      mo?.disconnect();
     };
   }, [measure]);
 

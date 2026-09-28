@@ -170,18 +170,21 @@ const Thumb = memo(function Thumb({ e, i, current, fav }: { e: Entry; i: number;
   const [near, setNear] = useState(false);
   useEffect(() => (near || !ref.current ? undefined : watchNear(ref.current, () => setNear(true))), [near]);
   const pic = e.thumb ?? standIn;
+  // the list item wraps the button, so a screen reader hears both «3 de 17» and «botón»
   return (
-    <button
-      ref={ref} type="button" role="listitem" className="thumb" aria-current={current} aria-label={label} title={label}
-      data-prep={preparing || undefined} data-standin={!e.thumb && !!standIn ? true : undefined}
-      style={near && pic ? thumbBg(pic) : undefined}
-      onClick={() => go(i)}
-    >
-      <span className="n">{i + 1}</span>
-      {fav && <span className="star">★</span>}
-      {e.edited && <span className="dot" />}
-      {preparing && <span className="prep" aria-hidden="true" />}
-    </button>
+    <div role="listitem" className="thumb-li">
+      <button
+        ref={ref} type="button" className="thumb" aria-current={current} aria-label={label} title={label}
+        data-prep={preparing || undefined} data-standin={!e.thumb && !!standIn ? true : undefined}
+        style={near && pic ? thumbBg(pic) : undefined}
+        onClick={() => go(i)}
+      >
+        <span className="n">{i + 1}</span>
+        {fav && <span className="star">★</span>}
+        {e.edited && <span className="dot" />}
+        {preparing && <span className="prep" aria-hidden="true" />}
+      </button>
+    </div>
   );
 });
 

@@ -99,7 +99,9 @@ const nameEl = $('[data-hero-name]');
 const noEl = $('[data-hero-no]');
 const openEl = $<HTMLAnchorElement>('[data-hero-open]')!;
 
+let themeNo = 0;
 async function theme(r: Recipe, name: string, label: string) {
+  const mine = ++themeNo;
   const light = luminance(r.color.bg) > 0.35;
   heroEl.style.setProperty('--hero-bg', r.color.bg);
   heroEl.style.setProperty('--hero-ink', light ? '#1c1a17' : '#ede6da');
@@ -107,7 +109,9 @@ async function theme(r: Recipe, name: string, label: string) {
   seedEl.textContent = label;
   if (nameEl) swapText(nameEl, name);
   if (noEl) noEl.textContent = `N.º ${heroNo}`;
-  openEl.href = '/studio/#r=' + (await encodeRecipe({ ...r, meta: { ...r.meta, space: 'arte' } }));
+  const href = '/studio/#r=' + (await encodeRecipe({ ...r, meta: { ...r.meta, space: 'arte' } }));
+  // rapid rolls: encodings can finish out of order, and the link must open the piece on screen
+  if (mine === themeNo) openEl.href = href;
 }
 // a ready-made recipe, not a seed: typing «bermellón» as a seed would weave another piece
 void theme(heroRecipe, 'Bermellón', 'receta: Bermellón');
