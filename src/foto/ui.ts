@@ -64,7 +64,7 @@ export interface FotoUI {
   toolsV: number;
 }
 
-const narrow = () => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 760px)').matches;
+const narrow = () => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 760px), (max-height: 500px) and (orientation: landscape) and (max-width: 1000px)').matches;
 
 function loadQuality(): Quality {
   try { return localStorage.getItem('glyphos.foto.calidad') === 'ligera' ? 'ligera' : 'auto'; } catch { return 'auto'; }

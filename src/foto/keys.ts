@@ -14,6 +14,9 @@ import { say, setUI, ui, useFoto } from './ui';
 
 let space = false;
 let spaceUsed = false;
+let overView = false;
+/** The pointer is over the viewport: the space bar belongs to the studio even when a button has the focus. */
+export const setOverViewport = (v: boolean) => { overView = v; };
 
 /** The space bar is held (space-drag pans). */
 export const spaceHeld = () => space;
@@ -60,7 +63,8 @@ export function startKeys(): () => void {
     if (mod || e.altKey) return;
     const inButton = !!(e.target as HTMLElement | null)?.closest?.('button, [role="slider"], [role="option"], [role="tab"], [role="radio"], a');
     if (k === ' ') {
-      if (inButton) return;
+      if (inButton && !overView) return;
+      if (inButton) (document.activeElement as HTMLElement | null)?.blur();
       e.preventDefault();
       if (!e.repeat) { space = true; spaceUsed = false; document.documentElement.dataset.space = '1'; }
       return;
@@ -72,7 +76,8 @@ export function startKeys(): () => void {
       return;
     }
     if (k === 'ArrowRight' || k === 'ArrowLeft') {
-      if (inButton || (e.target as HTMLElement | null)?.closest?.('input[type=range]')) return;
+      // controls that use the arrows themselves keep them (sliders, radio groups, tabs, lists)
+      if ((e.target as HTMLElement | null)?.closest?.('input, [role="slider"], [role="radio"], [role="tab"], [role="option"], [role="menuitem"], [role="combobox"], .fl-list, .fsheet-grab')) return;
       e.preventDefault();
       if (k === 'ArrowRight') next(); else prev();
       return;

@@ -18,7 +18,7 @@ import { coverageOfImage, coverageToGrey, maskCanvas } from '../project/masks';
 import { useProject } from '../project/store';
 import type { Mask, Project } from '../project/types';
 import { activeTool, host, originalOf, setOverlayRedraw } from './host';
-import { markSpaceUsed, spaceHeld } from './keys';
+import { markSpaceUsed, setOverViewport, spaceHeld } from './keys';
 import { attachArt, onRendered, setDisplayScale, viewCompositor, type Rendered } from './scheduler';
 import type { Tool, ToolEvent } from './tools/types';
 import { say, setUI, useFoto } from './ui';
@@ -390,6 +390,7 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
         ref={overRef} className="fv-over" style={{ cursor }} aria-hidden="true"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={e => end(e, false)} onPointerCancel={e => end(e, true)}
         onContextMenu={e => e.preventDefault()}
+        onPointerEnter={e => { if (e.pointerType !== 'touch') setOverViewport(true); }} onPointerLeave={() => setOverViewport(false)}
       />
       {compare && !holding && (
         <div className="fv-split" style={{ left: frame.x + split * frame.w, top: Math.max(0, frame.y), height: Math.min(frame.h, size.h - Math.max(0, frame.y)) }}

@@ -3,6 +3,7 @@
  * the viewport's canvas once a final render has settled, and look at the open project. Nothing here is
  * used by the studio itself.
  */
+import * as ps from '../project/store';
 import { useProject } from '../project/store';
 import type { Project } from '../project/types';
 import { host } from './host';
@@ -25,6 +26,8 @@ export function installQA() {
   window.__foto = {
     host,
     TOOLS,
+    /** The project store's verbs (a test tool edits through them, as real tools do). */
+    ps,
     ui,
     setUI,
     project: (): Project | null => useProject.getState().project,
