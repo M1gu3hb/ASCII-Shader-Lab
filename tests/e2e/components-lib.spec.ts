@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { build } from 'esbuild';
@@ -323,5 +323,46 @@ blockBanner(document.getElementById('rotulo'), 'AÑO');
     expect(await even('#rotulo'), 'las letras de bloque').toBe(true);
     expect(errors).toEqual([]);
     await ctx.close();
+  });
+});
+
+test.describe('Halo en otra web', () => {
+  test('el foco del teclado lo enciende (quieto con «reducir movimiento») y destroy() lo suelta del todo', async ({ browser }) => {
+    // the module the studio exports (catalog.ts imports this very file)
+    const src = readFileSync(join(process.cwd(), 'src/components/lib/halo.js'), 'utf8');
+    const page0 = doc(`<button id="antes">Antes</button> <button id="b" style="padding:30px 60px">Abrir</button>
+<script>
+window.draws = 0;
+const clear = CanvasRenderingContext2D.prototype.clearRect;
+CanvasRenderingContext2D.prototype.clearRect = function (...a) { window.draws++; return clear.apply(this, a); };
+</script>
+<script type="module">import { halo } from '/halo.js'; window.ctl = halo(document.getElementById('b'), {});</script>`);
+    for (const reducedMotion of ['reduce', 'no-preference'] as const) {
+      const { ctx, page, errors } = await otherSite(browser, { '/': page0, '/halo.js': src }, reducedMotion === 'reduce' ? { reducedMotion } : {});
+      await page.goto(SITE + '/');
+      await expect(page.locator('#b canvas')).toHaveCount(1);
+      const draws = async () => {
+        await page.evaluate(() => { (window as unknown as { draws: number }).draws = 0; });
+        await page.waitForTimeout(600);
+        return page.evaluate(() => (window as unknown as { draws: number }).draws);
+      };
+      await page.locator('#antes').focus();
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#b')).toBeFocused();
+      if (reducedMotion === 'reduce') expect(await draws(), reducedMotion).toBe(0);
+      else expect(await draws(), reducedMotion).toBeGreaterThan(10);
+      await page.keyboard.press('Shift+Tab');
+      // (once it has gone quiet, as when a framework takes it down and puts it up again)
+      await expect.poll(draws).toBe(0);
+      await page.evaluate(() => (window as unknown as { ctl: { destroy(): void } }).ctl.destroy());
+      await expect(page.locator('#b canvas')).toHaveCount(0);
+      // gone: the keyboard on the button no longer draws anything
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#b')).toBeFocused();
+      expect(await draws(), reducedMotion).toBe(0);
+      expect(await page.locator('#b').evaluate(b => [b.style.position, b.style.isolation].join('|'))).toBe('|');
+      expect(errors).toEqual([]);
+      await ctx.close();
+    }
   });
 });
