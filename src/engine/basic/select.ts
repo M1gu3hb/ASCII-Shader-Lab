@@ -26,6 +26,8 @@ export interface SelectFrame {
     data: Uint8Array; width: number;
     cursorX: number; cursorY: number; cursorOn: boolean;
     color: [number, number, number] | null;
+    /** «Color por letra» (letters.ts): its speed and amount, or null. */
+    anim?: { speed: number; amount: number } | null;
   };
   imode: number; ptrCellX: number; ptrCellY: number; ptrOn: number; istr: number; iradCells: number;
   /** Cell height / width. */
@@ -189,10 +191,26 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
           const fp = Math.floor(M.prog);
           const shown = M.mode === 0 || M.mode === 3 || ord < fp;
           const scr = M.mode === 2 && !shown && ord < fp + M.win;
-          if (shown) { idx = mi; br = msgCol[0]; bg = msgCol[1]; bb = msgCol[2]; inten = 1; alpha = 1; flags = 1; }
+          let mr = msgCol[0], mg = msgCol[1], mb = msgCol[2];
+          if (M.anim) {
+            // «Color por letra», as SELECT_FS
+            const ph = ord * 0.07 - T * M.anim.speed * 0.35, a = M.anim.amount;
+            let lr: number, lg: number, lb: number;
+            if (M.color) {
+              const hh = ph * TAU, c = Math.cos(hh), sn = Math.sin(hh), q = 0.57735;
+              const dk = q * (mr + mg + mb) * q * (1 - c);
+              lr = mr * c + q * (mb - mg) * sn + dk; lg = mg * c + q * (mr - mb) * sn + dk; lb = mb * c + q * (mg - mr) * sn + dk;
+              lr = lr < 0 ? 0 : lr > 1 ? 1 : lr; lg = lg < 0 ? 0 : lg > 1 ? 1 : lg; lb = lb < 0 ? 0 : lb > 1 ? 1 : lb;
+            } else {
+              const gc = gradAt(s.grad, 0.35 + 0.65 * tri(ph * 2));
+              lr = gc[0]; lg = gc[1]; lb = gc[2];
+            }
+            mr += (lr - mr) * a; mg += (lg - mg) * a; mb += (lb - mb) * a;
+          }
+          if (shown) { idx = mi; br = mr; bg = mg; bb = mb; inten = 1; alpha = 1; flags = 1; }
           else if (scr) {
             idx = 1 + Math.floor(hash12(col + tt24, row + tt24) * Math.max(N - 1, 1));
-            br = msgCol[0]; bg = msgCol[1]; bb = msgCol[2]; inten = 0.85; alpha = 1; flags = 1;
+            br = mr; bg = mg; bb = mb; inten = 0.85; alpha = 1; flags = 1;
           }
         }
       }

@@ -1,5 +1,5 @@
-import { CHARSETS, FONTS, PATTERNS, charsetById, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
-import { cloneRecipe, defaultRecipe, DEFAULT_LAYER, type Layer, type Recipe } from '../engine/recipe';
+import { CHARSETS, FONTS, PATTERNS, XFORMS, charsetById, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
+import { cloneRecipe, defaultRecipe, DEFAULT_LAYER, type Layer, type LetterAnimKind, type Recipe, type Xform, type XformKind } from '../engine/recipe';
 import { hexToOklch } from '../engine/color';
 import { ARCHETYPES, type Archetype } from './archetypes';
 import { ensureContrast, makePalette, rotateHue, soften } from './palettes';
@@ -13,10 +13,12 @@ import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
  *   1 — the first dice (12 styles, 3 solids).
  *   2 — 13 solids spread over the styles, «Grabado 3D», flatter weights; 3D objects only as the lead
  *       layer, framed, and not under a photo or inside letters (unless the chosen style has nothing else).
+ *   3 — the same pieces as 2 (same seed, same streams), plus: transformations of the photo or the letters
+ *       (Imagen, sometimes Tipo), letters that move (Tipo) and animated messages (Tipo, Terminal).
  */
-export const GEN_VERSION = 2;
+export const GEN_VERSION = 3;
 /** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2];
+export const GEN_VERSIONS: readonly number[] = [1, 2, 3];
 /** A version asked for by a link or a person: a known one, else the current one. */
 export const genOf = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -39,6 +41,7 @@ interface Tables { archs: readonly Archetype[]; spaces: Record<string, Record<st
 const TABLES: Record<number, Tables> = {
   1: { archs: ARCHETYPES_V1, spaces: SPACE_ARCHS_V1 },
   2: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
+  3: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
 };
 
 const TIPO_WORDS = ['TRAMA', 'ECO', 'SEÑAL', 'LUZ', 'RUIDO', 'HOLA', 'ONDA', 'PULSO', 'GLIFO', 'TINTA', 'NOCHE', 'VIBRA', 'MAREA', 'FARO'];
@@ -58,7 +61,9 @@ function pickArch(rng: Rng, space: SpaceId, T: Tables, forced?: string): Archety
 export function generate(inp: GenInput): Recipe {
   const gen = genOf(inp.gen ?? GEN_VERSION);
   const T = TABLES[gen];
-  const root = new Rng(`mt${gen}|${inp.space}|${inp.arch ?? '*'}|${inp.seed}`);
+  // version 3 adds to version 2's pieces: it weaves from the same streams (a seed noted with version 2
+  // gives the same piece, now and then with a transformation or letters that move)
+  const root = new Rng(`mt${gen >= 3 ? 2 : gen}|${inp.space}|${inp.arch ?? '*'}|${inp.seed}`);
   const A = pickArch(root.fork('arch'), inp.space, T, inp.arch);
   const base = inp.base;
   const r = defaultRecipe();
@@ -68,6 +73,7 @@ export function generate(inp: GenInput): Recipe {
   genMovimiento(r, root.fork('movimiento'), A, inp.space);
   genEfectos(r, root.fork('efectos'), A, inp.space, light);
   genFuente(r, root.fork('fuente'), A, inp.space, base);
+  if (gen >= 3) genCreative(r, root.fork('creativo'), A, inp.space, base);
   for (const g of inp.locks ?? []) copyGroup(r, base, g);
   r.meta = { seed: inp.seed, arch: A.id, space: inp.space, gen };
   return r;
@@ -243,6 +249,72 @@ function genFuente(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, base: Reci
 }
 
 /* ------------------------------------------------------------------ */
+/* Version 3: transformations and letters that move                     */
+/* ------------------------------------------------------------------ */
+
+type XW = Partial<Record<XformKind, number>>;
+/** Which transformations suit each style (the rest of the styles use DEFAULT_XF). */
+const XF_BY_ARCH: Record<string, XW> = {
+  minimal: { semitono: 1.2, bandas: 1, bloques: 0.5, contorno: 0.5, ondular: 0.6 },
+  neon: { contorno: 2, canales: 1, estela: 1.2, caleido: 0.8, ondular: 0.6 },
+  retro: { bloques: 1.5, bandas: 1.3, semitono: 1, canales: 0.8 },
+  tinta: { semitono: 1.6, contorno: 1, bandas: 1.2, arrastre: 0.5 },
+  glitch: { arrastre: 2, canales: 1.8, bloques: 1, desplazar: 1, estela: 0.8 },
+  brutal: { bandas: 1.6, bloques: 1.3, contorno: 1, semitono: 0.8 },
+  organico: { ondular: 1.6, desplazar: 1.4, caleido: 0.7, estela: 0.6 },
+  op: { caleido: 1.8, semitono: 1.2, canales: 0.8, bandas: 0.6 },
+  geometrico: { caleido: 1.5, bloques: 1.2, semitono: 1, contorno: 0.6 },
+  cosmico: { caleido: 1.2, estela: 1.2, desplazar: 1, contorno: 0.8 },
+  vapor: { ondular: 1.3, canales: 1.2, caleido: 1, bandas: 0.8 },
+  fractal: { caleido: 1.6, desplazar: 1.2, contorno: 0.8 },
+};
+const DEFAULT_XF: XW = { semitono: 1, contorno: 1, bandas: 1, caleido: 1, ondular: 0.8, canales: 0.7, bloques: 0.7, arrastre: 0.6, desplazar: 0.6 };
+/** Ranges of the kind's own setting the dice keep to (outside them a transformation rarely looks good). */
+const XF_P: Partial<Record<XformKind, [number, number]>> = {
+  semitono: [0.05, 0.4], contorno: [0, 0.5], bandas: [0, 0.35], bloques: [0.1, 0.5], arrastre: [0.15, 0.5], ondular: [0.1, 0.6], estela: [0.2, 0.7],
+};
+const TEXT_ANIM_W: Partial<Record<LetterAnimKind, number>> = { ola: 1.2, rebote: 1, latido: 0.8, revolver: 1, palabras: 0.9, explosion: 0.8, brillo: 1 };
+const MSG_ANIM_W: Partial<Record<LetterAnimKind, number>> = { ola: 1, rebote: 0.8, revolver: 1.2, color: 1.2, explosion: 0.4 };
+
+/** A few transformations for a source, in an order that reads well (moves first, then colour, then light). */
+function drawXforms(rng: Rng, A: Archetype, n: number, moving: boolean, pool?: XformKind[]): Xform[] {
+  const w: XW = { ...(XF_BY_ARCH[A.id] ?? DEFAULT_XF) };
+  if (!moving) delete w.estela;
+  if (pool) for (const k of Object.keys(w) as XformKind[]) if (!pool.includes(k)) delete w[k];
+  const out: Xform[] = [];
+  for (let i = 0; i < n && Object.keys(w).length; i++) {
+    const kind = rng.weighted(w);
+    delete w[kind];
+    const info = XFORMS.find(x => x.id === kind)!;
+    const pr = XF_P[kind] ?? [0, 1];
+    out.push({ kind, on: true, amount: round(clamp(info.defaults.amount * rng.range(0.75, 1.1), 0.15, 1)), p: round(rng.range(pr[0], pr[1])) });
+  }
+  const order: XformKind[] = ['caleido', 'desplazar', 'ondular', 'bloques', 'arrastre', 'bandas', 'semitono', 'contorno', 'canales', 'estela'];
+  return out.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
+}
+
+function genCreative(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, base: Recipe) {
+  if (space === 'media' && rng.chance(0.6)) {
+    const moving = r.source === 'video' || r.source === 'camera';
+    r.media.xform = drawXforms(rng.fork('xf'), A, rng.chance(0.3) ? 2 : 1, moving);
+  } else if (space === 'tipo') {
+    const lr = rng.fork('letras');
+    if (r.source === 'text' && lr.chance(0.5)) {
+      r.text.anim = { kind: lr.weighted(TEXT_ANIM_W), amount: round(lr.range(0.4, 0.9)), speed: round(lr.range(0.7, 1.3)) };
+    }
+    if (r.source === 'text' && rng.chance(0.25)) {
+      r.media.xform = drawXforms(rng.fork('xf'), A, 1, !!r.text.anim, ['semitono', 'contorno', 'caleido', 'desplazar', 'arrastre', 'ondular', 'bandas', 'canales', 'estela']);
+    }
+  }
+  if (r.msg.on && (space === 'tipo' || space === 'terminal')) {
+    const mr = rng.fork('mensaje');
+    if (mr.chance(0.4)) r.msg.anim = { kind: mr.weighted(MSG_ANIM_W), amount: round(mr.range(0.5, 1)), speed: round(mr.range(0.7, 1.3)) };
+    if (r.msg.mode === 'type' && mr.chance(0.2)) r.msg.mode = 'words';
+  }
+  void base;
+}
+
+/* ------------------------------------------------------------------ */
 
 export function copyGroup(r: Recipe, base: Recipe, g: LockGroup) {
   const b = cloneRecipe(base);
@@ -322,6 +394,12 @@ export function mutate(r: Recipe, amount: number, seed: string, locks: LockGroup
       if (out.fx[key] > 0) out.fx[key] = j(out.fx[key], 0, 1.2);
     }
   }
+  if (!L.has('fuente')) {
+    // (a stream of its own: the draws above stay what they were for pieces without these)
+    const xr = rng.fork('fuente');
+    for (const x of out.media.xform ?? []) { x.amount = round(clamp(x.amount + xr.gauss(0, 0.12 * k), 0.05, 1)); x.p = round(clamp(x.p + xr.gauss(0, 0.12 * k), 0, 1)); }
+    for (const a of [out.text.anim, out.msg.anim]) if (a) a.amount = round(clamp(a.amount + xr.gauss(0, 0.12 * k), 0.1, 1));
+  }
   out.meta = { ...r.meta, name: undefined };
   return out;
 }
@@ -343,5 +421,10 @@ export function fingerprint(r: Recipe): string {
   ];
   // a different local image or video makes a different piece (appended only then: other fingerprints stay as they were)
   if ((r.source === 'image' || r.source === 'video') && r.media.ref?.id) parts.push(r.media.ref.id);
+  // transformations and letters that move change a piece as much as its effects (appended only when used)
+  const xf = r.source !== 'pattern' ? (r.media.xform ?? []).filter(x => x.on && x.amount > 0) : [];
+  if (xf.length) parts.push('x:' + xf.map(x => `${x.kind}${q(x.p, 0.34)}`).join('+'));
+  if (r.source === 'text' && r.text.anim) parts.push('t:' + r.text.anim.kind);
+  if (r.msg.on && (r.msg.anim || r.msg.mode === 'words')) parts.push('m:' + (r.msg.anim?.kind ?? '') + r.msg.mode);
   return hash53(parts.join('|')).toString(36);
 }

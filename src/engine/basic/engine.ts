@@ -7,7 +7,10 @@ import type { EngineOptions, EngineStats, GridSnapshot, MediaKind } from '../eng
 import type { PatternLibrary } from '../glsl/patterns';
 import type { MediaEl, PreviewQuality, Renderer } from '../renderer';
 import { DEFAULT_TRANSITION, transitionOf, type TransitionSpec } from '../transitions';
-import { drawTextSource, layoutMessage, messageState, type MsgLayout } from '../text';
+import { drawTextSource, layoutMessage, messageState, textAnimated, type MsgLayout } from '../text';
+import { animateMessage, movedCell, msgColorAnim, scramblePool } from '../letters';
+import { activeXforms, trailDecay, trailStage, xformStages } from '../xform';
+import { XformState } from './xform';
 import { blurGrid, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
 import { drawOverlays, hasOverlays, type OverlayCache } from './overlays';
 import {
@@ -98,6 +101,13 @@ export class BasicEngine implements Renderer {
   private textBuf: TextBuffer | null = null;
   private msg: MsgLayout | null = null;
   private msgKey = '';
+  /** The message's grid as the select pass reads it (its letters moved, when they move). */
+  private msgData: Uint8Array | null = null;
+  private msgAnimKey = '';
+  /** Transformations of the source (see ../xform.ts): grids and Estela's state. */
+  private xf = new XformState();
+  /** Bumped when a media element changes (a new picture starts a new trail). */
+  private mediaGen = 0;
   private wordsKey = '';
   private words = new Uint16Array(1);
   private gradKey = '';
@@ -220,6 +230,8 @@ export class BasicEngine implements Renderer {
   private applyRecipe(next: Recipe) {
     const prev = this.r;
     this.r = next;
+    // (a shared thumbnail engine renders many recipes: a trail never passes from one to the next)
+    if (this.o.fixedSize) this.xf.have = false;
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
       || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
@@ -268,6 +280,7 @@ export class BasicEngine implements Renderer {
   pause() { this.playing = false; this.needsRender = true; }
 
   setMedia(kind: MediaKind, el: MediaEl | null) {
+    if (this.media[kind] !== el) this.mediaGen++;
     this.media[kind] = el;
     this.mediaEl = null;
     this.mediaFailed = null;
@@ -545,11 +558,13 @@ export class BasicEngine implements Renderer {
   private updateText() {
     if (this.r.source !== 'text') { this.textBuf = null; return; }
     const t = this.r.text;
-    const key = JSON.stringify(t) + this.W + 'x' + this.H;
+    // letters that move are drawn again at each moment (see AsciiEngine.updateText)
+    const anim = textAnimated(t) ? { time: heldTime(this.t, this.r.motion.hold), cols: this.cols } : undefined;
+    const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}` : '');
     if (key === this.textKey && this.textBuf) return;
     this.textKey = key;
     this.textCanvas ??= document.createElement('canvas');
-    drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font));
+    drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font), anim);
     const { width: w, height: h } = this.textCanvas;
     const d = readPixels(this.textCanvas, this.readCanvas());
     const red = new Uint8Array(w * h);
@@ -559,12 +574,21 @@ export class BasicEngine implements Renderer {
 
   private updateMsg() {
     const m = this.r.msg;
-    if (!m.on || !this.atlas) { this.msg = null; return; }
+    if (!m.on || !this.atlas) { this.msg = null; this.msgData = null; return; }
     const key = [m.text, m.mode === 'marquee', m.x, m.y, m.align, this.cols, this.rows, this.atlasKey].join('|');
-    if (key === this.msgKey && this.msg) return;
-    this.msgKey = key;
-    const idx = this.atlas.index;
-    this.msg = layoutMessage(m.text, this.cols, this.rows, m.x, m.y, m.align, m.mode === 'marquee', c => idx.get(c) ?? this.atlas!.spaceIdx);
+    if (key !== this.msgKey || !this.msg) {
+      this.msgKey = key;
+      const idx = this.atlas.index;
+      this.msg = layoutMessage(m.text, this.cols, this.rows, m.x, m.y, m.align, m.mode === 'marquee', c => idx.get(c) ?? this.atlas!.spaceIdx);
+      this.msgAnimKey = '';
+    }
+    // letters that move are placed again at each moment (see AsciiEngine.updateMsg)
+    const a = m.anim && m.anim.kind !== 'color' ? m.anim : null;
+    const tq = heldTime(this.t, this.r.motion.hold);
+    const akey = a ? `${key}|${a.kind}|${a.amount}|${a.speed}|${tq}` : key;
+    if (akey === this.msgAnimKey && this.msgData) return;
+    this.msgAnimKey = akey;
+    this.msgData = a ? animateMessage(this.msg, a, tq, this.rows, scramblePool(this.atlas.n)) : this.msg.data;
   }
 
   private updateWords() {
@@ -731,6 +755,17 @@ export class BasicEngine implements Renderer {
     const imode = INTERACT_MODES.indexOf(it.mode);
     const pulse = pulseAt(r.motion, tq, this.externalPulse);
     const simOn = imode === 2 || imode === 6 || imode === 7;
+    // transformations of the source (../xform.ts), with Estela's clock as the WebGL engine keeps it
+    const stages = xformStages(activeXforms(r, src), this.cols, this.rows, this.ch / this.cw);
+    const trail = trailStage(stages);
+    let decay = 1;
+    if (trail) {
+      const key = `${src}|${this.mediaGen}`;
+      if (key !== this.xf.key) { this.xf.key = key; this.xf.have = false; }
+      const dt = this.xf.have ? Math.min(0.25, Math.max(0, this.realT - this.xf.t)) : 0;
+      this.xf.t = this.realT;
+      decay = trailDecay(dt, trail.k);
+    } else this.xf.have = false;
     runField({
       W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows,
       time: tq, loop: r.motion.loop, layers: fieldLayers(r),
@@ -741,27 +776,31 @@ export class BasicEngine implements Renderer {
       text: this.textBuf,
       imode, ptrX: P.x, ptrY: P.y, ptrOn: P.on, istr: it.strength, irad: it.radius,
       sim: simOn ? { h: this.sim.h, tr: this.sim.tr } : null,
+      xform: stages.length ? { stages, state: this.xf, decay } : null,
     }, this.field);
     const T1 = performance.now();
 
     const a = this.atlas!, m = r.msg, lay = this.msg;
     let prog = 0, shift = 0, cursorX = -9, cursorY = -9, cursorOn = false;
     if (m.on && lay) {
-      const st = messageState(m, lay.count, this.t);
+      const st = messageState(m, lay.count, this.t, lay.spans);
       prog = st.prog; shift = Math.floor(st.shift);
       if (st.cursorOn && st.cursor >= 0 && lay.cells.length) {
-        const cell = lay.cells[Math.min(lay.cells.length - 1, st.cursor)];
-        cursorX = cell[0]; cursorY = cell[1]; cursorOn = true;
+        const home = lay.cells[Math.min(lay.cells.length - 1, st.cursor)];
+        const cell = m.anim ? movedCell(lay, m.anim, tq, this.rows, home, st.cursor) : home;
+        cursorX = cell[0]; cursorY = cell[1]; cursorOn = cell[0] >= 0;
       }
     }
+    const ca = msgColorAnim(m);
     runSelect({
       cols: this.cols, rows: this.rows, time: tq, r,
       fa: this.field.a, fr: this.field.r, fg: this.field.g, fb: this.field.b, isMedia: src === 'media',
       grad: this.grad, n: a.n, edgeBase: a.edgeBase, blockIdx: a.blockIdx, words: this.words,
       msg: {
-        on: !!(m.on && lay), mode: ['static', 'type', 'decode', 'marquee'].indexOf(m.mode), prog, win: 6, shift,
-        data: lay?.data ?? new Uint8Array(4), width: lay?.width ?? 1, cursorX, cursorY, cursorOn,
+        on: !!(m.on && lay), mode: ['static', 'type', 'decode', 'marquee', 'words'].indexOf(m.mode), prog, win: 6, shift,
+        data: (lay && this.msgData) ?? new Uint8Array(4), width: lay?.width ?? 1, cursorX, cursorY, cursorOn,
         color: m.color ? hexToRgb(m.color) : null,
+        anim: ca ? { speed: ca.speed, amount: ca.amount } : null,
       },
       imode, ptrCellX: P.x / this.cw, ptrCellY: P.y / this.ch, ptrOn: P.on, istr: it.strength, iradCells: (it.radius * this.H) / this.cw,
       aspect: this.ch / this.cw,

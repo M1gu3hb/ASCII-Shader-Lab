@@ -14,7 +14,27 @@ export type GlyphMode = 'density' | 'lines' | 'scramble' | 'words';
 export type ColorMode = 'ramp' | 'source';
 export type ColorMap = 'luma' | 'x' | 'y' | 'radial' | 'angle' | 'noise';
 export type InteractMode = 'none' | 'light' | 'ripple' | 'lens' | 'repel' | 'swirl' | 'erase' | 'paint' | 'scramble';
-export type MsgMode = 'static' | 'type' | 'decode' | 'marquee';
+export type MsgMode = 'static' | 'type' | 'decode' | 'marquee' | 'words';
+
+/**
+ * Transformations of the source (a picture, a video frame, the camera or the big text) before it becomes
+ * characters, applied in order on the cell grid (see engine/xform.ts). Each kind at most once.
+ */
+export type XformKind = 'semitono' | 'contorno' | 'bandas' | 'arrastre' | 'desplazar' | 'caleido' | 'ondular' | 'estela' | 'canales' | 'bloques';
+export interface Xform {
+  kind: XformKind;
+  on: boolean;
+  amount: number;   // 0..1: 0 leaves the source as it is
+  p: number;        // 0..1: the kind's own setting (dot size, thickness, inks…)
+}
+
+/** Per-letter animation of the big text or of the message (see engine/letters.ts). */
+export type LetterAnimKind = 'ola' | 'rebote' | 'latido' | 'revolver' | 'palabras' | 'explosion' | 'brillo' | 'color';
+export interface LetterAnim {
+  kind: LetterAnimKind;
+  amount: number;   // 0..1 how far letters move (or how many take part)
+  speed: number;    // 0.1..3 multiplier
+}
 export type Fit = 'cover' | 'contain' | 'stretch';
 export type DitherKind = 'bayer' | 'noise';
 export type Align = 'left' | 'center' | 'right';
@@ -76,6 +96,8 @@ export interface Recipe {
     reveal: number;    // show the original picture through the ASCII (0..1)
     rate: number;      // video playback rate
     ref?: MediaRef;    // which local file the piece was made with (never the file itself)
+    /** Transformations of the source, in order (absent when there are none: older recipes stay as they were). */
+    xform?: Xform[];
   };
   text: {
     content: string;
@@ -87,6 +109,8 @@ export interface Recipe {
     align: Align;
     italic: boolean;
     morph: number;     // 0 = off; seconds of a text ⇄ pattern dissolve cycle
+    /** Letters that move on their own (absent: still letters). */
+    anim?: LetterAnim;
   };
   interact: {
     mode: InteractMode;
@@ -152,6 +176,8 @@ export interface Recipe {
     box: number;       // plate behind the message 0..1
     cursor: boolean;
     hold: number;      // seconds
+    /** Letters of the message that move or change colour (absent: still letters). */
+    anim?: LetterAnim;
   };
   meta: {
     name?: string;
@@ -206,7 +232,14 @@ const GLYPH_MODES: GlyphMode[] = ['density', 'lines', 'scramble', 'words'];
 const COLOR_MODES: ColorMode[] = ['ramp', 'source'];
 const COLOR_MAPS: ColorMap[] = ['luma', 'x', 'y', 'radial', 'angle', 'noise'];
 const INTERACT: InteractMode[] = ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'];
-const MSG_MODES: MsgMode[] = ['static', 'type', 'decode', 'marquee'];
+const MSG_MODES: MsgMode[] = ['static', 'type', 'decode', 'marquee', 'words'];
+/** Every transformation, in the order the engines index them (glsl/xform.ts, basic/xform.ts). */
+export const XFORM_KINDS: XformKind[] = ['semitono', 'contorno', 'bandas', 'arrastre', 'desplazar', 'caleido', 'ondular', 'estela', 'canales', 'bloques'];
+/** A source takes up to this many transformations. */
+export const XFORM_MAX = 4;
+/** Per-letter animations of the big text and of the message. */
+export const TEXT_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'latido', 'revolver', 'palabras', 'explosion', 'brillo'];
+export const MSG_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'revolver', 'explosion', 'color'];
 const FITS: Fit[] = ['cover', 'contain', 'stretch'];
 const ALIGNS: Align[] = ['left', 'center', 'right'];
 
@@ -255,6 +288,26 @@ export function normMediaRef(v: unknown): MediaRef | undefined {
   };
 }
 
+/** Validates a transformation list: known kinds, each once, at most XFORM_MAX, in their order. */
+export function normXforms(v: unknown): Xform[] {
+  if (!Array.isArray(v)) return [];
+  const out: Xform[] = [];
+  for (const x of v) {
+    const o = obj(x);
+    if (!(XFORM_KINDS as string[]).includes(o.kind as string) || out.some(y => y.kind === o.kind)) continue;
+    out.push({ kind: o.kind as XformKind, on: bool(o.on, true), amount: num(o.amount, 0.6, 0, 1), p: num(o.p, 0.5, 0, 1) });
+    if (out.length >= XFORM_MAX) break;
+  }
+  return out;
+}
+
+/** Validates a per-letter animation among the kinds its target has (undefined: none). */
+export function normAnim(v: unknown, kinds: readonly LetterAnimKind[]): LetterAnim | undefined {
+  const o = obj(v);
+  if (!(kinds as readonly string[]).includes(o.kind as string)) return undefined;
+  return { kind: o.kind as LetterAnimKind, amount: num(o.amount, 0.5, 0, 1), speed: num(o.speed, 1, 0.1, 3) };
+}
+
 export function normLayer(v: unknown, knownPatterns?: Set<string>): Layer {
   const o = obj(v), d = DEFAULT_LAYER;
   let pattern = str(o.pattern, d.pattern, 40);
@@ -287,6 +340,8 @@ export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Re
   const stopsIn = Array.isArray(c.stops) ? c.stops.slice(0, 6) : [];
   const stops = stopsIn.map(s => normHex(s, '')).filter(Boolean);
   const ref = normMediaRef(me.ref);
+  const xform = normXforms(me.xform);
+  const textAnim = normAnim(tx.anim, TEXT_ANIMS), msgAnim = normAnim(ms.anim, MSG_ANIMS);
   const r: Recipe = {
     v: RECIPE_VERSION,
     source: oneOf(o.source, SOURCES, d.source),
@@ -311,6 +366,8 @@ export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Re
       reveal: num(me.reveal, 0, 0, 1),
       rate: num(me.rate, 1, 0.1, 4),
       ...(ref ? { ref } : {}),
+      // (after ref, where an edit appends it: an edited recipe and its normalised copy keep one key order)
+      ...(xform.length ? { xform } : {}),
     },
     text: {
       content: str(tx.content, d.text.content, 600),
@@ -322,6 +379,7 @@ export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Re
       align: oneOf(tx.align, ALIGNS, 'center'),
       italic: bool(tx.italic, false),
       morph: num(tx.morph, 0, 0, 60),
+      ...(textAnim ? { anim: textAnim } : {}),
     },
     interact: {
       mode: oneOf(it.mode, INTERACT, d.interact.mode),
@@ -381,6 +439,7 @@ export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Re
       box: num(ms.box, d.msg.box, 0, 1),
       cursor: bool(ms.cursor, true),
       hold: num(ms.hold, d.msg.hold, 0, 30),
+      ...(msgAnim ? { anim: msgAnim } : {}),
     },
     meta: {
       name: typeof meta.name === 'string' ? meta.name.slice(0, 80) : undefined,
