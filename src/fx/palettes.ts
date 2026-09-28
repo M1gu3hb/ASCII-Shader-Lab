@@ -96,7 +96,8 @@ export function colorDist(r1: number, g1: number, b1: number, r2: number, g2: nu
 export class Nearest {
   readonly colors: RGB[];
   readonly flat: Float32Array;
-  private lut: Uint8Array | null;
+  /** 6-bit-per-channel answers (255 = not computed yet), null for palettes of up to 4 colours. */
+  readonly lut: Uint8Array | null;
 
   constructor(colors: RGB[]) {
     this.colors = colors;

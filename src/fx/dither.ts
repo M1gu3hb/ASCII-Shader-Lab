@@ -288,6 +288,43 @@ function ditherCore(src: Img, out: Img, s: DitherSpec, P: Prepared, scratch: Scr
         }
         return;
       }
+      if (pal && !lin) {
+        // palettes in sRGB (the usual case), inlined: table lookup (or an exact search for ≤ 4 colours)
+        const lut = near!.lut, flat = near!.flat, nc = colors.length;
+        for (let y = 0; y < h; y++) {
+          const back = s.serpentine && (y & 1) === 1;
+          const offs = back ? rev : fwd, step = back ? -1 : 1;
+          let x = back ? w - 1 : 0;
+          let oi = (y * w + x) * 4, wi = (y * PW + x + 2) * 3;
+          for (let m = 0; m < w; m++, x += step, oi += step * 4, wi += step * 3) {
+            if (d[oi + 3] === 0) { o[oi] = 0; o[oi + 1] = 0; o[oi + 2] = 0; o[oi + 3] = 0; continue; }
+            const r = work[wi], g = work[wi + 1], b = work[wi + 2];
+            const R = r * 255, G = g * 255, B = b * 255;
+            let k = 0;
+            if (lut) {
+              const q = ((R <= 0 ? 0 : R >= 255 ? 63 : R >> 2) << 12) | ((G <= 0 ? 0 : G >= 255 ? 63 : G >> 2) << 6) | (B <= 0 ? 0 : B >= 255 ? 63 : B >> 2);
+              k = lut[q];
+              if (k === 255) { k = near!.exact(((q >> 12) << 2) + 2, (((q >> 6) & 63) << 2) + 2, ((q & 63) << 2) + 2); lut[q] = k; }
+            } else {
+              let bd = Infinity;
+              for (let c = 0; c < nc; c++) {
+                const pr = flat[c * 3], pg = flat[c * 3 + 1], pb = flat[c * 3 + 2];
+                const rm = (R + pr) * 0.5, dr = R - pr, dg = G - pg, db = B - pb;
+                const dd = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+                if (dd < bd) { bd = dd; k = c; }
+              }
+            }
+            const k3 = k * 3;
+            const e0 = r - pal[k3], e1 = g - pal[k3 + 1], e2 = b - pal[k3 + 2];
+            o[oi] = palByte[k3]; o[oi + 1] = palByte[k3 + 1]; o[oi + 2] = palByte[k3 + 2]; o[oi + 3] = 255;
+            for (let t = 0; t < T; t++) {
+              const j = wi + offs[t], wk = wts[t];
+              work[j] += e0 * wk; work[j + 1] += e1 * wk; work[j + 2] += e2 * wk;
+            }
+          }
+        }
+        return;
+      }
       for (let y = 0; y < h; y++) {
         const back = s.serpentine && (y & 1) === 1;
         const offs = back ? rev : fwd, step = back ? -1 : 1;
