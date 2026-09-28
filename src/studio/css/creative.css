@@ -1,5 +1,10 @@
 /* Transformations of the source, the ramp editor, letters that move (lane «creative») */
 
+/* The pane holds its own absolutely positioned parts (every .sr-only text): otherwise they hang from the
+   panel, give its hidden overflow a scroll range, and a centring scrollIntoView near the end of a long
+   tab (the ramp editor's) slid the whole panel, recipes and sections, under the top bar for good. */
+.app .pane { position: relative; }
+
 /* ---------- Transformar: the add row (a picker and the dice) ---------- */
 .xf-add { display: flex; gap: 6px; align-items: center; margin: 0 0 10px; }
 .xf-add > .pk { flex: 1; min-width: 0; }

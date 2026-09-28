@@ -39,13 +39,19 @@ async function dropPhoto(page: Page) {
 const ART = ['.ansi-pre', '.wl-art', '.comp-demo', '.comp-stage', '.cs-sample', '.gh-pre', '.cv-host'];
 async function serious(page: Page, what: string, include?: string) {
   await page.waitForTimeout(500);
-  await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect?.getComputedTiming().endTime !== Infinity).map(a => a.finished.catch(() => undefined))));
+  // like a11y.spec: finite animations, the glyph curtains and the scrambling labels end before measuring
+  // (a curtain over the panel reads as covered targets, a scrambling label as transparent text)
+  await page.waitForFunction(() => !document.querySelector('.mt-curtain, .mt-scr, [data-scr]') && document.getAnimations().every(a => {
+    const t = a.effect?.getComputedTiming();
+    return a.playState !== 'running' || !t || t.endTime === Infinity;
+  }), undefined, { timeout: 8000 }).catch(() => undefined);
   let b = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']);
   if (include) b = b.include(include);
   for (const a of ART) b = b.exclude(a);
   const r = await b.analyze();
   const bad = r.violations.filter(v => v.impact === 'serious' || v.impact === 'critical');
-  const report = bad.map(v => `${what} · ${v.id} (${v.impact}): ${v.help}\n${v.nodes.slice(0, 5).map(n => '    ' + n.target.join(' ')).join('\n')}`);
+  const related = (n: (typeof r.violations)[number]['nodes'][number]) => [...n.any, ...n.all, ...n.none].flatMap(c => c.relatedNodes ?? []).map(x => `${x.target.join(' ')} ${x.html.slice(0, 90)}`);
+  const report = bad.map(v => `${what} · ${v.id} (${v.impact}): ${v.help}\n${v.nodes.slice(0, 5).map(n => '    ' + n.target.join(' ') + ' — ' + (n.failureSummary ?? '').split('\n').slice(1).join(' ') + (related(n).length ? '\n      junto a: ' + related(n).join('\n      junto a: ') : '')).join('\n')}`);
   expect(report, report.join('\n')).toEqual([]);
 }
 const nested = (page: Page) => page.evaluate(() => {
@@ -214,12 +220,19 @@ test.describe('rampa de caracteres', () => {
     await page.getByRole('button', { name: 'Reordenar el texto por tinta' }).click();
     await expect(field).toHaveValue(' .:#@');
     await expect(page.locator('.ramp-bars li.bad')).toHaveCount(0);
+    // the button is gone once it did its job: the keyboard stays on the text it changed
+    await expect(field).toBeFocused();
 
     // saved in this browser, and in the characters list under «Tus rampas»
     await page.getByRole('button', { name: 'Guardar esta rampa en este navegador' }).click();
     await page.getByLabel('Nombre de la rampa').fill('Mi trama');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.getByRole('button', { name: /^Mi trama/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Guardada como «Mi trama» · renombrar' })).toBeFocused();
+    // the panel itself never scrolls (only its pane does): nothing in the pane hangs out of it
+    const [top, range] = await page.locator('.panel').evaluate(p => [p.scrollTop, p.scrollHeight - p.clientHeight]);
+    expect(top).toBe(0);
+    expect(range).toBeLessThanOrEqual(1);
     await expect(page.getByRole('combobox', { name: 'Caracteres', exact: true })).toContainText('Mi trama');
     await serious(page, 'rampa', '.panel');
     expect(await nested(page)).toEqual([]);

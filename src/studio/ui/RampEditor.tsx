@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { measureDensity, uniqueChars } from '../../engine/atlas';
 import { CHARSETS, fontById } from '../../engine/catalog';
 import type { GlyphMode } from '../../engine/recipe';
@@ -59,13 +59,19 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
   const builtin = CHARSETS.find(c => c.chars === charset);
   const saved = ramps.find(r => r.chars === charset);
   const startSave = () => { setName(saved?.name ?? (builtin ? `${builtin.name} (mía)` : `Rampa ${ramps.length + 1}`)); setNaming(true); };
+  // the control pressed goes away (the form closes, the reorder button is no longer needed): the keyboard
+  // stays nearby instead of falling to the page
+  const root = useRef<HTMLDivElement>(null);
+  const saveBtn = useRef<HTMLButtonElement>(null);
+  const refocus = (to: () => HTMLElement | null | undefined) => requestAnimationFrame(() => to()?.focus());
+  const closeForm = () => { setNaming(false); refocus(() => saveBtn.current); };
   const save = () => {
     saveRamp(name, charset);
-    setNaming(false);
+    closeForm();
     toast(useRamps.getState().saved ? `Rampa «${name.trim() || 'Mi rampa'}» guardada en este navegador` : 'No se pudo guardar: este navegador no deja guardar datos del sitio');
   };
   return (
-    <div className="ramp-ed">
+    <div className="ramp-ed" ref={root}>
       <Text f={F('glyph.charset')} helpKey="glyph.charsetText" label="Tus caracteres (del vacío al lleno)" mono />
       <div className="ramp-meter" aria-busy={!v}>
         <p className="ramp-cap" id={nameId + 'c'}>
@@ -90,7 +96,10 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
       </div>
       {outOfOrder && <Note>Los marcados tienen menos tinta que el anterior: la pieza los usará en este orden. Ordénalos si quieres un degradado suave.</Note>}
       {outOfOrder && (
-        <button type="button" className="btn" onClick={() => edit(r => { r.glyph.charset = order.slice().sort((a, b) => v![a] - v![b] || a - b).map(i => glyphs[i]).join(''); }, 'glyph.charset:order')}>
+        <button type="button" className="btn" onClick={() => {
+          edit(r => { r.glyph.charset = order.slice().sort((a, b) => v![a] - v![b] || a - b).map(i => glyphs[i]).join(''); }, 'glyph.charset:order');
+          refocus(() => root.current?.querySelector<HTMLElement>('input[type="text"], textarea'));
+        }}>
           Reordenar el texto por tinta
         </button>
       )}
@@ -105,14 +114,14 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
         <form className="ramp-save" onSubmit={e => { e.preventDefault(); save(); }}>
           <label className="lbl" htmlFor={nameId}>Nombre de la rampa</label>
           <input id={nameId} type="text" value={name} maxLength={40} autoFocus autoComplete="off" onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setNaming(false); } }} />
+            onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); closeForm(); } }} />
           <div className="row2">
             <button type="submit" className="btn primary">Guardar</button>
-            <button type="button" className="btn ghost" onClick={() => setNaming(false)}>Cancelar</button>
+            <button type="button" className="btn ghost" onClick={closeForm}>Cancelar</button>
           </div>
         </form>
       ) : (
-        <button type="button" className="btn" onClick={startSave} disabled={!glyphs.length}>
+        <button type="button" className="btn" ref={saveBtn} onClick={startSave} disabled={!glyphs.length}>
           {saved ? `Guardada como «${saved.name}» · renombrar` : 'Guardar esta rampa en este navegador'}
         </button>
       )}

@@ -347,7 +347,9 @@ test.describe('accesibilidad', () => {
     await page.locator('.vbar .legib-more').click();
     // the estimate's detail (its list, with a mark per text) is part of what is measured: wait for it
     await expect(page.locator('.vbar .legib-say')).not.toHaveText('Midiendo…', { timeout: 30_000 });
-    const worst = await page.evaluate(() => {
+    // measured between text effects: while a label scrambles, its own text is transparent under the frames
+    const measure = () => page.evaluate(() => {
+      if (document.querySelector('[data-scr], .mt-scr, .mt-curtain')) return null;
       const lin = (c: number) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
       const lum = (r: number, g: number, b: number) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
       const rgba = (s: string) => { const m = (s.match(/[\d.]+/g) ?? []).map(Number); return [m[0] ?? 0, m[1] ?? 0, m[2] ?? 0, m.length > 3 ? m[3] : 1]; };
@@ -378,6 +380,8 @@ test.describe('accesibilidad', () => {
       }
       return out;
     });
+    let worst: Array<{ sel: string; ratio: number }> = [];
+    await expect.poll(async () => { const m = await measure(); if (m) worst = m; return m !== null; }, { timeout: 10_000 }).toBe(true);
     expect(worst.length).toBeGreaterThanOrEqual(3);
     for (const w of worst) expect(w.ratio, w.sel).toBeGreaterThanOrEqual(4.5);
   });
