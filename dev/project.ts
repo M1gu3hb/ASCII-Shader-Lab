@@ -22,7 +22,7 @@ import type { MediaRef, Recipe } from '../src/engine/recipe';
 import { evaluate } from '../src/project/evaluate';
 import { Compositor } from '../src/project/compositor';
 import { createSourceProvider } from '../src/project/sources';
-import { cloneProject, newLayer, newProject, projectFromImage, projectFromRecipe, projectFromSequence, projectFromVideo, uid } from '../src/project/normalize';
+import { cloneProject, newLayer, newProject, normalizeProject, projectFromImage, projectFromRecipe, projectFromSequence, projectFromVideo, uid } from '../src/project/normalize';
 import * as store from '../src/project/store';
 import type { Mask, Project } from '../src/project/types';
 import * as exporting from '../src/project/export';
@@ -134,6 +134,16 @@ function posterSample(ref: MediaRef): Project {
   style.glyph.cell = 8;
   const zone: Mask = { invert: false, feather: 0, opacity: 1, parts: [{ kind: 'rect', op: 'add', x: 0.52, y: 0.36, w: 0.3, h: 0.34, rot: 0, soft: 0, alpha: 1 }] };
   p.layers.push(newLayer('ascii', { name: 'Sol tramado', source: src.id, style, opaque: true, mask: zone }));
+  // dithered and halftone squares over the photo (like the fruit bowl: pixel squares among the letters)
+  const square = (x: number, y: number, w: number): Mask => ({ invert: false, feather: 0, opacity: 1, parts: [{ kind: 'rect', op: 'add', x, y, w, h: w * 1080 / 1350, rot: 0, soft: 0, alpha: 1 }] });
+  p.layers.push(newLayer('photo', {
+    name: 'Cuadro tramado', source: src.id, fit: 'cover', mask: square(0.83, 0.43, 0.11),
+    finishes: [{ kind: 'dither', on: true, amount: 1, params: { algo: 'atkinson', color: 'bn', ink: '#1c1a17', paper: '#efe9df', pixel: 3 } }],
+  }));
+  p.layers.push(newLayer('photo', {
+    name: 'Cuadro en semitono', source: src.id, fit: 'cover', mask: square(0.36, 0.27, 0.12),
+    finishes: [{ kind: 'halftone', on: true, amount: 1, params: { shape: 'dot', freq: 7, color: 'fuente', paper: '#efe9df' } }],
+  }));
   p.layers.push(newLayer('shape', { name: 'Marco', shape: 'bracket', pts: [0.52, 0.36, 0.3, 0.34], stroke: '#1c1a17', width: 2, fill: null, dash: null }));
   p.layers.push(newLayer('shape', { name: 'Nota FL33', shape: 'callout', pts: [0.67, 0.45, 0.8, 0.2, 0.9, 0.2], stroke: '#1c1a17', width: 1.5, fill: null, dash: null, label: { text: 'FL33', font: 'jetbrains', size: 0.018, color: '#1c1a17' } }));
   p.layers.push(newLayer('shape', { name: 'Nota PW33', shape: 'callout', pts: [0.4, 0.66, 0.3, 0.7, 0.12, 0.7], stroke: '#efe9df', width: 1.5, fill: null, dash: null, label: { text: 'PW33', font: 'jetbrains', size: 0.018, color: '#efe9df' } }));
@@ -453,14 +463,14 @@ let photoRef: MediaRef | null = null;
 async function main() {
   status('guardando la foto de muestra en el navegador…');
   const ref = photoRef = await storePhoto();
-  samples.push(
-    { name: 'Foto con una zona circular en ASCII', project: circleSample(ref) },
-    { name: 'Sujeto en caracteres reales sobre la foto borrosa', project: subjectSample(ref) },
-    { name: 'Cartel editorial con líneas y etiquetas', project: posterSample(ref) },
-    { name: 'Dos zonas con estilos distintos y grano', project: zonesSample(ref) },
-    { name: 'Recorte transparente', project: transparentSample() },
-    { name: 'Pieza del laboratorio llevada al estudio', project: projectFromRecipe(preset('media', 'neon'), ref) },
-  );
+  // (through normalizeProject, as every project the studio opens: finishes get their defaults)
+  const add = (name: string, p: Project) => samples.push({ name, project: normalizeProject(p) });
+  add('Foto con una zona circular en ASCII', circleSample(ref));
+  add('Sujeto en caracteres reales sobre la foto borrosa', subjectSample(ref));
+  add('Cartel editorial con líneas y etiquetas', posterSample(ref));
+  add('Dos zonas con estilos distintos y grano', zonesSample(ref));
+  add('Recorte transparente', transparentSample());
+  add('Pieza del laboratorio llevada al estudio', projectFromRecipe(preset('media', 'neon'), ref));
   const grid = $('#samples');
   const pick = $<HTMLSelectElement>('#pick');
   for (const [i, s] of samples.entries()) {

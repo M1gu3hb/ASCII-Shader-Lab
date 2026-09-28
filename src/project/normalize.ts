@@ -10,6 +10,7 @@
  */
 import { PATTERN_IDS } from '../engine/catalog';
 import { cloneRecipe, defaultRecipe, normHex, normMediaRef, normalizeRecipe, type MediaRef, type Recipe } from '../engine/recipe';
+import { normalizeFinish } from '../fx/index';
 import { defaultGlyphStyle as glyphDefaults, normalizeGlyphStyle } from '../glyphs/params';
 import {
   PROJECT_VERSION,
@@ -209,10 +210,14 @@ export function normClip(v: unknown): AnimClip | null {
   };
 }
 
+/**
+ * A finish made valid by the finishes module's own rules (its catalog, ranges and defaults: fx/params.ts),
+ * then kept to plain values (params of a newer catalog stay, if they are plain numbers, strings or booleans).
+ */
 export function normFinish(v: unknown): Finish | null {
-  const o = obj(v);
-  if (!(FINISH_KINDS as string[]).includes(o.kind as string)) return null;
-  return { kind: o.kind as FinishKind, on: bool(o.on, true), amount: num(o.amount, 1, 0, 1), params: params(o.params) };
+  const f = normalizeFinish(v);
+  if (!f) return null;
+  return { kind: f.kind, on: f.on, amount: num(f.amount, 1, 0, 1), params: params(f.params) };
 }
 
 /* ------------------------------------------------------------------ masks */

@@ -43,15 +43,35 @@ interface Mt {
   gcCheck(): Promise<Record<string, unknown>>;
   videoCheck(): Promise<{ codec: string; frames: Array<{ t: number; want: number; exact: number; preview: number }> }>;
   basic: boolean;
+  sequenceCheck(): Promise<{ seq: number[][]; cutoutCenter: number[]; cutoutCorner: number[] }>;
+  budgetCheck(): Promise<{ ascii: number; warnings: string[]; shared: boolean; roomyWarnings: string[]; same: boolean }>;
+  autosaveCheck(): Promise<{ listedName: string | null; savedName: string | null; afterUndo: string | null; storage: string }>;
+  exportsCheck(): Promise<{
+    layer: { type: string; alpha: { clear: number; solid: number; partial: number; total: number } };
+    mask: { w: number; h: number; center: number; corner: number; alpha: { solid: number; total: number } } | null;
+    original: { files: number; same: boolean; name: string };
+    small: number[]; webp: string; frames: string[];
+  }>;
 }
 type W = Window & { mt: Mt };
 
 async function open(page: Page, query = '') {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
+  // a dev server that finds a dependency late re-bundles it and answers the old one with 504: load again then
+  let stale = false;
+  page.on('response', r => { if (r.status() === 504) stale = true; });
   await page.goto(url + query);
   // the first visit compiles the page's modules and the engines' shaders (SwiftShader): generous
-  await page.waitForFunction(() => (window as unknown as W).mt?.ready || !!(window as unknown as W).mt?.error, null, { timeout: 150_000 });
+  const deadline = Date.now() + 150_000;
+  let reloaded = false;
+  for (;;) {
+    const ok = await page.evaluate(() => !!(window as unknown as W).mt?.ready || !!(window as unknown as W).mt?.error).catch(() => false);
+    if (ok) break;
+    if (stale && !reloaded) { reloaded = true; stale = false; await page.reload(); continue; }
+    if (Date.now() > deadline) throw new Error('la página de QA no terminó de cargar');
+    await page.waitForTimeout(500);
+  }
   expect(await page.evaluate(() => (window as unknown as W).mt.error)).toBe('');
   return errors;
 }
@@ -158,4 +178,36 @@ test('without WebGL 2 (the basic engine) every sample renders and the export sti
   const e = await page.evaluate(() => (window as unknown as W).mt.exportMatches(3, 1.2));
   expect(e).toMatchObject({ same: true, differ: 0 });
   expect(errors).toEqual([]);
+});
+
+test('photo sequences, cut-outs, the engine budget, autosave and the other exports', async ({ page }) => {
+  test.setTimeout(240_000);
+  await open(page);
+  const seq = await page.evaluate(() => (window as unknown as W).mt.sequenceCheck());
+  // three photos, half a second each, then the first again
+  expect(seq.seq).toEqual([[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255], [255, 0, 0, 255]]);
+  expect(seq.cutoutCenter[3]).toBe(255);
+  expect(seq.cutoutCorner[3]).toBe(0);
+
+  const b = await page.evaluate(() => (window as unknown as W).mt.budgetCheck());
+  expect(b.ascii).toBeGreaterThan(2);
+  expect(b.shared).toBe(true);
+  expect(b.warnings.join(' ')).toMatch(/capas ASCII/);
+  expect(b.roomyWarnings).toEqual([]);
+  expect(b.same).toBe(true);
+
+  const a = await page.evaluate(() => (window as unknown as W).mt.autosaveCheck());
+  expect(a).toMatchObject({ listedName: 'Guardado solo', savedName: 'Guardado solo', storage: 'ok' });
+  expect(a.afterUndo).not.toBe('Guardado solo');
+
+  const e = await page.evaluate(() => (window as unknown as W).mt.exportsCheck());
+  expect(e.layer.type).toBe('image/png');
+  expect(e.layer.alpha.clear).toBeGreaterThan(0);
+  expect(e.layer.alpha.solid + e.layer.alpha.partial).toBeGreaterThan(0);
+  expect(e.mask).toMatchObject({ w: 320, h: 200, center: 255, corner: 0 });
+  expect(e.mask!.alpha.solid).toBe(e.mask!.alpha.total);
+  expect(e.original).toMatchObject({ files: 1, same: true, name: 'atardecer.png' });
+  expect(e.small).toEqual([480, 300]);
+  expect(e.frames).toHaveLength(4);
+  expect(new Set(e.frames.map(f => f.split(':')[1])).size).toBe(4);
 });

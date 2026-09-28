@@ -139,7 +139,9 @@ describe('normalizeProject', () => {
   it('is idempotent and keeps a valid project as it is', () => {
     const p = sampleProject();
     const a = normalizeProject(p);
-    expect(a).toEqual(p);
+    // everything but the finish, whose params the finishes module completes with its defaults
+    expect({ ...a, layers: a.layers.map(l => ({ ...l, finishes: [] })) }).toEqual({ ...p, layers: p.layers.map(l => ({ ...l, finishes: [] })) });
+    expect(a.layers[2].finishes[0]).toMatchObject({ kind: 'grain', amount: 0.5, params: { size: 2, futuro: 'x' } });
     expect(normalizeProject(a)).toEqual(a);
     const r = rng(7);
     for (let i = 0; i < 100; i++) {
@@ -164,7 +166,10 @@ describe('normalizeProject', () => {
     expect(p.layers[0].opacity).toBe(1);
     expect(p.layers[0].blend).toBe('normal');
     expect(p.layers[0].xf.scale).toBe(0.01);
-    expect(p.layers[1].finishes).toEqual([{ kind: 'dither', on: true, amount: 1, params: { algoritmo: 'nuevo', n: 3 } }]);
+    expect(p.layers[1].finishes).toHaveLength(1);
+    expect(p.layers[1].finishes[0]).toMatchObject({ kind: 'dither', on: true, amount: 1, params: { n: 3 } });
+    // a param of a newer catalog (a plain value) stays; one that is not a plain value goes
+    expect('obj' in p.layers[1].finishes[0].params).toBe(false);
     expect(p.layers[1].clips[0]).toMatchObject({ template: 'plantilla-futura', dur: 0.01, params: { a: 1 }, repeat: 1 });
     // the ascii layer got a full recipe
     expect(p.layers[1].kind === 'ascii' && p.layers[1].style.v).toBe(2);

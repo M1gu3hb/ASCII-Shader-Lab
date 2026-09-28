@@ -20,7 +20,7 @@ import { createFontLoader, type FontLoader } from '../engine/fonts';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import { cloneRecipe, type MediaRef, type Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
-import { applyFinishes } from '../fx/index';
+import { applyFinishes, releaseFinishes } from '../fx/index';
 import { drawGlyphs, ensureGlyphFont, glyphGridWith, sampleOf, type CellFx, type GlyphGrid } from '../glyphs/index';
 import { cssAdjustCpu, cssFilter, fitRect, needsTone, toneCpu } from './adjust';
 import type { CellGrid } from './clips';
@@ -80,6 +80,7 @@ const BLEND: Record<CompositeBlend, GlobalCompositeOperation> = {
 /* ------------------------------------------------------------------ canvas filter support */
 
 let filterOK: boolean | null = null;
+let compositors = 0;
 /** Whether this browser's canvas applies ctx.filter (checked once by drawing through invert()). */
 export function canvasFilterWorks(): boolean {
   if (filterOK !== null) return filterOK;
@@ -176,6 +177,9 @@ export class Compositor {
   private cpuCanvas: HTMLCanvasElement | null = null;
   private clock = 0;
   private destroyed = false;
+  /** Prefix of this compositor's canvases in the finishes' pool (fx/canvas.ts), so it frees only its own. */
+  private readonly poolId = `c${++compositors}`;
+  private pooled = new Set<string>();
 
   constructor(o: CompositorOptions = {}) {
     this.ownsProvider = !o.provider;
@@ -201,6 +205,8 @@ export class Compositor {
     this.shared = null;
     for (const c of [...this.layerCanvases.values(), ...this.feeds.values()]) { c.width = 0; c.height = 0; }
     if (this.cpuCanvas) { this.cpuCanvas.width = this.cpuCanvas.height = 0; this.cpuCanvas = null; }
+    for (const key of this.pooled) releaseFinishes(key);
+    this.pooled.clear();
     this.layerCanvases.clear();
     this.feeds.clear();
     this.grids.clear();
@@ -352,6 +358,8 @@ export class Compositor {
     for (const [id, c] of this.feeds) if (!ids.has(id)) { c.width = c.height = 0; this.feeds.delete(id); }
     for (const [id, e] of this.engines) if (!ids.has(id)) { e.eng.destroy(); this.engines.delete(id); }
     for (const id of this.grids.keys()) if (!ids.has(id)) this.grids.delete(id);
+    // the finishes' canvases of deleted layers
+    for (const key of this.pooled) if (!ids.has(key.slice(this.poolId.length + 1))) { releaseFinishes(key); this.pooled.delete(key); }
   }
 
   private layerCanvas(id: Id, w: number, h: number) {
@@ -380,7 +388,11 @@ export class Compositor {
     if (note) return note;
     let out: HTMLCanvasElement = lc;
     const on = l.finishes.filter(f => f.on && f.amount > 0);
-    if (on.length) out = applyFinishes(lc, on, { t: state.t, seed: `${state.seed}|${l.id}`, scale, quality }, l.id);
+    if (on.length) {
+      const key = `${this.poolId}:${l.id}`;
+      this.pooled.add(key);
+      out = applyFinishes(lc, on, { t: state.t, seed: `${state.seed}|${l.id}`, scale, quality }, key);
+    }
     if (l.mask) {
       const m = maskCanvas(l.mask, {
         w: rw, h: rh, scale, t: state.t,

@@ -17,6 +17,7 @@ import { normLayer } from './normalize';
 // the first templates register themselves with clips.ts (a project that uses them evaluates anywhere)
 import './templates';
 import type { CellFx } from '../glyphs/index';
+import { finishesDependOnTime } from '../fx/index';
 import type { Id, Key, Layer, Mask, Project, Source, Track } from './types';
 
 export interface ClipState {
@@ -282,3 +283,23 @@ export function frameTimes(project: Pick<Project, 'time'>, o: { fps?: number; fr
 
 /** A stable number for a string (seeds of layers and clips). */
 export const seedOf = hashString;
+
+/**
+ * Whether the picture of a project changes with time (for a studio deciding to redraw when the playhead
+ * moves, or to export one still instead of a clip): a video or photo sequence, keyframes, clips, ASCII
+ * layers (their patterns move unless their speed is 0), finishes that move (animated grain, rolling
+ * scanlines, chroma jitter).
+ */
+export function dependsOnTime(p: Project): boolean {
+  if (p.tracks.length) return true;
+  for (const l of p.layers) {
+    if (!l.visible) continue;
+    if (l.span || l.clips.length || finishesDependOnTime(l.finishes)) return true;
+    if (l.kind === 'ascii' && l.style.motion.speed !== 0) return true;
+    if ('source' in l) {
+      const s = p.sources.find(x => x.id === l.source);
+      if (s && (s.kind === 'video' || (s.kind === 'sequence' && s.media.length > 1))) return true;
+    }
+  }
+  return false;
+}
