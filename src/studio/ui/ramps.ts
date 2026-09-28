@@ -32,8 +32,11 @@ function persist(list: SavedRamp[]) {
   useRamps.setState({ list, saved });
 }
 
-/** Saves a ramp (the same characters are kept once: saving them again renames them). */
-export function saveRamp(name: string, chars: string): SavedRamp {
+/**
+ * Saves a ramp (the same characters are kept once: saving them again renames them). With RAMPS_MAX
+ * already saved, a new one is not saved (null): none of the saved ones is dropped to make room.
+ */
+export function saveRamp(name: string, chars: string): SavedRamp | null {
   const list = useRamps.getState().list;
   const clean = name.trim().slice(0, 40) || 'Mi rampa';
   const same = list.find(r => r.chars === chars);
@@ -42,10 +45,14 @@ export function saveRamp(name: string, chars: string): SavedRamp {
     persist(list.map(r => (r.id === same.id ? next : r)));
     return next;
   }
+  if (list.length >= RAMPS_MAX) return null;
   const r: SavedRamp = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: clean, chars, created: Date.now() };
-  persist([r, ...list].slice(0, RAMPS_MAX));
+  persist([r, ...list]);
   return r;
 }
+
+/** What to tell a person whose list is full. */
+export const RAMPS_FULL = `Ya tienes ${RAMPS_MAX} rampas guardadas: borra una para guardar otra.`;
 
 export function removeRamp(id: string) {
   persist(useRamps.getState().list.filter(r => r.id !== id));

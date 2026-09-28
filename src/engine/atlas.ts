@@ -1,4 +1,5 @@
 import { EDGE_GLYPHS } from './catalog';
+import { CHARSET_DEFAULT } from './recipe';
 
 export interface AtlasSpec {
   charset: string;
@@ -107,7 +108,8 @@ export function sortByDensity(chars: string[], spec: { stack: string; weight: nu
 
 export function buildAtlas(spec: AtlasSpec, prev?: HTMLCanvasElement): Atlas {
   let ramp = uniqueChars(spec.charset);
-  if (!ramp.length) ramp = [' ', '#'];
+  // no characters: the default ramp, as normalizeRecipe gives such a recipe back (a reload, a link)
+  if (!ramp.length) ramp = uniqueChars(CHARSET_DEFAULT);
   if (spec.sort && ramp.length > 1) ramp = sortByDensity(ramp, spec, spec.ch / spec.cw);
   const chars = ramp.slice();
   const index = new Map<string, number>();

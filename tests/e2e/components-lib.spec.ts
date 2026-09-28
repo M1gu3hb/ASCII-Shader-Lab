@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { build } from 'esbuild';
@@ -46,8 +46,11 @@ async function tabsOf(page: Page, name: string): Promise<Record<string, string>>
 }
 
 /** A page of another origin serving `files` (path → body). */
-async function otherSite(browser: Browser, files: Record<string, string | Buffer>, o: { reducedMotion?: 'reduce' } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1100, height: 800 }, reducedMotion: o.reducedMotion ?? 'no-preference' });
+async function otherSite(browser: Browser, files: Record<string, string | Buffer>, o: { reducedMotion?: 'reduce'; touch?: boolean } = {}) {
+  const ctx = await browser.newContext({
+    viewport: o.touch ? { width: 390, height: 800 } : { width: 1100, height: 800 }, reducedMotion: o.reducedMotion ?? 'no-preference',
+    ...(o.touch ? { hasTouch: true, isMobile: true } : {}),
+  });
   await ctx.route(SITE + '/**', r => {
     const path = new URL(r.request().url()).pathname;
     const body = files[path];
@@ -120,6 +123,10 @@ test.describe('piezas nuevas en otra web', () => {
     await expect.poll(() => b.page.locator('.revelar canvas').evaluate(c => getComputedStyle(c).display)).toBe('none');
     expect(b.errors).toEqual([]);
     await b.ctx.close();
+
+    // (the snippet says what to do with such a picture: with crossorigin a browser does not load it; the
+    // routed responses here skip that check, so only the advice is checked)
+    expect(code.Revelar['HTML para pegar']).toMatch(/sin esa cabecera, con crossorigin no se carga: quita el atributo/);
   });
 
   test('Foco: la luz sigue al cursor y al foco del teclado; el contenido no cambia', async ({ browser }) => {
@@ -163,7 +170,7 @@ test.describe('piezas nuevas en otra web', () => {
     }
   });
 
-  test('Separador: desfila, se para con el cursor, con el foco y con su botón; quieto con «reducir movimiento»', async ({ browser }) => {
+  test('Separador: desfila, se para con el cursor, con el foco y con su botón (que dice lo que se llama); en un móvil el botón se ve y tocar la franja lo pausa; quieto con «reducir movimiento»', async ({ browser }) => {
     const { ctx, page, errors } = await otherSite(browser, { '/': doc(code.Separador['HTML para pegar']) });
     await page.goto(SITE + '/');
     const track = page.locator('.separador > span[aria-hidden="true"]');
@@ -182,12 +189,36 @@ test.describe('piezas nuevas en otra web', () => {
     await page.keyboard.press('Tab');
     const pause = page.getByRole('button', { name: 'Pausar el letrero' });
     await expect(pause).toBeFocused();
+    await expect(pause).toHaveText('Pausar');
     await page.keyboard.press('Enter');
-    await expect(pause).toHaveAttribute('aria-pressed', 'true');
+    // its name follows what it shows (label in name)
+    const resume = page.getByRole('button', { name: 'Reanudar el letrero' });
+    await expect(resume).toBeFocused();
+    await expect(resume).toHaveText('Reanudar');
     await page.keyboard.press('Tab');
     const p1 = await x(); await page.waitForTimeout(400); expect(await x()).toBe(p1);
+    // paused, the button stays in sight (how to resume is visible)
+    await expect(resume).toHaveCSS('opacity', '1');
     expect(errors).toEqual([]);
     await ctx.close();
+
+    // a touch screen: no hover, no keyboard; the button is in sight, and the whole strip pauses and resumes
+    const m = await otherSite(browser, { '/': doc(code.Separador['HTML para pegar']) }, { touch: true });
+    await m.page.goto(SITE + '/');
+    const mt = m.page.locator('.separador > span[aria-hidden="true"]');
+    const mx = () => mt.evaluate(el => new DOMMatrix(getComputedStyle(el).transform).m41);
+    const mp = m.page.getByRole('button', { name: 'Pausar el letrero' });
+    await expect(mp).toBeVisible();
+    await expect(mp).toHaveCSS('opacity', '1');
+    await mp.tap();
+    await expect(m.page.getByRole('button', { name: 'Reanudar el letrero' })).toBeVisible();
+    const m1 = await mx(); await m.page.waitForTimeout(400); expect(await mx()).toBe(m1);
+    const bb = (await m.page.locator('.separador').boundingBox())!;
+    await m.page.touchscreen.tap(bb.x + 30, bb.y + bb.height / 2);
+    await expect(mp).toBeVisible();
+    await expect.poll(mx).not.toBe(m1);
+    expect(m.errors).toEqual([]);
+    await m.ctx.close();
 
     const r = await otherSite(browser, { '/': doc(code.Separador['HTML para pegar']) }, { reducedMotion: 'reduce' });
     await r.page.goto(SITE + '/');
@@ -321,6 +352,108 @@ blockBanner(document.getElementById('rotulo'), 'AÑO');
     });
     expect(await even('#carga pre'), 'la pantalla de carga').toBe(true);
     expect(await even('#rotulo'), 'las letras de bloque').toBe(true);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
+test.describe('Halo en otra web', () => {
+  test('el foco del teclado lo enciende (quieto con «reducir movimiento») y destroy() lo suelta del todo', async ({ browser }) => {
+    // the module the studio exports (catalog.ts imports this very file)
+    const src = readFileSync(join(process.cwd(), 'src/components/lib/halo.js'), 'utf8');
+    const page0 = doc(`<button id="antes">Antes</button> <button id="b" style="padding:30px 60px">Abrir</button>
+<script>
+window.draws = 0;
+const clear = CanvasRenderingContext2D.prototype.clearRect;
+CanvasRenderingContext2D.prototype.clearRect = function (...a) { window.draws++; return clear.apply(this, a); };
+</script>
+<script type="module">import { halo } from '/halo.js'; window.ctl = halo(document.getElementById('b'), {});</script>`);
+    for (const reducedMotion of ['reduce', 'no-preference'] as const) {
+      const { ctx, page, errors } = await otherSite(browser, { '/': page0, '/halo.js': src }, reducedMotion === 'reduce' ? { reducedMotion } : {});
+      await page.goto(SITE + '/');
+      await expect(page.locator('#b canvas')).toHaveCount(1);
+      const draws = async () => {
+        await page.evaluate(() => { (window as unknown as { draws: number }).draws = 0; });
+        await page.waitForTimeout(600);
+        return page.evaluate(() => (window as unknown as { draws: number }).draws);
+      };
+      await page.locator('#antes').focus();
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#b')).toBeFocused();
+      if (reducedMotion === 'reduce') expect(await draws(), reducedMotion).toBe(0);
+      else expect(await draws(), reducedMotion).toBeGreaterThan(10);
+      await page.keyboard.press('Shift+Tab');
+      // (once it has gone quiet, as when a framework takes it down and puts it up again)
+      await expect.poll(draws).toBe(0);
+      await page.evaluate(() => (window as unknown as { ctl: { destroy(): void } }).ctl.destroy());
+      await expect(page.locator('#b canvas')).toHaveCount(0);
+      // gone: the keyboard on the button no longer draws anything
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#b')).toBeFocused();
+      expect(await draws(), reducedMotion).toBe(0);
+      expect(await page.locator('#b').evaluate(b => [b.style.position, b.style.isolation].join('|'))).toBe('|');
+      expect(errors).toEqual([]);
+      await ctx.close();
+    }
+  });
+});
+
+test.describe('Descifrar en otra web', () => {
+  test('en bucle se repite unos segundos y se queda quieto; el cursor lo repite una vez', async ({ browser }) => {
+    const src = readFileSync(join(process.cwd(), 'src/components/lib/scramble.js'), 'utf8');
+    const html = doc(`<h1 id="h" style="font-family:monospace">Teje luz con caracteres</h1>
+<script type="module">
+import { scramble } from '/scramble.js';
+window.changes = 0;
+const h = document.getElementById('h');
+new MutationObserver(() => { window.changes++; }).observe(h, { childList: true, subtree: true, characterData: true });
+window.ctl = scramble(h, { trigger: 'loop', duration: 400, loopDelay: 300, loopFor: 2000 });
+</script>`);
+    const { ctx, page, errors } = await otherSite(browser, { '/': html, '/scramble.js': src });
+    await page.goto(SITE + '/');
+    const changes = async (ms: number) => {
+      await page.evaluate(() => { (window as unknown as { changes: number }).changes = 0; });
+      await page.waitForTimeout(ms);
+      return page.evaluate(() => (window as unknown as { changes: number }).changes);
+    };
+    expect(await changes(1000)).toBeGreaterThan(5);
+    await page.waitForTimeout(1300);
+    // past loopFor: still, with the whole text in place
+    expect(await changes(1500)).toBe(0);
+    await expect(page.locator('#h span[aria-hidden="true"]')).toHaveText('Teje luz con caracteres');
+    await page.locator('#h').hover();
+    expect(await changes(600)).toBeGreaterThan(3);
+    expect(await changes(1200)).toBe(0);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
+test.describe('Foco en otra web', () => {
+  test('sin nadie no dibuja nada; con el cursor la luz y la trama se mueven; al irse se queda quieta', async ({ browser }) => {
+    const src = readFileSync(join(process.cwd(), 'src/components/lib/spotlight.js'), 'utf8');
+    const html = doc(`<section id="s" style="height:400px;background:#0b0a09"><h2>Tu titular</h2><a href="#c">Contacto</a></section>
+<script>
+window.draws = 0;
+const clear = CanvasRenderingContext2D.prototype.clearRect;
+CanvasRenderingContext2D.prototype.clearRect = function (...a) { window.draws++; return clear.apply(this, a); };
+</script>
+<script type="module">import { spotlight } from '/spotlight.js'; spotlight(document.getElementById('s'), {});</script>`);
+    const { ctx, page, errors } = await otherSite(browser, { '/': html, '/spotlight.js': src });
+    await page.goto(SITE + '/');
+    const draws = async (ms: number) => {
+      await page.evaluate(() => { (window as unknown as { draws: number }).draws = 0; });
+      await page.waitForTimeout(ms);
+      return page.evaluate(() => (window as unknown as { draws: number }).draws);
+    };
+    await expect(page.locator('#s canvas')).toHaveCount(1);
+    await page.waitForTimeout(300);
+    expect(await draws(800)).toBe(0);
+    const box = (await page.locator('#s').boundingBox())!;
+    await page.mouse.move(box.x + 200, box.y + 150);
+    expect(await draws(500)).toBeGreaterThan(10);
+    await page.mouse.move(box.x + 200, box.y + box.height + 150);
+    await expect.poll(() => draws(500)).toBe(0);
     expect(errors).toEqual([]);
     await ctx.close();
   });

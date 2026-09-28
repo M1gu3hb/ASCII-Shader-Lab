@@ -64,7 +64,7 @@ export const HELP: Record<string, HelpText> = {
   /* motion */
   'motion.speed': { hint: 'Velocidad de toda la animación. En 0 queda quieta.' },
   'motion.hold': { hint: 'Anima a saltos, como stop motion: fotogramas por segundo.', more: 'En «fluido» la pieza se mueve en cada fotograma de la pantalla. Con un número, cambia sólo esas veces por segundo: 8 a 12 da un aire artesanal.' },
-  'motion.loop': { hint: 'Funde el final con el principio: la animación se repite sin saltos.', more: 'Ideal para GIF, video y fondos que no deben «saltar». El número es la duración del bucle en segundos; el video y el GIF la usan para enlazar perfecto.' },
+  'motion.loop': { hint: 'Funde el final con el principio: la animación se repite sin saltos.', more: 'Ideal para GIF, video y fondos que no deben «saltar». El número es la duración del bucle en segundos; el video y el GIF la usan para enlazar perfecto. Lo que tiene su propio ritmo (letras que se mueven, el mensaje, Ondular) va un poco más rápido o más lento para dar vueltas enteras en ese tiempo; la Estela, que recuerda lo que pasó, empieza vacía en el primer fotograma de un clip.' },
   'motion.pulse': { hint: 'Latido: la pieza se encoge y brilla al ritmo del tempo.' },
   'motion.bpm': { hint: 'Tempo del latido, en pulsos por minuto.' },
   'interact.mode': { hint: 'Qué le pasa a la pieza bajo el cursor o el dedo.' },

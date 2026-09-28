@@ -101,10 +101,15 @@ test.describe('transformaciones de la fuente', () => {
     await expect(page.getByRole('button', { name: 'Bajar «Bandas»' })).toBeFocused();
 
     // off for a moment (the card says so), and back on
-    await page.getByRole('button', { name: 'Apagar «Semitono»' }).click();
+    // (one name, its state in aria-pressed: «Apagar «Semitono»», pressed while it is off)
+    const off = page.getByRole('button', { name: 'Apagar «Semitono»' });
+    await expect(off).toHaveAttribute('aria-pressed', 'false');
+    await off.click();
     await expect(page.locator('.xf-card.off')).toHaveCount(1);
-    await page.getByRole('button', { name: 'Encender «Semitono»' }).click();
+    await expect(off).toHaveAttribute('aria-pressed', 'true');
+    await off.click();
     await expect(page.locator('.xf-card.off')).toHaveCount(0);
+    await expect(off).toHaveAttribute('aria-pressed', 'false');
 
     // a trail needs movement: on a still photo the card says it
     await add.click();
@@ -130,8 +135,22 @@ test.describe('transformaciones de la fuente', () => {
     await expect(p2.getByRole('combobox', { name: 'Transformación 3' })).toContainText('Estela');
     await other.close();
 
+    // a card that changes kind (it is made again) or goes away keeps the keyboard in the list
+    const third = page.getByRole('combobox', { name: 'Transformación 3' });
+    await third.focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('cal');
+    await page.keyboard.press('Enter');
+    await expect(third).toContainText('Caleidoscopio');
+    await expect(third).toBeFocused();
+    await page.getByRole('button', { name: 'Quitar «Caleidoscopio»' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.xf-card')).toHaveCount(2);
+    await expect(page.getByRole('combobox', { name: 'Transformación 2' })).toBeFocused();
+
     await page.getByRole('button', { name: 'Quitar las transformaciones' }).click();
     await expect(page.locator('.xf-card')).toHaveCount(0);
+    await expect(add).toBeFocused();
     expect(errors).toEqual([]);
   });
 
@@ -250,6 +269,8 @@ test.describe('rampa de caracteres', () => {
     // deleting says so and can be undone
     await page.getByRole('button', { name: 'Borrar la rampa «Mi trama»' }).click();
     await expect(page.getByRole('button', { name: /^Mi trama/ })).toHaveCount(0);
+    // (the button pressed went away with its ramp: the keyboard stays in the editor)
+    await expect(page.getByRole('button', { name: 'Guardar esta rampa en este navegador' })).toBeFocused();
     await page.locator('.toast').getByRole('button', { name: 'Deshacer' }).click();
     await expect(page.getByRole('button', { name: /^Mi trama/ })).toBeVisible();
     expect(errors).toEqual([]);

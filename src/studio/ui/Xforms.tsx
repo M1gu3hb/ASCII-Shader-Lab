@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useRef } from 'react';
+import { useCallback, useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { XFORMS, xformById } from '../../engine/catalog';
 import { XFORM_MAX, type Xform, type XformKind } from '../../engine/recipe';
 import { randomXforms } from '../../random/generator';
@@ -25,6 +25,7 @@ function setList(r: { media: { xform?: Xform[] } }, list: Xform[]) {
   if (list.length) r.media.xform = list; else delete r.media.xform;
 }
 
+
 /**
  * «Transformar»: an ordered stack of transformations of the source (a photo, a video, the camera or the big
  * text), applied on the cell grid before the source becomes characters (engine/xform.ts). Each card is
@@ -49,6 +50,19 @@ export function XformTab({ space }: { space: SpaceId }) {
     const pool = isText ? (['semitono', 'contorno', 'caleido', 'desplazar', 'arrastre', 'ondular', 'bandas', 'canales', 'estela'] as XformKind[]) : undefined;
     setList(r, randomXforms(`${Date.now()}`, r.meta.arch, moving, pool));
   }, 'xf-dice' + Date.now());
+  // a card that changes kind is made again, and one removed goes away, with the control that had the
+  // keyboard: once the list is drawn, it goes to the card now at that place (or the last one), else to «Añadir»
+  const addBox = useRef<HTMLDivElement>(null);
+  const refocus = useRef<number | null>(null);
+  const keepFocus = useCallback((i: number) => { refocus.current = i; }, []);
+  useLayoutEffect(() => {
+    const i = refocus.current, box = addBox.current;
+    if (i === null || !box) return;
+    refocus.current = null;
+    const cards = box.parentElement?.querySelectorAll('.xf-card') ?? [];
+    const card = cards[Math.min(i, cards.length - 1)];
+    (card?.querySelector<HTMLElement>('[role="combobox"]') ?? box.querySelector<HTMLElement>('[role="combobox"]'))?.focus();
+  }, [list]);
   if (source === 'pattern') {
     return <Note>Las transformaciones cambian una imagen, un video, la cámara o el texto grande antes de volverlos caracteres. Elige una fuente en «{space === 'tipo' ? 'Texto' : 'Fuente'}».</Note>;
   }
@@ -56,9 +70,9 @@ export function XformTab({ space }: { space: SpaceId }) {
     <>
       <Note>Cambian {isText ? 'el texto' : 'la imagen'} antes de volverl{isText ? 'o' : 'a'} caracteres. Se aplican en orden, de arriba abajo: combina hasta {XFORM_MAX} y cambia su orden para cambiar el resultado.</Note>
       {!loaded && <Note>Cuando cargues {source === 'camera' ? 'la cámara' : source === 'video' ? 'un video' : 'una imagen'} en «Fuente» verás aquí cada transformación sobre ella.</Note>}
-      {list.map((x, i) => <XformCard key={x.kind} i={i} n={list.length} x={x} used={used} moving={moving} isText={isText} onOpen={onOpen} />)}
+      {list.map((x, i) => <XformCard key={x.kind} i={i} n={list.length} x={x} used={used} moving={moving} isText={isText} onOpen={onOpen} keepFocus={keepFocus} />)}
       <Sub>{list.length ? 'Añadir otra' : 'Añadir una transformación'}</Sub>
-      <div className="xf-add">
+      <div className="xf-add" ref={addBox}>
         <span id={labelId} className="sr-only">Añadir una transformación</span>
         <Picker<XformKind>
           value={undefined} options={addOpts} label="Añadir una transformación" labelId={labelId} placeholder={full ? `Ya hay ${XFORM_MAX}: quita una para añadir otra` : 'Elige una transformación…'}
@@ -74,14 +88,14 @@ export function XformTab({ space }: { space: SpaceId }) {
         <button type="button" className="icon-btn" title="Otra combinación al azar" aria-label="Otra combinación de transformaciones al azar" onClick={surprise}><IDice /></button>
       </div>
       {list.length > 0 && (
-        <button type="button" className="btn ghost" onClick={() => edit(r => setList(r, []), 'xf-clear' + Date.now())}>Quitar las transformaciones</button>
+        <button type="button" className="btn ghost" onClick={() => { keepFocus(0); edit(r => setList(r, []), 'xf-clear' + Date.now()); }}>Quitar las transformaciones</button>
       )}
     </>
   );
 }
 
-function XformCard({ i, n, x, used, moving, isText, onOpen }: {
-  i: number; n: number; x: Xform; used: XformKind[]; moving: boolean; isText: boolean; onOpen: (o: boolean) => void;
+function XformCard({ i, n, x, used, moving, isText, onOpen, keepFocus }: {
+  i: number; n: number; x: Xform; used: XformKind[]; moving: boolean; isText: boolean; onOpen: (o: boolean) => void; keepFocus: (i: number) => void;
 }) {
   const info = xformById(x.kind) ?? XFORMS[0];
   const recipe = useRecipe();
@@ -120,8 +134,8 @@ function XformCard({ i, n, x, used, moving, isText, onOpen }: {
               <span className="pk-main"><span className="pk-name">{o.label}</span>{o.desc && <span className="pk-desc">{o.desc}</span>}</span>
             </>
           )}
-          onChange={k => edit(r => { r.media.xform![i] = fresh(k); }, `media.xform.${i}.kind`)} />
-        <button type="button" className="icon-btn" aria-pressed={!x.on} title={x.on ? 'Apagar un momento' : 'Encender'} aria-label={x.on ? `Apagar «${info.name}»` : `Encender «${info.name}»`}
+          onChange={k => { keepFocus(i); edit(r => { r.media.xform![i] = fresh(k); }, `media.xform.${i}.kind`); }} />
+        <button type="button" className="icon-btn" aria-pressed={!x.on} title={x.on ? 'Apagar un momento' : 'Apagada: pulsa para encenderla'} aria-label={`Apagar «${info.name}»`}
           onClick={() => edit(r => { r.media.xform![i].on = !r.media.xform![i].on; }, 'xf-toggle' + Date.now())}>{x.on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={info.name} />}
       </div>
@@ -137,7 +151,7 @@ function XformCard({ i, n, x, used, moving, isText, onOpen }: {
         <button type="button" className="icon-btn xf-move" disabled={i === 0} onClick={() => move(-1)} aria-label={`Subir «${info.name}»`} title={i === 0 ? 'Ya es la primera' : 'Antes (se aplica antes)'}><IUp /></button>
         <button type="button" className="icon-btn xf-move" disabled={i === n - 1} onClick={() => move(1)} aria-label={`Bajar «${info.name}»`} title={i === n - 1 ? 'Ya es la última' : 'Después (se aplica después)'}><IDown /></button>
         <span style={{ flex: 1 }} />
-        <button type="button" className="icon-btn" onClick={() => edit(r => setList(r, r.media.xform!.filter((_, j) => j !== i)), 'xf-rm' + Date.now())}
+        <button type="button" className="icon-btn" onClick={() => { keepFocus(i); edit(r => setList(r, r.media.xform!.filter((_, j) => j !== i)), 'xf-rm' + Date.now()); }}
           aria-label={`Quitar «${info.name}»`} title="Quitar"><ITrash /></button>
       </div>
     </div>

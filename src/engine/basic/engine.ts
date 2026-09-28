@@ -7,14 +7,15 @@ import type { EngineOptions, EngineStats, GridSnapshot, MediaKind } from '../eng
 import type { PatternLibrary } from '../glsl/patterns';
 import type { MediaEl, PreviewQuality, Renderer } from '../renderer';
 import { DEFAULT_TRANSITION, transitionOf, type TransitionSpec } from '../transitions';
-import { drawTextSource, layoutMessage, messageState, textAnimated, type MsgLayout } from '../text';
-import { animateMessage, movedCell, msgColorAnim, scramblePool } from '../letters';
+import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from '../text';
+import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } from '../letters';
+import { fold, loopTime, morphPeriod, ondularTimes, pieceTime } from '../loop';
 import { activeXforms, trailDecay, trailStage, xformStages } from '../xform';
 import { XformState } from './xform';
 import { blurGrid, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
 import { drawOverlays, hasOverlays, type OverlayCache } from './overlays';
 import {
-  FieldBuffers, INTERACT_MODES, MediaMap, fieldLayers, heldTime, pulseAt, runField,
+  FieldBuffers, INTERACT_MODES, MediaMap, fieldLayers, pulseAt, runField,
   type FieldSource, type MediaBuffer, type TextBuffer,
 } from './field';
 import { SelectBuffers, runSelect } from './select';
@@ -569,8 +570,8 @@ export class BasicEngine implements Renderer {
     if (this.r.source !== 'text') { this.textBuf = null; return; }
     const t = this.r.text;
     // letters that move are drawn again at each moment (see AsciiEngine.updateText)
-    const anim = textAnimated(t) ? { time: heldTime(this.t, this.r.motion.hold), cols: this.cols } : undefined;
-    const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}` : '');
+    const anim = textAnimated(t) ? { time: pieceTime(this.t, this.r.motion), cols: this.cols, loop: this.r.motion.loop } : undefined;
+    const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}|${anim.loop}` : '');
     if (key === this.textKey && this.textBuf) return;
     this.textKey = key;
     this.textCanvas ??= document.createElement('canvas');
@@ -594,11 +595,11 @@ export class BasicEngine implements Renderer {
     }
     // letters that move are placed again at each moment (see AsciiEngine.updateMsg)
     const a = m.anim && m.anim.kind !== 'color' ? m.anim : null;
-    const tq = heldTime(this.t, this.r.motion.hold);
-    const akey = a ? `${key}|${a.kind}|${a.amount}|${a.speed}|${tq}` : key;
+    const tq = pieceTime(this.t, this.r.motion), loop = this.r.motion.loop;
+    const akey = a ? `${key}|${a.kind}|${a.amount}|${a.speed}|${tq}|${loop}` : key;
     if (akey === this.msgAnimKey && this.msgData) return;
     this.msgAnimKey = akey;
-    this.msgData = a ? animateMessage(this.msg, a, tq, this.rows, scramblePool(this.atlas.n)) : this.msg.data;
+    this.msgData = a ? animateMessage(this.msg, a, tq, this.rows, scramblePool(this.atlas.n), loop) : this.msg.data;
   }
 
   private updateWords() {
@@ -761,7 +762,8 @@ export class BasicEngine implements Renderer {
     this.runSim(dt);
     const r = this.r, P = this.ptr, it = this.r.interact;
     const src = SRC_OF(r, this.mediaOK);
-    const tq = heldTime(this.t, r.motion.hold);
+    // the piece's time (stop motion, and with «Bucle perfecto» the loop's time: see loop.ts)
+    const tq = pieceTime(this.t, r.motion), loop = r.motion.loop;
     const imode = INTERACT_MODES.indexOf(it.mode);
     const pulse = pulseAt(r.motion, tq, this.externalPulse);
     const simOn = imode === 2 || imode === 6 || imode === 7;
@@ -780,37 +782,38 @@ export class BasicEngine implements Renderer {
       W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows,
       time: tq, loop: r.motion.loop, layers: fieldLayers(r),
       warp: r.motion.warp, warpScale: r.motion.warpScale, pulse,
-      src, mediaMix: r.media.mix, mediaBlend: Math.max(0, BLENDS.indexOf(r.media.blend)), morph: r.text.morph,
+      src, mediaMix: r.media.mix, mediaBlend: Math.max(0, BLENDS.indexOf(r.media.blend)), morph: morphPeriod(r.text.morph, loop),
       media: this.mediaBuf, fit: r.media.fit === 'cover' ? 0 : r.media.fit === 'contain' ? 1 : 2,
       zoom: r.media.zoom, panX: r.media.panX, panY: r.media.panY, mirror: r.media.mirror,
       text: this.textBuf,
       imode, ptrX: P.x, ptrY: P.y, ptrOn: P.on, istr: it.strength, irad: it.radius,
       sim: simOn ? { h: this.sim.h, tr: this.sim.tr } : null,
-      xform: stages.length ? { stages, state: this.xf, decay } : null,
+      xform: stages.length ? { stages, state: this.xf, decay, times: ondularTimes(tq, loop) } : null,
     }, this.field);
     const T1 = performance.now();
 
     const a = this.atlas!, m = r.msg, lay = this.msg;
     let prog = 0, shift = 0, cursorX = -9, cursorY = -9, cursorOn = false;
     if (m.on && lay) {
-      const st = messageState(m, lay.count, this.t, lay.spans);
+      // with a loop, a whole number of the message's cycles fits in it
+      const st = messageState(m, lay.count, loop > 0 ? loopTime(this.t, loop, messageCycle(m, lay.count, lay.width)) : this.t, lay.spans);
       prog = st.prog; shift = Math.floor(st.shift);
       if (st.cursorOn && st.cursor >= 0 && lay.cells.length) {
         const home = lay.cells[Math.min(lay.cells.length - 1, st.cursor)];
-        const cell = m.anim ? movedCell(lay, m.anim, tq, this.rows, home, st.cursor) : home;
+        const cell = m.anim ? movedCell(lay, m.anim, tq, this.rows, home, st.cursor, loop) : home;
         cursorX = cell[0]; cursorY = cell[1]; cursorOn = cell[0] >= 0;
       }
     }
     const ca = msgColorAnim(m);
     runSelect({
-      cols: this.cols, rows: this.rows, time: tq, r,
+      cols: this.cols, rows: this.rows, time: tq, loop, r,
       fa: this.field.a, fr: this.field.r, fg: this.field.g, fb: this.field.b, isMedia: src === 'media',
       grad: this.grad, n: a.n, edgeBase: a.edgeBase, blockIdx: a.blockIdx, words: this.words,
       msg: {
         on: !!(m.on && lay), mode: ['static', 'type', 'decode', 'marquee', 'words'].indexOf(m.mode), prog, win: 6, shift,
         data: (lay && this.msgData) ?? new Uint8Array(4), width: lay?.width ?? 1, cursorX, cursorY, cursorOn,
         color: m.color ? hexToRgb(m.color) : null,
-        anim: ca ? { speed: ca.speed, amount: ca.amount } : null,
+        anim: ca ? { speed: ca.speed, amount: ca.amount, time: msgColorTime(m, tq, loop) } : null,
       },
       imode, ptrCellX: P.x / this.cw, ptrCellY: P.y / this.ch, ptrOn: P.on, istr: it.strength, iradCells: (it.radius * this.H) / this.cw,
       aspect: this.ch / this.cw,
@@ -830,7 +833,8 @@ export class BasicEngine implements Renderer {
       msgBox: m.on ? m.box : 0, transparent: this.transparent,
       reveal: hasMedia ? r.media.reveal : 0, eraseReveal: hasMedia && it.mode === 'erase', simTr: this.sim.tr,
       mediaPx: hasMedia ? mediaPx : null, bloom: bloom ? this.bloomBuf : null,
-      realT: this.realT,
+      // (flicker and grain: the real time, or with a loop the loop's time, as COMPOSE_FS's uFxTime)
+      realT: loop > 0 ? fold(this.t, loop) : this.realT,
     };
     const pixelPost = needsPixelPost(frame);
     if (pixelPost) {
