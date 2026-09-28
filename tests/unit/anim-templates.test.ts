@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import '../../src/anim/index';
-import { clipTime, paramsOf, templates, type CellGrid, type ClipEffect, type TemplateDef } from '../../src/project/clips';
+import { clipTime, paramsOf, templates, type CellGrid, type ClipEffect, type TemplateDef, type TileFx } from '../../src/project/clips';
+import type { CellFx } from '../../src/glyphs/index';
 import { evaluate, type LayerFrame } from '../../src/project/evaluate';
 import { newLayer, newProject, uid } from '../../src/project/normalize';
 import type { AnimClip, Layer, LayerKind, Project } from '../../src/project/types';
@@ -79,14 +80,14 @@ function signature(lf: LayerFrame | undefined): string {
   }));
 }
 
-function neutralCell(f: Record<string, unknown> | null | undefined, ch: string): boolean {
+function neutralCell(f: CellFx | null | undefined, ch: string): boolean {
   if (!f) return true;
-  return (f.visible === undefined || (f.visible as number) >= 1) && !f.dx && !f.dy && (f.scale === undefined || f.scale === 1) && !f.rot
+  return (f.visible === undefined || f.visible >= 1) && !f.dx && !f.dy && (f.scale === undefined || f.scale === 1) && !f.rot
     && (f.glyph === undefined || f.glyph === ch) && f.color === undefined;
 }
-function neutralTile(f: Record<string, unknown> | null | undefined): boolean {
+function neutralTile(f: TileFx | null | undefined): boolean {
   if (!f) return true;
-  return !f.dx && !f.dy && (f.scale ?? 1) === 1 && (f.sy ?? 1) === 1 && !f.rot && ((f.alpha as number | undefined) ?? 1) >= 1;
+  return !f.dx && !f.dy && (f.scale ?? 1) === 1 && (f.sy ?? 1) === 1 && !f.rot && (f.alpha ?? 1) >= 1;
 }
 
 const frame = (p: Project, t: number) => evaluate(p, t).layers.find(l => l.layer.id === p.layers[0].id);

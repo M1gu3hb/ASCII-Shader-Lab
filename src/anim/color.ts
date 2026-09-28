@@ -249,16 +249,16 @@ registerTemplate({
   kinds: ['glyphs', 'ascii', 'text'],
   dur: 1.4,
   params: [
-    P.color('color', 'Color de la luz', '#ffffff'),
+    P.color('color', 'Color de la luz', '#ffc46b'),
     { key: 'angulo', label: 'Ángulo', type: 'range', min: 0, max: 180, step: 5, def: 30, unit: '°' },
-    { key: 'ancho', label: 'Ancho de la banda', type: 'range', min: 0.02, max: 0.6, step: 0.01, def: 0.14 },
-    { key: 'hinchar', label: 'Hinchar', type: 'range', min: 0, max: 1, step: 0.05, def: 0.25 },
+    { key: 'ancho', label: 'Ancho de la banda', type: 'range', min: 0.02, max: 0.6, step: 0.01, def: 0.18 },
+    { key: 'hinchar', label: 'Hinchar', type: 'range', min: 0, max: 1, step: 0.05, def: 0.4 },
   ],
   apply(ctx: ClipContext): ClipEffect | null {
     const p = ctx.p;
     if (p <= 0 || p >= 1) return null;
-    const color = str(ctx, 'color', '#ffffff');
-    const a = (num(ctx, 'angulo', 30) * Math.PI) / 180, width = num(ctx, 'ancho', 0.14), swell = num(ctx, 'hinchar', 0.25);
+    const color = str(ctx, 'color', '#ffc46b');
+    const a = (num(ctx, 'angulo', 30) * Math.PI) / 180, width = num(ctx, 'ancho', 0.18), swell = num(ctx, 'hinchar', 0.4);
     const ux = Math.cos(a), uy = Math.sin(a);
     // band centre travels from before the first corner to past the last one
     const lo = Math.min(0, ux) + Math.min(0, uy) - width, hi = Math.max(0, ux) + Math.max(0, uy) + width;

@@ -143,16 +143,16 @@ registerTemplate({
   dur: 2.5,
   params: [
     ...P.center(),
-    { key: 'vueltas', label: 'Vueltas', type: 'range', min: 1, max: 8, step: 0.5, def: 3 },
+    { key: 'vueltas', label: 'Vueltas', type: 'range', min: 1, max: 8, step: 0.5, def: 4 },
     { key: 'sentido', label: 'Sentido', type: 'select', options: [['horario', 'Horario'], ['antihorario', 'Antihorario']], def: 'horario' },
     { key: 'salto', label: 'Salto de cada celda', type: 'range', min: 0, max: 1, step: 0.05, def: 0.6 },
-    P.soft(0.12),
+    P.soft(0.06),
   ],
   apply(ctx: ClipContext): ClipEffect | null {
     const p = ctx.p;
     if (p >= 1) return null;
     const seed = hashString(ctx.seed);
-    const turns = num(ctx, 'vueltas', 3), pop = num(ctx, 'salto', 0.6), soft = Math.max(0.02, num(ctx, 'suavidad', 0.12));
+    const turns = num(ctx, 'vueltas', 4), pop = num(ctx, 'salto', 0.6), soft = Math.max(0.02, num(ctx, 'suavidad', 0.06));
     const ccw = str(ctx, 'sentido', 'horario') === 'antihorario';
     const cx = num(ctx, 'x', 0.5), cy = num(ctx, 'y', 0.5);
     return perCell(ctx, g => {
@@ -440,7 +440,7 @@ registerTemplate({
   kinds: ['glyphs', 'ascii'],
   dur: 4,
   params: [
-    { key: 'cobertura', label: 'Duración del cambio', type: 'range', min: 0.1, max: 3, step: 0.05, def: 0.8, unit: 's' },
+    { key: 'cobertura', label: 'Duración del cambio', type: 'range', min: 0.1, max: 3, step: 0.05, def: 0.45, unit: 's', help: 'Si es más larga que el tiempo de cada foto, los caracteres no llegan a retirarse.' },
     { key: 'cada', label: 'Cada (sin secuencia)', type: 'range', min: 0.2, max: 10, step: 0.1, def: 1, unit: 's', help: 'Si la capa no lee una secuencia, cada cuánto cubre.' },
     P.order('azar', ['azar', 'izquierda', 'derecha', 'arriba', 'abajo', 'centro', 'brillo', 'ruido']),
     P.soft(0.25),
@@ -448,7 +448,7 @@ registerTemplate({
   apply(ctx: ClipContext): ClipEffect | null {
     const src = 'source' in ctx.layer ? ctx.project.sources.find(s => s.id === (ctx.layer as { source: string }).source) : undefined;
     const hold = src?.kind === 'sequence' && src.hold && src.hold > 0 ? src.hold : num(ctx, 'cada', 1);
-    const cov = Math.min(num(ctx, 'cobertura', 0.8), hold);
+    const cov = Math.min(num(ctx, 'cobertura', 0.45), hold);
     // project time as the clip plays forward (a reversed clip mirrors it)
     const t = ctx.clip.start + ctx.pos;
     const tau = ((t % hold) + hold) % hold;

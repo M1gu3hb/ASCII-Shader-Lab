@@ -263,8 +263,12 @@ export function orderField(kind: OrderKind, g: CellGrid, seed: number, o: OrderO
             case 'diagonal': { const a = ((o.angle ?? 45) * Math.PI) / 180; v[i] = x * Math.cos(a) + y * Math.sin(a); break; }
             case 'reloj': v[i] = frac(Math.atan2(x - cx0, -(y - cy0)) / TAU); break;
             case 'espiral': {
-              const rr = Math.hypot(x - cx0, y - cy0) / Math.hypot(G.w, G.h);
-              v[i] = frac(Math.atan2(x - cx0, -(y - cy0)) / TAU) / Math.max(1, o.turns ?? 3) + rr;
+              // position along an Archimedean spiral r = R·s: the winding a cell sits on, plus its angle
+              const R = Math.hypot(Math.max(cx0, G.w - cx0), Math.max(cy0, G.h - cy0));
+              const turns = Math.max(1, o.turns ?? 3);
+              const u = frac(Math.atan2(x - cx0, -(y - cy0)) / TAU);
+              const w = (Math.hypot(x - cx0, y - cy0) / R) * turns;
+              v[i] = (Math.floor(w - u + 0.5) + u) / turns;
               break;
             }
             case 'ruido': v[i] = vnoise(seed, nx * 5, ny * 5 * (G.h / G.w)); rank = true; break;

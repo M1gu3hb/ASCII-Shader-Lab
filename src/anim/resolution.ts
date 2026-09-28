@@ -103,7 +103,7 @@ registerTemplate({
     const to = clamp(num(ctx, 'hasta', 120), c.cell, c.max);
     const a = span01(p, 0, split);
     // growing: from own to `to` (the inverse direction of «De grueso a fino»)
-    const cell = Math.round(cellAt(to, c.cell, 1 - a, Math.round(num(ctx, 'pasos', 4))) * 100) / 100;
+    const cell = Math.round(cellAt(to, c.cell, a, Math.round(num(ctx, 'pasos', 4))) * 100) / 100;
     const eff: ClipEffect = { set: { [c.path]: cell } };
     const b = span01(p, split, 1);
     if (b <= 0) return eff;
@@ -159,7 +159,8 @@ registerTemplate({
       const G = geo(g);
       const s = seedCell(g, px, py);
       const sx = cellX(G, s % G.cols), sy = cellY(G, (s / G.cols) | 0);
-      const big = (Math.min(G.w, G.h) * 0.7) / Math.max(G.cw, G.ch);
+      // a picture tile (ASCII) blown up past 8× is only blocks: it stays a chunky pixel glyph instead
+      const big = Math.min(ctx.layer.kind === 'glyphs' ? Infinity : 8, (Math.min(G.w, G.h) * 0.7) / Math.max(G.cw, G.ch));
       const diag = Math.hypot(G.w, G.h);
       return (i, c, r) => {
         if (i === s) {
