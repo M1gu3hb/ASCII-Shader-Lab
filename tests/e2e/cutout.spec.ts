@@ -328,6 +328,47 @@ test('cancel stops a running cut-out and a download; the next run works', async 
   }
 });
 
+test('a same-origin mirror (/models/manifest.json) is used first; a file that fails the hash falls back to Hugging Face', async () => {
+  test.skip(!hasModel('portrait'), NEED('portrait'));
+  await openQA();
+  const spec = MODELS.find(m => m.id === 'portrait')!;
+  const file = variantFiles(spec.wasm!)[0];
+  const bytes = readFileSync(join(MODELS_DIR, localBySource.get(fileUrl(spec, file))!));
+  const mirrorPage = await context.newPage();
+  let corrupt = false;
+  await mirrorPage.route('**/models/manifest.json', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ glyphos: 'models', version: 1, files: [{ sha256: file.sha256, bytes: file.bytes, url: 'retrato.onnx' }] }) }));
+  await mirrorPage.route('**/models/retrato.onnx', route => {
+    const body = Buffer.from(bytes);
+    if (corrupt) body[1000] ^= 0xff; // same size, one byte changed
+    return route.fulfill({ contentType: 'application/octet-stream', body });
+  });
+  const seen: string[] = [];
+  mirrorPage.on('request', r => seen.push(r.url()));
+  await mirrorPage.goto('/dev/cutout.html');
+  await mirrorPage.waitForSelector('html[data-ready="1"]');
+  const li = mirrorPage.locator('li[data-model="portrait"]');
+  const fresh = async () => {
+    if (await li.locator('[data-action="forget"]').count()) await li.locator('[data-action="forget"]').click();
+    await expect(li).toHaveAttribute('data-state', 'absent');
+    seen.length = 0;
+    await li.locator('[data-action="download"]').click();
+  };
+  await fresh();
+  await expect(mirrorPage.locator('#consent')).toContainText('desde este sitio');
+  await mirrorPage.locator('#c-yes').click();
+  await expect(li).toHaveAttribute('data-state', 'cached');
+  expect(seen.filter(u => u.endsWith('/models/retrato.onnx'))).toHaveLength(1);
+  expect(seen.filter(u => u.startsWith('https://huggingface.co/'))).toHaveLength(0);
+  // A tampered mirror copy is refused (sha256) and the pinned Hugging Face file is used instead.
+  corrupt = true;
+  await fresh();
+  await mirrorPage.locator('#c-yes').click();
+  await expect(li).toHaveAttribute('data-state', 'cached');
+  expect(seen.filter(u => u.endsWith('/models/retrato.onnx'))).toHaveLength(1);
+  expect(seen.filter(u => u.startsWith('https://huggingface.co/'))).toEqual([fileUrl(spec, file)]);
+  await mirrorPage.close();
+});
+
 test('photos never leave the device: only model files and our own files are requested', async () => {
   await openQA();
   const pageOrigin = new URL(page.url()).origin;
