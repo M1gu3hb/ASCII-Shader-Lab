@@ -324,6 +324,10 @@ html[data-motion="low"] .mt-spin::before { animation: none; }
 
 /* ---------- phones ---------- */
 @media (max-width: 900px) {
+  /* the bar keeps to the screen: its column would grow to the bar's content (Exportar went off the edge
+     at 360 px) and the space picker shrinks instead; the side padding keeps clear of a notch */
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .app .topbar { padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
   .tb-sep { display: none; }
   .app .tb-right { gap: 4px; margin-left: 6px; }
   .tb-group { gap: 4px; }
