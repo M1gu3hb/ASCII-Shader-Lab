@@ -59,6 +59,27 @@ test.describe('legibilidad de las vistas con contenido', () => {
     expect(errors).toEqual([]);
   });
 
+  test('sin poder leer el lienzo (WebGL perdido) no cuenta fotogramas: «se lee bien» espera a los medidos', async ({ page }) => {
+    await page.addInitScript(() => { try { localStorage.setItem('mt.debugLegib', '1'); } catch { /* ignore */ } });
+    await openStudio(page);
+    await pick(page, 'Fondo web');
+    const frames = () => page.evaluate(() => (window as unknown as { __mtLegib?: { n: number } }).__mtLegib?.n ?? 0);
+    await expect.poll(frames, { timeout: 45_000 }).toBeGreaterThanOrEqual(1);
+    const lost = await page.locator('.stage canvas').first().evaluate(c => {
+      const gl = (c as HTMLCanvasElement).getContext('webgl2');
+      const ext = gl?.getExtension('WEBGL_lose_context');
+      ext?.loseContext();
+      return !!ext;
+    });
+    test.skip(!lost, 'this browser cannot lose a WebGL context on request');
+    // (a read already under way when the context went may still land)
+    await page.waitForTimeout(300);
+    const n = await frames();
+    // the studio waits 3 s for the context before it moves to the basic engine: meanwhile nothing is measured
+    await page.waitForTimeout(2200);
+    expect(await frames()).toBe(n);
+  });
+
   test('Pantalla de móvil: mide su propio contenido y la zona protegida también', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 1200 });
     await openStudio(page);
