@@ -21,6 +21,8 @@ export function toggleFullscreen() {
  * The studio's top bar: the brand, the six spaces (icon and name; a picker where they do not fit), and
  * on the right three groups: the preview's instruments (readout and quality, play, full screen, keys),
  * the places you go (Guías, Colección, the settings panel) and the one primary action, Exportar.
+ * Another place to go (e.g. a switch to another studio) fits as a sibling of `.tb-go`, before Exportar;
+ * on phones the bar keeps room for it, since Exportar moves to the dock.
  */
 export function TopBar() {
   const space = useStudio(s => s.space);
@@ -75,8 +77,9 @@ export function TopBar() {
             </button>
           )}
         </div>
+        {/* phones: Exportar lives in the dock at the bottom, within reach of the thumb (Deck.tsx) */}
         {stage && (
-          <button type="button" className="ib primary" onClick={() => setUI({ sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">
+          <button type="button" className="ib primary tb-export" onClick={() => setUI({ sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">
             <IDownload /><span className="lbl">Exportar</span>
           </button>
         )}

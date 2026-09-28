@@ -1,5 +1,9 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Deck, copyLink, dice, favorite } from './Deck';
+import { Deck, copyLink, dice, favorite, usePhoneDock } from './Deck';
+import { ImmersiveBar, setImmersive, toggleImmersive, useImmersive } from './ui/Immersive';
+import { useSheet } from './ui/sheetSnap';
+import { isPhone } from './ui/useMatch';
+import { IDice, INext, IPrev, ITune } from './icons';
 import { Panel } from './Panel';
 import { ShareSheet } from './ShareSheet';
 import { Stage } from './Stage';
@@ -18,6 +22,8 @@ import { useSwap } from './motion/hooks';
 import './css/perf.css';
 // the studio's look, last: it refines what the parts' own stylesheets set
 import './css/loom.css';
+// phones (and «inmersivo» everywhere): after the look, which it adapts
+import './css/phone.css';
 
 syncMotionAttr();
 
@@ -33,15 +39,24 @@ export function App() {
   const space = useStudio(s => s.space);
   const panel = useStudio(s => s.ui.panel);
   const hideUI = useStudio(s => s.ui.hideUI);
+  const cursor = useStudio(s => s.cursor);
   const guide = useGuide(s => (s.path ? `guide-on guide-${s.path}-${s.step}` : ''));
+  const imm = useImmersive(s => s.on);
+  const strip = usePhoneDock(s => s.strip);
+  const snap = useSheet(s => s.snap);
   useKeys();
   useIntro();
   const comps = space === 'componentes';
+  const immersive = imm && !comps && !guide;
+  useImmersivePanel(immersive);
   // the stage and the components gallery give way to each other: a richer swap than a tab
   const main = useRef<HTMLElement>(null);
   useSwap(main, comps, 'space');
+  const cls = [
+    'app', panel && !comps ? '' : 'panel-off', hideUI ? 'ui-off' : '', guide, immersive ? 'imm-on' : '', strip ? 'ph-strip-on' : '', 'snap-' + snap,
+  ].filter(Boolean).join(' ');
   return (
-    <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '') + (guide ? ' ' + guide : '')}>
+    <div className={cls}>
       {/* the studio's one main heading (Piezas has a visible one of its own) */}
       {!comps && <h1 className="sr-only">GLYPHOS, estudio de arte ASCII</h1>}
       <TopBar />
@@ -53,6 +68,15 @@ export function App() {
       <Toasts />
       {!comps && <Panel />}
       {!comps && <Deck />}
+      {immersive && (
+        <ImmersiveBar actions={[
+          { id: 'prev', label: 'Resultado anterior', icon: <IPrev />, onClick: back, disabled: cursor <= 0, title: 'Anterior (←)' },
+          { id: 'dice', label: 'Azar', icon: <IDice />, onClick: dice, main: true, showLabel: true, title: 'Nueva combinación al azar (R)' },
+          { id: 'next', label: 'Resultado siguiente', icon: <INext />, onClick: forward, title: 'Siguiente (→)' },
+          // the lab's word for its tools: the same button as in the dock
+          { id: 'tools', label: 'Ajustes', icon: <ITune />, onClick: () => setUI({ panel: !panel }), pressed: panel, showLabel: true, title: 'Ajustes de la pieza' },
+        ]} />
+      )}
       <OnDemand sheet="export" label="Cargando la exportación…" onFirstOpen={warmCodeExporter}><ExportSheet /></OnDemand>
       <OnDemand sheet="collection" label="Cargando la colección…"><CollectionSheet /></OnDemand>
       <OnDemand sheet="explore" label="Cargando el explorador…"><ExploreSheet /></OnDemand>
@@ -83,6 +107,23 @@ function OnDemand({ sheet, label, onFirstOpen, children }: { sheet: UIState['she
       <Suspense fallback={open ? <Wait label={label} /> : null}>{children}</Suspense>
     </LoadBoundary>
   );
+}
+
+/**
+ * Immersive: the settings step aside as it starts (they open again with «Ajustes» in its bar), and come
+ * back as they were when it ends.
+ */
+function useImmersivePanel(on: boolean) {
+  const before = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (on) {
+      before.current = useStudio.getState().ui.panel;
+      if (before.current) setUI({ panel: false });
+    } else if (before.current !== null) {
+      if (before.current !== useStudio.getState().ui.panel) setUI({ panel: before.current });
+      before.current = null;
+    }
+  }, [on]);
 }
 
 /** What shows while an on-demand part arrives (only on a first open before the idle prefetch finished). */
@@ -125,9 +166,16 @@ function useKeys() {
       if (k >= '1' && k <= '6') { setSpace(SPACES[+k - 1].id); return; }
       if (k === '?') { setUI({ sheet: 'shortcuts' }); return; }
       if (k === 'g' || k === 'G') { openWelcome(); return; }
-      if (k === 'Escape') { if (s.ui.hideUI) setUI({ hideUI: false }); return; }
+      if (k === 'Escape') {
+        if (s.ui.hideUI) setUI({ hideUI: false });
+        // phones: the settings sheet first, then the immersive mode
+        else if (s.ui.panel && isPhone() && !comps) setUI({ panel: false });
+        else if (useImmersive.getState().on) setImmersive(false);
+        return;
+      }
       if (comps) return;
       switch (k) {
+        case 'i': case 'I': toggleImmersive(); break;
         case 'r': case 'R': dice(); break;
         case 'ArrowRight': if (t.closest('input[type=range]')) return; e.preventDefault(); forward(); break;
         case 'ArrowLeft': if (t.closest('input[type=range]')) return; e.preventDefault(); back(); break;

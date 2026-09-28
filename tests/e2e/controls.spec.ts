@@ -51,9 +51,13 @@ async function walk(page: Page, w: number, full: boolean) {
     await page.waitForTimeout(200);
     await look('vista ' + v);
   }
+  // (phones: the dice settings are in «Más», beside the dock)
+  if (phone) await page.getByRole('button', { name: 'Más acciones' }).click();
   await page.getByRole('button', { name: 'Ajustes del azar' }).click();
   await look('ajustes del azar');
-  await page.getByRole('button', { name: 'Ajustes del azar' }).click();
+  if (phone) await page.keyboard.press('Escape');
+  else await page.getByRole('button', { name: 'Ajustes del azar' }).click();
+  await expect(page.getByRole('dialog', { name: 'Ajustes del azar' })).toHaveCount(0);
   await blur(page);
   await page.keyboard.press('e');
   const sheet = page.getByRole('dialog', { name: 'Llevar la pieza fuera' });
@@ -72,9 +76,11 @@ async function walk(page: Page, w: number, full: boolean) {
     await look('colección');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Colección e historial' })).toBeHidden();
-    // narrow windows: the settings sheet covers the seed line while it is open
-    if (phone && !(await page.locator('.app.panel-off').count())) await page.getByRole('button', { name: 'Cerrar ajustes' }).click();
-    await page.locator('.seedline').getByRole('button', { name: 'semilla' }).click();
+    // narrow windows: the seed is one of «Más» in the dock
+    if (phone) {
+      await page.getByRole('button', { name: 'Más acciones' }).click();
+      await page.getByRole('button', { name: 'Escribir una semilla' }).click();
+    } else await page.locator('.seedline').getByRole('button', { name: 'semilla' }).click();
     await expect(page.getByRole('dialog', { name: 'Semilla' })).toBeVisible();
     await look('semilla');
     await page.keyboard.press('Escape');

@@ -37,27 +37,31 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       const found: string[] = [];
       const look = async (where: string) => { for (const c of await clipped(page)) found.push(`${where}: ${c}`); };
       await look('inicio');
-      // the section tabs scroll in one row, with «más» on the side where more waits
+      // every section is in view at once (a grid of two rows: one tap, nothing waits past the edge),
+      // each a 44 px target; the recipes are one of them
       const box = page.locator('.panel .ptabs-box');
-      await expect(box.locator('.srow-next')).toBeVisible();
-      await expect(box.locator('.srow-next')).toContainText('más');
-      expect(await box.locator('.srow-next').evaluate(el => { const r = el.getBoundingClientRect(); return [r.width >= 44, r.height >= 44]; })).toEqual([true, true]);
-      for (const tab of await page.locator('.panel [role=tab]').all()) {
+      await expect(box.locator('.srow-next')).toBeHidden();
+      const tabs = await page.locator('.panel [role=tab]').all();
+      expect(tabs.length).toBeGreaterThanOrEqual(8);
+      for (const tab of tabs) {
+        await expect(tab).toBeInViewport({ ratio: 1 });
+        const r = (await tab.boundingBox())!;
+        expect(r.width >= 44 && r.height >= 44, `${await tab.textContent()} ${Math.round(r.width)}×${Math.round(r.height)}`).toBe(true);
+      }
+      for (const tab of tabs) {
         await tab.tap();
-        // the chosen one is fully in view inside its row
-        await expect.poll(() => tab.evaluate(el => { const row = el.closest('.srow-list')!.getBoundingClientRect(), b = el.getBoundingClientRect(); return b.left >= row.left - 1 && b.right <= row.right + 1; })).toBe(true);
+        await expect(tab).toHaveAttribute('aria-selected', 'true');
         await look('pestaña ' + (await tab.textContent())?.trim());
       }
-      await expect(box.locator('.srow-prev')).toBeVisible();
-      // the chevron pages back
-      await box.locator('.srow-prev').tap();
-      await expect(box.locator('.srow-next')).toBeVisible();
-      // the recipes too
-      await expect(page.locator('.panel .recipes').locator('xpath=..').locator('.srow-next')).toBeVisible();
+      // the recipes: chips that wrap, 44 px each
+      await page.getByRole('tab', { name: 'Recetas' }).tap();
+      const chips = page.locator('.panel .ph-recipes .chip');
+      expect(await chips.count()).toBeGreaterThan(3);
+      for (const c of (await chips.all()).slice(0, 4)) expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await page.getByRole('button', { name: 'Cerrar ajustes' }).tap();
 
       // the export sheet's formats
-      await page.locator('.topbar .ib.primary').tap();
+      await page.locator('.deck .ph-export').tap();
       const sheet = page.getByRole('dialog', { name: 'Llevar la pieza fuera' });
       for (const tab of await sheet.getByRole('tab').all()) {
         await tab.tap();

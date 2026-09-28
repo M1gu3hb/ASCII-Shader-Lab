@@ -27,6 +27,7 @@ import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
 import type { Fallback } from '../exporters/code';
 import './css/export-code.css';
 import { useSwap } from './motion/hooks';
+import { getEngine } from './engineBridge';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -49,12 +50,13 @@ export function ExportSheet() {
     setOpening(n => n + 1);
     setTab(r?.tab ?? (space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen'));
   }, [open, space]);
+  useStageSizeTick(open);
   // another format: its options resolve in (lightly; the sheet itself stays put)
   const body = useRef<HTMLDivElement>(null);
   useSwap(body, open ? tab : null, (a, b) => (a && b ? 'tab' : null));
   return (
     <Sheet open={open} onClose={() => setUI({ sheet: 'none' })} wide title="Llevar la pieza fuera" sub="Todo se genera en tu navegador. Elige el formato según dónde la vayas a usar.">
-      <ScrollRow role="tablist" aria-label="Formatos" className="sheet-tabs" boxClassName="sheet-tabs-box">
+      <ScrollRow role="tablist" aria-label="Formatos" className="sheet-tabs ex-tabs" boxClassName="sheet-tabs-box">
         {TABS.map(([id, name]) => <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{name}</button>)}
       </ScrollRow>
       <div className="sheet-body" ref={body}>
@@ -67,6 +69,21 @@ export function ExportSheet() {
       </div>
     </Sheet>
   );
+}
+
+/**
+ * The sizes «como la vista» follow the stage: when it changes while the sheet is open (on a phone the
+ * settings sheet closes as this one opens, and the piece takes its room back), the sizes shown follow.
+ */
+function useStageSizeTick(open: boolean) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const c = getEngine()?.canvas;
+    if (!open || !c || typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(() => setTick(t => t + 1));
+    ro.observe(c);
+    return () => ro.disconnect();
+  }, [open]);
 }
 
 function Busy({ p, label, onCancel }: { p: number; label?: string; onCancel?: () => void }) {
