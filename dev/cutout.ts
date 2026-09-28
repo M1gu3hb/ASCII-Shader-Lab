@@ -245,7 +245,9 @@ async function runModel(id: 'subject' | 'subject-hq' | 'portrait') {
   addRow(id, m);
 }
 
+let lastLow: Matte | undefined;
 function setMatte(m: Matte) {
+  lastLow = cut.modelMatte(m) ?? lastLow;
   S.base = m;
   S.edited = { w: m.w, h: m.h, alpha: new Uint8ClampedArray(m.alpha) };
   S.view = 'cutout';
@@ -516,6 +518,14 @@ Object.assign(window, {
       return { gl: true, maxDiff, over1, glMs, cpuMs };
     },
     setRefine: (o: Partial<RefineOptions>) => { Object.assign(S.refine, o); refineNow(); },
+    /** Redo the guided upsampling of the current model matte at another detail level (QA of the edge work). */
+    reupsample: (detail: number) => {
+      const low = cut.modelMatte(S.base!) ?? lastLow;
+      if (!low) return false;
+      lastLow = low;
+      setMatte(cut.upsampleMatte(S.img!, low, S.base!.w, S.base!.h, detail));
+      return true;
+    },
     /** Calls the API directly (no dialog): must refuse a model that was not downloaded. */
     tryRemoveBackground: async (model: 'subject' | 'subject-hq' | 'portrait') => {
       try { await cut.removeBackground(S.img!, { model }); return 'ok'; } catch (e) { return (e as { code?: string }).code ?? (e as Error).name; }

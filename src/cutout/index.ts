@@ -277,6 +277,20 @@ const timings = new WeakMap<Matte, Timings & { total: number; choice?: { index: 
 /** How long a matte took (model load if any, pre-processing, inference, upsampling) and on which backend. */
 export const cutoutTimings = (m: Matte) => timings.get(m);
 
+const lows = new WeakMap<Matte, Matte>();
+const toLow = (low: Float32Array, lw: number, lh: number): Matte => {
+  const a = new Uint8ClampedArray(lw * lh);
+  for (let i = 0; i < a.length; i++) a[i] = Math.round(low[i] * 255);
+  return { w: lw, h: lh, alpha: a };
+};
+
+/**
+ * The model's own matte behind a result of removeBackground/selectObject, at the model's resolution (small: worth
+ * keeping to redo the upsampling later with upsampleMatte, e.g. at another detail level). Undefined for mattes
+ * that did not come from a model.
+ */
+export const modelMatte = (m: Matte): Matte | undefined => lows.get(m);
+
 /** Automatic subject cut-out: the matte at the source's size, already upsampled with the image as a guide. */
 export async function removeBackground(
   src: Pixels,
@@ -292,6 +306,7 @@ export async function removeBackground(
     client.setResident(id);
     const m: Matte = { w: r.w, h: r.h, alpha: r.alpha! };
     timings.set(m, { ...r.ms, total: performance.now() - t0 });
+    lows.set(m, toLow(r.low, r.lw, r.lh));
     return m;
   } finally { loading.delete(id); }
 }
@@ -312,9 +327,7 @@ export async function matteFrame(frame: ImageBitmap | VideoFrame, opts: Job & { 
   await prepare(id);
   const r = await client.call<MatteResult>({ t: 'matte', id, frame, upsample: !!opts.upsample, detail: opts.detail ?? DETAIL_BUILT_IN, size: opts.size }, { transfer: [frame as Transferable], onProgress: opts.onProgress, signal: opts.signal });
   client.setResident(id);
-  const lowBytes = new Uint8ClampedArray(r.lw * r.lh);
-  for (let i = 0; i < lowBytes.length; i++) lowBytes[i] = Math.round(r.low[i] * 255);
-  const low: Matte = { w: r.lw, h: r.lh, alpha: lowBytes };
+  const low = toLow(r.low, r.lw, r.lh);
   return { matte: r.alpha ? { w: r.w, h: r.h, alpha: r.alpha } : low, low, timings: r.ms };
 }
 
@@ -471,6 +484,7 @@ export async function selectObject(src: Pixels, job: Job = {}): Promise<SelectSe
       if (client.generation() !== gen) { await prepare('select'); await encode({}); }
       const r = await client.call<DecodeResult>({ t: 'decode', sid, points: points.map(p => ({ x: p.x, y: p.y, positive: p.positive })), box, detail: DETAIL_BUILT_IN });
       const m: Matte = { w: r.w, h: r.h, alpha: r.alpha };
+      lows.set(m, toLow(r.low, r.lw, r.lh));
       const enc = encodeMs;
       encodeMs = null;
       timings.set(m, { ...r.ms, load: enc?.load ?? r.ms.load, pre: r.ms.pre + (enc?.pre ?? 0), encode: enc?.run, total: performance.now() - t0 + (enc ? enc.pre + enc.run + (enc.load ?? 0) : 0), choice: { index: r.index, scores: r.scores, iou: r.iou } });
