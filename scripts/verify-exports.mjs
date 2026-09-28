@@ -1592,7 +1592,9 @@ createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMo
         assert(alive === 0, `${alive} contextos WebGL siguen vivos`);
         await p.click('#toggle');
         await p.waitForTimeout(1500);
-        const again = await drawRate(p, 800);
+        // with WebGL by software a page of eight fields draws a frame every second or two: a longer window
+        await p.locator('.pieza canvas').first().scrollIntoViewIfNeeded().catch(() => undefined);
+        const again = await drawRate(p, 3000);
         assert(again > 0 || !pieces.length, 'al volver a montar no dibuja');
         assert(!errors.length, errors.slice(0, 3).join(' | '));
         return `0 lienzos, 0 dibujos, 0 requestAnimationFrame y ${alive} contextos vivos tras desmontar; al volver a montar dibuja (${again} dibujos/0.8 s)`;
@@ -1749,7 +1751,8 @@ const holdVideo = (p, t) => p.evaluate(t => new Promise(res => {
 }), t);
 const panelHas = async (p, name) => {
   await p.getByRole('tab', { name: 'Fuente' }).click().catch(() => undefined);
-  return p.locator('.panel').getByText(name).first().isVisible({ timeout: 20_000 }).catch(() => false);
+  // isVisible() answers at once (its timeout is ignored): wait for it, as a person waits for the restore
+  return p.locator('.panel').getByText(name).first().waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false);
 };
 const strip = r => { const x = JSON.parse(JSON.stringify(r)); delete x.meta; if (x.media?.ref) delete x.media.ref.id; return x; };
 
@@ -1855,7 +1858,16 @@ async function projectFlows() {
             await B.p.screenshot({ path: shot }).catch(() => undefined);
             const seed = (await B.p.locator('.seedline').innerText().catch(() => '')).replace(/\s+/g, ' ');
             const prompt = (await B.p.locator('.prompt .card').innerText().catch(() => '')).replace(/\s+/g, ' ');
-            throw new Error(`tras recargar no aparece ${name} (pieza «${seed.slice(0, 60)}»${prompt ? `; aviso «${prompt.slice(0, 120)}»` : ''}; captura ${shot})`);
+            const stage = ((await B.p.locator('.stage').innerText().catch(() => '')).match(/Recuperando[^\n]*/) ?? [''])[0];
+            // slow or stuck: what the media store holds, and whether it comes back given more time
+            const stored = await B.p.evaluate(() => new Promise(res => {
+              const r = indexedDB.open('mt-media');
+              r.onsuccess = () => { try { const k = r.result.transaction('blobs').objectStore('blobs').getAllKeys(); k.onsuccess = () => res(`${k.result.length} archivo(s) guardado(s)`); k.onerror = () => res('no se lee'); } catch (e) { res('sin almacén'); } };
+              r.onerror = () => res('no abre');
+              setTimeout(() => res('sin respuesta'), 5000);
+            }));
+            const later = await B.p.locator('.panel').getByText(name).first().waitFor({ state: 'visible', timeout: 40_000 }).then(() => true, () => false);
+            throw new Error(`tras recargar no aparece ${name} en 20 s${later ? ' (aparece más tarde, antes de 60 s)' : ' (ni en 60 s)'} (pieza «${seed.slice(0, 60)}»${prompt ? `; aviso «${prompt.slice(0, 120)}»` : ''}${stage ? `; el lienzo dice «${stage.slice(0, 80)}»` : ''}; almacén de medios: ${stored}; captura ${shot})`);
           }
           assert(!(await B.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'tras recargar pide el archivo');
           if (recipe.source === 'video') await holdVideo(B.p, 1.0);
