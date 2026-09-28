@@ -79,7 +79,7 @@ esta tabla sale del motor básico. En un Firefox con WebGL 2 el estudio usaría 
 | Video WebM (VP9) | sí | sí | sí: 60 fotogramas; fotogramas = PNG del mismo instante; se reproduce en los cuatro motores |
 | Video MP4 (H.264) | sí (este Firefox codifica H.264 con WebCodecs) | sí | sí, desde el arreglo de esta pasada: `ffmpeg -v error` sin errores; H.264 High 3.1, yuv420p, 60 fotogramas, índice al principio; fotogramas = PNG del mismo instante; se reproduce en Chrome, Firefox y WebKit |
 | Grabación en directo | sí (WebM VP8: su `MediaRecorder` no ofrece VP9 ni MP4) | sí | sí: se decodifica y se reproduce en los cuatro motores |
-| Código: HTML para pegar, página, Web Component | sí, con la elección «Motor básico / Póster o color» | sí | sí: en otra web **dibuja el motor básico** (Firefox no tiene WebGL 2 aquí); al tamaño del estudio, igual al PNG del estudio salvo la tipografía (RMSE desenfocado 0,020–0,030: Google Fonts no carga en esta red); se adapta, se pausa, se limpia; sin motor básico, póster |
+| Código: HTML para pegar, página, Web Component | sí, con la elección «Motor básico / Póster o color» | sí | sí: en otra web **dibuja el motor básico** (Firefox no tiene WebGL 2 aquí); al tamaño del estudio, igual al PNG del estudio salvo la tipografía (RMSE desenfocado 0,020–0,041: Google Fonts no carga en esta red); se adapta, se pausa, se limpia; sin motor básico, póster |
 | Código: React | sí | sí | sí: proyecto Vite + React 19, build y dev con StrictMode, dibuja el motor básico; desmontar limpia |
 | Proyecto `.zip` con foto, MP4 o WebM | sí | sí | sí: los tres, abiertos en otro perfil, con su archivo y la misma imagen |
 | Sesión y colección `.zip` | sí | sí | sí |
@@ -96,16 +96,16 @@ en una página vacía, sin el estudio). Safari de verdad tiene `MediaRecorder` y
 | Función | La interfaz lo ofrece | Prueba automática pasó | Abrí el resultado final y lo comprobé |
 | --- | --- | --- | --- |
 | Hoja de exportación | sí (desde esta pasada: antes el cuerpo de todas las hojas quedaba en una línea y las opciones no se veían) | sí: el verificador mide que la hoja enseña sus opciones | — |
-| Imagen PNG / WebP / JPEG, transparente, tamaños fijos | sí | sí | sí: tamaño exacto; PNG = lienzo ⟨WK-PNG⟩ |
+| Imagen PNG / WebP / JPEG, transparente, tamaños fijos | sí | sí | sí: tamaño exacto; PNG = lienzo en vivo (RMSE 0, con el lienzo capturado en tiempo real) |
 | SVG (contornos y texto editable) | sí, con el aviso previo | sí | sí: se abre en los cuatro motores, rsvg-convert e Inkscape; la comparación con el PNG queda como dato (el PNG de WebKit dibuja los mismos caracteres con trazo más grueso) |
 | GIF | sí | sí | sí: 50 fotogramas, 2,00 s, bucle |
 | Video MP4 / WebM | no, lo explica («este navegador no trae codificadores de video… Usa el GIF»); el estudio no pregunta por los códecs, porque la pregunta cierra la página | sí (la explicación) | — (no hay archivo) |
 | Grabación en directo | no, lo explica (no hay `MediaRecorder`) | sí (la explicación) | — |
 | Abrir videos hechos en otros navegadores | — | sí | sí: el WebM, el MP4 H.264 y las grabaciones de Chromium, Chrome y Firefox se reproducen en `<video>` |
-| Código: HTML para pegar, página, Web Component | sí, con la elección «Motor básico / Póster o color» | sí | sí: en otra web, con WebGL 2, ⟨WK-CODE⟩; se adapta, se pausa, se limpia; con WebGL 2 anulado, el motor básico ⟨WK-BASIC⟩ |
+| Código: HTML para pegar, página, Web Component | sí, con la elección «Motor básico / Póster o color» | sí | sí: en otra web, con WebGL 2, se ve, pero **no es igual** al PNG del estudio: RMSE desenfocado 0,029–0,034 en dos piezas y 0,061 en la pieza transformada (no pasa: su texto grande sale más fino). No es la tipografía (con los mismos archivos de fuente que usa el estudio da lo mismo) y el motor básico sí coincide; la causa queda sin resolver; se adapta, se pausa, se limpia; con WebGL 2 anulado, el motor básico = PNG del estudio (RMSE desenfocado 0,005–0,010) |
 | Código: React | sí | sí | sí: build y dev con StrictMode; desmontar limpia |
-| Pieza transformada | sí (sin video) | sí | sí: ⟨WK-TRANS⟩ |
-| Proyecto `.zip` con foto, MP4 o WebM | sí | sí | sí: ⟨WK-PROJ⟩ |
+| Pieza transformada | sí (sin video) | sí | sí: PNG = lienzo (RMSE 0) y GIF; su código con el motor básico = PNG (0,005); con WebGL 2, no (0,061, ver la fila del código) |
+| Proyecto `.zip` con foto, MP4 o WebM | sí | sí | sí: la foto, igual tras recargar (RMSE 0); el WebM y el MP4 vuelven con su archivo, pero al buscar el segundo 1,0 el reproductor de WebKit no cae en el mismo fotograma en los dos perfiles, así que se compara la composición: el WebM pasa (0,036), el MP4 no en esta ejecución (0,047, límite 0,04; 0,026 en la anterior). Los perfiles nuevos se crean en disco: en memoria, WebKit es una ventana privada |
 | Proyecto o foto en una ventana privada | sí, y lo dice: «…el navegador no dejó guardarla. Se verá mientras no cierres la pestaña» | sí (perfil en memoria, donde IndexedDB rechaza archivos) | — |
 | Sesión y colección `.zip` | sí | sí | sí |
 | Cámara | — | — (el WebKit de Playwright no tiene cámara simulada) | — |
@@ -119,7 +119,54 @@ en una página vacía, sin el estudio). Safari de verdad tiene `MediaRecorder` y
 
 ## Resumen por grupo y motor
 
-⟨RESUMEN⟩
+Cuatro ejecuciones de `scripts/verify-exports.mjs` sobre la versión final del código (las de la sección
+[Cómo repetirla](exportaciones.md#cómo-repetirla)): la completa con el estudio en Chromium y, con el estudio en cada
+uno de los otros tres motores, los grupos que dependen del navegador con cuatro piezas (patrón, imagen, limpio y
+transformada).
+
+- estudio en **Chromium 141**, completa (todos los grupos y las diez piezas): 690 comprobaciones, 678 PASS, 2 FAIL, 10 SKIP
+- estudio en **Chrome 154** (imagen, vector, video, mp4, codigo, react, proyectos, camara): 298 comprobaciones, 295 PASS, 0 FAIL, 3 SKIP
+- estudio en **Firefox 142** (imagen, vector, video, mp4, codigo, react, proyectos, camara): 298 comprobaciones, 293 PASS, 0 FAIL, 5 SKIP
+- estudio en **WebKit 26** (imagen, vector, video, mp4, codigo, react, proyectos, camara): 283 comprobaciones, 253 PASS, 3 FAIL, 27 SKIP
+
+| Grupo | Chromium 141 | Chrome 154 | Firefox 142 | WebKit 26 | herramientas |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| estudio | 30 / 0 / 0 | 12 / 0 / 0 | 12 / 0 / 0 | 12 / 0 / 0 | — |
+| imagen | 53 / 0 / 0 | 35 / 0 / 0 | 35 / 0 / 0 | 35 / 0 / 0 | — |
+| vector | 134 / 0 / 0 | 106 / 0 / 0 | 106 / 0 / 0 | 106 / 0 / 0 | 176 / 0 / 0 |
+| webm | 8 / 0 / 0 | 8 / 0 / 0 | 8 / 0 / 0 | 2 / 0 / 8 | — |
+| mp4 | 5 / 0 / 8 | 14 / 0 / 0 | 14 / 0 / 0 | 2 / 0 / 9 | — |
+| gif | 6 / 0 / 0 | 6 / 0 / 0 | 6 / 0 / 0 | 6 / 0 / 0 | — |
+| directo | 4 / 0 / 0 | 4 / 0 / 0 | 4 / 0 / 0 | 4 / 0 / 0 | — |
+| reproduccion | 5 / 0 / 4 | 8 / 0 / 0 | 8 / 0 / 0 | 8 / 0 / 3 | — |
+| codigo | 69 / 0 / 0 | 52 / 0 / 0 | 48 / 0 / 4 | 47 / 2 / 3 | — |
+| react | 48 / 0 / 0 | 18 / 0 / 0 | 18 / 0 / 0 | 18 / 0 / 0 | — |
+| componentes | 57 / 2 / 0 | — | — | — | — |
+| texto | 45 / 0 / 0 | — | — | — | — |
+| terminal | 39 / 0 / 0 | — | — | — | — |
+| proyectos | 10 / 0 / 1 | 13 / 0 / 0 | 13 / 0 / 0 | 13 / 1 / 0 | — |
+| camara | 8 / 0 / 1 | 9 / 0 / 0 | 9 / 0 / 0 | 3 / 0 / 4 | — |
+
+Cada celda es PASS / FAIL / SKIP de las comprobaciones que **corrieron en ese motor**, sumando las cuatro ejecuciones
+(la columna de Chromium incluye, por ejemplo, abrir en Chromium el video hecho con Chrome). «Herramientas» son
+rsvg-convert e Inkscape. Una comprobación que pasa en un motor de esta máquina no dice que funcione en un dispositivo
+real con ese navegador.
+
+**Los FAIL, uno por uno:**
+
+- Chromium, `componentes` (2): la prueba de «Foco» esperaba la luz de antes; la revisión de los componentes (fusionada
+  al final) la hizo más suave y sin dibujo cuando no hay nadie. Se ajustó la prueba y, repetidos los grupos
+  `componentes` y `react`, dan 91 PASS, 0 FAIL.
+- WebKit, `codigo` (2): el código pegado con WebGL 2 de la pieza transformada no coincide con el PNG del estudio
+  (RMSE desenfocado 0,061; su texto grande sale más fino). Ver la tabla de WebKit: sin resolver.
+- WebKit, `proyectos` (1): el MP4 restaurado en otro perfil no cae en el mismo fotograma al buscar el segundo 1,0
+  (0,047 frente al límite 0,04; en la ejecución anterior, 0,026).
+
+**Los SKIP** son lo que ese motor no puede hacer aquí, con el motivo: el Chromium de Playwright no codifica ni
+reproduce H.264; `--disable-3d-apis` sólo existe en Chromium y Chrome; Firefox no carga Google Fonts en esta red (el proxy
+firma HTTPS con su propia CA); el WebKit de aquí no tiene codificadores de video ni cámara simulada.
+
+Con la misma versión pasan también las 342 pruebas unitarias y las 182 e2e (escritorio y teléfono emulado).
 
 ## Lo que falta y por qué
 
@@ -140,4 +187,4 @@ en una página vacía, sin el estudio). Safari de verdad tiene `MediaRecorder` y
   sí, y en Firefox y WebKit quedan sin comprobar).
 - **Imágenes fijas con Estela.** Los clips preparan la estela antes del primer fotograma; una imagen fija (PNG, SVG, TXT)
   no, y no se comparó qué estela muestra frente al lienzo en vivo.
-- **Google Fonts desde el código exportado.** En esta red un proxy vuelve a firmar HTTPS: sólo se cargan confiando en su CA (`VERIFY_CA`). Sin ella, el código usa la mono del sistema hasta que llega la fuente (o para siempre, con «Sin dependencias externas»).
+- **Google Fonts desde el código exportado.** En esta red un proxy vuelve a firmar HTTPS: Chromium y Chrome las cargan confiando en su CA (`VERIFY_CA`), WebKit las carga y Firefox no (usa la mono del sistema; las comparaciones lo tienen en cuenta). Con «Sin dependencias externas», el código usa siempre la mono del sistema.

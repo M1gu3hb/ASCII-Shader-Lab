@@ -43,8 +43,12 @@ tiempo real, en páginas y perfiles aparte. Las comparaciones de imagen usan RMS
 antialiasing de cada glifo. Los archivos finales se abren además en los cuatro motores de navegador: los videos en
 `<video>` (tiene que cargar, dar su tamaño y su duración, avanzar y dibujar un fotograma), las imágenes y el SVG en `<img>`.
 
-**Resultado de la última ejecución completa** (versión final de la segunda pasada, con `VERIFY_CA`, ver abajo): 363 comprobaciones, **361 PASS, 2 FAIL, 0 SKIP**. Los 2 FAIL eran de medición, no de exportación: la captura de referencia del lienzo en la ventana de terminal (centrada en coordenadas fraccionarias) salía 1 px más alta; alineadas, el PNG coincide con el lienzo (RMSE 0,0010 y 0,0012). Con la captura corregida en el verificador, los grupos `imagen` y `terminal` dan **104 PASS, 0 FAIL**.
-Con esa misma versión pasan también las 179 pruebas unitarias y las 105 e2e (escritorio y móvil).
+**Resultado de las últimas ejecuciones** (versión final de la tercera pasada): la completa, con el estudio en Chromium,
+**690 comprobaciones: 678 PASS, 2 FAIL, 10 SKIP**; con el estudio en Chrome, 298: 295 PASS, 0 FAIL, 3 SKIP; en Firefox,
+298: 293 PASS, 0 FAIL, 5 SKIP; en WebKit, 283: 253 PASS, 3 FAIL, 27 SKIP. Los 2 FAIL de Chromium eran la prueba de
+«Foco», que esperaba la luz de antes de la revisión de los componentes; ajustada, los grupos `componentes` y `react` dan
+91 PASS, 0 FAIL. Los 3 de WebKit y el detalle por grupo y motor están en [compatibilidad.md](compatibilidad.md#resumen-por-grupo-y-motor).
+Con esa misma versión pasan también las 342 pruebas unitarias y las 182 e2e (escritorio y teléfono emulado).
 
 ## Matriz de compatibilidad
 
@@ -229,7 +233,10 @@ Pruebas de «antes y después» con el código original (commit `0505932`) frent
 - **Cámara ocupada de verdad** y cámaras reales: se usó la cámara simulada de cada navegador; «ocupada» se comprobó con
   la respuesta que da el navegador en ese caso (`NotReadableError`), no con otra aplicación usándola.
 - **Google Fonts**: en esta red el proxy vuelve a firmar HTTPS; se cargaron en Chromium y Chrome confiando sólo en su CA
-  (`VERIFY_CA`). Firefox y WebKit no la cargan aquí y usan la mono del sistema (las comparaciones lo tienen en cuenta).
+  (`VERIFY_CA`) y en WebKit; Firefox no las carga aquí y usa la mono del sistema (las comparaciones lo tienen en cuenta).
+- **El código con WebGL 2 en WebKit** no coincide del todo con el PNG del estudio (RMSE desenfocado 0,029–0,061; con el
+  motor básico, 0,005–0,010). No es la tipografía: con los mismos archivos de fuente que usa el estudio da lo mismo. No se
+  encontró la causa; en Chromium y Chrome el código con WebGL 2 sí coincide (en Chrome, RMSE 0).
 
 ## Límites conocidos
 
