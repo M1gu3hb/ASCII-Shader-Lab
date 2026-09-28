@@ -18,6 +18,8 @@ import {
   unsupportedFeatures, type GridSnapshot, type Recipe, type Renderer,
 } from '../src/engine';
 import { TRANSITIONS, type TransitionKind, type TransitionSpec } from '../src/engine/transitions';
+import { MSG_ANIMS, TEXT_ANIMS, XFORM_KINDS, type LetterAnimKind, type Xform, type XformKind } from '../src/engine/recipe';
+import { XFORMS } from '../src/engine/catalog';
 import { PRESETS } from '../src/studio/presets';
 
 const fonts = createFontLoader({ google: false });
@@ -46,7 +48,7 @@ function syntheticImage(): HTMLCanvasElement {
   x.fillStyle = '#fff'; x.font = '900 90px sans-serif'; x.fillText('MONO', 40, 600);
   return c;
 }
-const IMAGE = syntheticImage();
+let IMAGE: HTMLCanvasElement | HTMLImageElement = syntheticImage();
 
 function patternRecipe(id: string): Recipe {
   const r = defaultRecipe();
@@ -116,7 +118,7 @@ export interface Comparison {
   msGl: number; msBasic: number; gaps: string[];
 }
 
-async function compare(id: string, recipe: Recipe, o: { w?: number; h?: number; t?: number; transparent?: boolean; show?: HTMLCanvasElement[]; keep?: boolean } = {}): Promise<Comparison> {
+async function compare(id: string, recipe: Recipe, o: { w?: number; h?: number; t?: number; realT?: number; transparent?: boolean; show?: HTMLCanvasElement[]; keep?: boolean } = {}): Promise<Comparison> {
   const p = pairFor(o.w ?? 480, o.h ?? 270, o.transparent);
   const t = o.t ?? T;
   if (!o.keep) {
@@ -124,11 +126,11 @@ async function compare(id: string, recipe: Recipe, o: { w?: number; h?: number; 
     await Promise.all([p.gl.ready(), p.basic.ready()]);
   }
   let t0 = performance.now();
-  p.gl.renderAt(t);
+  p.gl.renderAt(t, o.realT ?? t);
   const ga: GridSnapshot = p.gl.readGrid();
   const msGl = performance.now() - t0;
   t0 = performance.now();
-  p.basic.renderAt(t);
+  p.basic.renderAt(t, o.realT ?? t);
   const msBasic = performance.now() - t0;
   const gb: GridSnapshot = p.basic.readGrid();
   const n = ga.cols * ga.rows;
@@ -258,6 +260,102 @@ async function bench(recipe: Recipe, o: { w?: number; h?: number; frames?: numbe
     field: acc.field * k, select: acc.select * k, compose: acc.compose * k, total: acc.total * k,
     median: all[Math.floor(all.length / 2)], p90: all[Math.floor(all.length * 0.9)],
   };
+}
+
+/* ---------- transformations and letters ---------- */
+
+/** A photo piece (Retrato's glyphs, source colours) with these transformations. */
+function xformRecipe(list: Array<Partial<Xform> & { kind: XformKind }>, source: 'image' | 'text' = 'image'): Recipe {
+  const r = presetRecipe(source === 'text' ? 'tipo/trama' : 'media/retrato');
+  r.interact.mode = 'none';
+  r.glyph.edge = 0;
+  if (source === 'text') { r.text.content = 'TEJE\nLUZ'; r.media.mix = 0.3; }
+  r.media.xform = list.map(x => {
+    const d = XFORMS.find(i => i.id === x.kind)!.defaults;
+    return { on: true, amount: d.amount, p: d.p, ...x };
+  });
+  return r;
+}
+
+/** One transformation (or a stack) on the synthetic photo, or on the big text. */
+function compareXform(kinds: XformKind | XformKind[], o: { t?: number; source?: 'image' | 'text'; amount?: number; p?: number } = {}) {
+  const list = (Array.isArray(kinds) ? kinds : [kinds]).map(kind => ({ kind, ...(o.amount !== undefined ? { amount: o.amount } : {}), ...(o.p !== undefined ? { p: o.p } : {}) }));
+  return compare(list.map(x => x.kind).join('+'), xformRecipe(list, o.source), { t: o.t ?? T, w: 640, h: 360 });
+}
+
+/**
+ * Estela: both engines see the same sequence of frames (a bright square that moves across the synthetic
+ * photo), with the same clock; the last frame is compared.
+ */
+async function compareTrail(frames = 8) {
+  const p = pairFor(640, 360);
+  const cv = document.createElement('canvas');
+  cv.width = IMAGE.width; cv.height = IMAGE.height;
+  const x = cv.getContext('2d')!;
+  const r = xformRecipe([{ kind: 'estela', amount: 1, p: 0.6 }]);
+  p.gl.set(r); p.basic.set(r);
+  for (const e of [p.gl, p.basic] as Renderer[]) e.setMedia('image', cv);
+  await Promise.all([p.gl.ready(), p.basic.ready()]);
+  let res: Comparison | null = null;
+  for (let k = 0; k < frames; k++) {
+    x.drawImage(IMAGE, 0, 0);
+    x.fillStyle = '#fff';
+    x.fillRect(80 + k * 70, 220, 90, 160);
+    for (const e of [p.gl, p.basic] as Renderer[]) e.setMedia('image', cv);
+    if (k < frames - 1) { p.gl.renderAt(3, 10 + k / 15); p.basic.renderAt(3, 10 + k / 15); }
+    else res = await compare('estela', r, { t: 3, w: 640, h: 360, keep: true, realT: 10 + k / 15 });
+  }
+  // how much of the frame is trail: the last frame again without it (so a match is not two frames without one)
+  const withTrail = p.basic.readGrid().lum;
+  p.basic.set({ ...r, media: { ...r.media, xform: [] } });
+  p.basic.renderAt(3, 10 + (frames - 1) / 15);
+  const plain = p.basic.readGrid().lum;
+  let lit = 0;
+  for (let i = 0; i < plain.length; i++) if (withTrail[i] - plain[i] > 12) lit++;
+  for (const e of [p.gl, p.basic] as Renderer[]) e.setMedia('image', IMAGE);
+  return { ...res!, lit: lit / plain.length };
+}
+
+/** The big text with a per-letter animation, at time t. */
+async function compareTextAnim(kind: LetterAnimKind, t = T, amount = 0.7) {
+  const r = presetRecipe('tipo/trama');
+  r.interact.mode = 'none';
+  r.text.content = 'TEJE LUZ';
+  const still = structuredClone(r);
+  r.text.anim = { kind, amount, speed: 1 };
+  const c = await compare('texto ' + kind, r, { t, w: 640, h: 360 });
+  return { ...c, moved: await changedBy(still, t) };
+}
+
+/**
+ * Share of cells an animation changes (glyph, or colour by more than 24): the basic engine, which has just
+ * drawn the animated piece at t, draws it again without the animation. A match is then not two still pieces.
+ */
+async function changedBy(still: Recipe, t: number) {
+  const p = pairFor(640, 360);
+  const a = p.basic.readGrid();
+  p.basic.set(still);
+  await p.basic.ready();
+  p.basic.renderAt(t, t);
+  const b = p.basic.readGrid();
+  let n = 0;
+  for (let i = 0; i < a.chars.length; i++) {
+    const dc = Math.abs(a.rgb[i * 3] - b.rgb[i * 3]) + Math.abs(a.rgb[i * 3 + 1] - b.rgb[i * 3 + 1]) + Math.abs(a.rgb[i * 3 + 2] - b.rgb[i * 3 + 2]);
+    if (a.chars[i] !== b.chars[i] || dc > 24) n++;
+  }
+  return n / a.chars.length;
+}
+
+/** The message with a per-letter animation (or «Palabra a palabra»), at time t. */
+async function compareMsgAnim(kind: LetterAnimKind | 'words', t = T) {
+  const r = presetRecipe('tipo/maquina');
+  r.interact.mode = 'none';
+  r.msg = { ...r.msg, text: 'las letras también bailan\ncuando nadie las mira', mode: kind === 'words' ? 'words' : 'static', cursor: false, speed: 18 };
+  const still = structuredClone(r);
+  still.msg.mode = 'static';
+  if (kind !== 'words') r.msg.anim = { kind, amount: 0.8, speed: 1 };
+  const c = await compare('mensaje ' + kind, r, { t, w: 640, h: 360 });
+  return { ...c, moved: await changedBy(still, t) };
 }
 
 /* ---------- page ---------- */
@@ -520,6 +618,31 @@ window.__basic = {
   transitions: TRANSITIONS.map(t => t.id),
   interactModes: ['light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'],
   compareRecipe: (r: Recipe, o: Parameters<typeof compare>[2] = {}) => compare('recipe', r, o),
+  compareXform,
+  xformRecipe,
+  presetRecipe,
+  /** Uses a real picture instead of the synthetic one (for looking at transformations). */
+  useImage: async (url: string) => {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    IMAGE = img;
+    for (const p of pairs.values()) for (const e of [p.gl, p.basic] as Renderer[]) e.setMedia('image', img);
+  },
+  /** Both engines' canvases for a recipe, as PNG data URLs (to look at them). */
+  snap: async (r: Recipe, o: { w?: number; h?: number; t?: number } = {}) => {
+    const p = pairFor(o.w ?? 640, o.h ?? 360);
+    p.gl.set(r); p.basic.set(r);
+    await Promise.all([p.gl.ready(), p.basic.ready()]);
+    p.gl.renderAt(o.t ?? T); p.basic.renderAt(o.t ?? T);
+    return [p.gl.canvas.toDataURL('image/png'), p.basic.canvas.toDataURL('image/png')];
+  },
+  compareTrail,
+  compareTextAnim,
+  compareMsgAnim,
+  xforms: XFORM_KINDS,
+  textAnims: TEXT_ANIMS,
+  msgAnims: MSG_ANIMS,
   benchPattern: (id: string, o?: Parameters<typeof bench>[1]) => { const r = patternRecipe(id); r.glyph.cell = 10; return bench(r, o); },
   benchPreset: (key: string, o?: Parameters<typeof bench>[1]) => bench(presetRecipe(key), o),
   benchRecipe: bench,

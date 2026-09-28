@@ -191,8 +191,9 @@ export const MSG_MODE_DESC: Record<MsgMode, string> = {
   type: 'Se escribe letra a letra y luego se borra.',
   decode: 'Aparece desde caracteres al azar, como descifrándose.',
   marquee: 'Desfila de lado a lado, como un letrero.',
+  words: 'Aparece palabra a palabra y se va del mismo modo.',
 };
-export const MSG_MODE_ICON: Record<MsgMode, string> = { static: 'Ab', type: 'A_', decode: '#?b', marquee: '→A' };
+export const MSG_MODE_ICON: Record<MsgMode, string> = { static: 'Ab', type: 'A_', decode: '#?b', marquee: '→A', words: 'A·B' };
 
 export const FIT_DESC: Record<Fit, string> = {
   cover: 'Llena el lienzo y recorta lo que sobra.',

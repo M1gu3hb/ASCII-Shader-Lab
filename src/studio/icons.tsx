@@ -49,6 +49,8 @@ export const IGlifos = (p: P) => <svg {...base(p)}><path d="M10 4 8 20M16 4l-2 1
 export const IMov = (p: P) => <svg {...base(p)}><path d="M3 12c1.5-4 3-6 4.5-6s3 4 4.5 6 3 6 4.5 6 3-2 4.5-6" /></svg>;
 export const IFx = (p: P) => <svg {...base(p)}><path d="M10.5 3.5c.7 4.2 3.3 6.8 7.5 7.5-4.2.7-6.8 3.3-7.5 7.5-.7-4.2-3.3-6.8-7.5-7.5 4.2-.7 6.8-3.3 7.5-7.5zM19 15.5v5M16.5 18h5" /></svg>;
 export const IFuente = (p: P) => <svg {...base(p)}><path d="M12 3.5v9M8.5 9 12 12.5 15.5 9M4 13.5v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" /></svg>;
+/** Transformar: a square of cells that turns into a circle of dots. */
+export const IXform = (p: P) => <svg {...base(p)}><rect x="3.5" y="3.5" width="8" height="8" rx="1" /><path d="M7.5 3.5v8M3.5 7.5h8M13.5 6.5h4a2 2 0 0 1 2 2v2.5M17.5 9l2 2 2-2" /><circle cx="15.5" cy="17" r="3.5" /><circle cx="15.5" cy="17" r=".9" fill="currentColor" stroke="none" /></svg>;
 export const IMsg = (p: P) => <svg {...base(p)}><path d="M3.5 8h11M3.5 12h7M3.5 16h9" /><rect x="15.5" y="12.5" width="4" height="6" rx=".6" fill="currentColor" stroke="none" /></svg>;
 
 export const IVLibre = (p: P) => <svg {...base(p)}><rect x="3.5" y="5.5" width="17" height="13" rx="1.5" /></svg>;
@@ -63,6 +65,6 @@ type Icon = (p: P) => React.JSX.Element;
 /** Each creative space (the top bar, its picker on narrow screens). */
 export const SPACE_ICON: Record<string, Icon> = { fondos: IFondos, arte: IArte, media: IImage, tipo: ITipo, terminal: ITerminal, componentes: IPiezas };
 /** Each settings group, by its id (the same group has a different name in some spaces). */
-export const TAB_ICON: Record<string, Icon> = { forma: IForma, color: IColor, glifos: IGlifos, mov: IMov, fx: IFx, fuente: IFuente, msg: IMsg, term: ITerminal };
+export const TAB_ICON: Record<string, Icon> = { forma: IForma, color: IColor, glifos: IGlifos, mov: IMov, fx: IFx, fuente: IFuente, msg: IMsg, term: ITerminal, xform: IXform };
 /** Each destination view. */
 export const VIEW_ICON: Record<string, Icon> = { libre: IVLibre, web: IVWeb, movil: IVMovil, tarjeta: IVTarjeta, vertical: IVVertical, readme: IVReadme, terminal: ITerminal };
