@@ -46,8 +46,11 @@ async function tabsOf(page: Page, name: string): Promise<Record<string, string>>
 }
 
 /** A page of another origin serving `files` (path → body). */
-async function otherSite(browser: Browser, files: Record<string, string | Buffer>, o: { reducedMotion?: 'reduce' } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1100, height: 800 }, reducedMotion: o.reducedMotion ?? 'no-preference' });
+async function otherSite(browser: Browser, files: Record<string, string | Buffer>, o: { reducedMotion?: 'reduce'; touch?: boolean } = {}) {
+  const ctx = await browser.newContext({
+    viewport: o.touch ? { width: 390, height: 800 } : { width: 1100, height: 800 }, reducedMotion: o.reducedMotion ?? 'no-preference',
+    ...(o.touch ? { hasTouch: true, isMobile: true } : {}),
+  });
   await ctx.route(SITE + '/**', r => {
     const path = new URL(r.request().url()).pathname;
     const body = files[path];
@@ -163,7 +166,7 @@ test.describe('piezas nuevas en otra web', () => {
     }
   });
 
-  test('Separador: desfila, se para con el cursor, con el foco y con su botón; quieto con «reducir movimiento»', async ({ browser }) => {
+  test('Separador: desfila, se para con el cursor, con el foco y con su botón (que dice lo que se llama); en un móvil el botón se ve y tocar la franja lo pausa; quieto con «reducir movimiento»', async ({ browser }) => {
     const { ctx, page, errors } = await otherSite(browser, { '/': doc(code.Separador['HTML para pegar']) });
     await page.goto(SITE + '/');
     const track = page.locator('.separador > span[aria-hidden="true"]');
@@ -182,12 +185,36 @@ test.describe('piezas nuevas en otra web', () => {
     await page.keyboard.press('Tab');
     const pause = page.getByRole('button', { name: 'Pausar el letrero' });
     await expect(pause).toBeFocused();
+    await expect(pause).toHaveText('Pausar');
     await page.keyboard.press('Enter');
-    await expect(pause).toHaveAttribute('aria-pressed', 'true');
+    // its name follows what it shows (label in name)
+    const resume = page.getByRole('button', { name: 'Reanudar el letrero' });
+    await expect(resume).toBeFocused();
+    await expect(resume).toHaveText('Reanudar');
     await page.keyboard.press('Tab');
     const p1 = await x(); await page.waitForTimeout(400); expect(await x()).toBe(p1);
+    // paused, the button stays in sight (how to resume is visible)
+    await expect(resume).toHaveCSS('opacity', '1');
     expect(errors).toEqual([]);
     await ctx.close();
+
+    // a touch screen: no hover, no keyboard; the button is in sight, and the whole strip pauses and resumes
+    const m = await otherSite(browser, { '/': doc(code.Separador['HTML para pegar']) }, { touch: true });
+    await m.page.goto(SITE + '/');
+    const mt = m.page.locator('.separador > span[aria-hidden="true"]');
+    const mx = () => mt.evaluate(el => new DOMMatrix(getComputedStyle(el).transform).m41);
+    const mp = m.page.getByRole('button', { name: 'Pausar el letrero' });
+    await expect(mp).toBeVisible();
+    await expect(mp).toHaveCSS('opacity', '1');
+    await mp.tap();
+    await expect(m.page.getByRole('button', { name: 'Reanudar el letrero' })).toBeVisible();
+    const m1 = await mx(); await m.page.waitForTimeout(400); expect(await mx()).toBe(m1);
+    const bb = (await m.page.locator('.separador').boundingBox())!;
+    await m.page.touchscreen.tap(bb.x + 30, bb.y + bb.height / 2);
+    await expect(mp).toBeVisible();
+    await expect.poll(mx).not.toBe(m1);
+    expect(m.errors).toEqual([]);
+    await m.ctx.close();
 
     const r = await otherSite(browser, { '/': doc(code.Separador['HTML para pegar']) }, { reducedMotion: 'reduce' });
     await r.page.goto(SITE + '/');
