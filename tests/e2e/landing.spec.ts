@@ -73,45 +73,57 @@ test('espacios: pestañas con teclado, un escenario vivo y el enlace a cada espa
   expect(errors).toEqual([]);
 });
 
-test('azar: tirar añade resultados, se puede volver a uno anterior y la hoja de contactos los teje', async ({ page }) => {
+test('azar: empieza con resultados a los que volver, tirar añade más y la hoja de contactos los teje', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
+  // before any script: three real results in the strip, the last one on the stage (going back is visible)
+  const html = await (await page.request.get('/')).text();
+  expect(html.match(/<li data-seed="/g)).toHaveLength(3);
+  expect(html).toContain('<b>3</b> de 3');
   await page.goto('/');
   await toSection(page, 'azar');
   const count = page.locator('[data-azar-count]');
-  await expect(count).toHaveText('1 de 1');
+  const strip = page.getByRole('list', { name: 'Resultados de esta página' }).getByRole('button');
+  await expect(strip).toHaveCount(3);
+  await expect(count).toHaveText('3 de 3');
+  await expect(strip.nth(2)).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('button', { name: 'Resultado anterior' })).toBeEnabled();
   await live(page, '.azar-stage');
   const open = page.locator('[data-azar-open]');
   await expect(open).toHaveAttribute('href', /^\/studio\/#r=z/);
-  const first = await open.getAttribute('href');
+  const third = await open.getAttribute('href');
 
   const roll = page.getByRole('button', { name: 'Tirar', exact: true });
   await roll.click();
   await roll.click();
   await roll.click();
-  await expect(count).toHaveText('4 de 4');
-  const strip = page.getByRole('list', { name: 'Resultados de esta página' }).getByRole('button');
-  await expect(strip).toHaveCount(4);
-  await expect(strip.nth(3)).toHaveAttribute('aria-current', 'true');
-  await expect(open).not.toHaveAttribute('href', first!);
+  await expect(count).toHaveText('6 de 6');
+  await expect(strip).toHaveCount(6);
+  await expect(strip.nth(5)).toHaveAttribute('aria-current', 'true');
+  await expect(open).not.toHaveAttribute('href', third!);
 
-  // back to the first result, with the arrow and with its thumbnail
+  // back, with the arrow and with a thumbnail
   await page.getByRole('button', { name: 'Resultado anterior' }).click();
-  await expect(count).toHaveText('3 de 4');
+  await expect(count).toHaveText('5 de 6');
+  await strip.nth(2).click();
+  await expect(count).toHaveText('3 de 6');
+  await expect(strip.nth(2)).toHaveAttribute('aria-current', 'true');
+  await expect(open).toHaveAttribute('href', third!);
   await strip.first().click();
-  await expect(count).toHaveText('1 de 4');
-  await expect(strip.first()).toHaveAttribute('aria-current', 'true');
+  await expect(count).toHaveText('1 de 6');
   await expect(page.getByRole('button', { name: 'Resultado anterior' })).toBeDisabled();
-  await expect(open).toHaveAttribute('href', first!);
 
   // the contact sheet: fourteen styles, each one woven on the stage and added to the strip
   const contacts = page.getByRole('list', { name: 'Hoja de contactos del dado' }).getByRole('button');
   await expect(contacts).toHaveCount(14);
   await contacts.nth(4).click();
   await expect(contacts.nth(4)).toHaveAttribute('aria-pressed', 'true');
-  await expect(count).toHaveText('5 de 5');
+  await expect(count).toHaveText('7 de 7');
   await expect(page.locator('[data-azar-seed]')).toContainText('coral-solidos-285');
   await live(page, '.azar-stage');
+  // a style already in the strip is not added twice: it is shown again
+  await contacts.first().click();
+  await expect(count).toHaveText('3 de 7');
   expect(errors).toEqual([]);
 });
 
@@ -179,7 +191,7 @@ test('pausar: el botón de la cabecera detiene los lienzos y el video; con «red
   await expect(page.locator('#telar-panel')).toHaveAttribute('aria-labelledby', 't-tipo');
   await toSection(page, 'azar');
   await page.getByRole('button', { name: 'Tirar', exact: true }).click();
-  await expect(page.locator('[data-azar-count]')).toHaveText('2 de 2');
+  await expect(page.locator('[data-azar-count]')).toHaveText('4 de 4');
   await toggle.click();
   await expect(toggle).toHaveAccessibleName('Pausar las animaciones de la página');
   expect(errors).toEqual([]);

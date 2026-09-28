@@ -145,18 +145,31 @@ export function mountAzar(root: HTMLElement) {
     canvas.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }));
 
-  // the first result: the sheet's first draw, already on the stage's poster
-  const first = CONTACTS[0];
-  const r0 = woven(first);
-  r0.interact.auto = true;
-  add(r0, first.seed, contacts[0]?.querySelector('img') ?? undefined);
-  cur = 0;
+  // The strip starts with a few real results (in the HTML, so «going back» shows before any click): they
+  // become the page's history, the last one on the stage (its image is the stage's poster).
+  const seeded = Array.from(strip.querySelectorAll<HTMLElement>('li[data-seed]')).map(li => ({ li, c: CONTACTS.find(x => x.seed === li.dataset.seed) }));
+  for (const { li, c } of seeded) {
+    const img = li.querySelector('img') ?? undefined;
+    li.remove();
+    if (!c) continue;
+    const r = woven(c);
+    r.interact.auto = true;
+    add(r, c.seed, img);
+  }
+  if (!hist.length) {
+    const r = woven(CONTACTS[0]);
+    r.interact.auto = true;
+    add(r, CONTACTS[0].seed, contacts[0]?.querySelector('img') ?? undefined);
+  }
+  cur = hist.length - 1;
+  const start = cur;
+  const r0 = hist[cur].r;
   paint();
   void live(canvas, still(structuredClone(r0)), { maxPixelRatio: 1.25 }).then(e => {
     if (!e) return;
     engine = e;
     track(e);
-    if (cur !== 0) e.set(still(structuredClone(hist[cur].r)));
+    if (cur !== start) e.set(still(structuredClone(hist[cur].r)));
     void e.ready().then(() => { root.querySelector('.azar-stage img')?.remove(); canvas.parentElement!.dataset.live = e.kind; });
   });
 }

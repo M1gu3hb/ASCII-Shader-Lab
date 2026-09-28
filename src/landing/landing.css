@@ -130,7 +130,7 @@
   display: grid; align-content: center; gap: clamp(12px, 1.6vw, 22px); height: 100%; padding: 0 clamp(18px, 6%, 56px); pointer-events: auto;
   font-family: var(--font-mono); color: var(--bone);
 }
-.pieces .pc-lbl { display: block; margin-bottom: 4px; font: 600 10px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: rgba(237, 230, 218, .55); }
+.pieces .pc-lbl { display: block; margin-bottom: 4px; font: 600 10px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: rgba(237, 230, 218, .7); }
 .pieces .pc-big { font: 800 clamp(22px, 3vw, 46px)/1 var(--font-display); letter-spacing: -.04em; }
 .pieces .pc-type { font: 500 clamp(14px, 1.4vw, 19px)/1.3 var(--font-mono); min-height: 1.3em; }
 .pieces .pc-row { display: flex; flex-wrap: wrap; gap: 8px 20px; font: 500 clamp(15px, 1.4vw, 19px)/1 var(--font-mono); color: var(--signal); }
@@ -175,6 +175,10 @@
 }
 
 /* ---------- 02 · azar ---------- */
+/* a two-line promise: the headline takes the whole width, the lead sits under its second half */
+.azar .sec-head h2 { grid-column: 1 / -1; }
+.azar .sec-head .lead { grid-column: 7 / -1; margin-top: clamp(20px, 2.4vw, 32px); }
+@media (max-width: 1023px) { .azar .sec-head .lead { grid-column: 1 / -1; } }
 .azar-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: clamp(16px, 2vw, 32px); row-gap: 40px; align-items: start; }
 .azar-demo { grid-column: 1 / span 8; }
 .azar-side { grid-column: 9 / -1; }
@@ -200,13 +204,13 @@
 .azar-seed b { color: var(--paper-ink); font-weight: 500; }
 .azar-strip { list-style: none; margin: 16px 0 0; padding: 0 0 6px; min-height: 60px; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
 .azar-strip li { flex: none; scroll-snap-align: start; }
-.azar-strip button {
+.azar-strip button, .azar-strip .shot {
   position: relative; display: block; width: 84px; aspect-ratio: 16 / 10; padding: 0; border-radius: 5px; border: 0; cursor: pointer; overflow: hidden;
   background: #d9d1bf; box-shadow: 0 0 0 1px rgba(28, 26, 23, .18);
 }
-.azar-strip button canvas, .azar-strip button img { width: 100%; height: 100%; object-fit: cover; }
-.azar-strip button span { position: absolute; left: 4px; bottom: 3px; font: 500 9.5px/1 var(--font-mono); color: #fff; text-shadow: 0 1px 2px #000; }
-.azar-strip button[aria-current="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px #c2410c; }
+.azar-strip button canvas, .azar-strip button img, .azar-strip .shot img { width: 100%; height: 100%; object-fit: cover; }
+.azar-strip button > span, .azar-strip .shot > span { position: absolute; left: 4px; bottom: 3px; font: 500 9.5px/1 var(--font-mono); color: #fff; text-shadow: 0 1px 2px #000; }
+.azar-strip [aria-current="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px #c2410c; }
 .azar-note { margin: 10px 0 0; font-size: 14px; color: var(--paper-muted); max-width: 62ch; }
 .facts { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--paper-rule); }
 .facts li { padding: 18px 0; border-bottom: 1px solid var(--paper-rule); color: #3a352e; font-size: 16px; }
@@ -238,7 +242,7 @@
 @media (max-width: 620px) {
   .contact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 12px; gap: 14px 10px; }
   .azar-open { margin-left: 0; }
-  .azar-strip button { width: 72px; }
+  .azar-strip button, .azar-strip .shot { width: 72px; }
 }
 
 /* ---------- 03 · salidas ---------- */

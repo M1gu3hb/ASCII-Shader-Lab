@@ -150,7 +150,8 @@ function island(sel: string, load: (el: HTMLElement) => Promise<unknown>) {
       pending = null;
     });
   };
-  afterLoad(() => near(el, go, '250px'));
+  // watched from the start (a section passed on the way down is ready when you come back), loaded once the page is idle
+  near(el, () => afterLoad(go), '250px');
   el.addEventListener('focusin', go, { once: true });
   el.addEventListener('pointerenter', go, { once: true });
   el.addEventListener('click', e => {

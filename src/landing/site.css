@@ -56,7 +56,7 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
   display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border-radius: 8px; text-decoration: none;
   font: 600 11px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: rgba(237, 230, 218, .72);
 }
-.nav-links a .n { color: rgba(237, 230, 218, .38); font-weight: 500; }
+.nav-links a .n { color: #8c857a; font-weight: 500; }
 .nav-links a:hover, .nav-links a[aria-current] { color: var(--bone); }
 .nav-links a.here { color: var(--bone); box-shadow: inset 0 -2px 0 var(--signal); border-radius: 0; }
 .logo svg { display: block; }

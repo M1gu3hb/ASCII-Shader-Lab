@@ -155,6 +155,14 @@ describe('the landing\'s «Azar» contact sheet', () => {
       expect(c.name, c.arch).toBe(ARCHETYPES.find(a => a.id === c.arch)!.name);
       expect(existsSync(join(root, 'public', contactSrc(c.seed))), c.seed).toBe(true);
     }
+    // the dice's strip starts with contacts too (their images, their seeds)
+    const landing = readFileSync(join(root, 'index.html'), 'utf8');
+    const strip = [...landing.matchAll(/<li data-seed="([^"]+)"><span class="shot"[^>]*><img src="([^"]+)"/g)];
+    expect(strip).toHaveLength(3);
+    for (const [, seed, src] of strip) {
+      expect(CONTACTS.some(c => c.seed === seed), seed).toBe(true);
+      expect(src).toBe(contactSrc(seed));
+    }
     const html = contactSheet();
     expect(html.match(/<li data-contact=/g)).toHaveLength(CONTACTS.length);
     expect(renderPage('<!-- @contacts -->', page('main'), { readPublic: () => '' })).toBe(html);

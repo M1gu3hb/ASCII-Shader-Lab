@@ -33,7 +33,7 @@ test('la portada dibuja el héroe, el escenario de los espacios, el azar y el fi
   await page.locator('[data-azar]').scrollIntoViewIfNeeded();
   await drawn(page, '[data-azar]');
   await page.getByRole('button', { name: 'Tirar', exact: true }).click();
-  await expect(page.locator('[data-azar-strip] button')).toHaveCount(2);
+  await expect(page.locator('[data-azar-strip] button')).toHaveCount(4);
   await page.locator('.final-canvas').scrollIntoViewIfNeeded();
   await drawn(page, '.final-canvas');
   expect(errors).toEqual([]);
