@@ -128,7 +128,7 @@ export const scanlines: Op = (src, dst, p, run) => {
   for (let y = 0; y < h; y++) {
     let k = 0;
     for (let q = 0; q < SUB; q++) {
-      const Y = (y + (q + 0.5) / SUB) / scale + off;
+      const Y = (y + (q + 0.5) / SUB) / scale - off; // positive roll: the lines run down
       const ph = Y / sp - Math.floor(Y / sp);
       const dist = Math.abs(ph - 0.5); // 0 at the line centre
       const t = clamp((wd / 2 + soft - dist) / (2 * soft), 0, 1);
