@@ -50,12 +50,18 @@ export interface ImmersiveAction {
   title?: string;
 }
 
-export function ImmersiveBar({ actions, label = 'Modo inmersivo', exitLabel = 'Salir del modo inmersivo' }: { actions: ImmersiveAction[]; label?: string; exitLabel?: string }) {
-  const on = useImmersive(s => s.on);
+/**
+ * The bar. Render it always (it draws nothing while the mode is off); `active` false keeps it off where
+ * the studio has no piece to show (a gallery, a guide).
+ */
+export function ImmersiveBar({ actions, active = true, label = 'Modo inmersivo', exitLabel = 'Salir del modo inmersivo' }: {
+  actions: ImmersiveAction[]; active?: boolean; label?: string; exitLabel?: string;
+}) {
+  const on = useImmersive(s => s.on) && active;
   const bar = useRef<HTMLDivElement>(null);
-  const was = useRef(on);
+  const was = useRef(false);
   useEffect(() => {
-    if (on && !was.current) bar.current?.querySelector<HTMLElement>('.imm-main, button:not(:disabled)')?.focus();
+    if (on && !was.current) (bar.current?.querySelector<HTMLElement>('.imm-main:not(:disabled)') ?? bar.current?.querySelector<HTMLElement>('button:not(:disabled)'))?.focus();
     if (!on && was.current) {
       // back to a visible toggle (the one pressed, in most cases)
       const t = [...document.querySelectorAll<HTMLElement>('.imm-toggle')].find(el => el.getClientRects().length > 0);

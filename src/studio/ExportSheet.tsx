@@ -3,7 +3,7 @@ import { cloneRecipe, type Recipe } from '../engine/recipe';
 import { byteSize, gridToAnsi, gridToHtml, gridToHtmlPage, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
 import { recipeFile, shareUrl } from '../shared/share';
 import { imageFormats, recorderLabel, useCaps, videoEncoderWhy, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
-import { copyText, downloadBlob, downloadText } from './download';
+import { copyText, downloadBlob, downloadText, shareFile, useSaved } from './download';
 import {
   SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize, trailWarmup,
   smallerEncodable, startRecording, stopRecording, useRecording, useStopOnLeave, videoSupport, type Cancel,
@@ -67,6 +67,7 @@ export function ExportSheet() {
         {tab === 'codigo' && <CodeTab />}
         {tab === 'receta' && <RecipeTab />}
       </div>
+      <SavedBar open={open} />
     </Sheet>
   );
 }
@@ -84,6 +85,26 @@ function useStageSizeTick(open: boolean) {
     ro.observe(c);
     return () => ro.disconnect();
   }, [open]);
+}
+
+/**
+ * At the sheet's foot, once something was saved while it is open: what, and «Compartir» where the system
+ * shares files (the notices are under this sheet, and on a phone it fills the screen).
+ */
+function SavedBar({ open }: { open: boolean }) {
+  const saved = useSaved();
+  // what was saved before this opening is not this sheet's news
+  const from = useRef(saved.n);
+  const was = useRef(false);
+  if (open && !was.current) from.current = useSaved.getState().n;
+  was.current = open;
+  if (!open || saved.n <= from.current) return null;
+  return (
+    <div className="ex-saved" role="status">
+      <p>Descargado: <b>{saved.name}</b></p>
+      {saved.file && <button type="button" className="btn ex-share" onClick={() => { if (saved.file) void shareFile(saved.file); }}>Compartir</button>}
+    </div>
+  );
 }
 
 function Busy({ p, label, onCancel }: { p: number; label?: string; onCancel?: () => void }) {

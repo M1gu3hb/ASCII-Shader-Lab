@@ -255,7 +255,7 @@ export function ExploreSheet() {
 const KEYS: Array<[string, string]> = [
   ['R', 'Nueva combinación al azar'], ['→', 'Siguiente (o nueva al llegar al final)'], ['←', 'Resultado anterior'], ['V', 'Variar el actual'],
   ['X', 'Explorar variaciones'], ['S', 'Guardar en la colección'], ['E', 'Exportar'], ['Espacio', 'Pausar / reproducir'],
-  ['Ctrl Z', 'Deshacer'], ['Ctrl Mayús Z', 'Rehacer'], ['H', 'Ocultar la interfaz'], ['F', 'Pantalla completa'], ['1 – 6', 'Cambiar de espacio'],
+  ['Ctrl Z', 'Deshacer'], ['Ctrl Mayús Z', 'Rehacer'], ['H', 'Ocultar la interfaz'], ['I', 'Modo inmersivo (Esc para salir)'], ['F', 'Pantalla completa'], ['1 – 6', 'Cambiar de espacio'],
   ['L', 'Copiar enlace'], ['G', 'Guías: empezar por un camino'], ['?', 'Esta ayuda'], ['Esc', 'Cerrar'],
 ];
 

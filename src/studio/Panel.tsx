@@ -71,6 +71,10 @@ export function Panel() {
       if (!matchMedia('(max-width: 900px)').matches) swap(aside.current, 'panel');
       else setSnap('half');
     }
+    // closed with the focus inside (Escape, «Cerrar ajustes», the handle): it goes to the button that opens it
+    if (!shown && wasShown.current && aside.current?.contains(document.activeElement)) {
+      (document.querySelector<HTMLElement>('.imm-bar .imm-act[aria-pressed]') ?? document.querySelector<HTMLElement>('.ph-tools, .panel-btn'))?.focus();
+    }
     wasShown.current = shown;
   }, [shown]);
   useChoiceSwaps(pane);

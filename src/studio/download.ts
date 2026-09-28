@@ -1,9 +1,16 @@
+import { create } from 'zustand';
 import { toast } from './toast';
 
 /**
- * Saves a file locally. Nothing is uploaded: the blob never leaves the browser. Where the system can
- * share files (phones, tablets, some desktops), the notice offers «Compartir» too: the system's own share
- * sheet (messages, notes, social apps…), which the person chooses and which a tap has to start.
+ * The last file saved, for «Compartir» where the system can share files (phones, tablets, some
+ * desktops): the export sheet shows it at its foot (a sheet covers the notices on a phone), a notice
+ * offers it elsewhere. `n` counts saves, so a view knows whether one happened since it opened.
+ */
+export const useSaved = create<{ n: number; name: string; file: File | null }>(() => ({ n: 0, name: '', file: null }));
+
+/**
+ * Saves a file locally. Nothing is uploaded: the blob never leaves the browser. Sharing is the system's
+ * own share sheet (messages, notes, social apps…), which the person chooses and which a tap has to start.
  */
 export function downloadBlob(name: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
@@ -15,19 +22,19 @@ export function downloadBlob(name: string, blob: Blob) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
   const file = shareable(name, blob);
-  if (file) {
-    toast('Descargado: ' + name, {
-      label: 'Compartir',
-      run: () => {
-        navigator.share({ files: [file], title: name }).catch((e: unknown) => {
-          // the person closed the share sheet: nothing to say
-          if ((e as { name?: string } | null)?.name !== 'AbortError') toast('No se pudo compartir el archivo. Ya está en tus descargas.');
-        });
-      },
-    }, 6000);
-    return;
+  useSaved.setState(s => ({ n: s.n + 1, name, file }));
+  if (file) toast('Descargado: ' + name, { label: 'Compartir', run: () => void shareFile(file) }, 6000);
+  else toast('Descargado: ' + name);
+}
+
+/** Opens the system's share sheet with a file (a tap must start it); says so if it fails. */
+export async function shareFile(file: File): Promise<void> {
+  try {
+    await navigator.share({ files: [file], title: file.name });
+  } catch (e) {
+    // the person closed the share sheet: nothing to say
+    if ((e as { name?: string } | null)?.name !== 'AbortError') toast('No se pudo compartir el archivo. Ya está en tus descargas.');
   }
-  toast('Descargado: ' + name);
 }
 
 /** The file as the system's share sheet takes it, when this browser can share it (else null). */

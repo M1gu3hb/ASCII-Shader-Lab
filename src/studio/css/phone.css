@@ -14,6 +14,15 @@
 .app .vbar-sel .imm-toggle svg, .app .vbar-cam svg { width: 18px; height: 18px; }
 .app .vbar-sel .imm-toggle { margin-left: 2px; }
 
+/* ---------- export: what was saved, at the sheet's foot (with «Compartir» where the system shares) ---------- */
+.app .ex-saved {
+  flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 16px 10px 18px;
+  border-top: 1px solid var(--line); background: var(--panel-2);
+}
+.app .ex-saved p { margin: 0; flex: 1; min-width: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.app .ex-saved p b { color: var(--text); font-weight: 600; }
+.app .ex-saved .btn { width: auto; flex: none; margin: 0; min-height: 44px; padding: 0 18px; }
+
 /* ---------- immersive: only the piece (and the bar), on every size ---------- */
 .app.imm-on { --top-h: 0px; }
 .app.imm-on .topbar, .app.imm-on .deck, .app.imm-on .seedline, .app.imm-on .ph-strip,
@@ -83,7 +92,10 @@
     font: 500 12.5px/1 var(--font-mono);
   }
   /* the name and, under it, where it is: each one line (a long name ends in «…» without widening anything) */
-  .app .ph-seed .seed-info { display: flex; flex-direction: column; justify-content: center; gap: 3px; flex: 1 1 auto; min-width: 0; overflow: visible; white-space: normal; }
+  .app .ph-seed .seed-info {
+    display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 3px; flex: 1 1 auto; min-width: 0;
+    overflow: visible; white-space: normal; text-align: left;
+  }
   .app .ph-seed .ell, .app .ph-seed .ph-sub {
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; overflow-wrap: anywhere; min-width: 0;
   }
@@ -214,6 +226,9 @@
   }
   .app.panel-off .panel.ph-sheet { transform: translateX(calc(100% + 12px)); }
   .app:not(.panel-off) .stage-wrap { right: var(--ph-w); }
+  /* a notch on either side stays clear of the controls */
+  .app .ph-sheet .pane, .app .ph-grab-row { padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+  .app .stage-top { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); }
   .app .ph-sheet .sheet-grab { display: none; }
   .ph-grab-row { justify-content: flex-end; padding-left: 12px; height: 44px; }
   .app .ph-sheet .ptabs.ph-tabs { grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); }

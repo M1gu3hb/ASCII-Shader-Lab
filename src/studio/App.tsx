@@ -68,15 +68,13 @@ export function App() {
       <Toasts />
       {!comps && <Panel />}
       {!comps && <Deck />}
-      {immersive && (
-        <ImmersiveBar actions={[
-          { id: 'prev', label: 'Resultado anterior', icon: <IPrev />, onClick: back, disabled: cursor <= 0, title: 'Anterior (←)' },
-          { id: 'dice', label: 'Azar', icon: <IDice />, onClick: dice, main: true, showLabel: true, title: 'Nueva combinación al azar (R)' },
-          { id: 'next', label: 'Resultado siguiente', icon: <INext />, onClick: forward, title: 'Siguiente (→)' },
-          // the lab's word for its tools: the same button as in the dock
-          { id: 'tools', label: 'Ajustes', icon: <ITune />, onClick: () => setUI({ panel: !panel }), pressed: panel, showLabel: true, title: 'Ajustes de la pieza' },
-        ]} />
-      )}
+      <ImmersiveBar active={immersive} actions={[
+        { id: 'prev', label: 'Resultado anterior', icon: <IPrev />, onClick: back, disabled: cursor <= 0, title: 'Anterior (←)' },
+        { id: 'dice', label: 'Azar', icon: <IDice />, onClick: dice, main: true, showLabel: true, title: 'Nueva combinación al azar (R)' },
+        { id: 'next', label: 'Resultado siguiente', icon: <INext />, onClick: forward, title: 'Siguiente (→)' },
+        // the lab's word for its tools: the same button as in the dock
+        { id: 'tools', label: 'Ajustes', icon: <ITune />, onClick: () => setUI({ panel: !panel }), pressed: panel, showLabel: true, title: 'Ajustes de la pieza' },
+      ]} />
       <OnDemand sheet="export" label="Cargando la exportación…" onFirstOpen={warmCodeExporter}><ExportSheet /></OnDemand>
       <OnDemand sheet="collection" label="Cargando la colección…"><CollectionSheet /></OnDemand>
       <OnDemand sheet="explore" label="Cargando el explorador…"><ExploreSheet /></OnDemand>
@@ -182,7 +180,7 @@ function useKeys() {
         case 'v': case 'V': vary(); break;
         case 'x': case 'X': setUI({ sheet: 'explore' }); break;
         case 's': case 'S': void favorite(); break;
-        case 'e': case 'E': setUI({ sheet: 'export' }); break;
+        case 'e': case 'E': setUI(isPhone() ? { panel: false, sheet: 'export' } : { sheet: 'export' }); break;
         case 'l': case 'L': void copyLink(); break;
         case 'h': case 'H': setUI({ hideUI: !s.ui.hideUI }); break;
         case 'f': case 'F': toggleFullscreen(); break;
