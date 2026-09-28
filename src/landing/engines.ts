@@ -40,6 +40,6 @@ export function basicWords(status: GLStatus): { title: string; body: string } {
   const e = explainWebGL(status);
   return {
     title: e.title,
-    body: `${e.body} Se ve igual que con la tarjeta gráfica; las piezas pesadas pueden ir más lentas. En el estudio, «¿Por qué?» explica cómo recuperar el motor completo.`,
+    body: `${e.body} Se ve casi igual que con la tarjeta gráfica; las piezas pesadas pueden ir más lentas. En el estudio, «¿Por qué?» explica cómo recuperar el motor completo.`,
   };
 }
