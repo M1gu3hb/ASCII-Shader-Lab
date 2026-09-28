@@ -489,6 +489,8 @@ async function visitSite(url, o = {}) {
   p.on('console', m => {
     if (m.type() !== 'error') return;
     if (FONT_HOSTS.test(m.location()?.url ?? '')) { fontIssues.add(m.text()); return; }
+    // a full browser (Chrome) asks every test page for its /favicon.ico: the test pages have none
+    if (/\/favicon\.ico$/.test(m.location()?.url ?? '')) return;
     errors.push('console: ' + m.text() + (m.location()?.url ? ' @ ' + m.location().url : ''));
   });
   p.on('requestfailed', r => { if (FONT_HOSTS.test(r.url())) fontIssues.add(r.failure()?.errorText ?? 'error'); else errors.push('requestfailed: ' + r.url()); });
