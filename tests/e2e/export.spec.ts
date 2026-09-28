@@ -57,7 +57,16 @@ test.describe('exportar', () => {
     const poster = await download(page, () => page.getByRole('button', { name: 'Descargar póster (PNG)' }).click());
     expect(poster.name).toMatch(/-poster\.png$/);
     expect(readFileSync(poster.path).subarray(1, 4).toString()).toBe('PNG');
-    await expect(page.getByText(/Sin WebGL 2 se ve el color de fondo/)).toBeVisible();
+    // before copying: what the code does without WebGL 2, and what each choice weighs
+    const basicBtn = page.getByRole('button', { name: /^Motor básico \(\+\d+ KB\)$/ });
+    await expect(basicBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText(/el procesador dibuja la misma pieza con Canvas 2D/)).toBeVisible();
+    await expect(page.getByText(/Este código: \d+ KB \(\d+ KB comprimido con gzip/)).toBeVisible();
+    const withBasic = (await page.getByRole('textbox', { name: 'Código' }).inputValue()).length;
+    await page.getByRole('button', { name: 'Póster o color' }).click();
+    await expect(page.getByText(/Sin WebGL 2 la pieza no se mueve/)).toBeVisible();
+    const lighter = (await page.getByRole('textbox', { name: 'Código' }).inputValue()).length;
+    expect(withBasic - lighter).toBeGreaterThan(30_000);
 
     await page.getByRole('tab', { name: 'Video y GIF' }).click();
     await expect(page.getByRole('button', { name: 'WebM' })).toBeEnabled();

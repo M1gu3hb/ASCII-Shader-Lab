@@ -24,6 +24,8 @@ import { SegGroup } from './controls';
 import { Picker, type PickOpt } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
 import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
+import type { Fallback } from '../exporters/code';
+import './css/export-code.css';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -563,6 +565,48 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
 
 /* ------------------------------------------------------------------ */
 
+const kb = (n: number) => (n < 10 * 1024 ? (n / 1024).toLocaleString('es', { maximumFractionDigits: 1 }) : Math.round(n / 1024).toLocaleString('es')) + ' KB';
+
+/** Bytes of `text` once gzip-compressed, as most servers send it (null while counting, or without CompressionStream). */
+function useGzipSize(text: string | null): number | null {
+  const [n, setN] = useState<{ text: string; bytes: number } | null>(null);
+  useEffect(() => {
+    if (!text || typeof CompressionStream === 'undefined') return;
+    let alive = true;
+    const t = setTimeout(() => {
+      const gz = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+      void new Response(gz).arrayBuffer().then(b => { if (alive) setN({ text, bytes: b.byteLength }); }).catch(() => undefined);
+    }, 150);
+    return () => { alive = false; clearTimeout(t); };
+  }, [text]);
+  return n && n.text === text ? n.bytes : null;
+}
+
+type CodeMod = typeof import('../exporters/code');
+
+/**
+ * What the code does in a browser without WebGL 2, chosen before copying: the basic engine (Canvas 2D,
+ * the same piece drawn by the processor) at the size it adds, or the poster / background colour.
+ */
+function FallbackChoice({ mod, r, value, onChange }: { mod: CodeMod | null; r: Recipe; value: Fallback; onChange: (v: Fallback) => void }) {
+  const delta = mod ? mod.runtimeSize(r, 'basic') - mod.runtimeSize(r, 'poster') : 0;
+  const n = mod ? mod.basicPatternIds(r).length : 0;
+  return (
+    <div className="code-fallback">
+      <span className="lbl" id="code-fb-l">Si el navegador no tiene WebGL 2</span>
+      <div className="seg" role="group" aria-labelledby="code-fb-l">
+        <button type="button" aria-pressed={value === 'basic'} onClick={() => onChange('basic')}>Motor básico{mod ? ` (+${kb(delta)})` : ''}</button>
+        <button type="button" aria-pressed={value === 'poster'} onClick={() => onChange('poster')}>Póster o color</button>
+      </div>
+      <p className="note" aria-live="polite">
+        {value === 'basic'
+          ? <>Incluido: sin WebGL 2 (aceleración gráfica desactivada, equipos o navegadores antiguos) el procesador dibuja la misma pieza con Canvas 2D, más despacio (hasta 30 fotogramas por segundo). Añade {mod ? kb(delta) : '…'}: el motor básico y {n === 1 ? 'el patrón' : `los ${n} patrones`} que usa esta pieza. Si tampoco puede dibujar, se ve tu póster o el color de fondo.</>
+          : <>Sin WebGL 2 la pieza no se mueve: se ve el color de fondo, o tu póster si lo subes con tu página y pones su URL en «poster». El código pesa {mod ? kb(delta) : '…'} menos.</>}
+      </p>
+    </div>
+  );
+}
+
 function CodeTab() {
   const e = useCurrent();
   const [kind, setKind] = useState<'html' | 'wc' | 'react'>('html');
@@ -570,7 +614,8 @@ function CodeTab() {
   const [interactive, setInteractive] = useState(true);
   const [systemFont, setSystemFont] = useState(false);
   const [mediaUrl, setMediaUrl] = useState('');
-  const [mod, setMod] = useState<typeof import('../exporters/code') | null>(null);
+  const [fallback, setFallback] = useState<Fallback>('basic');
+  const [mod, setMod] = useState<CodeMod | null>(null);
   const basic = useCaps(s => s.renderer === 'basic');
   const codeRef = useRef<HTMLTextAreaElement>(null);
   const { copy, manual } = useCopy();
@@ -578,19 +623,23 @@ function CodeTab() {
   const [withZone, setWithZone] = useState(true);
   useEffect(() => { void import('../exporters/code').then(setMod); }, []);
   const scrim = withZone ? zone : null;
-  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim };
+  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim, fallback };
   const out = useMemo(() => {
     if (!mod || !e) return null;
     if (kind === 'html') { const r = mod.htmlSnippet(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'monotrama.html', extra: null as string | null }; }
     if (kind === 'wc') { const r = mod.webComponent(e.recipe, opts); return { code: r.usage, notes: r.notes, file: 'monotrama-field.js', extra: r.file }; }
     const r = mod.reactComponent(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'MonotramaBackground.jsx', extra: null };
-  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim]);
+  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim, fallback]);
+  // what a visitor downloads: the snippet, monotrama-field.js, or the component
+  const weight = out ? (out.extra ?? out.code) : null;
+  const gz = useGzipSize(weight);
   if (!e) return null;
   const isMedia = e.recipe.source === 'image' || e.recipe.source === 'video';
   const poster = async () => {
     try { downloadBlob(baseName(e.recipe) + '-poster.png', await exportImage(e.recipe, { kind: 'view', scale: 1 }, { transparent: false, format: 'png' })); }
     catch (err) { toast('No se pudo generar el póster: ' + (err as Error).message); }
   };
+  const bytes = weight ? new Blob([weight]).size : 0;
   return (
     <>
       <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -611,9 +660,10 @@ function CodeTab() {
         {zone && <label className="toggle" style={{ margin: 0 }}><span>Zona protegida</span><span className="switch"><input type="checkbox" role="switch" checked={withZone} onChange={ev => setWithZone(ev.target.checked)} /><span /></span></label>}
         {isMedia && <input type="text" className="mono" aria-label={e.recipe.source === 'image' ? 'URL de tu imagen en tu web' : 'URL de tu video en tu web'} placeholder={e.recipe.source === 'image' ? 'URL de tu imagen' : 'URL de tu video'} value={mediaUrl} onChange={ev => setMediaUrl(ev.target.value)} style={{ flex: 1, minWidth: 200, background: 'var(--field)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px' }} />}
       </div>
+      <FallbackChoice mod={mod} r={e.recipe} value={fallback} onChange={setFallback} />
       {basic && (
         <div className="ex-na info" role="note">
-          <p><b>Tu vista previa usa el motor básico.</b> Quien visite tu web con WebGL 2 verá el motor completo; sin WebGL 2, verá el color de fondo (o tu póster, si lo subes con tu página y pones su URL en «poster»).</p>
+          <p><b>Tu vista previa usa el motor básico.</b> Quien visite tu web con WebGL 2 verá el motor completo; sin WebGL 2, {fallback === 'basic' ? 'la verá como aquí, con el motor básico que va en el código' : 'verá el color de fondo (o tu póster, si lo subes con tu página y pones su URL en «poster»)'}.</p>
           <button type="button" className="btn" onClick={() => void poster()}>Descargar póster (PNG)</button>
         </div>
       )}
@@ -626,10 +676,12 @@ function CodeTab() {
         {kind === 'wc' && out?.extra && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText('monotrama-field.js', out.extra!, 'text/javascript')}>Descargar monotrama-field.js</button>}
         {kind === 'react' && out && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => downloadText(out.file, out.code, 'text/javascript')}>Descargar {out.file}</button>}
         {!basic && <button type="button" className="btn" style={{ width: 'auto', margin: 0 }} onClick={() => void poster()}>Descargar póster (PNG)</button>}
-        <span className="note" style={{ margin: 0 }}>Motor incluido ({mod ? Math.round(mod.runtimeSize() / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».</span>
       </div>
+      <p className="note code-size">
+        {out ? <>{kind === 'wc' ? 'monotrama-field.js' : kind === 'react' ? out.file : 'Este código'}: <b>{kb(bytes)}</b>{gz ? ` (${kb(gz)} comprimido con gzip, como lo sirven la mayoría de servidores)` : ''}. </> : null}
+        Lleva el motor {fallback === 'basic' ? 'WebGL 2 y el básico' : 'WebGL 2'}, sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».
+      </p>
       <CopyFallback manual={manual} />
-      <p className="note">Sin WebGL 2 se ve el color de fondo; el póster se muestra en su lugar si lo subes con tu página y pones su URL en «poster».</p>
     </>
   );
 }

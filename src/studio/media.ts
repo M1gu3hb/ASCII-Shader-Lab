@@ -312,27 +312,63 @@ export async function loadFile(file: File): Promise<Loaded | null> {
 /* Camera and video controls                                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Why the camera did not open, in words, with what to do: the browser tells denied permission, no camera
+ * and a camera another program holds apart (DOMException names; the older Chrome names too).
+ */
+export function cameraProblem(e: unknown): string {
+  const name = (e as { name?: string } | null)?.name ?? '';
+  const msg = String((e as { message?: string } | null)?.message ?? '');
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    if (/dismiss/i.test(msg)) return 'Cerraste la pregunta del permiso sin responder. Pulsa «Activar cámara» otra vez y elige «Permitir».';
+    if (/system/i.test(msg)) return 'El sistema no deja a este navegador usar la cámara. Permítelo en los ajustes de privacidad del sistema (Cámara) y vuelve a intentarlo.';
+    return 'El permiso de la cámara está denegado para este sitio. Actívalo en los permisos del sitio (el icono junto a la dirección) y vuelve a intentarlo.';
+  }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+    return 'No hay ninguna cámara disponible. Conecta una (o actívala) y vuelve a intentarlo.';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') {
+    return 'La cámara está ocupada o no responde: puede que la esté usando otra aplicación o pestaña (una videollamada, por ejemplo). Ciérrala y vuelve a intentarlo.';
+  }
+  if (name === 'SecurityError') return 'Esta página no puede pedir la cámara aquí (hace falta HTTPS, o el sitio que la incrusta no lo permite).';
+  return 'No se pudo abrir la cámara. Revisa el permiso del navegador y que ninguna otra aplicación la esté usando.';
+}
+
 export async function startCamera(): Promise<boolean> {
   if (camStream && camEl) { engine?.setMedia('camera', camEl); return true; }
   if (!navigator.mediaDevices?.getUserMedia) {
-    useMedia.setState({ camera: 'error', error: 'Este navegador no da acceso a la cámara (se necesita HTTPS).' });
+    useMedia.setState({ camera: 'error', error: typeof isSecureContext !== 'undefined' && !isSecureContext ? 'La cámara sólo se puede usar en una página segura (HTTPS).' : 'Este navegador no da acceso a la cámara.' });
     return false;
   }
   useMedia.setState({ camera: 'starting', error: null });
+  let stream: MediaStream | null = null;
   try {
-    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: false });
-    camEl = document.createElement('video');
-    camEl.muted = true; camEl.playsInline = true;
-    camEl.setAttribute('playsinline', '');
-    camEl.srcObject = camStream;
-    hide(camEl);
-    await camEl.play();
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 } }, audio: false });
+    const el = document.createElement('video');
+    el.muted = true; el.playsInline = true;
+    el.setAttribute('playsinline', '');
+    el.srcObject = stream;
+    hide(el);
+    try { await el.play(); } catch (err) { el.remove(); throw err; }
+    camStream = stream;
+    camEl = el;
+    // unplugged, or taken by the system: say so instead of freezing on the last frame
+    for (const t of stream.getVideoTracks()) {
+      t.addEventListener('ended', () => {
+        if (camStream !== stream) return;
+        stopCamera();
+        useMedia.setState({ camera: 'error', error: 'La cámara se desconectó o dejó de enviar imagen. Vuelve a activarla cuando esté lista.' });
+      });
+    }
     engine?.setMedia('camera', camEl);
     useMedia.setState({ camera: 'on' });
     return true;
-  } catch {
+  } catch (err) {
+    // a stream that opened but could not play must not keep the camera (and its light) on
+    stream?.getTracks().forEach(t => t.stop());
     camStream = null;
-    useMedia.setState({ camera: 'error', error: 'No se pudo abrir la cámara. Revisa el permiso del navegador.' });
+    camEl = null;
+    useMedia.setState({ camera: 'error', error: cameraProblem(err) });
     return false;
   }
 }
