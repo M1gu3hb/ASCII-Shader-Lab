@@ -3,18 +3,11 @@ import { contrastRatio, luminance } from '../../src/engine/color';
 import { defaultRecipe, normalizeRecipe, type Recipe } from '../../src/engine/recipe';
 import { PRESETS } from '../../src/studio/presets';
 import {
-  CONTRAST, DETAIL, PATHS, applyPresence, glyphContrast, inkOf, isLightBg, legibility, loopFor, nearestChoice, normWord, parseCamino,
+  CONTRAST, DETAIL, PATHS, applyPresence, glyphContrast, inkOf, isLightBg, loopFor, nearestChoice, normWord, parseCamino,
   photoBackground, presence, presenceWord, previewInk, relevantTab, textGrid, validWord, withSpeed, withWord, withoutCamino,
 } from '../../src/studio/guide/paths';
 
 const fondos = () => PRESETS.fondos.map(p => p.make());
-
-/** Solid RGBA block of w×h pixels. */
-function solid(w: number, h: number, rgb: [number, number, number]) {
-  const d = new Uint8ClampedArray(w * h * 4);
-  for (let i = 0; i < w * h; i++) d.set([...rgb, 255], i * 4);
-  return d;
-}
 
 describe('camino', () => {
   it('reads the path from the query string and ignores anything else', () => {
@@ -108,32 +101,7 @@ describe('Presencia', () => {
   });
 });
 
-describe('legibility estimate', () => {
-  it('white text on black is excellent, on white is unreadable', () => {
-    expect(legibility(solid(40, 20, [0, 0, 0]), 40, 20, '#ffffff')).toEqual({ ratio: 21, level: 'buena' });
-    expect(legibility(solid(40, 20, [255, 255, 255]), 40, 20, '#ffffff').level).toBe('baja');
-  });
-
-  it('matches WCAG for a flat background, and never rounds a fail up to a pass', () => {
-    const aa = legibility(solid(16, 16, [0x76, 0x76, 0x76]), 16, 16, '#ffffff');
-    expect(Math.abs(aa.ratio - contrastRatio('#767676', '#ffffff'))).toBeLessThan(0.1);
-    expect(aa.level).toBe('buena');
-    const near = legibility(solid(16, 16, [0x77, 0x77, 0x77]), 16, 16, '#ffffff'); // 4.48:1
-    expect(near).toEqual({ ratio: 4.4, level: 'justa' });
-    expect(legibility(solid(16, 16, [0xa0, 0xa0, 0xa0]), 16, 16, '#ffffff').level).toBe('baja');
-  });
-
-  it('counts bright patches behind the text (worst tenth of the blocks)', () => {
-    const w = 80, h = 20, d = solid(w, h, [0, 0, 0]);
-    // a quarter of the area turns white: the estimate follows the patch, not the average
-    for (let y = 0; y < h; y++) for (let x = 0; x < 20; x++) d.set([255, 255, 255, 255], (y * w + x) * 4);
-    expect(legibility(d, w, h, '#ffffff').level).toBe('baja');
-    // fine glyph texture averages out within a block
-    const t = solid(w, h, [0, 0, 0]);
-    for (let y = 0; y < h; y += 4) for (let x = 0; x < w; x += 4) t.set([255, 255, 255, 255], (y * w + x) * 4);
-    expect(legibility(t, w, h, '#ffffff', 8).level).toBe('buena');
-  });
-
+describe('preview ink', () => {
   it('the preview ink is dark on light backgrounds and white on dark ones', () => {
     expect(previewInk('#f2ecdf')).toBe('#111111');
     expect(previewInk('#0b0a09')).toBe('#ffffff');

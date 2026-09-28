@@ -99,6 +99,11 @@ export const useStudio = create<State>(() => ({
 const set = useStudio.setState;
 const S = useStudio.getState;
 
+// the system setting can change while the studio is open: transitions and autoplay follow it
+if (typeof matchMedia === 'function') {
+  matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', ev => set(ev.matches ? { reducedMotion: true, playing: false } : { reducedMotion: false }));
+}
+
 /* ------------------------------------------------------------------ */
 /* Selectors                                                           */
 /* ------------------------------------------------------------------ */

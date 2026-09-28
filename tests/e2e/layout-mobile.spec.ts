@@ -41,7 +41,7 @@ test.describe('en el teléfono', () => {
     const vp = await box(page, '.vw-viewport');
     const sheet = await box(page, '.panel.guide-panel');
     expect(vp.bottom).toBeLessThanOrEqual(sheet.top);
-    const h1 = await box(page, '.preview-content h1');
+    const h1 = await box(page, '.preview-content .pc-h');
     const btns = await box(page, '.preview-content .pc-btns');
     expect(h1.top).toBeGreaterThanOrEqual(vp.top);
     expect(btns.bottom).toBeLessThanOrEqual(vp.bottom + 1);

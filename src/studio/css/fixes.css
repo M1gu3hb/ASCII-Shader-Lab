@@ -48,7 +48,7 @@ dialog.sheet.tab-away { width: min(520px, calc(100vw - 24px)); }
   .app .preview-content { padding: 8px 6cqw 8px; }
   .app .preview-content .pc-nav { font-size: 11px; }
   .app .preview-content .pc-hero { padding-top: 4px; }
-  .app .preview-content h1 { font-size: clamp(15px, 4.6cqw, 22px); margin-bottom: 6px; }
+  .app .preview-content .pc-h { font-size: clamp(15px, 4.6cqw, 22px); margin-bottom: 6px; }
   .app .preview-content .pc-btns { gap: 6px; }
   .app .preview-content .pc-btn { padding: 5px 9px; font-size: 11.5px; border-radius: 7px; }
 }

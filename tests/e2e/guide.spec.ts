@@ -225,22 +225,22 @@ test.describe('caminos', () => {
 
     // 2 · Presencia with the test content on and a legibility estimate
     await expect(stepTitle(page)).toContainText('Que se lea el contenido');
-    await expect(page.locator('.preview-content h1')).toBeVisible();
+    await expect(page.locator('.preview-content .pc-h')).toBeVisible();
     const slider = guide(page).getByRole('slider', { name: 'Presencia' });
-    // the estimate samples the moving stage about every second and a half: poll it
-    const ratio = async () => {
-      const t = (await guide(page).locator('.legib b').textContent()) ?? '';
-      return /^\d+\.\d:1$/.test(t) ? parseFloat(t) : NaN;
-    };
-    await expect.poll(ratio, { timeout: 20_000 }).toBeGreaterThan(1);
+    // the estimate samples the moving stage several times: poll the worst share of background too close
+    // to the text colour, around the letters (per mille)
+    const line = guide(page).locator('.legib-line');
+    const clash = async () => { const v = await line.getAttribute('data-clash'); return v == null ? NaN : +v; };
+    await expect.poll(clash, { timeout: 30_000 }).toBeGreaterThanOrEqual(0);
     await slider.fill('1');
     await expect(guide(page).locator('output')).toHaveText('protagonista');
-    await page.waitForTimeout(3500); // two fresh samples, well after the style's crossfade
-    const loud = await ratio();
+    await expect.poll(clash, { timeout: 30_000 }).toBeGreaterThanOrEqual(0);
+    await page.waitForTimeout(3000); // fresh samples of the loud version
+    const loud = await clash();
     await slider.fill('0');
     await expect(guide(page).locator('output')).toHaveText('sutil');
-    await expect.poll(ratio, { timeout: 30_000 }).toBeGreaterThan(loud);
-    await expect(guide(page).locator('.legib-say')).toHaveText(/Se lee bien|titulares grandes|Cuesta leer/);
+    await expect.poll(async () => { const c = await clash(); return Number.isNaN(c) ? Infinity : c; }, { timeout: 30_000 }).toBeLessThanOrEqual(loud);
+    await expect(guide(page).locator('.legib-say')).toHaveText(/^(Se lee bien|Cuesta leer .+|Se lee con esfuerzo .+)$/);
     await expect(guide(page).getByText(/Es una estimación/)).toBeVisible();
     // each drag is one undoable edit
     await expect(page.locator('.seedline')).toContainText('editado');

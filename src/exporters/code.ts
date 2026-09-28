@@ -7,6 +7,7 @@ import RUNTIME from 'virtual:mt-runtime';
 import { cloneRecipe, type Recipe } from '../engine/recipe';
 import { pickPatterns } from '../engine/glsl/patterns';
 import { LICENSE_LINE } from './text';
+import { scrimCss, type Scrim } from '../shared/scrim';
 
 export type Placement = 'fixed' | 'block' | 'hero';
 
@@ -18,6 +19,11 @@ export interface CodeOptions {
   mediaUrl: string;    // for image / video sources
   /** Image shown instead when the visitor's browser has no WebGL 2 ('' = only the background colour). */
   poster?: string;
+  /**
+   * «Zona protegida» (the studio's previews): 'full' and 'gradient' are a layer the runtime adds over the
+   * background; 'block' is a CSS class (monotrama-zona) for the blocks of text that go on top.
+   */
+  scrim?: Scrim | null;
 }
 
 export const DEFAULT_CODE: CodeOptions = { placement: 'fixed', interactive: true, systemFont: false, height: 420, mediaUrl: '', poster: '' };
@@ -47,6 +53,16 @@ export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes
   return { recipe: x, notes };
 }
 
+/** The zone as a runtime option (full, gradient), or null. */
+const scrimOption = (o: CodeOptions) =>
+  o.scrim && o.scrim.shape !== 'block' ? { color: o.scrim.color, opacity: o.scrim.opacity, blur: o.scrim.blur, shape: o.scrim.shape } : null;
+/** The zone as a class for your own blocks of text ('block'), or ''. */
+function scrimClass(o: CodeOptions): string {
+  if (!o.scrim || o.scrim.shape !== 'block') return '';
+  return `.monotrama-zona{${scrimCss(o.scrim)};border-radius:16px;padding:16px 20px}`;
+}
+const SCRIM_NOTE = 'Zona protegida: si el navegador de quien visita no desenfoca (backdrop-filter), queda sólo el color, que es lo que más ayuda a leer.';
+
 export function patternsFor(r: Recipe) {
   return pickPatterns(r.layers.filter(l => l.on).map(l => l.pattern));
 }
@@ -57,6 +73,8 @@ function mountCall(r: Recipe, o: CodeOptions, target: string) {
   const opts: Record<string, unknown> = { patterns: '__P__', interactive: o.interactive, pointer: o.placement === 'fixed' ? 'window' : 'canvas' };
   if ((r.source === 'image' || r.source === 'video')) opts.media = mediaOf(r, o);
   opts.poster = o.poster ?? '';
+  const z = scrimOption(o);
+  if (z) opts.scrim = z;
   return `Monotrama.mount(${target}, ${json(r)}, ${json(opts).replace('"__P__"', json(patternsFor(r)))});`;
 }
 
@@ -70,13 +88,16 @@ function wrapperStyle(r: Recipe, o: CodeOptions) {
 export function htmlSnippet(src: Recipe, o: CodeOptions): { code: string; notes: string[] } {
   const { recipe: r, notes } = exportRecipe(src, o);
   const title = r.meta.name ?? r.meta.seed ?? 'pieza';
+  const zona = scrimClass(o);
+  if (o.scrim) notes.push(SCRIM_NOTE);
   const hero = o.placement === 'hero'
-    ? `\n  <div style="position:relative;z-index:1;text-align:center;color:#fff;padding:24px">\n    <h1>Tu titular</h1>\n  </div>`
+    ? `\n  <div${zona ? ' class="monotrama-zona"' : ''} style="position:relative;z-index:1;text-align:center;color:#fff;padding:24px">\n    <h1>Tu titular</h1>\n  </div>`
     : '';
+  const zonaNote = zona ? `\n     Zona protegida: pon class="monotrama-zona" en cada bloque de texto que vaya encima del fondo.` : o.scrim ? `\n     Zona protegida (${o.scrim.shape === 'full' ? 'toda la página' : 'degradado'}): la añade el script, entre el fondo y tu contenido.` : '';
   const code = `<!-- ${LICENSE_LINE}
      Monotrama · ${inComment(title)} · ${new Date().toISOString().slice(0, 10)}
      Fondo ASCII animado, sin librerías. Se pausa fuera de pantalla y respeta «reducir movimiento».
-     Sin WebGL 2 muestra el color de fondo, o tu póster si pones su URL en "poster". -->
+     Sin WebGL 2 muestra el color de fondo, o tu póster si pones su URL en "poster".${zonaNote} -->${zona ? `\n<style>${zona}</style>` : ''}
 <div class="monotrama" style="${wrapperStyle(r, o)}">
   <canvas style="position:absolute;inset:0;width:100%;height:100%;display:block" aria-hidden="true"></canvas>${hero}
 </div>
@@ -110,16 +131,20 @@ ${code}
 export function webComponent(src: Recipe, o: CodeOptions): { file: string; usage: string; notes: string[] } {
   const { recipe: r, notes } = exportRecipe(src, o);
   const file = `/*! ${LICENSE_LINE}
-    <monotrama-field recipe='{…}'> · atributos: src (imagen o video), pointer="window", static, paused, poster (imagen si no hay WebGL 2) */
+    <monotrama-field recipe='{…}'> · atributos: src (imagen o video), pointer="window", static, paused, poster (imagen si no hay WebGL 2),
+    scrim="full|gradient" con scrim-color, scrim-opacity (0 a 1) y scrim-blur (px): la zona protegida detrás de tu texto */
 ${RUNTIME}
 Monotrama.register(${json(patternsFor(r))});
 `;
   const media = r.source === 'image' || r.source === 'video' ? ` src="${attr(mediaOf(r, o))}"` : '';
   const style = o.placement === 'fixed' ? 'position:fixed;inset:0;z-index:-1' : o.placement === 'hero' ? 'min-height:100vh' : `height:${o.height}px`;
+  const z = scrimOption(o), zona = scrimClass(o);
+  if (o.scrim) notes.push(SCRIM_NOTE);
+  const zAttrs = z ? `\n  scrim="${z.shape}" scrim-color="${z.color}" scrim-opacity="${z.opacity}" scrim-blur="${z.blur}"` : '';
   const usage = `<!-- ${LICENSE_LINE} -->
-<script src="monotrama-field.js" defer></script>
+<script src="monotrama-field.js" defer></script>${zona ? `\n<!-- Zona protegida: pon class="monotrama-zona" en cada bloque de texto que vaya encima del fondo. -->\n<style>${zona}</style>` : ''}
 
-<monotrama-field${media}${o.placement === 'fixed' ? ' pointer="window"' : ''}${o.interactive ? '' : ' static'} poster="${attr(o.poster ?? '')}"
+<monotrama-field${media}${o.placement === 'fixed' ? ' pointer="window"' : ''}${o.interactive ? '' : ' static'} poster="${attr(o.poster ?? '')}"${zAttrs}
   style="${style};background:${r.color.bg}"
   recipe='${attr1(JSON.stringify(r))}'>
 </monotrama-field>`;
@@ -131,15 +156,26 @@ export function reactComponent(src: Recipe, o: CodeOptions, name = 'MonotramaBac
   const { recipe: r, notes } = exportRecipe(src, o);
   const fixed = o.placement === 'fixed';
   const media = r.source === 'image' || r.source === 'video' ? `media: ${JSON.stringify(mediaOf(r, o, '/'))}, ` : '';
+  const z = scrimOption(o);
+  const block = o.scrim?.shape === 'block' ? o.scrim : null;
+  if (o.scrim) notes.push(SCRIM_NOTE);
+  const blockStyle = block ? Object.fromEntries(scrimCss(block).split(';').map(d => {
+    const i = d.indexOf(':');
+    return [d.slice(0, i).replace(/^-webkit-/, 'Webkit-').replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase()), d.slice(i + 1)];
+  })) : null;
   const code = `'use client';
 // ${LICENSE_LINE}
 // ${name}.jsx — fondo ASCII animado de Monotrama. Sin dependencias.
-// Props: className, style, interactive, poster (imagen que se ve si el navegador no tiene WebGL 2), children.
+// Props: className, style, interactive, poster (imagen que se ve si el navegador no tiene WebGL 2), scrim (zona protegida), children.
 import { useEffect, useRef } from 'react';
 
 const RECIPE = ${json(r)};
 const PATTERNS = ${json(patternsFor(r))};
-
+${block ? `// Zona protegida detrás de tu texto: se aplica al bloque de children; úsala también en tus propios bloques.
+export const ZONA_PROTEGIDA = ${json({ ...blockStyle, borderRadius: 16, padding: '16px 20px' })};
+` : `// Zona protegida: capa entre el fondo y tu contenido (${z ? (z.shape === 'full' ? 'toda la página' : 'degradado') : 'ninguna'}); null para quitarla.
+const SCRIM = ${json(z)};
+`}
 function runtime() {
   if (typeof window === 'undefined') return null;
   if (!window.Monotrama) {
@@ -148,23 +184,23 @@ ${RUNTIME}
   return window.Monotrama;
 }
 
-export default function ${name}({ className, style, interactive = ${o.interactive}, poster = ${JSON.stringify(o.poster ?? '')}, children }) {
+export default function ${name}({ className, style, interactive = ${o.interactive}, poster = ${JSON.stringify(o.poster ?? '')}, ${block ? '' : 'scrim = SCRIM, '}children }) {
   const box = useRef(null);
   useEffect(() => {
     const M = runtime();
     if (!M || !box.current) return;
     // mount() creates its own canvas and destroy() removes it: a released WebGL context can't be reused,
     // and React (StrictMode) may mount twice
-    const ctl = M.mount(box.current, RECIPE, { patterns: PATTERNS, interactive, ${media}poster, pointer: ${fixed ? "'window'" : "'canvas'"} });
+    const ctl = M.mount(box.current, RECIPE, { patterns: PATTERNS, interactive, ${media}poster, ${block ? '' : 'scrim, '}pointer: ${fixed ? "'window'" : "'canvas'"} });
     return () => ctl && ctl.destroy();
-  }, [interactive, poster]);
+  }, [interactive, poster${block ? '' : ', scrim'}]);
   return (
     <div
       className={className}
       style={{ ${fixed ? "position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none'" : o.placement === 'hero' ? "position: 'relative', minHeight: '100vh', overflow: 'hidden'" : `position: 'relative', height: ${o.height}, overflow: 'hidden'`}, background: RECIPE.color.bg, ...style }}
     >
       <div ref={box} aria-hidden="true" style={{ position: 'absolute', inset: 0 }} />
-      {children && <div style={{ position: 'relative' }}>{children}</div>}
+      {children && <div style={{ position: 'relative'${block ? ', ...ZONA_PROTEGIDA' : ''} }}>{children}</div>}
     </div>
   );
 }

@@ -41,7 +41,7 @@ export const HELP: Record<string, HelpText> = {
   /* glyphs */
   'glyph.cell': { hint: 'Tamaño de cada carácter en pantalla, en píxeles.', more: 'Pequeña: más detalle y más caracteres (más trabajo para el equipo). Grande: más gráfica y ligera. Compara tres tamaños con la pieza actual:' },
   'glyph.aspect': { hint: 'Alto de la celda dividido por su ancho: 2 es como una terminal.', more: 'Los caracteres de las fuentes monoespaciadas son más altos que anchos. 1 da celdas cuadradas; 2, el doble de altas que anchas, como en una consola. Si exportas a texto, la proporción decide cuántas filas salen.' },
-  'glyph.charset': { hint: 'Los caracteres que dibujan, del vacío al lleno.', more: 'Muchos caracteres dan degradados suaves; pocos, más contraste y carácter. Los juegos ASCII se ven igual en cualquier terminal y en un README; los Unicode (bloques, braille, símbolos) pueden verse distintos según la fuente.' },
+  'glyph.charset': { hint: 'Los caracteres que dibujan, del vacío al lleno.', more: 'Muchos caracteres dan degradados suaves; pocos, más contraste y carácter. Los juegos ASCII son los más seguros en una terminal o un README (sólo cambia la tipografía); los Unicode (bloques, braille, símbolos) pueden verse distintos, o descuadrados, según la fuente.' },
   'glyph.charsetText': { hint: 'Escribe tus propios caracteres, del más vacío al más lleno.' },
   'glyph.sort': { hint: 'Reordena tus caracteres según la tinta que tiene cada uno en esta fuente.', more: 'Útil si escribiste los caracteres a mano: el estudio mide cuánto ocupa cada uno y los coloca del más vacío al más lleno. Desactívalo si el orden lo quieres tú.' },
   'glyph.font': { hint: 'La tipografía con la que se dibujan los caracteres.' },
@@ -128,7 +128,7 @@ export function helpFor(path: string): HelpText | undefined {
 /* One line per option                                                  */
 /* ------------------------------------------------------------------ */
 
-export const CHARSET_ASCII_LINE = 'ASCII puro: igual en cualquier terminal y README.';
+export const CHARSET_ASCII_LINE = 'ASCII puro: lo más seguro en terminales y README.';
 export const CHARSET_UNICODE_LINE = 'Unicode: puede verse distinto según la fuente.';
 
 export const COLOR_MAP_DESC: Record<ColorMap, string> = {

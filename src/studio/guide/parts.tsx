@@ -7,6 +7,7 @@ import { pieceFileBase } from '../packages';
 import { toast } from '../toast';
 import { useEntry } from '../store';
 import { renderCrops, type CropSpec } from './thumbs';
+import { ScrimCodeNote, useExportScrim } from '../views/scrimExport';
 
 /* ------------------------------------------------------------------ */
 /* Style grid                                                           */
@@ -84,13 +85,15 @@ export function CodeBox({ kinds, placements, placement: initial }: { kinds: Kind
   const [placement, setPlacement] = useState<Placement>(initial);
   useEffect(() => { let alive = true; void import('../../exporters/code').then(m => { if (alive) setMod(m); }); return () => { alive = false; }; }, []);
   const r = e?.recipe;
-  const opts: CodeOptions = { placement, interactive: !!r && r.interact.mode !== 'none', systemFont: false, height: 420, mediaUrl: '' };
+  // the protected zone chosen in the preview goes with the code
+  const scrim = useExportScrim();
+  const opts: CodeOptions = { placement, interactive: !!r && r.interact.mode !== 'none', systemFont: false, height: 420, mediaUrl: '', scrim };
   const out = useMemo(() => {
     if (!mod || !r) return null;
     if (kind === 'html') { const x = mod.htmlSnippet(r, opts); return { code: x.code, notes: x.notes, file: null as null | { name: string; text: string } }; }
     if (kind === 'wc') { const x = mod.webComponent(r, opts); return { code: x.usage, notes: x.notes, file: { name: 'monotrama-field.js', text: x.file } }; }
     const x = mod.reactComponent(r, opts); return { code: x.code, notes: x.notes, file: null };
-  }, [mod, r, kind, placement]); // opts is rebuilt from these values
+  }, [mod, r, kind, placement, scrim]); // opts is rebuilt from these values
   if (!r) return null;
   const base = pieceFileBase(r);
   const poster = async () => {
@@ -120,6 +123,7 @@ export function CodeBox({ kinds, placements, placement: initial }: { kinds: Kind
         Motor incluido ({mod ? Math.round(mod.runtimeSize() / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».
         {kind === 'wc' && ' Sube monotrama-field.js junto a tu página.'}
       </p>
+      {scrim && <ScrimCodeNote zone={scrim} on />}
       {out?.notes.map((n, i) => <p key={i} className="note">{n}</p>)}
       <p className="note">Sin WebGL 2 se ve el color de fondo, o el póster si lo subes con tu página y pones su URL en «poster».</p>
     </div>

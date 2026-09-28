@@ -45,15 +45,15 @@ test.describe('vistas de destino', () => {
 
     // Fondo web: a page over the piece, and an estimate that says it is one
     await pick(page, 'Fondo web');
-    await expect(page.locator('.preview-content h1')).toBeVisible();
+    await expect(page.locator('.preview-content .pc-h')).toBeVisible();
     await expect(page.getByText('Tu pieza como fondo de una página')).toBeVisible();
-    const est = page.locator('.vbar-legib');
-    await expect(est).toContainText('Contraste estimado del titular');
-    await expect(est.locator('b')).toHaveText(/^\d+\.\d:1$/, { timeout: 20_000 });
+    const est = page.locator('.vbar .legib-line');
+    await expect(est).toContainText('Legibilidad (estimación)');
+    await expect(est.locator('.legib-say')).toHaveText(/^(Se lee bien|Cuesta leer .+|Se lee con esfuerzo .+)$/, { timeout: 30_000 });
     await page.getByRole('group', { name: 'Texto' }).getByRole('button', { name: 'Oscuro' }).click();
-    await expect(page.locator('.preview-content h1')).toHaveCSS('color', 'rgb(17, 17, 17)');
+    await expect(page.locator('.preview-content .pc-h')).toHaveCSS('color', 'rgb(17, 17, 17)');
     await page.getByRole('group', { name: 'Texto' }).getByRole('button', { name: 'Claro' }).click();
-    await expect(page.locator('.preview-content h1')).toHaveCSS('color', 'rgb(255, 255, 255)');
+    await expect(page.locator('.preview-content .pc-h')).toHaveCSS('color', 'rgb(255, 255, 255)');
     await page.getByRole('button', { name: 'Exportar para este destino' }).click();
     await expect(page.getByRole('tab', { name: 'Código' })).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Escape');

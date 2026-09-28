@@ -7,6 +7,7 @@
 import type { SpaceId } from '../../random/spaces';
 import type { ExportRequest } from '../exportTab';
 import { textGrid } from '../guide/paths';
+import { DEFAULT_SCRIM, normalizeScrim, type ScrimSettings } from '../../shared/scrim';
 
 /** «vertical» is the story / reel frame (the id stays so saved preferences keep working). */
 export type ViewId = 'libre' | 'web' | 'movil' | 'tarjeta' | 'vertical' | 'readme' | 'terminal';
@@ -43,9 +44,11 @@ export interface ViewOpts {
   caption: boolean;
   /** Story / reel: the bands where the apps' own interface usually sits (approximate). */
   zones: boolean;
+  /** Fondo web and Pantalla de móvil: the protected zone behind the content (off in older preferences). */
+  scrim: ScrimSettings;
 }
 
-export const DEFAULT_VIEW_OPTS: ViewOpts = { ink: 'auto', page: 'light', caption: false, zones: false };
+export const DEFAULT_VIEW_OPTS: ViewOpts = { ink: 'auto', page: 'light', caption: false, zones: false, scrim: DEFAULT_SCRIM };
 
 /** The terminal space opens on its terminal window; every other space, on the free stage. */
 export const defaultView = (space: SpaceId): ViewId => (space === 'terminal' ? 'terminal' : 'libre');
@@ -76,6 +79,7 @@ export function normalizeViewOpts(raw: unknown): ViewOpts {
     page: o.page === 'dark' ? 'dark' : 'light',
     caption: o.caption === true,
     zones: o.zones === true,
+    scrim: normalizeScrim(o.scrim),
   };
 }
 

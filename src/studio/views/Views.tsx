@@ -8,7 +8,7 @@ import { IDownload, IMore } from '../icons';
 import { setUI, useRecipe, useStudio } from '../store';
 import type { Recipe } from '../../engine/recipe';
 import { useGuide } from '../guide/state';
-import { VERDICT, inkFor, useLegibility, useLegibilityMeter } from './legibility';
+import { LegibilityReport, PageContent, ScrimFine, ScrimLayer, ScrimSeg, gradientSideOf, usePageLook } from './PageMock';
 import { setView, setViewOpts } from './state';
 import {
   EXPORT_HINT, GITHUB_CELL, SAFE_BOTTOM, SAFE_RIGHT, SAFE_TOP, TERM_SIZES, VIEWS, cardMedia, exportAlt, exportFor, markdownBlock, nonAscii, phoneFit,
@@ -160,28 +160,21 @@ function FreeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
 
 function WebView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const recipe = useRecipe();
-  const mode = useStudio(s => s.ui.viewOpts.ink);
-  const ink = inkFor(mode, recipe?.color.bg ?? '#000000');
-  const h1 = useRef<HTMLHeadingElement>(null);
-  useLegibilityMeter(true, recipe, ink, h1);
-  const style = { '--pc': ink, '--pcb': ink === '#ffffff' ? '#111111' : '#ffffff' } as CSSProperties;
+  const look = usePageLook();
+  const content = useRef<HTMLDivElement>(null);
+  const port = useRef<HTMLDivElement>(null);
+  const size = useSize(port);
   return (
     <div className="vw-area" style={areaStyle(ins)}>
-      <div className="vw-browser">
+      <figure className="vw-browser" aria-label="Vista previa: tu pieza como fondo de una página web, con contenido de ejemplo encima">
         <div className="vw-chrome" aria-hidden="true"><i /><i /><i /><span className="vw-url">tu-sitio.com</span></div>
-        <div className="vw-viewport">
+        <div className="vw-viewport" ref={port}>
           <Slot host={host} className="vw-fill" />
+          <ScrimLayer scrim={look.scrim} side={gradientSideOf(size.w, size.h)} />
           {/* test content over the background: what a visitor reads on top of it */}
-          <div className="preview-content" style={style} aria-hidden="true">
-            <div className="pc-nav"><b>Tu marca</b><span>Proyectos · Estudio · Contacto</span></div>
-            <div className="pc-hero">
-              <h1 ref={h1} data-legib="headline">Un titular que se lee sin esfuerzo</h1>
-              <p data-legib="body">Así se verá tu fondo detrás de contenido real. Si cuesta leer, baja el contraste o sube el tamaño de celda.</p>
-              <div className="pc-btns"><span className="pc-btn" data-legib="button">Botón principal</span><span className="pc-btn ghost" data-legib="button">Saber más</span></div>
-            </div>
-          </div>
+          <PageContent contentRef={content} look={look} pieceKey={recipe} />
         </div>
-      </div>
+      </figure>
     </div>
   );
 }
@@ -198,12 +191,12 @@ function CardView({ host, ins }: { host: HTMLElement; ins: Insets }) {
     <div ref={ref} className={'vw-area vw-scroll vw-site vw-' + page} style={{ ...areaStyle(ins), '--card-w': m.w + 'px' } as CSSProperties}
       tabIndex={0} role="region" aria-label="Página de ejemplo con tres tarjetas">
       <div className="vw-site-nav" aria-hidden="true"><b>Tu marca</b><span>Trabajo · Notas · Contacto</span></div>
-      <p className="vw-site-h" aria-hidden="true">Proyectos recientes</p>
+      <div className="vw-site-h" aria-hidden="true">Proyectos recientes</div>
       <div className="vw-cards">
         <div className="vw-card">
           <Slot host={host} className="vw-card-media" style={media} />
           <div className="vw-card-body" aria-hidden="true">
-            <h3>Tu pieza, en pequeño</h3>
+            <div className="vw-card-h">Tu pieza, en pequeño</div>
             <p>Un texto breve bajo la imagen: así se ve a {m.w}×{m.h} px, entre otras tarjetas.</p>
             <span className="vw-card-btn">Ver proyecto</span>
           </div>
@@ -212,7 +205,7 @@ function CardView({ host, ins }: { host: HTMLElement; ins: Insets }) {
           <div key={i} className="vw-card" aria-hidden="true">
             <div className="vw-card-media vw-ph" style={media} />
             <div className="vw-card-body">
-              <h3>{i === 1 ? 'Otra tarjeta' : 'Y una más'}</h3>
+              <div className="vw-card-h">{i === 1 ? 'Otra tarjeta' : 'Y una más'}</div>
               <p>Contenido de relleno para comparar tamaños y pesos visuales.</p>
               <span className="vw-card-btn">Ver proyecto</span>
             </div>
@@ -276,31 +269,24 @@ function PhoneView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const ref = useRef<HTMLDivElement>(null);
   const size = useSize(ref);
   const recipe = useRecipe();
-  const mode = useStudio(s => s.ui.viewOpts.ink);
-  const ink = inkFor(mode, recipe?.color.bg ?? '#000000');
-  const h1 = useRef<HTMLHeadingElement>(null);
-  useLegibilityMeter(true, recipe, ink, h1);
+  const look = usePageLook();
+  const content = useRef<HTMLDivElement>(null);
   const pad = 12;
   const fit = phoneFit(size.w, size.h, pad + 5);
-  const style = { width: fit.w, height: fit.h, '--pc': ink, '--pcb': ink === '#ffffff' ? '#111111' : '#ffffff' } as CSSProperties;
+  const style = { width: fit.w, height: fit.h, '--pc': look.ink, '--pcb': look.ink === '#ffffff' ? '#111111' : '#ffffff' } as CSSProperties;
   return (
     <div ref={ref} className="vw-area vw-center" style={areaStyle(ins)}>
       <div className="vw-handset-box" style={{ width: (fit.w + pad * 2) * fit.k, height: (fit.h + pad * 2) * fit.k }}>
-        <div className="vw-handset" style={{ transform: fit.k < 1 ? `scale(${fit.k})` : undefined }} data-screen={`${fit.w}x${fit.h}`}>
+        <figure className="vw-handset" style={{ transform: fit.k < 1 ? `scale(${fit.k})` : undefined }} data-screen={`${fit.w}x${fit.h}`}
+          aria-label="Vista previa: tu pieza como fondo de una web en un teléfono, con contenido de ejemplo encima">
           <div className="vw-handset-screen" style={style}>
             <Slot host={host} className="vw-fill" />
+            <ScrimLayer scrim={look.scrim} side="bottom" />
             <div className="vw-handset-bar" aria-hidden="true"><span>9:41</span><i /><span>▮▮▮</span></div>
             {/* test content over the background: what a visitor reads on a phone */}
-            <div className="vw-mobile-content" aria-hidden="true">
-              <div className="pc-nav"><b>Tu marca</b><span className="pc-burger" /></div>
-              <div className="pc-hero">
-                <h1 ref={h1} data-legib="headline">Un titular que se lee sin esfuerzo</h1>
-                <p data-legib="body">Así se verá tu fondo en un teléfono, detrás de contenido real.</p>
-                <div className="pc-btns"><span className="pc-btn" data-legib="button">Botón principal</span><span className="pc-btn ghost" data-legib="button">Saber más</span></div>
-              </div>
-            </div>
+            <PageContent phone contentRef={content} look={look} pieceKey={recipe} />
           </div>
-        </div>
+        </figure>
       </div>
     </div>
   );
@@ -368,7 +354,7 @@ function ReadmeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
           README.md
         </div>
         <article className="gh-md" ref={art}>
-          <h1 aria-hidden="true">tu-proyecto</h1>
+          <div className="gh-h1" aria-hidden="true">tu-proyecto</div>
           <p aria-hidden="true">Una línea que cuenta qué hace tu proyecto, con la pieza como cabecera:</p>
           <Slot host={host} className="gh-img" style={{ width: img.w, height: img.h }} />
           <p aria-hidden="true">Y la misma pieza como texto, en un bloque de código:</p>
@@ -437,7 +423,7 @@ export function ViewBar({ view }: { view: ViewId }) {
       {more && (
         <div className="vbar-more">
           <p className="vbar-what">{info.what}</p>
-          {(view === 'web' || view === 'movil') && <Legib />}
+          {(view === 'web' || view === 'movil') && <LegibilityReport><ScrimFine /></LegibilityReport>}
           <div className={'vbar-opts' + (open ? ' open' : '')} id="vbar-opts">
             <ViewOptions view={view} />
             <ViewNotes view={view} />
@@ -475,7 +461,12 @@ function ViewOptions({ view }: { view: ViewId }) {
   switch (view) {
     case 'web':
     case 'movil':
-      return <Seg label="Texto" value={o.ink} opts={[['auto', 'Auto'], ['light', 'Claro'], ['dark', 'Oscuro']]} onPick={ink => setViewOpts({ ink })} />;
+      return (
+        <>
+          <Seg label="Texto" value={o.ink} opts={[['auto', 'Auto'], ['light', 'Claro'], ['dark', 'Oscuro']]} onPick={ink => setViewOpts({ ink })} />
+          <ScrimSeg />
+        </>
+      );
     case 'tarjeta':
       return <Seg label="Página" value={o.page} opts={[['light', 'Clara'], ['dark', 'Oscura']]} onPick={page => setViewOpts({ page })} />;
     case 'vertical':
@@ -507,18 +498,6 @@ function ViewOptions({ view }: { view: ViewId }) {
     default:
       return null;
   }
-}
-
-/** The legibility estimate of the test headline, labelled as an estimate. */
-function Legib() {
-  const est = useLegibility(s => s.est);
-  return (
-    <p className={'vbar-legib legib ' + (est?.level ?? 'wait')}>
-      <span className="legib-dot" aria-hidden="true" />
-      <span>Contraste estimado del titular: <b>{est ? `${est.ratio.toFixed(1)}:1` : '…'}</b></span>
-      <span className="legib-say" aria-live="polite">{est ? VERDICT[est.level] : 'Midiendo…'}</span>
-    </p>
-  );
 }
 
 /** What the view cannot show as it will be (README: characters GitHub draws differently). */

@@ -6,7 +6,7 @@ import { Stage } from './Stage';
 import { TopBar, toggleFullscreen } from './TopBar';
 import { SPACES } from '../random/spaces';
 import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary, type UIState } from './store';
-import { useToasts } from './toast';
+import { holdToast, useToasts } from './toast';
 import { Welcome } from './guide/Welcome';
 import { TabAway } from './Keeping';
 import { openWelcome, useGuide } from './guide/state';
@@ -31,6 +31,8 @@ export function App() {
   const comps = space === 'componentes';
   return (
     <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '') + (guide ? ' ' + guide : '')}>
+      {/* the studio's one main heading (Piezas has a visible one of its own) */}
+      {!comps && <h1 className="sr-only">Monotrama, estudio de arte ASCII</h1>}
       <TopBar />
       <main className="stage-wrap" aria-label="Escenario">
         {comps
@@ -83,7 +85,10 @@ function Toasts() {
     <>
       <div className="toasts" role="status" aria-live="polite">
         {list.map(t => (
-          <div key={t.id} className="toast">{t.msg}{t.action && <button type="button" onClick={t.action.run}>{t.action.label}</button>}</div>
+          <div key={t.id} className="toast" onPointerEnter={() => holdToast(t.id, true)} onPointerLeave={() => holdToast(t.id, false)}
+            onFocus={() => holdToast(t.id, true)} onBlur={() => holdToast(t.id, false)}>
+            {t.msg}{t.action && <button type="button" onClick={t.action.run}>{t.action.label}</button>}
+          </div>
         ))}
       </div>
       <div className="sr-only" aria-live="polite">{live}</div>

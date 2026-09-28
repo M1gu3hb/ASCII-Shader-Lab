@@ -380,7 +380,7 @@ function FuenteTab({ space }: { space: SpaceId }) {
           )}
           <Slider f={F('media.rate')} label="Velocidad del video" min={0.25} max={2} step={0.05} fmt={v => v.toFixed(2) + '×'} />
           <RateSync />
-          <Note>{media.video ? <>Archivo: <b>{media.video.name}</b></> : 'MP4 (H.264) o WebM funcionan en todos los navegadores.'}</Note>
+          <Note>{media.video ? <>Archivo: <b>{media.video.name}</b></> : 'MP4 (H.264) es el formato que más navegadores abren; WebM también sirve en la mayoría.'}</Note>
         </>
       )}
       {source === 'camera' && (
