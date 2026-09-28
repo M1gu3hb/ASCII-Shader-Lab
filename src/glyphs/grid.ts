@@ -64,10 +64,15 @@ function sizeOf(src: Source2D): { w: number; h: number } {
   return { w, h };
 }
 
-/** Pictures that cannot change (decoded bitmaps, loaded images) keep their last fine sample. */
+/**
+ * Pictures that cannot change (decoded bitmaps, loaded images) keep their last fine sample; so does any
+ * picture sampled with a `version` (the caller promises the same version means the same pixels: a still
+ * layer re-framed only when its framing changes, a video frame at the same time…).
+ */
 const still = new WeakMap<object, { key: string; fine: FineSample }>();
-function stillKey(src: Source2D, d: GridDims): string | null {
+function stillKey(src: Source2D, d: GridDims, version?: string): string | null {
   const dims = `${d.cols}x${d.rows}|${d.cw}x${d.ch}|${d.w}x${d.h}`;
+  if (version !== undefined) return dims + '|v:' + version;
   if (typeof ImageBitmap !== 'undefined' && src instanceof ImageBitmap) return dims;
   if (typeof HTMLImageElement !== 'undefined' && src instanceof HTMLImageElement) return src.complete ? dims + '|' + src.currentSrc : null;
   return null;
@@ -78,12 +83,14 @@ function stillKey(src: Source2D, d: GridDims): string | null {
  * past its right or bottom edge (the last partial column/row) sample transparency there.
  *
  * Reduction: bilinear steps of at most 2:1 down to twice the target, then one exact 2:1 step (a 2×2 box):
- * every source pixel counts (an area average, no aliasing of fine lines) at the cost of one read of the
- * picture. A bitmap or a loaded image sampled again at the same size reuses its sample.
+ * every source pixel counts (an area average, no aliasing of fine lines), and every browser computes the
+ * same thing (unlike imageSmoothingQuality 'high', whose filter each engine picks). It reads the whole
+ * picture once: the costly part of a grid (lab: ~20–35 ms for 1080×1350 on a software canvas), so a picture
+ * that did not change is not sampled again (see `version`).
  */
-export function sampleFine(src: Source2D, d: GridDims): FineSample {
+export function sampleFine(src: Source2D, d: GridDims, version?: string): FineSample {
   const fw = d.cols * SUB_X, fh = d.rows * SUB_Y;
-  const sk = stillKey(src, d);
+  const sk = stillKey(src, d, version);
   if (sk) { const hit = still.get(src); if (hit && hit.key === sk) return hit.fine; }
   const dst = pooled('fine', fw, fh, true);
   dst.x.clearRect(0, 0, fw, fh);
@@ -206,12 +213,12 @@ export function gridFromFine(fine: FineSample, style: GlyphStyle, d: GridDims, r
   }
 
   // gradient of the ink field (v × coverage) on the cell grid: Sobel, clamped at the borders
-  let gx: Float32Array | null = null, gy: Float32Array | null = null;
+  let gx: Float32Array | null = null, gy: Float32Array | null = null, ink: Float32Array | null = null;
   const needGrad = style.edge > 0 || mode === 'arrows';
   if (needGrad) {
-    const e = new Float32Array(n);
-    for (let i = 0; i < n; i++) e[i] = v[i] * vis[i];
-    [gx, gy] = sobel(e, cols, rows);
+    ink = new Float32Array(n);
+    for (let i = 0; i < n; i++) ink[i] = v[i] * vis[i];
+    [gx, gy] = sobel(ink, cols, rows);
   }
 
   if (mode === 'words') {
@@ -312,13 +319,26 @@ export function gridFromFine(fine: FineSample, style: GlyphStyle, d: GridDims, r
       if (style.edge > 0 && (mode === 'ramp' || mode === 'arrows')) {
         const ex = gx![i], ey = gy![i];
         const mag = Math.sqrt(ex * ex + ey * ey) / 4;
-        if (mag > edgeThr) c = edgeGlyph(ex, ey, cw, ch, sv!, i, cols, rows, ramp.edges);
+        // one cell thick: the stroke goes on the inked side of the edge only
+        if (mag > edgeThr && ink![i] >= neighbourMean(ink!, i, cols, rows)) c = edgeGlyph(ex, ey, cw, ch, sv!, i, cols, rows, ramp.edges);
       }
     }
     chars[i] = c;
     alpha[i] = c === ' ' ? 0 : vis[i];
   }
   return { cols, rows, cw, ch, w: d.w, h: d.h, chars, rgb, lum, alpha };
+}
+
+/** Mean of the 8 neighbours of a cell (clamped at the borders). */
+function neighbourMean(e: Float32Array, i: number, cols: number, rows: number): number {
+  const c = i % cols, r = (i / cols) | 0;
+  let s = 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const y = r + dy < 0 ? 0 : r + dy >= rows ? rows - 1 : r + dy, x = c + dx < 0 ? 0 : c + dx >= cols ? cols - 1 : c + dx;
+    s += e[y * cols + x];
+  }
+  return s / 8;
 }
 
 /** Mean of a field over a (2r+1)² window of cells (summed-area table; the window is cut at the borders). */

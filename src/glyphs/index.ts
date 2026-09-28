@@ -6,8 +6,12 @@
  *
  * Usage (compositor):
  *   await ensureGlyphFont(style.font, style.weight, sampleOf(style))   // once per style change
- *   const grid = glyphGrid(layerPicture, style, { w, h });             // per frame of a moving source
+ *   const grid = glyphGrid(layerPicture, style, { w, h });             // when the picture or the style changes
+ *     (or glyphGridWith(picture, style, out, { version }) to skip re-reading a picture that did not change)
  *   drawGlyphs(ctx, grid, style, cellFx);                               // per frame
+ * Lab timings (this machine, headless Chromium, software canvas, CPU shared; 1080×1350, 8 px square cells =
+ * 22 815 cells, medians): drawGlyphs 2.6–14 ms (+2–11 ms raster flush; Katakana 12 + 21 ms: CJK fallback
+ * font); glyphGrid 25–45 ms, of which sampling 20–35 ms and mapping 2–7 ms (11 ms for Flechas).
  * Text outputs: toGridSnapshot(grid, bg, style) → exporters/text.ts; gridToSvgText(grid, style); gridText(grid).
  */
 import type { GlyphStyle } from '../project/types';
@@ -74,6 +78,17 @@ export function glyphGrid(src: Source2D, style: GlyphStyle, out: { w: number; h:
   const d = gridDims(style, out);
   const ramp = resolveRamp(style, d.cw, d.ch);
   return gridFromFine(sampleFine(src, d), style, d, ramp);
+}
+
+/**
+ * glyphGrid for callers that know when their picture changes: with the same `version` for the same source
+ * object and grid size, the picture is not read again (only tone and mapping run: a slider drag on a still
+ * layer costs the mapping, ~2–7 ms in the lab, not the sampling).
+ */
+export function glyphGridWith(src: Source2D, style: GlyphStyle, out: { w: number; h: number }, opts: { version?: string } = {}): GlyphGrid {
+  const d = gridDims(style, out);
+  const ramp = resolveRamp(style, d.cw, d.ch);
+  return gridFromFine(sampleFine(src, d, opts.version), style, d, ramp);
 }
 
 /** Draws a grid (and its paper, if any) into ctx at 0,0; `cellFx` lets animations move, hide or swap cells. */

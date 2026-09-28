@@ -109,7 +109,9 @@ function makeKit(ctx: Ctx, spec: FontSpec, cw: number, ch: number): Kit {
       const a8 = spanPitch(ctx, '0');
       sc.letterSpacing = '0px';
       const m = (a8 - a0) / 8;
-      if (m > 0.5 && m < 2.5 && a0 > 0) cal = { m, space: spanPitch(ctx, ' ') };
+      // spans place each glyph at the advance measureText gives for it alone: check that a run agrees
+      const single = ctx.measureText('0').width;
+      if (m > 0.5 && m < 2.5 && a0 > 0 && Math.abs(single - a0) < 0.01) cal = { m, space: ctx.measureText(' ').width };
     }
     if (calCache.size > 64) calCache.clear();
     calCache.set(key, cal);
@@ -128,7 +130,10 @@ function makeKit(ctx: Ctx, spec: FontSpec, cw: number, ch: number): Kit {
   };
 }
 
-/** What the kit knows about a character (measured once per font; ctx must be in the drawing font, spacing 0). */
+/**
+ * What the kit knows about a character, measured once per font and cell width. ctx must be in the drawing
+ * font with no letter spacing: drawGrid measures every character of a grid before it draws anything.
+ */
 function infoOf(ctx: Ctx, kit: Kit, c: string): GInfo {
   let g = kit.info.get(c);
   if (g) return g;
@@ -136,7 +141,8 @@ function infoOf(ctx: Ctx, kit: Kit, c: string): GInfo {
   const w = ctx.measureText(c).width;
   let pc = -1;
   if (cls === CLS_TEXT && kit.cal && w > 0) {
-    const p = Math.round(spanPitch(ctx, c) * 1000) / 1000;
+    // pitch classes: characters with the same advance share a letter spacing (a span never mixes two)
+    const p = Math.round(w * 1000) / 1000;
     pc = kit.pitch.indexOf(p);
     if (pc < 0) { pc = kit.pitch.length; kit.pitch.push(p); }
   }
@@ -268,7 +274,10 @@ export function drawGrid(ctx: Ctx, grid: GlyphGrid, style: GlyphStyle, cellFx?: 
         if (fx.color) col = parseHex(fx.color, col);
         const s = fx.scale ?? 1, rot = fx.rot ?? 0;
         if (s !== 1 || rot) {
-          if (a > 0.004 && c && c !== ' ' && s > 0) solo.push({ i, c, col, a: Math.min(1, a), dx: fx.dx ?? 0, dy: fx.dy ?? 0, s, r: rot });
+          if (a > 0.004 && c && c !== ' ' && s > 0) {
+            solo.push({ i, c, col, a: Math.min(1, a), dx: fx.dx ?? 0, dy: fx.dy ?? 0, s, r: rot });
+            if (!kit.info.has(c)) infoOf(ctx, kit, c);
+          }
           continue;
         }
         if (fx.dx || fx.dy) {
@@ -278,6 +287,7 @@ export function drawGrid(ctx: Ctx, grid: GlyphGrid, style: GlyphStyle, cellFx?: 
       }
     }
     if (!(a > 0.004) || !c || c === ' ') continue;
+    if (!kit.info.has(c)) infoOf(ctx, kit, c);
     const al = a >= 1 ? 16 : Math.max(1, Math.round(a * 16));
     const k = al * 16777216 + (q ? quant(col) : col);
     if (grouped) keys[m++] = k * SLOT + i;

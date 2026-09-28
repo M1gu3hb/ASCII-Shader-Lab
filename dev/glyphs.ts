@@ -19,6 +19,7 @@ import {
   CHARSET_LIST, GLYPH_PARAMS, copyGridText, defaultGlyphStyle, drawGlyphs, ensureGlyphFont, glyphGrid, gridText, gridToSvgText,
   gridDims, gridFromFine, resolveRamp, sampleFine, sampleOf, toGridSnapshot, type GlyphGrid,
 } from '../src/glyphs';
+import { drawGrid } from '../src/glyphs/draw';
 import { gridToAnsi } from '../src/exporters/text';
 import { syntheticPhoto } from '../src/shared/sample';
 
@@ -249,7 +250,7 @@ async function renderAll(token: number) {
   const out = outSize(src, 540);
   for (const cs of CHARSET_LIST) {
     if (token !== pending) return;
-    const s: GlyphStyle = { ...full(), charset: cs.id, cell: style.cell / 2 };
+    const s: GlyphStyle = { ...full(), charset: cs.id, cell: style.cell / 2, fill: cs.user === 'words' ? 'words' : 'ramp' };
     if (cs.user === 'chars' && !s.chars) s.chars = ' .oO@';
     if (cs.user === 'words') s.chars = s.chars && style.fill === 'words' ? s.chars : 'GLYPHOS escribe con letras reales';
     await ensureGlyphFont(s.font, s.weight, sampleOf(s));
@@ -313,6 +314,36 @@ const qa = {
     const [c, x] = canvas(out.w, out.h);
     drawGlyphs(x, grid, s);
     return { png: c.toDataURL('image/png'), text: gridText(grid), cols: grid.cols, rows: grid.rows };
+  },
+  /**
+   * The fast path (spans: one fillText per run of cells) against one fillText per character, pixel by pixel,
+   * for a charset/font on a picture: how many pixels differ by more than 8/255 in any channel.
+   */
+  async compareSpans(charset: string, extra: Partial<GlyphStyle> = {}, src = srcId, w = OUT_W) {
+    const s: GlyphStyle = { ...full(), charset, ...extra };
+    await ensureGlyphFont(s.font, s.weight, sampleOf(s));
+    const p = pic(src);
+    const out = outSize(p, w);
+    const grid = glyphGrid(p, s, out);
+    const draw = (spans: boolean) => {
+      const [c, x] = canvas(out.w, out.h);
+      drawGrid(x, grid, s, null, { spans }); // warm: fonts measured, span check done
+      const ms: number[] = [];
+      for (let k = 0; k < 5; k++) {
+        x.clearRect(0, 0, out.w, out.h);
+        const t0 = performance.now();
+        drawGrid(x, grid, s, null, { spans });
+        ms.push(performance.now() - t0);
+      }
+      return { d: x.getImageData(0, 0, out.w, out.h).data, ms: median(ms) };
+    };
+    const a = draw(true), b = draw(false);
+    let diff = 0, ink = 0;
+    for (let i = 0; i < a.d.length; i += 4) {
+      if (b.d[i + 3] > 0) ink++;
+      if (Math.abs(a.d[i] - b.d[i]) > 8 || Math.abs(a.d[i + 1] - b.d[i + 1]) > 8 || Math.abs(a.d[i + 2] - b.d[i + 2]) > 8 || Math.abs(a.d[i + 3] - b.d[i + 3]) > 8) diff++;
+    }
+    return { charset, font: s.font, diff, ink, spansMs: +a.ms.toFixed(1), perGlyphMs: +b.ms.toFixed(1) };
   },
   /** Several charsets side by side (2 columns, labelled) as one PNG data URL. */
   async sheet(ids: string[], extra: Partial<GlyphStyle> = {}, src = srcId, w = 720) {
