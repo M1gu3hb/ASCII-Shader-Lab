@@ -412,3 +412,31 @@ export function binomial3(buf: Float32Array, tmp: Float32Array, w: number, h: nu
     for (let x = 0; x < w; x++) buf[o + x] = (tmp[u + x] + 2 * tmp[o + x] + tmp[dn + x]) * 0.25;
   }
 }
+
+/**
+ * Straight RGBA bytes from a premultiplied 4-channel float buffer read at M·p (affine map in pixel-index
+ * space, bilinear, clamp-to-edge): a resampling folded into the final conversion.
+ */
+export function fromPremulAffine(src: Float32Array, dst: Uint8ClampedArray, w: number, h: number, M: number[]): void {
+  const lx = w - 1, ly = h - 1;
+  const [m0, m1, m2, m3, m4, m5] = M;
+  for (let y = 0; y < h; y++) {
+    let sx = m1 * y + m2, sy = m4 * y + m5;
+    let o = y * w * 4;
+    for (let x = 0; x < w; x++, o += 4, sx += m0, sy += m3) {
+      const qx = sx < 0 ? 0 : sx > lx ? lx : sx, qy = sy < 0 ? 0 : sy > ly ? ly : sy;
+      const x0 = qx | 0, y0 = qy | 0, fx = qx - x0, fy = qy - y0;
+      const x1 = x0 < lx ? x0 + 1 : x0, y1 = y0 < ly ? y0 + 1 : y0;
+      const i00 = (y0 * w + x0) * 4, i10 = (y0 * w + x1) * 4, i01 = (y1 * w + x0) * 4, i11 = (y1 * w + x1) * 4;
+      const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      let a = src[i00 + 3] * w00 + src[i10 + 3] * w10 + src[i01 + 3] * w01 + src[i11 + 3] * w11;
+      if (a <= 0.5) { dst[o] = 0; dst[o + 1] = 0; dst[o + 2] = 0; dst[o + 3] = 0; continue; }
+      if (a > 255) a = 255;
+      const k = 255 / a;
+      dst[o] = (src[i00] * w00 + src[i10] * w10 + src[i01] * w01 + src[i11] * w11) * k;
+      dst[o + 1] = (src[i00 + 1] * w00 + src[i10 + 1] * w10 + src[i01 + 1] * w01 + src[i11 + 1] * w11) * k;
+      dst[o + 2] = (src[i00 + 2] * w00 + src[i10 + 2] * w10 + src[i01 + 2] * w01 + src[i11 + 2] * w11) * k;
+      dst[o + 3] = a;
+    }
+  }
+}

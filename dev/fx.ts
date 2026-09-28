@@ -185,7 +185,7 @@ async function renderAll() {
     ['Paleta · sepia sin tramado', 'palette sepia none', P, [f('palette', { palette: 'sepia', dither: 'none' })]],
     ['Paleta · cianotipia', 'palette cianotipo', P, [f('palette', { palette: 'cianotipo', dither: 'atkinson' })]],
     ['Movimiento · zoom', 'motionblur zoom', P, [f('motionblur', { mode: 'zoom', cx: 0.58, cy: 0.5 })]],
-    ['Movimiento · giro', 'motionblur spin', P, [f('motionblur', { mode: 'spin', amount: 0.08, cx: 0.58, cy: 0.5 })]],
+    ['Movimiento · giro', 'motionblur spin', P, [f('motionblur', { mode: 'spin', amount: 0.25, cx: 0.58, cy: 0.5 })]],
     ['Movimiento · estela', 'motionblur trail', F, [f('motionblur', { trail: true, distance: 90, angle: 180 })], true],
     ['Sombra larga', 'shadow long', F, [f('shadow', { mode: 'long', distance: 160, angle: 45, blur: 0, opacity: 0.45 })], true],
     ['Umbral local', 'threshold local', P, [f('threshold', { mode: 'local', radius: 24 })]],

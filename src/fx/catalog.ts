@@ -262,7 +262,7 @@ export const CATALOG: FinishDef[] = [
       select('mode', 'Tipo', [['linear', 'Direccional'], ['zoom', 'Zoom radial'], ['spin', 'Giro']], 'linear'),
       range('angle', 'Ángulo', 0, 360, 1, 0, '°', undefined, { mode: ['linear'] }),
       range('distance', 'Distancia', 0, 400, 1, 48, 'px', undefined, { mode: ['linear'] }),
-      range('amount', 'Cantidad', 0, 1, 0.01, 0.25, undefined, 'Zoom: fracción del camino al centro. Giro: fracción de media vuelta.', { mode: ['zoom', 'spin'] }),
+      range('amount', 'Cantidad', 0, 1, 0.01, 0.25, undefined, 'Zoom: fracción del camino al centro. Giro: 1 es un sexto de vuelta (60°).', { mode: ['zoom', 'spin'] }),
       range('cx', 'Centro X', 0, 1, 0.01, 0.5, undefined, undefined, { mode: ['zoom', 'spin'] }),
       range('cy', 'Centro Y', 0, 1, 0.01, 0.5, undefined, undefined, { mode: ['zoom', 'spin'] }),
       toggle('trail', 'Estela', false, 'El barrido queda detrás y el original nítido encima (texto ASCII sobre transparente).'),

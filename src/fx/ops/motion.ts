@@ -8,7 +8,7 @@
  * (angles add). A trail is one-sided with an exponential fade; since e^(−λn) is the product over the
  * binary digits of n of e^(−λ·2^j), the doubling passes reproduce the exponential weights exactly.
  */
-import { affineMix4, coarseTone, expandCoarse4, gaussBlur, shiftMix4 } from '../kernels';
+import { affineMix4, coarseTone, expandCoarse4, fromPremulAffine, gaussBlur, shiftMix4 } from '../kernels';
 import { DEG, fromPremul, frameOf, hash3, toPremul, type Op } from '../core';
 
 const zoomMap = (cx: number, cy: number, m: number) => [m, 0, cx * (1 - m), 0, m, cy * (1 - m)];
@@ -28,39 +28,45 @@ export const motionblur: Op = (src, dst, p, run) => {
   const cx = (p.cx as number) * w - 0.5, cy = (p.cy as number) * h - 0.5;
   const reach = Math.max(Math.hypot(cx, cy), Math.hypot(w - cx, cy), Math.hypot(cx, h - cy), Math.hypot(w - cx, h - cy));
 
-  // the path in its own units — px (linear), log-scale (zoom), radians (spin) — and its length in px
+  // the path in its own units — px (linear), log-scale (zoom), radians (spin) — and its length in px;
+  // mapAt(τ) is the affine map that reads the copy at τ along the path
   let T = 0, len = 0;
-  let pass: (ta: number | null, wa: number, tb: number, wb: number) => void;
+  let mapAt: (tau: number) => number[];
   if (mode === 'zoom') {
     T = -Math.log(1 - Math.min(0.95, p.amount as number));
     len = T * reach;
-    pass = (ta, wa, tb, wb) => affineMix4(A, B, w, h, ta === null ? null : zoomMap(cx, cy, Math.exp(-ta)), wa, zoomMap(cx, cy, Math.exp(-tb)), wb);
+    mapAt = tau => zoomMap(cx, cy, Math.exp(-tau));
   } else if (mode === 'spin') {
-    T = (p.amount as number) * Math.PI;
+    T = (p.amount as number) * (Math.PI / 3); // 1 = a sixth of a turn
     len = T * reach;
-    pass = (ta, wa, tb, wb) => affineMix4(A, B, w, h, ta === null ? null : spinMap(cx, cy, ta), wa, spinMap(cx, cy, tb), wb);
+    mapAt = tau => spinMap(cx, cy, tau);
   } else {
     const ang = (p.angle as number) * DEG, ux = Math.cos(ang), uy = Math.sin(ang);
     T = len = (p.distance as number) * scale;
-    pass = (ta, wa, tb, wb) => shiftMix4(A, B, w, h, (ta ?? 0) * ux, (ta ?? 0) * uy, wa, tb * ux, tb * uy, wb);
+    mapAt = tau => [1, 0, tau * ux, 0, 1, tau * uy];
   }
+  const linear = mode !== 'zoom' && mode !== 'spin';
 
+  let shift: number[] | null = null;
   if (len >= 0.5) {
-    // N = 2^k copies at c, c + s, …, c + (N − 1)s: pass 0 reads the taps c and c + s, pass j ≥ 1 the
-    // pixel itself and a copy moved by s·2^j. Centred: c = −(N − 1)s/2. Trail: c = 0, weights e^(−λτ).
-    const gap = run.quality === 'preview' ? 2.5 : 1.5; // largest distance between copies, input px
+    // N = 2^k copies at 0, s, …, (N − 1)s: pass j averages the picture with a copy moved by s·2^j (a
+    // trail weights them e^(−λτ)). A centred blur reads the result moved back by (N − 1)s/2 at the end.
+    // largest distance between copies (input px); zoom and spin only reach it at the far corners,
+    // where the streaks are longest, so they can afford a wider one
+    const gap = (run.quality === 'preview' ? 2.5 : 1.5) * (linear ? 1 : 1.7);
     const k = Math.max(1, Math.min(10, Math.ceil(Math.log2(Math.max(2, len / gap)))));
     const N = 2 ** k, sp = T / N;
     const lam = 2.6 / T;
-    const c = trail ? 0 : -((N - 1) * sp) / 2;
     for (let j = 0; j < k; j++) {
       const off = sp * 2 ** j;
       const beta = trail ? Math.exp(-lam * off) : 1;
       const wa = 1 / (1 + beta), wb = beta / (1 + beta);
-      if (j === 0) pass(c === 0 ? null : c, wa, c + off, wb);
-      else pass(null, wa, off, wb);
+      const M = mapAt(off);
+      if (linear) shiftMix4(A, B, w, h, 0, 0, wa, M[2], M[5], wb);
+      else affineMix4(A, B, w, h, null, wa, M, wb);
       const t = A; A = B; B = t;
     }
+    if (!trail) shift = mapAt(-((N - 1) * sp) / 2);
   }
 
   if (orig) {
@@ -74,7 +80,8 @@ export const motionblur: Op = (src, dst, p, run) => {
       B[i + 3] = orig[i + 3] + A[i + 3] * inv;
     }
     fromPremul(B, dst);
-  } else fromPremul(A, dst);
+  } else if (shift) fromPremulAffine(A, dst.data, w, h, shift);
+  else fromPremul(A, dst);
 };
 
 export const blur: Op = (src, dst, p, run) => {
