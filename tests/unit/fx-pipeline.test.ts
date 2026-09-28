@@ -137,6 +137,18 @@ describe('finishes pipeline', () => {
     expect(finishesDependOnTime([withP('chroma', { jitter: 0.5 })])).toBe(true);
   });
 
+  it('rolls scanlines down with a positive speed', () => {
+    const grey = img(8, 32, () => [180, 180, 180, 255]);
+    const darkest = (o: ImageDataLike) => {
+      let best = 0, v = Infinity;
+      for (let y = 0; y < 8; y++) if (o.data[y * 8 * 4] < v) { v = o.data[y * 8 * 4]; best = y; }
+      return best;
+    };
+    const f = withP('scanlines', { spacing: 8, roll: 40 });
+    const a = darkest(run(grey, f, { t: 0 })), b = darkest(run(grey, f, { t: 0.05 })); // 2 px later
+    expect((b - a + 8) % 8).toBe(2);
+  });
+
   it('tells light finishes from heavy ones', () => {
     expect(finishWeight(defaultFinish('levels'))).toBe('ligero');
     expect(finishWeight(defaultFinish('dither'))).toBe('ligero'); // 2 px blocks
