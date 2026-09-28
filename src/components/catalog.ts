@@ -16,6 +16,18 @@ import { trail } from './lib/trail.js';
 import { halo } from './lib/halo.js';
 import { spinner, progressText, SPINNERS, BAR_STYLES } from './lib/spinners.js';
 import { renderBanner } from './lib/banner.js';
+import revealSrc from './lib/reveal.js?raw';
+import spotlightSrc from './lib/spotlight.js?raw';
+import loaderSrc from './lib/loader.js?raw';
+import tickerSrc from './lib/ticker.js?raw';
+import blocktextSrc from './lib/blocktext.js?raw';
+import glitchSrc from './lib/glitchlinks.js?raw';
+import { reveal } from './lib/reveal.js';
+import { spotlight } from './lib/spotlight.js';
+import { loader } from './lib/loader.js';
+import { ticker } from './lib/ticker.js';
+import { blockText, blockBanner } from './lib/blocktext.js';
+import { glitchLinks } from './lib/glitchlinks.js';
 
 export type ParamType = 'text' | 'area' | 'range' | 'select' | 'color' | 'toggle';
 export interface Param { key: string; label: string; type: ParamType; min?: number; max?: number; step?: number; opts?: Array<[string, string]> }
@@ -348,5 +360,296 @@ const id = setInterval(() => {
     },
   },
 ];
+
+
+/* ------------------------------------------------------------------ */
+/* Pieces for real pages: an image that reveals itself, a section's    */
+/* light, a loading screen, a divider, block letters, glitchy links.   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A picture the demos can read (same origin): a dusk landscape drawn on a canvas. Your own picture must
+ * come from your site, or allow CORS, for its pixels to be read.
+ */
+let demoPicture = '';
+function demoImage(): string {
+  if (demoPicture) return demoPicture;
+  const c = document.createElement('canvas');
+  c.width = 480; c.height = 300;
+  const x = c.getContext('2d')!;
+  const sky = x.createLinearGradient(0, 0, 0, 300);
+  sky.addColorStop(0, '#1b2a4a'); sky.addColorStop(0.55, '#d9825b'); sky.addColorStop(1, '#f5d9a8');
+  x.fillStyle = sky; x.fillRect(0, 0, 480, 300);
+  const sun = x.createRadialGradient(300, 170, 4, 300, 170, 70);
+  sun.addColorStop(0, '#fff6dc'); sun.addColorStop(0.45, '#ffd08a'); sun.addColorStop(1, 'rgba(255,190,120,0)');
+  x.fillStyle = sun; x.fillRect(0, 0, 480, 300);
+  x.fillStyle = '#2b1d2e';
+  x.beginPath(); x.moveTo(0, 230); x.lineTo(90, 170); x.lineTo(170, 215); x.lineTo(260, 150); x.lineTo(360, 220); x.lineTo(480, 180); x.lineTo(480, 300); x.lineTo(0, 300); x.fill();
+  x.fillStyle = '#140d17';
+  x.beginPath(); x.moveTo(0, 270); x.lineTo(120, 235); x.lineTo(230, 262); x.lineTo(350, 238); x.lineTo(480, 262); x.lineTo(480, 300); x.lineTo(0, 300); x.fill();
+  demoPicture = c.toDataURL('image/png');
+  return demoPicture;
+}
+
+const LINK_STYLE = 'color:#ede6da;text-decoration:underline;text-underline-offset:4px;margin:0 10px';
+/** A link for a demo: it goes nowhere. */
+function demoLink(text: string): HTMLElement {
+  const a = el('a', LINK_STYLE, text);
+  a.setAttribute('href', '#');
+  a.addEventListener('click', e => e.preventDefault());
+  return a;
+}
+const SHELL = (txt: string) => `# ${LICENSE}
+# Pega al final de ~/.bashrc o ~/.zshrc. Sólo se muestra en sesiones interactivas (no rompe scp ni rsync).
+case $- in *i*)
+cat <<'MONOTRAMA'
+${txt}
+MONOTRAMA
+;; esac
+`;
+
+COMPONENTS.push(
+  {
+    id: 'reveal', name: 'Revelar', tags: ['imagen', 'cursor', 'web'],
+    blurb: 'Una foto convertida en caracteres que deja ver el original bajo el cursor, y entera con el teclado. Para portadas, galerías y equipos.',
+    params: [
+      { key: 'radius', label: 'Radio de la lupa (px)', type: 'range', min: 40, max: 260, step: 1 },
+      { key: 'cell', label: 'Celda (px)', type: 'range', min: 4, max: 18, step: 1 },
+      { key: 'ramp', label: 'Rampa', type: 'text' },
+      { key: 'trigger', label: 'Cómo se revela', type: 'select', opts: [['hover', 'Un círculo bajo el cursor'], ['focus', 'Entera al enfocar o pulsar']] },
+      { key: 'background', label: 'Fondo de los caracteres', type: 'color' },
+    ],
+    defaults: { radius: 110, cell: 7, ramp: ' .:-=+*#%@', trigger: 'hover', background: '#0b0a09' },
+    mount(stage, v, big) {
+      const a = demoLink('');
+      a.style.cssText = `display:block;line-height:0;max-width:${big ? 560 : 300}px;width:90%;border-radius:12px;overflow:hidden`;
+      const img = document.createElement('img');
+      img.alt = 'Montañas al atardecer';
+      img.style.cssText = 'display:block;width:100%;height:auto';
+      img.src = demoImage();
+      a.appendChild(img);
+      stage.appendChild(a);
+      return reveal(img, { radius: v.radius, cell: v.cell, ramp: v.ramp, trigger: v.trigger, background: v.background });
+    },
+    code: v => standardCode('reveal', 'reveal.js', revealSrc,
+      `<!-- Tu imagen: de tu mismo dominio, o con CORS (crossorigin) -->
+<a href="/trabajo/" class="revelar" style="display:inline-block;line-height:0">
+  <img src="tu-foto.jpg" alt="Describe aquí tu foto" crossorigin="anonymous" style="display:block;max-width:100%">
+</a>`, '.revelar img',
+      { radius: v.radius, cell: v.cell, ramp: v.ramp, trigger: v.trigger, background: v.background },
+      `<img ref={ref} crossOrigin="anonymous" {...props} />`),
+  },
+  {
+    id: 'spotlight', name: 'Foco', tags: ['fondo', 'cursor', 'web'],
+    blurb: 'El fondo de una sección es una trama de caracteres casi apagada que el cursor, o el foco del teclado, ilumina.',
+    params: [
+      { key: 'texture', label: 'Trama', type: 'select', opts: [['ondas', 'Ondas'], ['ruido', 'Ruido'], ['diagonal', 'Diagonales'], ['puntos', 'Puntos (quieta)']] },
+      { key: 'radius', label: 'Radio de la luz (px)', type: 'range', min: 60, max: 420, step: 1 },
+      { key: 'cell', label: 'Celda (px)', type: 'range', min: 6, max: 24, step: 1 },
+      { key: 'idle', label: 'Brillo sin luz', type: 'range', min: 0, max: 0.4, step: 0.01 },
+      { key: 'ramp', label: 'Rampa', type: 'text' },
+      { key: 'color', label: 'Color', type: 'color' },
+    ],
+    defaults: { texture: 'ondas', radius: 180, cell: 12, idle: 0.1, ramp: ' .:-=+*#%@', color: '#ff5b1f' },
+    mount(stage, v, big) {
+      const sec = el('section', `width:100%;height:100%;display:grid;place-content:center;gap:10px;text-align:center;padding:24px;font:500 ${big ? 16 : 12}px/1.5 system-ui,sans-serif;color:#ede6da`);
+      // a sample title, not a heading: the gallery's and the detail's outline stay the pieces' own
+      const h = el('p', `margin:0;font:700 ${big ? 'clamp(24px,3vw,40px)' : '20px'}/1.1 ${MONO};letter-spacing:-.02em`, 'Teje luz con caracteres');
+      const pp = el('p', 'margin:0;color:#a39c90', 'Mueve el cursor, o recorre los enlaces con Tab.');
+      const nav = el('p', 'margin:6px 0 0');
+      for (const t of ['Proyectos', 'Estudio', 'Contacto']) nav.appendChild(demoLink(t));
+      sec.append(h, pp, nav);
+      stage.appendChild(sec);
+      return spotlight(sec, v);
+    },
+    code: v => standardCode('spotlight', 'spotlight.js', spotlightSrc,
+      `<section class="foco" style="padding:80px 24px;background:#0b0a09;color:#ede6da;text-align:center">
+  <h2>Tu titular</h2>
+  <p>Tu texto. Mueve el cursor por la sección.</p>
+  <a href="#contacto" style="color:inherit">Contacto</a>
+</section>`, '.foco', v, `<section ref={ref} {...props} />`),
+  },
+  {
+    id: 'loader', name: 'Pantalla de carga', tags: ['interfaz', 'web'],
+    blurb: 'Porcentaje en números grandes, barra de caracteres y estado, accesible como barra de progreso. Al terminar se deshace en caracteres.',
+    params: [
+      { key: 'label', label: 'Qué se carga', type: 'text' },
+      { key: 'width', label: 'Ancho de la barra (caracteres)', type: 'range', min: 12, max: 48, step: 1 },
+      { key: 'bar', label: 'Barra', type: 'select', opts: [[' ▏▎▍▌▋▊▉█', 'Bloques finos'], [' ░▒▓█', 'Sombras'], [' #', 'Almohadillas'], [' .:-=+*#%@', 'Densidad']] },
+      { key: 'big', label: 'Porcentaje en grande', type: 'toggle' },
+      { key: 'color', label: 'Color', type: 'color' },
+    ],
+    defaults: { label: 'Tejiendo la pieza', width: 28, bar: ' ▏▎▍▌▋▊▉█', big: true, color: '#ff5b1f' },
+    mount(stage, v, big) {
+      const box = el('div', `font:500 ${big ? 15 : 10}px/1.15 ${MONO};color:#ede6da;padding:12px`);
+      stage.appendChild(box);
+      // the demo keeps the studio's mono (the box sets it); a page gets the component's own monospaced default
+      const opts = { label: v.label, width: v.width, bar: v.bar, big: v.big, color: v.color, hide: false, fontFamily: '' };
+      let ctl = loader(box, opts);
+      // the demo loads something forever: 0 → 100 %, a breath, again
+      let p = 0, id = 0, alive = true;
+      const run = () => {
+        if (!alive) return;
+        p = Math.min(1, p + 0.02 + Math.random() * 0.05);
+        if (p < 1) { ctl.set(p, p < 0.4 ? String(v.label) : p < 0.8 ? 'Casi' : 'Últimos detalles'); id = window.setTimeout(run, 160); }
+        else {
+          ctl.done('Listo');
+          id = window.setTimeout(() => { ctl.destroy(); ctl = loader(box, opts); p = 0; run(); }, 1800);
+        }
+      };
+      run();
+      return { destroy() { alive = false; clearTimeout(id); ctl.destroy(); } };
+    },
+    code: v => {
+      const opts = { label: v.label, width: v.width, bar: v.bar, big: v.big, color: v.color };
+      const markup = `<div class="carga" style="font:500 14px/1.15 ui-monospace,Menlo,Consolas,monospace"></div>`;
+      const use = `const carga = loader(document.querySelector('.carga'), ${js(opts)});
+
+// Tú dices cuánto va (0 a 1) y, si quieres, qué está pasando:
+carga.set(0.35, 'Descargando');
+// … y cuando termina, se deshace y se oculta:
+// carga.done();`;
+      const html = `${markup}
+
+<script type="module">
+${loaderSrc.trim()}
+
+${use}
+
+// (ejemplo: una carga de mentira que termina en unos segundos; bórralo)
+let v = 0.35;
+const id = setInterval(() => { v = Math.min(1, v + 0.08); if (v < 1) carga.set(v); else { clearInterval(id); carga.done('Listo'); } }, 400);
+</script>`;
+      const react = `// ${LICENSE}
+import { useEffect, useRef } from 'react';
+import { loader } from './loader.js';
+
+const OPTIONS = ${js(opts)};
+
+/** <Carga value={0.4} label="Descargando" done={false} /> */
+export default function Carga({ value = null, label, done = false }) {
+  const ref = useRef(null);
+  const ctl = useRef(null);
+  useEffect(() => {
+    ctl.current = loader(ref.current, { ...OPTIONS, hide: false });
+    return () => ctl.current.destroy();
+  }, []);
+  useEffect(() => { if (done) ctl.current.done(label); else ctl.current.set(value, label); }, [value, label, done]);
+  return <div ref={ref} style={{ fontFamily: 'ui-monospace, Menlo, Consolas, monospace' }} />;
+}
+`;
+      return [
+        { id: 'html', label: 'HTML para pegar', code: html, lang: 'html', file: 'loader.html' },
+        { id: 'module', label: 'Módulo ES', code: `// loader.js\n${loaderSrc.trim()}\n\n/* Uso:\nimport { loader } from './loader.js';\n\n${use}\n*/\n`, lang: 'js', file: 'loader.js' },
+        { id: 'react', label: 'React', code: react, lang: 'jsx', file: 'Carga.jsx' },
+      ];
+    },
+  },
+  {
+    id: 'ticker', name: 'Separador', tags: ['web', 'texto'],
+    blurb: 'Una franja entre secciones: un letrero que desfila con tu texto o una onda de caracteres. Se pausa con el cursor, el foco o su botón.',
+    params: [
+      { key: 'mode', label: 'Tipo', type: 'select', opts: [['letrero', 'Letrero con tu texto'], ['onda', 'Onda de densidad'], ['puntos', 'Puntos (quieto)']] },
+      { key: 'text', label: 'Texto', type: 'text' },
+      { key: 'separator', label: 'Entre repeticiones', type: 'text' },
+      { key: 'speed', label: 'Velocidad (px/s)', type: 'range', min: -160, max: 160, step: 1 },
+      { key: 'color', label: 'Color', type: 'color' },
+    ],
+    defaults: { mode: 'letrero', text: 'NUEVA COLECCIÓN · ENVÍOS A TODO EL PAÍS', separator: ' ✦ ', speed: 50, color: '#ede6da' },
+    mount(stage, v, big) {
+      const wrap = el('div', 'width:100%;padding:0 12px');
+      const bar = el('div', `font:600 ${big ? 16 : 12}px/${big ? 2.6 : 2.2} ${MONO};letter-spacing:.06em;border-block:1px solid rgba(237,230,218,.2)`);
+      wrap.appendChild(bar);
+      stage.appendChild(wrap);
+      return ticker(bar, v);
+    },
+    code: v => standardCode('ticker', 'ticker.js', tickerSrc,
+      `<div class="separador" style="font:600 14px/2.4 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;border-block:1px solid #333"></div>`, '.separador',
+      v, `<div ref={ref} {...props} />`),
+  },
+  {
+    id: 'blocktext', name: 'Letras de bloque', tags: ['texto', 'terminal'],
+    blurb: 'Rótulos con dos tipografías de bloque incluidas, con tildes y eñe: iguales en cualquier equipo, en la web, tu CLI de Node o un README.',
+    params: [
+      { key: 'text', label: 'Texto', type: 'area' },
+      { key: 'font', label: 'Tipografía', type: 'select', opts: [['grande', 'Grande (5×5)'], ['compacta', 'Compacta (3×5)']] },
+      { key: 'style', label: 'Estilo', type: 'select', opts: [['bloques', 'Bloques █'], ['sombra', 'Con sombra █▒'], ['medios', 'Medios bloques ▀▄'], ['almohadilla', 'Almohadilla #'], ['puntos', 'Puntos •']] },
+    ],
+    defaults: { text: 'AÑO NUEVO', font: 'grande', style: 'sombra' },
+    mount(stage, v, big) {
+      const pre = el('pre', `margin:0;font:500 ${big ? 'clamp(7px,1.1vw,13px)' : '6px'}/1.1 ${MONO};color:#ede6da;max-width:100%;overflow:hidden;padding:10px`);
+      stage.appendChild(pre);
+      return blockBanner(pre, String(v.text), { font: v.font, style: v.style, fontFamily: '' });
+    },
+    code: v => {
+      const opts = { font: v.font, style: v.style };
+      const text = String(v.text);
+      const txt = blockText(text, opts);
+      const call = `blockBanner(document.querySelector('.rotulo'), ${JSON.stringify(text)}, ${js(opts)});`;
+      const html = `<pre class="rotulo" style="font:500 12px/1.1 ui-monospace,Menlo,Consolas,monospace">${esc(text)}</pre>
+
+<script type="module">
+${blocktextSrc.trim()}
+
+${call}
+</script>`;
+      const react = `// ${LICENSE}
+import { useEffect, useRef } from 'react';
+import { blockBanner } from './blocktext.js';
+
+const OPTIONS = ${js(opts)};
+
+/** <LetrasDeBloque text="HOLA" /> */
+export default function LetrasDeBloque({ text = ${JSON.stringify(text)}, ...props }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const ctl = blockBanner(ref.current, text, OPTIONS);
+    return () => ctl.destroy();
+  }, [text]);
+  return <pre ref={ref} {...props} />;
+}
+`;
+      return [
+        { id: 'text', label: 'Texto', code: txt + '\n', lang: 'txt', file: 'letras.txt' },
+        { id: 'md', label: 'README', code: '```\n' + txt + '\n```\n', lang: 'md', file: 'letras.md' },
+        {
+          id: 'node', label: 'Node CLI', lang: 'js', file: 'letras.mjs', code: `${blocktextSrc.trim()}
+
+// Uso: node letras.mjs "TU TEXTO"   (sin nada, escribe el del estudio)
+const text = process.argv.slice(2).join(' ') || ${JSON.stringify(text)};
+console.log(blockText(text, ${js(opts)}));
+`,
+        },
+        { id: 'bash', label: 'Saludo de shell', code: SHELL(txt), lang: 'bash', file: 'saludo.sh' },
+        { id: 'html', label: 'HTML para pegar', code: html, lang: 'html', file: 'letras.html' },
+        { id: 'module', label: 'Módulo ES', code: `// blocktext.js\n${blocktextSrc.trim()}\n\n/* Uso:\nimport { blockText, blockBanner } from './blocktext.js';\n\n${call}\nconsole.log(blockText('HOLA', { font: 'compacta' }));\n*/\n`, lang: 'js', file: 'blocktext.js' },
+        { id: 'react', label: 'React', code: react, lang: 'jsx', file: 'LetrasDeBloque.jsx' },
+      ];
+    },
+  },
+  {
+    id: 'glitch', name: 'Enlaces con interferencia', tags: ['web', 'texto'],
+    blurb: 'Al pasar el cursor o llegar con el teclado, el texto de cada enlace se revuelve un instante. Para menús y pies de página.',
+    params: [
+      { key: 'chars', label: 'Caracteres de la interferencia', type: 'text' },
+      { key: 'duration', label: 'Duración (ms)', type: 'range', min: 120, max: 900, step: 10 },
+      { key: 'color', label: 'Color de la interferencia', type: 'color' },
+    ],
+    defaults: { chars: '!<>-_\\/[]{}=+*^?#01', duration: 320, color: '#ff5b1f' },
+    mount(stage, v, big) {
+      const nav = el('nav', `font:500 ${big ? 18 : 13}px/2 ${MONO};text-align:center`);
+      nav.setAttribute('aria-label', 'Ejemplo de menú');
+      for (const t of ['Inicio', 'Proyectos', 'Estudio', 'Contacto']) nav.appendChild(demoLink(t));
+      stage.appendChild(nav);
+      return glitchLinks(nav, v);
+    },
+    code: v => standardCode('glitchLinks', 'glitchlinks.js', glitchSrc,
+      `<nav class="menu" style="font-family:ui-monospace,Menlo,Consolas,monospace">
+  <a href="/">Inicio</a>
+  <a href="/proyectos/">Proyectos</a>
+  <a href="/contacto/">Contacto</a>
+</nav>`, '.menu', v, `<nav ref={ref} {...props} />`),
+  },
+);
 
 export const compById = (id: string | null) => COMPONENTS.find(c => c.id === id) ?? null;

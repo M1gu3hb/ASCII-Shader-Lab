@@ -48,7 +48,8 @@ export function lookOf(r: Recipe): Look {
     hue, chroma,
     light: hexToOklch(r.color.bg)[0] > 0.6,
     map: r.color.map,
-    fx: Object.entries(r.fx).filter(([, v]) => v > 0.2).map(([k]) => k).sort(),
+    // transformations of the source count as effects (a stack of them changes the look as much)
+    fx: [...Object.entries(r.fx).filter(([, v]) => v > 0.2).map(([k]) => k), ...(r.source !== 'pattern' ? (r.media.xform ?? []).filter(x => x.on && x.amount > 0).map(x => 'x:' + x.kind) : [])].sort(),
     interact: r.interact.mode,
   };
 }

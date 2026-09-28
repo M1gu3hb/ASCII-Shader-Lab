@@ -1,4 +1,4 @@
-import type { BlendMode, ColorMap, GlyphMode, InteractMode, MsgMode, SourceKind } from './recipe';
+import type { BlendMode, ColorMap, GlyphMode, InteractMode, LetterAnimKind, MsgMode, SourceKind, XformKind } from './recipe';
 
 export type PatternFamily = 'organico' | 'geometrico' | 'ondas' | 'espacio' | 'solidos' | 'matematico' | 'formas' | 'señal';
 
@@ -115,7 +115,73 @@ export const INTERACT_NAMES: Record<InteractMode, string> = {
 };
 
 export const MSG_MODE_NAMES: Record<MsgMode, string> = {
-  static: 'Fijo', type: 'Máquina de escribir', decode: 'Descifrar', marquee: 'Marquesina',
+  static: 'Fijo', type: 'Máquina de escribir', decode: 'Descifrar', marquee: 'Marquesina', words: 'Palabra a palabra',
+};
+
+/* ------------------------------------------------------------------ */
+/* Transformations of the source, per-letter animations                */
+/* ------------------------------------------------------------------ */
+
+export interface XformInfo {
+  id: XformKind;
+  name: string;
+  /** What it does, in one line. */
+  desc: string;
+  /** Names of its two settings: `amount` (0 leaves the source as it is) and its own `p`. */
+  amount: string;
+  p: string;
+  /** The value of `p` as people read it (dots of 5 cells, 4 inks…). */
+  pFmt: (p: number) => string;
+  /** Where it starts when added. */
+  defaults: { amount: number; p: number };
+  /** Only shows with a moving source (video, camera, animated letters). */
+  motion?: boolean;
+}
+
+const deg = (p: number) => Math.round(p * 360) + '°';
+export const XFORMS: XformInfo[] = [
+  { id: 'semitono', name: 'Semitono', desc: 'Puntos de imprenta: cada punto crece con el brillo de su zona.', amount: 'Fuerza', p: 'Tamaño del punto', pFmt: p => xformK('semitono', p).toFixed(1) + ' celdas', defaults: { amount: 1, p: 0.12 } },
+  { id: 'contorno', name: 'Contorno neón', desc: 'Sólo quedan los bordes, encendidos con su propio color.', amount: 'Fuerza', p: 'Grosor', pFmt: p => xformK('contorno', p) + ' celdas', defaults: { amount: 1, p: 0.2 } },
+  { id: 'bandas', name: 'Bandas', desc: 'Pocas tintas planas, como un cartel serigrafiado.', amount: 'Fuerza', p: 'Tintas', pFmt: p => xformK('bandas', p) + ' por canal', defaults: { amount: 1, p: 0.15 } },
+  { id: 'arrastre', name: 'Arrastre', desc: 'Lo claro se ordena en franjas verticales, del más oscuro arriba al más claro abajo.', amount: 'Largo', p: 'Umbral', pFmt: p => Math.round((0.15 + 0.7 * p) * 100) + ' % de brillo', defaults: { amount: 0.5, p: 0.4 } },
+  { id: 'desplazar', name: 'Desplazar con el patrón', desc: 'El patrón de capas empuja la fuente, como un cristal que la refracta.', amount: 'Distancia', p: 'Dirección', pFmt: deg, defaults: { amount: 0.4, p: 0.12 } },
+  { id: 'caleido', name: 'Caleidoscopio', desc: 'Espejos alrededor del centro que repiten un gajo de la fuente.', amount: 'Fuerza', p: 'Espejos', pFmt: p => String(xformK('caleido', p)), defaults: { amount: 1, p: 0.4 } },
+  { id: 'ondular', name: 'Ondular', desc: 'La fuente ondea como una bandera; se mueve sola, también una foto.', amount: 'Amplitud', p: 'Frecuencia', pFmt: p => xformK('ondular', p).toFixed(1), defaults: { amount: 0.5, p: 0.3 } },
+  { id: 'estela', name: 'Estela', desc: 'Lo que se mueve deja un rastro de luz que se apaga.', amount: 'Fuerza', p: 'Duración', pFmt: p => xformK('estela', p).toFixed(1) + ' s', defaults: { amount: 0.8, p: 0.35 }, motion: true },
+  { id: 'canales', name: 'Canales RGB', desc: 'Separa el rojo y el azul, como una señal desajustada.', amount: 'Distancia', p: 'Dirección', pFmt: deg, defaults: { amount: 0.4, p: 0 } },
+  { id: 'bloques', name: 'Píxeles grandes', desc: 'Agrupa las celdas en bloques de un mismo carácter.', amount: 'Fuerza', p: 'Tamaño del bloque', pFmt: p => xformK('bloques', p) + ' celdas', defaults: { amount: 1, p: 0.3 } },
+];
+export const xformById = (id: string) => XFORMS.find(x => x.id === id);
+
+/**
+ * The value each engine uses for a transformation's own setting `p` (computed once, here, so the WebGL
+ * and the basic engine get the very same number): dot period in cells, contour step, inks per channel,
+ * mirrors, wave frequency, trail life in seconds, block size in cells. Others use `p` as it is.
+ */
+export function xformK(kind: XformKind, p: number): number {
+  switch (kind) {
+    case 'semitono': return 3 + 9 * p;
+    case 'contorno': return 1 + Math.floor(p * 2.99);
+    case 'bandas': return Math.floor(2 + 6 * p + 0.5);
+    case 'caleido': return Math.floor(2 + 10 * p + 0.5);
+    case 'ondular': return 1 + 11 * p;
+    case 'estela': return 0.15 + 2.35 * p;
+    case 'bloques': return Math.floor(2 + 10 * p + 0.5);
+    default: return p;
+  }
+}
+
+export interface AnimInfo { id: LetterAnimKind; name: string; desc: string; amount: string; icon: string }
+/** Animations of the big text (Texto) and of the message (Mensaje): the same name means the same idea. */
+export const LETTER_ANIMS: Record<LetterAnimKind, AnimInfo> = {
+  ola: { id: 'ola', name: 'Ola', desc: 'Las letras suben y bajan en una ola que recorre la palabra.', amount: 'Altura', icon: '∿∿' },
+  rebote: { id: 'rebote', name: 'Rebote', desc: 'Cada letra salta a su turno, como una pelota.', amount: 'Altura', icon: '╭╮' },
+  latido: { id: 'latido', name: 'Latido', desc: 'Las letras se hinchan una tras otra.', amount: 'Tamaño', icon: 'oO' },
+  revolver: { id: 'revolver', name: 'Revolver', desc: 'Las letras se revuelven en otros caracteres y vuelven a su sitio.', amount: 'Cuántas letras', icon: '#?' },
+  palabras: { id: 'palabras', name: 'Palabra a palabra', desc: 'Las palabras aparecen una tras otra, se quedan y se van.', amount: 'Salto', icon: 'A·B' },
+  explosion: { id: 'explosion', name: 'Explosión', desc: 'Las letras salen volando, giran y se recomponen.', amount: 'Alcance', icon: '<*>' },
+  brillo: { id: 'brillo', name: 'Luz que recorre', desc: 'Un brillo pasa letra a letra; con la paleta por brillo, cambia su color.', amount: 'Contraste', icon: '░▓' },
+  color: { id: 'color', name: 'Color por letra', desc: 'Cada letra toma otro color de la paleta y los colores avanzan.', amount: 'Mezcla', icon: '▚▞' },
 };
 
 /* ------------------------------------------------------------------ */

@@ -42,28 +42,49 @@ function fontString(spec: { weight: number; italic?: boolean; stack: string }, p
   return `${spec.italic ? 'italic ' : ''}${spec.weight} ${px}px ${spec.stack}`;
 }
 
-/** Orders characters from empty to full by measuring rendered ink coverage. Cached. */
-export function sortByDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): string[] {
-  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2);
-  const hit = densityCache.get(key);
-  if (hit) return hit;
+const inkCache = new Map<string, number>();
+
+/**
+ * How much ink each character leaves in a cell of this font and proportion (0 = none; 1 = the cell full),
+ * measured on a small canvas. Cached per character, font and proportion. The ramp editor shows it; the
+ * atlas sorts by it.
+ */
+export function measureDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): number[] {
+  const tail = '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2);
   const G = 32, GH = Math.max(12, Math.round(G * aspect));
-  const cv = document.createElement('canvas');
-  cv.width = G; cv.height = GH;
-  const cx = cv.getContext('2d', { willReadFrequently: true })!;
-  const fs = Math.round(Math.min(GH * 0.82, G * 1.55));
-  cx.font = fontString(spec, fs);
-  cx.textAlign = 'center';
-  cx.textBaseline = 'middle';
-  cx.fillStyle = '#fff';
-  const dens = chars.map(c => {
+  let cx: CanvasRenderingContext2D | null = null;
+  let fs = 0;
+  return chars.map(c => {
+    const hit = inkCache.get(c + tail);
+    if (hit !== undefined) return hit;
+    if (!cx) {
+      const cv = document.createElement('canvas');
+      cv.width = G; cv.height = GH;
+      cx = cv.getContext('2d', { willReadFrequently: true })!;
+      fs = Math.round(Math.min(GH * 0.82, G * 1.55));
+      cx.font = fontString(spec, fs);
+      cx.textAlign = 'center';
+      cx.textBaseline = 'middle';
+      cx.fillStyle = '#fff';
+    }
     cx.clearRect(0, 0, G, GH);
     cx.fillText(c, G / 2, GH / 2 + fs * 0.04);
     const d = cx.getImageData(0, 0, G, GH).data;
     let s = 0;
     for (let i = 3; i < d.length; i += 4) s += d[i];
-    return s;
+    const v = s / (255 * G * GH);
+    if (inkCache.size > 4000) inkCache.clear();
+    inkCache.set(c + tail, v);
+    return v;
   });
+}
+
+/** Orders characters from empty to full by measuring rendered ink coverage. Cached. */
+export function sortByDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): string[] {
+  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2);
+  const hit = densityCache.get(key);
+  if (hit) return hit;
+  const dens = measureDensity(chars, spec, aspect);
   const sorted = chars.map((c, i) => [c, dens[i], i] as const)
     .sort((a, b) => a[1] - b[1] || a[2] - b[2])
     .map(a => a[0]);

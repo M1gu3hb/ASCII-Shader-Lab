@@ -6,6 +6,7 @@ import { fingerprint, generate, genOf, GEN_VERSION, GEN_VERSIONS, roll, SPACES, 
 
 interface Case { seed: string; space: SpaceId; arch?: string; locks?: LockGroup[]; base?: 'prev' | 'media' | 'text'; fp: string; recipe: Recipe }
 const fixture = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v1.json'), 'utf8')) as { gen: number; cases: Case[] };
+const fixture2 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v2.json'), 'utf8')) as { gen: number; cases: Case[] };
 /** Recipes live as JSON (history, favourites, links): compare that form (it also folds -0 into 0). */
 const json = (r: Recipe) => JSON.parse(JSON.stringify(r)) as Recipe;
 
@@ -27,6 +28,52 @@ describe('generator versions', () => {
       expect(json(r), `${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r)).toBe(c.fp);
     }
+  });
+
+  it('version 2 still weaves exactly what it wove before version 3 (and the same fingerprints)', () => {
+    expect(fixture2.gen).toBe(2);
+    expect(fixture2.cases.length).toBeGreaterThan(50);
+    const base2 = (c: Case): Recipe => {
+      const base = defaultRecipe();
+      if (c.base === 'prev') return generate({ seed: 'base', space: 'arte', base, gen: 2 });
+      if (c.base === 'media') { base.source = 'image'; base.media.ref = { id: 'abc123', kind: 'image', name: 'foto.png', w: 800, h: 600 }; }
+      if (c.base === 'text') { base.source = 'text'; base.text.content = 'HOLA'; }
+      return base;
+    };
+    for (const c of fixture2.cases) {
+      const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base: base2(c), gen: 2 });
+      expect(json(r), `${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r)).toBe(c.fp);
+    }
+  });
+
+  it('version 3 weaves what version 2 does, plus transformations and letters that move', () => {
+    const strip = (r: Recipe) => {
+      const o = json(r);
+      delete o.media.xform; delete o.text.anim; delete o.msg.anim;
+      if (o.msg.mode === 'words') o.msg.mode = 'type';
+      o.meta.gen = 0;
+      return o;
+    };
+    let xf = 0, anim = 0, stills = 0;
+    for (const s of SPACES) for (let i = 0; i < 60; i++) {
+      const base = defaultRecipe();
+      const a = generate({ seed: `v3-${i}`, space: s.id, base, gen: 2 });
+      const b = generate({ seed: `v3-${i}`, space: s.id, base, gen: 3 });
+      expect(strip(b), `${s.id} v3-${i}`).toEqual(strip(a));
+      expect(normalizeRecipe(b, PATTERN_IDS)).toEqual(b);
+      if (s.id === 'media') {
+        if (b.media.xform?.length) xf++;
+        // a still photo never gets a trail (it would do nothing)
+        if (b.media.xform?.some(x => x.kind === 'estela')) stills++;
+      }
+      if (s.id === 'tipo' && b.text.anim) anim++;
+      if (s.id === 'fondos' || s.id === 'arte') expect(json(b).media.xform).toBeUndefined();
+    }
+    expect(xf).toBeGreaterThan(25);
+    expect(xf).toBeLessThan(50);
+    expect(stills).toBe(0);
+    expect(anim).toBeGreaterThan(18);
   });
 
   it('an explicit seed with a version reproduces through roll(), whatever was seen or rolled recently', () => {

@@ -1,5 +1,5 @@
 import { CHARSETS, charsetById } from '../engine/catalog';
-import { defaultRecipe, DEFAULT_LAYER, normalizeRecipe, type Layer, type Recipe } from '../engine/recipe';
+import { defaultRecipe, DEFAULT_LAYER, normalizeRecipe, type Layer, type Recipe, type Xform, type XformKind } from '../engine/recipe';
 import type { SpaceId } from '../random/spaces';
 
 type Patch = {
@@ -25,8 +25,15 @@ function mk(p: Patch, keep?: (base: Recipe, r: Recipe) => void) {
 }
 
 const keepMedia = (b: Recipe, r: Recipe) => {
-  if (['image', 'video', 'camera'].includes(b.source)) { r.source = b.source; r.media = { ...b.media, mix: r.media.mix, blend: r.media.blend, reveal: r.media.reveal }; }
+  if (['image', 'video', 'camera'].includes(b.source)) {
+    // the photo and its framing stay; the recipe brings its own mix and transformations (or none)
+    const xf = r.media.xform;
+    r.source = b.source;
+    r.media = { ...b.media, mix: r.media.mix, blend: r.media.blend, reveal: r.media.reveal };
+    if (xf?.length) r.media.xform = xf; else delete r.media.xform;
+  }
 };
+const X = (kind: XformKind, amount: number, p: number): Xform => ({ kind, on: true, amount, p });
 const keepText = (b: Recipe, r: Recipe) => {
   if (b.source === 'text' && b.text.content.trim()) r.text.content = b.text.content;
 };
@@ -68,6 +75,12 @@ export const PRESETS: Record<Exclude<SpaceId, 'componentes'>, Preset[]> = {
     { id: 'bloques', name: 'Bloques', make: mk({ source: 'image', glyph: { cell: 14, aspect: 1.1, charset: cs('bloques'), font: 'jetbrains' }, color: { mode: 'source', vivid: 0.8, stops: ['#000000', '#ffffff'], bg: '#050505' }, interact: { mode: 'repel', strength: 0.5, radius: 0.18 }, fx: { cellBg: 0.35 } }, keepMedia) },
     { id: 'contornos', name: 'Contornos', make: mk({ source: 'image', glyph: { cell: 8, mode: 'lines', edge: 0.55, charset: cs('clasico') }, color: { stops: ['#ffffff'], bg: '#0a0a0a' }, interact: { mode: 'light', strength: 0.5, radius: 0.2 } }, keepMedia) },
     { id: 'revelado', name: 'Revelado', make: mk({ source: 'image', glyph: { cell: 10, charset: cs('suave') }, color: { stops: ['#1b0f2e', '#ff5b1f', '#ffe9c7'], bg: '#0b0708' }, interact: { mode: 'erase', strength: 0.8, radius: 0.12 }, media: { reveal: 0 } }, keepMedia) },
+    // transformations of the photo (engine/xform.ts)
+    { id: 'serigrafia', name: 'Serigrafía', make: mk({ source: 'image', media: { xform: [X('bandas', 1, 0.08), X('semitono', 1, 0.12)] }, glyph: { cell: 7, aspect: 1.2, charset: cs('puntos'), font: 'jetbrains' }, color: { mode: 'source', vivid: 0.85, stops: ['#1d1b18', '#ede6da'], bg: '#0e0d0c' }, interact: { mode: 'lens', strength: 0.5, radius: 0.16 } }, keepMedia) },
+    { id: 'neon', name: 'Neón', make: mk({ source: 'image', media: { xform: [X('contorno', 1, 0.45), X('canales', 0.5, 0.02)] }, glyph: { cell: 7, charset: cs('detallado'), font: 'jetbrains', weight: 600 }, tone: { contrast: 1.15 }, color: { mode: 'source', vivid: 1, stops: ['#0b0a09', '#ede6da'], bg: '#050405' }, interact: { mode: 'light', strength: 0.5, radius: 0.2 }, fx: { glow: 0.3, bloom: 0.45, vig: 0.35 } }, keepMedia) },
+    { id: 'caleidoscopio', name: 'Caleidoscopio', make: mk({ source: 'image', media: { xform: [X('caleido', 1, 0.4), X('ondular', 0.3, 0.2)] }, glyph: { cell: 8, charset: cs('detallado'), font: 'jetbrains', weight: 500 }, tone: { contrast: 1.35, gamma: 0.75 }, color: { mode: 'source', vivid: 0.8, stops: ['#1d1b18', '#ede6da'], bg: '#0b0a09' }, interact: { mode: 'swirl', strength: 0.45, radius: 0.22 }, fx: { vig: 0.45, glow: 0.25 } }, keepMedia) },
+    { id: 'ordenado', name: 'Píxel ordenado', make: mk({ source: 'image', media: { xform: [X('arrastre', 0.6, 0.25), X('canales', 0.45, 0.25)] }, glyph: { cell: 8, aspect: 1.5, charset: cs('hex'), font: 'vt' }, color: { mode: 'source', vivid: 0.9, stops: ['#1a0433', '#ff2e97'], bg: '#07010f' }, interact: { mode: 'scramble', strength: 0.6, radius: 0.16 }, fx: { scan: 0.35, chroma: 0.2, bloom: 0.35 } }, keepMedia) },
+    { id: 'vidrio', name: 'Vidrio', make: mk({ source: 'image', layers: [{ pattern: 'causticas', a: 0.35, b: 0.45, scale: 1.1, speed: 0.6 }], media: { xform: [X('desplazar', 0.45, 0.15)] }, glyph: { cell: 8, charset: cs('clasico'), font: 'plex' }, color: { stops: ['#041a24', '#1f6f9f', '#7fe7ff', '#f0fdff'], bg: '#020b10' }, interact: { mode: 'ripple', strength: 0.5, radius: 0.14 }, fx: { glow: 0.3, vig: 0.4 } }, keepMedia) },
   ],
   tipo: [
     { id: 'trama', name: 'Trama', make: mk({ source: 'text', text: { content: 'TRAMA', font: 'martian', weight: 800, size: 0.95 }, layers: [{ pattern: 'franjas', a: 0.25, b: 0.35 }], media: { mix: 0.55, blend: 'multiply' }, tone: { contrast: 1.45, gamma: 0.9 }, glyph: { cell: 9, charset: cs('clasico'), edge: 0.3 }, color: { stops: ['#e4dccb', '#8a8173', '#1c1a17'], bg: '#f2ecdf' }, interact: { mode: 'repel', strength: 0.5, radius: 0.15 } }, keepText) },
@@ -76,6 +89,11 @@ export const PRESETS: Record<Exclude<SpaceId, 'componentes'>, Preset[]> = {
     { id: 'maquina', name: 'Máquina', make: mk({ source: 'pattern', layers: [{ pattern: 'nube', a: 0.4 }], glyph: { cell: 12, charset: cs('clasico'), font: 'vt' }, color: { stops: ['#2a1300', '#ff9f1c', '#ffe3b0'], bg: '#0d0600' }, msg: { on: true, text: 'Querida persona que lee:\nesto se escribe solo,\nletra por letra,\ny luego se borra.', mode: 'type', speed: 14, box: 0.92, align: 'left', x: 0.5, y: 0.5 }, interact: { mode: 'light', strength: 0.4, radius: 0.2 }, fx: { scan: 0.3, vig: 0.5, bloom: 0.4 } }) },
     { id: 'disolver', name: 'Disolver', make: mk({ source: 'text', text: { content: 'LUZ', font: 'martian', weight: 800, size: 0.9, morph: 8 }, layers: [{ pattern: 'causticas', a: 0.4, b: 0.4 }], glyph: { cell: 9, charset: cs('detallado') }, color: { stops: ['#041a24', '#0f7a6b', '#57f0a2', '#d6a3ff'], bg: '#020b10' }, interact: { mode: 'ripple', strength: 0.6, radius: 0.14 }, fx: { glow: 0.4 } }, keepText) },
     { id: 'palabras', name: 'Palabras', make: mk({ source: 'text', text: { content: 'HOLA', font: 'sans', weight: 900 }, glyph: { cell: 9, mode: 'words', words: 'HOLA MUNDO · HELLO WORLD · OLÁ MUNDO · ', font: 'martian', weight: 700 }, color: { stops: ['#2b0d06', '#ff5b1f', '#ffe9c7'], bg: '#0b0708' }, interact: { mode: 'lens', strength: 0.6, radius: 0.18 } }, keepText) },
+    // letters that move (engine/letters.ts)
+    { id: 'ola', name: 'Ola', make: mk({ source: 'text', text: { content: 'ONDA', font: 'martian', weight: 800, size: 0.9, anim: { kind: 'ola', amount: 0.7, speed: 0.9 } }, layers: [{ pattern: 'ondas', a: 0.25, b: 0.45, scale: 0.9 }], media: { mix: 0.45, blend: 'multiply' }, glyph: { cell: 9, charset: cs('clasico'), font: 'jetbrains' }, color: { stops: ['#041a24', '#0f7a6b', '#57f0a2', '#e6fff4'], bg: '#020b10' }, interact: { mode: 'ripple', strength: 0.5, radius: 0.14 }, fx: { glow: 0.3 } }, keepText) },
+    { id: 'estallido', name: 'Estallido', make: mk({ source: 'text', text: { content: 'LUZ', font: 'sans', weight: 900, size: 0.85, anim: { kind: 'explosion', amount: 0.7, speed: 1 } }, media: { xform: [X('estela', 0.9, 0.3)] }, layers: [{ pattern: 'plasma', a: 0.4, b: 0.5 }], glyph: { cell: 8, charset: cs('detallado'), font: 'jetbrains' }, color: { stops: ['#1a0433', '#ff2e97', '#ffd166', '#fff7e0'], bg: '#07010f', map: 'luma' }, interact: { mode: 'none' }, fx: { glow: 0.5, bloom: 0.8, vig: 0.4 } }, keepText) },
+    { id: 'palabra', name: 'Palabra a palabra', make: mk({ source: 'text', text: { content: 'LO QUE\nSE ESCRIBE\nTAMBIÉN BAILA', font: 'sans', weight: 900, size: 0.9, leading: 0.95, anim: { kind: 'palabras', amount: 0.5, speed: 1 } }, layers: [{ pattern: 'nube', scale: 0.8, a: 0.4 }], media: { mix: 0.3, blend: 'multiply' }, glyph: { cell: 7, charset: cs('medios'), font: 'jetbrains' }, color: { stops: ['#1d1b18', '#8a8173', '#ede6da'], bg: '#0b0a09' }, interact: { mode: 'repel', strength: 0.4, radius: 0.15 }, fx: { vig: 0.35 } }, keepText) },
+    { id: 'cartel', name: 'Cartel', make: mk({ source: 'text', text: { content: 'EN VIVO', font: 'martian', weight: 800, size: 0.95, anim: { kind: 'brillo', amount: 0.75, speed: 1.2 } }, media: { xform: [X('semitono', 1, 0.1)] }, glyph: { cell: 6, aspect: 1.1, charset: cs('puntos'), font: 'jetbrains' }, color: { stops: ['#2b0d06', '#ff5b1f', '#ffd166', '#ffe9c7'], bg: '#0b0708' }, msg: { on: true, text: 'esta noche, a las nueve', mode: 'words', y: 0.9, box: 0.9, speed: 12, anim: { kind: 'color', amount: 1, speed: 1 } }, interact: { mode: 'light', strength: 0.4, radius: 0.2 }, fx: { bloom: 0.4 } }, keepText) },
     // a Möbius band turning above a line that deciphers itself
     { id: 'cinta', name: 'Una sola cara', make: mk({ layers: [{ pattern: 'moebius', a: 0.55, b: 0.1, y: -0.08, scale: 1.1 }], motion: { speed: 0.5 }, glyph: { cell: 9, charset: cs('clasico'), font: 'plex', weight: 500 }, tone: { gamma: 0.6, contrast: 1.25 }, color: { stops: ['#dfe3ea', '#4a6fa5', '#10245a'], bg: '#f4f5f2' }, msg: { on: true, text: 'una cinta con una sola cara', mode: 'decode', y: 0.86, box: 0.9, speed: 14 }, interact: { mode: 'repel', strength: 0.5, radius: 0.16 } }) },
   ],

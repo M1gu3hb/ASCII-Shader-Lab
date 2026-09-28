@@ -9,7 +9,10 @@ import {
 } from './gl';
 import { BLUR_FS, COMPOSE_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
 import type { PatternLibrary } from './glsl/patterns';
-import { drawTextSource, layoutMessage, messageState, type MsgLayout } from './text';
+import { drawTextSource, layoutMessage, messageState, textAnimated, type MsgLayout } from './text';
+import { XFORM_FS } from './glsl/xform';
+import { XF_COPY, XF_MEDIA, XF_TEXT, XF_TRAIL, activeXforms, needsPattern, trailDecay, trailStage, xformStages, type XformStage } from './xform';
+import { animateMessage, movedCell, msgColorAnim, scramblePool } from './letters';
 import type { PreviewQuality, Renderer } from './renderer';
 import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
 
@@ -104,6 +107,18 @@ export class AsciiEngine implements Renderer {
   private prevT: Array<Tex | null> = [null, null]; private prevFb: Array<WebGLFramebuffer | null> = [null, null]; private prevIdx = 0;
   /** 1×1 target for warm-up draws of a new program. */
   private tWarm!: Tex; private fbWarm!: WebGLFramebuffer;
+  /**
+   * Transformations of the source (xform.ts): their program (compiled the first time a piece uses one),
+   * two grids they write in turn, the pattern's values (Desplazar) and Estela's trail and last input.
+   */
+  private pXf: Program | null = null;
+  private xf: { size: string; grid: Tex[]; fbGrid: WebGLFramebuffer[]; pat: Tex; fbPat: WebGLFramebuffer; trail: Tex[]; fbTrail: WebGLFramebuffer[]; prev: Tex[]; fbPrev: WebGLFramebuffer[] } | null = null;
+  /** Estela's state: which trail and input buffers are current, whether they hold a frame yet, and when. */
+  private trail = { i: 0, have: false, t: 0, key: '' };
+  /** The transformation program did not compile here: pieces show their source untransformed. */
+  private xfBroken = false;
+  /** Bumped when a media element changes (a new picture starts a new trail). */
+  private mediaGen = 0;
   private halfFloat = false;
   private maxTex = 4096;
   /** KHR_parallel_shader_compile, when the browser has it: shaders compile without blocking. */
@@ -124,6 +139,8 @@ export class AsciiEngine implements Renderer {
   private textKey = '';
   private msg: MsgLayout | null = null;
   private msgKey = '';
+  /** The message as last uploaded when its letters move (see letters.ts). */
+  private msgAnimKey = '';
   private wordsKey = '';
   private wordsN = 1;
   private gradKey = '';
@@ -261,6 +278,7 @@ export class AsciiEngine implements Renderer {
   private applyRecipe(next: Recipe) {
     const prev = this.r;
     this.r = next;
+    if (this.o.fixedSize) this.trail.have = false;
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
       || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
@@ -427,6 +445,7 @@ export class AsciiEngine implements Renderer {
   pause() { this.playing = false; this.needsRender = true; }
 
   setMedia(kind: MediaKind, el: MediaEl | null) {
+    if (this.media[kind] !== el) this.mediaGen++;
     this.media[kind] = el;
     this.mediaUploaded = null;
     this.mediaOK = false;
@@ -556,6 +575,8 @@ export class AsciiEngine implements Renderer {
     this.fbWarm = fboFor(gl, this.tWarm);
     this.prevT = [null, null]; this.prevFb = [null, null]; this.prevIdx = 0;
     this.trans = -1;
+    // (a restored context lost them all: made again when a piece needs them)
+    this.pXf = null; this.xf = null; this.xfBroken = false; this.trail.have = false;
   }
 
   private invalidate() {
@@ -772,11 +793,13 @@ export class AsciiEngine implements Renderer {
   private updateText() {
     if (this.r.source !== 'text') return;
     const t = this.r.text;
-    const key = JSON.stringify(t) + this.W + 'x' + this.H;
+    // letters that move are drawn again at each moment (at a resolution the cells need, see text.ts)
+    const anim = textAnimated(t) ? { time: this.timeQ(), cols: this.cols } : undefined;
+    const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}` : '');
     if (key === this.textKey) return;
     this.textKey = key;
     this.textCanvas ??= document.createElement('canvas');
-    drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font));
+    drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font), anim);
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.tText.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, this.textCanvas);
@@ -786,12 +809,20 @@ export class AsciiEngine implements Renderer {
     const m = this.r.msg;
     if (!m.on || !this.atlas) { this.msg = null; return; }
     const key = [m.text, m.mode === 'marquee', m.x, m.y, m.align, this.cols, this.rows, this.atlasKey].join('|');
-    if (key === this.msgKey && this.msg) return;
-    this.msgKey = key;
-    const idx = this.atlas.index;
-    this.msg = layoutMessage(m.text, this.cols, this.rows, m.x, m.y, m.align, m.mode === 'marquee', c => idx.get(c) ?? this.atlas!.spaceIdx);
-    const gl = this.gl;
-    resizeTex(gl, this.tMsg, this.msg.width, this.rows, this.msg.data);
+    if (key !== this.msgKey || !this.msg) {
+      this.msgKey = key;
+      const idx = this.atlas.index;
+      this.msg = layoutMessage(m.text, this.cols, this.rows, m.x, m.y, m.align, m.mode === 'marquee', c => idx.get(c) ?? this.atlas!.spaceIdx);
+      this.msgAnimKey = '';
+    }
+    // letters that move are placed again at each moment (letters.ts); still ones are uploaded once
+    const a = m.anim && m.anim.kind !== 'color' ? m.anim : null;
+    const tq = this.timeQ();
+    const akey = a ? `${key}|${a.kind}|${a.amount}|${a.speed}|${tq}` : key;
+    if (akey === this.msgAnimKey) return;
+    this.msgAnimKey = akey;
+    const data = a ? animateMessage(this.msg, a, tq, this.rows, scramblePool(this.atlas.n)) : this.msg.data;
+    resizeTex(this.gl, this.tMsg, this.msg.width, this.rows, data);
   }
 
   private updateWords() {
@@ -940,7 +971,18 @@ export class AsciiEngine implements Renderer {
     this.runSim(dt);
     const src = SRC_OF(this.r, this.mediaOK);
     const fp = this.fieldProgram(src);
-    if (fp) this.runField(fp, src);
+    const stages = fp && !this.xfBroken ? xformStages(activeXforms(this.r, src), this.cols, this.rows, this.ch / this.cw) : [];
+    let grid: Tex | null = null;
+    if (stages.length) {
+      try {
+        grid = this.runXforms(fp!, src, stages);
+      } catch (e) {
+        this.xfBroken = true;
+        this.o.onError?.((e as Error).message);
+      }
+    }
+    if (!stages.some(x => x.kind === 'estela')) this.trail.have = false;
+    if (fp) this.runField(fp, src, grid);
     this.runSelect(src);
     if (this.r.fx.bloom > 0) this.runBloom();
     this.compose(null, this.trans);
@@ -981,9 +1023,13 @@ export class AsciiEngine implements Renderer {
     this.simIdx = dst;
   }
 
-  private runField(p: Program, src: FieldSource) {
+  /**
+   * The field pass. `grid`: the last transformation's grid, read instead of the picture or the text.
+   * `patternInto`: draws only the pattern's values, into that target (for Desplazar).
+   */
+  private runField(p: Program, src: FieldSource, grid: Tex | null = null, patternInto: WebGLFramebuffer | null = null) {
     const gl = this.gl, r = this.r;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbField);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, patternInto ?? this.fbField);
     gl.viewport(0, 0, this.cols, this.rows);
     gl.useProgram(p.prog);
     const tq = this.timeQ();
@@ -1015,9 +1061,95 @@ export class AsciiEngine implements Renderer {
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.tSim[this.simIdx].tex);
     gl.uniform1i(loc(gl, p, 'uSim'), 4);
     gl.uniform1f(loc(gl, p, 'uSimEnc'), this.halfFloat ? 0 : 1);
+    // (never a texture this pass draws into: the gradient stands in when there is no grid)
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, (grid ?? this.tGrad).tex);
+    gl.uniform1i(loc(gl, p, 'uXGrid'), 5);
+    gl.uniform1i(loc(gl, p, 'uXOn'), grid ? 1 : 0);
+    gl.uniform1i(loc(gl, p, 'uPatOnly'), patternInto ? 1 : 0);
     this.bindPointerUniforms(p);
     void src;
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  /** Grids for the transformations at the current grid size (made, or made again, when needed). */
+  private ensureXf() {
+    const gl = this.gl, size = `${this.cols}x${this.rows}`;
+    this.pXf ??= compileProgram(gl, VERT, XFORM_FS);
+    if (this.xf?.size === size) return;
+    if (this.xf) {
+      const X = this.xf;
+      for (const t of [...X.grid, X.pat, ...X.trail, ...X.prev]) gl.deleteTexture(t.tex);
+      for (const f of [...X.fbGrid, X.fbPat, ...X.fbTrail, ...X.fbPrev]) gl.deleteFramebuffer(f);
+    }
+    const mk = () => { const t = createTex(gl, this.cols, this.rows); return { t, fb: fboFor(gl, t) }; };
+    const g = [mk(), mk()], pat = mk(), tr = [mk(), mk()], pr = [mk(), mk()];
+    this.xf = {
+      size, grid: g.map(x => x.t), fbGrid: g.map(x => x.fb), pat: pat.t, fbPat: pat.fb,
+      trail: tr.map(x => x.t), fbTrail: tr.map(x => x.fb), prev: pr.map(x => x.t), fbPrev: pr.map(x => x.fb),
+    };
+    this.trail.have = false;
+  }
+
+  /**
+   * Runs the transformations (xform.ts) on the cell grid and returns the last grid: the source averaged
+   * per cell, then each stage in order, each reading the grid the previous one wrote.
+   */
+  private runXforms(fp: Program, src: FieldSource, stages: XformStage[]): Tex {
+    const gl = this.gl;
+    this.ensureXf();
+    const X = this.xf!, p = this.pXf!;
+    if (needsPattern(stages)) this.runField(fp, src, null, X.fbPat);
+    gl.useProgram(p.prog);
+    gl.viewport(0, 0, this.cols, this.rows);
+    gl.uniform2f(loc(gl, p, 'uGrid'), this.cols, this.rows);
+    gl.uniform2f(loc(gl, p, 'uRes'), this.W, this.H);
+    gl.uniform2f(loc(gl, p, 'uCell'), this.cw, this.ch);
+    gl.uniform1f(loc(gl, p, 'uAspect'), this.ch / this.cw);
+    gl.uniform1f(loc(gl, p, 'uTime'), this.timeQ());
+    const bind = (unit: number, t: Tex, name: string) => {
+      gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.uniform1i(loc(gl, p, name), unit);
+    };
+    this.bindMediaUniforms(p, 5);
+    bind(6, this.tText, 'uText');
+    bind(1, X.pat, 'uPat');
+    const ti = this.trail.i;
+    bind(2, X.prev[ti], 'uPrevIn');
+    bind(3, X.trail[ti], 'uTrail');
+    const draw = (code: number, into: WebGLFramebuffer, input: Tex, s?: XformStage) => {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, into);
+      bind(0, input, 'uIn');
+      gl.uniform1i(loc(gl, p, 'uKind'), code);
+      gl.uniform1f(loc(gl, p, 'uAmt'), s?.amount ?? 0);
+      gl.uniform1f(loc(gl, p, 'uP'), s?.p ?? 0);
+      gl.uniform1f(loc(gl, p, 'uK'), s?.k ?? 1);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+    draw(src === 'text' ? XF_TEXT : XF_MEDIA, X.fbGrid[0], X.grid[1]);
+    let cur = 0;
+    const trail = trailStage(stages);
+    if (trail) {
+      // a new source (another picture, another kind) starts a new trail
+      const key = `${src}|${this.mediaGen}`;
+      if (key !== this.trail.key) { this.trail.key = key; this.trail.have = false; }
+      const dt = this.trail.have ? Math.min(0.25, Math.max(0, this.realT - this.trail.t)) : 0;
+      this.trail.t = this.realT;
+      gl.uniform1f(loc(gl, p, 'uDecay'), trailDecay(dt, trail.k));
+      gl.uniform1f(loc(gl, p, 'uHave'), this.trail.have ? 1 : 0);
+    }
+    for (const s of stages) {
+      if (s.kind === 'estela') {
+        const i = this.trail.i, j = i ^ 1;
+        // the trail, then this frame's input kept for the next one, then the stage itself
+        draw(XF_TRAIL, X.fbTrail[j], X.grid[cur], s);
+        draw(XF_COPY, X.fbPrev[j], X.grid[cur], s);
+        bind(3, X.trail[j], 'uTrail');
+        this.trail.i = j;
+        this.trail.have = true;
+      }
+      draw(s.code, X.fbGrid[cur ^ 1], X.grid[cur], s);
+      cur ^= 1;
+    }
+    return X.grid[cur];
   }
 
   private pulse(tq: number): number {
@@ -1093,17 +1225,23 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uMsgOn'), m.on && lay ? 1 : 0);
     let cursor: [number, number] = [-9, -9], cursorOn = 0;
     if (m.on && lay) {
-      const st = messageState(m, lay.count, this.t);
-      gl.uniform1i(loc(gl, p, 'uMsgMode'), ['static', 'type', 'decode', 'marquee'].indexOf(m.mode));
+      const st = messageState(m, lay.count, this.t, lay.spans);
+      gl.uniform1i(loc(gl, p, 'uMsgMode'), ['static', 'type', 'decode', 'marquee', 'words'].indexOf(m.mode));
       gl.uniform1f(loc(gl, p, 'uMsgProg'), st.prog);
       gl.uniform1f(loc(gl, p, 'uMsgWin'), 6);
       gl.uniform1f(loc(gl, p, 'uMsgShift'), Math.floor(st.shift));
       gl.uniform1f(loc(gl, p, 'uMsgW'), lay.width);
       if (st.cursorOn && st.cursor >= 0 && lay.cells.length) {
         const cell = lay.cells[Math.min(lay.cells.length - 1, st.cursor)];
-        cursor = cell; cursorOn = 1;
+        // the cursor goes where the letters it follows went
+        cursor = m.anim ? movedCell(lay, m.anim, tq, this.rows, cell, st.cursor) : cell;
+        cursorOn = cursor[0] >= 0 ? 1 : 0;
       }
     }
+    const ca = msgColorAnim(m);
+    gl.uniform1i(loc(gl, p, 'uMsgAnim'), ca ? 1 : 0);
+    gl.uniform1f(loc(gl, p, 'uMsgSp'), ca?.speed ?? 0);
+    gl.uniform1f(loc(gl, p, 'uMsgAmt'), ca?.amount ?? 0);
     const mc = m.color ? hexToRgb(m.color) : [1, 1, 1];
     gl.uniform3f(loc(gl, p, 'uMsgColor'), mc[0], mc[1], mc[2]);
     gl.uniform1f(loc(gl, p, 'uMsgUseColor'), m.color ? 1 : 0);

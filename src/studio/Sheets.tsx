@@ -277,7 +277,8 @@ export function ShortcutsSheet() {
 
 /** What each generator version is, for the person choosing one (newest first). */
 const GEN_INFO: Record<number, { label: string; desc: string }> = {
-  2: { label: 'Versión 2', desc: 'La actual: trece objetos 3D y un azar que rara vez repite lo que acabas de ver.' },
+  3: { label: 'Versión 3', desc: 'La actual: las piezas de la versión 2 y, en Imagen, Tipo y Terminal, transformaciones y letras que se mueven.' },
+  2: { label: 'Versión 2', desc: 'Trece objetos 3D y un azar que rara vez repite lo que acabas de ver.' },
   1: { label: 'Versión 1', desc: 'La primera: repite las semillas que anotaste con ella.' },
 };
 const genLabel = (g: number) => (GEN_INFO[g]?.label ?? `Versión ${g}`) + (g === GEN_VERSION ? ' (actual)' : '');

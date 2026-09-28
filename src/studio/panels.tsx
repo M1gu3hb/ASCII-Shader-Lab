@@ -20,14 +20,19 @@ import { HelpMore, HelpToggle, HintText, useHelp } from './ui/Help';
 import { DITHER_DESC, DITHER_ICON, FIT_DESC, GLYPH_MODE_DESC, GLYPH_MODE_ICON, SOURCE_DESC } from './ui/copy';
 import {
   CharsetOption, CharsetRamp, PatternThumb, PiecePreview, blendOptions, charsetOptions, closeThumbSession, colorMapOptions, fontOptions, interactOptions,
-  msgModeOptions, openThumbSession, patternOptions, withCharset,
+  letterAnimOptions, msgModeOptions, openThumbSession, patternOptions, withCharset,
 } from './ui/options';
+import { XformTab } from './ui/Xforms';
+import { RampEditor } from './ui/RampEditor';
+import { useRamps } from './ui/ramps';
+import { LETTER_ANIMS } from '../engine/catalog';
+import { MSG_ANIMS, TEXT_ANIMS, type LetterAnim, type LetterAnimKind } from '../engine/recipe';
 
 export const TABS: Record<SpaceId, Array<[string, string]>> = {
   fondos: [['forma', 'Forma'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
   arte: [['forma', 'Capas'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos'], ['fuente', 'Fuente'], ['msg', 'Mensaje']],
-  media: [['fuente', 'Fuente'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Patrón'], ['mov', 'Interacción'], ['fx', 'Efectos']],
-  tipo: [['fuente', 'Texto'], ['msg', 'Mensaje'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Relleno'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
+  media: [['fuente', 'Fuente'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Patrón'], ['mov', 'Interacción'], ['fx', 'Efectos']],
+  tipo: [['fuente', 'Texto'], ['msg', 'Mensaje'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Relleno'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
   terminal: [['term', 'Terminal'], ['msg', 'Mensaje'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Forma'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
   componentes: [],
 };
@@ -58,6 +63,7 @@ export function TabContent({ tab, space }: { tab: string; space: SpaceId }) {
     case 'fuente': return <FuenteTab space={space} />;
     case 'msg': return <MsgTab />;
     case 'term': return <TermTab />;
+    case 'xform': return <XformTab space={space} />;
     default: return null;
   }
 }
@@ -215,9 +221,17 @@ function GlifosTab({ space }: { space: SpaceId }) {
   const fontId = useField(F<string>('glyph.font')) ?? 'system';
   const recipe = useRecipe();
   const font = fontById(fontId);
-  const csId = charsetIdOf(charset);
+  const ramps = useRamps(st => st.list);
+  const mine = ramps.find(x => x.chars === charset);
+  const csId = mine && charsetIdOf(charset) === 'custom' ? 'ramp:' + mine.id : charsetIdOf(charset);
   const ascii = space === 'terminal';
-  const charsetOpts = useMemo(() => charsetOptions(ascii), [ascii]);
+  // the saved ramps join the list, under the built-in sets (the recipe keeps their characters, not their name)
+  const charsetOpts = useMemo(() => [
+    ...charsetOptions(ascii).filter(o => o.value !== 'custom'),
+    ...ramps.map(x => ({ value: 'ramp:' + x.id, label: x.name, desc: 'Guardada en este navegador.', group: 'Tus rampas' })),
+    { value: 'custom', label: 'Personalizado', desc: 'Los que escribes abajo, en «Tus caracteres».', disabled: true, group: ramps.length ? 'Tus rampas' : 'Tuyos' },
+  ], [ascii, ramps]);
+  const rampChars = (id: string) => (id.startsWith('ramp:') ? ramps.find(x => 'ramp:' + x.id === id)?.chars : undefined);
   const fonts = useMemo(() => fontOptions(false), []);
   const csHelp = useHelp('glyph.charset');
   const csLabel = useId();
@@ -230,19 +244,17 @@ function GlifosTab({ space }: { space: SpaceId }) {
       <div className={'ctl cx' + (csHelp ? ' has-help' : '')}>
         <span className="lbl" id={csLabel} {...csHelp?.hover}>Caracteres</span>
         <Picker value={csId} options={charsetOpts} label="Caracteres" labelId={csLabel} describedBy={csHelp?.hintId} minWidth={310} placeholder="Personalizado"
-          renderOption={o => <CharsetOption o={o} recipe={recipe} />}
+          renderOption={o => <CharsetOption o={o} recipe={recipe} chars={rampChars(o.value)} />}
           renderValue={o => (o && o.value !== 'custom'
-            ? <><span className="pk-txt">{o.label}</span><CharsetRamp id={o.value} recipe={recipe} n={10} /></>
+            ? <><span className="pk-txt">{o.label}</span><CharsetRamp id={o.value} chars={rampChars(o.value)} recipe={recipe} n={10} /></>
             : <span className="pk-txt">Personalizado</span>)}
-          preview={o => (o.value !== 'custom' && recipe ? <PiecePreview recipe={withCharset(recipe, o.value)} label={o.label} /> : null)}
-          onChange={id => { const c = CHARSETS.find(x => x.id === id); if (c) edit(r => { r.glyph.charset = c.chars; }, 'glyph.charset'); }} />
+          preview={o => (o.value !== 'custom' && recipe ? <PiecePreview recipe={withCharset(recipe, o.value, rampChars(o.value))} label={o.label} /> : null)}
+          onChange={id => { const c = rampChars(id) ?? CHARSETS.find(x => x.id === id)?.chars; if (c) edit(r => { r.glyph.charset = c; }, 'glyph.charset'); }} />
         {csHelp && <HelpToggle h={csHelp} name="Caracteres" />}
         <HintText h={csHelp} />
         <HelpMore h={csHelp}><CharsetSwatches asciiOnly={ascii} /></HelpMore>
       </div>
-      <Text f={F('glyph.charset')} helpKey="glyph.charsetText" label="Tus caracteres (del vacío al lleno)" mono />
-      {ascii && /[^\x20-\x7e]/.test(charset) && <Note><b>Aviso:</b> hay caracteres fuera de ASCII; algunas terminales antiguas no los mostrarán.</Note>}
-      <Toggle f={F('glyph.sort')} label="Ordenar por cuánta tinta tienen" />
+      <RampEditor ascii={ascii} />
       <Select f={F('glyph.font')} label="Tipografía de los caracteres" opts={fonts} minWidth={290}
         onPick={id => edit(r => { r.glyph.weight = nearestWeight(fontById(id), r.glyph.weight); }, 'glyph.font')} />
       {font.weights.length > 1 && <Slider f={F('glyph.weight')} label="Grosor" min={font.weights[0]} max={font.weights[font.weights.length - 1]} step={100} />}
@@ -434,6 +446,37 @@ function TextSource() {
       <Seg f={F('text.align')} label="Alineación" opts={[['left', 'Izquierda'], ['center', 'Centro'], ['right', 'Derecha']]} />
       <Toggle f={F('text.italic')} label="Cursiva" />
       <Slider f={F('text.morph')} label="Disolver en el patrón cada" min={0} max={20} step={0.5} fmt={v => (v === 0 ? 'nunca' : v + ' s')} />
+      <Sub>Letras que se mueven</Sub>
+      <LetterAnimCtl target="text" />
+    </>
+  );
+}
+
+/** Sensible starting points of each animation (how far and how fast), for the big text and the message. */
+const ANIM_START: Record<LetterAnimKind, Omit<LetterAnim, 'kind'>> = {
+  ola: { amount: 0.6, speed: 1 }, rebote: { amount: 0.6, speed: 1 }, latido: { amount: 0.6, speed: 1 }, revolver: { amount: 0.8, speed: 1 },
+  palabras: { amount: 0.5, speed: 1 }, explosion: { amount: 0.6, speed: 1 }, brillo: { amount: 0.7, speed: 1 }, color: { amount: 1, speed: 1 },
+};
+
+/** Per-letter animation of the big text (`text`) or of the message (`msg`): which one, how much, how fast. */
+function LetterAnimCtl({ target }: { target: 'text' | 'msg' }) {
+  const anim = useField(F<LetterAnim | undefined>(`${target}.anim`));
+  const opts = useMemo(() => letterAnimOptions(target === 'text' ? TEXT_ANIMS : MSG_ANIMS), [target]);
+  const info = anim ? LETTER_ANIMS[anim.kind] : null;
+  return (
+    <>
+      <Select f={{ key: `${target}.anim.kind`, get: r => r[target].anim?.kind ?? '', set: (r, v: string) => {
+        if (!v) delete r[target].anim;
+        else r[target].anim = { kind: v as LetterAnimKind, ...(r[target].anim?.kind === v ? r[target].anim! : ANIM_START[v as LetterAnimKind]) };
+      } }} label={target === 'text' ? 'Cómo se mueven las letras' : 'Efecto por letra'} opts={opts} minWidth={290}
+        help={{ hint: target === 'text' ? 'Cada letra del texto grande se mueve por su cuenta, en bucle.' : 'Cada letra del mensaje se mueve o cambia de color por su cuenta.', more: 'Se repite siempre igual: el video, el GIF y las exportaciones lo capturan tal cual. Con «reducir movimiento» el estudio arranca en pausa.' }} />
+      {info && anim && (
+        <>
+          <Slider f={F(`${target}.anim.amount`)} label={info.amount} min={0} max={1} fmt={v => Math.round(v * 100) + ' %'} help={{ hint: `${info.amount} de «${info.name}».` }} />
+          <Slider f={F(`${target}.anim.speed`)} label="Velocidad" min={0.2} max={2.5} fmt={v => v.toFixed(2) + '×'} help={{ hint: `Qué tan rápido va «${info.name}».` }} />
+        </>
+      )}
+      {target === 'msg' && anim && anim.kind !== 'color' && <Note>En la rejilla las letras saltan de celda en celda: con celdas grandes el movimiento es más gráfico.</Note>}
     </>
   );
 }
@@ -465,6 +508,8 @@ function MsgTab() {
             <span className="switch"><input type="checkbox" role="switch" checked={!!color} onChange={e => { const c = e.target.checked; edit(r => { r.msg.color = c ? '#ffffff' : ''; }, 'msg.color'); }} /><span /></span>
           </label>
           {!!color && <Color f={F('msg.color')} label="Color del mensaje" />}
+          <Sub>Letras que se mueven</Sub>
+          <LetterAnimCtl target="msg" />
         </>
       )}
     </>

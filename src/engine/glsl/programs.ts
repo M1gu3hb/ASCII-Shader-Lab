@@ -1,7 +1,7 @@
 import { GLSL_BLEND, GLSL_CORE } from './core';
 import type { PatternLibrary } from './patterns';
 
-const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
+export const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
 
 export const VERT = `#version 300 es
 in vec2 aPos;
@@ -15,7 +15,7 @@ export function fieldKey(patterns: string[], src: FieldSource, loop: boolean): s
 }
 
 /** Media sampling with fit/zoom/pan/mirror; shared by field and compose passes. */
-const GLSL_MEDIA = `
+export const GLSL_MEDIA = `
 uniform sampler2D uMedia;
 uniform vec2 uMediaSize;
 uniform int uFit;
@@ -70,6 +70,8 @@ uniform float uWarp, uWarpScale, uPulse;
 uniform float uMediaMix;
 uniform int uMediaBlend;
 uniform float uMorph;
+uniform sampler2D uXGrid;
+uniform int uXOn, uPatOnly;
 uniform sampler2D uText;
 uniform sampler2D uSim;
 uniform float uSimEnc;
@@ -121,6 +123,8 @@ void main(){
   pv = mix(stack(q, tl), stack(q, tl - uLoop), w);
   pv = clamp(.5 + (pv - .5) * (1. + .41 * sin(PI * w)), 0., 1.);` : `
   pv = stack(q, uTime);`}
+  // the pattern alone, for a transformation that reads it (Desplazar, see glsl/xform.ts)
+  if (uPatOnly == 1){ o = vec4(pv, 0., 0., 1.); return; }
   vec3 col = vec3(1.);
   float l = pv;
   vec2 s = vec2(pp.x * uRes.y + .5 * uRes.x, .5 * uRes.y - pp.y * uRes.y) / uRes;
@@ -128,14 +132,21 @@ void main(){
   ${src === 'media' ? `
   // a cell cut by the canvas edge (the last row or column) samples up to the edge, not the empty space
   // past it (that made a black band along the bottom of some exports)
-  vec2 m0 = clamp(s - cs, 0., 1.), m1 = clamp(s + cs, 0., 1.);
-  vec4 c4 = (media(m0) + media(vec2(m1.x, m0.y)) + media(vec2(m0.x, m1.y)) + media(m1)) * .25;
+  vec4 c4;
+  // transformed: the cell of the last transformation's grid this cell looks at (after the pointer's distortions)
+  if (uXOn == 1) c4 = texelFetch(uXGrid, clamp(ivec2(floor(s * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0);
+  else {
+    vec2 m0 = clamp(s - cs, 0., 1.), m1 = clamp(s + cs, 0., 1.);
+    c4 = (media(m0) + media(vec2(m1.x, m0.y)) + media(vec2(m0.x, m1.y)) + media(m1)) * .25;
+  }
   col = c4.rgb;
   float ml = dot(col, vec3(.299, .587, .114));
   l = uMediaMix > 0. ? blendf(ml, pv, uMediaBlend, uMediaMix) : ml;` : ''}
   ${src === 'text' ? `
-  float tm = (texture(uText, s + vec2(-cs.x, -cs.y)).r + texture(uText, s + vec2(cs.x, -cs.y)).r
-            + texture(uText, s + vec2(-cs.x, cs.y)).r + texture(uText, s + cs).r) * .25;
+  float tm = uXOn == 1
+    ? dot(texelFetch(uXGrid, clamp(ivec2(floor(s * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0).rgb, vec3(.299, .587, .114))
+    : (texture(uText, s + vec2(-cs.x, -cs.y)).r + texture(uText, s + vec2(cs.x, -cs.y)).r
+      + texture(uText, s + vec2(-cs.x, cs.y)).r + texture(uText, s + cs).r) * .25;
   l = uMediaMix > 0. ? blendf(tm, pv, uMediaBlend, uMediaMix) : tm;
   if (uMorph > 0.){
     float env = .5 - .5 * cos(TAU * uTime / uMorph);
@@ -200,6 +211,8 @@ uniform int uMsgOn, uMsgMode;
 uniform float uMsgProg, uMsgWin, uMsgShift, uMsgW;
 uniform vec3 uMsgColor;
 uniform float uMsgUseColor;
+uniform int uMsgAnim;
+uniform float uMsgSp, uMsgAmt;
 uniform vec2 uCursor;
 uniform float uCursorOn, uBlockIdx;
 uniform int uIMode;
@@ -292,6 +305,13 @@ void main(){
     if (mi >= 0.){
       float ord = dec16(m.ba);
       vec3 mcol = uMsgUseColor > .5 ? uMsgColor : texture(uGrad, vec2(1., .5)).rgb;
+      if (uMsgAnim == 1){
+        // «Color por letra»: each letter a colour of its own (the palette's upper part, or the own colour's
+        // hue turned), moving along the message
+        float ph = ord * .07 - uTime * uMsgSp * .35;
+        vec3 lc = uMsgUseColor > .5 ? clamp(hueShift(uMsgColor, ph * TAU), 0., 1.) : texture(uGrad, vec2(.35 + .65 * tri(ph * 2.), .5)).rgb;
+        mcol = mix(mcol, lc, uMsgAmt);
+      }
       bool shown = (uMsgMode == 0 || uMsgMode == 3) || ord < floor(uMsgProg);
       bool scr = uMsgMode == 2 && !shown && ord < floor(uMsgProg) + uMsgWin;
       if (shown){ idx = mi; base = mcol; inten = 1.; alpha = 1.; flags = 1.; }

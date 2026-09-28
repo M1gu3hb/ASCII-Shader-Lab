@@ -41,6 +41,8 @@ export function PalabraWord() {
 
 /* 2 · Estilo ---------------------------------------------------------- */
 
+const GUIDE_LOOKS = ['trama', 'neon', 'descifrar', 'disolver', 'palabras'];
+
 export function PalabraStyle() {
   const recipe = useRecipe();
   const entry = useEntry();
@@ -52,8 +54,9 @@ export function PalabraStyle() {
     if (cur.motion.loop > 0) { r.motion.speed = cur.motion.speed; r.motion.loop = cur.motion.loop; }
     return r;
   };
-  // the styles made for a word (not «Máquina», a message over a pattern)
-  const looks = useMemo(() => PRESETS.tipo.filter(p => p.make().source === 'text').map(p => ({ p, recipe: make(p) })), [word]);
+  // the styles made for a word (not «Máquina», a message over a pattern); the guide keeps its five, the
+  // ones with letters that move live in the Tipo space
+  const looks = useMemo(() => PRESETS.tipo.filter(p => GUIDE_LOOKS.includes(p.id)).map(p => ({ p, recipe: make(p) })), [word]);
   const items: StyleItem[] = looks.map(({ p, recipe: r }) => ({
     id: p.id, name: p.name, recipe: r,
     pressed: !!entry && entry.label === p.name && (entry.kind === 'receta' || entry.kind === 'espacio'),
