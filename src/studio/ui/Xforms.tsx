@@ -135,7 +135,7 @@ function XformCard({ i, n, x, used, moving, isText, onOpen, keepFocus }: {
             </>
           )}
           onChange={k => { keepFocus(i); edit(r => { r.media.xform![i] = fresh(k); }, `media.xform.${i}.kind`); }} />
-        <button type="button" className="icon-btn" aria-pressed={!x.on} title={x.on ? 'Apagar un momento' : 'Encender'} aria-label={x.on ? `Apagar «${info.name}»` : `Encender «${info.name}»`}
+        <button type="button" className="icon-btn" aria-pressed={!x.on} title={x.on ? 'Apagar un momento' : 'Apagada: pulsa para encenderla'} aria-label={`Apagar «${info.name}»`}
           onClick={() => edit(r => { r.media.xform![i].on = !r.media.xform![i].on; }, 'xf-toggle' + Date.now())}>{x.on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={info.name} />}
       </div>

@@ -101,10 +101,15 @@ test.describe('transformaciones de la fuente', () => {
     await expect(page.getByRole('button', { name: 'Bajar «Bandas»' })).toBeFocused();
 
     // off for a moment (the card says so), and back on
-    await page.getByRole('button', { name: 'Apagar «Semitono»' }).click();
+    // (one name, its state in aria-pressed: «Apagar «Semitono»», pressed while it is off)
+    const off = page.getByRole('button', { name: 'Apagar «Semitono»' });
+    await expect(off).toHaveAttribute('aria-pressed', 'false');
+    await off.click();
     await expect(page.locator('.xf-card.off')).toHaveCount(1);
-    await page.getByRole('button', { name: 'Encender «Semitono»' }).click();
+    await expect(off).toHaveAttribute('aria-pressed', 'true');
+    await off.click();
     await expect(page.locator('.xf-card.off')).toHaveCount(0);
+    await expect(off).toHaveAttribute('aria-pressed', 'false');
 
     // a trail needs movement: on a still photo the card says it
     await add.click();
