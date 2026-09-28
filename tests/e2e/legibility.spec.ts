@@ -109,6 +109,26 @@ test.describe('legibilidad de las vistas con contenido', () => {
     }
   });
 
+  test('en un teléfono, los detalles terminan sobre la línea de la semilla y se desplazan dentro', async ({ browser }) => {
+    for (const viewport of [{ width: 390, height: 664 }, { width: 360, height: 800 }]) {
+      const ctx = await browser.newContext({ viewport, screen: viewport, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const page = await ctx.newPage();
+      await openStudio(page);
+      await page.getByRole('combobox', { name: 'Vista' }).tap();
+      await page.getByRole('option', { name: /^Fondo web/ }).tap();
+      await expect(say(page)).not.toHaveText('Midiendo…', { timeout: 45_000 });
+      await page.locator('.vbar .legib-more').tap();
+      await expect(page.locator('.vbar .legib-detail')).toBeVisible();
+      const r = await page.evaluate(() => {
+        const d = document.querySelector('.vbar .legib-detail')!.getBoundingClientRect();
+        const below = Math.min(...[...document.querySelectorAll('.app .seedline, .app .deck')].map(e => e.getBoundingClientRect().top));
+        return { bottom: Math.round(d.bottom), below: Math.round(below) };
+      });
+      expect(r.bottom, `${viewport.width}×${viewport.height}`).toBeLessThanOrEqual(r.below);
+      await ctx.close();
+    }
+  });
+
   test('Pantalla de móvil: mide su propio contenido y la zona protegida también', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 1200 });
     await openStudio(page);

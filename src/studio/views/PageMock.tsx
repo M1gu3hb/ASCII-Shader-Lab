@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { gradientSide, resolveScrim, scrimCss, withPreset, type Scrim, type ScrimMode, type ScrimSettings, type ScrimShape } from '../../shared/scrim';
 import { useRecipe, useStudio } from '../store';
 import { inkFor, useLegibility, useLegibilityMeter, type Estimate } from './legibility';
@@ -176,6 +176,8 @@ export function LegibilityReport({ guide, children }: { guide?: boolean; childre
   // a new verdict resolves out of glyphs (its real words are in place for screen readers all along)
   const say = useScramble<HTMLElement>(legibLine(est), { duration: 260 });
   const tips = est ? advice(est, { light: est.light, scrim: scrimMode, alt: est.alt, guide }) : [];
+  const box = useRef<HTMLDivElement>(null);
+  useFitAbove(box, open && !guide, est);
   const detail = (
     <>
       {est && <Regions est={est} />}
@@ -199,7 +201,33 @@ export function LegibilityReport({ guide, children }: { guide?: boolean; childre
       </p>
       {/* what screen readers hear: the line, when it changes (once: the guide's copy speaks while it is open) */}
       {(guide || !guiding) && <span className="sr-only" aria-live="polite">{est ? `Legibilidad estimada: ${summary(est)}` : ''}</span>}
-      {guide ? <div className="legib-detail">{detail}</div> : open && <div className="legib-detail" id={id}>{detail}</div>}
+      {guide ? <div className="legib-detail">{detail}</div> : open && <div className="legib-detail" id={id} ref={box}>{detail}</div>}
     </div>
   );
+}
+
+/**
+ * The details open over the preview: on a short screen they would run under the seed line and the dice
+ * (or the settings sheet), so they end above what lies below them and scroll inside.
+ */
+function useFitAbove(ref: RefObject<HTMLElement | null>, on: boolean, content: unknown) {
+  useLayoutEffect(() => {
+    if (!on) return;
+    const fit = () => {
+      const el = ref.current;
+      if (!el) return;
+      el.style.maxHeight = '';
+      const r = el.getBoundingClientRect();
+      let limit = innerHeight;
+      for (const b of document.querySelectorAll<HTMLElement>('.app .seedline, .app .deck, .app .panel')) {
+        const q = b.getBoundingClientRect();
+        if (q.width && q.height && q.top > r.top && q.left < r.right && q.right > r.left) limit = Math.min(limit, q.top);
+      }
+      if (r.bottom > limit - 8) el.style.maxHeight = Math.max(120, limit - 8 - r.top) + 'px';
+    };
+    fit();
+    addEventListener('resize', fit);
+    return () => removeEventListener('resize', fit);
+    // (again when what it says changes: more regions or advice make it taller)
+  }, [ref, on, content]);
 }
