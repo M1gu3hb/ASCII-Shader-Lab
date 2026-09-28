@@ -108,6 +108,16 @@ no hubo forma de probarlo aquí; no es una promesa en ningún sentido.
   y ffmpeg avisaba «sps_id 1 out of range» al decodificarlo. Los navegadores de aquí lo reproducían porque leen los
   parámetros que van dentro del video; un editor o un reproductor que se fíe sólo de la cabecera puede rechazarlo. Ahora
   el estudio corrige esa descripción antes de escribir el archivo (sin tocar el video) y el MP4 se decodifica sin errores.
+- **WebKit: la hoja de exportación se veía vacía.** El cuerpo de todas las hojas (exportar, colección, explorar…) se
+  dimensionaba desde cero y, en WebKit, quedaba en una sola línea: las opciones estaban, pero no se veían. Ahora crece
+  desde su contenido y, si no cabe, se desplaza.
+- **WebKit sin codificadores de video.** El WebKit de Playwright para Linux no trae `MediaRecorder` y, si se le pregunta
+  qué códecs de video codifica, cierra la página (también en una página vacía, sin el estudio): abrir la pestaña «Video y
+  GIF» cerraba el estudio. En un WebKit sin `MediaRecorder` el estudio ya no pregunta: explica que ahí no hay video
+  renderizado y ofrece el GIF. Safari tiene `MediaRecorder`, así que sigue preguntando.
+- **Ventana privada.** En un perfil en memoria de WebKit (como una ventana privada de Safari) IndexedDB no guarda
+  archivos. Al elegir una foto el estudio ya lo decía; al abrir un proyecto decía «no queda espacio», que no era la causa:
+  ahora dice que el navegador no dejó guardar el archivo.
 - **Cámara.** Todos los fallos decían «Revisa el permiso del navegador». Ahora el estudio distingue permiso denegado,
   pregunta cerrada sin responder, bloqueo del sistema, ninguna cámara, cámara ocupada por otra aplicación, página no segura
   y navegador que no deja pedirla, y dice qué hacer en cada caso. Una cámara que llega a abrirse pero no se reproduce se
@@ -124,6 +134,8 @@ Pruebas de «antes y después» de la tercera pasada (versión de partida `23f27
 | Bloque pegado que la página quita | sigue pidiendo fotogramas, contexto WebGL vivo | 0 `requestAnimationFrame`, contexto liberado |
 | PNG de una pieza con foto: primera visita frente a la misma pieza tras recargar | RMSE 0,154 (otros caracteres) | RMSE 0 |
 | Grabación en directo WebM (Chromium) en el WebKit de esta máquina | error 4 (declara canal alfa, sin duración) | se reproduce, con su duración |
+| Hoja de exportación en WebKit 26 | cuerpo de una línea: las opciones no se ven | la hoja entera, con sus opciones |
+| Pestaña «Video y GIF» en el WebKit 26 de Linux | la página se cierra | explica que no hay codificadores de video y ofrece el GIF |
 | MP4 renderizado en Firefox 142, `ffmpeg -v error` | «sps_id 1 out of range» (la cabecera describe un SPS 14 y un PPS que apunta a un SPS 1; el video usa el SPS 0) | sin errores |
 | Cámara con el permiso denegado / sin cámara | «No se pudo abrir la cámara. Revisa el permiso del navegador.» en los dos casos | un mensaje para cada caso, con qué hacer |
 
@@ -181,7 +193,9 @@ Pruebas de «antes y después» con el código original (commit `0505932`) frent
 ## Lo que no se pudo verificar aquí
 
 - **Safari y teléfonos reales.** El WebKit de aquí es la compilación de Playwright para Linux (GTK, con GStreamer para el
-  video): comparte el motor de páginas con Safari, pero no su reproductor, sus códecs, su WebGL ni sus permisos. Los
+  video): comparte el motor de páginas con Safari, pero no su reproductor, sus códecs, su WebGL ni sus permisos, y no
+  trae codificadores de video ni cámara simulada, así que el video renderizado, la grabación en directo y la cámara no se
+  probaron en ningún WebKit. Los
   teléfonos sólo se emularon en Chromium (tamaño, tacto y densidad de un Pixel 7). Tampoco hay GPU real: todo el WebGL de
   esta sesión es SwiftShader.
 - **Aplicaciones**: Figma, Illustrator, Affinity, Sketch, Photoshop, After Effects y editores de video no están aquí. El SVG

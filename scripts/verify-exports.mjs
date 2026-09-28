@@ -608,10 +608,12 @@ async function studioPiece(key, o = {}) {
       });
       await check('imagen', `${key}: PNG = lienzo en vivo en el mismo instante (RMSE)`, async () => {
         let ref = files.live0, how = '';
-        if (BROWSER === 'webkit' && spread(ref) < 0.005) {
+        // with the fake clock, WebKit's screenshot does not reliably hold the WebGL stage's last frame (black,
+        // or a frame before the image arrived): there the same piece is captured in real time, at t = 0
+        if (BROWSER === 'webkit') {
           ref = join(dir, 'vivo-t0-tiempo-real.png');
           await realTimeStage(key, ref, o.image);
-          how = ' (lienzo capturado en tiempo real: con el reloj simulado, WebKit entrega la captura de un lienzo WebGL en pausa en negro)';
+          how = ` (lienzo capturado en tiempo real; con el reloj simulado la captura de WebKit ${spread(files.live0) < 0.005 ? 'salía negra' : 'no era la del último fotograma'})`;
         }
         const e = rmse(ref, files.png);
         assert(e < 0.03, 'RMSE ' + fmt(e) + how);
