@@ -9,7 +9,8 @@ Tres preguntas distintas, que aquí no se mezclan:
 - **Abrí el resultado final y lo comprobé**: el archivo o la página que sale del estudio se abrió en ese motor o con esa
   herramienta y se comparó con la vista previa (tamaño, encuadre, duración, número de fotogramas, texto, colores, imagen al
   mismo instante). Aquí «abrir» lo hizo el verificador con herramientas reales (ffprobe/ffmpeg, ImageMagick, rsvg-convert,
-  Inkscape, una pty con pyte, los propios navegadores) y yo miré las capturas donde se indica.
+  Inkscape, una pty con pyte, los propios navegadores); además se miraron a ojo capturas del código pegado (con WebGL 2 y
+  con el motor básico) y de la pestaña Código.
 
 Ninguna de las tres es «funciona en tu dispositivo». Los motores de esta máquina no son los de un teléfono ni los de un
 Safari de verdad (ver [Lo que falta](#lo-que-falta-y-por-qué)).
