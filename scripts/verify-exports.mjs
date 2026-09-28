@@ -1705,7 +1705,13 @@ async function projectFlows() {
           await B.p.waitForTimeout(1000);
           await B.p.reload();
           await B.p.locator('.stage canvas').first().waitFor();
-          assert(await panelHas(B.p, name), 'tras recargar no aparece ' + name);
+          if (!(await panelHas(B.p, name))) {
+            const shot = join(dir, id, 'b', 'tras-recargar.png');
+            await B.p.screenshot({ path: shot }).catch(() => undefined);
+            const seed = (await B.p.locator('.seedline').innerText().catch(() => '')).replace(/\s+/g, ' ');
+            const prompt = (await B.p.locator('.prompt .card').innerText().catch(() => '')).replace(/\s+/g, ' ');
+            throw new Error(`tras recargar no aparece ${name} (pieza «${seed.slice(0, 60)}»${prompt ? `; aviso «${prompt.slice(0, 120)}»` : ''}; captura ${shot})`);
+          }
           assert(!(await B.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'tras recargar pide el archivo');
           if (recipe.source === 'video') await holdVideo(B.p, 1.0);
           await B.p.waitForTimeout(1500);
