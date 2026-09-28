@@ -377,11 +377,13 @@ export class AsciiEngine implements Renderer {
   /**
    * Pixels of a region of the last frame (top-left origin), read without making the page wait for the
    * GPU: into a pixel buffer, then copied out once a fence says the GPU is done. Needs
-   * preserveDrawingBuffer (offscreen engines). Null if the context went away.
+   * preserveDrawingBuffer (offscreen engines). Null if the context went away (also before its event arrives:
+   * a lost context reads as zeros, and a blank picture must never pass for the piece, e.g. as a thumbnail).
    */
   async snapshot(sx: number, sy: number, sw: number, sh: number): Promise<ImageData | null> {
     const gl = this.gl;
-    if (this.lost) return null;
+    const gone = () => this.lost || gl.isContextLost();
+    if (gone()) return null;
     sx = Math.max(0, Math.min(this.W - 1, Math.round(sx))); sy = Math.max(0, Math.min(this.H - 1, Math.round(sy)));
     sw = Math.max(1, Math.min(this.W - sx, Math.round(sw))); sh = Math.max(1, Math.min(this.H - sy, Math.round(sh)));
     const size = sw * sh * 4;
@@ -392,15 +394,17 @@ export class AsciiEngine implements Renderer {
     gl.readPixels(sx, this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     const sync = this.fence();
+    // no fence: the context went away between two calls (some browsers return null then)
+    if (!sync || gone()) { if (sync) gl.deleteSync(sync); gl.deleteBuffer(pbo); return null; }
     const t0 = performance.now();
-    while (!this.lost && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
-    if (this.lost) return null;
+    while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
+    if (gone()) return null;
     const raw = new Uint8Array(size);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
     gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     gl.deleteBuffer(pbo);
-    if (sync) gl.deleteSync(sync);
+    gl.deleteSync(sync);
     // GL rows run bottom to top
     const out = new ImageData(sw, sh), row = sw * 4;
     for (let y = 0; y < sh; y++) out.data.set(raw.subarray((sh - 1 - y) * row, (sh - y) * row), y * row);
