@@ -146,10 +146,12 @@ async function matte(r: Extract<Req, { t: 'matte' }>): Promise<MatteResult> {
     const spec = modelSpec(r.id);
     const { sessions, load } = await ensure(r.id, r.rid);
     const { w, h } = frameSize(frame);
-    const { tw, th } = inputSize(spec.input, w, h);
+    // Models with a free input size (portrait) can run smaller for video previews.
+    const input = r.size && spec.input.resize === 'shortest' ? { ...spec.input, size: r.size } : spec.input;
+    const { tw, th } = inputSize(input, w, h);
     progress(r.rid, null, 'Recortando…');
     let t = now();
-    const x = toTensor(frame, spec.input, tw, th);
+    const x = toTensor(frame, input, tw, th);
     const pre = now() - t;
     t = now();
     const out = await sessions.model.run({ [spec.input.inputName]: x });

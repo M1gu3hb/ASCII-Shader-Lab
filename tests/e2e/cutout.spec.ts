@@ -271,6 +271,32 @@ test('«Sujeto» (WASM, 192 MB, ≈3 GB of memory): the general model on the por
   const rows = await qa<Array<Record<string, number | string>>>('rows');
   console.log(`retrato · subject: IoU ${iou.toFixed(3)} · ${JSON.stringify(rows[rows.length - 1])}`);
   expect(iou).toBeGreaterThan(0.85);
+  // The object on the busy background: the general model takes the whole guitar (neck and soundhole included).
+  await qa('fixture', 'guitarra');
+  await model('subject').locator('[data-action="run"]').click();
+  await waitMatte(rows.length);
+  const iouGuitar = await qa<number>('iou', GUITAR);
+  const rows2 = await qa<Array<Record<string, number | string>>>('rows');
+  console.log(`guitarra · subject: IoU ${iouGuitar.toFixed(3)} · ${JSON.stringify(rows2[rows2.length - 1])}`);
+  expect(iouGuitar).toBeGreaterThan(0.85);
+});
+
+test('video frames: a stream of frames goes through the worker (transferred bitmaps in, bytes out)', async () => {
+  test.skip(!hasModel('portrait'), NEED('portrait'));
+  test.setTimeout(300_000);
+  await openQA();
+  await qa('fixture', 'retrato');
+  await download('portrait');
+  // Preview size: the shortest side at 256 (the model sees 448 × 256), the matte stays at the model's size.
+  const preview = await qa<{ ms: number[]; low: number[]; out: number[] }>('throughput', 'portrait', 5, 640, 360, false, 256);
+  expect(preview.ms).toHaveLength(5);
+  expect(preview.low).toEqual([448, 256]);
+  expect(preview.out).toEqual(preview.low);
+  // Default size (shortest side 512 → 896 × 512), upsampled to the frame's 640 × 360 with the guided filter.
+  const full = await qa<{ ms: number[]; low: number[]; out: number[] }>('throughput', 'portrait', 3, 640, 360, true);
+  expect(full.low).toEqual([896, 512]);
+  expect(full.out).toEqual([640, 360]);
+  console.log(`vídeo · portrait 640×360 · a 256: ${JSON.stringify(preview.ms)} ms · a 512 + bordes: ${JSON.stringify(full.ms)} ms`);
 });
 
 test('cancel stops a running cut-out and a download; the next run works', async () => {

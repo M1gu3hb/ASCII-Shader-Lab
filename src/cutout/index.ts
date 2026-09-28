@@ -117,9 +117,10 @@ export { MODELS } from './models';
 
 /**
  * Refinement that leaves a fresh matte as it came out of removeBackground/selectObject: no feather, no shift,
- * no extra guided pass (the result is already guided at DETAIL_BUILT_IN), half decontamination for the cut-out.
+ * no extra guided pass (the result is already guided at DETAIL_BUILT_IN), and most of the old background's colour
+ * removed from soft edges (hair over a dark background turns grey on a light one without it).
  */
-export const DEFAULT_REFINE: RefineOptions = { feather: 0, shift: 0, decontaminate: 0.5, detail: 0 };
+export const DEFAULT_REFINE: RefineOptions = { feather: 0, shift: 0, decontaminate: 0.8, detail: 0 };
 
 /** Guided-filter strength used when a matte is upsampled to the source's size. */
 export const DETAIL_BUILT_IN = 0.5;
@@ -298,12 +299,18 @@ export async function removeBackground(
 /**
  * One video frame (or any image) through a matting model, for the video editor: the frame is transferred to the
  * worker (and closed there). With `upsample: false` the result is the model's own low-resolution matte (fast,
- * for previews and temporal smoothing); with `upsample: true` it is at the frame's size.
+ * for previews and temporal smoothing); with `upsample: true` it is at the frame's size. `size` sets the shortest
+ * side the portrait model works at (512 by default; 256 is enough for a live preview); the subject models always
+ * work at their fixed square size.
+ *
+ * Throughput measured on this project's 4-vCPU test machine, WASM with 2 threads, 640 × 360 frames (see the
+ * lane report for the numbers; WebGPU was not measurable there). Frames are processed one at a time: send the
+ * next one when the previous resolves.
  */
-export async function matteFrame(frame: ImageBitmap | VideoFrame, opts: Job & { model?: 'subject' | 'subject-hq' | 'portrait'; upsample?: boolean; detail?: number } = {}): Promise<{ matte: Matte; low: Matte; timings: Timings }> {
+export async function matteFrame(frame: ImageBitmap | VideoFrame, opts: Job & { model?: 'subject' | 'subject-hq' | 'portrait'; upsample?: boolean; detail?: number; size?: number } = {}): Promise<{ matte: Matte; low: Matte; timings: Timings }> {
   const id = opts.model ?? 'portrait';
   await prepare(id);
-  const r = await client.call<MatteResult>({ t: 'matte', id, frame, upsample: !!opts.upsample, detail: opts.detail ?? DETAIL_BUILT_IN }, { transfer: [frame as Transferable], onProgress: opts.onProgress, signal: opts.signal });
+  const r = await client.call<MatteResult>({ t: 'matte', id, frame, upsample: !!opts.upsample, detail: opts.detail ?? DETAIL_BUILT_IN, size: opts.size }, { transfer: [frame as Transferable], onProgress: opts.onProgress, signal: opts.signal });
   client.setResident(id);
   const lowBytes = new Uint8ClampedArray(r.lw * r.lh);
   for (let i = 0; i < lowBytes.length; i++) lowBytes[i] = Math.round(r.low[i] * 255);

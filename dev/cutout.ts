@@ -521,6 +521,18 @@ Object.assign(window, {
       try { await cut.removeBackground(S.img!, { model }); return 'ok'; } catch (e) { return (e as { code?: string }).code ?? (e as Error).name; }
     },
     modelState: (id: CutoutModelId) => cut.modelState(id),
+    /** Video-like throughput: n frames of w × h (the current photo resized) through matteFrame, ms per frame. */
+    throughput: async (model: 'subject' | 'subject-hq' | 'portrait', n = 6, w = 640, h = 360, upsample = false, size?: number) => {
+      const ms: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const frame = await createImageBitmap(S.img!, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
+        const t = performance.now();
+        const r = await cut.matteFrame(frame, { model, upsample, size });
+        ms.push(Math.round(performance.now() - t));
+        if (i === n - 1) return { ms, low: [r.low.w, r.low.h], out: [r.matte.w, r.matte.h], backend: r.timings.backend, threads: r.timings.threads };
+      }
+      return { ms };
+    },
     storedBytes: () => cut.storedModelBytes(),
     brush: (points: Array<{ x: number; y: number }>, mode: 'keep' | 'remove', sizePx: number, hardness = 1) => {
       cut.applyBrush(S.edited!, points, mode, sizePx, hardness, { inPlace: true });

@@ -23,7 +23,7 @@ export interface Timings {
 export type Req =
   | { t: 'init'; rid: number; backend: WorkerBackend; threads: number }
   | { t: 'load'; rid: number; id: CutoutModelId }
-  | { t: 'matte'; rid: number; id: CutoutModelId; frame: ImageBitmap | VideoFrame; upsample: boolean; detail: number }
+  | { t: 'matte'; rid: number; id: CutoutModelId; frame: ImageBitmap | VideoFrame; upsample: boolean; detail: number; size?: number }
   | { t: 'encode'; rid: number; sid: number; frame: ImageBitmap }
   | { t: 'decode'; rid: number; sid: number; points: Array<{ x: number; y: number; positive: boolean }>; box?: { x: number; y: number; w: number; h: number }; detail: number }
   | { t: 'drop'; rid: number; sid: number }
