@@ -9,7 +9,13 @@
  *   - `mask`: a mask to use instead of the layer's own;
  *   - `cells`: per-cell changes (CellFx) for 'glyphs' layers: hide, move, swap or recolour characters;
  *   - `reveal`: per-cell visibility 0..1 for 'ascii' (and 'glyphs') layers: a cell pattern that uncovers
- *     or hides the shader characters, drawn on the engine's own cell grid.
+ *     or hides the shader characters, drawn on the engine's own cell grid;
+ *   - `tiles`: per-cell movement of the layer's rendered picture (any kind): each cell of the grid (the
+ *     engine's cells for 'ascii', the glyph grid for 'glyphs', squares of `tileCell` px for the others) is
+ *     drawn as a tile, moved, scaled, turned or faded — fragments of shader ASCII or of a photo;
+ *   - `within`: a mask the layer also has to be inside (after its own mask: an iris, a wipe);
+ *   - `finishes`: finishes added after the layer's own for this frame (a glow that pulses, a pixelate-in);
+ *   - `glyphs`: characters the clip may draw on a glyph layer (so their font is loaded before drawing).
  * Progress runs 0 → 1 over the clip (after repeats, ping-pong and easing); 1 is the template's end state.
  * Reverse plays the clip backwards in time (real reverse: the frame at τ is the forward frame at dur − τ),
  * so an entry becomes an exit (photo → ASCII becomes ASCII → photo) with the same cells in reverse order.
@@ -18,7 +24,7 @@
 import type { ParamDef } from '../fx/index';
 import type { CellFx } from '../glyphs/index';
 import { easeAt } from './ease';
-import type { AnimClip, Layer, LayerKind, Mask, Project } from './types';
+import type { AnimClip, Finish, Layer, LayerKind, Mask, Project } from './types';
 
 export type ParamValue = number | string | boolean;
 
@@ -28,6 +34,16 @@ export interface CellGrid {
   rows: number;
   /** The characters of a glyph grid (row-major, ' ' = empty); absent for shader ASCII. */
   chars?: readonly string[];
+  /**
+   * Brightness of each cell 0..1 (row-major): the glyph grid's own tone for 'glyphs'; for the other kinds
+   * the rendered picture averaged over each cell, measured only when a template reads it (a lazy getter).
+   */
+  readonly lum?: ArrayLike<number>;
+  /** Cell size and frame size in output px (absent in a bare grid: templates then assume 10×20 cells). */
+  cw?: number;
+  ch?: number;
+  w?: number;
+  h?: number;
 }
 
 /** Per-cell changes of a glyph layer for one frame: made once per frame for its grid, then asked per cell. */
@@ -35,12 +51,37 @@ export type CellFxFactory = (grid: CellGrid) => (i: number, col: number, row: nu
 /** Per-cell visibility 0..1 for one frame (1 = as drawn). */
 export type RevealFactory = (grid: CellGrid) => (col: number, row: number) => number;
 
+/** How one tile (cell) of a layer's picture is drawn: offset in output px, scale and rotation around its centre, alpha. */
+export interface TileFx {
+  dx?: number;
+  dy?: number;
+  /** 1 = as is. */
+  scale?: number;
+  /** Extra vertical scale (1 = as is): a tile squashed into a line. */
+  sy?: number;
+  /** Degrees. */
+  rot?: number;
+  /** 0..1 (1 = as drawn). */
+  alpha?: number;
+}
+/** Per-tile movement for one frame (null = the tile stays where it is). */
+export type TileFactory = (grid: CellGrid) => (col: number, row: number) => TileFx | null;
+
 export interface ClipEffect {
   set?: Record<string, ParamValue>;
   opacity?: number;
   mask?: Mask | null;
   cells?: CellFxFactory;
   reveal?: RevealFactory;
+  tiles?: TileFactory;
+  /** Tile size in output px for layers without a cell grid of their own (photo, text, shape); default 32. */
+  tileCell?: number;
+  /** The layer also shows only inside this mask (applied after its own). */
+  within?: Mask;
+  /** Finishes added after the layer's own, for this frame only. */
+  finishes?: Finish[];
+  /** Characters this clip may draw on a glyph layer (their font is loaded before drawing). */
+  glyphs?: string;
 }
 
 export interface ClipContext {
@@ -57,6 +98,11 @@ export interface ClipContext {
   raw: number;
   /** Seconds since the clip started (0..dur). */
   local: number;
+  /**
+   * Seconds along the clip in the direction it plays: `local` forwards, dur − local reversed. Clocks inside
+   * a clip (a blinking cursor, a flicker) read this one, so a reversed clip is the same frames backwards.
+   */
+  pos: number;
   /** Project time. */
   t: number;
   /** Deterministic seed for this clip on this layer. */
@@ -65,6 +111,17 @@ export interface ClipContext {
 }
 
 export type TemplateGroup = 'entrada' | 'salida' | 'transformación' | 'énfasis' | 'bucle';
+
+/**
+ * A template param: the finishes' ParamDef, plus two kinds only clips use:
+ *   - 'text': free text (the user's words, a glyph), at most `max` characters;
+ *   - 'list': an ordered list of options (the states of a «recorrido de estilos»), stored as a string of
+ *     option keys separated by commas, with `min`..`max` entries (repeats allowed).
+ */
+export type TemplateParamDef =
+  | ParamDef
+  | ({ key: string; label: string; type: 'text'; def: string; max: number; help?: string } & { when?: Record<string, Array<string | boolean>> })
+  | ({ key: string; label: string; type: 'list'; options: Array<[string, string]>; def: string; min: number; max: number; help?: string } & { when?: Record<string, Array<string | boolean>> });
 
 export interface TemplateDef {
   id: string;
@@ -76,7 +133,7 @@ export interface TemplateDef {
   kinds: LayerKind[];
   /** Suggested duration in seconds for a new clip. */
   dur: number;
-  params: ParamDef[];
+  params: TemplateParamDef[];
   apply(ctx: ClipContext): ClipEffect | null;
 }
 
@@ -105,12 +162,25 @@ export function paramsOf(def: TemplateDef, clip: Pick<AnimClip, 'params'>): Reco
     if (p.type === 'range') out[p.key] = typeof v === 'number' && Number.isFinite(v) ? Math.min(p.max, Math.max(p.min, v)) : p.def;
     else if (p.type === 'toggle') out[p.key] = typeof v === 'boolean' ? v : p.def;
     else if (p.type === 'select') out[p.key] = typeof v === 'string' && p.options.some(([k]) => k === v) ? v : p.def;
+    else if (p.type === 'text') out[p.key] = typeof v === 'string' ? Array.from(v).slice(0, p.max).join('') : p.def;
+    else if (p.type === 'list') out[p.key] = listParam(v, p.options, p.min, p.max, p.def);
     else out[p.key] = typeof v === 'string' ? v : p.def;
   }
   // unknown params stay available (a newer catalog may read them)
   for (const [k, v] of Object.entries(clip.params)) if (!(k in out)) out[k] = v;
   return out;
 }
+
+/** A 'list' param's value: known option keys only, `min`..`max` of them (the default when too few are left). */
+export function listParam(v: unknown, options: Array<[string, string]>, min: number, max: number, def: string): string {
+  if (typeof v !== 'string') return def;
+  const known = new Set(options.map(([k]) => k));
+  const items = v.split(',').map(x => x.trim()).filter(x => known.has(x)).slice(0, Math.max(1, max));
+  return items.length >= Math.max(1, min) ? items.join(',') : def;
+}
+
+/** The entries of a 'list' param value. */
+export const listItems = (v: ParamValue | undefined): string[] => (typeof v === 'string' && v ? v.split(',').filter(Boolean) : []);
 
 /* ------------------------------------------------------------------ time */
 
@@ -120,6 +190,8 @@ export interface ClipTime {
   linear: number;
   raw: number;
   local: number;
+  /** See ClipContext.pos. */
+  pos: number;
   /** The playhead is inside the clip. */
   active: boolean;
   /** 1 when this cycle plays forwards, -1 backwards (reverse, or the way back of a ping-pong). */
@@ -143,7 +215,7 @@ export function clipTime(clip: Pick<AnimClip, 'start' | 'dur' | 'repeat' | 'ping
   let back = false;
   if (clip.pingpong && cycle % 2 === 1) { f = 1 - f; back = true; }
   const dir: 1 | -1 = (clip.reverse ? !back : back) ? -1 : 1;
-  return { p: easeAt(clip.ease, f), linear: f, raw, local: raw * dur, active, dir };
+  return { p: easeAt(clip.ease, f), linear: f, raw, local: raw * dur, pos: r * dur, active, dir };
 }
 
 /* ------------------------------------------------------------------ deterministic noise */
