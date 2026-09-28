@@ -9,6 +9,7 @@ import { getEngine } from './engineBridge';
 import { mediaElement } from './media';
 import { offscreenEngine, stageSize, type OffscreenSize } from './offscreen';
 import { toast } from './toast';
+import { repairAvcDescription } from '../exporters/avc';
 
 export type SizeSpec = { kind: 'view'; scale: number } | { kind: 'fixed'; w: number; h: number };
 
@@ -127,6 +128,34 @@ function videoFrames(r: Recipe) {
   };
 }
 
+/**
+ * While a render runs, the video encoder's AVC description goes through repairAvcDescription before the
+ * muxer sees it (the encoder is created inside mediabunny). Returns the function that puts things back.
+ */
+function withRepairedAvc(): () => void {
+  const g = globalThis as unknown as { VideoEncoder?: typeof VideoEncoder };
+  const Orig = g.VideoEncoder;
+  if (!Orig) return () => {};
+  class Repairing extends Orig {
+    constructor(init: VideoEncoderInit) {
+      super({
+        ...init,
+        output: (chunk, meta) => {
+          const d = meta?.decoderConfig?.description;
+          if (d && meta?.decoderConfig) {
+            const bytes = ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength) : new Uint8Array(d);
+            const fixed = /^avc1/.test(meta.decoderConfig.codec) ? repairAvcDescription(bytes) : null;
+            if (fixed) meta = { ...meta, decoderConfig: { ...meta.decoderConfig, description: fixed } };
+          }
+          init.output(chunk, meta);
+        },
+      });
+    }
+  }
+  g.VideoEncoder = Repairing;
+  return () => { if (g.VideoEncoder === Repairing) g.VideoEncoder = Orig; };
+}
+
 /** Deterministic, frame-by-frame render: no dropped frames even on slow machines. */
 export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
   const mb = await import('mediabunny');
@@ -140,6 +169,7 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
   const output = new mb.Output({ format: o.format === 'mp4' ? new mb.Mp4OutputFormat({ fastStart: 'in-memory' }) : new mb.WebMOutputFormat(), target });
   const src = new mb.CanvasSource(eng.canvas, { codec, quality: mb.QUALITY_HIGH, keyFrameInterval: 2 });
   output.addVideoTrack(src, { frameRate: o.fps });
+  const restore = codec === 'avc' ? withRepairedAvc() : () => {};
   try {
     await output.start();
     const n = Math.max(1, Math.round(o.seconds * o.fps));
@@ -155,6 +185,7 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
     await output.finalize();
     return new Blob([target.buffer!], { type: o.format === 'mp4' ? 'video/mp4' : 'video/webm' });
   } finally {
+    restore();
     eng.destroy();
     clip.done();
   }
