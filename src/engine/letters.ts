@@ -4,6 +4,7 @@
  * again with each letter moved (text.ts), the message's letters are placed again in the grid before it is
  * uploaded (WebGL) or read (basic engine). The same time gives the same frame, so exports are exact.
  */
+import { loopTime } from './loop';
 import type { LetterAnim, Recipe } from './recipe';
 import type { MsgLayout } from './text';
 
@@ -51,11 +52,27 @@ export interface LetterSlot {
 /** Whether the big text is drawn letter by letter at each moment. */
 export const textAnimated = (t: Recipe['text']) => !!t.anim;
 
+/** Seconds a big-text animation takes to come back to where it was (`words`: the text's words). */
+export function textAnimPeriod(a: LetterAnim, words: number): number {
+  const P = a.kind === 'ola' ? (2 * Math.PI) / 3 : a.kind === 'rebote' ? Math.PI / 2.2 : a.kind === 'latido' ? (2 * Math.PI) / 2.4
+    : a.kind === 'brillo' ? (2 * Math.PI) / 2.6 : a.kind === 'revolver' ? 4.4 : a.kind === 'palabras' ? words * 0.5 + 3
+    : a.kind === 'explosion' ? BURST : 0;
+  return P / a.speed;
+}
+
+/** Seconds a message animation takes to come back to where it was (`count`: its typing positions). */
+export function msgAnimPeriod(a: LetterAnim, count: number): number {
+  const P = a.kind === 'ola' ? (2 * Math.PI) / 3 : a.kind === 'rebote' ? Math.PI / 2.2 : a.kind === 'revolver' ? (count + 14) / 9
+    : a.kind === 'explosion' ? BURST : a.kind === 'color' ? 1 / 0.35 : 0;
+  return P / a.speed;
+}
+
 /**
  * Where a letter of the big text is at time T (seconds, held) and how it looks. `fs`: font size in px;
- * `reach`: how far letters may fly (px).
+ * `reach`: how far letters may fly (px). `loop`: the piece's «Bucle perfecto» (a whole number of cycles in it).
  */
-export function letterPose(a: LetterAnim, T: number, s: LetterSlot, fs: number, reach: number): LetterPose {
+export function letterPose(a: LetterAnim, T: number, s: LetterSlot, fs: number, reach: number, loop = 0): LetterPose {
+  if (loop > 0) T = loopTime(T, loop, textAnimPeriod(a, s.words));
   const A = a.amount, u = T * a.speed, k = s.k;
   const pose: LetterPose = { dx: 0, dy: 0, rot: 0, scale: 1, grey: 1, glyph: null };
   switch (a.kind) {
@@ -116,6 +133,11 @@ export function letterPose(a: LetterAnim, T: number, s: LetterSlot, fs: number, 
 
 /** The message's colour animation, when it has one (drawn by the select pass, not moved). */
 export const msgColorAnim = (m: Recipe['msg']) => (m.on && m.anim?.kind === 'color' ? m.anim : null);
+/** The time «Color por letra» reads at time T (held): with a loop, a whole number of colour cycles in it. */
+export const msgColorTime = (m: Recipe['msg'], T: number, loop: number) => {
+  const a = msgColorAnim(m);
+  return a && loop > 0 ? loopTime(T, loop, msgAnimPeriod(a, 0)) : T;
+};
 
 /** Kept for symmetry with the engines' glyph tables: scrambled glyphs come from the ramp's n glyphs. */
 export const scramblePool = (n: number) => Math.max(2, n);
@@ -141,7 +163,8 @@ function boxOf(lay: MsgLayout, rows: number): Box {
  * Where a message letter at (col, row), typed at position `ord`, is at time T, and which glyph it shows
  * (0: its own). Rows are integers: letters move from cell to cell.
  */
-function moveLetter(a: LetterAnim, T: number, col: number, row: number, ord: number, box: Box, n: number, N: number): [number, number, number] {
+function moveLetter(a: LetterAnim, T: number, col: number, row: number, ord: number, box: Box, n: number, N: number, loop: number): [number, number, number] {
+  if (loop > 0) T = loopTime(T, loop, msgAnimPeriod(a, n));
   const A = a.amount, u = T * a.speed;
   switch (a.kind) {
     // (by column: letters of one column move together, so lines never run into each other; with several
@@ -168,8 +191,9 @@ function moveLetter(a: LetterAnim, T: number, col: number, row: number, ord: num
 /**
  * The message's grid (layoutMessage's data) with its letters where the animation puts them at time T.
  * `N`: glyphs in the ramp (scrambled letters take one of them). Letters that leave the grid are not drawn.
+ * `loop`: the piece's «Bucle perfecto».
  */
-export function animateMessage(lay: MsgLayout, a: LetterAnim, T: number, rows: number, N: number): Uint8Array {
+export function animateMessage(lay: MsgLayout, a: LetterAnim, T: number, rows: number, N: number, loop = 0): Uint8Array {
   const w = lay.width, src = lay.data, out = new Uint8Array(src.length);
   const box = boxOf(lay, rows);
   for (let r = 0; r < rows; r++) for (let c = 0; c < w; c++) {
@@ -177,7 +201,7 @@ export function animateMessage(lay: MsgLayout, a: LetterAnim, T: number, rows: n
     const gi = src[i] + src[i + 1] * 256;
     if (!gi) continue;
     const ord = src[i + 2] + src[i + 3] * 256;
-    const [c2, r2, g2] = moveLetter(a, T, c, r, ord, box, lay.count, N);
+    const [c2, r2, g2] = moveLetter(a, T, c, r, ord, box, lay.count, N, loop);
     if (c2 < 0 || c2 >= w || r2 < 0 || r2 >= rows) continue;
     const j = (r2 * w + c2) * 4;
     const g = g2 ? g2 + 1 : gi;
@@ -187,8 +211,8 @@ export function animateMessage(lay: MsgLayout, a: LetterAnim, T: number, rows: n
 }
 
 /** Where the typing cursor goes with the letters (it follows letter `ord`); [-1, -1] when off the grid. */
-export function movedCell(lay: MsgLayout, a: LetterAnim, T: number, rows: number, cell: [number, number], ord: number): [number, number] {
+export function movedCell(lay: MsgLayout, a: LetterAnim, T: number, rows: number, cell: [number, number], ord: number, loop = 0): [number, number] {
   if (a.kind === 'color') return cell;
-  const [c, r] = moveLetter(a, T, cell[0], cell[1], ord, boxOf(lay, rows), lay.count, 2);
+  const [c, r] = moveLetter(a, T, cell[0], cell[1], ord, boxOf(lay, rows), lay.count, 2, loop);
   return c < 0 || c >= lay.width || r < 0 || r >= rows ? [-1, -1] : [c, r];
 }

@@ -6,9 +6,10 @@ export { textAnimated };
 /**
  * Rasterises the big text source (white on black) at the canvas aspect ratio. With `anim` (the text has
  * letters that move, see letters.ts), each letter is drawn where it is at `anim.time`, at a resolution
- * the cells need (three pixels per column): it is drawn again at every frame.
+ * the cells need (three pixels per column): it is drawn again at every frame. `anim.loop`: the piece's
+ * «Bucle perfecto» (the letters make a whole number of their cycles in it).
  */
-export function drawTextSource(cv: HTMLCanvasElement, W: number, H: number, t: Recipe['text'], stack: string, anim?: { time: number; cols: number }) {
+export function drawTextSource(cv: HTMLCanvasElement, W: number, H: number, t: Recipe['text'], stack: string, anim?: { time: number; cols: number; loop?: number }) {
   const w = Math.round(Math.max(256, Math.min(1600, W * 0.75, anim && t.anim ? anim.cols * 3 : Infinity)));
   const h = Math.max(64, Math.round((w * H) / Math.max(W, 1)));
   cv.width = w; cv.height = h;
@@ -32,7 +33,7 @@ export function drawTextSource(cv: HTMLCanvasElement, W: number, H: number, t: R
   c.textBaseline = 'middle';
   const margin = w * 0.05;
   const y0 = h / 2 - ((lines.length - 1) * fs * lh) / 2;
-  if (anim && t.anim) { drawLetters(c, lines, t, fs, lh, y0, margin, w, h, measure, anim.time); return; }
+  if (anim && t.anim) { drawLetters(c, lines, t, fs, lh, y0, margin, w, h, measure, anim.time, anim.loop ?? 0); return; }
   lines.forEach((line, i) => {
     const lw = measure(line, fs);
     let x = t.align === 'left' ? margin : t.align === 'right' ? w - margin - lw : (w - lw) / 2;
@@ -60,7 +61,7 @@ const placesCache = new Map<string, Placed[]>();
 
 function drawLetters(
   c: CanvasRenderingContext2D, lines: string[], t: Recipe['text'], fs: number, lh: number, y0: number, margin: number,
-  w: number, h: number, measure: (line: string, px: number) => number, time: number,
+  w: number, h: number, measure: (line: string, px: number) => number, time: number, loop: number,
 ) {
   const a = t.anim!;
   const key = [t.content, c.font, t.align, t.tracking, t.leading, w, h].join('\u0001');
@@ -98,7 +99,7 @@ function drawLetters(
   placed.forEach((p, k) => {
     const cx = p.x + p.cw / 2;
     const slot: LetterSlot = { k, n: placed!.length, word: p.word, words, cx: cx - mx, cy: p.y - my };
-    const pose = letterPose(a, time, slot, fs, reach);
+    const pose = letterPose(a, time, slot, fs, reach, loop);
     if (pose.grey <= 0.004) return;
     const g = Math.round(Math.min(1, pose.grey) * 255);
     c.fillStyle = `rgb(${g},${g},${g})`;
@@ -204,6 +205,19 @@ function trimEnd(a: string[]): string[] {
 }
 
 export interface MsgState { prog: number; cursor: number; cursorOn: boolean; shift: number }
+
+/**
+ * Seconds the message's timeline takes to come back to its start: the typing cycle (type, hold, erase,
+ * pause), the marquee's pass over its width, or the static cursor's blink. With a «Bucle perfecto» the
+ * engines fit a whole number of them in the loop (loop.ts).
+ */
+export function messageCycle(msg: Recipe['msg'], count: number, width: number): number {
+  const n = Math.max(1, count);
+  const sp = Math.max(0.5, msg.speed);
+  if (msg.mode === 'static') return 1 / 1.7;
+  if (msg.mode === 'marquee') return Math.max(1, width) / sp;
+  return n / sp + msg.hold + n / (sp * (msg.mode === 'decode' ? 4 : 2.6)) + 0.7;
+}
 
 /**
  * Typing / decoding timeline for message overlays. Pure function of time. «Palabra a palabra» types like

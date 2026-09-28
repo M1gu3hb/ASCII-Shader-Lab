@@ -45,7 +45,7 @@ export interface FieldFrame {
    * Transformations of the picture or the text (../xform.ts), their grids and Estela's state, and how much
    * the trail keeps this frame. Null: none.
    */
-  xform?: { stages: XformStage[]; state: XformState; decay: number } | null;
+  xform?: { stages: XformStage[]; state: XformState; decay: number; times?: [number, number] } | null;
 }
 
 export const INTERACT_MODES = ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'] as const;
@@ -186,6 +186,17 @@ function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array) {
   }
 }
 
+/** The domain warp of the sample positions at time t (B.ppx/ppy → B.qx/qy), as the first step of runField. */
+function warpInto(f: FieldFrame, B: FieldBuffers, t: number) {
+  const n = f.cols * f.rows;
+  for (let i = 0; i < n; i++) {
+    const ppx = B.ppx[i], ppy = B.ppy[i];
+    const wx = ppx * f.warpScale * 1.2, wy = ppy * f.warpScale * 1.2;
+    B.qx[i] = ppx + f.warp * (fbm(wx + t * 0.15, wy + t * 0.15) - 0.5) * 1.6;
+    B.qy[i] = ppy + f.warp * (fbm(wx + 5.2 - t * 0.15, wy + 1.3 - t * 0.15) - 0.5) * 1.6;
+  }
+}
+
 /** Runs the field pass; fills B.a (luminance) and B.r/g/b (media colour, white otherwise). */
 export function runField(f: FieldFrame, B: FieldBuffers) {
   const { W, H, cw, ch, cols, rows, time: T } = f;
@@ -232,7 +243,12 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   // 2. pattern stack (twice when looping, to crossfade the end of the loop into its start)
   const loop = f.loop > 0;
   let tl = T, w = 0;
-  if (loop) { tl = T - f.loop * Math.floor(T / f.loop); w = tl / f.loop; stack(f, B, tl, B.v0); stack(f, B, tl - f.loop, B.v1); }
+  if (loop) {
+    tl = T - f.loop * Math.floor(T / f.loop); w = tl / f.loop; stack(f, B, tl, B.v0);
+    // the warp drifts too: the second stack reads it as it was one loop earlier (as the field shader)
+    if (f.warp > 0) warpInto(f, B, tl - f.loop);
+    stack(f, B, tl - f.loop, B.v1);
+  }
   else stack(f, B, T, B.v0);
   const loopK = 1 + 0.41 * Math.sin(PI * w);
 
@@ -329,7 +345,7 @@ function runXforms(f: FieldFrame, X: NonNullable<FieldFrame['xform']>, media: Me
     }
   }
   if (X.stages.some(s => s.kind === 'desplazar')) for (let i = 0; i < cols * rows; i++) st.pat[i] = q(pvOf(i));
-  const env: StageEnv = { cols, rows, aspect: ch / cw, time: f.time, pat: st.pat, trail: st.trail[st.i] };
+  const env: StageEnv = { cols, rows, aspect: ch / cw, time: X.times?.[0] ?? f.time, timeB: X.times?.[1] ?? f.time, pat: st.pat, trail: st.trail[st.i] };
   let other = st.grid[1];
   for (const s of X.stages) {
     if (s.kind === 'estela') {
