@@ -303,6 +303,25 @@ window.__mounted = true;
       await page.waitForTimeout(400);
       expect(errors, name).toEqual([]);
     }
+
+    // on plain elements of a page set in a proportional face, the digits, the bar and the blocks still line up
+    files['/plain.html'] = doc(`<div id="carga"></div><div id="rotulo"></div><script type="module">
+import { loader } from '/loader.js';
+import { blockBanner } from '/blocktext.js';
+loader(document.getElementById('carga'), { label: 'Cargando' }).set(0.5);
+blockBanner(document.getElementById('rotulo'), 'AÑO');
+</script>`);
+    await page.goto(SITE + '/plain.html');
+    await expect(page.locator('#carga pre')).toContainText('█');
+    await expect(page.locator('#rotulo')).toContainText('█');
+    const even = (sel: string) => page.locator(sel).evaluate(el => {
+      const w = (s: string) => { const sp = document.createElement('span'); sp.textContent = s; el.appendChild(sp); const r = sp.getBoundingClientRect().width; sp.remove(); return r; };
+      const full = w('█'.repeat(12));
+      return full > 0 && Math.abs(full - w(' '.repeat(12))) < 1 && Math.abs(full - w('·'.repeat(12))) < 1;
+    });
+    expect(await even('#carga pre'), 'la pantalla de carga').toBe(true);
+    expect(await even('#rotulo'), 'las letras de bloque').toBe(true);
+    expect(errors).toEqual([]);
     await ctx.close();
   });
 });

@@ -20,6 +20,8 @@ export const loaderDefaults = {
   track: '·',               // lo que falta de la barra
   big: true,                // el porcentaje en números grandes
   color: '',                // '' = el color del texto; o un color para la barra y los números
+  // monoespaciada, para que los números y la barra no se descuadren ('' = la tipografía de tu página)
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
   hide: true,               // al terminar, ocultar el elemento (hidden)
   onDone: null,             // función a la que llamar cuando termina
 };
@@ -64,7 +66,7 @@ export function loader(el, options = {}) {
   el.hidden = false;
   const pre = document.createElement('pre');
   pre.setAttribute('aria-hidden', 'true');
-  pre.style.cssText = `margin:0;font:inherit;line-height:1.15;white-space:pre;${o.color ? 'color:' + o.color : ''}`;
+  pre.style.cssText = `margin:0;font:inherit;${o.fontFamily ? 'font-family:' + o.fontFamily + ';' : ''}line-height:1.15;white-space:pre;${o.color ? 'color:' + o.color : ''}`;
   el.replaceChildren(pre);
   let value = null, shown = 0, status = o.label, raf = 0, t = 0, last = 0, ending = -1, finished = false;
 

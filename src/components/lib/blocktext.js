@@ -12,6 +12,7 @@ export const blockTextDefaults = {
   font: 'grande',           // 'grande' (5×5) | 'compacta' (3×5)
   style: 'bloques',         // 'bloques' █ | 'sombra' █▒ | 'medios' ▀▄ (la mitad de alto) | 'almohadilla' # | 'puntos' •
   gap: 1,                   // columnas entre letras
+  // sólo blockBanner: fontFamily (CSS; por omisión una monoespaciada, '' = la de tu página) y lineHeight (1.1)
 };
 
 // '#' lit, '.' empty; five rows each. Letters without a glyph fall back to their unaccented base or '?'.
@@ -69,6 +70,8 @@ function glyphOf(font, ch) {
   return { rows, top, mark: !!mark && mark !== '' };
 }
 
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+
 /** The text as block letters (one string of lines, no trailing spaces). */
 export function blockText(text, options = {}) {
   const o = { ...blockTextDefaults, ...options };
@@ -118,15 +121,20 @@ function render(grid, style) {
 
 /** Puts a block-letter sign in an element: shown as art, read as its words. */
 export function blockBanner(el, text, options = {}) {
-  const prev = { label: el.getAttribute('aria-label'), role: el.getAttribute('role'), text: el.textContent };
+  const prev = { label: el.getAttribute('aria-label'), role: el.getAttribute('role'), text: el.textContent, css: el.style.cssText };
   el.setAttribute('role', 'img');
   el.setAttribute('aria-label', String(text));
   el.style.whiteSpace = 'pre';
+  // the blocks only line up in a monospaced face, with rows that touch ('' keeps your page's)
+  const family = options.fontFamily ?? MONO;
+  if (family) el.style.fontFamily = family;
+  el.style.lineHeight = String(options.lineHeight ?? 1.1);
   el.textContent = blockText(text, options);
   return {
     update(t, o = options) { el.setAttribute('aria-label', String(t)); el.textContent = blockText(t, o); },
     destroy() {
       el.textContent = prev.text;
+      el.style.cssText = prev.css;
       if (prev.role === null) el.removeAttribute('role'); else el.setAttribute('role', prev.role);
       if (prev.label === null) el.removeAttribute('aria-label'); else el.setAttribute('aria-label', prev.label);
     },

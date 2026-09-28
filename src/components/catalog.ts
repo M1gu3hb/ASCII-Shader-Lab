@@ -483,7 +483,8 @@ COMPONENTS.push(
     mount(stage, v, big) {
       const box = el('div', `font:500 ${big ? 15 : 10}px/1.15 ${MONO};color:#ede6da;padding:12px`);
       stage.appendChild(box);
-      const opts = { label: v.label, width: v.width, bar: v.bar, big: v.big, color: v.color, hide: false };
+      // the demo keeps the studio's mono (the box sets it); a page gets the component's own monospaced default
+      const opts = { label: v.label, width: v.width, bar: v.bar, big: v.big, color: v.color, hide: false, fontFamily: '' };
       let ctl = loader(box, opts);
       // the demo loads something forever: 0 → 100 %, a breath, again
       let p = 0, id = 0, alive = true;
@@ -578,7 +579,7 @@ export default function Carga({ value = null, label, done = false }) {
     mount(stage, v, big) {
       const pre = el('pre', `margin:0;font:500 ${big ? 'clamp(7px,1.1vw,13px)' : '6px'}/1.1 ${MONO};color:#ede6da;max-width:100%;overflow:hidden;padding:10px`);
       stage.appendChild(pre);
-      return blockBanner(pre, String(v.text), { font: v.font, style: v.style });
+      return blockBanner(pre, String(v.text), { font: v.font, style: v.style, fontFamily: '' });
     },
     code: v => {
       const opts = { font: v.font, style: v.style };
