@@ -67,7 +67,7 @@ describe('optical flow on synthetic translations', () => {
     const dense = warp(mask, flow(b, a));
     expect(iou(dense, want)).toBeGreaterThan(0.9);
     // the background stays put
-    const bg = medianFlow(fwd, i => { const x = i % w, y = (i - x) / w; return x < 20 || x > 70; });
+    const bg = medianFlow(fwd, i => { const x = i % w; return x < 20 || x > 70; });
     expect(Math.abs(bg.dx)).toBeLessThan(0.5);
     expect(Math.abs(bg.dy)).toBeLessThan(0.5);
   });

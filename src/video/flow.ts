@@ -88,7 +88,8 @@ function blur121(l: Luma): Float32Array {
 }
 
 /** Sum over a (2r+1)² box around each pixel (edges clamped), O(n) with running sums. */
-export function boxSum(src: Float32Array, w: number, h: number, r: number, out = new Float32Array(w * h)): Float32Array {
+export function boxSum(src: Float32Array, w: number, h: number, r: number, into?: Float32Array): Float32Array {
+  const out: Float32Array = into ?? new Float32Array(w * h);
   const tmp = new Float32Array(w * h);
   for (let y = 0; y < h; y++) {
     const row = y * w;
