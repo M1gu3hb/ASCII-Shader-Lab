@@ -107,9 +107,10 @@ function subjectSample(ref: MediaRef): Project {
   p.layers.push(newLayer('glyphs', {
     name: 'Sujeto en caracteres', source: p.sources[0].id, mask,
     glyphs: {
-      charset: 'custom', chars: ' .:-=+*#%@', fill: 'ramp', font: 'jetbrains', weight: 700, cell: 8, aspect: 1.6,
-      bright: 0.35, contrast: 1.4, gamma: 1, sat: 1.2, invert: false, edge: 0.3, cutoff: 0.02,
-      color: 'source', ink: '#ede6da', paper: null, palette: ['#0c0b0a', '#ff5b1f', '#ede6da'],
+      // the figure is dark: inverted, it fills with dense characters in a warm ink (like the horse made of text)
+      charset: 'custom', chars: ' .:-=+*#%@', fill: 'ramp', font: 'jetbrains', weight: 700, cell: 9, aspect: 1.7,
+      bright: 0.1, contrast: 1.6, gamma: 1, sat: 1, invert: true, edge: 0.35, cutoff: 0,
+      color: 'mono', ink: '#ffd2a0', paper: null, palette: ['#0c0b0a', '#ff5b1f', '#ede6da'],
     },
     clips: [{ id: uid(), template: 'escritura', start: 0, dur: 3, params: {}, reverse: false, ease: { kind: 'linear' }, repeat: 1, pingpong: false }],
   }));

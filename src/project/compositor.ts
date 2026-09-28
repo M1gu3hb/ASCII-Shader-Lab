@@ -21,7 +21,7 @@ import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import { cloneRecipe, type MediaRef, type Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 import { applyFinishes } from '../fx/index';
-import { drawGlyphs, glyphGrid, type CellFx } from '../glyphs/index';
+import { drawGlyphs, ensureGlyphFont, glyphGridWith, sampleOf, type CellFx, type GlyphGrid } from '../glyphs/index';
 import { cssAdjustCpu, cssFilter, fitRect, needsTone, toneCpu } from './adjust';
 import type { CellGrid } from './clips';
 import { drawShape, drawText, ensureFont } from './draw2d';
@@ -132,10 +132,25 @@ export function engineStyle(l: AsciiLayer): Recipe {
   return r;
 }
 
-/** The engine's cell grid for a render (same formula as the engines' resize). */
-function engineGrid(style: Recipe, rw: number, rh: number, pr: number) {
+/** Smallest cell (device px) a preview draws its ASCII layers with. */
+export const MIN_PREVIEW_CELL = 6;
+
+/**
+ * The pixel ratio an ASCII layer's engine renders at. At scale 1 and above: the scale (exports are exact).
+ * Below it, cells would shrink to a few pixels, where glyphs are unreadable (and, in some WebGL
+ * implementations, cells 2 or 4 px wide draw no glyphs at all): the engine renders at a ratio that keeps
+ * cells at least MIN_PREVIEW_CELL px (never more detail than the final render), and the result is scaled
+ * down — the final render made smaller, which is what a preview should be.
+ */
+export function enginePixelRatio(style: Recipe, scale: number): number {
+  if (scale >= 1) return scale;
+  return Math.min(1, Math.max(scale, MIN_PREVIEW_CELL / Math.max(1, style.glyph.cell)));
+}
+
+/** The engine's cell grid for a render of w×h device px (same formula as the engines' resize). */
+function engineGrid(style: Recipe, w: number, h: number, pr: number) {
   const cw = Math.max(2, Math.round(style.glyph.cell * pr)), ch = Math.max(2, Math.round(style.glyph.cell * style.glyph.aspect * pr));
-  return { cw, ch, cols: Math.max(1, Math.ceil(rw / cw)), rows: Math.max(1, Math.ceil(rh / ch)) };
+  return { cw, ch, cols: Math.max(1, Math.ceil(w / cw)), rows: Math.max(1, Math.ceil(h / ch)) };
 }
 
 interface Engine { eng: Renderer; key: string; size: string; lost: boolean; used: number; feed: HTMLCanvasElement | null }
@@ -155,6 +170,8 @@ export class Compositor {
   private chain: Promise<unknown> = Promise.resolve();
   /** The engine each ASCII layer of the frame being drawn uses (set by prepare). */
   private assigned = new Map<Id, Engine>();
+  /** The last glyph grid of each glyph layer and what it was made from. */
+  private grids = new Map<Id, { key: string; grid: GlyphGrid }>();
   /** Where photo layers that need CPU passes are drawn (read back often: kept in memory). */
   private cpuCanvas: HTMLCanvasElement | null = null;
   private clock = 0;
@@ -186,6 +203,7 @@ export class Compositor {
     if (this.cpuCanvas) { this.cpuCanvas.width = this.cpuCanvas.height = 0; this.cpuCanvas = null; }
     this.layerCanvases.clear();
     this.feeds.clear();
+    this.grids.clear();
     if (this.ownsProvider) this.provider.release();
   }
 
@@ -266,7 +284,8 @@ export class Compositor {
       }
       if (l.kind === 'text') jobs.push(ensureFont(this.fonts, l.font, l.weight, l.italic, l.text));
       if (l.kind === 'shape' && l.label?.text) jobs.push(ensureFont(this.fonts, l.label.font, 500, false, l.label.text));
-      if (l.kind === 'glyphs') jobs.push(ensureFont(this.fonts, l.glyphs.font, l.glyphs.weight, false, l.glyphs.chars + (l.glyphs.fill === 'words' ? '' : '█▌_')));
+      // (plus the cursors the typing templates draw)
+      if (l.kind === 'glyphs') jobs.push(ensureGlyphFont(l.glyphs.font, l.glyphs.weight, sampleOf(l.glyphs) + '█▌_'));
     }
     const ascii = frames.filter(f => f.layer.kind === 'ascii').map(f => f.layer as AsciiLayer);
     if (ascii.length > this.maxEngines) {
@@ -282,14 +301,15 @@ export class Compositor {
   private async ensureEngine(l: AsciiLayer, state: FrameState, scale: number, overflow: boolean): Promise<Engine> {
     const style = engineStyle(l);
     const key = JSON.stringify(style);
-    const size = `${state.w}x${state.h}@${scale}`;
+    const pr = enginePixelRatio(style, scale);
+    const size = `${state.w}x${state.h}@${pr}`;
     let e = overflow ? this.shared : this.engines.get(l.id);
     if (e?.lost) { e.eng.destroy(); e = null; if (overflow) this.shared = null; else this.engines.delete(l.id); }
     if (!e) {
       if (!overflow) this.evictEngines();
       const canvas = document.createElement('canvas');
       const { renderer } = await createRenderer(canvas, style, {
-        library: PATTERN_GLSL, fonts: this.fonts, fixedSize: { width: state.w, height: state.h, pixelRatio: scale },
+        library: PATTERN_GLSL, fonts: this.fonts, fixedSize: { width: state.w, height: state.h, pixelRatio: pr },
         autoplay: false, interactive: false, adaptive: false, preserveDrawingBuffer: true, alpha: true,
       }, this.force ? { force: this.force } : {});
       const ne: Engine = { eng: renderer, key, size, lost: false, used: 0, feed: null };
@@ -298,7 +318,7 @@ export class Compositor {
       e = ne;
       if (overflow) this.shared = e; else this.engines.set(l.id, e);
     } else {
-      if (e.size !== size) { e.eng.setFixedSize(state.w, state.h, scale); e.size = size; }
+      if (e.size !== size) { e.eng.setFixedSize(state.w, state.h, pr); e.size = size; }
       if (e.key !== key) {
         e.eng.set(style);
         e.key = key;
@@ -308,7 +328,7 @@ export class Compositor {
     if (overflow) {
       // a shared engine is re-styled while drawing: its fonts must be loaded by then, and its size right
       await this.fonts.ensure(style.glyph.font, style.glyph.weight, false, style.glyph.charset.slice(0, 200));
-      if (e.size !== size) { e.eng.setFixedSize(state.w, state.h, scale); e.size = size; }
+      if (e.size !== size) { e.eng.setFixedSize(state.w, state.h, pr); e.size = size; }
     }
     e.used = ++this.clock;
     return e;
@@ -331,6 +351,7 @@ export class Compositor {
     for (const [id, c] of this.layerCanvases) if (!ids.has(id)) { c.width = c.height = 0; this.layerCanvases.delete(id); }
     for (const [id, c] of this.feeds) if (!ids.has(id)) { c.width = c.height = 0; this.feeds.delete(id); }
     for (const [id, e] of this.engines) if (!ids.has(id)) { e.eng.destroy(); this.engines.delete(id); }
+    for (const id of this.grids.keys()) if (!ids.has(id)) this.grids.delete(id);
   }
 
   private layerCanvas(id: Id, w: number, h: number) {
@@ -428,6 +449,10 @@ export class Compositor {
     const key = JSON.stringify(style);
     // a still starts from a clean engine (set() drops what earlier frames left, like Estela's trail)
     if (e.key !== key || !sequential) { eng.set(style); e.key = key; }
+    // (a shared engine takes each layer's own size: its pixel ratio depends on the cell size)
+    const pr = enginePixelRatio(style, scale);
+    const size = `${state.w}x${state.h}@${pr}`;
+    if (e.size !== size) { eng.setFixedSize(state.w, state.h, pr); e.size = size; }
     let feed: HTMLCanvasElement | null = null;
     if (l.source === 'below') feed = target;
     else if (l.source !== 'style') {
@@ -440,9 +465,10 @@ export class Compositor {
     eng.renderAt(state.t);
     x.drawImage(eng.canvas, 0, 0, rw, rh);
     if (lf.reveal) {
-      const pr = eng.stats.width > 0 && Math.abs(eng.stats.width - rw) > 1 ? eng.stats.width / state.w : scale;
-      const g = engineGrid(style, rw, rh, pr);
-      applyReveal(x, lf.reveal({ cols: g.cols, rows: g.rows }), g.cols, g.rows, g.cw, g.ch);
+      // the engine's own grid (its canvas may be larger than the layer: see enginePixelRatio), in layer px
+      const ew = eng.canvas.width, eh = eng.canvas.height;
+      const g = engineGrid(style, ew, eh, ew / state.w);
+      applyReveal(x, lf.reveal({ cols: g.cols, rows: g.rows }), g.cols, g.rows, (g.cw * rw) / ew, (g.ch * rh) / eh);
     }
     return undefined;
   }
@@ -452,17 +478,30 @@ export class Compositor {
     fit: (s: Source | null, m: LayerFit, t: number) => HTMLCanvasElement | null,
   ): string | undefined {
     let feed: HTMLCanvasElement | null;
+    // what the picture is, when it is known: the grid is kept while only the clips' cell changes move on
+    let version: string | undefined;
     if (l.source === 'below') {
       // a copy: the composite changes once this layer is drawn over it
       const { c, x: fx } = canvas2d(rw, rh, this.feeds.get(l.id));
       fx.drawImage(target, 0, 0);
       this.feeds.set(l.id, c);
       feed = c;
-    } else feed = fit(lf.source, l.fit ?? 'cover', lf.srcTime);
+    } else {
+      feed = fit(lf.source, l.fit ?? 'cover', lf.srcTime);
+      const src = lf.source;
+      if (src) version = `${src.id}:${src.media.map(m => m.id ?? '?').join(',')}@${src.kind === 'image' || src.kind === 'cutout' ? 0 : lf.srcTime}|${l.fit ?? 'cover'}|${rw}x${rh}`;
+    }
     if (!feed) return lf.source ? 'Falta la imagen de esta capa.' : 'Esta capa no tiene imagen.';
     // cells are output px: at a smaller scale the same grid is drawn smaller
     const style = { ...l.glyphs, cell: l.glyphs.cell * scale };
-    const grid = glyphGrid(feed, style, { w: rw, h: rh });
+    const key = version ? `${version}|${JSON.stringify(style)}` : '';
+    const kept = this.grids.get(l.id);
+    let grid: GlyphGrid;
+    if (key && kept?.key === key) grid = kept.grid;
+    else {
+      grid = glyphGridWith(feed, style, { w: rw, h: rh }, version ? { version } : {});
+      if (key) this.grids.set(l.id, { key, grid }); else this.grids.delete(l.id);
+    }
     const g: CellGrid = { cols: grid.cols, rows: grid.rows, chars: grid.chars };
     const cells = lf.cells ? lf.cells(g) : null;
     const reveal = lf.reveal ? lf.reveal(g) : null;
@@ -501,6 +540,7 @@ function applyReveal(x: CanvasRenderingContext2D, vis: (col: number, row: number
   x.globalCompositeOperation = 'destination-in';
   x.imageSmoothingEnabled = false;
   x.drawImage(small, 0, 0, cols * cw, rows * ch);
+  x.imageSmoothingEnabled = true;
   x.restore();
 }
 

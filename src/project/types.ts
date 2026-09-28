@@ -192,7 +192,7 @@ export interface GlyphStyle {
   /** Cell width in output px, and height/width. */
   cell: number;
   aspect: number;
-  /** Tone before picking. */
+  /** Tone before picking: bright −1..1, contrast 0..3 (1 = as is), gamma 0.2..3, sat 0..3 (the studio's ranges). */
   bright: number;
   contrast: number;
   gamma: number;
@@ -207,6 +207,8 @@ export interface GlyphStyle {
   /** null = transparent between characters. */
   paper: string | null;
   palette: string[];
+  /** Words fill: break anywhere ('char', default) or only between words ('word'). */
+  wrap?: 'char' | 'word';
 }
 
 export interface TextLayer extends LayerBase {

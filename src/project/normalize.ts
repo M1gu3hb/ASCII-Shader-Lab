@@ -10,6 +10,7 @@
  */
 import { PATTERN_IDS } from '../engine/catalog';
 import { cloneRecipe, defaultRecipe, normHex, normMediaRef, normalizeRecipe, type MediaRef, type Recipe } from '../engine/recipe';
+import { defaultGlyphStyle as glyphDefaults, normalizeGlyphStyle } from '../glyphs/params';
 import {
   PROJECT_VERSION,
   type Adjust, type AnimClip, type AsciiLayer, type CompositeBlend, type CutoutRefine, type Ease, type Finish, type FinishKind, type GlyphStyle,
@@ -133,11 +134,11 @@ export const defaultAdjust = (): Adjust => ({
   bright: 0, contrast: 1, gamma: 1, sat: 1, hue: 0, temp: 0, blur: 0, sharpen: 0, invert: false, mono: false,
 });
 
-export const defaultGlyphStyle = (): GlyphStyle => ({
-  charset: 'custom', chars: ' .:-=+*#%@', fill: 'ramp', font: 'jetbrains', weight: 500, cell: 12, aspect: 1.6,
-  bright: 0, contrast: 1, gamma: 1, sat: 1, invert: false, edge: 0, cutoff: 0,
-  color: 'source', ink: '#ede6da', paper: null, palette: ['#0c0b0a', '#ff5b1f', '#ede6da'],
-});
+/**
+ * A real-characters style for a new layer: the glyphs module's default (glyphs/params.ts) with a transparent
+ * paper, so the layers under it show between the characters.
+ */
+export const defaultGlyphStyle = (): GlyphStyle => ({ ...glyphDefaults(), paper: null });
 
 export const defaultMask = (): Mask => ({ invert: false, feather: 0, opacity: 1, parts: [] });
 
@@ -351,29 +352,9 @@ export function normAdjust(v: unknown): Adjust {
   };
 }
 
+/** A glyph style made valid by the glyphs module's own rules (its charsets, ranges and defaults). */
 export function normGlyphStyle(v: unknown): GlyphStyle {
-  const o = obj(v), d = defaultGlyphStyle();
-  const palette = arr(o.palette).filter((c): c is string => typeof c === 'string').slice(0, 16).map(c => color(c, '#000000'));
-  return {
-    charset: typeof o.charset === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(o.charset) ? o.charset : d.charset,
-    chars: str(o.chars, d.chars, 2000),
-    fill: oneOf(o.fill, ['ramp', 'words'] as const, d.fill),
-    font: str(o.font, d.font, 80) || d.font,
-    weight: int(o.weight, d.weight, 100, 900),
-    cell: num(o.cell, d.cell, 2, 400),
-    aspect: num(o.aspect, d.aspect, 0.25, 4),
-    bright: num(o.bright, d.bright, -1, 1),
-    contrast: num(o.contrast, d.contrast, 0, 4),
-    gamma: num(o.gamma, d.gamma, 0.2, 4),
-    sat: num(o.sat, d.sat, 0, 3),
-    invert: bool(o.invert, d.invert),
-    edge: num(o.edge, d.edge, 0, 1),
-    cutoff: num(o.cutoff, d.cutoff, 0, 1),
-    color: oneOf(o.color, ['mono', 'source', 'palette'] as const, d.color),
-    ink: color(o.ink, d.ink),
-    paper: colorOrNull(o.paper, d.paper),
-    palette: palette.length ? palette : d.palette,
-  };
+  return normalizeGlyphStyle(obj(v) as Partial<GlyphStyle>);
 }
 
 function normTransform(v: unknown): LayerTransform {
