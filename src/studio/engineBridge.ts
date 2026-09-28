@@ -102,8 +102,21 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   unsubQ = usePreview.subscribe((q, p) => { if (q.quality !== p.quality && engine === e) e.setQuality(qualityFor(q.quality, e.kind)); });
   trackPointer(container);
   let prevSource = currentRecipe(s).source;
+  // the canvas says while the engine prepares a change or runs a transition (data-busy): what it shows
+  // is not yet the current piece (tests wait on it before comparing the stage)
+  let busyRaf = 0;
+  const markBusy = () => {
+    cancelAnimationFrame(busyRaf);
+    const tick = () => {
+      const b = engine === e && e.busy;
+      e.canvas.toggleAttribute('data-busy', b);
+      if (b) busyRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  };
   const follow = (r: Recipe, transition: ReturnType<typeof pickTransition>) => {
     e.set(r, { transition: transition ?? false });
+    markBusy();
     if (r.source !== prevSource) {
       if (prevSource === 'camera') stopCamera();
       if (prevSource === 'video') pauseVideo();

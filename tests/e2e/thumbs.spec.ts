@@ -85,7 +85,7 @@ async function missing(page: Page) {
 
 /** Strip items in view that show no picture. */
 const blankItems = (page: Page) => page.locator('.strip .thumb').evaluateAll(els => {
-  const strip = els[0]?.parentElement?.getBoundingClientRect();
+  const strip = els[0]?.closest('.strip')?.getBoundingClientRect();
   return els.map((el, i) => ({ i, bg: getComputedStyle(el).backgroundImage, r: el.getBoundingClientRect() }))
     .filter(x => strip && x.r.right > strip.left + 4 && x.r.left < strip.right - 4)
     .filter(x => !x.bg || x.bg === 'none').map(x => x.i + 1);
@@ -126,7 +126,10 @@ async function thumbsMatchStage(page: Page, sample: number) {
     await item.scrollIntoViewIfNeeded();
     await item.click();
     await expect(page.locator('.seedline')).toContainText(`${i + 1}/${n}`);
-    await page.waitForTimeout(2500);
+    // the stage shows the clicked piece only once its change is prepared (a slow compile on a busy machine)
+    await page.waitForTimeout(300);
+    await expect(page.locator('.stage canvas[data-busy]')).toHaveCount(0, { timeout: 60_000 });
+    await page.waitForTimeout(1200);
     const shot = await page.locator('.stage canvas').first().screenshot();
     stage.push(await histOf(page, 'data:image/png;base64,' + shot.toString('base64')));
     thumbs.push(await histOf(page, s.thumbs[s.ids[i]]));
