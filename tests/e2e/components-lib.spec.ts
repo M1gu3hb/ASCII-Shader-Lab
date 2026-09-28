@@ -123,6 +123,10 @@ test.describe('piezas nuevas en otra web', () => {
     await expect.poll(() => b.page.locator('.revelar canvas').evaluate(c => getComputedStyle(c).display)).toBe('none');
     expect(b.errors).toEqual([]);
     await b.ctx.close();
+
+    // (the snippet says what to do with such a picture: with crossorigin a browser does not load it; the
+    // routed responses here skip that check, so only the advice is checked)
+    expect(code.Revelar['HTML para pegar']).toMatch(/sin esa cabecera, con crossorigin no se carga: quita el atributo/);
   });
 
   test('Foco: la luz sigue al cursor y al foco del teclado; el contenido no cambia', async ({ browser }) => {

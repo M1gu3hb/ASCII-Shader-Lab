@@ -432,7 +432,8 @@ COMPONENTS.push(
       return reveal(img, { radius: v.radius, cell: v.cell, ramp: v.ramp, trigger: v.trigger, background: v.background });
     },
     code: v => standardCode('reveal', 'reveal.js', revealSrc,
-      `<!-- Tu imagen: de tu mismo dominio, o con CORS (crossorigin) -->
+      `<!-- Tu imagen, de tu mismo dominio o de un servidor que la entregue con CORS (Access-Control-Allow-Origin).
+     Si es de otro sitio sin esa cabecera, con crossorigin no se carga: quita el atributo y se verá la foto tal cual. -->
 <a href="/trabajo/" class="revelar" style="display:inline-block;line-height:0">
   <img src="tu-foto.jpg" alt="Describe aquí tu foto" crossorigin="anonymous" style="display:block;max-width:100%">
 </a>`, '.revelar img',

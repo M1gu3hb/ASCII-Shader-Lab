@@ -8,8 +8,10 @@
  *
  * - La <img> original se queda en la página: su texto alternativo, su tamaño y su enlace no cambian.
  *   Los caracteres son una capa decorativa encima (aria-hidden).
- * - La imagen tiene que venir de tu mismo dominio o permitir CORS (crossorigin="anonymous"): si el
- *   navegador no deja leer sus píxeles, se muestra la foto tal cual y se avisa en la consola.
+ * - Para leer sus píxeles, la imagen tiene que venir de tu mismo dominio, o de un servidor que la entregue
+ *   con CORS (la cabecera Access-Control-Allow-Origin) y llevar crossorigin="anonymous". Una imagen de otro
+ *   sitio que no envía esa cabecera no se carga con ese atributo: quítaselo y se verá la foto tal cual,
+ *   sin caracteres (se avisa en la consola).
  * - Con «reducir movimiento» no hay transiciones: la foto aparece o se oculta al instante.
  */
 export const revealDefaults = {
