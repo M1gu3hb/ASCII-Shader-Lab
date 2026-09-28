@@ -163,6 +163,9 @@ export function Picker<T extends string | number>(p: PickerProps<T>) {
       raf = requestAnimationFrame(place);
     };
     const outside = (e: PointerEvent) => {
+      // a sheet: its scrim covers the page and closes it on its own click, so the tap that closes the
+      // list never lands on the control under it (closing here let the click through)
+      if (sheet) return;
       const t = e.target as Node;
       if (!pop.current?.contains(t) && !btn.current?.contains(t)) close(false);
     };
@@ -175,7 +178,7 @@ export function Picker<T extends string | number>(p: PickerProps<T>) {
       removeEventListener('scroll', again, true);
       document.removeEventListener('pointerdown', outside, true);
     };
-  }, [open, place, close]);
+  }, [open, sheet, place, close]);
   // phones: the sheet takes focus (a screen reader lands in the list)
   useEffect(() => { if (open && sheet) list.current?.focus({ preventScroll: true }); }, [open, sheet]);
   // the highlighted option stays in view (the chosen one is in view as the list opens)
@@ -274,7 +277,7 @@ export function Picker<T extends string | number>(p: PickerProps<T>) {
       </button>
       {host && createPortal(
         <>
-          {sheet && <div className="pk-scrim" aria-hidden="true" />}
+          {sheet && <div className="pk-scrim" aria-hidden="true" onClick={e => { e.stopPropagation(); close(); }} />}
           <div ref={pop} className={'pk-pop' + (sheet ? ' pk-sheet' : '') + (preview ? ' has-preview' : '')} style={pos}
             // desktop: clicks inside keep the focus on the button
             onMouseDown={e => { if (!sheet) e.preventDefault(); }}>
