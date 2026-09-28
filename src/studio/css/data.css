@@ -49,7 +49,7 @@ dialog.sheet:has(.share-body) { width: min(520px, calc(100vw - 24px)); }
 
 /* collection cards: five or six actions must fit (or wrap) in a narrow card */
 .fav-card .ops { flex-wrap: wrap; }
-.fav-card .ops button { min-width: 0; }
+.fav-card .ops button { flex: 1 0 auto; white-space: nowrap; }
 
 /* ---------- export sheet, «Receta» tab ---------- */
 .seed-big { margin: 0 0 12px; font: 500 13px/1.4 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }

@@ -4,6 +4,7 @@ import { useRecipe, useStudio } from '../store';
 import { inkFor, useLegibility, useLegibilityMeter, type Estimate } from './legibility';
 import { LEVEL_WORD, advice, reason, summary, type Level } from './readability';
 import { setViewOpts } from './state';
+import { useGuide } from '../guide/state';
 import '../css/legib.css';
 
 /**
@@ -167,6 +168,7 @@ export const ESTIMATE_NOTE = 'Es una estimación: mide el fondo real detrás de 
 export function LegibilityReport({ guide, children }: { guide?: boolean; children?: ReactNode }) {
   const est = useLegibility(s => s.est);
   const scrimMode = useStudio(s => s.ui.viewOpts.scrim.mode);
+  const guiding = useGuide(s => s.path === 'fondo');
   const [open, setOpen] = useState(false);
   const id = useId();
   const level = est?.level ?? 'wait';
@@ -192,8 +194,8 @@ export function LegibilityReport({ guide, children }: { guide?: boolean; childre
           </button>
         )}
       </p>
-      {/* what screen readers hear: the line, only when it changes */}
-      <span className="sr-only" aria-live="polite">{est ? `Legibilidad estimada: ${summary(est)}` : ''}</span>
+      {/* what screen readers hear: the line, when it changes (once: the guide's copy speaks while it is open) */}
+      {(guide || !guiding) && <span className="sr-only" aria-live="polite">{est ? `Legibilidad estimada: ${summary(est)}` : ''}</span>}
       {guide ? <div className="legib-detail">{detail}</div> : open && <div className="legib-detail" id={id}>{detail}</div>}
     </div>
   );
