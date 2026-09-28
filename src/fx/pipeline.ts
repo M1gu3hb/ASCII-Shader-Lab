@@ -142,3 +142,31 @@ export function finishBleed(finishes: readonly Finish[] | null | undefined): num
   }
   return m;
 }
+
+export type FinishWeight = 'ligero' | 'medio' | 'pesado';
+
+/**
+ * How heavy a finish is on the CPU, from the lab numbers at 1080×1350 (see index.ts): 'ligero' under
+ * ~40 ms, 'medio' up to ~150 ms, 'pesado' beyond. A preview at half size costs about a quarter. For the
+ * studio to warn or lower the preview quality; it is a hint, not a measurement of the user's machine.
+ */
+export function finishWeight(f: Finish): FinishWeight {
+  const p = finishValues(f);
+  switch (f.kind) {
+    case 'levels': case 'posterize': case 'invert': case 'mono': case 'duotone': case 'scanlines': case 'vignette': case 'pixelate':
+      return 'ligero';
+    case 'threshold':
+      return p.mode === 'local' ? 'medio' : 'ligero';
+    case 'dither': case 'palette': {
+      const algo = String(f.kind === 'palette' ? p.dither : p.algo);
+      const diffuses = algo === 'riemersma' || ['floyd', 'atkinson', 'jarvis', 'stucki', 'burkes', 'sierra', 'sierra2', 'sierralite'].includes(algo);
+      return diffuses && Number(p.pixel) < 2 ? 'medio' : 'ligero';
+    }
+    case 'halftone':
+      return p.color === 'cmyk' ? 'pesado' : 'medio';
+    case 'motionblur':
+      return 'pesado';
+    default:
+      return 'medio';
+  }
+}

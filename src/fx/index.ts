@@ -16,6 +16,24 @@
  *   pipeline.ts  runFinishes on plain RGBA buffers (DOM-free: tests, workers) and the op table
  *   canvas.ts    applyFinishes on canvases with the output-canvas pool and shared scratch memory
  *   dither.ts, palettes.ts, bluenoise.ts, kernels.ts, ops/*.ts   the algorithms
+ *
+ * Cost (lab numbers, not a promise: 4 shared vCPUs Xeon 2.1 GHz, Node 22, load average 5–7 from other
+ * work; each finish alone in its own process, best of 5, default params, 1080×1350 final / 540×675
+ * preview at scale 0.5, in ms of CPU):
+ *   levels 6/1 · invert 5/1 · posterize 10/2 · scanlines 12/4 · vignette 21/7 · duotone 25/6 · mono 27/6
+ *   threshold 31/4 · pixelate 31/10 · palette 34/8 · dither 41/19 · noise 51/16 · chroma 71/38
+ *   edges 76/16 · shadow 78/25 · blur 83/61 · sharpen 89/40 · grain 90/34 · glow 99/41 · halftone 106/31
+ *   crosshatch 125/55 · motionblur 177/67 · zoom 302/92 · spin 324/92 · halftone CMYK 372/132
+ *   dither at pixel 1, 1 bit: ordered/noise 47–57, error diffusion 56–80 (Floyd 57, Atkinson 61,
+ *   Jarvis 80, Stucki 75, Riemersma 73); PICO-8: Floyd 65, Jarvis 107, Stucki 103, Bayer 8 32.
+ * In the browser (Chromium, dev/fx.html «Medir tiempos») add the canvas round trip of applyFinishes —
+ * drawImage + getImageData + putImageData, ~70 ms at 1080×1350 here with WebGL on SwiftShader, ~17 ms at
+ * 540×675 — and expect run-to-run noise when the machine is busy. finishWeight() turns these numbers into
+ * a light/medium/heavy hint for the studio.
+ *
+ * WebGL 2 is not used: on this machine it runs on SwiftShader (the CPU), so a GPU path could not be shown
+ * to pay here, and each context would compete with the ASCII layers' engines for the context budget.
+ * The blurs (blur, glow, motion blur) are the candidates if real devices need it; see the lane report.
  */
 import type { Finish, FinishKind } from '../project/types';
 import { CATALOG } from './catalog';
@@ -85,7 +103,7 @@ export function normalizeFinish(input: unknown): Finish | null {
 }
 
 export { releaseFinishes, finishPoolStats } from './canvas';
-export { runFinishes, finishValues, activeFinishes, finishesDependOnTime, finishBleed } from './pipeline';
+export { runFinishes, finishValues, activeFinishes, finishesDependOnTime, finishBleed, finishWeight, type FinishWeight } from './pipeline';
 export { resolveParams, resolveParam, paramVisible } from './params';
 export { DITHER_ALGOS, type DitherAlgo } from './catalog';
 export { PALETTES, type PalettePreset } from './palettes';

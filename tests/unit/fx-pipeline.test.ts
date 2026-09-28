@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  defaultFinish, finishBleed, finishesDependOnTime, FINISHES, runFinishes, type ImageDataLike,
+  defaultFinish, finishBleed, finishesDependOnTime, finishWeight, FINISHES, runFinishes, type ImageDataLike,
 } from '../../src/fx';
 import type { Finish, FinishKind } from '../../src/project/types';
 import { clone, cutout, img, meanAbsDiff, photo } from './fx-fixtures';
@@ -135,6 +135,16 @@ describe('finishes pipeline', () => {
     expect(finishesDependOnTime([g])).toBe(true);
     expect(finishesDependOnTime([still, defaultFinish('scanlines'), defaultFinish('chroma')])).toBe(false);
     expect(finishesDependOnTime([withP('chroma', { jitter: 0.5 })])).toBe(true);
+  });
+
+  it('tells light finishes from heavy ones', () => {
+    expect(finishWeight(defaultFinish('levels'))).toBe('ligero');
+    expect(finishWeight(defaultFinish('dither'))).toBe('ligero'); // 2 px blocks
+    expect(finishWeight(withP('dither', { pixel: 1 }))).toBe('medio');
+    expect(finishWeight(withP('dither', { pixel: 1, algo: 'bayer8' }))).toBe('ligero');
+    expect(finishWeight(withP('halftone', { color: 'cmyk' }))).toBe('pesado');
+    expect(finishWeight(defaultFinish('motionblur'))).toBe('pesado');
+    for (const k of KINDS) expect(['ligero', 'medio', 'pesado']).toContain(finishWeight(defaultFinish(k)));
   });
 
   it('reports how far finishes can paint outside the layer', () => {
