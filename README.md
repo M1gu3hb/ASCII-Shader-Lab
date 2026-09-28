@@ -130,7 +130,7 @@ Sólo se ofrece lo que el navegador puede producir; lo demás aparece como expli
 | Código | HTML para pegar, página, Web Component, React (seguro en StrictMode); motor básico o póster de respaldo | sin WebGL 2 dibuja el motor básico incluido (o, en la versión ligera, el póster); al quitarlo de la página libera su contexto |
 | Receta / Proyecto / Sesión | ver la tabla anterior | — |
 
-Verificado en esta sesión con herramientas reales (identify/compare, rsvg-convert, Inkscape, gifsicle, ffprobe/ffmpeg, pyte en una pty, Node 18 y 22, Python 3, React 19 con Vite): 360 comprobaciones sin fallos. No verificado: codificación H.264, Safari/Firefox, dispositivos reales, apps de diseño y terminales de Windows/macOS.
+Verificado sobre la versión final con herramientas reales (identify/compare, rsvg-convert, Inkscape, gifsicle, ffprobe/ffmpeg, pyte en una pty, Node 18 y 22, Python 3, React 19 con Vite) y abriendo cada archivo o código pegado en el navegador: ejecución completa con el Chromium de Playwright, 690 comprobaciones (680 PASS, 0 FAIL, 10 SKIP); y los grupos que dependen del navegador en Chrome 154 (295 PASS, 0 FAIL), Firefox 142 (293 PASS, 0 FAIL) y WebKit 26 (254 PASS, 2 FAIL: el código de la pieza transformada con WebGL 2, ver «Pendiente»). La tabla función × navegador que separa «la interfaz lo ofrece», «prueba automática pasó» y «abrí el resultado final» está en [`docs/compatibilidad.md`](docs/compatibilidad.md). No verificado: Safari de verdad, teléfonos reales, apps de diseño (Figma, Illustrator…) y terminales de Windows/macOS.
 
 ### Sitio público y SEO
 
