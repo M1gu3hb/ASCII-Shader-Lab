@@ -197,7 +197,11 @@ function storedRefs(list: unknown[], ids: Set<string>) {
   for (const x of list) { const o = x as { recipe?: unknown; origin?: unknown } | null; add(o?.recipe); add(o?.origin); }
 }
 
-async function storedMediaIds(): Promise<Set<string>> {
+/**
+ * (Exported for the photo and video studio's own collection, src/project/persist.ts: media the lab's saved
+ * history and collection use must survive it too.)
+ */
+export async function storedMediaIds(): Promise<Set<string>> {
   const ids = new Set<string>();
   const [bodies, [fav, h2]] = await Promise.all([idbValues(P_ENTRY), idbRead([K_FAV, K_HIST_V2])]);
   storedRefs(bodies, ids);

@@ -1,4 +1,4 @@
-import { createStore, del, entries, get, set, type UseStore } from 'idb-keyval';
+import { createStore, del, entries, get, set, values, type UseStore } from 'idb-keyval';
 
 /**
  * Local media store: the original bytes of the images and videos the person loads, kept in this
@@ -129,15 +129,54 @@ export async function mediaUsage(ids?: Set<string>): Promise<{ count: number; by
   return { count: list.length, bytes: list.reduce((n, m) => n + m.size, 0) };
 }
 
+/* ------------------------------------------------------------------ */
+/* Media other parts of GLYPHOS keep                                    */
+/* ------------------------------------------------------------------ */
+
 /**
- * Deletes stored media that nothing refers to any more. Files added within `grace` ms are kept (they
- * may not be in a recipe yet); «Vaciar historial» passes 0. Returns what was freed.
+ * The lab is not the only one keeping files here: the photo and video studio keeps its projects' originals,
+ * painted masks and mattes too, in a database the lab never reads. So every part that keeps media also
+ * lists the ids it uses here (one record per owner, e.g. 'proyecto:<id>'), and a collection, from any
+ * page, keeps everything listed. If that list cannot be read, nothing is collected.
+ */
+let refsDb: UseStore | null = null;
+const refsStore = () => (refsDb ??= createStore('glyphos-media-refs', 'refs'));
+
+export interface MediaRefs { ids: string[]; updated: number }
+
+/** Records which stored media an owner uses (replacing what it listed before). */
+export async function setMediaRefs(owner: string, ids: Iterable<string>): Promise<void> {
+  const rec: MediaRefs = { ids: [...new Set(ids)].filter(id => typeof id === 'string' && id), updated: Date.now() };
+  await set(owner, rec, refsStore());
+}
+
+/** An owner no longer uses any media (e.g. a deleted project). */
+export async function dropMediaRefs(owner: string): Promise<void> {
+  await del(owner, refsStore());
+}
+
+/** Every id some owner keeps. Rejects when the list cannot be read. */
+export async function keptMediaIds(): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const r of await values<MediaRefs>(refsStore())) {
+    for (const id of Array.isArray(r?.ids) ? r.ids : []) if (typeof id === 'string') out.add(id);
+  }
+  return out;
+}
+
+/**
+ * Deletes stored media that nothing refers to any more: not in `referenced`, and not kept by another part
+ * of GLYPHOS (keptMediaIds). Files added within `grace` ms are kept (they may not be in a recipe yet);
+ * «Vaciar historial» passes 0. Returns what was freed.
  */
 export async function gcMedia(referenced: Set<string>, grace = GRACE_MS): Promise<{ count: number; bytes: number }> {
   const now = Date.now();
   let count = 0, bytes = 0;
+  let kept: Set<string>;
+  // what the other parts keep cannot be read: collecting now could delete their files
+  try { kept = await keptMediaIds(); } catch { return { count, bytes }; }
   for (const m of await listMedia()) {
-    if (referenced.has(m.id) || now - m.added < grace) continue;
+    if (referenced.has(m.id) || kept.has(m.id) || now - m.added < grace) continue;
     await deleteMedia(m.id);
     count++; bytes += m.size;
   }
