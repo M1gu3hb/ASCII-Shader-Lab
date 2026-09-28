@@ -235,6 +235,8 @@ test.describe('390×844', () => {
     await scan('hoja');
     await page.getByRole('button', { name: 'Cerrar ajustes' }).tap();
     await page.getByRole('button', { name: 'Modo inmersivo' }).tap();
+    // the bar's short entrance (a fade) over: contrast is measured on what stays
+    await expect.poll(() => page.locator('.imm-bar').evaluate(el => el.getAnimations().length)).toBe(0);
     await scan('inmersivo');
     await ctx.close();
   });
