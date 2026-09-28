@@ -125,8 +125,11 @@ function linkCost(m: CostMap, p: number, q: number, k: number): number {
 
 export interface WireSearch {
   readonly seed: number;
-  /** Settles pixels until `target` is settled or the budget runs out. True when the target is settled. */
-  reach(target: number, budget?: number): boolean;
+  /**
+   * Settles pixels until `target` is settled, or `budget` pixels were settled, or `ms` milliseconds passed.
+   * True when the target is settled (call again to continue).
+   */
+  reach(target: number, budget?: number, ms?: number): boolean;
   /** The path from the seed to a settled pixel (seed first), as pixel indices. */
   path(target: number): number[];
   settled(i: number): boolean;
@@ -184,11 +187,16 @@ export function wireSearch(m: CostMap, seed: number, radius = 320): WireSearch {
     seed,
     get count() { return count; },
     settled(i) { const j = toWin(i); return j >= 0 && !!done[j]; },
-    reach(target, budget = 60_000) {
+    reach(target, budget = 60_000, ms = Infinity) {
       const t = toWin(target);
       if (t < 0) return false;
+      const end = ms === Infinity ? Infinity : performance.now() + ms;
       let n = 0;
-      while (!done[t] && n < budget) { if (settleOne() < 0) break; n++; }
+      while (!done[t] && n < budget) {
+        if (settleOne() < 0) break;
+        n++;
+        if ((n & 1023) === 0 && performance.now() > end) break;
+      }
       return !!done[t];
     },
     path(target) {

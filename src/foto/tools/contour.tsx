@@ -17,12 +17,14 @@ import * as draw from './overlay';
 import { setLive, setSettings, settings, useLive, useSettings } from './state';
 import { LIMITS } from '../../project/normalize';
 import { OP_NAME, addPart, canvasPixels, editableTarget, layerById, layerPoint, opFor, screenOf } from './target';
-import type { Tool, ToolHost } from './types';
+import type { Tool, ToolEvent, ToolHost } from './types';
 import { Button, Note, Slider, Switch, pct, px } from './ui';
 
 const MAX_SIDE = 1024;
 const WINDOW = 320;
-const BUDGET = 45_000;
+const BUDGET = 200_000;
+/** Milliseconds a pointer move may spend expanding the search (the rest continues on the next frames). */
+const MOVE_MS = 8;
 
 interface WireState {
   layer: Id;
@@ -46,6 +48,8 @@ export const contourTool: Tool & { stats: WireStats; map(): CostMap | null } = (
   let building: Promise<void> | null = null;
   let st: WireState | null = null;
   let raf = 0;
+  /** Touch: a finger is down (its point is placed when it lifts). */
+  let touchDown = false;
   const stats: WireStats = { mapMs: 0, moves: 0, lastMoveMs: 0, maxMoveMs: 0, meanMoveMs: 0, settled: 0 };
 
   const idxOf = (p: Pt) => {
@@ -90,7 +94,7 @@ export const contourTool: Tool & { stats: WireStats; map(): CostMap | null } = (
   const follow = (host: ToolHost) => {
     if (!st || !map) return;
     const t0 = performance.now();
-    const done = st.search.reach(st.target, BUDGET);
+    const done = st.search.reach(st.target, BUDGET, MOVE_MS);
     const ms = performance.now() - t0;
     stats.moves++;
     stats.lastMoveMs = ms;
@@ -172,6 +176,33 @@ export const contourTool: Tool & { stats: WireStats; map(): CostMap | null } = (
     follow(host);
   };
 
+  /** A click (mouse/pen) or a lifted tap (touch): first point, close, or a new fixed point. */
+  const act = (e: ToolEvent, host: ToolHost) => {
+    if (!map) return;
+    const node = idxOf(layerPoint(host, e.p));
+    if (!st) {
+      const l = editableTarget(host);
+      if (!l) return;
+      st = {
+        layer: l.id, op: opFor(e, host), fixed: [node], anchors: [0], search: wireSearch(map, node, WINDOW), live: [node], target: node,
+        cooling: new PathCooling(7, 18), touch: e.pointerType === 'touch', lastDown: { t: e.time, s: e.s },
+      };
+      setLive({ vertices: 1 });
+      host.say('Primer punto: recorre el borde');
+      host.redrawOverlay();
+      return;
+    }
+    const first = screenOf(host)(ptOf(st.fixed[0]));
+    const tol = e.pointerType === 'touch' ? 24 : 9;
+    if (st.anchors.length >= 2 && dist(first, e.s) <= tol) { close(host); return; }
+    const ld = st.lastDown;
+    st.lastDown = { t: e.time, s: e.s };
+    if (ld && e.time - ld.t < 400 && dist(ld.s, e.s) < 8) { close(host); return; }
+    st.target = clampToWindow(map, st.search.seed, WINDOW, node % map.w, Math.floor(node / map.w));
+    st.search.reach(st.target, 400_000);
+    fix(host, st.target);
+  };
+
   const tool: Tool & { stats: WireStats; map(): CostMap | null } = {
     id: 'contorno',
     name: 'Contorno preciso',
@@ -190,31 +221,16 @@ export const contourTool: Tool & { stats: WireStats; map(): CostMap | null } = (
     down(e, host) {
       ensureMap(host);
       if (!map) { host.say('Preparando los bordes de la foto…'); return; }
-      const lp = layerPoint(host, e.p);
-      const node = idxOf(lp);
-      if (!st) {
-        const l = editableTarget(host);
-        if (!l) return;
-        st = {
-          layer: l.id, op: opFor(e, host), fixed: [node], anchors: [0], search: wireSearch(map, node, WINDOW), live: [node], target: node,
-          cooling: new PathCooling(7, 18), touch: e.pointerType === 'touch', lastDown: { t: e.time, s: e.s },
-        };
-        setLive({ vertices: 1 });
-        host.say('Primer punto: recorre el borde');
-        host.redrawOverlay();
-        return;
-      }
-      const scr = screenOf(host);
-      const first = scr(ptOf(st.fixed[0]));
-      const tol = e.pointerType === 'touch' ? 24 : 9;
-      if (st.anchors.length >= 2 && dist(first, e.s) <= tol) { close(host); return; }
-      const ld = st.lastDown;
-      st.lastDown = { t: e.time, s: e.s };
-      if (ld && e.time - ld.t < 400 && dist(ld.s, e.s) < 8) { close(host); return; }
-      // on touch there is no hover: the tap is where the path goes
-      st.target = clampToWindow(map, st.search.seed, WINDOW, node % map.w, Math.floor(node / map.w));
-      st.search.reach(st.target, 400_000);
-      fix(host, st.target);
+      // on touch the point is placed when the finger lifts (two fingers moving the view must not place one);
+      // meanwhile the line follows the finger
+      if (e.pointerType === 'touch') { touchDown = true; tool.move!(e, host); return; }
+      act(e, host);
+    },
+
+    up(e, host) {
+      if (!touchDown) return;
+      touchDown = false;
+      act(e, host);
     },
 
     move(e, host) {
@@ -225,7 +241,7 @@ export const contourTool: Tool & { stats: WireStats; map(): CostMap | null } = (
       follow(host);
     },
 
-    cancel(host) { host.redrawOverlay(); },
+    cancel(host) { touchDown = false; host.redrawOverlay(); },
 
     onKey(e, host) {
       if (!st) return false;
@@ -269,7 +285,7 @@ function ContourOptions({ host, actions }: { host: ToolHost; actions: { close():
       <Slider label="Intensidad" value={st.shapeAlpha} min={0.05} max={1} step={0.05} format={pct} onChange={v => setSettings({ shapeAlpha: v })} />
       <span className="tl-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'punto' : 'puntos'}` : 'sin puntos'}</span>
       <Button primary disabled={n < 2} onClick={actions.close} kbd="Intro">Cerrar</Button>
-      <Button disabled={!n} onClick={actions.undo} kbd="⌫">Quitar último</Button>
+      <Button disabled={!n} onClick={actions.undo} kbd="Retroceso">Quitar último</Button>
       <Button disabled={!n} onClick={actions.cancel} kbd="Esc">Cancelar</Button>
     </div>
   );

@@ -23,6 +23,9 @@ import { Button, Note, Row, Slider, pct, px } from './ui';
 
 type Kind = 'rect' | 'ellipse';
 const NAME: Record<Kind, string> = { rect: 'Rectángulo', ellipse: 'Elipse' };
+/** Spanish agreement: el rectángulo … añadido / la elipse … añadida. */
+const ADDED: Record<Kind, string> = { rect: 'añadido', ellipse: 'añadida' };
+const THIS: Record<Kind, string> = { rect: 'lo', ellipse: 'la' };
 
 export function makeShapeTool(kind: Kind): Tool & { editor: PartEditor } {
   const editor = new PartEditor();
@@ -43,7 +46,7 @@ export function makeShapeTool(kind: Kind): Tool & { editor: PartEditor } {
 
   const commit = (host: ToolHost, layer: Id, part: MaskShapePart) => {
     const l = layerById(layer);
-    if (!addPart(host, layer, part, `${NAME[kind]} añadido a la máscara de «${l?.name ?? 'la capa'}» (${OP_NAME[part.op]}). Arrastra sus asas para ajustarlo.`)) return;
+    if (!addPart(host, layer, part, `${NAME[kind]} ${ADDED[kind]} a la máscara de «${l?.name ?? 'la capa'}» (${OP_NAME[part.op]}). Arrastra sus asas para ajustar${THIS[kind]}.`)) return;
     const parts = partsOf(layerById(layer));
     editor.select(layer, parts.length - 1, parts[parts.length - 1]);
   };
@@ -151,7 +154,7 @@ export function makeShapeTool(kind: Kind): Tool & { editor: PartEditor } {
         } else if (e.key === 'Escape') {
           pending = null;
           host.preview(null);
-          host.say(`${NAME[kind]} descartado`);
+          host.say(`${NAME[kind]} ${kind === 'rect' ? 'descartado' : 'descartada'}`);
           host.redrawOverlay();
           return true;
         }
@@ -163,7 +166,7 @@ export function makeShapeTool(kind: Kind): Tool & { editor: PartEditor } {
       }
       const sel = editor.current(host);
       if (sel) {
-        if (e.key === 'Enter') { editor.clear(); host.say(`${NAME[kind]} listo`); host.redrawOverlay(); return true; }
+        if (e.key === 'Enter') { editor.clear(); host.say(`${NAME[kind]} ${kind === 'rect' ? 'listo' : 'lista'}`); host.redrawOverlay(); return true; }
         return editor.key(host, e, { allowDelete: true });
       }
       if (e.key === 'Enter') {
@@ -174,7 +177,7 @@ export function makeShapeTool(kind: Kind): Tool & { editor: PartEditor } {
         const c = layerPoint(host, { x: 0.5, y: 0.5 });
         pending = { layer: l.id, part: newPart(host.op(), { cx: c.x * s.w, cy: c.y * s.h, hw: side / 2, hh: side / 2, a: 0 }, host) };
         host.preview({ layer: l.id, part: pending.part });
-        host.say(`${NAME[kind]} en el centro (${OP_NAME[host.op()]}): flechas para moverlo, ⌥ y flechas para su tamaño, [ y ] para girarlo, Intro para aplicarlo, Esc para descartarlo.`);
+        host.say(`${NAME[kind]} en el centro (${OP_NAME[host.op()]}): flechas para mover${THIS[kind]}, ⌥ y flechas para su tamaño, [ y ] para girar${THIS[kind]}, Intro para aplicar${THIS[kind]}, Esc para descartar${THIS[kind]}.`);
         host.redrawOverlay();
         return true;
       }

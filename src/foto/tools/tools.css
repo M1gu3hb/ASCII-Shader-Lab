@@ -1,6 +1,6 @@
 /* Option bars of the photo studio's tools and the cutout panel («Telar de precisión»: ink, bone, hairlines,
    mono values, vermilion only for the one primary action and active states). 44 px targets throughout. */
-.tl-opts {
+:where(.tl-opts, .cp, .tl-consent) {
   --tl-ink: var(--ink, #0c0b0a);
   --tl-ink2: var(--ink-2, #151412);
   --tl-ink3: var(--ink-3, #1e1c19);
@@ -8,6 +8,8 @@
   --tl-smoke: var(--smoke, #8c857a);
   --tl-bone: var(--bone, #ede6da);
   --tl-signal: var(--signal, #ff5b1f);
+}
+.tl-opts {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -20,7 +22,7 @@
 .tl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
 .tl-title { font: 500 12px/1 var(--font-mono, ui-monospace, monospace); letter-spacing: .06em; text-transform: uppercase; color: var(--tl-smoke); margin-right: 2px; }
 
-.tl-slider { display: inline-grid; grid-template-columns: auto minmax(92px, 150px) 4.6em; align-items: center; gap: 8px; min-height: 44px; }
+.tl-slider { display: inline-grid; grid-template-columns: auto minmax(76px, 116px) 3.9em; align-items: center; gap: 8px; min-height: 44px; }
 .tl-slider.tl-wide { grid-template-columns: auto minmax(120px, 1fr) 4.6em; flex: 1 1 260px; }
 .tl-lab { color: var(--tl-smoke); white-space: nowrap; }
 .tl-val { font: 12px/1 var(--font-mono, ui-monospace, monospace); color: var(--tl-bone); text-align: right; font-variant-numeric: tabular-nums; }
@@ -77,3 +79,15 @@
 .tl-consent p { margin: 0; color: var(--tl-bone); }
 .tl-consent .tl-note { color: var(--tl-smoke); }
 .tl-consent .tl-row { justify-content: flex-end; }
+.tl-consent.wide { max-width: 980px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 18px; padding: 10px 14px; }
+.tl-consent.wide > :not(.tl-row) { grid-column: 1; }
+.tl-consent.wide > .tl-row { grid-column: 2; grid-row: 1 / span 4; }
+.tl-consent.wide p { font-size: 12.5px; }
+@media (max-width: 640px) { .tl-consent.wide { grid-template-columns: 1fr; } .tl-consent.wide > .tl-row { grid-column: 1; grid-row: auto; } }
+
+/* phones: one control per row, sliders across the width */
+@media (max-width: 640px) {
+  .tl-opts { gap: 4px 10px; }
+  .tl-slider { grid-template-columns: 6.8em minmax(0, 1fr) 3.9em; width: 100%; }
+  .tl-note { flex-basis: 100%; }
+}

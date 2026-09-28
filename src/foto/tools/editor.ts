@@ -31,6 +31,8 @@ export class PartEditor {
   /** The selected vertex of a polygon (keyboard, Backspace) or the active end of a gradient. */
   vertex = -1;
   end: 0 | 1 = 1;
+  /** The keyboard has been used on this selection (then its active end/vertex is shown in vermilion). */
+  kbd = false;
   touch = false;
   private drag: { grab: Grab; from: Pt; to: Pt; part0: MaskPart; draft: MaskPart; moved: boolean } | null = null;
   /** Optional sampler for parts that need pixels (rasters, colours) — «move» on a raster. */
@@ -43,6 +45,7 @@ export class PartEditor {
     this.sel = { layer, index, part };
     this.vertex = -1;
     this.end = 1;
+    this.kbd = false;
     this.onChange?.();
   }
 
@@ -244,6 +247,7 @@ export class PartEditor {
   key(host: ToolHost, e: KeyboardEvent, o: { allowDelete?: boolean } = {}): boolean {
     const sel = this.current(host);
     if (!sel) return false;
+    this.kbd = true;
     const { s } = this.px(host);
     const step = (e.shiftKey ? 10 : 1);
     const arrows: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -319,7 +323,7 @@ export class PartEditor {
     const sel = this.current(host);
     if (!sel) return;
     const part = this.drag?.draft ?? sel.part;
-    drawPart(ctx, host, part, { handles: true, grab: this.drag?.grab ?? null, vertex: this.vertex, end: this.end, touch: this.touch, dragging: !!this.drag });
+    drawPart(ctx, host, part, { handles: true, grab: this.drag?.grab ?? null, vertex: this.vertex, end: this.kbd ? this.end : undefined, touch: this.touch, dragging: !!this.drag });
     if (this.drag?.moved && part.kind === 'raster') {
       const scr = this.scr(host), d = this.drag;
       const a = scr(d.from), b = scr(d.to);

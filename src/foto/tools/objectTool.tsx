@@ -10,6 +10,7 @@
  * MaskRasterPart { origin: 'object', points } on the target's mask (one undo step). Re-editing an existing
  * object part (from «Editar partes») reopens its points and «Aceptar» replaces it.
  */
+import { useState } from 'react';
 import type { Id, MaskOp, MaskRasterPart } from '../../project/types';
 import { useProject } from '../../project/store';
 import type { Matte, SelectSession } from '../../cutout';
@@ -374,20 +375,28 @@ function edges(m: Matte): HTMLCanvasElement {
 
 function ObjectOptions({ host, actions }: { host: ToolHost; actions: { download(): void; cancel(): void; accept(): void; reset(): void; remove(i: number): void; retry(): void } }) {
   const o = useLive(s => s.object);
+  const [later, setLater] = useState(false);
   useProject(s => s.project);
   if (o.phase === 'consent' && o.consent) {
     const c = o.consent;
+    if (later) {
+      return (
+        <div className="tl-opts" data-tool="objeto">
+          <span className="tl-title">Objeto</span>
+          <Note tone="quiet">Seleccionar objetos necesita un modelo de {c.size} que todavía no está en este navegador.</Note>
+          <Button onClick={() => setLater(false)}>Descargar…</Button>
+        </div>
+      );
+    }
     return (
       <div className="tl-opts" data-tool="objeto">
-        <section className="tl-consent" aria-labelledby="tl-consent-h">
-          <h3 id="tl-consent-h">Descargar «{c.name}» ({c.size})</h3>
-          <p>Para seleccionar objetos con puntos, este navegador necesita un modelo de {c.size}. Se descarga una sola vez desde {c.from} y queda guardado aquí.</p>
-          <p>{c.text}</p>
-          <Note tone="quiet">Licencia: {c.licence}.</Note>
-          {c.note ? <Note tone="warn">{c.note}</Note> : null}
+        <section className="tl-consent wide" aria-labelledby="tl-consent-h">
+          <h3 id="tl-consent-h">¿Descargar «{c.name}» ({c.size})?</h3>
+          <p>Para seleccionar objetos con puntos hace falta este modelo. Se descarga una sola vez desde {c.from} y queda guardado aquí. {c.text.replace(/\. El modelo se descarga.*$/, '.').replace('el recorte ocurre', 'la selección ocurre')}</p>
+          <Note tone="quiet">Licencia: {c.licence}.{c.note ? ` ${c.note}` : ''}</Note>
           {o.error ? <Note tone="warn">{o.error}</Note> : null}
           <Row>
-            <Button onClick={() => host.say('Sin descarga. Puedes seleccionar con las otras herramientas.')}>Ahora no</Button>
+            <Button onClick={() => { setLater(true); host.say('Sin descarga. Puedes seleccionar con las otras herramientas.'); }}>Ahora no</Button>
             <Button primary onClick={actions.download}>Descargar {c.size}</Button>
           </Row>
         </section>

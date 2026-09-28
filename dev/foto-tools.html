@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>QA · herramientas del estudio de foto</title>
+<style>
+:root{color-scheme:dark;--ink:#0c0b0a;--ink-2:#151412;--ink-3:#1e1c19;--graphite:#2a2723;--smoke:#8c857a;--bone:#ede6da;--signal:#ff5b1f}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0c0b0a;color:#ede6da;font:13px/1.45 system-ui,sans-serif}
+body{display:grid;grid-template-rows:auto auto 1fr auto;grid-template-columns:minmax(0,1fr);min-height:100%;height:100dvh}
+body>*{min-width:0}
+header{padding:8px 14px;border-bottom:1px solid #2a2723;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+header b{font-size:14px;font-weight:600}
+#status{color:#a39b8f;flex:1 1 240px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#opts{padding:6px 14px;border-bottom:1px solid #2a2723;min-height:58px;display:flex;align-items:center}
+main{display:grid;grid-template-columns:56px 1fr;min-height:0}
+#palette{display:flex;flex-direction:column;gap:2px;padding:6px;border-right:1px solid #2a2723;overflow:auto}
+#palette button{width:44px;height:44px;display:grid;place-items:center;background:transparent;border:1px solid transparent;border-radius:8px;color:#b9b2a6;cursor:pointer;position:relative;flex:none}
+#palette button:hover{color:#ede6da;border-color:#2a2723}
+#palette button[aria-pressed=true]{color:#0c0b0a;background:#ede6da}
+#palette button:focus-visible{outline:1px solid #ff5b1f;outline-offset:1px}
+#palette button kbd{position:absolute;right:2px;bottom:1px;font:9px/1 ui-monospace,monospace;color:inherit;opacity:.6}
+#palette hr{width:100%;border:0;border-top:1px solid #2a2723;margin:4px 0}
+#stage{position:relative;overflow:hidden;touch-action:none;background:repeating-conic-gradient(#171614 0 25%,#131210 0 50%) 0 0/20px 20px;min-height:0}
+#stage canvas{position:absolute;left:0;top:0}
+#overlay{width:100%;height:100%}
+#stage{outline:none}
+footer{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:6px 14px;border-top:1px solid #2a2723}
+footer button,footer select{white-space:nowrap;font:inherit;min-height:44px;background:#1e1c19;color:inherit;border:1px solid #2a2723;border-radius:8px;padding:0 12px;cursor:pointer}
+footer button:disabled{opacity:.45}
+footer .seg{display:inline-flex;border:1px solid #2a2723;border-radius:8px;overflow:hidden}
+footer .seg button{border:0;border-radius:0;border-left:1px solid #2a2723;background:transparent;color:#8c857a}
+footer .seg button:first-child{border-left:0}
+footer .seg button[aria-pressed=true]{background:#ede6da;color:#0c0b0a}
+footer label{display:inline-flex;gap:8px;align-items:center;color:#8c857a}
+footer input[type=range]{width:140px;min-height:44px;accent-color:#ede6da}
+#info{font:12px ui-monospace,monospace;color:#8c857a}
+#cutout{position:fixed;inset:auto 0 0 auto;top:0;width:min(440px,100%);background:#151412;border-left:1px solid #2a2723;overflow:auto;padding:12px 14px 24px;z-index:10}
+#cutout[hidden]{display:none}
+#cutout .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#cutout .bar h2{margin:0;font:600 15px system-ui}
+#cutout .bar button{font:inherit;min-height:44px;min-width:44px;background:transparent;color:inherit;border:1px solid #2a2723;border-radius:8px;cursor:pointer}
+@media (max-width:640px){
+  body{grid-template-rows:auto minmax(0,1fr) auto auto auto}
+  header{padding:6px 10px;order:0}
+  header b{display:none}
+  main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;order:1}
+  #palette{flex-direction:row;border-right:0;border-top:1px solid #2a2723;overflow-x:auto;padding:4px 6px;order:2}
+  #stage{order:1}
+  #palette hr{width:auto;height:auto;border-top:0;border-left:1px solid #2a2723;margin:0 4px}
+  #opts{order:2;min-height:0;max-height:34dvh;overflow:auto;border-top:1px solid #2a2723;border-bottom:0;padding:6px 10px}
+  footer{order:3;padding:4px 10px;gap:4px 6px;flex-wrap:nowrap;overflow-x:auto}
+  footer label,#fit,#info{display:none}
+  footer .seg button{padding:0 10px}
+}
+</style></head>
+<body>
+<header><b>Herramientas · estudio de foto (QA)</b><span id="status" role="status" aria-live="polite">preparando…</span></header>
+<div id="opts" aria-label="Opciones de la herramienta"></div>
+<main>
+  <nav id="palette" aria-label="Herramientas"></nav>
+  <div id="stage" tabindex="0" aria-label="Lienzo: usa la herramienta activa (teclado: ver la ayuda de cada herramienta)"><canvas id="art" aria-hidden="true"></canvas><canvas id="overlay" aria-hidden="true"></canvas></div>
+</main>
+<footer>
+  <div class="seg" role="group" aria-label="Operación"><button type="button" data-op="add" aria-pressed="true">＋ Sumar</button><button type="button" data-op="subtract" aria-pressed="false">− Restar</button><button type="button" data-op="intersect" aria-pressed="false">∩ Intersecar</button></div>
+  <button id="undo" type="button" title="Deshacer (⌘Z)">Deshacer</button>
+  <button id="redo" type="button" title="Rehacer (⇧⌘Z)">Rehacer</button>
+  <label>Zoom <input id="zoom" type="range" min="0.25" max="8" step="0.05" value="1"></label>
+  <button id="fit" type="button">Ajustar</button>
+  <button id="openCutout" type="button">Quitar fondo…</button>
+  <span id="info"></span>
+</footer>
+<aside id="cutout" hidden aria-labelledby="cutoutTitle"><div class="bar"><h2 id="cutoutTitle">Recorte</h2><button id="closeCutout" type="button" aria-label="Cerrar el recorte">×</button></div><div id="cutoutRoot"></div></aside>
+<script type="module" src="./foto-tools.tsx"></script>
+</body></html>

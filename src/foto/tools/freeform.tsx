@@ -87,6 +87,25 @@ export const polygonTool: Tool = (() => {
     return { x: (lx + Math.cos(a) * l) / s.w, y: (ly + Math.sin(a) * l) / s.h };
   };
 
+  /** A click (or a lifted tap): close on the first vertex or on a double click, else a new vertex. */
+  const act = (e: ToolEvent, host: ToolHost) => {
+    const p = snapped(host, layerPoint(host, e.p), e.shift && !!st);
+    if (st) {
+      const first = screenOf(host)({ x: st.pts[0], y: st.pts[1] });
+      const tol = e.pointerType === 'touch' ? 24 : 9;
+      if (st.pts.length >= 6 && dist(first, e.s) <= tol) { close(host); return; }
+      // the second click of a double click closes (it would only repeat the last vertex)
+      const ld = st.lastDown;
+      if (ld && e.time - ld.t < 400 && dist(ld.s, e.s) < 8) { close(host); return; }
+      st.lastDown = { t: e.time, s: e.s };
+      addVertex(host, p, e);
+      return;
+    }
+    addVertex(host, p, e, e.pointerType === 'touch');
+    if (st) (st as PolyState).lastDown = { t: e.time, s: e.s };
+  };
+  let touchDown = false;
+
   return {
     id: 'poligono',
     name: 'Polígono',
@@ -100,20 +119,15 @@ export const polygonTool: Tool = (() => {
     deactivate(host) { st = null; cursor = null; count(); host.preview(null); },
 
     down(e, host) {
-      const p = snapped(host, layerPoint(host, e.p), e.shift && !!st);
-      if (st) {
-        const first = screenOf(host)({ x: st.pts[0], y: st.pts[1] });
-        const tol = e.pointerType === 'touch' ? 24 : 9;
-        if (st.pts.length >= 6 && dist(first, e.s) <= tol) { close(host); return; }
-        // the second click of a double click closes (it would only repeat the last vertex)
-        const ld = st.lastDown;
-        if (ld && e.time - ld.t < 400 && dist(ld.s, e.s) < 8) { close(host); return; }
-        st.lastDown = { t: e.time, s: e.s };
-        addVertex(host, p, e);
-        return;
-      }
-      addVertex(host, p, e, e.pointerType === 'touch');
-      if (st) (st as PolyState).lastDown = { t: e.time, s: e.s };
+      // touch: the vertex goes where the finger lifts (a second finger moving the view cancels it)
+      if (e.pointerType === 'touch') { touchDown = true; if (st) { st.hover = layerPoint(host, e.p); host.redrawOverlay(); } return; }
+      act(e, host);
+    },
+
+    up(e, host) {
+      if (!touchDown) return;
+      touchDown = false;
+      act(e, host);
     },
 
     move(e, host) {
@@ -122,7 +136,7 @@ export const polygonTool: Tool = (() => {
       host.redrawOverlay();
     },
 
-    cancel(host) { host.redrawOverlay(); },
+    cancel(host) { touchDown = false; host.redrawOverlay(); },
 
     onKey(e, host) {
       if (e.metaKey || e.ctrlKey) return false;
@@ -270,7 +284,7 @@ function FreeformOptions({ host, poly }: { host: ToolHost; poly?: { close(): voi
         <>
           <span className="tl-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'vértice' : 'vértices'}` : 'sin vértices'}</span>
           <Button primary disabled={n < 3} onClick={poly.close} kbd="Intro">Cerrar</Button>
-          <Button disabled={!n} onClick={poly.undo} kbd="⌫">Quitar último</Button>
+          <Button disabled={!n} onClick={poly.undo} kbd="Retroceso">Quitar último</Button>
           <Button disabled={!n} onClick={poly.cancel} kbd="Esc">Cancelar</Button>
         </>
       ) : (
