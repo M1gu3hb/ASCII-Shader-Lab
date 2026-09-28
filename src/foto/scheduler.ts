@@ -146,7 +146,7 @@ async function run(light: boolean) {
     needFinal = lightDone;
     if (!light || forced !== null) finalScale = scale;
     const prev = ui().render;
-    setUI({ render: { ms: report.ms, scale, light: lightDone || ui().quality === 'ligera', w: report.w, h: report.h, warnings: report.warnings, n: prev.n + 1 } });
+    setUI({ render: { ms: report.ms, scale, light: lightDone || ui().quality === 'ligera', w: report.w, h: report.h, warnings: report.warnings, basic: report.engines.basic > 0 || (prev.basic && report.engines.webgl2 === 0), n: prev.n + 1 } });
     for (const fn of listeners) fn({ state, report, scale, light, project: p, seq: mine });
   } catch (e) {
     console.warn('foto: render failed', e);

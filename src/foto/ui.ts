@@ -21,6 +21,8 @@ export interface RenderInfo {
   w: number;
   h: number;
   warnings: string[];
+  /** ASCII layers drawn by the Canvas 2D basic engine (no WebGL 2 here, or ?motor=basico). */
+  basic: boolean;
   /** Renders so far (tests wait for a new one). */
   n: number;
 }
@@ -76,7 +78,7 @@ export const useFoto = create<FotoUI>(() => ({
   screen: 'start', tool: null, op: 'add', maskView: 'tint', compare: false, split: 0.5, holding: false,
   zoom: 'fit', zk: 1, pan: { x: 0, y: 0 }, sheet: 'none', cutout: false, snap: 'closed', mtab: 'capas', sheetH: 0, immersive: narrow(),
   status: '', live: '', diceScope: 'capa', quality: loadQuality(),
-  render: { ms: 0, scale: 0, light: false, w: 0, h: 0, warnings: [], n: 0 }, playing: false, compareWith: null, toolsV: 0, saving: false,
+  render: { ms: 0, scale: 0, light: false, w: 0, h: 0, warnings: [], basic: false, n: 0 }, playing: false, compareWith: null, toolsV: 0, saving: false,
 }));
 
 export const ui = () => useFoto.getState();

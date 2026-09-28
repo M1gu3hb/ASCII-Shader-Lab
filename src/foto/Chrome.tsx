@@ -188,6 +188,11 @@ export function ViewTools() {
         aria-label={`${render.light ? 'Vista ligera' : 'Calidad final'}, ${render.ms} ms. ${quality === 'ligera' ? 'Ligera siempre' : 'Automática'}`}>
         <i className="q-live on" aria-hidden="true" />{render.light ? 'Vista ligera' : 'Calidad final'}<span className="fq-ms">{render.ms} ms</span>
       </button>
+      {render.basic && (
+        <span className="fq basic" title="Este navegador no da WebGL 2 (o se pidió el motor básico): las capas ASCII se dibujan en Canvas 2D, más lento pero con el mismo resultado.">
+          Motor básico
+        </span>
+      )}
     </div>
   );
 }
