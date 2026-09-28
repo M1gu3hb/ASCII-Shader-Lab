@@ -43,15 +43,28 @@ function fontString(spec: { weight: number; italic?: boolean; stack: string }, p
   return `${spec.italic ? 'italic ' : ''}${spec.weight} ${px}px ${spec.stack}`;
 }
 
+/**
+ * Grows each time a web font finishes loading. A web font still on its way measures as its fallback: what
+ * was measured then must not outlive the load, or the same piece picks other glyphs for the rest of the
+ * page (a first visit rendered, and exported, differently from the same piece reopened later).
+ */
+function loadedFonts(): number {
+  const set = typeof document !== 'undefined' ? document.fonts : undefined;
+  if (!set || typeof set.forEach !== 'function') return 0;
+  let n = 0;
+  set.forEach(f => { if (f.status === 'loaded') n++; });
+  return n;
+}
+
 const inkCache = new Map<string, number>();
 
 /**
  * How much ink each character leaves in a cell of this font and proportion (0 = none; 1 = the cell full),
- * measured on a small canvas. Cached per character, font and proportion. The ramp editor shows it; the
- * atlas sorts by it.
+ * measured on a small canvas. Cached per character, font, proportion and set of loaded fonts. The ramp
+ * editor shows it; the atlas sorts by it.
  */
 export function measureDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): number[] {
-  const tail = '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2);
+  const tail = '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts();
   const G = 32, GH = Math.max(12, Math.round(G * aspect));
   let cx: CanvasRenderingContext2D | null = null;
   let fs = 0;
@@ -80,9 +93,9 @@ export function measureDensity(chars: string[], spec: { stack: string; weight: n
   });
 }
 
-/** Orders characters from empty to full by measuring rendered ink coverage. Cached. */
+/** Orders characters from empty to full by measuring rendered ink coverage. Cached (per set of loaded fonts). */
 export function sortByDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): string[] {
-  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2);
+  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts();
   const hit = densityCache.get(key);
   if (hit) return hit;
   const dens = measureDensity(chars, spec, aspect);

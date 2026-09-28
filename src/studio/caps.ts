@@ -62,7 +62,27 @@ export function recorderLabel(mime: string): string {
   return (mp4 ? 'MP4' : 'WebM') + (codec ? ` (${codec})` : '');
 }
 
-export const hasWebCodecs = () => typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
+/**
+ * Why frame-by-frame video cannot be rendered here ('' when it can): no WebCodecs, or a WebKit built
+ * without media encoding. That WebKit (Playwright's for Linux: no MediaRecorder either) closes the whole
+ * page when asked VideoEncoder.isConfigSupported, whatever the codec, so it is not asked. Safari has
+ * MediaRecorder and keeps being asked.
+ */
+export function videoEncoderGap(ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''): '' | 'no-webcodecs' | 'no-encoders' {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return 'no-webcodecs';
+  const webkitOnly = /AppleWebKit\//.test(ua) && !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg|OPR)\//.test(ua);
+  if (webkitOnly && typeof MediaRecorder === 'undefined') return 'no-encoders';
+  return '';
+}
+
+export const hasWebCodecs = () => videoEncoderGap() === '';
+
+/** The sentence that explains a video encoder gap (see videoEncoderGap). */
+export function videoEncoderWhy(gap = videoEncoderGap()): string {
+  return gap === 'no-encoders'
+    ? 'Este navegador no trae codificadores de video (tampoco graba el lienzo), así que aquí no se puede crear el video fotograma a fotograma.'
+    : 'Este navegador no tiene WebCodecs, la función con la que se codifica el video fotograma a fotograma.';
+}
 
 function syncCaps(): Caps {
   const nav = typeof navigator !== 'undefined' ? navigator : undefined;

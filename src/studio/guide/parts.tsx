@@ -120,12 +120,12 @@ export function CodeBox({ kinds, placements, placement: initial }: { kinds: Kind
         <button type="button" className="btn" onClick={() => void poster()}>Descargar póster (PNG)</button>
       </div>
       <p className="note">
-        Motor incluido ({mod ? Math.round(mod.runtimeSize() / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».
+        Motor incluido ({mod ? Math.round(mod.runtimeSize(r, 'basic') / 1024) : '…'} KB), sólo con los patrones que usa esta pieza. Se pausa fuera de pantalla y respeta «reducir movimiento».
         {kind === 'wc' && ' Sube monotrama-field.js junto a tu página.'}
       </p>
       {scrim && <ScrimCodeNote zone={scrim} on />}
       {out?.notes.map((n, i) => <p key={i} className="note">{n}</p>)}
-      <p className="note">Sin WebGL 2 se ve el color de fondo, o el póster si lo subes con tu página y pones su URL en «poster».</p>
+      <p className="note">Sin WebGL 2 la dibuja el motor básico que va incluido (Canvas 2D, más despacio); si tampoco puede, se ve el color de fondo, o el póster si lo subes con tu página y pones su URL en «poster». Para un código más ligero sin ese respaldo, usa la pestaña Código de Exportar.</p>
     </div>
   );
 }

@@ -178,6 +178,7 @@ export class BasicEngine implements Renderer {
     this.ctx = ctx;
     if (opts.fixedSize) this.resize();
     void this.requestFonts();
+    this.watchLateFonts();
 
     if (!opts.fixedSize && typeof ResizeObserver !== 'undefined') {
       this.ro = new ResizeObserver(() => { this.sizeDirty = true; this.needsRender = true; });
@@ -365,6 +366,15 @@ export class BasicEngine implements Renderer {
       this.textKey = '';
       this.needsRender = true;
     });
+  }
+
+  /** A web font that lands after requestFonts() stopped waiting is drawn when it arrives (see engine.ts). */
+  private watchLateFonts() {
+    const set = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (!set || typeof set.addEventListener !== 'function') return;
+    const landed = () => { this.atlasKey = this.textKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; };
+    set.addEventListener('loadingdone', landed);
+    this.cleanup.push(() => set.removeEventListener('loadingdone', landed));
   }
 
   private bindPointer() {

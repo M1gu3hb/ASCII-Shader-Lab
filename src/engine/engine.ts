@@ -196,6 +196,7 @@ export class AsciiEngine implements Renderer {
     this.initGL();
     if (opts.fixedSize) this.resize();
     this.requestFonts();
+    this.watchLateFonts();
 
     const onLost = (e: Event) => {
       e.preventDefault();
@@ -604,6 +605,19 @@ export class AsciiEngine implements Renderer {
       this.textKey = '';
       this.needsRender = true;
     });
+  }
+
+  /**
+   * A web font that lands after requestFonts() stopped waiting (a slow connection: exported code fetches
+   * its fonts) must still be drawn: glyphs, big text and message are drawn again when a font finishes
+   * loading. Without this a piece on a slow page kept the fallback face for good (still more so when paused).
+   */
+  private watchLateFonts() {
+    const set = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (!set || typeof set.addEventListener !== 'function') return;
+    const landed = () => { this.atlasKey = this.textKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; };
+    set.addEventListener('loadingdone', landed);
+    this.cleanup.push(() => set.removeEventListener('loadingdone', landed));
   }
 
   private bindPointer() {
