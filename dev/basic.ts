@@ -317,21 +317,45 @@ async function compareTrail(frames = 8) {
 }
 
 /** The big text with a per-letter animation, at time t. */
-function compareTextAnim(kind: LetterAnimKind, t = T, amount = 0.7) {
+async function compareTextAnim(kind: LetterAnimKind, t = T, amount = 0.7) {
   const r = presetRecipe('tipo/trama');
   r.interact.mode = 'none';
   r.text.content = 'TEJE LUZ';
+  const still = structuredClone(r);
   r.text.anim = { kind, amount, speed: 1 };
-  return compare('texto ' + kind, r, { t, w: 640, h: 360 });
+  const c = await compare('texto ' + kind, r, { t, w: 640, h: 360 });
+  return { ...c, moved: await changedBy(still, t) };
+}
+
+/**
+ * Share of cells an animation changes (glyph, or colour by more than 24): the basic engine, which has just
+ * drawn the animated piece at t, draws it again without the animation. A match is then not two still pieces.
+ */
+async function changedBy(still: Recipe, t: number) {
+  const p = pairFor(640, 360);
+  const a = p.basic.readGrid();
+  p.basic.set(still);
+  await p.basic.ready();
+  p.basic.renderAt(t, t);
+  const b = p.basic.readGrid();
+  let n = 0;
+  for (let i = 0; i < a.chars.length; i++) {
+    const dc = Math.abs(a.rgb[i * 3] - b.rgb[i * 3]) + Math.abs(a.rgb[i * 3 + 1] - b.rgb[i * 3 + 1]) + Math.abs(a.rgb[i * 3 + 2] - b.rgb[i * 3 + 2]);
+    if (a.chars[i] !== b.chars[i] || dc > 24) n++;
+  }
+  return n / a.chars.length;
 }
 
 /** The message with a per-letter animation (or «Palabra a palabra»), at time t. */
-function compareMsgAnim(kind: LetterAnimKind | 'words', t = T) {
+async function compareMsgAnim(kind: LetterAnimKind | 'words', t = T) {
   const r = presetRecipe('tipo/maquina');
   r.interact.mode = 'none';
   r.msg = { ...r.msg, text: 'las letras también bailan\ncuando nadie las mira', mode: kind === 'words' ? 'words' : 'static', cursor: false, speed: 18 };
+  const still = structuredClone(r);
+  still.msg.mode = 'static';
   if (kind !== 'words') r.msg.anim = { kind, amount: 0.8, speed: 1 };
-  return compare('mensaje ' + kind, r, { t, w: 640, h: 360 });
+  const c = await compare('mensaje ' + kind, r, { t, w: 640, h: 360 });
+  return { ...c, moved: await changedBy(still, t) };
 }
 
 /* ---------- page ---------- */

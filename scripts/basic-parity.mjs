@@ -15,6 +15,7 @@
  * Exit code 1 when a pattern correlates below 0.8 at both sample times, a preset below 0.8, a transition
  * frame matches on fewer than 90% of its pixels, a transformation or letter animation below 0.9, or any
  * comparison differs by more than 8 (of 255) per pixel on average: that is a rendering bug, not rounding.
+ * A letter animation that changes no cell against still letters, or an Estela that lights none, fails too.
  *   --solo creativo   only the transformations and letter animations (quick while working on them)
  */
 import { createServer } from 'vite';
@@ -223,10 +224,13 @@ async function creativeSections(page, f2, pct) {
   for (const k of textAnims) for (const t of [1.1, 2.3]) out.letters.push({ ...(await page.evaluate(([k, t]) => window.__basic.compareTextAnim(k, t), [k, t])), t });
   for (const k of [...msgAnims, 'words']) for (const t of [1.1, 2.3]) out.letters.push({ ...(await page.evaluate(([k, t]) => window.__basic.compareMsgAnim(k, t), [k, t])), t });
   console.log('\n## Letras que se mueven (texto grande y mensaje, 640×360, t = 1.1 y 2.3)\n');
-  console.log('| animación | t | r | Δlum | glifos | visibles | Δrgb | Δpx |');
-  console.log('|---|---|---|---|---|---|---|---|');
-  for (const c of out.letters) console.log(`| ${c.id} | ${c.t} | ${line(c)} |`);
+  console.log('| animación | t | r | Δlum | glifos | visibles | Δrgb | Δpx | celdas que cambia |');
+  console.log('|---|---|---|---|---|---|---|---|---|');
+  for (const c of out.letters) console.log(`| ${c.id} | ${c.t} | ${line(c)} | ${pct(c.moved)} |`);
   console.log('');
-  if ([...out.xforms, ...out.stacks, ...out.text, out.trail, ...out.letters].some(bad) || out.trail.lit < 0.01) out.failed = true;
+  // each animation must change the piece at one of the two times (a match between two still pieces proves nothing)
+  const still = [...new Set(out.letters.map(c => c.id))].filter(id => out.letters.filter(c => c.id === id).every(c => c.moved < 0.002));
+  if (still.length) console.log(`Sin cambio respecto a las letras quietas: ${still.join(', ')}\n`);
+  if ([...out.xforms, ...out.stacks, ...out.text, out.trail, ...out.letters].some(bad) || out.trail.lit < 0.01 || still.length) out.failed = true;
   return out;
 }
