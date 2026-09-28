@@ -2414,9 +2414,10 @@ const COMP_PROBES = {
       await p.waitForTimeout(700);
       const after = await lit(0.2, 0.5);
       await p.mouse.move(0, 0);
-      assert(after > before + 0.05, `luz ${fmt(before)} → ${fmt(after)}`);
+      // with nobody there it draws nothing; under the cursor, a soft light (a faint weave, not a lamp)
+      assert(before < 0.002 && after > before + 0.002, `luz ${fmt(before)} → ${fmt(after)}`);
       assert((await cv.getAttribute('aria-hidden')) === 'true', 'el lienzo no está oculto a los lectores de pantalla');
-      return `la luz sigue al cursor (${fmt(before)} → ${fmt(after)})`;
+      return `sin nadie no dibuja (${fmt(before)}); bajo el cursor, luz (${fmt(after)})`;
     },
   },
   loader: {
