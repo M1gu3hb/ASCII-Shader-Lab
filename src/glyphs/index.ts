@@ -9,10 +9,10 @@
  *   const grid = glyphGrid(layerPicture, style, { w, h });             // when the picture or the style changes
  *     (or glyphGridWith(picture, style, out, { version }) to skip re-reading a picture that did not change)
  *   drawGlyphs(ctx, grid, style, cellFx);                               // per frame
- * Lab timings (this machine, headless Chromium, software canvas, CPU shared; 1080×1350, 8 px square cells =
- * 22 815 cells, medians): drawGlyphs 2.6–14 ms (+2–11 ms raster flush; Katakana 12 + 21 ms: CJK fallback
- * font); glyphGrid 25–45 ms, of which sampling 20–35 ms and mapping 2–7 ms (11 ms for Flechas).
- * Text outputs: toGridSnapshot(grid, bg, style) → exporters/text.ts; gridToSvgText(grid, style); gridText(grid).
+ * Lab timings (headless Chromium, software canvas, a CPU shared with other jobs, so ±30 %; 1080×1350 with
+ * 8 px square cells = 22 815 cells; medians of 10): drawGlyphs 2.6–18 ms (+2–23 ms until the canvas is
+ * rasterised; the slow end is Katakana, drawn with a CJK fallback font); glyphGrid 25–57 ms, of which reading
+ * the picture 20–50 ms and tone + mapping 2–9 ms. See dev/glyphs.ts (qa.bench) to measure again.
  */
 import type { GlyphStyle } from '../project/types';
 import { CHARSET_LIST, charsetInfo } from './charsets';

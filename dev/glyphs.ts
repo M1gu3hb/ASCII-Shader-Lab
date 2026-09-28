@@ -326,7 +326,7 @@ const qa = {
     const out = outSize(p, w);
     const grid = glyphGrid(p, s, out);
     const draw = (spans: boolean) => {
-      const [c, x] = canvas(out.w, out.h);
+      const [, x] = canvas(out.w, out.h);
       drawGrid(x, grid, s, null, { spans }); // warm: fonts measured, span check done
       const ms: number[] = [];
       for (let k = 0; k < 5; k++) {
@@ -382,7 +382,7 @@ const qa = {
     await ensureGlyphFont(s.font, s.weight, sampleOf(s));
     const src = pic(opts.src ?? 'fruta');
     const out = { w: 1080, h: 1350 };
-    const [c, x] = canvas(out.w, out.h);
+    const [, x] = canvas(out.w, out.h);
     const g: number[] = [], d: number[] = [], f: number[] = [];
     let grid = glyphGrid(src, s, out);
     const runs = opts.runs ?? 10;

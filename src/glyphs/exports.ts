@@ -92,7 +92,8 @@ export function gridToSvgText(grid: GlyphGrid, style: GlyphStyle, opts: { paper?
       const g = grid.chars[i];
       const a = grid.alpha[i];
       if (!g || g === ' ' || !(a > 0.004) || charWidth(g) === 0) { flush(); continue; }
-      const o = a >= 1 ? 1 : +a.toFixed(2);
+      // the canvas draws opacity in sixteenths (drawGrid groups cells by it): the same steps here
+      const o = a >= 1 ? 1 : +(Math.max(1, Math.round(a * 16)) / 16).toFixed(4);
       if (colors[i] !== col || o !== op) { flush(); col = colors[i]; op = o; }
       run += g;
       xs.push(num(c * cw + cw / 2));

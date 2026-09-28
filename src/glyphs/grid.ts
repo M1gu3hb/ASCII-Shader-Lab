@@ -85,7 +85,7 @@ function stillKey(src: Source2D, d: GridDims, version?: string): string | null {
  * Reduction: bilinear steps of at most 2:1 down to twice the target, then one exact 2:1 step (a 2×2 box):
  * every source pixel counts (an area average, no aliasing of fine lines), and every browser computes the
  * same thing (unlike imageSmoothingQuality 'high', whose filter each engine picks). It reads the whole
- * picture once: the costly part of a grid (lab: ~20–35 ms for 1080×1350 on a software canvas), so a picture
+ * picture once: the costly part of a grid (lab: ~20–50 ms for 1080×1350 on a software canvas), so a picture
  * that did not change is not sampled again (see `version`).
  */
 export function sampleFine(src: Source2D, d: GridDims, version?: string): FineSample {
@@ -374,21 +374,12 @@ function sobel(e: Float32Array, cols: number, rows: number): [Float32Array, Floa
   return [gx, gy];
 }
 
-/** Gradient of a softened field (two 3×3 box blurs): a direction for flat areas of the arrows mode. */
+/** Gradient of a softened field (three 5×5 box blurs): a direction for flat areas of the arrows mode. */
 function blurredGradient(v: Float32Array, vis: Float32Array, cols: number, rows: number): [Float32Array, Float32Array] {
-  let a = new Float32Array(v.length);
+  let a: Float32Array = new Float32Array(v.length);
   for (let i = 0; i < a.length; i++) a[i] = v[i] * vis[i];
-  for (let pass = 0; pass < 3; pass++) {
-    const b = new Float32Array(a.length);
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      let s = 0, k = 0;
-      for (let y = Math.max(0, r - 2); y <= Math.min(rows - 1, r + 2); y++) for (let x = Math.max(0, c - 2); x <= Math.min(cols - 1, c + 2); x++) { s += a[y * cols + x]; k++; }
-      b[r * cols + c] = s / k;
-    }
-    a = b;
-  }
-  const [gx, gy] = sobel(a, cols, rows);
-  return [gx, gy];
+  for (let pass = 0; pass < 3; pass++) a = boxMean(a, cols, rows, 2);
+  return sobel(a, cols, rows);
 }
 
 /**
