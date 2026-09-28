@@ -150,7 +150,7 @@ function island(sel: string, load: (el: HTMLElement) => Promise<unknown>) {
       pending = null;
     });
   };
-  afterLoad(() => near(el, go, '600px'));
+  afterLoad(() => near(el, go, '250px'));
   el.addEventListener('focusin', go, { once: true });
   el.addEventListener('pointerenter', go, { once: true });
   el.addEventListener('click', e => {
