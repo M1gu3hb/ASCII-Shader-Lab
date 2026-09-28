@@ -69,7 +69,7 @@
       </div>
       <dl class="outputs">
         <div><dt>PNG, WebP y JPEG</dt><dd>Vueltos a dibujar al tamaño que elijas, hasta 3840×2160 (4K).<span class="limit"><b>Límite:</b> el fondo transparente sólo existe en PNG y WebP.</span></dd></div>
-        <div><dt>SVG</dt><dd>Cada letra con su contorno real: se amplía sin perder nitidez y se edita en Figma o Illustrator.<span class="limit"><b>Límite:</b> deja fuera los efectos de píxel (resplandor, bloom, barrido, grano, viñeta), porque no existen como vector.</span></dd></div>
+        <div><dt>SVG</dt><dd>Cada letra con su contorno real: se amplía sin perder nitidez. Lo comprobamos en Chromium, Inkscape y rsvg-convert; en Figma o Illustrator todavía no.<span class="limit"><b>Límite:</b> deja fuera los efectos de píxel (resplandor, bloom, barrido, grano, viñeta), porque no existen como vector.</span></dd></div>
         <div><dt>Texto: TXT, ANSI y HTML</dt><dd>Los caracteres exactos, con las columnas y filas que elijas, sin color o con color ANSI.<span class="limit"><b>Límite:</b> en 16 o 256 colores, el color de la foto se aproxima a la paleta de la terminal; sólo «color real» lo conserva.</span></dd></div>
         <div><dt>MP4, WebM y GIF</dt><dd>Si tu pieza tiene movimiento (patrón mezclado, efectos o interacción automática), se renderiza fotograma a fotograma.<span class="limit"><b>Límite:</b> MP4 depende del codificador H.264 de tu navegador; si no lo tiene, usa WebM o la grabación en directo. El GIF llega a 25 fps y 128 colores.</span></dd></div>
         <div><dt>Enlace y receta</dt><dd>Guardan todos los ajustes para reabrir la pieza tal cual.<span class="limit"><b>Límite:</b> no llevan tu imagen: quien abra el enlace verá el patrón hasta cargar una suya. Para enviarla completa, exporta el proyecto (.zip).</span></dd></div>
@@ -99,7 +99,7 @@
       <div class="faq">
         <div><h3>¿Qué imágenes puedo usar?</h3><p>JPG, PNG y WebP, y cualquier otro formato que tu navegador sepa abrir, como AVIF. También puedes soltar la imagen directamente sobre el lienzo.</p></div>
         <div><h3>¿Puedo usar el resultado en un proyecto comercial?</h3><p>Sí. Lo que creas es tuyo y Monotrama no reclama nada sobre ello. Sólo asegúrate de tener derechos sobre la foto original. Más en <a href="/licencia/">Licencia y uso</a>.</p></div>
-        <div><h3>¿Funciona en el móvil?</h3><p>Sí, en navegadores móviles actuales: el panel se convierte en una hoja inferior. El motor completo necesita WebGL 2.</p></div>
+        <div><h3>¿Funciona en el móvil?</h3><p>Está pensado para él: el panel se convierte en una hoja inferior. El motor completo necesita WebGL 2; sin él, un motor básico dibuja lo mismo, más lento. Lo probamos en emulación de teléfonos, no en cada modelo.</p></div>
         <div><h3>¿Por qué el SVG se ve distinto del PNG?</h3><p>El SVG guarda las letras como vectores, y los efectos de píxel no existen como vector, así que se omiten. Si los quieres, exporta PNG o WebP.</p></div>
       </div>
     </div>

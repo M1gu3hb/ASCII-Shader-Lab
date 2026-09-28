@@ -37,7 +37,7 @@ function noteBasic(el: HTMLElement, status: GLStatus) {
   if (!cap || cap.querySelector('.ex-basic-note')) return;
   const note = document.createElement('span');
   note.className = 'ex-basic-note';
-  note.textContent = ` Modo básico (${explainWebGL(status).title}): el procesador dibuja el ejemplo; se ve igual, aunque puede ir más lento.`;
+  note.textContent = ` Modo básico (${explainWebGL(status).title}): el procesador dibuja el ejemplo; se ve casi igual, aunque puede ir más lento.`;
   cap.appendChild(note);
 }
 
