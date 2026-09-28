@@ -236,9 +236,7 @@
   .azar-demo, .azar-side { grid-column: 1 / -1; }
 }
 @media (max-width: 620px) {
-  /* two rows that scroll sideways, like a strip of film */
-  .contact-grid { grid-template-columns: none; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 42vw; overflow-x: auto; scroll-snap-type: x proximity; padding: 12px; gap: 14px 10px; }
-  .contact-grid li { scroll-snap-align: start; }
+  .contact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 12px; gap: 14px 10px; }
   .azar-open { margin-left: 0; }
   .azar-strip button { width: 72px; }
 }

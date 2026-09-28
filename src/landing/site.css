@@ -134,8 +134,9 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
 .reg::after { right: -14px; bottom: -14px; }
 
 /* ---------- motion helpers (landing/motion.ts adds them; content is visible without JS) ---------- */
-.rv { transition: opacity .7s var(--ease-out), transform .7s var(--ease-out); }
-.rv.pre { opacity: 0; transform: translateY(18px); }
+/* a block is threaded in: wiped from the top while it rises (text stays opaque: nothing reads as faint) */
+.rv { transition: clip-path .8s var(--ease-out), transform .8s var(--ease-out); }
+.rv.pre { clip-path: inset(0 0 100% 0); transform: translateY(14px); }
 .rv-rule.pre .sec-rule::after { transform: scaleX(0); }
 .sec-rule::after { transition: transform 1s var(--ease-out) .1s; }
 [data-resolve] { position: relative; }
@@ -143,7 +144,7 @@ code { font: 500 .88em var(--font-mono); background: rgba(127, 120, 110, .16); p
 .resolve-ghost { position: absolute; inset: 0; display: block; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .rv, .sec-rule::after { transition: none; }
-  .rv.pre { opacity: 1; transform: none; }
+  .rv.pre { clip-path: none; transform: none; }
 }
 
 /* ---------- guides: an editorial index (landing, guide pages and 404; markup in scripts/seo.ts) ---------- */
