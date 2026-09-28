@@ -38,6 +38,8 @@ import { contourTool } from '../src/foto/tools/contour';
 import { asciiBrush, eraseBrush, flattenTimings, restoreBrush } from '../src/foto/tools/brushes';
 import { objectTool } from '../src/foto/tools/objectTool';
 import { lassoTool } from '../src/foto/tools/freeform';
+import { live } from '../src/foto/tools/state';
+import { cutoutPanelQA } from '../src/foto/cutout';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const params = new URLSearchParams(location.search);
@@ -490,7 +492,13 @@ const qa = {
     syncZoom();
     await idle();
   },
-  setZoom(z: number) { view.zoom = z; syncZoom(); },
+  /** Zoom (1 = fit) around the centre; the pan is reset. */
+  setZoom(z: number) { view.zoom = z; view.panX = view.panY = 0; syncZoom(); },
+  view: () => ({ ...view }),
+  objectState: () => { const o = live().object; return { phase: o.phase, points: o.points.length, box: !!o.box, error: o.error, matte: !!objectTool.matte() }; },
+  panel: () => ({ state: cutoutPanelQA.state(), last: cutoutPanelQA.last }),
+  /** Milliseconds of the last renders (the view's own, at its scale; previews at 0.75 of it). */
+  lastRender: () => renderMs[renderMs.length - 1] ?? 0,
   timings() {
     return {
       contour: { ...contourTool.stats },

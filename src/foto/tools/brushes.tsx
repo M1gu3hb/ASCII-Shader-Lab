@@ -65,7 +65,9 @@ export async function computeFlatten(layerId: Id): Promise<Flat | null> {
 function scheduleFlatten(layerId: Id) {
   const l = layerById(layerId);
   if (!l || !needsFlatten(partsOf(l)) || flatJobs.has(layerId)) return;
-  const job = computeFlatten(layerId).then(f => { if (f) flatCache.set(layerId, f); }).catch(() => undefined).finally(() => flatJobs.delete(layerId));
+  // when the page is idle (not in the middle of the next stroke)
+  const idle = (f: () => void) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(() => f(), { timeout: 1500 }) : setTimeout(f, 300));
+  const job = new Promise<void>(r => idle(() => r())).then(() => computeFlatten(layerId)).then(f => { if (f) flatCache.set(layerId, f); }).catch(() => undefined).finally(() => flatJobs.delete(layerId));
   flatJobs.set(layerId, job);
 }
 

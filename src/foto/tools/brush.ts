@@ -93,10 +93,12 @@ export function strokeLoad(parts: readonly MaskPart[]): { strokes: number; point
 }
 
 /**
- * When to flatten on its own. Measured on this project's 4-vCPU machine (see the lane report): a mask of 12
- * strokes of ~60 points at a 1080 px frame rasterises in ≈40–60 ms at full size, about a frame budget of a
- * preview at half size; past it every redraw of the layer gets noticeably slower, and a mask holds 64 parts at
- * most (normalize.ts), so strokes must not crowd out the other parts.
+ * When to flatten on its own. Measured on this project's shared 4-vCPU machine (lab numbers, Node, masks.ts):
+ * strokes of 60 points rasterise in ≈6 ms (1), 16 ms (8), 26 ms (12), 35 ms (16), 60–100 ms (24–32) at a 432 × 540
+ * preview, and ≈80–120 ms (1–12), 160 ms (16), 230–640 ms (24–48) at 1080 × 1350. Past 12 strokes a preview of the
+ * layer no longer fits a frame and every final redraw grows by tens of milliseconds per stroke; a mask also holds
+ * 64 parts at most (normalize.ts), so strokes must not crowd out the other parts. Planning the flattening of 12
+ * such strokes at 1080 × 1350 takes ≈165 ms (plus the PNG and the media store), once.
  */
 export const AUTO_FLATTEN = { strokes: 12, points: 1500 } as const;
 
@@ -112,8 +114,9 @@ export function affineOfRun(parts: readonly MaskPart[], i: number, j: number, in
   for (let k = i; k < j; k++) {
     const part = parts[k];
     const c = partCoverage(part, inp) ?? new Float32Array(n);
-    if (part.op === 'add') for (let q = 0; q < n; q++) { const r = 1 - c[q]; M[q] *= r; B[q] = B[q] * r + c[q]; }
-    else if (part.op === 'subtract') for (let q = 0; q < n; q++) { const r = 1 - c[q]; M[q] *= r; B[q] *= r; }
+    // add and subtract leave a pixel the stroke does not touch as it was (most of them): skip those
+    if (part.op === 'add') for (let q = 0; q < n; q++) { const v = c[q]; if (v === 0) continue; const r = 1 - v; M[q] *= r; B[q] = B[q] * r + v; }
+    else if (part.op === 'subtract') for (let q = 0; q < n; q++) { const v = c[q]; if (v === 0) continue; const r = 1 - v; M[q] *= r; B[q] *= r; }
     else for (let q = 0; q < n; q++) { M[q] *= c[q]; B[q] *= c[q]; }
   }
   return { M, B };

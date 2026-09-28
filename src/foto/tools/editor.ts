@@ -62,13 +62,14 @@ export class PartEditor {
   current(host: ToolHost): Sel | null {
     const s = this.sel;
     if (!s) return null;
-    if (s.layer !== host.target()) { this.clear(); return null; }
+    // (dropped silently: this runs while option bars render, where no state may change)
+    const drop = () => { this.sel = null; this.drag = null; this.vertex = -1; return null; };
+    if (s.layer !== host.target()) return drop();
     const parts = partsOf(layerById(s.layer));
     if (samePart(parts[s.index], s.part)) return s;
     const i = parts.findIndex(p => samePart(p, s.part));
     if (i >= 0) { s.index = i; return s; }
-    this.clear();
-    return null;
+    return drop();
   }
 
   /* ---------------------------------------------------------------- geometry on screen */

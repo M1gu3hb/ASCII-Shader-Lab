@@ -246,7 +246,7 @@ export const objectTool: Tool & { timings: ObjectTimings; reedit(layer: Id, inde
       if (layerId !== l.id) { reset(host, false); layerId = l.id; }
       const o = obj();
       if (o.phase === 'consent' || o.phase === 'downloading' || o.phase === 'error') { host.say('Primero descarga el modelo de selección (en las opciones).'); return; }
-      if (!session) { void prepare(host); }
+      if (!session || sessionKey !== keyOf(host)) { void prepare(host); if (!session || sessionKey !== keyOf(host)) { host.say('Analizando la foto de esta capa… toca de nuevo en un momento.'); return; } }
       // the operation is the options bar's (⌥ is taken: it marks a negative point)
       if (!o.points.length && !o.box && o.editing === null) op = host.op();
       const touch = e.pointerType === 'touch';
