@@ -267,6 +267,24 @@ function ditherCore(src: Img, out: Img, s: DitherSpec, P: Prepared, scratch: Scr
       const T = kernel.taps.length;
       const fwd = new Int32Array(T), rev = new Int32Array(T), wts = new Float64Array(T);
       kernel.taps.forEach(([dx, dy, wt], k) => { fwd[k] = (dy * PW + dx) * C; rev[k] = (dy * PW - dx) * C; wts[k] = wt / kernel.div; });
+      if (C === 1) {
+        // the common case (1 bit, tones), inlined: quantise, write, spread
+        for (let y = 0; y < h; y++) {
+          const back = s.serpentine && (y & 1) === 1;
+          const offs = back ? rev : fwd, step = back ? -1 : 1;
+          let x = back ? w - 1 : 0;
+          let oi = (y * w + x) * 4, wi = y * PW + x + 2;
+          for (let m = 0; m < w; m++, x += step, oi += step * 4, wi += step) {
+            if (d[oi + 3] === 0) { o[oi] = 0; o[oi + 1] = 0; o[oi + 2] = 0; o[oi + 3] = 0; continue; }
+            const v = work[wi];
+            const q = v <= 0 ? 0 : v >= 1 ? Lm : (v * Lm + 0.5) | 0;
+            const e0 = v - lv[q], t = q * 4;
+            o[oi] = tone[t]; o[oi + 1] = tone[t + 1]; o[oi + 2] = tone[t + 2]; o[oi + 3] = tone[t + 3];
+            for (let k = 0; k < T; k++) work[wi + offs[k]] += e0 * wts[k];
+          }
+        }
+        return;
+      }
       for (let y = 0; y < h; y++) {
         const back = s.serpentine && (y & 1) === 1;
         const offs = back ? rev : fwd, step = back ? -1 : 1;
@@ -276,15 +294,10 @@ function ditherCore(src: Img, out: Img, s: DitherSpec, P: Prepared, scratch: Scr
           if (d[oi + 3] === 0) { o[oi] = 0; o[oi + 1] = 0; o[oi + 2] = 0; o[oi + 3] = 0; continue; }
           const wi = (y * PW + x + 2) * C;
           quant(wi, oi);
-          if (C === 1) {
-            const e0 = e[0];
-            for (let k = 0; k < T; k++) work[wi + offs[k]] += e0 * wts[k];
-          } else {
-            const e0 = e[0], e1 = e[1], e2 = e[2];
-            for (let k = 0; k < T; k++) {
-              const j = wi + offs[k], wk = wts[k];
-              work[j] += e0 * wk; work[j + 1] += e1 * wk; work[j + 2] += e2 * wk;
-            }
+          const e0 = e[0], e1 = e[1], e2 = e[2];
+          for (let k = 0; k < T; k++) {
+            const j = wi + offs[k], wk = wts[k];
+            work[j] += e0 * wk; work[j + 1] += e1 * wk; work[j + 2] += e2 * wk;
           }
         }
       }

@@ -318,4 +318,14 @@ const params = new URLSearchParams(location.search);
 if (params.has('grande')) document.body.classList.add('big');
 if (params.has('escala')) { scale = Number(params.get('escala')) || 1; ($('scale') as HTMLSelectElement).value = String(scale); }
 const ready = renderAll();
-(window as unknown as { fx: unknown }).fx = { ready, timings, renderAll };
+/** A 1:1 crop of the final-size photo (or flower) with finishes, as a PNG data URL (for close inspection). */
+function detail(list: Finish[], x: number, y: number, w: number, h: number, sample: 'foto' | 'flor' = 'foto', s = 1): string {
+  const src = sample === 'flor' ? flower(Math.round(600 * s)) : photo(OUT_W * s, OUT_W * 0.625 * s);
+  const out = applyFinishes(src, list, ctxAt(s), 'detail');
+  const c = canvas(w, h), x2 = c.getContext('2d')!;
+  if (sample === 'flor') { x2.fillStyle = '#8f877c'; x2.fillRect(0, 0, w, h); }
+  x2.drawImage(out, -x, -y);
+  releaseFinishes('detail');
+  return c.toDataURL('image/png');
+}
+(window as unknown as { fx: unknown }).fx = { ready, timings, renderAll, detail };
