@@ -103,6 +103,15 @@ test('en un teléfono: Transformar, las letras que se mueven y la rampa caben y 
   expect(await small(page.locator('.ramp-ed button'))).toEqual([]);
   expect(await clipped(page)).toEqual([]);
   expect(await sideways(page)).toBe(false);
+  // saved with a long name: the name shortens, «Borrar» stays in the pane
+  await page.getByLabel('Nombre de la rampa').fill('Una rampa con un nombre bastante largo x');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).tap();
+  const del = page.getByRole('button', { name: 'Borrar la rampa «Una rampa con un nombre bastante largo x»' });
+  await del.scrollIntoViewIfNeeded();
+  const [d, pane] = [(await del.boundingBox())!, (await page.locator('.pane').boundingBox())!];
+  expect(d.x + d.width).toBeLessThanOrEqual(pane.x + pane.width + 1);
+  // (the long name itself ends in «…», in the list and in the «Caracteres» list button)
+  expect((await clipped(page)).filter(s => !/span\.(ramp-name|pk-txt) /.test(s))).toEqual([]);
   expect(errors).toEqual([]);
   await ctx.close();
 });
