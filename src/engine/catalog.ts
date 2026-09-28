@@ -141,7 +141,7 @@ export interface XformInfo {
 const deg = (p: number) => Math.round(p * 360) + '°';
 export const XFORMS: XformInfo[] = [
   { id: 'semitono', name: 'Semitono', desc: 'Puntos de imprenta: cada punto crece con el brillo de su zona.', amount: 'Fuerza', p: 'Tamaño del punto', pFmt: p => xformK('semitono', p).toFixed(1) + ' celdas', defaults: { amount: 1, p: 0.12 } },
-  { id: 'contorno', name: 'Contorno neón', desc: 'Sólo quedan los bordes, encendidos con su propio color.', amount: 'Fuerza', p: 'Grosor', pFmt: p => xformK('contorno', p) + ' celdas', defaults: { amount: 1, p: 0.2 } },
+  { id: 'contorno', name: 'Contorno neón', desc: 'Sólo quedan los bordes, encendidos con su propio color.', amount: 'Fuerza', p: 'Grosor', pFmt: p => { const k = xformK('contorno', p); return k + (k === 1 ? ' celda' : ' celdas'); }, defaults: { amount: 1, p: 0.2 } },
   { id: 'bandas', name: 'Bandas', desc: 'Pocas tintas planas, como un cartel serigrafiado.', amount: 'Fuerza', p: 'Tintas', pFmt: p => xformK('bandas', p) + ' por canal', defaults: { amount: 1, p: 0.15 } },
   { id: 'arrastre', name: 'Arrastre', desc: 'Lo claro se ordena en franjas verticales, del más oscuro arriba al más claro abajo.', amount: 'Largo', p: 'Umbral', pFmt: p => Math.round((0.15 + 0.7 * p) * 100) + ' % de brillo', defaults: { amount: 0.5, p: 0.4 } },
   { id: 'desplazar', name: 'Desplazar con el patrón', desc: 'El patrón de capas empuja la fuente, como un cristal que la refracta.', amount: 'Distancia', p: 'Dirección', pFmt: deg, defaults: { amount: 0.4, p: 0.12 } },
