@@ -217,13 +217,16 @@
 .app .vbar-fold { border-radius: 8px; }
 
 /* ---------- the one notification area (Notices.tsx) ---------- */
-.notices {
-  position: fixed; z-index: 16; top: var(--notice-top, calc(var(--top-h) + 12px)); left: var(--notice-left, 12px);
-  width: min(var(--notice-max, calc(100vw - 24px)), 540px); display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-  pointer-events: none;
+/* it hangs from the stage's bar (out of flow: the views' room never changes with it) */
+.app .stage-top > .notices {
+  position: absolute; top: calc(100% + 8px); left: 0; width: min(100%, 540px); display: flex; flex-direction: column;
+  align-items: flex-start; gap: 6px; pointer-events: none;
 }
-.notices-stage:empty { display: none; }
+/* without a stage (Piezas): under the top bar */
+.app .notices-free { position: fixed; z-index: 16; top: calc(var(--top-h) + 12px); left: 12px; width: min(540px, calc(100vw - 24px)); pointer-events: none; }
 .app .notices .stage-notes { position: static; inset: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+.app .notices .stage-notes:empty, .app .notices-toasts:empty { display: none; }
+.app .notices-toasts { display: contents; }
 .app .notices .stage-notes > *, .app .notices .toast { pointer-events: auto; max-width: 100%; }
 .app .notices .toasts { position: static; transform: none; left: auto; top: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
 .app .notices .toasts:empty { display: none; }

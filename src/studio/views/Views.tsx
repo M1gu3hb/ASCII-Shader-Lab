@@ -97,12 +97,6 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
         }
       }
       setIns(p => (p.top === t && p.bottom === b ? p : { top: t, bottom: b }));
-      // the notification area (Notices.tsx) starts just under the bar, at the stage's left edge
-      const r = st.getBoundingClientRect(), root = document.documentElement.style;
-      const pad = innerWidth <= 900 ? 8 : 12;
-      root.setProperty('--notice-top', Math.round(r.top + t) + 'px');
-      root.setProperty('--notice-left', Math.round(r.left + pad) + 'px');
-      root.setProperty('--notice-max', Math.max(200, Math.round(r.width - pad * 2)) + 'px');
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -112,7 +106,6 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
     addEventListener('resize', measure);
     return () => { ro.disconnect(); removeEventListener('resize', measure); };
   }, [stage, top, panel, hide, guiding, cursor]);
-  useEffect(() => () => { for (const k of ['--notice-top', '--notice-left', '--notice-max']) document.documentElement.style.removeProperty(k); }, []);
   return ins;
 }
 

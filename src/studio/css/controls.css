@@ -189,10 +189,10 @@
 .pk-sheet .pk-desc { font-size: 13px; }
 .pk-sheet .pk-list { padding: 6px; }
 @media (prefers-reduced-motion: no-preference) {
-  .pk-pop { animation: pk-in .14s var(--ease-out); }
-  .pk-pop.pk-sheet { animation: pk-up .2s var(--ease-out); }
-  @keyframes pk-in { from { opacity: 0; transform: translateY(-3px); } }
-  @keyframes pk-up { from { transform: translateY(24px); opacity: .6; } }
+  /* the list fades in where it stays (its options recompose out of glyphs, motion/swap.ts): nothing
+     moves under a finger, «Cerrar» included */
+  .pk-pop { animation: pk-in .12s var(--ease-out); }
+  @keyframes pk-in { from { opacity: 0; } }
 }
 @media (pointer: coarse), (max-width: 900px) {
   .app .pk { min-height: 44px; font-size: 16px; }

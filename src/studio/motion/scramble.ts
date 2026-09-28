@@ -47,7 +47,7 @@ export function scrambleEl(el: HTMLElement | null | undefined, o: ScrambleOption
   s.lineHeight = cs.lineHeight; s.letterSpacing = cs.letterSpacing; s.textTransform = cs.textTransform;
   s.color = cs.color; s.textAlign = cs.textAlign === 'center' ? 'center' : cs.textAlign === 'right' || cs.textAlign === 'end' ? 'right' : 'left';
   s.whiteSpace = cs.whiteSpace === 'normal' ? 'normal' : 'pre';
-  s.overflow = 'hidden'; s.pointerEvents = 'none'; s.zIndex = '2147483000'; s.margin = '0'; s.padding = '0';
+  s.overflow = 'visible'; s.pointerEvents = 'none'; s.zIndex = '2147483000'; s.margin = '0'; s.padding = '0';
   s.fontVariantLigatures = 'none';
   (el.closest('dialog[open]') ?? document.body).appendChild(ov);
   el.setAttribute('data-scr', '');

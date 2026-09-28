@@ -11,7 +11,7 @@ import { TabAway } from './Keeping';
 import { openWelcome, useGuide } from './guide/state';
 import { loadComponents, loadExportSheet, loadSheets, warmCodeExporter } from './lazy';
 import { LoadBoundary } from './Boundary';
-import { LiveLine, Notices } from './Notices';
+import { LiveLine, Toasts } from './Notices';
 import { syncMotionAttr } from './motion/level';
 import { playIntro } from './motion/intro';
 import { useSwap } from './motion/hooks';
@@ -50,7 +50,7 @@ export function App() {
           ? <LoadBoundary where="el espacio de piezas"><Suspense fallback={<Wait label="Cargando las piezas…" />}><ComponentsSpace /></Suspense></LoadBoundary>
           : <Stage />}
       </main>
-      <Notices />
+      <Toasts />
       {!comps && <Panel />}
       {!comps && <Deck />}
       <OnDemand sheet="export" label="Cargando la exportación…" onFirstOpen={warmCodeExporter}><ExportSheet /></OnDemand>

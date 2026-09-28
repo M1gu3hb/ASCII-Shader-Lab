@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { SOURCE_NAMES } from '../engine/catalog';
 import { EngineNotes, StageFatal } from './BasicMode';
 import { mountStudioEngine, destroyStudioEngine } from './engineBridge';
@@ -29,7 +28,9 @@ export function Stage() {
   const recipe = useRecipe();
   const view = useView() ?? 'libre';
   const ins = useStageInsets(wrap, top);
-  const notesHost = useNoticeHost(s => s.el);
+  // the toasts go under the stage's bar, with its notes
+  const noticeHost = (el: HTMLDivElement | null) => { if (el && useNoticeHost.getState().el !== el) useNoticeHost.setState({ el }); };
+  useEffect(() => () => useNoticeHost.setState({ el: null }), []);
   // a new destination view recomposes out of glyphs, over the room the views use (never over the bars)
   const veil = useRef<HTMLDivElement>(null);
   useSwap(veil, view, 'view');
@@ -63,18 +64,19 @@ export function Stage() {
       <i className="stage-marks" aria-hidden="true" />
       <div className="stage-top" ref={top}>
         <ViewBar view={view} />
+        {/* the studio's one notification area (Notices.tsx): it hangs under this bar, wherever the bar ends,
+            and never changes the room the views use */}
+        <div className="notices">
+          <div className="stage-notes">
+            <RecordingChip />
+            <SlowNotice />
+            <EngineNotes />
+            <StorageNote />
+            <MotionNote />
+          </div>
+          <div className="notices-toasts" ref={noticeHost} />
+        </div>
       </div>
-      {/* the stage's notes live in the studio's one notification area (Notices.tsx), under this bar */}
-      {notesHost && createPortal(
-        <div className="stage-notes">
-          <RecordingChip />
-          <SlowNotice />
-          <EngineNotes />
-          <StorageNote />
-          <MotionNote />
-        </div>,
-        notesHost,
-      )}
     </div>
   );
 }
