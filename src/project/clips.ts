@@ -39,6 +39,8 @@ export interface CellGrid {
    * the rendered picture averaged over each cell, measured only when a template reads it (a lazy getter).
    */
   readonly lum?: ArrayLike<number>;
+  /** Glyph layers: the colour each cell is drawn with (0xrrggbb), made when a template reads it. */
+  readonly colors?: ArrayLike<number>;
   /** Cell size and frame size in output px (absent in a bare grid: templates then assume 10×20 cells). */
   cw?: number;
   ch?: number;

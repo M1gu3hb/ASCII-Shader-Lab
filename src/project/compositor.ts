@@ -24,7 +24,7 @@ import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import { cloneRecipe, type MediaRef, type Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 import { applyFinishes, releaseFinishes } from '../fx/index';
-import { drawGlyphs, ensureGlyphFont, glyphGridWith, sampleOf, type CellFx, type GlyphGrid } from '../glyphs/index';
+import { cellColors, drawGlyphs, ensureGlyphFont, glyphGridWith, sampleOf, type CellFx, type GlyphGrid } from '../glyphs/index';
 import { cssAdjustCpu, cssFilter, fitRect, needsTone, toneCpu } from './adjust';
 import type { CellGrid, TileFactory } from './clips';
 import { drawShape, drawText, ensureFont } from './draw2d';
@@ -546,6 +546,8 @@ export class Compositor {
       if (key) this.grids.set(l.id, { key, grid }); else this.grids.delete(l.id);
     }
     const g = this.gridOf(grid.cols, grid.rows, grid.cw, grid.ch, scale, state, grid.chars, grid.lum);
+    let colors: Uint32Array | undefined;
+    Object.defineProperty(g, 'colors', { get: () => (colors ??= cellColors(grid, style)), enumerable: true });
     const cells = lf.cells ? lf.cells(g) : null;
     const reveal = lf.reveal ? lf.reveal(g) : null;
     let fx: ((i: number, col: number, row: number) => CellFx | null) | undefined;
@@ -638,6 +640,8 @@ export class Compositor {
       const rad = ((f.rot ?? 0) * Math.PI) / 180;
       const cos = Math.cos(rad) * s, sin = Math.sin(rad) * s;
       x.globalAlpha = a;
+      // a tile blown up (a single glyph filling the frame) stays crisp pixels instead of a blur
+      x.imageSmoothingEnabled = s < 2;
       x.setTransform(cos, sin, -sin * sy, cos * sy, sx + sw / 2 + (f.dx ?? 0) * scale, sy0 + sh / 2 + (f.dy ?? 0) * scale);
       x.drawImage(copy, sx, sy0, tw, th, -sw / 2, -sh / 2, tw, th);
     }
