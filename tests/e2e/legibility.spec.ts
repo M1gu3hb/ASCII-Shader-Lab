@@ -80,6 +80,35 @@ test.describe('legibilidad de las vistas con contenido', () => {
     expect(await frames()).toBe(n);
   });
 
+  test('los detalles de la estimación se leen enteros: los avisos del escenario no los tapan', async ({ browser }) => {
+    for (const size of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
+      // reduced motion keeps a note on the stage for good
+      const ctx = await browser.newContext({ viewport: size, reducedMotion: 'reduce' });
+      const page = await ctx.newPage();
+      await openStudio(page);
+      await pick(page, 'Fondo web');
+      await expect(page.locator('.notices .motion-note')).toBeVisible();
+      await openDetails(page);
+      await expect(page.locator('.vbar .legib-detail')).toBeVisible();
+      const r = await page.evaluate(() => {
+        const d = document.querySelector('.vbar .legib-detail')!.getBoundingClientRect();
+        let overlaps = 0;
+        const hidden: string[] = [];
+        for (const n of document.querySelectorAll('.notices .stage-notes > *, .notices .toast')) {
+          const b = n.getBoundingClientRect();
+          const x0 = Math.max(b.left, d.left), x1 = Math.min(b.right, d.right), y0 = Math.max(b.top, d.top), y1 = Math.min(b.bottom, d.bottom);
+          if (x1 - x0 < 4 || y1 - y0 < 4) continue;
+          overlaps++;
+          if (!document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2)?.closest('.legib-detail')) hidden.push(n.className);
+        }
+        return { overlaps, hidden };
+      });
+      expect(r.hidden, `${size.width} px`).toEqual([]);
+      if (size.width === 1280) expect(r.overlaps, 'the notes lie where the details open').toBeGreaterThan(0);
+      await ctx.close();
+    }
+  });
+
   test('Pantalla de móvil: mide su propio contenido y la zona protegida también', async ({ page }) => {
     await page.setViewportSize({ width: 1366, height: 1200 });
     await openStudio(page);
