@@ -875,11 +875,17 @@ async function liveRecording(key, studioPage, dir, files) {
     }
     await startBtn.click();
     const t0 = Date.now();
-    await sleep(3000);
+    // a few seconds, as a person records: with WebGL by software on a shared machine the stage of a piece
+    // with pixel effects can draw under one frame per second, and a recording with no frame is not a file
+    await sleep(5000);
     const ev = page.waitForEvent('download', { timeout: 90_000 });
     ev.catch(() => undefined);
     await page.getByRole('button', { name: /Detener y guardar/ }).click();
-    const d = await ev;
+    const d = await ev.catch(async e => {
+      // no download: say what the studio said (an empty recording is explained in a notice, not downloaded)
+      const said = (await page.locator('.toast-msg').allTextContents().catch(() => [])).join(' · ');
+      throw new Error(`sin descarga tras «Detener y guardar» (${String(e).split('\n')[0].slice(0, 80)}); avisos: ${said || 'ninguno'}`);
+    });
     await recordingChecks(key, d, t0, dir, files);
   } finally { await ctx.close(); }
 }
