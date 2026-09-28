@@ -52,6 +52,8 @@ export interface ProjectMeta {
   origin?: 'photo' | 'video' | 'sequence' | 'lab' | 'blank';
   /** The lab entry it came from, when it came from the lab. */
   labEntry?: Id;
+  /** The id the project had in the file it was opened from (opening a file never overwrites a saved project). */
+  openedFrom?: Id;
   note?: string;
 }
 
@@ -120,7 +122,7 @@ export interface LayerBase {
   xf: LayerTransform;
   /** Applied to the layer's own pixels, in order, before the mask and the blend. */
   finishes: Finish[];
-  /** Animation templates placed on this layer (see anim/). */
+  /** Animation templates placed on this layer (registry: clips.ts; templates: templates.ts and later catalogs). */
   clips: AnimClip[];
   /** Depth for parallax camera moves (0 = on the frame plane). */
   depth?: number;
@@ -139,22 +141,34 @@ export interface Adjust {
   mono: boolean;
 }
 
+/** How a source picture is placed in the output frame. */
+export type LayerFit = 'cover' | 'contain' | 'fill';
+
 export interface PhotoLayer extends LayerBase {
   kind: 'photo';
   source: Id;
-  fit: 'cover' | 'contain' | 'fill';
+  fit: LayerFit;
   adjust: Adjust;
 }
 
 /**
  * Shader ASCII: an engine Recipe drawn over this layer's source. The recipe's own `source` and `media.ref`
- * are ignored: the layer's source feeds it ('below' = the composite of the layers under this one).
- * Its media.fit/zoom/pan/mirror/xform still apply.
+ * are ignored: the layer's source feeds it ('below' = the composite of the layers under this one; 'style' =
+ * no picture: the recipe's own pattern or big text, as the lab draws it).
+ * Its media.fit/zoom/pan/mirror/xform still apply (to the source already placed in the frame with `fit`).
  */
 export interface AsciiLayer extends LayerBase {
   kind: 'ascii';
-  source: Id | 'below';
+  source: Id | 'below' | 'style';
   style: Recipe;
+  /** How the layer's own source is placed in the frame before the engine reads it (default 'cover'). */
+  fit?: LayerFit;
+  /**
+   * false/absent: only the characters (transparent between them), to lay over other layers.
+   * true: the recipe's background colour too, and the effects that need it (reveal, bloom, grain, grid):
+   * the piece exactly as the lab draws it.
+   */
+  opaque?: boolean;
 }
 
 /** Real characters (copyable): a grid computed on the CPU from the source and drawn with a font. */
@@ -162,6 +176,8 @@ export interface GlyphsLayer extends LayerBase {
   kind: 'glyphs';
   source: Id | 'below';
   glyphs: GlyphStyle;
+  /** How the layer's own source is placed in the frame (default 'cover'). */
+  fit?: LayerFit;
 }
 
 export interface GlyphStyle {
@@ -196,6 +212,7 @@ export interface GlyphStyle {
 export interface TextLayer extends LayerBase {
   kind: 'text';
   text: string;
+  /** A font id of the engine catalog (engine/catalog.ts FONTS: 'martian', 'serif'…) or a CSS family name. */
   font: string;
   weight: number;
   /** Size as a fraction of the frame height. */
@@ -204,20 +221,31 @@ export interface TextLayer extends LayerBase {
   align: 'left' | 'center' | 'right';
   /** Box in frame units: top-left x, y and width (text wraps inside it). */
   box: { x: number; y: number; w: number };
+  /** Extra space between letters in em, and line height as a multiple of the size. */
   tracking: number;
   leading: number;
   italic: boolean;
   upper: boolean;
-  /** Optional path the text follows. */
+  /**
+   * Optional path the text follows (then `box` and `align` are not used): centre in frame units, radius as a
+   * fraction of the frame height, start angle in degrees (0 = top, clockwise). 'arc' centres the text on
+   * `start`; 'circle' and 'spiral' start there; a spiral closes towards the centre over `turns` turns.
+   */
   path?: { kind: 'arc' | 'circle' | 'spiral'; cx: number; cy: number; r: number; start: number; turns?: number };
 }
 
+export type ShapeKind = 'rect' | 'ellipse' | 'line' | 'polyline' | 'bracket' | 'crosshair' | 'callout';
+
 export interface ShapeLayer extends LayerBase {
   kind: 'shape';
-  shape: 'rect' | 'ellipse' | 'line' | 'polyline' | 'bracket' | 'crosshair' | 'callout';
-  /** Frame-unit points: rect/ellipse/bracket = [x, y, w, h]; line/polyline/callout = [x0, y0, x1, y1, …]. */
+  shape: ShapeKind;
+  /**
+   * Frame-unit points: rect/ellipse/bracket/crosshair = [x, y, w, h]; line/polyline/callout = [x0, y0, x1, y1, …]
+   * (a callout's first point is what it points at; its label sits at the last point, in a box).
+   */
   pts: number[];
   stroke: string | null;
+  /** Stroke width and dash lengths in output px (at the project's canvas size). */
   width: number;
   fill: string | null;
   dash: number[] | null;
@@ -325,7 +353,11 @@ export interface Finish {
 
 /* ------------------------------------------------------------------ time */
 
-/** Easing of a keyframe (applies from this key to the next) or of a clip. */
+/**
+ * Easing of a keyframe (applies from this key to the next) or of a clip. 'in'/'out'/'inOut' are the CSS
+ * ease-in/ease-out/ease-in-out curves; 'hold' keeps this key's value until the next key; 'step' jumps to the
+ * next key's value right after this key; 'bezier' is a CSS cubic-bezier(x1, y1, x2, y2).
+ */
 export type Ease =
   | { kind: 'linear' | 'in' | 'out' | 'inOut' | 'step' | 'hold' }
   | { kind: 'bezier'; p: [number, number, number, number] };
@@ -349,8 +381,10 @@ export interface Track {
 }
 
 /**
- * An animation template placed on a layer (anim/catalog.ts): «Escritura de terminal», «Foto → ASCII»,
- * «Fragmentar y recomponer»… The template turns (local time, params) into changes of the layer at that time.
+ * An animation template placed on a layer (registered in clips.ts): «Escritura de terminal», «Foto → ASCII»,
+ * «Fragmentar y recomponer»… The template turns (progress, params) into changes of the layer at that time.
+ * Before its start a clip holds its first state and after its end its last one (like CSS fill: both), so an
+ * entry keeps the layer hidden until it starts and an exit keeps it gone after it ends.
  */
 export interface AnimClip {
   id: Id;
