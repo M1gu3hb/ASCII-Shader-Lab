@@ -47,7 +47,8 @@ export function Panel() {
   useSwap(aside, guiding, 'panel');
   const wasShown = useRef(shown);
   useLayoutEffect(() => {
-    if (shown && !wasShown.current) swap(aside.current, 'panel');
+    // (phones: the sheet slides up from the deck; that is its motion)
+    if (shown && !wasShown.current && !matchMedia('(max-width: 900px)').matches) swap(aside.current, 'panel');
     wasShown.current = shown;
   }, [shown]);
   useChoiceSwaps(pane);

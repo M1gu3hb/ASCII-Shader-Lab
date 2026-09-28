@@ -83,7 +83,8 @@ export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare }: 
       field={(
         <input
           id={id} type="range" min={min} max={max} step={step} value={v} aria-describedby={h?.hintId} {...h?.focus}
-          style={{ '--p': pct + '%' } as CSSProperties}
+          // --d: where the initial value sits (a small mark over the track; double click on the name goes back to it)
+          style={{ '--p': pct + '%', ...(typeof d === 'number' && d >= min && d <= max ? { '--d': (d - min) / (max - min) } : {}) } as CSSProperties}
           onChange={e => edit(r => f.set(r, parseFloat(e.target.value)), f.key)}
         />
       )}

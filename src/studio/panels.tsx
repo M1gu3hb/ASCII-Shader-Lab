@@ -80,7 +80,7 @@ function FormaTab({ space }: { space: SpaceId }) {
       )}
       {source !== 'pattern' && <Note>Estas capas se mezclan con la fuente según «Cantidad de patrón» en la pestaña de fuente.</Note>}
       {Array.from({ length: n }, (_, i) => <LayerCard key={i} i={i} n={n} />)}
-      <button type="button" className="btn" disabled={n >= 4} onClick={() => edit(r => {
+      <button type="button" className="btn" disabled={n >= 4} title={n >= 4 ? 'Una pieza tiene hasta cuatro capas' : undefined} onClick={() => edit(r => {
         const rng = new Rng('add' + Date.now());
         r.layers.push({ ...DEFAULT_LAYER, pattern: rng.pick(PATTERNS).id, blend: 'multiply', mix: 0.6, phase: Math.round(rng.range(0, 40)) });
       }, 'add-layer' + Date.now())}>
@@ -126,7 +126,7 @@ function LayerCard({ i, n }: { i: number; n: number }) {
           )}
           onChange={v => edit(r => { r.layers[i].pattern = v; }, `layers.${i}.pattern`)} />
         <button type="button" className="icon-btn" title="Otro patrón al azar" aria-label="Otro patrón al azar" onClick={reroll}><IDice /></button>
-        <button type="button" className="icon-btn" aria-pressed={!on} title={on ? 'Ocultar capa' : 'Mostrar capa'} aria-label={on ? 'Ocultar capa' : 'Mostrar capa'}
+        <button type="button" className="icon-btn" aria-pressed={!on} title={n === 1 ? 'La única capa no se oculta' : on ? 'Ocultar capa' : 'Mostrar capa'} aria-label={on ? 'Ocultar capa' : 'Mostrar capa'}
           onClick={() => edit(r => { r.layers[i].on = !r.layers[i].on; }, 'toggle' + Date.now())} disabled={n === 1}>{on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={`Patrón de la capa ${i + 1}`} />}
       </div>
@@ -142,10 +142,10 @@ function LayerCard({ i, n }: { i: number; n: number }) {
       <Slider f={P('rot')} label="Rotación" min={0} max={360} step={1} fmt={v => Math.round(v) + '°'} />
       <Toggle f={P('invert')} label="Invertir lleno y vacío" />
       <div className="row" style={{ marginBottom: 10 }}>
-        <button type="button" className="icon-btn" disabled={i === 0} onClick={() => move(-1)} aria-label="Subir capa" title="Subir"><IUp /></button>
-        <button type="button" className="icon-btn" disabled={i === n - 1} onClick={() => move(1)} aria-label="Bajar capa" title="Bajar"><IDown /></button>
+        <button type="button" className="icon-btn" disabled={i === 0} onClick={() => move(-1)} aria-label="Subir capa" title={i === 0 ? 'Ya es la primera capa' : 'Subir'}><IUp /></button>
+        <button type="button" className="icon-btn" disabled={i === n - 1} onClick={() => move(1)} aria-label="Bajar capa" title={i === n - 1 ? 'Ya es la última capa' : 'Bajar'}><IDown /></button>
         <span style={{ flex: 1 }} />
-        <button type="button" className="icon-btn" disabled={n === 1} onClick={() => edit(r => { r.layers.splice(i, 1); if (r.layers[0]) r.layers[0].blend = 'normal'; }, 'rm' + Date.now())} aria-label="Eliminar capa" title="Eliminar capa"><ITrash /></button>
+        <button type="button" className="icon-btn" disabled={n === 1} onClick={() => edit(r => { r.layers.splice(i, 1); if (r.layers[0]) r.layers[0].blend = 'normal'; }, 'rm' + Date.now())} aria-label="Eliminar capa" title={n === 1 ? 'Una pieza necesita al menos una capa' : 'Eliminar capa'}><ITrash /></button>
       </div>
     </div>
   );
@@ -188,7 +188,7 @@ function ColorTab() {
             {stops.length > 1 && <button type="button" className="x" aria-label={`Quitar color ${i + 1}`} onClick={() => edit(r => { r.color.stops.splice(i, 1); }, 'rmstop' + Date.now())}>×</button>}
           </span>
         ))}
-        <button type="button" className="mini" disabled={stops.length >= 6} onClick={() => edit(r => { r.color.stops.push(r.color.stops[r.color.stops.length - 1] ?? '#ffffff'); }, 'addstop' + Date.now())} aria-label="Añadir color">+</button>
+        <button type="button" className="mini" disabled={stops.length >= 6} title={stops.length >= 6 ? 'Hasta seis colores' : 'Añadir un color'} onClick={() => edit(r => { r.color.stops.push(r.color.stops[r.color.stops.length - 1] ?? '#ffffff'); }, 'addstop' + Date.now())} aria-label="Añadir color">+</button>
         <button type="button" className="mini" onClick={() => edit(r => { r.color.stops.reverse(); }, 'rev' + Date.now())} title="Invertir orden">⇄</button>
       </div>
       <Color f={F('color.bg')} label="Fondo" />

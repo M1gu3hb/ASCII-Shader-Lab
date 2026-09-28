@@ -98,6 +98,7 @@ export function glyphCurtain(el: Element, o: CurtainOptions = {}): Effect {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const cv = document.createElement('canvas');
   cv.setAttribute('aria-hidden', 'true');
+  cv.className = 'mt-curtain';
   cv.width = Math.ceil(r.width * dpr); cv.height = Math.ceil(r.height * dpr);
   cv.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:2147483000;margin:0;border:0;padding:0`;
   const ctx = cv.getContext('2d');

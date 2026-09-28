@@ -203,8 +203,8 @@ function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
         {e.edited && <><span className="sep">·</span><span>editado</span></>}
       </span>
       <span className="seed-hist">
-        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)"><IUndo width={13} height={13} /></button>
-        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer"><IRedo width={13} height={13} /></button>
+        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title={canUndo() ? 'Deshacer (Ctrl+Z)' : 'Nada que deshacer en este resultado'}><IUndo width={13} height={13} /></button>
+        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title={canRedo() ? 'Rehacer (Ctrl+Mayús+Z)' : 'Nada que rehacer'}><IRedo width={13} height={13} /></button>
       </span>
       <span className="seed-acts">
         {e.edited && <HoldCompare origin={e.origin} />}
