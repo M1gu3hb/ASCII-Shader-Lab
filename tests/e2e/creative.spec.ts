@@ -130,8 +130,14 @@ test.describe('transformaciones de la fuente', () => {
     await expect(p2.getByRole('combobox', { name: 'Transformación 3' })).toContainText('Estela');
     await other.close();
 
+    // one card goes with the keyboard: the focus lands on the card now in its place, not on the page
+    await page.getByRole('button', { name: 'Quitar «Estela»' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.xf-card')).toHaveCount(2);
+    await expect(page.getByRole('combobox', { name: 'Transformación 2' })).toBeFocused();
     await page.getByRole('button', { name: 'Quitar las transformaciones' }).click();
     await expect(page.locator('.xf-card')).toHaveCount(0);
+    await expect(add).toBeFocused();
     expect(errors).toEqual([]);
   });
 
@@ -250,6 +256,7 @@ test.describe('rampa de caracteres', () => {
     // deleting says so and can be undone
     await page.getByRole('button', { name: 'Borrar la rampa «Mi trama»' }).click();
     await expect(page.getByRole('button', { name: /^Mi trama/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Guardar esta rampa en este navegador' })).toBeFocused();
     await page.locator('.toast').getByRole('button', { name: 'Deshacer' }).click();
     await expect(page.getByRole('button', { name: /^Mi trama/ })).toBeVisible();
     expect(errors).toEqual([]);

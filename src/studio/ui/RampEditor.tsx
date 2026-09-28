@@ -139,7 +139,12 @@ export function RampEditor({ ascii }: { ascii: boolean }) {
                   <span className="ramp-sample" aria-hidden="true" style={{ fontFamily: fontById(fontId).stack }}>{ramp(r.chars, 12)}</span>
                 </button>
                 <button type="button" className="icon-btn" aria-label={`Borrar la rampa «${r.name}»`} title="Borrar de este navegador"
-                  onClick={() => { removeRamp(r.id); toast(`Rampa «${r.name}» borrada`, { label: 'Deshacer', run: () => saveRamp(r.name, r.chars) }); }}><ITrash /></button>
+                  onClick={() => {
+                    removeRamp(r.id);
+                    toast(`Rampa «${r.name}» borrada`, { label: 'Deshacer', run: () => saveRamp(r.name, r.chars) });
+                    // its chip and this button are gone: the keyboard stays in the editor
+                    refocus(() => saveBtn.current);
+                  }}><ITrash /></button>
               </li>
             ))}
           </ul>

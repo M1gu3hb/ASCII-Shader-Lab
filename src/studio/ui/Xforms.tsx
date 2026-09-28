@@ -74,7 +74,12 @@ export function XformTab({ space }: { space: SpaceId }) {
         <button type="button" className="icon-btn" title="Otra combinación al azar" aria-label="Otra combinación de transformaciones al azar" onClick={surprise}><IDice /></button>
       </div>
       {list.length > 0 && (
-        <button type="button" className="btn ghost" onClick={() => edit(r => setList(r, []), 'xf-clear' + Date.now())}>Quitar las transformaciones</button>
+        <button type="button" className="btn ghost" onClick={e => {
+          const pane = e.currentTarget.parentElement;
+          edit(r => setList(r, []), 'xf-clear' + Date.now());
+          // the button goes with them: the keyboard lands on «Añadir» instead of the page
+          requestAnimationFrame(() => pane?.querySelector<HTMLElement>('.xf-add .pk')?.focus());
+        }}>Quitar las transformaciones</button>
       )}
     </>
   );
@@ -107,6 +112,15 @@ function XformCard({ i, n, x, used, moving, isText, onOpen }: {
       (want && !want.disabled ? want : other)?.focus();
     });
   };
+  const remove = () => {
+    const pane = card.current?.parentElement;
+    edit(r => setList(r, r.media.xform!.filter((_, j) => j !== i)), 'xf-rm' + Date.now());
+    // the card goes with the button pressed: the keyboard lands on the next card's list (or «Añadir»)
+    requestAnimationFrame(() => {
+      const cards = pane?.querySelectorAll<HTMLElement>('.xf-card .layer-head .pk');
+      (cards?.[Math.min(i, cards.length - 1)] ?? pane?.querySelector<HTMLElement>('.xf-add .pk'))?.focus();
+    });
+  };
   return (
     <div ref={card} className={'layer xf-card' + (x.on ? '' : ' off')}>
       <div className="layer-head">
@@ -137,8 +151,7 @@ function XformCard({ i, n, x, used, moving, isText, onOpen }: {
         <button type="button" className="icon-btn xf-move" disabled={i === 0} onClick={() => move(-1)} aria-label={`Subir «${info.name}»`} title={i === 0 ? 'Ya es la primera' : 'Antes (se aplica antes)'}><IUp /></button>
         <button type="button" className="icon-btn xf-move" disabled={i === n - 1} onClick={() => move(1)} aria-label={`Bajar «${info.name}»`} title={i === n - 1 ? 'Ya es la última' : 'Después (se aplica después)'}><IDown /></button>
         <span style={{ flex: 1 }} />
-        <button type="button" className="icon-btn" onClick={() => edit(r => setList(r, r.media.xform!.filter((_, j) => j !== i)), 'xf-rm' + Date.now())}
-          aria-label={`Quitar «${info.name}»`} title="Quitar"><ITrash /></button>
+        <button type="button" className="icon-btn" onClick={remove} aria-label={`Quitar «${info.name}»`} title="Quitar"><ITrash /></button>
       </div>
     </div>
   );
