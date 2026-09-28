@@ -240,3 +240,18 @@ test('pausar también detiene las piezas de interfaz del escenario (Piezas), y �
   await toggle.click();
   await expect.poll(() => bar.textContent(), { timeout: 5000 }).not.toBe(again);
 });
+
+test('pausar también detiene la página de ejemplo del destino Web, y «Animar» la vuelve a mover', async ({ page }) => {
+  await page.goto('/');
+  await toSection(page, 'exportar');
+  await page.getByRole('tablist', { name: 'Destinos' }).getByRole('tab', { name: 'Web', exact: true }).click();
+  const field = page.frameLocator('#sal-web iframe').locator('monotrama-field');
+  const playing = () => field.evaluate(el => (el as unknown as { ctl?: { engine?: { isPlaying: boolean } | null } }).ctl?.engine?.isPlaying ?? null);
+  await expect.poll(playing, { timeout: 20_000 }).toBe(true);
+  const toggle = page.locator('[data-motion-toggle]');
+  await toggle.click();
+  await expect(field).toHaveAttribute('paused', '');
+  await expect.poll(playing, { timeout: 20_000 }).toBe(false);
+  await toggle.click();
+  await expect.poll(playing, { timeout: 20_000 }).toBe(true);
+});
