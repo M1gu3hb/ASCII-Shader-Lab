@@ -845,30 +845,44 @@ function recordingShape(f, j) {
   return `duración ${dur.toFixed(2)} s en la cabecera, sin canal alfa declarado${extname(f) === '.mp4' ? ', MP4 normal con moov al principio' : ''}`;
 }
 
-async function liveRecording(key, page, dir, files) {
-  const mimes = await page.evaluate(() => typeof MediaRecorder === 'undefined' ? 'sin MediaRecorder' : ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4;codecs=vp9']
+async function liveRecording(key, studioPage, dir, files) {
+  const mimes = await studioPage.evaluate(() => typeof MediaRecorder === 'undefined' ? 'sin MediaRecorder' : ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4;codecs=vp9']
     .map(t => `${t}: ${MediaRecorder.isTypeSupported(t) ? 'sí' : 'no'}`).join(', '));
   await check('directo', `MediaRecorder: tipos admitidos`, () => mimes);
-  await page.clock.resume();
-  await page.getByRole('button', { name: 'Reproducir animación' }).click();
-  await openSheet(page, 'Video y GIF');
-  const startBtn = page.getByRole('button', { name: 'Empezar a grabar' });
-  if (!(await startBtn.count())) {
-    // no recorder here: the sheet must say so, with what to use instead
-    const why = (await page.locator('.sheet-body .ex-na').allTextContents()).join(' ');
-    await check('directo', `${key}: sin grabación en directo, la interfaz lo explica`, () => {
-      assert(/Grabación en directo: no disponible/.test(why), 'sin explicación: ' + why.slice(0, 200));
-      return why.replace(/\s+/g, ' ').slice(0, 160);
-    });
-    await closeSheet(page);
-    return;
-  }
-  await startBtn.click();
-  const t0 = Date.now();
-  await sleep(3000);
-  const ev = page.waitForEvent('download', { timeout: 60_000 });
-  await page.getByRole('button', { name: /Detener y guardar/ }).click();
-  const d = await ev;
+  // a live recording happens in real time, as a person makes it: a page of its own, without the fake clock
+  const ctx = await studioContext({ reducedMotion: 'no-preference' });
+  if (!CHROMIUMS.has(BROWSER)) await ctx.addInitScript(CLIP_STUB);
+  const page = await ctx.newPage();
+  try {
+    await page.goto(`${BASE}/studio/#r=${encode(PIECES[key])}`);
+    await page.locator('.stage canvas').first().waitFor();
+    if (await page.locator('dialog.welcome[open]').count()) await page.keyboard.press('Escape');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('e');
+    await page.getByRole('tab', { name: 'Video y GIF' }).click();
+    await page.waitForTimeout(500);
+    const startBtn = page.getByRole('button', { name: 'Empezar a grabar' });
+    if (!(await startBtn.count())) {
+      // no recorder here: the sheet must say so, with what to use instead
+      const why = (await page.locator('.sheet-body .ex-na').allTextContents()).join(' ');
+      await check('directo', `${key}: sin grabación en directo, la interfaz lo explica`, () => {
+        assert(/Grabación en directo: no disponible/.test(why), 'sin explicación: ' + why.slice(0, 200));
+        return why.replace(/\s+/g, ' ').slice(0, 160);
+      });
+      return;
+    }
+    await startBtn.click();
+    const t0 = Date.now();
+    await sleep(3000);
+    const ev = page.waitForEvent('download', { timeout: 90_000 });
+    ev.catch(() => undefined);
+    await page.getByRole('button', { name: /Detener y guardar/ }).click();
+    const d = await ev;
+    await recordingChecks(key, d, t0, dir, files);
+  } finally { await ctx.close(); }
+}
+
+async function recordingChecks(key, d, t0, dir, files) {
   const secs = Math.round((Date.now() - t0) / 100) / 10;
   const f = join(dir, d.suggestedFilename());
   await d.saveAs(f);
@@ -2312,6 +2326,9 @@ async function componentsFlow() {
 /* ------------------------------------------------------------------ */
 /* Main                                                                */
 /* ------------------------------------------------------------------ */
+
+// a promise left behind by a check that failed half-way must not end the whole run
+process.on('unhandledRejection', e => record('verificador', 'promesa sin atender', 'FAIL', String(e?.message ?? e).split('\n')[0]));
 
 async function main() {
   console.log(`Monotrama · verificación de exportaciones\n  estudio ${BASE} · sitio ajeno ${SITE} · artefactos ${OUT}\n`);
