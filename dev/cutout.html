@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recorte · QA · GLYPHOS</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --ink: #0c0b0a; --ink2: #151412; --line: #2a2723; --bone: #ede6da; --dim: #a39c90; --verm: #ff5b1f; --ok: #9fd39a; --warn: #f0c36b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--ink); color: var(--bone); font: 15px/1.45 system-ui, sans-serif; }
+  .mono, output, td, .env { font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 13px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 100vh; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .stage { display: flex; flex-direction: column; gap: 10px; padding: 14px; min-width: 0; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
+  header .env { color: var(--dim); margin: 2px 0 0; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .bar .label { color: var(--dim); font-size: 13px; margin-right: 2px; }
+  button, .file { min-height: 40px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: #1e1c19; color: var(--bone); font: inherit; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: #4a453e; }
+  button:focus-visible, input:focus-visible, .file:focus-within { outline: 2px solid var(--verm); outline-offset: 2px; }
+  button[aria-pressed="true"] { border-color: var(--verm); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--verm); border-color: var(--verm); color: #120a06; font-weight: 600; }
+  .view { position: relative; flex: 1; min-height: 360px; display: grid; place-items: center; background: #0f0e0d; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; touch-action: none; }
+  .view canvas { max-width: 100%; max-height: calc(100vh - 230px); display: block; }
+  .view.select canvas, .view.brush canvas { cursor: crosshair; }
+  .view .empty { color: var(--dim); padding: 30px; text-align: center; }
+  .view svg { position: absolute; pointer-events: none; }
+  .status { display: flex; gap: 10px; align-items: center; min-height: 40px; }
+  .status progress { flex: 1; height: 6px; accent-color: var(--verm); }
+  .status p { margin: 0; min-width: 12em; }
+  .panel { background: var(--ink2); border-left: 1px solid var(--line); padding: 14px; overflow: auto; max-height: 100vh; }
+  @media (max-width: 900px) { .panel { border-left: 0; border-top: 1px solid var(--line); max-height: none; } }
+  .panel section { border-bottom: 1px solid var(--line); padding: 10px 0 14px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 0 0 8px; font-weight: 600; }
+  .panel p { margin: 6px 0; }
+  .hint { color: var(--dim); font-size: 13px; }
+  .models { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .models li { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 4px; }
+  .models .head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .models .state { font-size: 12px; color: var(--dim); }
+  .models .why { color: var(--warn); font-size: 13px; }
+  .models .note { color: var(--warn); font-size: 13px; }
+  .models .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sliders label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin: 8px 0; font-size: 14px; }
+  .sliders input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--verm); min-height: 28px; }
+  .file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .file { display: inline-flex; align-items: center; position: relative; }
+  ol.points { margin: 6px 0; padding-left: 20px; }
+  ol.points li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  ol.points button { min-height: 32px; padding: 2px 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  th { color: var(--dim); font-weight: 500; }
+  dialog { background: var(--ink2); color: var(--bone); border: 1px solid var(--line); border-radius: 12px; max-width: 460px; padding: 20px; }
+  dialog::backdrop { background: rgba(0, 0, 0, .6); }
+  dialog h2 { margin: 0 0 8px; font-size: 18px; }
+  dialog .size { font-family: ui-monospace, monospace; }
+  dialog .privacy { border-left: 2px solid var(--verm); padding-left: 10px; }
+  dialog form { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .drop { outline: 2px dashed var(--verm); outline-offset: -8px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="stage">
+    <header>
+      <h1>Recorte en el navegador · QA</h1>
+      <p class="env" id="env">Comprobando el equipo…</p>
+    </header>
+    <div class="bar" role="group" aria-label="Fondo de la vista previa">
+      <span class="label">Fondo</span>
+      <button type="button" data-bg="checker" aria-pressed="true">Cuadros</button>
+      <button type="button" data-bg="light" aria-pressed="false">Claro</button>
+      <button type="button" data-bg="dark" aria-pressed="false">Oscuro</button>
+      <button type="button" data-bg="contrast" aria-pressed="false">Alto contraste</button>
+      <span class="label">Vista</span>
+      <button type="button" data-view="cutout" aria-pressed="true">Recorte</button>
+      <button type="button" data-view="matte" aria-pressed="false">Máscara</button>
+      <button type="button" data-view="original" aria-pressed="false">Original</button>
+    </div>
+    <div class="view" id="view">
+      <p class="empty" id="empty">Elige una foto: arrástrala aquí, usa «Abrir foto» o una de las fotos de prueba.</p>
+      <canvas id="canvas" hidden aria-label="Vista previa del recorte"></canvas>
+      <svg id="marks" aria-hidden="true"></svg>
+    </div>
+    <div class="status">
+      <progress id="progress" max="1" value="0" hidden></progress>
+      <p id="status" role="status" aria-live="polite">Listo.</p>
+      <button type="button" id="cancel" disabled>Cancelar</button>
+    </div>
+  </div>
+
+  <aside class="panel" aria-label="Controles del recorte">
+    <section>
+      <h2>Foto</h2>
+      <div class="bar">
+        <button type="button" data-fixture="retrato">Retrato con pelo</button>
+        <button type="button" data-fixture="guitarra">Objeto sobre fondo cargado</button>
+        <label class="file">Abrir foto<input type="file" id="file" accept="image/*"></label>
+      </div>
+      <p class="hint" id="suggest"></p>
+    </section>
+
+    <section>
+      <h2>Modelos</h2>
+      <ul class="models" id="models"></ul>
+      <p class="hint" id="stored"></p>
+      <button type="button" id="forgetAll">Borrar modelos descargados</button>
+    </section>
+
+    <section>
+      <h2>Seleccionar objeto</h2>
+      <p class="hint">Con «Seleccionar objeto» activo: clic = es parte del objeto; Mayús + clic = no es parte. Quita un punto para corregir.</p>
+      <ol class="points" id="points"></ol>
+      <button type="button" id="clearPoints" disabled>Quitar todos los puntos</button>
+    </section>
+
+    <section class="sliders">
+      <h2>Afinar el borde</h2>
+      <label>Borde suave <output id="o-feather">0 px</output><input type="range" id="feather" min="0" max="20" step="0.5" value="0"></label>
+      <label>Contraer / expandir <output id="o-shift">0 px</output><input type="range" id="shift" min="-10" max="10" step="0.5" value="0"></label>
+      <label>Detalle de pelo (pasada extra) <output id="o-detail">0</output><input type="range" id="detail" min="0" max="1" step="0.05" value="0"></label>
+      <label>Quitar el color del fondo en los bordes <output id="o-decon">0.5</output><input type="range" id="decon" min="0" max="1" step="0.05" value="0.5"></label>
+    </section>
+
+    <section class="sliders">
+      <h2>Pincel</h2>
+      <div class="bar" role="group" aria-label="Herramienta">
+        <button type="button" data-tool="none" aria-pressed="true">Sin pincel</button>
+        <button type="button" data-tool="keep" aria-pressed="false">Mantener</button>
+        <button type="button" data-tool="remove" aria-pressed="false">Quitar</button>
+      </div>
+      <label>Tamaño <output id="o-size">40 px</output><input type="range" id="size" min="4" max="200" step="1" value="40"></label>
+      <label>Dureza <output id="o-hard">0.5</output><input type="range" id="hard" min="0" max="1" step="0.05" value="0.5"></label>
+    </section>
+
+    <section>
+      <h2>Exportar</h2>
+      <div class="bar">
+        <button type="button" id="savePng" disabled>PNG transparente</button>
+        <button type="button" id="saveMatte" disabled>Máscara PNG</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tiempos (este equipo)</h2>
+      <table><thead><tr><th>Modelo</th><th>Motor</th><th>Carga</th><th>Prep.</th><th>Inferencia</th><th>Bordes</th><th>Total (ms)</th></tr></thead><tbody id="times"></tbody></table>
+    </section>
+  </aside>
+</main>
+
+<dialog id="consent" aria-labelledby="c-title">
+  <h2 id="c-title">Descargar el modelo</h2>
+  <p class="size" id="c-size"></p>
+  <p class="privacy" id="c-text"></p>
+  <p class="hint" id="c-lic"></p>
+  <p class="hint" id="c-note"></p>
+  <form method="dialog">
+    <button value="no" type="submit">Ahora no</button>
+    <button value="yes" type="submit" class="primary" id="c-yes">Descargar</button>
+  </form>
+</dialog>
+
+<script type="module" src="./cutout.ts"></script>
+</body>
+</html>
