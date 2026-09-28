@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Deck, copyLink, dice, favorite } from './Deck';
 import { Panel } from './Panel';
 import { ShareSheet } from './ShareSheet';
@@ -6,13 +6,20 @@ import { Stage } from './Stage';
 import { TopBar, toggleFullscreen } from './TopBar';
 import { SPACES } from '../random/spaces';
 import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary, type UIState } from './store';
-import { holdToast, useToasts } from './toast';
 import { Welcome } from './guide/Welcome';
 import { TabAway } from './Keeping';
 import { openWelcome, useGuide } from './guide/state';
 import { loadComponents, loadExportSheet, loadSheets, warmCodeExporter } from './lazy';
 import { LoadBoundary } from './Boundary';
+import { LiveLine, Notices } from './Notices';
+import { syncMotionAttr } from './motion/level';
+import { playIntro } from './motion/intro';
+import { useSwap } from './motion/hooks';
 import './css/perf.css';
+// the studio's look, last: it refines what the parts' own stylesheets set
+import './css/loom.css';
+
+syncMotionAttr();
 
 // not needed for the first piece: loaded when first opened (and prefetched once the studio is idle, see lazy.ts)
 const ExportSheet = lazy(() => loadExportSheet().then(m => ({ default: m.ExportSheet })));
@@ -28,17 +35,22 @@ export function App() {
   const hideUI = useStudio(s => s.ui.hideUI);
   const guide = useGuide(s => (s.path ? `guide-on guide-${s.path}-${s.step}` : ''));
   useKeys();
+  useIntro();
   const comps = space === 'componentes';
+  // the stage and the components gallery give way to each other: a richer swap than a tab
+  const main = useRef<HTMLElement>(null);
+  useSwap(main, comps, 'space');
   return (
     <div className={'app' + (panel && !comps ? '' : ' panel-off') + (hideUI ? ' ui-off' : '') + (guide ? ' ' + guide : '')}>
       {/* the studio's one main heading (Piezas has a visible one of its own) */}
       {!comps && <h1 className="sr-only">Monotrama, estudio de arte ASCII</h1>}
       <TopBar />
-      <main className="stage-wrap" aria-label="Escenario">
+      <main className="stage-wrap" aria-label="Escenario" ref={main}>
         {comps
           ? <LoadBoundary where="el espacio de piezas"><Suspense fallback={<Wait label="Cargando las piezas…" />}><ComponentsSpace /></Suspense></LoadBoundary>
           : <Stage />}
       </main>
+      <Notices />
       {!comps && <Panel />}
       {!comps && <Deck />}
       <OnDemand sheet="export" label="Cargando la exportación…" onFirstOpen={warmCodeExporter}><ExportSheet /></OnDemand>
@@ -49,7 +61,7 @@ export function App() {
       <ShareSheet />
       <Welcome />
       <TabAway />
-      <Toasts />
+      <LiveLine />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>
   );
@@ -75,25 +87,18 @@ function OnDemand({ sheet, label, onFirstOpen, children }: { sheet: UIState['she
 
 /** What shows while an on-demand part arrives (only on a first open before the idle prefetch finished). */
 function Wait({ label }: { label: string }) {
-  return <p className="lazy-wait" role="status">{label}</p>;
+  return <p className="lazy-wait mt-spin" role="status">{label}</p>;
 }
 
-function Toasts() {
-  const list = useToasts(s => s.list);
-  const live = useToasts(s => s.live);
-  return (
-    <>
-      <div className="toasts" role="status" aria-live="polite">
-        {list.map(t => (
-          <div key={t.id} className="toast" onPointerEnter={() => holdToast(t.id, true)} onPointerLeave={() => holdToast(t.id, false)}
-            onFocus={() => holdToast(t.id, true)} onBlur={() => holdToast(t.id, false)}>
-            {t.msg}{t.action && <button type="button" onClick={t.action.run}>{t.action.label}</button>}
-          </div>
-        ))}
-      </div>
-      <div className="sr-only" aria-live="polite">{live}</div>
-    </>
-  );
+/**
+ * The opening (motion/intro.ts): once per browser session, as the studio first shows. On a first visit the
+ * welcome dialog comes first: the interface forms when it closes.
+ */
+function useIntro() {
+  useLayoutEffect(() => {
+    if (!useGuide.getState().welcome) { playIntro(); return; }
+    return useGuide.subscribe(g => { if (!g.welcome) playIntro(); });
+  }, []);
 }
 
 function useKeys() {

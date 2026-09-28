@@ -7,6 +7,7 @@ import { QUALITIES, setQuality, usePreview, type Quality } from './preview';
 import { useStudio } from './store';
 import { announce } from './toast';
 import './css/azar.css';
+import { useScramble } from './motion/hooks';
 
 /**
  * Preview quality, next to the frame-rate readout in the top bar: how the stage draws (resolution, frame
@@ -24,20 +25,23 @@ const nameOf = (q: Quality) => QUALITIES.find(x => x.id === q)?.name ?? 'Auto';
 
 export function QualityReadout() {
   const stats = useStudio(s => s.stats);
+  const playing = useStudio(s => s.playing);
   const quality = usePreview(s => s.quality);
   const [open, setOpen] = useState(false);
+  const lbl = useScramble<HTMLSpanElement>(nameOf(quality));
   const btn = useRef<HTMLButtonElement>(null);
   const close = (focus = true) => { setOpen(false); if (focus) btn.current?.focus(); };
   return (
     <div className="q-wrap">
       <button
-        ref={btn} type="button" className="ib q-btn" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}
+        ref={btn} type="button" className="ib ghost q-btn" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)}
         aria-label={`Calidad de la vista previa: ${nameOf(quality)}. ${stats.cols}×${stats.rows} celdas a ${stats.fps} cuadros por segundo`}
         title="Calidad de la vista previa (no cambia lo que exportas)"
       >
         <IGauge />
+        <i className={'q-live' + (playing ? ' on' : '')} aria-hidden="true" />
         <span className="stats">{stats.cols}×{stats.rows} · {stats.fps} fps</span>
-        <span className="q-lbl">{nameOf(quality)}</span>
+        <span className="q-lbl" ref={lbl}>{nameOf(quality)}</span>
       </button>
       {open && <QualityPop onClose={close} />}
     </div>

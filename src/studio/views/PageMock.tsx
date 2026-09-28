@@ -6,6 +6,7 @@ import { LEVEL_WORD, advice, reason, summary, type Level } from './readability';
 import { setViewOpts } from './state';
 import { useGuide } from '../guide/state';
 import '../css/legib.css';
+import { useScramble } from '../motion/hooks';
 
 /**
  * The test page drawn over the piece in «Fondo web» and «Pantalla de móvil» (and so in the fondo guide),
@@ -172,6 +173,8 @@ export function LegibilityReport({ guide, children }: { guide?: boolean; childre
   const [open, setOpen] = useState(false);
   const id = useId();
   const level = est?.level ?? 'wait';
+  // a new verdict resolves out of glyphs (its real words are in place for screen readers all along)
+  const say = useScramble<HTMLElement>(legibLine(est), { duration: 260 });
   const tips = est ? advice(est, { light: est.light, scrim: scrimMode, alt: est.alt, guide }) : [];
   const detail = (
     <>
@@ -187,7 +190,7 @@ export function LegibilityReport({ guide, children }: { guide?: boolean; childre
         data-clash={est ? Math.round(Math.max(0, ...est.regions.filter(r => r.id !== 'boton').map(r => r.m.clash)) * 1000) : undefined}>
         <span className="legib-dot" aria-hidden="true" />
         <span className="legib-k">Legibilidad <span className="legib-est">(estimación)</span>:</span>{' '}
-        <b className="legib-say">{legibLine(est)}</b>
+        <b className="legib-say" ref={say}>{legibLine(est)}</b>
         {!guide && (
           <button type="button" className="legib-more" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
             {open ? 'Ocultar' : 'Detalles'}
