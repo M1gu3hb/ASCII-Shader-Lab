@@ -569,7 +569,7 @@ export default function Carga({ value = null, label, done = false }) {
   },
   {
     id: 'blocktext', name: 'Letras de bloque', tags: ['texto', 'terminal'],
-    blurb: 'Rótulos con dos tipografías de bloque incluidas, con tildes y eñe: iguales en cualquier equipo, en la web, tu CLI de Node o un README.',
+    blurb: 'Rótulos con dos tipografías de bloque incluidas, con tildes y eñe: el dibujo no depende de las fuentes del equipo. Para la web, tu CLI de Node o un README.',
     params: [
       { key: 'text', label: 'Texto', type: 'area' },
       { key: 'font', label: 'Tipografía', type: 'select', opts: [['grande', 'Grande (5×5)'], ['compacta', 'Compacta (3×5)']] },
