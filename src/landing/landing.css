@@ -366,3 +366,5 @@
   .kicker .dot { animation: none; }
   .t-tab, .t-tab .name, .t-tab::before, .t-tab .mark, .sal-tab::after, .contact-grid img { transition: none; }
 }
+/* «Pausar» in the header */
+html[data-paused] .kicker .dot { animation: none; }

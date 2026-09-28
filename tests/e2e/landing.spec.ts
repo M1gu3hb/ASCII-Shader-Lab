@@ -226,6 +226,8 @@ test('pausar también detiene las piezas de interfaz del escenario (Piezas), y �
   const toggle = page.locator('[data-motion-toggle]');
   await toggle.click();
   await expect(toggle).toHaveAccessibleName('Animar la página');
+  // and the page's own blinking mark
+  expect(await page.locator('.kicker .dot').evaluate(el => getComputedStyle(el).animationName)).toBe('none');
   const still = await bar.textContent();
   await page.waitForTimeout(1200);
   expect(await bar.textContent(), 'the progress bar stays still while the page is paused').toBe(still);

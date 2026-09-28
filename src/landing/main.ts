@@ -65,6 +65,8 @@ if (pauseBtn) {
   // the name says what the button does next (visible words first, so voice control finds them)
   onPause(p => {
     pauseBtn.toggleAttribute('data-paused', p);
+    // the page's own CSS loops (the blinking dot of the hero) stop too
+    document.documentElement.toggleAttribute('data-paused', p);
     pauseBtn.querySelector('.ic')!.textContent = p ? '▶' : '❚❚';
     pauseBtn.querySelector('.lb')!.textContent = p ? 'Animar' : 'Pausar';
     pauseBtn.querySelector('.vh')!.textContent = p ? ' la página' : ' las animaciones de la página';
