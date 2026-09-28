@@ -60,7 +60,7 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 - **WebGL 2** (`AsciiEngine`): simulación, campo con hasta 4 capas de 55 patrones (13 de ellos objetos 3D: dona, vóxeles, cristales, planeta, nudo…) y 11 mezclas (shader generado por receta con sólo los patrones usados), hasta 4 transformaciones de la fuente, letras que se mueven, selección de glifos, bloom y composición con el atlas al tamaño exacto de la celda.
 - **Motor básico Canvas 2D** (`src/engine/basic`): traducción línea a línea de los mismos shaders a JavaScript, con el mismo atlas. Se usa cuando WebGL 2 no está disponible (aceleración gráfica desactivada, GPU bloqueada, navegador antiguo) o cuando se pide con `?motor=basico` o `localStorage['mt.motor'] = 'basico'`. Medido contra WebGL (SwiftShader, `scripts/basic-parity.mjs`): 53 de 55 patrones con correlación ≥ 0.999, planeta 0.998 y julia 0.988; las 47 plantillas ≥ 0.992; las 10 transformaciones 1.000 (pilas ≥ 0.998) y las animaciones de letras 1.000. Es más lento: las piezas pesadas (curvatura CRT, resplandor) bajan a 15 fps. Se descarga sólo cuando hace falta.
 - `probeWebGL()` / `explainWebGL()` (`src/engine/support.ts`) dan la causa exacta y los pasos en español. El estudio muestra un aviso «Modo básico» con «¿Por qué?»; la portada y las guías también dibujan sin WebGL 2.
-- El código exportado sí necesita WebGL 2 en el navegador del visitante; sin él muestra el póster que indiques (o el color de fondo) y nunca falla.
+- El código exportado incluye por defecto el motor básico, sólo con los patrones que usa la pieza (unos 19 KB gzip más): sin WebGL 2, la pieza se sigue moviendo, más despacio. La pestaña Código muestra la elección y el peso; «Póster o color» da la versión ligera, que sin WebGL 2 deja el póster que indiques o el color de fondo.
 
 ### Azar con memoria
 
@@ -122,12 +122,12 @@ Sólo se ofrece lo que el navegador puede producir; lo demás aparece como expli
 | --- | --- | --- |
 | PNG / WebP / JPEG | re-render a ×2, ×3, 1080p, 4K, cuadrado, vertical, 1200×630; fondo transparente | WebP/JPEG sólo si el navegador los codifica |
 | SVG | contorno real de cada glifo; bloques y braille como geometría exacta | sin efectos de píxel; caracteres fuera de la fuente quedan como texto |
-| MP4 / WebM | render fotograma a fotograma con WebCodecs (mediabunny) | MP4 sólo si el navegador codifica H.264 (en el Chromium de pruebas no: sin verificar aquí); sin audio; la cámara sólo en directo |
+| MP4 / WebM | render fotograma a fotograma con WebCodecs (mediabunny) | MP4 sólo si el navegador codifica H.264 (comprobado con Chrome 154 y Firefox 142; al de Firefox se le repara la cabecera H.264 al guardar); sin audio; la cámara sólo en directo; la Estela se calienta antes del primer cuadro para que el bucle enlace |
 | Grabación en directo | MediaRecorder del lienzo | formato según el navegador; calidad según la fluidez |
 | GIF | hasta 25 fps, 128 colores por fotograma | mejor corto y pequeño |
 | TXT / ANSI / HTML | rejilla exacta del motor; ANSI 16, 256 o color real; glifos anchos ocupan dos celdas | — |
 | Terminal animada | scripts Node (18+) y Python sin dependencias, asciinema `.cast`, saludo de shell | Ctrl+C restaura la terminal; redirigidos escriben un fotograma |
-| Código | HTML para pegar, página, Web Component, React (seguro en StrictMode); póster de respaldo | el visitante necesita WebGL 2 para la animación |
+| Código | HTML para pegar, página, Web Component, React (seguro en StrictMode); motor básico o póster de respaldo | sin WebGL 2 dibuja el motor básico incluido (o, en la versión ligera, el póster); al quitarlo de la página libera su contexto |
 | Receta / Proyecto / Sesión | ver la tabla anterior | — |
 
 Verificado en esta sesión con herramientas reales (identify/compare, rsvg-convert, Inkscape, gifsicle, ffprobe/ffmpeg, pyte en una pty, Node 18 y 22, Python 3, React 19 con Vite): 360 comprobaciones sin fallos. No verificado: codificación H.264, Safari/Firefox, dispositivos reales, apps de diseño y terminales de Windows/macOS.
@@ -184,6 +184,7 @@ Proyecto de Vercel **`ascii-shader-lab`** conectado a este repositorio: **cada p
 ## Pendiente / ideas siguientes
 
 - Compilación de shaders asíncrona (`KHR_parallel_shader_compile`) y captura de miniaturas sin lectura síncrona de la GPU: son los mayores bloqueos que quedan al tirar el dado.
-- Probar en Safari, Firefox y teléfonos reales; verificar MP4/H.264 en Chrome/Edge/Safari.
-- Motor básico opcional dentro del código exportado (hoy: póster o color de fondo sin WebGL 2).
-- Sincronía con el BPM de una canción; simulaciones con estado (reacción-difusión, vida) como capas; editor de rampas de caracteres y fuentes FIGlet.
+- Probar en Safari real, en teléfonos reales y en Edge; abrir los SVG en Figma e Illustrator; terminales de Windows y macOS (lo pendiente y por qué, en [`docs/compatibilidad.md`](docs/compatibilidad.md)).
+- WebKit: el código pegado de la «pieza transformada» con WebGL 2 dibuja el texto grande algo más fino que el PNG del estudio (RMSE 0.061 frente a 0.03 del resto); con el motor básico coincide. Causa sin encontrar.
+- Sincronía con el BPM de una canción; simulaciones con estado (reacción-difusión, vida) como capas; fuentes FIGlet para las letras de bloque.
+- Propuestas para decidir aparte (no hechas): un dominio propio en lugar de `monotrama.vercel.app`; una galería pública de piezas compartidas (necesita servidor, moderación y consentimiento; las piezas locales no se publican ni se indexan); sincronizar la colección entre equipos; buscar y etiquetar en la colección; comparar dos piezas lado a lado.

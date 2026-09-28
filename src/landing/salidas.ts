@@ -51,7 +51,7 @@ export function mountSalidas(root: HTMLElement) {
         f.addEventListener('load', follow);
         onPause(follow);
       }
-      // the example page falls back to its poster without WebGL 2: say so when that is what you see
+      // without WebGL 2 the example page is drawn by the basic engine it carries: say so when that is what you see
       void import('../engine/support').then(m => {
         const note = p.querySelector<HTMLElement>('[data-no-webgl]');
         const why = m.probeWebGL().reason;
