@@ -135,6 +135,49 @@ test.describe('exportar', () => {
     expect(again.equals(first)).toBe(true);
   });
 
+  test('el código exportado vuelve a dibujar cuando su tipografía llega tarde', async ({ page, browser }) => {
+    // exported code fetches its font from Google Fonts: on a slow connection the font lands after the
+    // runtime stopped waiting (5 s), and a still piece («reducir movimiento») kept the fallback face for good
+    const recipe = {
+      v: 2, source: 'pattern', layers: [{ pattern: 'marmol', a: 0.45, b: 0.35 }], glyph: { cell: 12, charset: ' .:-=+*#%@', font: 'jetbrains', weight: 500 },
+      color: { stops: ['#2b0d06', '#ff5b1f', '#ffe9c7'], bg: '#0b0708' }, interact: { mode: 'none' }, meta: { name: 'Tipografía lenta', space: 'arte' },
+    };
+    await openStudio(page, '#r=j' + Buffer.from(JSON.stringify(recipe)).toString('base64url'));
+    await page.keyboard.press('e');
+    await page.getByRole('tab', { name: 'Código' }).click();
+    const [d] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Descargar página/ }).click()]);
+    const file = test.info().outputPath('lenta.html');
+    await d.saveAs(file);
+    const woff2 = readFileSync('node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2').toString('base64');
+    /** The exported page, whose font is added `late` (after its first frames) or before it starts. */
+    const still = async (late: boolean) => {
+      const ctx = await browser.newContext({ viewport: { width: 1000, height: 700 }, reducedMotion: 'reduce' });
+      // no network here: the stylesheet fails at once, and the face is added by hand
+      await ctx.route('https://fonts.googleapis.com/**', r => r.fulfill({ status: 404, body: '' }));
+      const p = await ctx.newPage();
+      const addFace = (b64: string) => {
+        const f = new FontFace('JetBrains Mono', `url(data:font/woff2;base64,${b64})`, { weight: '100 800' });
+        document.fonts.add(f);
+        return f.load().then(() => true);
+      };
+      if (!late) await p.addInitScript(`(${addFace.toString()})(${JSON.stringify(woff2)})`);
+      await p.goto('file://' + file);
+      await p.waitForTimeout(2500);
+      const before = await p.locator('canvas').first().screenshot();
+      if (late) {
+        await p.evaluate(addFace, woff2);
+        await p.waitForTimeout(1500);
+      }
+      const after = await p.locator('canvas').first().screenshot();
+      await ctx.close();
+      return { before, after };
+    };
+    const onTime = await still(false);
+    const late = await still(true);
+    expect(late.before.equals(onTime.after), 'antes de llegar la tipografía se ve la de reserva').toBe(false);
+    expect(late.after.equals(onTime.after), 'cuando llega, el mismo fotograma que con ella a tiempo').toBe(true);
+  });
+
   test('GIF animado', async ({ page }) => {
     await openStudio(page);
     await page.keyboard.press('e');
