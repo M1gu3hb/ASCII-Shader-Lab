@@ -1,6 +1,27 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { deflateSync } from 'node:zlib';
+import { crc32 } from '../../src/shared/zip';
 import { download, openStudio } from './helpers';
+
+/** A colour gradient PNG made here (no fixtures): every cell gets a different luminance. */
+function gradientPng(w: number, h: number): Buffer {
+  const row = w * 3 + 1;
+  const raw = Buffer.alloc(row * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = y * row + 1 + x * 3;
+    raw[o] = (255 * x) / w; raw[o + 1] = (255 * y) / h; raw[o + 2] = 255 * (1 - x / w);
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const td = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));
+    return Buffer.concat([len, td, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
 
 test.describe('exportar', () => {
   test('imagen, vector, texto y receta', async ({ page }) => {
@@ -78,6 +99,40 @@ test.describe('exportar', () => {
       await expect(mp4).toHaveCount(0);
       await expect(page.getByText(/no puede codificar H\.264/)).toBeVisible();
     }
+  });
+
+  test('una pieza se dibuja igual la primera vez que se abre y al volver a ella', async ({ page }) => {
+    // a first visit on a slow connection (the font arrives after the first frames) and the same piece
+    // reopened later must give the same picture; tests/unit/atlas-fonts.test.ts covers the glyph order itself
+    const recipe = {
+      v: 2, source: 'image', glyph: { cell: 10, aspect: 1.2, charset: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", font: 'jetbrains' },
+      color: { mode: 'source', vivid: 0.8, stops: ['#000000', '#ffffff'], bg: '#050505' }, interact: { mode: 'none' }, fx: { cellBg: 0.35 },
+      meta: { name: 'Primera vez', space: 'media' },
+    };
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    // a slow connection: the piece's font arrives after the first frames were drawn
+    const font = /jetbrains-mono-latin-500-normal[^/]*\.woff2$/;
+    await page.route(font, async r => { await new Promise(res => setTimeout(res, 2500)); await r.continue(); });
+    await openStudio(page, '#r=j' + Buffer.from(JSON.stringify(recipe)).toString('base64url'));
+    await expect.poll(() => page.evaluate(() => document.fonts.check('500 20px "JetBrains Mono"')), { timeout: 20_000 }).toBe(true);
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Elegir imagen' }).first().click();
+    await (await chooser).setFiles({ name: 'degradado.png', mimeType: 'image/png', buffer: gradientPng(480, 320) });
+    await expect(page.getByRole('region', { name: 'Cargar fuente' })).toHaveCount(0);
+    const png = async () => {
+      await page.keyboard.press('e');
+      await page.getByRole('tab', { name: 'Imagen' }).click();
+      const f = await download(page, () => page.getByRole('button', { name: 'Descargar imagen' }).click());
+      await page.keyboard.press('Escape');
+      return readFileSync(f.path);
+    };
+    const first = await png();
+    await page.unroute(font);
+    await page.reload();
+    await expect(page.locator('.seedline')).toContainText('Primera vez');
+    await expect(page.getByRole('region', { name: 'Cargar fuente' })).toHaveCount(0);
+    const again = await png();
+    expect(again.equals(first)).toBe(true);
   });
 
   test('GIF animado', async ({ page }) => {

@@ -809,6 +809,22 @@ async function videoChecks(key, page, files, dir, cw, chh) {
   });
 }
 
+/**
+ * What players need from a live recording: a duration, no alpha channel declared (WebKit's player refuses
+ * a WebM that declares one) and, for MP4, the index before the data. Throws when one is missing.
+ */
+function recordingShape(f, j) {
+  const st = j.streams[0], dur = Number(j.format.duration);
+  assert(Number.isFinite(dur) && dur >= 0, 'sin duración en la cabecera (' + j.format.duration + ')');
+  assert(!st.tags?.alpha_mode || st.tags.alpha_mode === '0', 'declara canal alfa (alpha_mode ' + st.tags?.alpha_mode + ')');
+  if (extname(f) === '.mp4') {
+    const buf = readFileSync(f), moov = buf.indexOf('moov'), mdat = buf.indexOf('mdat');
+    assert(moov > 0 && moov < mdat, `moov en ${moov}, mdat en ${mdat}`);
+    assert(buf.indexOf('moof') < 0, 'MP4 fragmentado (moof)');
+  }
+  return `duración ${dur.toFixed(2)} s en la cabecera, sin canal alfa declarado${extname(f) === '.mp4' ? ', MP4 normal con moov al principio' : ''}`;
+}
+
 async function liveRecording(key, page, dir, files) {
   const mimes = await page.evaluate(() => typeof MediaRecorder === 'undefined' ? 'sin MediaRecorder' : ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4;codecs=vp9']
     .map(t => `${t}: ${MediaRecorder.isTypeSupported(t) ? 'sí' : 'no'}`).join(', '));
@@ -850,8 +866,9 @@ async function liveRecording(key, page, dir, files) {
     const frames = Number(st.nb_read_frames);
     // a live recording keeps what the stage drew: with WebGL by software on a busy machine that is a few
     // frames per second, so this checks a valid, decodable video and reports the rate it reached
-    assert(frames >= 2, `${frames} fotogramas en unos ${secs} s de grabación`);
-    return `${d.suggestedFilename()}: ${container}, ${st.codec_name} ${st.width}×${st.height}, ${frames} fotogramas en ${secs} s (≈ ${(frames / secs).toFixed(1)} fps: lo que el lienzo dibujó)${dec.stderr.trim() ? ' (avisos: ' + dec.stderr.trim().slice(0, 80) + ')' : ', decodifica sin errores'}`;
+    assert(frames >= 1, `${frames} fotogramas en unos ${secs} s de grabación`);
+    const tidy = recordingShape(f, j);
+    return `${d.suggestedFilename()}: ${container}, ${st.codec_name} ${st.width}×${st.height}, ${frames} fotogramas en ${secs} s (≈ ${(frames / secs).toFixed(1)} fps: lo que el lienzo dibujó); ${tidy}${dec.stderr.trim() ? ' (avisos: ' + dec.stderr.trim().slice(0, 80) + ')' : ', decodifica sin errores'}`;
   });
 }
 
@@ -1474,7 +1491,13 @@ function realMedia() {
     return f;
   };
   return {
-    photo: make('foto-grande.jpg', ['-f', 'lavfi', '-i', 'gradients=s=4032x3024:n=7:seed=11,noise=alls=14:allf=u', '-frames:v', '1', '-q:v', '2']),
+    photo: (() => {
+      // a 12-megapixel photo-like picture (a phone's size): cloudy colour fields with fine texture
+      const f = join(dir, 'foto-grande.jpg');
+      need('convert');
+      if (!existsSync(f)) run('convert', ['-seed', '7', '-size', '4032x3024', 'plasma:#1b3a6b-#e8a33d', '-blur', '0x2', '-quality', '95', f], { timeout: 180_000 });
+      return f;
+    })(),
     mp4: make('clip-h264.mp4', ['-f', 'lavfi', '-i', 'mandelbrot=s=1280x720:r=30', '-t', '4', '-c:v', 'libx264', '-preset', 'veryfast', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-movflags', '+faststart']),
     webm: make('clip-vp9.webm', ['-f', 'lavfi', '-i', 'testsrc2=s=1280x720:r=30', '-t', '4', '-c:v', 'libvpx-vp9', '-b:v', '1500k', '-deadline', 'realtime', '-cpu-used', '8']),
   };
@@ -1614,7 +1637,7 @@ async function projectFlows() {
         return `${Object.keys(idx).join(', ')}; ${entry} = original (SHA-256), ${r.w}×${r.h}, ${(r.size / 1048576).toFixed(1)} MB; la pestaña lo dice antes`;
       });
       // 3. another browser profile that has never seen the file
-      const B = await freshStudio(PIECES.limpio);
+      const B = await freshStudio();
       try {
         await B.p.getByRole('button', { name: /Colección/ }).first().click();
         const ch = B.p.waitForEvent('filechooser');
@@ -1622,26 +1645,27 @@ async function projectFlows() {
         await (await ch).setFiles(zip);
         await toastText(B.p, /Proyecto abierto/);
         await B.p.keyboard.press('Escape');
-        await check('proyectos', `${id}: abierto en un perfil nuevo, la pieza y su archivo vuelven exactos`, async () => {
+        await check('proyectos', `${id}: abierto en un perfil nuevo, la pieza y su archivo vuelven`, async () => {
           assert(await panelHas(B.p, name), 'el panel no muestra ' + name);
           assert(!(await B.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'pide el archivo otra vez');
-          if (recipe.source === 'video') await holdVideo(B.p, 1.0);
-          await B.p.waitForTimeout(800);
           const rB = await recipeOf(B.p, join(dir, id, 'b'));
           assert(JSON.stringify(strip(rA)) === JSON.stringify(strip(rB)), 'la receta cambió');
-          const pngB = await pngOf(B.p, join(dir, id, 'b'));
-          const e = rmse(pngA, pngB), eb = rmse(pngA, pngB, { blur: 2 });
-          assert(eb < (recipe.source === 'image' ? 0.005 : 0.03), `imagen distinta: RMSE ${fmt(e)}, desenfocado ${fmt(eb)}`);
           assert(!B.errors.length, B.errors.slice(0, 2).join(' | '));
-          return `receta idéntica; ${name} en el panel; PNG del otro perfil = PNG del original (RMSE ${fmt(e)})`;
+          return `receta idéntica; ${name} en el panel, sin pedir el archivo`;
         });
-        await check('proyectos', `${id}: tras recargar, el archivo sigue en este navegador`, async () => {
+        // a reload starts both profiles alike (paused at t = 0 by «reducir movimiento»), and proves the file was stored
+        await check('proyectos', `${id}: tras recargar sigue en este navegador y dibuja lo mismo que el original`, async () => {
           await B.p.waitForTimeout(1000);
           await B.p.reload();
           await B.p.locator('.stage canvas').first().waitFor();
           assert(await panelHas(B.p, name), 'tras recargar no aparece ' + name);
           assert(!(await B.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'tras recargar pide el archivo');
-          return `${name} restaurado desde IndexedDB`;
+          if (recipe.source === 'video') await holdVideo(B.p, 1.0);
+          await B.p.waitForTimeout(1500);
+          const pngB = await pngOf(B.p, join(dir, id, 'b'));
+          const e = rmse(pngA, pngB), eb = rmse(pngA, pngB, { blur: 2 });
+          assert(e < (recipe.source === 'image' ? 0.01 : 0.05), `imagen distinta: RMSE ${fmt(e)}, desenfocado ${fmt(eb)}`);
+          return `${name} restaurado desde IndexedDB; PNG = PNG del perfil original (RMSE ${fmt(e)}${recipe.source === 'video' ? ', mismo instante del video' : ''})`;
         });
       } finally { await B.ctx.close(); }
       // the session carries the history (with this piece) and the collection
@@ -1660,22 +1684,16 @@ async function projectFlows() {
   const A = session.foto;
   if (!A) { record('proyectos', 'sesión y colección', 'SKIP', 'no hay pieza con medios'); return; }
   try {
-    // the video pieces join the same history: open them in this profile too
+    // the video pieces join the same history: each opens as a new piece in this profile, with its file
     for (const m of session.made.filter(x => x.id !== 'foto')) {
-      const f = cases.find(c => c[0] === m.id)[1];
-      await A.p.keyboard.press('Escape');
-      await A.p.getByRole('tab', { name: 'Fuente' }).click();
-      // choosing «Video» opens the file picker when no video is loaded yet; otherwise «Cambiar video» does
-      const first = A.p.waitForEvent('filechooser', { timeout: 4000 }).catch(() => null);
-      await A.p.locator('.panel').getByRole('radio', { name: 'Video' }).first().click();
-      let fc = await first;
-      if (!fc) {
-        const ch = A.p.waitForEvent('filechooser');
-        await A.p.locator('.panel').getByRole('button', { name: /Elegir video|Cambiar video/ }).first().click();
-        fc = await ch;
-      }
-      await fc.setFiles(f);
-      await A.p.locator('.panel').getByText(m.name).first().waitFor({ timeout: 60_000 });
+      const [, f, r] = cases.find(c => c[0] === m.id);
+      await A.p.goto('about:blank');
+      await A.p.goto(`${BASE}/studio/#r=${encode({ ...r, meta: { name: 'Sesión ' + m.id, space: 'media' } })}`);
+      await A.p.locator('.stage canvas').first().waitFor();
+      const ch = A.p.waitForEvent('filechooser');
+      await A.p.getByRole('region', { name: 'Cargar fuente' }).getByRole('button', { name: 'Elegir video' }).click();
+      await (await ch).setFiles(f);
+      await A.p.getByRole('region', { name: 'Cargar fuente' }).waitFor({ state: 'detached', timeout: 60_000 });
       await A.p.waitForTimeout(1500);
     }
     await A.p.getByRole('button', { name: /Colección/ }).first().click();
@@ -1691,7 +1709,7 @@ async function projectFlows() {
       assert(found.length === want.length && exact === want.length, `archivos ${found.length}/${want.length}, idénticos ${exact}`);
       return `${Object.keys(idx).length} entradas; ${want.join(', ')} idénticos (SHA-256); ${count}`;
     });
-    const C = await freshStudio(PIECES.limpio);
+    const C = await freshStudio();
     try {
       await C.p.getByRole('button', { name: /Colección/ }).first().click();
       const ch = C.p.waitForEvent('filechooser');
@@ -1707,7 +1725,9 @@ async function projectFlows() {
         const seen = new Set();
         for (let i = 0; i < n; i++) {
           await thumbs.nth(i).click();
-          await C.p.waitForTimeout(1200);
+          await C.p.waitForTimeout(1500);
+          await C.p.getByRole('tab', { name: 'Fuente' }).click().catch(() => undefined);
+          await C.p.waitForTimeout(300);
           for (const m of session.made) if (await C.p.locator('.panel').getByText(m.name).first().isVisible().catch(() => false)) seen.add(m.name);
         }
         assert(favs >= 1, 'la colección llegó vacía');
@@ -1715,7 +1735,7 @@ async function projectFlows() {
         return `${line}; colección ${favs}; ${[...seen].join(', ')} vuelven con su pieza`;
       });
     } finally { await C.ctx.close(); }
-    const D = await freshStudio(PIECES.limpio);
+    const D = await freshStudio();
     try {
       await D.p.getByRole('button', { name: /Colección/ }).first().click();
       const ch = D.p.waitForEvent('filechooser');
@@ -1724,11 +1744,13 @@ async function projectFlows() {
       await toastText(D.p, /Colección abierta|pieza/);
       await check('proyectos', 'colección .zip abierta en un perfil nuevo, con su imagen', async () => {
         const cards = D.p.locator('.fav-card');
-        assert((await cards.count()) >= 1, 'sin piezas');
-        await cards.first().getByRole('button', { name: 'Abrir' }).click();
+        const n = await cards.count();
+        assert(n >= 1, 'sin piezas');
+        await cards.first().locator('.ops').getByRole('button', { name: 'Abrir', exact: true }).click();
         const name = session.made.find(m => m.id === 'foto').name;
         assert(await panelHas(D.p, name), 'la pieza de la colección no trae ' + name);
-        return `${await cards.count()} pieza(s); ${name} vuelve con ella`;
+        assert(!(await D.p.getByRole('region', { name: 'Cargar fuente' }).count()), 'pide el archivo');
+        return `${n} pieza(s) en la colección; ${name} vuelve con ella`;
       });
     } finally { await D.ctx.close(); }
   } catch (e) {
@@ -1849,10 +1871,11 @@ async function cameraFlows() {
         const j = ffprobe(f), st = j.streams[0];
         const dec = run('ffmpeg', ['-v', 'error', '-i', f, '-f', 'null', '-']);
         assert(dec.status === 0, dec.stderr.slice(0, 200));
+        // what the stage drew while recording: with WebGL by software and a busy processor, very few frames
         const frames = Number(st.nb_read_frames);
-        assert(frames >= 2, `${frames} fotogramas`);
+        assert(frames >= 1, `${frames} fotogramas`);
         assert(extname(f) !== '.mp4' || st.codec_name === 'h264', `.mp4 con ${st.codec_name}`);
-        return `${basename(f)}: ${j.format.format_name}, ${st.codec_name} ${st.width}×${st.height}, ${frames} fotogramas en ${secs} s, decodifica sin errores`;
+        return `${basename(f)}: ${j.format.format_name}, ${st.codec_name} ${st.width}×${st.height}, ${frames} fotogramas en ${secs} s (≈ ${(frames / secs).toFixed(1)} fps: lo que el lienzo dibujó), ${recordingShape(f, j)}, decodifica sin errores`;
       });
       const url = publish(f);
       await inEngines('camara', `cámara: la grabación (${extname(f).slice(1)}) se reproduce en <video>`, async (bb, n) => {

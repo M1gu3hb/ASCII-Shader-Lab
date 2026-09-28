@@ -42,9 +42,22 @@ function fontString(spec: { weight: number; italic?: boolean; stack: string }, p
   return `${spec.italic ? 'italic ' : ''}${spec.weight} ${px}px ${spec.stack}`;
 }
 
-/** Orders characters from empty to full by measuring rendered ink coverage. Cached. */
+/**
+ * Grows each time a web font finishes loading. A web font still on its way measures as its fallback: the
+ * order measured then must not outlive the load, or the same piece picks other glyphs for the rest of the
+ * page (a first visit rendered, and exported, differently from the same piece reopened later).
+ */
+function loadedFonts(): number {
+  const set = typeof document !== 'undefined' ? document.fonts : undefined;
+  if (!set || typeof set.forEach !== 'function') return 0;
+  let n = 0;
+  set.forEach(f => { if (f.status === 'loaded') n++; });
+  return n;
+}
+
+/** Orders characters from empty to full by measuring rendered ink coverage. Cached (per set of loaded fonts). */
 export function sortByDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): string[] {
-  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2);
+  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts();
   const hit = densityCache.get(key);
   if (hit) return hit;
   const G = 32, GH = Math.max(12, Math.round(G * aspect));

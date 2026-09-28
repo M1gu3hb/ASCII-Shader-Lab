@@ -221,8 +221,29 @@ export async function stopRecording(why?: string) {
     toast('La grabación salió vacía: el navegador no llegó a entregar video. Graba unos segundos más, o usa el video renderizado (no depende de la fluidez del equipo).', undefined, 9000);
     return;
   }
-  downloadBlob(`${base}-directo.${ext}`, blob);
+  downloadBlob(`${base}-directo.${ext}`, await tidyRecording(blob, ext === 'mp4' ? 'mp4' : 'webm'));
   if (why) toast(why, undefined, 6000);
+}
+
+/**
+ * A live recording as players expect it. MediaRecorder writes WebM without its duration or seek index
+ * (and, from a canvas, declaring an alpha channel that some players refuse to open) or MP4 in fragments.
+ * The same video packets, not re-encoded, go into a regular WebM or a fast-start MP4; if that fails, the
+ * recording goes out as the browser made it.
+ */
+async function tidyRecording(blob: Blob, ext: 'mp4' | 'webm'): Promise<Blob> {
+  try {
+    const mb = await import('mediabunny');
+    const input = new mb.Input({ source: new mb.BlobSource(blob), formats: mb.ALL_FORMATS });
+    const target = new mb.BufferTarget();
+    const output = new mb.Output({ format: ext === 'mp4' ? new mb.Mp4OutputFormat({ fastStart: 'in-memory' }) : new mb.WebMOutputFormat(), target });
+    const conv = await mb.Conversion.init({ input, output, video: { alpha: 'discard' }, audio: { discard: true } });
+    if (!conv.isValid) return blob;
+    await conv.execute();
+    return target.buffer && target.buffer.byteLength > 1024 ? new Blob([target.buffer], { type: ext === 'mp4' ? 'video/mp4' : 'video/webm' }) : blob;
+  } catch {
+    return blob;
+  }
 }
 
 /* ------------------------------------------------------------------ */
