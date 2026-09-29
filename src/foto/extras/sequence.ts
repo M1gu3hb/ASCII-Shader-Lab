@@ -155,7 +155,7 @@ export function sequenceSpecOf(p: Project): SequenceSpec | null {
   if (fade) {
     transition = 'fundido';
     const keys = p.tracks.find(t => t.layer === fade.id && t.path === 'opacity')?.keys ?? [];
-    if (keys.length >= 3) change = Math.max(0.05, keys[2].t - keys[1].t);
+    if (keys.length >= 3) change = Math.max(0.05, Math.round((keys[2].t - keys[1].t + 0.0005) * 100) / 100);
   } else if (tr) {
     transition = tr.kind === 'ascii' ? 'ascii' : 'caracteres';
     const c = tr.clips.find(x => x.template === 'secuencia-fotos');
