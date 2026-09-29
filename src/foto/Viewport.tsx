@@ -126,7 +126,11 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
     });
   }, []);
   useEffect(() => { setOverlayRedraw(redraw); return () => setOverlayRedraw(() => undefined); }, [redraw]);
-  useEffect(() => { redraw(); }, [toolId, selection, size.w, size.h, redraw]);
+  // another tool, selection or size: a fresh redraw (not one already waiting for the old state)
+  useEffect(() => {
+    if (redrawRaf.current) { cancelAnimationFrame(redrawRaf.current); redrawRaf.current = 0; }
+    redraw();
+  }, [toolId, selection, size.w, size.h, redraw]);
 
   /* ---------------------------------------------------------------- mask view */
 
