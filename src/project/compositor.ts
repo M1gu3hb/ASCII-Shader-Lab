@@ -630,7 +630,7 @@ export class Compositor {
     if (cpu) {
       const data = target.getImageData(0, 0, rw, rh);
       if (css !== 'none' && !gpu) cssAdjustCpu(data.data, rw, rh, a, scale);
-      if (needsTone(a)) toneCpu(data.data, rw, rh, a);
+      if (needsTone(a)) toneCpu(data.data, rw, rh, a, scale);
       target.putImageData(data, 0, 0);
       x.drawImage(target.canvas, 0, 0);
     }

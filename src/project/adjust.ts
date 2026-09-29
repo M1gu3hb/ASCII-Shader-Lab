@@ -85,8 +85,26 @@ export function blurRgba(d: Uint8ClampedArray, w: number, h: number, sigma: numb
   }
 }
 
-/** Gamma, temperature and sharpening (always on the CPU). */
-export function toneCpu(d: Uint8ClampedArray, w: number, h: number, a: Adjust): void {
+/**
+ * Weights of a box `width` px wide centred on a pixel (the pixels it half covers count by what it covers):
+ * width 3 is the plain 3×3 box; a render at another scale gets the same box in output px.
+ */
+export function boxWeights(width: number): number[] {
+  const half = Math.max(0.5, width / 2);
+  const r = Math.ceil(half - 0.5);
+  const out: number[] = [];
+  for (let x = -r; x <= r; x++) out.push(Math.max(0, Math.min(1, half + 0.5 - Math.abs(x))));
+  const sum = out.reduce((s, v) => s + v, 0);
+  return out.map(v => v / sum);
+}
+
+/**
+ * Gamma, temperature and sharpening (always on the CPU). `scale` = render px per output px: sharpening
+ * compares each pixel with the box of 3×3 OUTPUT px around it, so a preview at a smaller scale shows the
+ * sharpening of the export made smaller (a 3×3 box of render px sharpened a quarter-size preview four times
+ * as coarsely as the file).
+ */
+export function toneCpu(d: Uint8ClampedArray, w: number, h: number, a: Adjust, scale = 1): void {
   if (a.gamma !== 1 || a.temp !== 0) {
     const g = 1 / Math.max(0.05, a.gamma);
     const lut = new Uint8ClampedArray(256);
@@ -99,24 +117,28 @@ export function toneCpu(d: Uint8ClampedArray, w: number, h: number, a: Adjust): 
       d[i + 2] = clamp255(lut[d[i + 2]] * kb);
     }
   }
-  if (a.sharpen > 0 && w > 2 && h > 2) {
-    // unsharp mask with a 3×3 box: out = in + k·(in − box), the box summed in two passes (rows, then columns)
+  const wt = boxWeights(3 * Math.max(0, scale));
+  const r = (wt.length - 1) >> 1;
+  if (a.sharpen > 0 && r > 0 && w > 2 * r && h > 2 * r) {
+    // unsharp mask: out = in + k·(in − box), the box (3 output px wide) in two passes (rows, then columns)
     const k = a.sharpen * 1.5;
     const n = w * h;
-    const row = new Uint16Array(n);
+    const row = new Float32Array(n);
     const orig = new Uint8ClampedArray(n);
     for (let c = 0; c < 3; c++) {
       for (let i = 0; i < n; i++) orig[i] = d[i * 4 + c];
       for (let y = 0; y < h; y++) {
         const o = y * w;
-        for (let x = 1; x < w - 1; x++) row[o + x] = orig[o + x - 1] + orig[o + x] + orig[o + x + 1];
+        for (let x = r; x < w - r; x++) { let s = 0; for (let j = -r; j <= r; j++) s += orig[o + x + j] * wt[j + r]; row[o + x] = s; }
       }
-      for (let y = 1; y < h - 1; y++) {
+      for (let y = r; y < h - r; y++) {
         const o = y * w;
-        for (let x = 1; x < w - 1; x++) {
+        for (let x = r; x < w - r; x++) {
           const i = o + x;
+          let s = 0;
+          for (let j = -r; j <= r; j++) s += row[i + j * w] * wt[j + r];
           const v = orig[i];
-          d[i * 4 + c] = clamp255(v + k * (v - (row[i - w] + row[i] + row[i + w]) / 9));
+          d[i * 4 + c] = clamp255(v + k * (v - s));
         }
       }
     }
