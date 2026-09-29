@@ -211,7 +211,11 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .lr-mask.inv { border-style: dashed; }
 .fl-foot { display: flex; gap: 4px; padding: 6px 12px 10px; }
 .fl-foot .icon-btn { font: 600 14px/1 var(--font-ui); }
-.fl-canvas { padding: 0 12px; }
+/* «Lienzo» opened in the capped layers box: it scrolls there (it used to overflow onto the inspector
+   below) and gives way four times faster than the list of layers, down to its own header, so some rows
+   and «Lienzo» itself stay in view. (Shrink factors of 1 or more: below 1 in total, a flex box leaves
+   part of the overflow unshrunk.) */
+.fl-canvas { padding: 0 12px; flex: 0 4 auto; min-height: 44px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 .fl-canvas .fsec { border-top: 1px solid var(--line); }
 .fcanvas-wh { display: flex; align-items: flex-end; gap: 8px; margin: 0 0 12px; }
 .fcanvas-wh label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }

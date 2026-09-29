@@ -104,7 +104,7 @@ export const PAGES: SitePage[] = [
     id: 'foto', file: 'studio/foto/index.html', path: '/studio/foto/', kind: 'app', crumb: 'Estudio de foto y video', sitemap: true,
     image: og('imagen-a-ascii', 'Paisaje al atardecer convertido en caracteres de colores con el estilo Retrato'),
     title: 'Estudio de foto y video GLYPHOS — tu foto en capas de ASCII',
-    description: 'Convierte sólo las partes que elijas de tu foto en ASCII: capas, máscaras, recortes y acabados como tramado o semitono. En tu navegador; exporta PNG.',
+    description: 'Sólo las partes que elijas de tu foto o video, en ASCII: capas, máscaras, recorte en tu navegador y animación. Exporta PNG transparente, texto, GIF o video.',
   },
   guidePage('imagen', 'imagen-a-ascii/index.html',
     'Imagen a ASCII: convierte tu foto en arte ASCII · GLYPHOS',

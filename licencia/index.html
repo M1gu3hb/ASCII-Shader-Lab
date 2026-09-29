@@ -34,7 +34,7 @@
     <li><strong>MIT:</strong> React, React DOM, scheduler, zustand, gifenc y opentype.js (con sus dependencias tiny-inflate y string.prototype.codepointat).</li>
     <li><strong>Apache-2.0:</strong> idb-keyval.</li>
     <li><strong>MPL-2.0:</strong> mediabunny, sin modificar y sólo en el editor, para codificar video. Nunca va dentro del código que exportas.</li>
-    <li><strong>MIT:</strong> ONNX Runtime Web (Microsoft), el motor que ejecuta los modelos de recorte en tu navegador. Se sirve desde este sitio y nunca va dentro del código que exportas.</li>
+    <li><strong>MIT:</strong> ONNX Runtime Web (Microsoft), el motor que ejecuta los modelos de recorte en tu navegador. Se sirve desde este sitio y nunca va dentro del código que exportas. Trae sus propias dependencias: protobufjs y sus módulos @protobufjs (BSD-3-Clause), flatbuffers y long (Apache-2.0), guid-typescript (ISC) y platform (MIT).</li>
   </ul>
   <p>Avisos y textos de licencia completos: <a href="/licencia/terceros.txt">avisos de terceros</a>.</p>
 
@@ -46,6 +46,7 @@
     <li><strong>Retrato</strong> — MODNet, de Zhanghan Ke y colaboradores (<a href="https://github.com/ZHKKKe/MODNet">ZHKKKe/MODNet</a>), en la exportación de Xenova (<a href="https://huggingface.co/Xenova/modnet">Xenova/modnet</a>). Código: Apache-2.0. Pesos: Apache-2.0.</li>
     <li><strong>Seleccionar objeto</strong> — EdgeTAM, de Meta (<a href="https://github.com/facebookresearch/EdgeTAM">facebookresearch/EdgeTAM</a>, derivado de SAM 2), en la exportación de onnx-community (<a href="https://huggingface.co/onnx-community/EdgeTAM-ONNX">onnx-community/EdgeTAM-ONNX</a>). Código: Apache-2.0. Pesos: Apache-2.0.</li>
   </ul>
+  <p>En video se usan los mismos: «Retrato» para quitar el fondo cuadro a cuadro y «Seleccionar objeto» para seguir un objeto a lo largo del clip, también en tu equipo y con el mismo permiso previo.</p>
   <p>Elegimos sólo modelos cuyo código <em>y</em> cuyos pesos se publican con licencias permisivas. Por eso no usamos, por ejemplo, RMBG-1.4 ni RMBG-2.0 de BRIA (uso no comercial), ISNet en la versión de IMG.LY (AGPL) ni SAM 3 (licencia propia con acceso restringido).</p>
   <p>Una nota honesta: los conjuntos de datos con los que sus autores entrenaron estos modelos tienen sus propios términos. BiRefNet usó, entre otros, DIS5K, cuyos términos lo reservan a investigación no comercial; MODNet se entrenó con conjuntos de retratos de investigación, y EdgeTAM con SA-1B y SA-V, publicados por Meta con sus propias condiciones. GLYPHOS usa los pesos bajo la licencia con la que sus autores los publicaron (MIT o Apache-2.0), pero esa licencia no puede resolver por sí sola los términos de los datos de entrenamiento. Si vas a usar un recorte en un encargo comercial delicado, tenlo en cuenta.</p>
 
