@@ -141,8 +141,8 @@ export const MIN_PREVIEW_CELL = 6;
 
 /**
  * The pixel ratio an ASCII layer's engine renders at. At scale 1 and above: the scale (exports are exact).
- * Below it, cells would shrink to a few pixels, where glyphs are unreadable (and, in some WebGL
- * implementations, cells 2 or 4 px wide draw no glyphs at all): the engine renders at a ratio that keeps
+ * Below it, cells would shrink to a few pixels, where glyphs are unreadable and no longer look like the
+ * export's (they are fitted to the tiny cell): the engine renders at a ratio that keeps
  * cells at least MIN_PREVIEW_CELL px (never more detail than the final render), and the result is scaled
  * down — the final render made smaller, which is what a preview should be.
  */
