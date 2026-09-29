@@ -195,7 +195,7 @@ export function wireSearch(m: CostMap, seed: number, radius = 320): WireSearch {
       while (!done[t] && n < budget) {
         if (settleOne() < 0) break;
         n++;
-        if ((n & 1023) === 0 && performance.now() > end) break;
+        if ((n & 511) === 0 && performance.now() > end) break;
       }
       return !!done[t];
     },

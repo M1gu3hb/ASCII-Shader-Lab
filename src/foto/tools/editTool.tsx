@@ -17,6 +17,7 @@ import { PartEditor, drawPart } from './editor';
 import { ICONS } from './icons';
 import { objectTool } from './objectTool';
 import { signal } from './state';
+import { usePartDraft } from './draft';
 import { canvasPixels, canvasSize, editableTarget, layerById, layerPoint, partsOf, removePart, replacePart, screenPerPx } from './target';
 import type { Tool, ToolHost } from './types';
 import { Button, Note, Segmented, Slider, Swatch, pct, px } from './ui';
@@ -225,6 +226,7 @@ function EditOptions({ host, editor, use }: { host: ToolHost; editor: PartEditor
   useProject(s => s.project);
   const sel = editor.current(host);
   const parts = partsOf(layerById(host.target()));
+  const d = usePartDraft(host, sel, p => { if (editor.sel) editor.sel.part = p; host.redrawOverlay(); });
   if (!sel) {
     return (
       <div className="tl-opts" data-tool="editar-partes">
@@ -234,30 +236,34 @@ function EditOptions({ host, editor, use }: { host: ToolHost; editor: PartEditor
       </div>
     );
   }
-  const p = sel.part;
-  const set = (patch: Partial<MaskPart>, key = 'opciones') => {
-    const next = { ...p, ...patch } as MaskPart;
-    if (replacePart(sel.layer, sel.index, next, key)) { sel.part = next; host.redrawOverlay(); }
+  const p = d.part ?? sel.part;
+  /** Sliders: previewed, one undo step when let go. Choices (op, shape): at once. */
+  const set = (patch: Partial<MaskPart>, now = false) => {
+    if (!now) { d.set(patch); return; }
+    d.flush();
+    const next = { ...sel.part, ...patch } as MaskPart;
+    if (replacePart(sel.layer, sel.index, next)) { sel.part = next; host.redrawOverlay(); }
   };
+  const commit = (_v: number, how: 'pointer' | 'key') => d.commit(how);
   return (
     <div className="tl-opts" data-tool="editar-partes">
       <span className="tl-title">{PART_NAME(p)} · {sel.index + 1}/{parts.length}</span>
-      <Segmented label="Operación" value={p.op} options={OPS} onChange={v => { set({ op: v }, ''); host.say(`La parte ahora ${v === 'add' ? 'suma' : v === 'subtract' ? 'resta' : 'interseca'}`); }} />
-      <Slider label="Intensidad" value={p.alpha} min={0} max={1} step={0.05} format={pct} onChange={v => set({ alpha: v })} />
-      {'soft' in p && p.kind !== 'color' ? <Slider label="Borde suave" value={p.soft} min={0} max={80} step={1} format={px} onChange={v => set({ soft: v } as Partial<MaskPart>)} /> : null}
-      {p.kind === 'stroke' ? <Slider label="Dureza" value={p.hardness} min={0} max={1} step={0.05} format={pct} onChange={v => set({ hardness: v } as Partial<MaskPart>)} /> : null}
+      <Segmented label="Operación" value={p.op} options={OPS} onChange={v => { set({ op: v }, true); host.say(`La parte ahora ${v === 'add' ? 'suma' : v === 'subtract' ? 'resta' : 'interseca'}`); }} />
+      <Slider label="Intensidad" value={p.alpha} min={0} max={1} step={0.05} format={pct} onChange={v => set({ alpha: v })} onCommit={commit} />
+      {'soft' in p && p.kind !== 'color' ? <Slider label="Borde suave" value={p.soft} min={0} max={80} step={1} format={px} onChange={v => set({ soft: v } as Partial<MaskPart>)} onCommit={commit} /> : null}
+      {p.kind === 'stroke' ? <Slider label="Dureza" value={p.hardness} min={0} max={1} step={0.05} format={pct} onChange={v => set({ hardness: v } as Partial<MaskPart>)} onCommit={commit} /> : null}
       {p.kind === 'color' ? (
         <>
           <Swatch color={p.color} label={`Color ${p.color}`} />
-          <Slider label="Tolerancia" value={p.tol} min={0} max={0.6} step={0.005} format={pct} onChange={v => set({ tol: v } as Partial<MaskPart>)} />
-          <Slider label="Suavidad" value={p.soft} min={0} max={0.4} step={0.005} format={pct} onChange={v => set({ soft: v } as Partial<MaskPart>)} />
+          <Slider label="Tolerancia" value={p.tol} min={0} max={0.6} step={0.005} format={pct} onChange={v => set({ tol: v } as Partial<MaskPart>)} onCommit={commit} />
+          <Slider label="Suavidad" value={p.soft} min={0} max={0.4} step={0.005} format={pct} onChange={v => set({ soft: v } as Partial<MaskPart>)} onCommit={commit} />
         </>
       ) : null}
       {p.kind === 'gradient' ? (
         <>
-          <Segmented label="Forma" value={p.shape} options={[{ value: 'linear', label: 'Lineal' }, { value: 'radial', label: 'Circular' }]} onChange={v => set({ shape: v } as Partial<MaskPart>, '')} />
-          <Slider label="Inicio" value={p.alpha0} min={0} max={1} step={0.05} format={pct} onChange={v => set({ alpha0: v } as Partial<MaskPart>)} />
-          <Slider label="Final" value={p.alpha1} min={0} max={1} step={0.05} format={pct} onChange={v => set({ alpha1: v } as Partial<MaskPart>)} />
+          <Segmented label="Forma" value={p.shape} options={[{ value: 'linear', label: 'Lineal' }, { value: 'radial', label: 'Circular' }]} onChange={v => set({ shape: v } as Partial<MaskPart>, true)} />
+          <Slider label="Inicio" value={p.alpha0} min={0} max={1} step={0.05} format={pct} onChange={v => set({ alpha0: v } as Partial<MaskPart>)} onCommit={commit} />
+          <Slider label="Final" value={p.alpha1} min={0} max={1} step={0.05} format={pct} onChange={v => set({ alpha1: v } as Partial<MaskPart>)} onCommit={commit} />
         </>
       ) : null}
       {p.kind === 'raster' && p.origin === 'object' ? (

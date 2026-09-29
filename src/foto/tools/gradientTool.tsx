@@ -13,6 +13,7 @@ import { ICONS } from './icons';
 import * as draw from './overlay';
 import { setSettings, settings, signal, useSettings, type ToolSettings } from './state';
 import { Mods, OP_NAME, addPart, canvasSize, editableTarget, layerById, layerPoint, opFor, partsOf, removePart, replacePart } from './target';
+import { usePartDraft } from './draft';
 import type { Tool, ToolHost } from './types';
 import { Button, Note, Segmented, Slider, pct } from './ui';
 
@@ -169,8 +170,9 @@ function GradientOptions({ host, use }: { host: ToolHost; use: () => number }) {
   const st = useSettings();
   const editor = gradientTool.editor;
   const sel = editor.current(host);
-  const g = sel?.part.kind === 'gradient' ? sel.part : null;
-  const set = (patch: Partial<Pick<ToolSettings, 'gradShape' | 'gradFrom' | 'gradTo' | 'gradEase'>>) => {
+  const d = usePartDraft(host, sel?.part.kind === 'gradient' ? sel : null, p => { if (editor.sel) editor.sel.part = p; host.redrawOverlay(); });
+  const g = sel?.part.kind === 'gradient' ? (d.part as MaskGradientPart) : null;
+  const set = (patch: Partial<Pick<ToolSettings, 'gradShape' | 'gradFrom' | 'gradTo' | 'gradEase'>>, now = false) => {
     setSettings(patch);
     if (sel && g) {
       const next: MaskGradientPart = { ...g };
@@ -178,17 +180,18 @@ function GradientOptions({ host, use }: { host: ToolHost; use: () => number }) {
       if (patch.gradFrom !== undefined) next.alpha0 = patch.gradFrom;
       if (patch.gradTo !== undefined) next.alpha1 = patch.gradTo;
       if (patch.gradEase) { if (patch.gradEase === 'linear') delete next.ease; else next.ease = { kind: patch.gradEase }; }
-      if (replacePart(sel.layer, sel.index, next, 'opciones')) { sel.part = next; host.redrawOverlay(); }
+      if (now) { d.flush(); if (replacePart(sel.layer, sel.index, next)) { sel.part = next; host.redrawOverlay(); } }
+      else { d.set(next); }
     }
   };
   const ease = (g?.ease?.kind ?? (g ? 'linear' : st.gradEase)) as ToolSettings['gradEase'];
   return (
     <div className="tl-opts" data-tool="degradado">
       <span className="tl-title">Degradado</span>
-      <Segmented label="Forma" value={g ? g.shape : st.gradShape} options={[{ value: 'linear', label: 'Lineal' }, { value: 'radial', label: 'Circular' }]} onChange={v => set({ gradShape: v })} />
-      <Slider label="Inicio" value={g ? g.alpha0 : st.gradFrom} min={0} max={1} step={0.05} format={pct} onChange={v => set({ gradFrom: v })} hint="Cuánto se ve la capa donde empieza el degradado" />
-      <Slider label="Final" value={g ? g.alpha1 : st.gradTo} min={0} max={1} step={0.05} format={pct} onChange={v => set({ gradTo: v })} hint="Cuánto se ve la capa donde termina" />
-      <Segmented label="Curva" value={['linear', 'inOut', 'in', 'out'].includes(ease) ? ease : 'linear'} options={[{ value: 'linear', label: 'Recta' }, { value: 'inOut', label: 'Suave' }, { value: 'in', label: 'Lenta al inicio' }, { value: 'out', label: 'Rápida al inicio' }]} onChange={v => set({ gradEase: v })} />
+      <Segmented label="Forma" value={g ? g.shape : st.gradShape} options={[{ value: 'linear', label: 'Lineal' }, { value: 'radial', label: 'Circular' }]} onChange={v => set({ gradShape: v }, true)} />
+      <Slider label="Inicio" value={g ? g.alpha0 : st.gradFrom} min={0} max={1} step={0.05} format={pct} onChange={v => set({ gradFrom: v })} onCommit={(_v, how) => d.commit(how)} hint="Cuánto se ve la capa donde empieza el degradado" />
+      <Slider label="Final" value={g ? g.alpha1 : st.gradTo} min={0} max={1} step={0.05} format={pct} onChange={v => set({ gradTo: v })} onCommit={(_v, how) => d.commit(how)} hint="Cuánto se ve la capa donde termina" />
+      <Segmented label="Curva" value={['linear', 'inOut', 'in', 'out'].includes(ease) ? ease : 'linear'} options={[{ value: 'linear', label: 'Recta' }, { value: 'inOut', label: 'Suave' }, { value: 'in', label: 'Lenta al inicio' }, { value: 'out', label: 'Rápida al inicio' }]} onChange={v => set({ gradEase: v }, true)} />
       {sel ? (
         <>
           <Button onClick={() => { editor.clear(); host.redrawOverlay(); }} kbd="Intro">Listo</Button>

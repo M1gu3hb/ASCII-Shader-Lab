@@ -17,7 +17,8 @@ import { PartEditor, drawPart } from './editor';
 import { ICONS } from './icons';
 import * as draw from './overlay';
 import { settings, setSettings, signal, useSettings } from './state';
-import { Mods, OP_NAME, addPart, canvasSize, editableTarget, layerById, layerPoint, opFor, partsOf, removePart, replacePart, screenPerPx } from './target';
+import { Mods, OP_NAME, addPart, canvasSize, editableTarget, layerById, layerPoint, opFor, partsOf, removePart, screenPerPx } from './target';
+import { usePartDraft } from './draft';
 import type { Tool, ToolHost } from './types';
 import { Button, Note, Row, Slider, pct, px } from './ui';
 
@@ -207,19 +208,17 @@ function ShapeOptions({ host, kind, editor, use }: { host: ToolHost; kind: Kind;
   useProject(s => s.project);
   const st = useSettings();
   const sel = editor.current(host);
-  const part = sel?.part.kind === kind ? (sel.part as MaskShapePart) : null;
+  const d = usePartDraft(host, sel?.part.kind === kind ? sel : null, p => { if (editor.sel) editor.sel.part = p; host.redrawOverlay(); });
+  const part = sel?.part.kind === kind ? (d.part as MaskShapePart) : null;
   const set = (patch: { soft?: number; alpha?: number }) => {
     setSettings({ ...(patch.soft !== undefined ? { shapeSoft: patch.soft } : {}), ...(patch.alpha !== undefined ? { shapeAlpha: patch.alpha } : {}) });
-    if (sel && part) {
-      const next = { ...part, ...patch };
-      if (replacePart(sel.layer, sel.index, next, 'opciones')) { sel.part = next; host.redrawOverlay(); }
-    }
+    if (part) d.set(patch);
   };
   return (
     <div className="tl-opts" data-tool={kind}>
       <span className="tl-title">{NAME[kind]}</span>
-      <Slider label="Borde suave" value={part ? part.soft : st.shapeSoft} min={0} max={80} step={1} format={px} onChange={v => set({ soft: v })} hint="Difumina el borde de esta forma (px de la imagen final)" />
-      <Slider label="Intensidad" value={part ? part.alpha : st.shapeAlpha} min={0.05} max={1} step={0.05} format={pct} onChange={v => set({ alpha: v })} hint="Menos de 100 % mezcla la foto y los caracteres dentro de la forma" />
+      <Slider label="Borde suave" value={part ? part.soft : st.shapeSoft} min={0} max={80} step={1} format={px} onChange={v => set({ soft: v })} onCommit={(_v, how) => d.commit(how)} hint="Difumina el borde de esta forma (px de la imagen final)" />
+      <Slider label="Intensidad" value={part ? part.alpha : st.shapeAlpha} min={0.05} max={1} step={0.05} format={pct} onChange={v => set({ alpha: v })} onCommit={(_v, how) => d.commit(how)} hint="Menos de 100 % mezcla la foto y los caracteres dentro de la forma" />
       {sel ? (
         <Row label="Forma seleccionada">
           <Button onClick={() => { editor.clear(); host.redrawOverlay(); }} kbd="Intro">Listo</Button>

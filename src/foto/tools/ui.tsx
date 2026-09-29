@@ -11,7 +11,7 @@ export function Row({ children, label }: { children: ReactNode; label?: string }
 
 export function Slider(props: {
   label: string; value: number; min: number; max: number; step: number;
-  onChange(v: number): void; onCommit?(v: number): void;
+  onChange(v: number): void; onCommit?(v: number, how: 'pointer' | 'key'): void;
   format?(v: number): string; hint?: string; wide?: boolean;
 }) {
   const id = useId();
@@ -23,8 +23,8 @@ export function Slider(props: {
         id={id} type="range" min={props.min} max={props.max} step={props.step} value={props.value}
         aria-valuetext={f(props.value)}
         onChange={e => props.onChange(Number(e.currentTarget.value))}
-        onPointerUp={e => props.onCommit?.(Number(e.currentTarget.value))}
-        onKeyUp={e => props.onCommit?.(Number(e.currentTarget.value))}
+        onPointerUp={e => props.onCommit?.(Number(e.currentTarget.value), 'pointer')}
+        onKeyUp={e => props.onCommit?.(Number(e.currentTarget.value), 'key')}
       />
       <output className="tl-val" htmlFor={id}>{f(props.value)}</output>
     </label>

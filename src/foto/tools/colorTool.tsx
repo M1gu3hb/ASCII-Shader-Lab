@@ -13,6 +13,7 @@ import { ICONS } from './icons';
 import * as draw from './overlay';
 import { setLive, setSettings, settings, useLive, useSettings } from './state';
 import { OP_NAME, addPart, canvasPixels, editableTarget, layerById, layerPoint, opFor, partsOf, pixelSourceOf, replacePart, samePart, screenOf } from './target';
+import { usePartDraft } from './draft';
 import type { Tool, ToolHost } from './types';
 import { Button, Note, Slider, Swatch, pct } from './ui';
 
@@ -216,21 +217,20 @@ function ColorOptions({ host, current }: { host: ToolHost; current: () => { laye
   const sh = useLive(s => s.colorShare);
   useProject(s => s.project);
   const cur = current();
+  // a slider gesture is one undo step: previewed while it moves, the part replaced once when let go
+  const d = usePartDraft(host, cur, p => { const c = current(); if (c) c.part = p as MaskColorPart; });
+  const part = cur ? (d.part as MaskColorPart) : null;
   const set = (patch: { tol?: number; soft?: number }) => {
     setSettings({ ...(patch.tol !== undefined ? { colorTol: patch.tol } : {}), ...(patch.soft !== undefined ? { colorSoft: patch.soft } : {}) });
-    if (cur) {
-      const next = { ...cur.part, ...patch };
-      // a slider drag is one undo step (the store coalesces edits with the same key)
-      if (replacePart(cur.layer, cur.index, next, 'tolerancia')) cur.part = next;
-    }
+    if (cur) d.set(patch);
   };
   return (
     <div className="tl-opts" data-tool="color">
       <span className="tl-title">Color</span>
       {color ? <Swatch color={color} label={`Color elegido ${color}`} /> : null}
       {color ? <span className="tl-mono">{color}{sh !== null ? ` · ${Math.round(sh * 100)} %` : ''}</span> : <Note tone="quiet">Toca o haz clic en un color de la foto.</Note>}
-      <Slider label="Tolerancia" value={cur ? cur.part.tol : st.colorTol} min={0} max={0.6} step={0.005} format={pct} onChange={v => set({ tol: v })} hint="Cuánto puede alejarse un color del elegido y seguir dentro" />
-      <Slider label="Suavidad" value={cur ? cur.part.soft : st.colorSoft} min={0} max={0.4} step={0.005} format={pct} onChange={v => set({ soft: v })} hint="Una rampa después de la tolerancia: bordes menos duros" />
+      <Slider label="Tolerancia" value={part ? part.tol : st.colorTol} min={0} max={0.6} step={0.005} format={pct} onChange={v => set({ tol: v })} onCommit={(_v, how) => d.commit(how)} hint="Cuánto puede alejarse un color del elegido y seguir dentro" />
+      <Slider label="Suavidad" value={part ? part.soft : st.colorSoft} min={0} max={0.4} step={0.005} format={pct} onChange={v => set({ soft: v })} onCommit={(_v, how) => d.commit(how)} hint="Una rampa después de la tolerancia: bordes menos duros" />
       <Button disabled={!cur} onClick={() => { host.say('El próximo clic añade otro color'); setLive({ color: null, colorShare: null }); (colorTool as unknown as { deactivate(h: ToolHost): void }).deactivate(host); }}>Otro color</Button>
     </div>
   );

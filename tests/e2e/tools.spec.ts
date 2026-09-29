@@ -431,8 +431,10 @@ test('colour: a click selects everything close to it; ⇧ adds another; the tole
   const slider = page.getByRole('slider', { name: /Tolerancia/ });
   await slider.focus();
   for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
-  expect((await parts())[1].tol as number).toBeGreaterThan(c.tol as number);
-  expect((await depth()).past).toBe(d0.past + 1); // the slider's burst is one step
+  // previewed while it moves; the part is replaced once, a moment after the last key: one undo step
+  expect(await qa('hasPreview')).toBe(true);
+  await expect.poll(async () => (await parts())[1].tol as number, { timeout: 5000 }).toBeGreaterThan(c.tol as number);
+  expect((await depth()).past).toBe(d0.past + 1);
   // preview while pressing
   await page.locator('#stage').focus();
   const a = await at(page, 0.3, 0.3);
