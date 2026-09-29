@@ -36,3 +36,6 @@ export const TOOLS: Tool[] = [
 export const toolById = (id: string): Tool | undefined => TOOLS.find(t => t.id === id);
 
 export { useSettings, setSettings } from './state';
+/** For the shell's mask section: the Spanish name of a part (by kind and origin) and the tools' icons. */
+export { PART_NAME } from './editTool';
+export { ICONS } from './icons';

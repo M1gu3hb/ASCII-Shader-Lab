@@ -284,8 +284,8 @@ function FreeformOptions({ host, poly }: { host: ToolHost; poly?: { close(): voi
         <>
           <span className="tl-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'vértice' : 'vértices'}` : 'sin vértices'}</span>
           <Button primary disabled={n < 3} onClick={poly.close} kbd="Intro">Cerrar</Button>
-          <Button disabled={!n} onClick={poly.undo} kbd="Retroceso">Quitar último</Button>
-          <Button disabled={!n} onClick={poly.cancel} kbd="Esc">Cancelar</Button>
+          <Button disabled={!n} onClick={poly.undo} title="Retroceso">Quitar último</Button>
+          <Button disabled={!n} onClick={poly.cancel} title="Esc">Cancelar</Button>
         </>
       ) : (
         <Note tone="quiet">Rodea la zona sin soltar; al soltar se cierra sola.</Note>

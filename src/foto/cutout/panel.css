@@ -6,7 +6,7 @@
 .cp-sec { display: grid; gap: 8px; min-width: 0; }
 .cp-sec .tl-opts { gap: 6px 12px; }
 .cp-stack { flex-direction: column; align-items: stretch; }
-.cp-stack .tl-slider { grid-template-columns: 7.5em minmax(0, 1fr) 4.6em; }
+.cp-stack .tl-slider, .cp-stack .tl-slider.tl-wide { grid-template-columns: 7.5em minmax(0, 1fr) 4.6em; flex: none; width: 100%; }
 
 .cp-models { display: grid; gap: 6px; }
 .cp-model { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--graphite, #2a2723); border-radius: 10px; cursor: pointer; min-height: 44px; }

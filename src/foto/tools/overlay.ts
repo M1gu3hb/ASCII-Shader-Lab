@@ -103,15 +103,6 @@ export function tag(ctx: Ctx, p: Pt, text: string, o: { align?: 'left' | 'center
   ctx.restore();
 }
 
-/** A translucent fill of the current path (the area a brush stroke covers while it is painted). */
-export function veil(ctx: Ctx, color = BONE, alpha = 0.18): void {
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.restore();
-}
-
 /**
  * A round loupe above a touch point: the picture magnified around it, a crosshair on the pixel, and the colour
  * as a chip (so the finger does not hide what it picks).

@@ -285,8 +285,8 @@ function ContourOptions({ host, actions }: { host: ToolHost; actions: { close():
       <Slider label="Intensidad" value={st.shapeAlpha} min={0.05} max={1} step={0.05} format={pct} onChange={v => setSettings({ shapeAlpha: v })} />
       <span className="tl-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'punto' : 'puntos'}` : 'sin puntos'}</span>
       <Button primary disabled={n < 2} onClick={actions.close} kbd="Intro">Cerrar</Button>
-      <Button disabled={!n} onClick={actions.undo} kbd="Retroceso">Quitar último</Button>
-      <Button disabled={!n} onClick={actions.cancel} kbd="Esc">Cancelar</Button>
+      <Button disabled={!n} onClick={actions.undo} title="Retroceso">Quitar último</Button>
+      <Button disabled={!n} onClick={actions.cancel} title="Esc">Cancelar</Button>
     </div>
   );
 }

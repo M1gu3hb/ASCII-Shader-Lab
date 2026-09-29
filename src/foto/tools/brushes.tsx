@@ -260,15 +260,21 @@ export function makeBrushTool(mode: Mode): Tool & { lastCommitMs: number } {
       const r = radiusScreen(host, stroke?.size ?? st.brushSize);
       // the stroke so far, faintly (the composition preview may take a moment to catch up)
       if (stroke && stroke.b.length) {
+        // the stroke so far as the capsules it will be (a round-capped line as wide as the brush)
         const pts = stroke.b.pts, v = host.view(), m = mapping(host);
         ctx.save();
         ctx.beginPath();
         for (let i = 0; i < pts.length; i += 2) {
           const q = v.toScreen(m.toFrame({ x: pts[i], y: pts[i + 1] }));
-          ctx.moveTo(q.x + r, q.y);
-          ctx.arc(q.x, q.y, r, 0, Math.PI * 2);
+          if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y);
         }
-        draw.veil(ctx, mode === 'ascii' && stroke.op === 'add' ? draw.BONE : '#b9b2a6', mode === 'restore' ? 0.28 : 0.12);
+        if (pts.length === 2) { const q = v.toScreen(m.toFrame({ x: pts[0], y: pts[1] })); ctx.lineTo(q.x + 0.01, q.y); }
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = r * 2;
+        ctx.globalAlpha = mode === 'restore' ? 0.28 : 0.12;
+        ctx.strokeStyle = mode === 'ascii' && stroke.op === 'add' ? draw.BONE : '#b9b2a6';
+        ctx.stroke();
         ctx.restore();
         if (st.brushSmoothing > 0 && hover && dist(hover, stroke.lazy.brush) > 1) draw.segment(ctx, stroke.lazy.brush, hover, { dash: [2, 3], alpha: 0.7 });
       }
