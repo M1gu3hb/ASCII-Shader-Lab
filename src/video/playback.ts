@@ -16,11 +16,22 @@
  * core provider. dispose() pauses and removes the elements, revokes their URLs and frees every picture.
  *
  * onFrame(t) may return a promise (the render): until it settles no other frame is emitted; the ticks in between
- * are counted as dropped (never queued), so a slow render lowers the frame rate instead of lagging behind.
+ * are counted as dropped (never queued), so a slow render lowers the frame rate instead of lagging behind. While
+ * playing, times are handed out on the project's frame grid, once per frame (a 24 fps project on a 60 Hz screen
+ * renders 24 times a second), like the timeline's own clock.
+ *
+ * It is a PlaybackClock (src/foto/timeline/clock.ts): the timeline can drive it directly (play/pause/stop,
+ * rate < 0 = reverse, loop region, subscribe). Plugging it in the studio:
+ *
+ *   const pb = createPlayback({ project, get: () => store.time, onFrame: t => { store.setTime(t); return render(t); } });
+ *   const comp = new Compositor({ provider: pb.provider });   // video frames = the playing elements
+ *   <Timeline clock={pb} … />                                  // instead of createClock(...)
+ *   // a playhead moved by hand while paused: pb.seek(t) (or scrub(t) while dragging)
  */
 import { inSpan } from '../project/evaluate';
 import { createSourceProvider, FRAME_EPS, storeBlob, type BlobResolver, type Drawable, type SourceProvider } from '../project/sources';
 import type { Id, Project, Source } from '../project/types';
+import type { PlaybackClock, PlaybackState } from '../foto/timeline/clock';
 import { videoSourcesInOrder } from './audioplan';
 
 export interface PlaybackOptions {
@@ -40,6 +51,10 @@ export interface PlaybackOptions {
   audioSource?: Id;
   /** Longest side of the video pictures handed to the compositor (default 1920). */
   maxSide?: number;
+  /** The playhead as the studio keeps it: play() starts from there when it moved (a click on the timeline). */
+  get?: () => number;
+  /** Hand out times on the project's frame grid, once per frame (default true). */
+  grid?: boolean;
 }
 
 export interface PlaybackStats {
@@ -64,22 +79,31 @@ export interface PlaybackStats {
   seconds: number;
 }
 
-export interface Playback {
+export interface Playback extends PlaybackClock {
   readonly provider: SourceProvider;
   readonly t: number;
   readonly playing: boolean;
   readonly reverse: boolean;
+  /** Speed (always positive; the direction is `reverse`). */
   readonly rate: number;
-  play(): Promise<void>;
+  /** Plays; `rate` as in setRate (negative = reverse). Resolves once the elements are playing. */
+  play(rate?: number): Promise<void>;
   pause(): void;
   toggle(): Promise<void>;
   /** Goes to t and draws it (coalesced). Resolves once that frame (or a newer one) is drawn. */
   seek(t: number): Promise<void>;
   /** seek() without waiting: for a slider being dragged. */
   scrub(t: number): void;
+  /** Speed 0.1..4; a negative rate plays in reverse (the timeline's convention). */
   setRate(r: number): void;
   setReverse(on: boolean): void;
   setLoop(r: { start: number; end: number } | null): void;
+  /** The timeline's name for setLoop ({in, out}). */
+  setRegion(r: { in: number; out: number } | null): void;
+  state(): PlaybackState;
+  subscribe(fn: (s: PlaybackState) => void): () => void;
+  /** Pause and go back to the start (of the loop region, when there is one). */
+  stop(): void;
   setMuted(m: boolean): void;
   /** The project changed (a new source, a moved span…). */
   setProject(p: Project): void;
@@ -132,6 +156,15 @@ export function createPlayback(o: PlaybackOptions): Playback {
   let disposed = false;
   let playStart = 0;
   const waiters: Array<() => void> = [];
+  const subs = new Set<(s: PlaybackState) => void>();
+  const grid = o.grid ?? true;
+  /** The last time handed out while playing (frame grid). */
+  let lastOut = NaN;
+  const clockState = (): PlaybackState => {
+    const r = loopRegion ? { in: loopRegion.start, out: loopRegion.end } : null;
+    return { playing, rate: reverse ? -rate : rate, region: r };
+  };
+  const notify = () => { const s = clockState(); for (const f of subs) f(s); };
   const st: PlaybackStats = { ticks: 0, emitted: 0, rendered: 0, dropped: 0, renderMs: 0, worstMs: 0, seeks: 0, coalesced: 0, videoDropped: 0, audioBlocked: false, seconds: 0 };
   let msSum = 0;
 
@@ -353,6 +386,7 @@ export function createPlayback(o: PlaybackOptions): Playback {
       pauseElements();
       st.seconds += (performance.now() - playStart) / 1000;
       o.onState?.({ playing: false, t, reverse });
+      notify();
       emit(t);
       return;
     }
@@ -370,9 +404,25 @@ export function createPlayback(o: PlaybackOptions): Playback {
       }
       syncAudio();
     }
-    if (busy) st.dropped++;
-    else emit(t);
+    const fps = project.time.fps > 0 ? project.time.fps : 30;
+    const out = grid ? Math.max(0, (reverse ? Math.ceil(t * fps - 1e-6) : Math.floor(t * fps + 1e-6)) / fps) : t;
+    if (out !== lastOut) {
+      if (busy) st.dropped++;
+      else { lastOut = out; emit(out); }
+    }
     raf = requestAnimationFrame(frame);
+  }
+
+  /** Changes direction (elements paused for reverse, playing again forward). Returns whether it changed. */
+  function applyReverse(on: boolean): boolean {
+    if (on === reverse) return false;
+    reverse = on;
+    lastOut = NaN;
+    if (playing) {
+      if (reverse) { pauseElements(); syncAudio(); }
+      else void startElements();
+    }
+    return true;
   }
 
   const pb: Playback = {
@@ -381,8 +431,13 @@ export function createPlayback(o: PlaybackOptions): Playback {
     get playing() { return playing; },
     get reverse() { return reverse; },
     get rate() { return rate; },
-    async play() {
+    async play(speed?: number) {
+      if (speed !== undefined && Number.isFinite(speed) && speed !== 0) pb.setRate(speed);
       if (playing || disposed) return;
+      // the playhead moved while paused (the timeline set it): start there
+      const at = o.get?.();
+      if (at !== undefined && Number.isFinite(at) && Math.abs(at - t) > 1e-6) t = Math.max(0, at);
+      lastOut = NaN;
       const r = region();
       if (!r && duration() > 0 && !reverse && t >= duration() - 1e-3) t = 0;
       if (!r && reverse && t <= 1e-3) t = duration();
@@ -393,6 +448,7 @@ export function createPlayback(o: PlaybackOptions): Playback {
       if (!playing) return;
       lastNow = performance.now();
       o.onState?.({ playing: true, t, reverse });
+      notify();
       if (!raf) raf = requestAnimationFrame(frame);
     },
     pause() {
@@ -404,7 +460,15 @@ export function createPlayback(o: PlaybackOptions): Playback {
       syncAudio();
       st.seconds += (performance.now() - playStart) / 1000;
       o.onState?.({ playing: false, t, reverse });
+      notify();
     },
+    stop() {
+      pb.pause();
+      void pb.seek(loopRegion ? loopRegion.start : 0);
+    },
+    state: clockState,
+    subscribe(fn) { subs.add(fn); return () => { subs.delete(fn); }; },
+    setRegion(r) { pb.setLoop(r ? { start: r.in, end: r.out } : null); },
     async toggle() { if (playing) pb.pause(); else await pb.play(); },
     seek(at) {
       const target = Math.max(0, Math.min(duration() || at, Number.isFinite(at) ? at : 0));
@@ -419,16 +483,17 @@ export function createPlayback(o: PlaybackOptions): Playback {
       return new Promise<void>(res => { waiters.push(res); emit(target); });
     },
     scrub(at) { void pb.seek(at); },
-    setRate(r) { rate = clampRate(r); syncAudio(); },
-    setReverse(on) {
-      if (on === reverse) return;
-      reverse = on;
-      if (playing) {
-        if (reverse) { pauseElements(); syncAudio(); }
-        else void startElements();
-      }
+    setRate(r) {
+      if (!Number.isFinite(r) || r === 0) return;
+      rate = clampRate(Math.abs(r));
+      applyReverse(r < 0);
+      syncAudio();
+      notify();
     },
-    setLoop(r) { loopRegion = r && r.end > r.start ? { ...r } : null; },
+    setReverse(on) {
+      if (applyReverse(on)) notify();
+    },
+    setLoop(r) { loopRegion = r && r.end > r.start ? { ...r } : null; notify(); },
     setMuted(m) { muted = m; syncAudio(); },
     setProject(p) {
       project = p;
@@ -451,6 +516,7 @@ export function createPlayback(o: PlaybackOptions): Playback {
       if (disposed) return;
       pb.pause();
       disposed = true;
+      subs.clear();
       provider.release();
       while (waiters.length) waiters.shift()!();
     },
