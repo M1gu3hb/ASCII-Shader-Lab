@@ -252,8 +252,10 @@ const mt = {
     const c = document.createElement('canvas');
     const report = await renderInto(c, samples[i].project, t, scale);
     const d = pixelsOf(c);
+    // every pixel: every 4th one reads the same column of each cell when cells are 2 or 4 px wide (the
+    // first column, empty in most glyphs), which once passed for glyphs not being drawn at all
     let s = 0, s2 = 0, n = 0;
-    for (let k = 0; k < d.length; k += 16) { const l = (d[k] * 0.3 + d[k + 1] * 0.59 + d[k + 2] * 0.11) * (d[k + 3] / 255); s += l; s2 += l * l; n++; }
+    for (let k = 0; k < d.length; k += 4) { const l = (d[k] * 0.3 + d[k + 1] * 0.59 + d[k + 2] * 0.11) * (d[k + 3] / 255); s += l; s2 += l * l; n++; }
     const mean = s / n;
     return { w: c.width, h: c.height, hash: fnv(d), std: Math.sqrt(Math.max(0, s2 / n - mean * mean)), report };
   },

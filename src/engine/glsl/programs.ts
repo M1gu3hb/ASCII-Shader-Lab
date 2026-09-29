@@ -382,8 +382,13 @@ uniform float uFxTime;
 ${GLSL_MEDIA}
 out vec4 o;
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+// The glyph's place in the atlas in whole numbers, as the basic engine finds it (g % cols, g / cols). In floats,
+// idx / cols can land just under a whole number where a GPU divides through a reciprocal (the spec allows
+// 2.5 ULP): with 41, 47, 55 or 61 glyphs per atlas row, the first glyph of each later row was read past the
+// end of its row, where there is no ink.
 float glyphCov(float idx, ivec2 ic){
-  ivec2 ac = ivec2(int(mod(idx, uAtlasCols)), int(floor(idx / uAtlasCols))) * ivec2(uCell) + ic;
+  int i = int(idx + .5), n = max(int(uAtlasCols + .5), 1);
+  ivec2 ac = ivec2(i % n, i / n) * ivec2(uCell) + ic;
   return texelFetch(uAtlas, ac, 0).a;
 }
 // Mosaico's block size in cells at progress p: 16, 8, 4, 2, 1
