@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as RKeyboardEvent } from 'react';
 import { fitRect } from '../project/adjust';
 import { sourceFit } from '../project/compositor';
+import { sourceTime } from '../project/evaluate';
 import { coverageOfImage, coverageToGrey, maskCanvas } from '../project/masks';
 import { useProject } from '../project/store';
 import type { Mask, Project } from '../project/types';
@@ -170,6 +171,8 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
   /* ---------------------------------------------------------------- the original (before/after) */
 
   const showOrig = compare || holding;
+  // (the original follows the playhead while it shows: a video's or a sequence's frame at this time)
+  const tOrig = useProject(s => (showOrig ? s.time : 0));
   useEffect(() => {
     if (!showOrig || !project) return;
     let gone = false;
@@ -180,7 +183,7 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
       const w = Math.max(1, Math.round(Math.min(cw, frame.w * dpr()))), h = Math.max(1, Math.round((w * ch) / cw));
       const src = o ? project.sources.find(s => s.id === o.source) : null;
       const prov = viewCompositor().provider;
-      const t = useProject.getState().time;
+      const t = sourceTime(src ?? null, tOrig);
       if (src && (await prov.prepare(src, t))) {
         const img = prov.frame(src, t);
         if (gone || !img) return;
@@ -198,7 +201,7 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
       }
     })();
     return () => { gone = true; };
-  }, [showOrig, project?.sources, project?.layers, cw, ch, Math.round(frame.w)]);
+  }, [showOrig, tOrig, project?.sources, project?.layers, cw, ch, Math.round(frame.w)]);
 
   /* ---------------------------------------------------------------- zoom and pan */
 

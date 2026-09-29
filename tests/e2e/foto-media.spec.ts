@@ -28,6 +28,29 @@ test('un video se abre, se ve y la línea de tiempo lo recorre', async ({ page }
   for (let i = 0; i < 60; i++) await page.keyboard.press('ArrowRight');
   await expect.poll(() => page.evaluate(() => (window as unknown as { __foto: { store(): { time: number } } }).__foto.store().time)).toBeGreaterThan(1.5);
   await expect.poll(async () => (await settle(page)).hash, { timeout: 30_000 }).not.toBe(a.hash);
+  // before/after: the original is the video's frame at the playhead, and it follows the playhead (a photo-only
+  // project, so both sides are the same picture)
+  await page.getByRole('button', { name: 'Antes y después (C)' }).click();
+  const gap = () => page.evaluate(() => {
+    const small = (sel: string) => {
+      const s = document.querySelector<HTMLCanvasElement>(sel)!;
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 36;
+      const x = c.getContext('2d', { willReadFrequently: true })!;
+      x.drawImage(s, 0, 0, 64, 36);
+      return x.getImageData(0, 0, 64, 36).data;
+    };
+    const o = small('.fv-orig'), r = small('.fv-art');
+    let d = 0;
+    for (let i = 0; i < o.length; i += 4) d += Math.abs(o[i] - r[i]) + Math.abs(o[i + 1] - r[i + 1]) + Math.abs(o[i + 2] - r[i + 2]);
+    return d / (o.length / 4) / 3;
+  });
+  await expect.poll(gap, { timeout: 20_000 }).toBeLessThan(1);
+  await tl.focus();
+  for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowRight');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __foto: { store(): { time: number } } }).__foto.store().time)).toBeGreaterThan(2.8);
+  await settle(page);
+  await expect.poll(gap, { timeout: 20_000 }).toBeLessThan(1);
   expect(errors).toEqual([]);
 });
 
