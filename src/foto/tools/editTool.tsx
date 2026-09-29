@@ -141,7 +141,7 @@ export const editTool: Tool & { editor: PartEditor; select(host: ToolHost, index
     const parts = partsOf(l);
     if (!l || i < 0 || i >= parts.length) { editor.clear(); host.redrawOverlay(); return; }
     editor.select(l.id, i, parts[i]);
-    host.say(`${PART_NAME(parts[i])} (${i + 1} de ${parts.length}) seleccionado`);
+    host.say(`Parte ${i + 1} de ${parts.length} elegida: ${PART_NAME(parts[i])}`);
     host.redrawOverlay();
   };
 

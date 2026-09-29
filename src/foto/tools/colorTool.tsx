@@ -71,10 +71,10 @@ export const colorTool: Tool & { pick(host: ToolHost, p: Pt, add?: boolean): Pro
     const cur = current(host);
     const l = layerById(layer);
     const sh = share(part.color);
-    const tail = sh !== null ? ` (${Math.round(sh * 100)} % de la imagen)` : '';
+    const tail = sh !== null ? `; ${Math.round(sh * 100)} % de la imagen` : '';
     if (cur && !add && cur.part.op === part.op) {
-      if (replacePart(layer, cur.index, part)) { cur.part = part; host.say(`Color ${part.color} en la máscara de «${l?.name}»${tail}`); }
-    } else if (addPart(host, layer, part, `Color ${part.color} añadido a la máscara de «${l?.name}» (${OP_NAME[part.op]})${tail}`)) {
+      if (replacePart(layer, cur.index, part)) { cur.part = part; host.say(`Color ${part.color} en la máscara de «${l?.name}» (${OP_NAME[part.op]}${tail})`); }
+    } else if (addPart(host, layer, part, `Color ${part.color} añadido a la máscara de «${l?.name}» (${OP_NAME[part.op]}${tail})`)) {
       const parts = partsOf(layerById(layer));
       session = { layer, index: parts.length - 1, part };
     }
