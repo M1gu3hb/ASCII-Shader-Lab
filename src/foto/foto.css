@@ -240,6 +240,8 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fcut-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .fcut-h h2 { margin: 0; font: 700 14px/1.2 var(--font-display); }
 .fcut-b { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
+/* the «coming soon» line only while the panel itself renders nothing */
+.fcut-b > .fcut-soon:not(:first-child) { display: none; }
 .fcut-phone { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; height: min(78dvh, 640px); background: var(--sheet-bg); border-top: 1px solid var(--line-2); border-radius: 16px 16px 0 0; display: flex; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .fsuggest { position: absolute; z-index: 7; left: 12px; top: 12px; max-width: min(520px, calc(100% - 24px)); display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 10px; border: 1px solid var(--line-2); border-left: 2px solid var(--bone); background: rgba(20, 19, 17, .96); font-size: 12.5px; color: var(--text); box-shadow: 0 12px 40px rgba(0, 0, 0, .4); }
 .fsuggest span { flex: 1; min-width: 0; }
