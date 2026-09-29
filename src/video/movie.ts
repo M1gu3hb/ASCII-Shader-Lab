@@ -20,6 +20,9 @@ import { CODEC_NAME, describeFormats, probeEncode, videoCodecFor, type EncodeCap
 import { createStreamProvider, frameAt } from './frames';
 import { gifDelay, gifPlan, indexPixels, paletteSample, type Palette } from './gifcore';
 import type { FormatInfo, MovieOptions, MovieResult } from './index';
+import { etaText, mbText, memoryCap, outputSize, videoBytes } from './sizes';
+
+export { etaText, memoryCap, outputSize, VIDEO_MAX_SIDE, videoBytes, type OutSize } from './sizes';
 
 /* ------------------------------------------------------------------ bookkeeping */
 
@@ -34,44 +37,6 @@ export function abortError(): Error {
 }
 const check = (s?: AbortSignal) => { if (s?.aborted) throw abortError(); };
 const tick = () => new Promise<void>(r => setTimeout(r, 0));
-
-/** Seconds, in Spanish, for the ETA. */
-export function etaText(s: number): string {
-  if (!Number.isFinite(s) || s < 0) return '';
-  if (s < 10) return 'unos segundos';
-  if (s < 90) return `≈${Math.round(s / 5) * 5} s`;
-  const m = Math.round(s / 60);
-  return m < 90 ? `≈${m} min` : `≈${Math.round(m / 60)} h`;
-}
-
-/* ------------------------------------------------------------------ size */
-
-export interface OutSize { W: number; H: number; scale: number; notes: string[] }
-
-/** Longest side the video encoders are asked for (4K). */
-export const VIDEO_MAX_SIDE = 3840;
-
-/**
- * The output size: `width`/`height` (one of them keeps the project's aspect; both: the frame is covered and the
- * rest cropped, centred), even for video encoders (4:2:0 needs it), ≤ 4K for video. The render scale covers it.
- */
-export function outputSize(p: Pick<Project, 'canvas'>, o: { width?: number; height?: number }, video: boolean): OutSize {
-  const pw = p.canvas.w, ph = p.canvas.h;
-  const notes: string[] = [];
-  let W = o.width && o.width > 0 ? Math.round(o.width) : 0, H = o.height && o.height > 0 ? Math.round(o.height) : 0;
-  if (!W && !H) { W = pw; H = ph; }
-  else if (!H) H = Math.max(1, Math.round((W * ph) / pw));
-  else if (!W) W = Math.max(1, Math.round((H * pw) / ph));
-  if (video && Math.max(W, H) > VIDEO_MAX_SIDE) {
-    const k = VIDEO_MAX_SIDE / Math.max(W, H);
-    W = Math.round(W * k); H = Math.round(H * k);
-    notes.push(`Video reducido a ${W}×${H}: los codificadores del navegador llegan hasta 4K.`);
-  }
-  if (video) { W = Math.max(2, W - (W % 2)); H = Math.max(2, H - (H % 2)); }
-  const scale = Math.max(W / pw, H / ph);
-  if (Math.abs(W / H - pw / ph) > 0.01) notes.push(`El cuadro de ${pw}×${ph} se recorta al centro para llenar ${W}×${H}.`);
-  return { W, H, scale, notes };
-}
 
 /* ------------------------------------------------------------------ formats */
 
@@ -185,6 +150,11 @@ async function encodeVideo(p: Project, o: MovieOptions, c: Common): Promise<Movi
   if (c.transparent && !v.alpha) notes.push(format === 'mp4' ? 'MP4 no guarda transparencia: el video sale sobre el color de fondo del proyecto. Para transparencia usa la secuencia PNG.' : 'Este navegador no codifica WebM con transparencia: el video sale sobre el color de fondo. Para transparencia usa la secuencia PNG (o GIF, con bordes duros).');
   if (format === 'mp4' && v.codec !== 'avc') notes.push(`Este navegador no codifica H.264: el MP4 va en ${CODEC_NAME[v.codec]}. Para H.264 (lo que piden algunas redes y editores) exporta desde Chrome o Edge en Windows o macOS, o desde Safari.`);
   const times = frameTimes(p, { fps: c.fps, from: c.start, to: c.end });
+  // the file is built in the browser's memory (mediabunny BufferTarget): refuse what would not fit
+  const bytes = videoBytes(v.codec, size.W, size.H, times.length / c.fps, alpha);
+  const cap = memoryCap();
+  if (bytes > cap) throw new Error(`Este video pesaría unos ${mbText(bytes)}: más de lo que este navegador puede armar en memoria (${mbText(cap)}). Acorta el tramo, baja el tamaño o los cuadros por segundo.`);
+  if (bytes > 200e6) notes.push(`Video de unos ${mbText(bytes)}: se arma en la memoria del navegador antes de guardarse.`);
   const mb = await import('mediabunny');
   check(o.signal);
   const target = new mb.BufferTarget();

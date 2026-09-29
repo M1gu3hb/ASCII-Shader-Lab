@@ -202,6 +202,7 @@ let playback: Playback | null = null;
 let comp: Compositor | null = null;
 const view = () => $<HTMLCanvasElement>('#view');
 let lastStrip = -1;
+let shown = 0;
 const stripLog: Array<{ t: number; frame: number }> = [];
 
 function mountPlayback() {
@@ -217,8 +218,12 @@ function mountPlayback() {
       if (stripLog.length > 4000) stripLog.splice(0, 1000);
       $<HTMLInputElement>('#scrub').value = String(t);
       $('#time').textContent = `${t.toFixed(2).replace('.', ',')} s`;
+      if (++shown % 8 === 0 || !playback?.playing) {
+        const st = playback?.stats();
+        if (st) $('#pstats').textContent = `cuadro del video ${lastStrip} · ${st.rendered} dibujados, ${st.dropped} saltados · render ${Math.round(st.renderMs)} ms (peor ${Math.round(st.worstMs)}) · búsquedas ${st.seeks} (${st.coalesced} agrupadas)${st.audioBlocked ? ' · sonido bloqueado por el navegador' : ''}`;
+      }
     },
-    onState: s => { $('#play').textContent = s.playing ? 'Pausa' : 'Reproducir'; },
+    onState: s => { $('#play').textContent = s.playing ? 'Pausa' : 'Reproducir'; $('#play').setAttribute('aria-pressed', String(s.playing)); },
   });
   comp = new Compositor({ provider: pb.provider });
   playback = pb;
@@ -790,11 +795,11 @@ function portraitTruth(i: number, w: number, h: number): Float32Array {
   return m;
 }
 
-async function runMatte(o: { smooth?: number; size?: number } = {}) {
+async function runMatte(o: { smooth?: number; size?: number; end?: number } = {}) {
   const { removeBackgroundVideo, estimateBackgroundVideo } = await import('../src/video/index');
   const est = await estimateBackgroundVideo(project!, { model: 'portrait', size: o.size ?? 256 });
   const t0 = performance.now();
-  const part = await removeBackgroundVideo(project!, { source: project!.sources[0].id, model: 'portrait', size: o.size ?? 256, smooth: o.smooth ?? 0.5 });
+  const part = await removeBackgroundVideo(project!, { source: project!.sources[0].id, model: 'portrait', size: o.size ?? 256, smooth: o.smooth ?? 0.5, ...(o.end ? { end: o.end } : {}) });
   const ms = Math.round(performance.now() - t0);
   const { storeBlob } = await import('../src/project/sources');
   const scores: number[] = [];
@@ -914,7 +919,7 @@ const vq: Vq = {
     await refreshFormats();
     return { ms: c.ms, w: P.w, h: P.h, frames: P.fps * P.seconds };
   },
-  matte: (o?: { smooth?: number; size?: number }) => runMatte(o),
+  matte: (o?: { smooth?: number; size?: number; end?: number }) => runMatte(o),
 };
 (window as unknown as { vq: Vq }).vq = vq;
 
