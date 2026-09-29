@@ -88,6 +88,11 @@ export function cameraProblem(e: unknown): string {
  * canvas.captureStream), with the microphone when the person asks for sound. So the file looks like the preview,
  * frame by frame. The file is then remuxed (the same packets, not re-encoded) into a regular WebM/MP4 with its
  * length and seek index, which MediaRecorder leaves out.
+ *
+ * Frames are handed to the recorder explicitly (a capture track at 0 fps and requestFrame after each drawing, where
+ * the browser has it), at most one per frame period: on each new camera frame, and from a timer when the camera's
+ * frames stop arriving for a moment (a busy page), so the clip keeps its real length; one last frame is drawn when
+ * it stops, so the file lasts as long as the recording did.
  */
 export interface ClipFormat { mime: string; ext: 'webm' | 'mp4' }
 
@@ -124,14 +129,30 @@ export function recordClip(video: HTMLVideoElement, mirror: () => boolean, o: { 
   const w = Math.max(2, Math.round((video.videoWidth * k) / 2) * 2), h = Math.max(2, Math.round((video.videoHeight * k) / 2) * 2);
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
-  const x = c.getContext('2d')!;
-  const draw = () => {
+  // (a canvas in memory, not on the GPU: its frames reach the encoder without a readback from the GPU; next to a busy
+  // GPU, a GPU canvas lost most of a clip's frames and the file ended a fraction of a second in)
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  const fps = o.fps ?? 30;
+  const capture = (c as HTMLCanvasElement & { captureStream(fps?: number): MediaStream });
+  // (manual frames where the track can be asked for one; otherwise the browser samples the canvas at `fps`)
+  const Track = (globalThis as { CanvasCaptureMediaStreamTrack?: { prototype: object } }).CanvasCaptureMediaStreamTrack;
+  const manual = !!Track && 'requestFrame' in Track.prototype;
+  const stream = capture.captureStream(manual ? 0 : fps);
+  const track = stream.getVideoTracks()[0] as (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
+  const period = 1000 / fps;
+  let last = -Infinity;
+  // one picture for the recorder, at most one per frame period (the encoder shares its bits by the time between
+  // frames: a frame a moment after another gets almost none and comes out as flat blocks)
+  const draw = (): boolean => {
+    const now = performance.now();
+    if (now - last < period * 0.75) return false;
     x.setTransform(mirror() ? -1 : 1, 0, 0, 1, mirror() ? w : 0, 0);
     x.drawImage(video, 0, 0, w, h);
+    last = now;
+    if (manual) track?.requestFrame?.();
+    return true;
   };
   draw();
-  const fps = o.fps ?? 30;
-  const stream = (c as HTMLCanvasElement & { captureStream(fps?: number): MediaStream }).captureStream(fps);
   const audio = !!o.mic?.getAudioTracks().length;
   for (const t of o.mic?.getAudioTracks() ?? []) stream.addTrack(t);
   const rec = new MediaRecorder(stream, { mimeType: fmt.mime, videoBitsPerSecond: 8_000_000 });
@@ -141,12 +162,15 @@ export function recordClip(video: HTMLVideoElement, mirror: () => boolean, o: { 
   const rvfc = (video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }).requestVideoFrameCallback?.bind(video);
   const loop = () => { if (!live) return; draw(); handle = rvfc ? rvfc(loop) : requestAnimationFrame(loop); };
   handle = rvfc ? rvfc(loop) : requestAnimationFrame(loop);
+  // the camera's frames stopped arriving for a moment: repeat the picture, so the clip does not come out shorter
+  const gaps = setInterval(() => { if (live && performance.now() - last > period * 1.5) draw(); }, period);
   const t0 = performance.now();
   const limit = setTimeout(() => o.onLimit?.(), (CLIP_MAX_S) * 1000);
   rec.start(250);
   const end = () => {
     live = false;
     clearTimeout(limit);
+    clearInterval(gaps);
     if (!rvfc) cancelAnimationFrame(handle);
     for (const t of stream.getVideoTracks()) t.stop();
   };
@@ -154,6 +178,8 @@ export function recordClip(video: HTMLVideoElement, mirror: () => boolean, o: { 
     seconds: () => (performance.now() - t0) / 1000,
     async stop() {
       const seconds = (performance.now() - t0) / 1000;
+      // the last picture at the moment of stopping (so the file lasts as long as the recording), given a frame to land
+      if (live && draw()) await new Promise(r => setTimeout(r, period * 2));
       const done = new Promise<void>(res => { rec.onstop = () => res(); });
       if (rec.state !== 'inactive') rec.stop();
       await done;

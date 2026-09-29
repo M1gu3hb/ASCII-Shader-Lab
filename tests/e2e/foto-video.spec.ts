@@ -539,9 +539,11 @@ test('el costo de una máscara seguida: el compositor prepara sólo los cuadros 
   const errors = await openFoto(page);
   await openClip(page, { seconds: 1 });
   await addAscii(page);
-  const b = await V<{ frames: number; before: { meanMs: number; worstMs: number }; after: { meanMs: number; worstMs: number }; w: number; h: number }>(page, 'benchMasks', { frames: 90, samples: 12, scale: 0.5 });
-  console.log(`máscara seguida de ${b.frames} cuadros, render ${b.w}×${b.h}: antes ${b.before.meanMs} ms (peor ${b.before.worstMs}), ahora ${b.after.meanMs} ms (peor ${b.after.worstMs})`);
-  expect(b.after.meanMs).toBeLessThan(b.before.meanMs);
+  type Ms = { meanMs: number; medianMs: number; worstMs: number };
+  const b = await V<{ frames: number; before: Ms; after: Ms; w: number; h: number }>(page, 'benchMasks', { frames: 90, samples: 12, scale: 0.5 });
+  const say = (m: Ms) => `media ${m.meanMs} ms, mediana ${m.medianMs} ms, peor ${m.worstMs} ms`;
+  console.log(`máscara seguida de ${b.frames} cuadros, render ${b.w}×${b.h}: antes ${say(b.before)} · ahora ${say(b.after)}`);
+  expect(b.after.medianMs).toBeLessThan(b.before.medianMs);
   expect(errors).toEqual([]);
 });
 

@@ -340,7 +340,10 @@ async function benchMasks(o: { frames?: number; samples?: number; scale?: number
       }
     } finally { comp.destroy(); comp.provider.release(); }
     const mean = ms.reduce((a, b) => a + b, 0) / ms.length;
-    return { meanMs: Math.round(mean * 10) / 10, worstMs: Math.round(Math.max(...ms)) };
+    // (the median too: on a shared machine one slow sample, a stall of the whole page, moves the mean a lot)
+    const sorted = [...ms].sort((a, b) => a - b);
+    const median = (sorted[(sorted.length - 1) >> 1] + sorted[sorted.length >> 1]) / 2;
+    return { meanMs: Math.round(mean * 10) / 10, medianMs: Math.round(median * 10) / 10, worstMs: Math.round(Math.max(...ms)) };
   };
   const before = await run(true);
   const after = await run(false);
