@@ -348,6 +348,41 @@ async function benchMasks(o: { frames?: number; samples?: number; scale?: number
   return { frames: n, samples, scale, w: Math.round(p.canvas.w * scale), h: Math.round(p.canvas.h * scale), before, after };
 }
 
+/**
+ * Brightness (mean and spread) of rectangles (frame units of the file's picture) in the frame at `t` of the open
+ * project's first video file, decoded with mediabunny (what an export reads): the camera test finds on which side
+ * Chromium's fake camera writes its clock (top left in the camera's own picture), which says whether the file is
+ * mirrored.
+ */
+async function fileRegions(t: number, rects: Array<[number, number, number, number]>) {
+  const p = project();
+  const s = p.sources.find(x => x.kind === 'video');
+  if (!s?.media[0]?.id) return null;
+  const got = await storeBlob(s.media[0].id);
+  if (!got) return null;
+  const mb = await import('mediabunny');
+  const input = new mb.Input({ source: new mb.BlobSource(got.blob), formats: mb.ALL_FORMATS });
+  try {
+    const v = (await input.getPrimaryVideoTrack())!;
+    const wc = await new mb.CanvasSink(v).getCanvas((await v.getFirstTimestamp()) + t);
+    if (!wc) return null;
+    const cv = wc.canvas as HTMLCanvasElement;
+    const c = document.createElement('canvas');
+    c.width = cv.width; c.height = cv.height;
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.drawImage(cv, 0, 0);
+    return rects.map(([rx, ry, rw, rh]) => {
+      const d = x.getImageData(Math.round(rx * c.width), Math.round(ry * c.height), Math.max(1, Math.round(rw * c.width)), Math.max(1, Math.round(rh * c.height))).data;
+      const n = d.length / 4;
+      let s = 0, s2 = 0;
+      for (let i = 0; i < d.length; i += 4) { const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; s += l; s2 += l * l; }
+      const mean = s / n;
+      // (the spread of brightness: text or edges in the rectangle make it large, a flat colour keeps it near 0)
+      return { mean: Math.round(mean), sd: Math.round(Math.sqrt(Math.max(0, s2 / n - mean * mean)) * 10) / 10 };
+    });
+  } finally { input.dispose(); }
+}
+
 /** A photo sequence project (each photo `hold` s) from photos given as base64 JPEGs, opened in the editor. */
 async function sequenceProject(photos: string[], hold = 0.25, size = 320) {
   const { putMedia } = await import('../project/persist');
@@ -373,5 +408,5 @@ async function sequenceProject(photos: string[], hold = 0.25, size = 320) {
 }
 
 export function installVideoQA() {
-  window.__fotoVideo = { clip, portraitClip, squareAt, trackScores, portraitScores, tone, playState, benchMasks, sequenceProject };
+  window.__fotoVideo = { clip, portraitClip, squareAt, trackScores, portraitScores, tone, playState, benchMasks, sequenceProject, fileRegions };
 }

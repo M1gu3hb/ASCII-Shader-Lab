@@ -57,7 +57,7 @@ export function videoInfo(file: Blob): Promise<{ w: number; h: number; duration:
  * read with mediabunny (lazy). Null when this browser cannot read the file that way: the element's length is used
  * and 30 fps assumed.
  */
-export async function videoFacts(file: Blob): Promise<{ fps: number; hasAudio: boolean } | null> {
+export async function videoFacts(file: Blob): Promise<{ fps: number; hasAudio: boolean; duration: number } | null> {
   try {
     const mb = await import('mediabunny');
     const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS });
@@ -67,7 +67,9 @@ export async function videoFacts(file: Blob): Promise<{ fps: number; hasAudio: b
       const m = await v.computeFrameRateMetrics({ targetPacketCount: 120 });
       const a = await input.getPrimaryAudioTrack().catch(() => null);
       const fps = Number.isFinite(m.bestGuessFrameRate) && m.bestGuessFrameRate > 0 ? Math.round(m.bestGuessFrameRate * 1000) / 1000 : 30;
-      return { fps: Math.min(60, Math.max(1, fps)), hasAudio: !!a };
+      // the picture's own length (the element reports the longest track: a sound a few ms longer adds a frame past the end)
+      const duration = Math.max(0, (await v.computeDuration()) - (await v.getFirstTimestamp()));
+      return { fps: Math.min(60, Math.max(1, fps)), hasAudio: !!a, duration: Number.isFinite(duration) ? duration : 0 };
     } finally { input.dispose(); }
   } catch {
     return null;
@@ -94,7 +96,8 @@ export async function importMedia(file: File): Promise<Imported> {
   const facts = await Promise.race([videoFacts(file), new Promise<null>(r => setTimeout(() => r(null), 8000))]);
   const ref = await putMedia(file, { kind, name: file.name || 'video.mp4', w: v.w, h: v.h, lastModified: file.lastModified });
   const { stored, ...r } = ref;
-  return { ok: true, kind, ref: r, stored, duration: v.duration, fps: facts?.fps ?? 30, ...(facts ? { hasAudio: facts.hasAudio } : {}) };
+  const duration = facts && facts.duration > 0.05 && facts.duration <= v.duration + 0.05 ? facts.duration : v.duration;
+  return { ok: true, kind, ref: r, stored, duration, fps: facts?.fps ?? 30, ...(facts ? { hasAudio: facts.hasAudio } : {}) };
 }
 
 /** A file picker (resolves with the chosen files, or none when cancelled). */

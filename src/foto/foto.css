@@ -72,6 +72,10 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fo-hint { color: var(--muted); font-size: 12.5px; min-width: 0; flex: 1 1 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fo-op { flex: none; }
 .fo-tool { display: flex; align-items: center; gap: 8px; flex: none; }
+/* a model's consent box in the bar («Objeto», «Seguir objeto»): it gets the bar's width, its text wraps, its buttons stay in view */
+.fopts:has(.tool-consent) .fo-hint, .fopts:has(.tool-consent) .fo-op { display: none; }
+.fo-tool:has(.tool-consent) { flex: 1 1 auto; min-width: 0; }
+.fo-tool:has(.tool-consent) .tool-opts { flex: 1 1 auto; min-width: 0; }
 .t-ic { display: inline-flex; width: 18px; height: 18px; }
 .t-ic svg { width: 100%; height: 100%; }
 
@@ -337,7 +341,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fcmp-range { margin: 8px 0 12px; }
 .fmodels { font-size: 13px; color: var(--muted); }
 .fmodels b { color: var(--text); font-family: var(--font-mono); }
-.fcam-view { position: relative; background: #000; border-radius: 10px; overflow: hidden; aspect-ratio: 4 / 3; display: grid; place-items: center; margin-bottom: 12px; }
+.fcam-view { position: relative; background: #000; border-radius: 10px; overflow: hidden; aspect-ratio: 4 / 3; max-height: min(52vh, 480px); width: 100%; display: grid; place-items: center; margin-bottom: 12px; }
 .fcam-view video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .fcam-view .note { position: absolute; }
 .fcam-rec { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 16px; background: rgba(12, 11, 10, .82); color: var(--text); font: 500 12.5px/1 var(--font-mono); }

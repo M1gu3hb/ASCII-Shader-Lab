@@ -617,10 +617,10 @@ function TrackOptions({ host }: { host: ToolHost }) {
         <Switch label={o.positive ? 'Añadir' : 'Quitar'} checked={!o.positive} onChange={v => set({ positive: !v })} hint="Qué marca el próximo toque: parte del objeto (añadir) o lo que no es (quitar)" />
         {pointsList ?? <Note tone="quiet">Toca el objeto en este cuadro.</Note>}
         {busy}
-        {c ? <Note tone="quiet">Se recalcula sólo de {fmtT(c.from)} a {fmtT(c.to)} (entre las claves de alrededor).</Note> : <Note tone="warn">Este cuadro está fuera del seguimiento.</Note>}
-        {o.error ? <Note tone="warn">{o.error}</Note> : null}
         <Button primary disabled={!o.points.length || !c} onClick={() => void applyCorrection(host)} kbd="Intro">Aplicar la corrección</Button>
         <Button onClick={() => stopFix(host)}>Volver</Button>
+        {c ? <Note tone="quiet">Se recalcula sólo de {fmtT(c.from)} a {fmtT(c.to)} (entre las claves de alrededor).</Note> : <Note tone="warn">Este cuadro está fuera del seguimiento.</Note>}
+        {o.error ? <Note tone="warn">{o.error}</Note> : null}
       </div>
     );
   }
@@ -635,7 +635,8 @@ function TrackOptions({ host }: { host: ToolHost }) {
       <Switch label={o.positive ? 'Añadir' : 'Quitar'} checked={!o.positive} onChange={v => set({ positive: !v })} hint="Qué marca el próximo toque: parte del objeto (añadir) o lo que no es (quitar)" />
       {pointsList ?? <Note tone="quiet">{o.box ? 'Recuadro marcado.' : 'Toca el objeto.'}</Note>}
       {busy}
-      <Button primary disabled={!marked} onClick={() => void follow(host)} kbd="Intro">Seguir</Button>
+      <Button primary disabled={!marked} onClick={() => void follow(host)} kbd="Intro" title={est?.text}>Seguir</Button>
+      {est ? <span className="tool-mono track-est" title={est.text} aria-label={est.text}>{est.frames} cuadros · {etaRange(est.seconds)}</span> : null}
       {marked ? <Button onClick={() => clearMarks(host, 'Puntos borrados')} kbd="Esc">Borrar</Button> : null}
       {tracks.length ? (
         <Button disabled={!fixable} onClick={() => startFix(host, null)} title={fixable ? 'Marca el objeto en este cuadro para arreglar el seguimiento aquí' : 'Ve a un cuadro del seguimiento (las marcas en la fila de la capa)'}>Corregir aquí</Button>
@@ -648,7 +649,6 @@ function TrackOptions({ host }: { host: ToolHost }) {
         { value: 'normal', label: 'Normal', title: 'El modelo decide cada 0,5 s' },
         { value: 'rapida', label: 'Rápida', title: 'El modelo decide cada segundo: para movimientos lentos' },
       ]} onChange={v => set({ precision: v })} />
-      {est ? <span className="tool-mono track-est" title={est.text} aria-label={est.text}>{est.frames} cuadros · {etaRange(est.seconds)}</span> : null}
       {o.error ? <Note tone="warn">{o.error}</Note> : null}
       {o.at !== null && o.at > (layer?.span?.in ?? 0) + 1e-3 ? <Note tone="quiet">Antes de {fmtT(o.at)} no se sigue: para todo el clip, marca el objeto en el primer cuadro.</Note> : null}
     </div>
