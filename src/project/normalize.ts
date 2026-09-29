@@ -57,6 +57,7 @@ const OPS: MaskOp[] = ['add', 'subtract', 'intersect'];
 const EASES = ['linear', 'in', 'out', 'inOut', 'step', 'hold'] as const;
 const ORIGINS = ['photo', 'video', 'sequence', 'lab', 'blank'] as const;
 const RASTER_ORIGINS = ['paint', 'object', 'subject', 'background', 'track'] as const;
+const GRADIENT_SHAPES = ['linear', 'radial'] as const;
 const PATH_KINDS = ['arc', 'circle', 'spiral'] as const;
 
 /** Name of each kind of layer, for new layers and the layer list. */
@@ -275,6 +276,15 @@ export function normMaskPart(v: unknown): MaskPart | null {
         }
         part.points = points;
       }
+      return part;
+    }
+    case 'gradient': {
+      const part: MaskPart = {
+        kind: 'gradient', op, shape: oneOf(o.shape, GRADIENT_SHAPES, 'linear'),
+        x0: num(o.x0, 0.5, -10, 10), y0: num(o.y0, 0.2, -10, 10), x1: num(o.x1, 0.5, -10, 10), y1: num(o.y1, 0.8, -10, 10),
+        alpha0: num(o.alpha0, 1, 0, 1), alpha1: num(o.alpha1, 0, 0, 1), alpha: alpha(o.alpha),
+      };
+      if (o.ease !== undefined && o.ease !== null) part.ease = normEase(o.ease);
       return part;
     }
     case 'color': {

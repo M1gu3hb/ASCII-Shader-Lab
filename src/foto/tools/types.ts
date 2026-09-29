@@ -56,12 +56,25 @@ export interface ToolHost {
   /**
    * Shows a part being drawn as a live preview of the composition without committing it (not in history);
    * null clears it. The shell renders at preview scale while this is set.
+   * `replace` (optional, added by lane «tools»): the index of a part of that layer's mask the preview stands in
+   * for (a part being edited with its handles), instead of being appended after the last part. A shell that
+   * ignores it shows the old and the new part together until the edit ends (the overlay stays exact).
    */
-  preview(part: { layer: Id; part: MaskPart } | null): void;
+  preview(part: { layer: Id; part: MaskPart; replace?: number } | null): void;
   /** Pixels of the target layer's source at the current time, at the project canvas size (colour pick, magnetic lasso, object selection). */
   sourcePixels(): Promise<HTMLCanvasElement | null>;
   /** Status line + screen-reader announcement (Spanish). */
   say(msg: string): void;
+  /**
+   * Optional (added by lane «tools»): switches the active tool by id (the part editor's «Editar con pinceles»
+   * opens a brush; the object tool's «Recortar fondo»). Shells without it hide those buttons.
+   */
+  setTool?(id: string): void;
+  /**
+   * Optional (added by lane «tools»): opens the «Recorte» panel (CutoutPanel) for the target's source. Shells
+   * without it hide the object tool's link to it.
+   */
+  openCutout?(): void;
 }
 
 export interface Tool {

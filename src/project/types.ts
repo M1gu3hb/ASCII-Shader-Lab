@@ -335,7 +335,27 @@ export interface MaskColorPart {
   alpha: number;
 }
 
-export type MaskPart = MaskShapePart | MaskPolygonPart | MaskStrokePart | MaskRasterPart | MaskColorPart;
+/**
+ * A graded zone (photo ↔ characters): the strength goes from `alpha0` at (x0, y0) to `alpha1` at (x1, y1).
+ * 'linear': along that segment (constant across it; before the start alpha0, past the end alpha1);
+ * 'radial': from the centre (x0, y0) out to the circle through (x1, y1) (a circle in pixels whatever the frame's
+ * aspect), alpha1 outside it. `ease` shapes the ramp (default linear).
+ */
+export interface MaskGradientPart {
+  kind: 'gradient';
+  op: MaskOp;
+  shape: 'linear' | 'radial';
+  /** Frame units. */
+  x0: number; y0: number; x1: number; y1: number;
+  /** Strength at the start and at the end, 0..1. */
+  alpha0: number;
+  alpha1: number;
+  ease?: Ease;
+  /** Overall strength 0..1 (like every part's). */
+  alpha: number;
+}
+
+export type MaskPart = MaskShapePart | MaskPolygonPart | MaskStrokePart | MaskRasterPart | MaskColorPart | MaskGradientPart;
 
 /* ------------------------------------------------------------------ finishes */
 
