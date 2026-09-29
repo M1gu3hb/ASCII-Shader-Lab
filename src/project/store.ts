@@ -135,8 +135,16 @@ export const undoDepth = () => ({ past: past.length, future: future.length });
  */
 export function heldMediaIds(): Set<string> {
   const ids = new Set<string>();
-  for (const p of [...past, ...future]) for (const id of projectMediaIds(p)) ids.add(id);
+  for (const p of [...past, ...future]) for (const id of idsOfSnapshot(p)) ids.add(id);
   return ids;
+}
+
+/** (Snapshots never change: their ids are worked out once, not at every save for up to 400 of them.) */
+const snapshotIds = new WeakMap<Project, Set<string>>();
+function idsOfSnapshot(p: Project): Set<string> {
+  let s = snapshotIds.get(p);
+  if (!s) snapshotIds.set(p, s = projectMediaIds(p));
+  return s;
 }
 
 /* ------------------------------------------------------------------ layers */
