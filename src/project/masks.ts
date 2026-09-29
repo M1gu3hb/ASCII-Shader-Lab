@@ -399,7 +399,15 @@ export function maskCanvas(mask: Mask, o: MaskCanvasOptions): { canvas: HTMLCanv
     cache.push(e);
     return e;
   }
-  const coverage = rasterizeMask(mask, o);
+  // a stored picture or a source that is not there (yet) draws its part as empty: such a mask is not kept,
+  // or it would stay empty once the picture arrives (the key names the picture, not whether it was there)
+  let missing = false;
+  const inputs: MaskCanvasOptions = {
+    ...o,
+    raster: ref => { const r = o.raster?.(ref) ?? null; if (!r) missing = true; return r; },
+    pixels: id => { const r = o.pixels?.(id) ?? null; if (!r) missing = true; return r; },
+  };
+  const coverage = rasterizeMask(mask, inputs);
   const canvas = document.createElement('canvas');
   canvas.width = o.w; canvas.height = o.h;
   const ctx = canvas.getContext('2d')!;
@@ -412,7 +420,7 @@ export function maskCanvas(mask: Mask, o: MaskCanvasOptions): { canvas: HTMLCanv
   }
   ctx.putImageData(img, 0, 0);
   const e = { key, canvas, coverage };
-  if (o.w * o.h > CACHE_MAX_PX) return e;
+  if (o.w * o.h > CACHE_MAX_PX || missing) return e;
   cache.push(e);
   while (cache.length > CACHE_MAX) cache.shift();
   return e;

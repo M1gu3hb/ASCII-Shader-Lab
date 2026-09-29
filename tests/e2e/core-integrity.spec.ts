@@ -113,3 +113,27 @@ test('the text of a glyph layer under a tracked mask keeps the characters the ma
   expect(r.cells).toBeGreaterThan(0);
   expect(r.shown).toBe(r.cells);
 });
+
+test('a mask whose picture was missing is drawn once the picture is there (the mask cache does not keep it empty)', async ({ page }) => {
+  await blank(page);
+  const r = await run<{ before: number; after: number }>(page, `${HELPERS}
+    const { evaluate } = await import('/src/project/evaluate.ts');
+    const { Compositor } = await import('/src/project/compositor.ts');
+    const id = 'c3c3c3c3c3c3c3c3';
+    const p = N.newProject({ w: 64, h: 64, bg: '#000000' });
+    const l = N.newLayer('shape', { name: 'Forma', shape: 'rect', pts: [0, 0, 1, 1], fill: '#ff0000', stroke: null });
+    l.mask = { invert: false, feather: 0, opacity: 1, parts: [{ kind: 'raster', op: 'add', media: { id, kind: 'image', w: 32, h: 32, name: 'mascara.png' }, soft: 0, alpha: 1, origin: 'paint' }] };
+    p.layers.push(l);
+    const comp = new Compositor({ provider: S.createSourceProvider() });
+    const c = document.createElement('canvas');
+    const red = async () => { await comp.render(evaluate(p, 0), c, { scale: 1 }); return c.getContext('2d').getImageData(32, 32, 1, 1).data[0]; };
+    try {
+      const before = await red();
+      // the painted mask's file arrives (stored by another step, a project file opened meanwhile…)
+      S.keepBlob(id, await png(true), 'mascara.png');
+      return { before, after: await red() };
+    } finally { comp.destroy(); }
+  `);
+  expect(r.before).toBe(0);
+  expect(r.after).toBe(255);
+});
