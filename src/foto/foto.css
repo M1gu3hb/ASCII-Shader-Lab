@@ -41,7 +41,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fv-split-line { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--bone); box-shadow: 0 0 0 1px rgba(12, 11, 10, .6); }
 .fv-split-knob { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); min-width: 34px; height: 34px; border-radius: 17px; background: var(--bone); color: var(--ink); display: grid; place-items: center; font: 700 12px/1 var(--font-mono); box-shadow: 0 4px 16px rgba(0, 0, 0, .5); }
 .fv-split:focus-visible .fv-split-knob { outline: 2px solid var(--focus); outline-offset: 3px; }
-.fv-split-tag { position: absolute; top: 10px; font: 600 10px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--bone); background: rgba(12, 11, 10, .78); padding: 5px 7px; border-radius: 4px; white-space: nowrap; }
+.fv-split-tag { position: absolute; top: calc(50% + 26px); font: 600 10px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--bone); background: rgba(12, 11, 10, .78); padding: 5px 7px; border-radius: 4px; white-space: nowrap; }
 .fv-split-tag.l { right: calc(50% + 10px); }
 .fv-split-tag.r { left: calc(50% + 10px); }
 .fv-loupe { position: absolute; z-index: 5; width: 108px; height: 108px; pointer-events: none; border-radius: 50%; box-shadow: 0 8px 30px rgba(0, 0, 0, .6); }
@@ -57,6 +57,11 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .app.foto .fvt-mv { font-size: 12.5px; }
 .foto-phone .fvt-mv, .foto-land .fvt-mv { display: none; }
 .app.foto .fvt-hold { font-size: 12.5px; }
+/* a narrower stage keeps the view tools on one row */
+@media (max-width: 1280px) {
+  .foto-desk .fvt-hold .lbl, .foto-desk .fq-ms { display: none; }
+  .foto-desk .fvt-hold .lbl-s { display: inline; }
+}
 .fq { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-2); background: #090808; color: var(--muted); font: 600 9.5px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; }
 .fq .fq-ms { font: 500 11px/1 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--dim); }
 .fq.light .q-live { background: #ffcf9e; }
@@ -190,8 +195,10 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fsec-b { padding: 2px 0 12px; }
 .fsec-add { display: inline-flex; align-items: center; gap: 4px; height: 28px; }
 .fh { grid-column: 1 / -1; margin: 2px 0 0; font-size: 12px; line-height: 1.4; color: var(--dim); }
-.toggle-row { margin-bottom: 12px; }
-.toggle-row .toggle { margin-bottom: 0; }
+.app.foto .toggle-row { margin-bottom: 12px; }
+.app.foto .toggle-row .toggle { margin-bottom: 0; }
+.app.foto .toggle-row > .fh { flex-basis: 100%; margin: 0; }
+.app.foto .toggle-row::after { display: none; }
 .btns { margin-bottom: 4px; }
 .btns .btn { font-size: 12.5px; padding: 9px 8px; }
 .src-line { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
@@ -267,6 +274,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fvt-txt { flex: 1; min-width: 0; font-size: 12.5px; }
 .fvt-txt small { color: var(--dim); }
 .fcmp-view { position: relative; }
+.fcmp-empty { border: 1px dashed var(--line-2); border-radius: 10px; padding: 18px; min-height: 160px; display: grid; place-items: center; text-align: center; }
 .fcmp-view figure { margin: 0; }
 .fcmp-view canvas { width: 100%; height: auto; display: block; border-radius: 6px; border: 1px solid var(--line); }
 .fcmp-view figcaption { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
@@ -345,6 +353,12 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fsheet-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .fsheet-tabs [role=tab] { flex: none; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--muted); font: 500 14px/1 var(--font-ui); border-bottom: 2px solid transparent; }
 .fsheet-tabs [role=tab][aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+/* four tabs and the close button fit a 360 px phone without cutting a label */
+@media (max-width: 400px) {
+  .fsheet-head { gap: 2px; padding: 0 6px 0 4px; }
+  .fsheet-tabs { gap: 0; }
+  .fsheet-tabs [role=tab] { padding: 0 7px; font-size: 13.5px; }
+}
 .fsheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px; }
 .fsheet-body .flayers { max-height: none; border: 0; }
 .fsheet-body .finsp { overflow: visible; padding: 0 0 20px; }
@@ -353,7 +367,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fsheet-body .fd-strip { order: -1; flex-basis: 100%; }
 .fsheet-body .fpop { position: fixed; left: 8px; right: 8px; bottom: calc(var(--bar-h) + 70px); width: auto; }
 .fsheet-body .fopts { border: 0; padding: 0 0 10px; flex-wrap: wrap; background: none; }
-.fsheet.land { top: 0; bottom: 0; left: auto; right: calc(76px + env(safe-area-inset-right, 0px)); width: min(420px, 50vw); border-radius: 0; border-top: 0; border-left: 1px solid var(--line-2); }
+.fsheet.land { top: 0; bottom: 0; left: auto; right: calc(var(--land-bar) + env(safe-area-inset-right, 0px)); width: min(420px, 50vw); border-radius: 0; border-top: 0; border-left: 1px solid var(--line-2); }
 .fpm { position: absolute; z-index: 8; right: 10px; top: 10px; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--line-2); background: rgba(15, 14, 13, .94); color: var(--text); font: 600 13px/1 var(--font-ui); }
 .fpm.subtract { border-color: var(--accent); color: var(--accent); }
 .fimm-exit { position: absolute; z-index: 8; right: 8px; top: calc(8px + env(safe-area-inset-top, 0px)); width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--line-2); background: rgba(15, 14, 13, .88); color: var(--text); display: grid; place-items: center; }
@@ -364,16 +378,22 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .foto-phone .fvt-hold .lbl, .foto-land .fvt-hold .lbl { display: none; }
 .foto-phone .fvt-hold .lbl-s, .foto-land .fvt-hold .lbl-s { display: inline; }
 .foto-phone .fsuggest, .foto-land .fsuggest { top: 60px; left: 8px; right: 8px; max-width: none; }
-.app.foto.foto-phone.editing .fnotes { top: auto; bottom: calc(var(--bar-h) + 14px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); }
-.app.foto.foto-land.editing .fnotes { top: auto; bottom: 12px; left: calc(50% - 38px); width: min(520px, calc(100vw - 110px)); }
+.app.foto.foto-phone.editing .fnotes { top: auto; bottom: calc(var(--bar-h) + var(--fsheet-h, 0px) + 14px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); }
+.app.foto.foto-land.editing .fnotes { top: auto; bottom: 12px; left: calc((100vw - var(--land-bar) - var(--land-sheet)) / 2); width: min(520px, calc(100vw - var(--land-bar) - var(--land-sheet) - 24px)); }
 .app.foto.foto-phone .fstatus, .app.foto.foto-land .fstatus { font-size: 13px; border-radius: 12px; }
-.app.foto.foto-land { --bar-h: 0px; }
+.app.foto.foto-land { --bar-h: 0px; --land-bar: 88px; --land-sheet: 0px; }
+/* the side drawer covers the right of the stage: what floats over the art stays left of it */
+.app.foto.foto-land.land-sheet { --land-sheet: min(420px, 50vw); }
+/* a short screen: the suggestion rides beside the view buttons instead of over the art */
+.foto-land .fstage .fsuggest { top: 8px; left: 196px; right: calc(var(--land-sheet) + 60px); font-size: 12px; }
+.foto-land .fimm-exit { right: calc(var(--land-sheet) + 8px); }
 .app.foto.foto-land.editing { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); }
 .foto-land.editing > .topbar { grid-column: 1 / -1; }
 .foto-land.editing > .fedit { grid-column: 1; grid-row: 2; min-height: 0; }
 .foto-land.editing > .fphone-bar { grid-column: 2; grid-row: 2; }
-.foto-land .fphone-bar { width: calc(76px + env(safe-area-inset-right, 0px)); grid-template-columns: 1fr; grid-auto-rows: 1fr; border-top: 0; border-left: 1px solid var(--line); padding: max(6px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) 6px 6px; }
-.foto-land .pb { min-height: 44px; }
+.foto-land .fphone-bar { width: calc(var(--land-bar) + env(safe-area-inset-right, 0px)); grid-template-columns: 1fr; grid-auto-rows: 1fr; border-top: 0; border-left: 1px solid var(--line); padding: max(6px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) 6px 6px; }
+.foto-land .pb { min-height: 44px; min-width: 0; font-size: 10.5px; }
+.pb span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px), (pointer: coarse) {
   .app.foto .lr { min-height: 48px; }
   .app.foto .lr-vis, .app.foto .lr-lock { width: 44px; height: 44px; }

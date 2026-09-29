@@ -28,7 +28,13 @@ import './switch.css';
 export function StudioSwitch({ current }: { current: 'lab' | 'foto' }) {
   return (
     <nav className="sw" aria-label="Estudios de GLYPHOS">
-      <a className="sw-seg" href="/studio/" aria-current={current === 'lab' ? 'page' : undefined} title="Laboratorio: patrones, fondos, texto y terminal">
+      <a className="sw-seg" href="/studio/" aria-current={current === 'lab' ? 'page' : undefined} title="Laboratorio: patrones, fondos, texto y terminal"
+        onClick={e => {
+          // what is waiting to be saved goes first (a page being left may not finish its writes)
+          if (current !== 'foto' || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          e.preventDefault();
+          void import('../project/store').then(s => s.saveNow()).finally(() => { location.href = '/studio/'; });
+        }}>
         <span className="sw-long">Laboratorio</span><span className="sw-short" aria-hidden="true">Lab</span>
       </a>
       <a className="sw-seg" href="/studio/foto/" aria-current={current === 'foto' ? 'page' : undefined} title="Foto y video: capas, máscaras y recortes sobre tu foto">
@@ -198,18 +204,22 @@ export function ViewTools() {
   );
 }
 
-/** Cycles the mask view of the selected layer (tint · mask only · hidden) when it has a mask. */
+/**
+ * «Ver la máscara» of the selected layer, when it has one: pins the mask view on (tint or grey, as chosen in
+ * the inspector) or lets it show only while you work on the mask.
+ */
 function MaskViewButton() {
   const view = useFoto(s => s.maskView);
+  const pin = useFoto(s => s.maskPin);
   const has = useProject(s => { const l = s.project?.layers.find(x => x.id === s.selection[0]); return !!l?.mask?.parts.length; });
   if (!has) return null;
-  const names: Record<string, string> = { tint: 'Tinte', grey: 'Sólo máscara', off: 'Oculta' };
-  const nextV = view === 'tint' ? 'grey' : view === 'grey' ? 'off' : 'tint';
+  const on = pin && view !== 'off';
+  const mode = view === 'grey' ? 'sólo máscara' : 'tinte';
   return (
     <div className="fvt-g">
-      <button type="button" className="ib ghost" aria-pressed={view !== 'off'} onClick={() => setUI({ maskView: nextV })}
-        title={`Vista de la máscara: ${names[view]} (pulsa para ${names[nextV].toLowerCase()})`} aria-label={`Vista de la máscara: ${names[view]}`}>
-        <IMask /><span className="lbl fvt-mv">{names[view]}</span>
+      <button type="button" className="ib ghost" aria-pressed={on} onClick={() => setUI(on ? { maskPin: false } : { maskPin: true, maskView: view === 'off' ? 'tint' : view })}
+        title={on ? 'Ocultar la máscara (se ve sólo mientras la editas)' : `Ver la máscara de la capa (${mode})`} aria-label="Ver la máscara">
+        <IMask /><span className="lbl fvt-mv">Máscara</span>
       </button>
     </div>
   );

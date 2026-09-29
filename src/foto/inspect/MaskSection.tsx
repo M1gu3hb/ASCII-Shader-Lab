@@ -4,7 +4,7 @@
  * rectangle or ellipse). Drawing and handles belong to the tools; the numbers are edited here, so a mask
  * can also be made and adjusted with the keyboard alone.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { defaultMask } from '../../project/normalize';
 import { updateLayer } from '../../project/store';
 import type { Layer, Mask, MaskOp, MaskPart, Project } from '../../project/types';
@@ -18,7 +18,7 @@ export const PART_NAMES: Record<string, string> = {
 };
 const RASTER_ORIGIN: Record<string, string> = { paint: 'pintada', object: 'objeto seleccionado', subject: 'sujeto recortado', background: 'fondo recortado', track: 'seguimiento' };
 export const OPS: Array<[MaskOp, string, string]> = [['add', '+ Sumar', 'Suma esta zona a lo que se ve'], ['subtract', '− Restar', 'Quita esta zona'], ['intersect', '∩ Intersecar', 'Deja sólo donde coincide con lo anterior']];
-const VIEWS: Array<[MaskView, string, string]> = [['tint', 'Tinte', 'La zona de la máscara teñida de bermellón'], ['grey', 'Sólo máscara', 'Blanco: se ve la capa; negro: no'], ['off', 'Oculta', 'Sin vista de la máscara']];
+const VIEWS: Array<[MaskView, string, string]> = [['tint', 'Tinte', 'La zona de la máscara teñida de bermellón mientras la editas'], ['grey', 'Sólo máscara', 'Blanco: se ve la capa; negro: no'], ['off', 'Oculta', 'Sin vista de la máscara']];
 
 const pct = (v: number) => Math.round(v * 100) + ' %';
 
@@ -29,11 +29,16 @@ export function MaskSection({ l, p }: { l: Layer; p: Project }) {
   const addShape = (kind: 'rect' | 'ellipse') => {
     const part: MaskPart = { kind, op: 'add', x: 0.3, y: 0.3, w: 0.4, h: 0.4, rot: 0, soft: 0, alpha: 1 };
     updateLayer(l.id, x => { x.mask = x.mask ? { ...x.mask, parts: [...x.mask.parts, part] } : { ...defaultMask(), parts: [part] }; });
-    say(`${PART_NAMES[kind]} añadido a la máscara, en el centro. Ajusta sus números abajo o con las herramientas.`);
+    say(`${PART_NAMES[kind]} añadid${kind === 'ellipse' ? 'a' : 'o'} a la máscara, en el centro. Ajusta sus números abajo o con las herramientas.`);
   };
+  // the viewport shows the mask while the pointer or the focus is here (like a quick mask)
+  const focus = (on: boolean) => () => { if (useFoto.getState().maskFocus !== on) setUI({ maskFocus: on }); };
+  useEffect(() => () => setUI({ maskFocus: false }), []);
   return (
+    <div className="fmask-wrap" onPointerEnter={focus(true)} onPointerLeave={focus(false)} onFocus={focus(true)}
+      onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) focus(false)(); }}>
     <Section title="Máscara" className="fmask" count={m ? m.parts.length : undefined}>
-      <SegGroup label="Vista de la máscara" value={view} opts={VIEWS} onPick={v => setUI({ maskView: v })} />
+      <SegGroup label="Vista de la máscara" value={view} opts={VIEWS} onPick={v => setUI({ maskView: v, maskPin: v === 'grey' })} />
       {!m && <Note>Sin máscara: la capa se ve en todo el cuadro. Dibuja una zona con las herramientas, o añade una aquí.</Note>}
       {m && (
         <>
@@ -54,6 +59,7 @@ export function MaskSection({ l, p }: { l: Layer; p: Project }) {
       </div>
       {m && <button type="button" className="btn ghost" onClick={() => { updateLayer(l.id, { mask: null }); say('Máscara quitada: la capa se ve en todo el cuadro.'); }}>Quitar la máscara</button>}
     </Section>
+    </div>
   );
 }
 

@@ -15,7 +15,7 @@ import { Inspector } from './inspect/Inspector';
 import { Layers } from './Layers';
 import { openSheet, setUI, useFoto, type MobileTab, type Snap } from './ui';
 
-const TABS: Array<[MobileTab, string]> = [['herramientas', 'Herramientas'], ['capas', 'Capas'], ['capa', 'Capa'], ['explorar', 'Explorar']];
+const TABS: Array<[MobileTab, string]> = [['herramientas', 'Herramientas'], ['capas', 'Capas'], ['capa', 'Ajustes'], ['explorar', 'Explorar']];
 
 export function PhoneBar() {
   const versions = useProject(s => s.versions);
@@ -48,8 +48,12 @@ export function ToolSheet({ land, onCutout }: { land: boolean; onCutout: () => v
   const drag = useRef<{ y: number; h: number; id: number } | null>(null);
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   const h = snapHeight(snap, vh, land);
-  useLayoutEffect(() => { setUI({ sheetH: land ? 0 : h }); }, [h, land]);
-  useEffect(() => () => setUI({ sheetH: 0 }), []);
+  useLayoutEffect(() => {
+    setUI({ sheetH: land ? 0 : h });
+    // notices sit above the sheet, over the art, instead of over the controls
+    document.documentElement.style.setProperty('--fsheet-h', (land ? 0 : h) + 'px');
+  }, [h, land]);
+  useEffect(() => () => { setUI({ sheetH: 0 }); document.documentElement.style.removeProperty('--fsheet-h'); }, []);
   useEffect(() => { if (snap !== 'closed') box.current?.querySelector<HTMLElement>('[role=tab][aria-selected=true]')?.focus({ preventScroll: true }); }, [snap === 'closed']);
   if (snap === 'closed') return null;
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {

@@ -21,7 +21,7 @@ import { activeTool, host, originalOf, setOverlayRedraw } from './host';
 import { markSpaceUsed, setOverViewport, spaceHeld } from './keys';
 import { attachArt, onRendered, setDisplayScale, viewCompositor, type Rendered } from './scheduler';
 import type { Tool, ToolEvent } from './tools/types';
-import { say, setUI, useFoto } from './ui';
+import { maskShown, say, setUI, useFoto } from './ui';
 import { clampPan, clampZoom, frameRect, makeView, panForZoom, setViewport, zoomValue, type Rect } from './view';
 
 export interface Insets { top: number; right: number; bottom: number; left: number }
@@ -137,10 +137,11 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
     const c = maskRef.current, rr = lastRender.current;
     if (!c) return;
     const mode = useFoto.getState().maskView;
+    const shown = maskShown();
     const sel = useProject.getState().selection[0];
     const lf = rr?.state.layers.find(l => l.layer.id === sel);
     const mask: Mask | null | undefined = lf ? lf.layer.mask : rr?.project.layers.find(l => l.id === sel)?.mask;
-    if (!rr || mode === 'off' || !mask || !mask.parts.length) { c.width = c.height = 0; c.hidden = true; return; }
+    if (!rr || !shown || !mask || !mask.parts.length) { c.width = c.height = 0; c.hidden = true; return; }
     const w = rr.report.w, h = rr.report.h;
     const cov = maskCoverage(rr.project, mask, w, h, rr.scale, rr.state.t);
     if (!cov) { c.hidden = true; return; }
@@ -157,7 +158,8 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
     }
     c.hidden = false;
   }
-  useEffect(() => { drawMaskView(null); }, [maskView, selection]);
+  const shownNow = useFoto(s => maskShown(s));
+  useEffect(() => { drawMaskView(null); }, [maskView, shownNow, selection]);
 
   /* ---------------------------------------------------------------- the original (before/after) */
 

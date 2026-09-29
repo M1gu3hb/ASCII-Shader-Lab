@@ -32,7 +32,12 @@ export interface FotoUI {
   /** The active tool (an id of TOOLS, or 'mano' for the built-in pan tool), or null. */
   tool: string | null;
   op: MaskOp;
+  /** How the selected layer's mask is shown when it is shown (see maskShown). */
   maskView: MaskView;
+  /** «Ver la máscara» pinned on (the corner button, or a view picked in the inspector). */
+  maskPin: boolean;
+  /** The pointer or the focus is on the mask section (the mask shows while you work on it). */
+  maskFocus: boolean;
   /** Before/after: the original on the left of the divider (split 0..1 of the frame's width). */
   compare: boolean;
   split: number;
@@ -75,13 +80,23 @@ function loadQuality(): Quality {
 }
 
 export const useFoto = create<FotoUI>(() => ({
-  screen: 'start', tool: null, op: 'add', maskView: 'tint', compare: false, split: 0.5, holding: false,
+  screen: 'start', tool: null, op: 'add', maskView: 'tint', maskPin: false, maskFocus: false, compare: false, split: 0.5, holding: false,
   zoom: 'fit', zk: 1, pan: { x: 0, y: 0 }, sheet: 'none', cutout: false, snap: 'closed', mtab: 'capas', sheetH: 0, immersive: narrow(),
   status: '', live: '', diceScope: 'capa', quality: loadQuality(),
   render: { ms: 0, scale: 0, light: false, w: 0, h: 0, warnings: [], basic: false, n: 0 }, playing: false, compareWith: null, toolsV: 0, saving: false,
 }));
 
 export const ui = () => useFoto.getState();
+
+/**
+ * Whether the viewport shows the selected layer's mask: like a quick mask, only while you work on it (a tool
+ * is active, the mask section is under the pointer or has the focus, the phone sheet is on «Ajustes») or when
+ * «Ver la máscara» is pinned; never with the view «Oculta». Otherwise the art shows as it will export.
+ */
+export function maskShown(s: FotoUI = useFoto.getState()): boolean {
+  if (s.maskView === 'off') return false;
+  return s.maskPin || s.maskFocus || !!s.tool || (s.immersive && s.snap !== 'closed' && s.mtab === 'capa');
+}
 export const setUI = (p: Partial<FotoUI>) => useFoto.setState(p);
 
 export function setQuality(q: Quality) {

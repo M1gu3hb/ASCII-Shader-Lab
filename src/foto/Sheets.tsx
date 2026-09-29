@@ -126,7 +126,11 @@ export function VersionsSheet() {
           {!versions.list.length && <p className="note">Todavía no hay versiones: tira el dado o pulsa «Guardar versión».</p>}
           <button type="button" className="btn" onClick={() => saveVersion()}>Guardar el estado actual como versión</button>
         </div>
-        {other && cur && <CompareVersions a={cur} b={other} ia={versions.cursor + 1} ib={versions.list.indexOf(other) + 1} />}
+        {other && cur ? <CompareVersions a={cur} b={other} ia={versions.cursor + 1} ib={versions.list.indexOf(other) + 1} /> : (
+          <div className="fcmp-empty">
+            <p className="note">Pulsa «Comparar» en una versión para verla junto a la actual, con un divisor o lado a lado. «Restaurar» la vuelve la actual, exacta; la que tenías sigue en la lista.</p>
+          </div>
+        )}
       </div>
     </Sheet>
   );

@@ -44,9 +44,10 @@ function useLayout(): Layout {
 export function App() {
   const screen = useFoto(s => s.screen);
   const layout = useLayout();
+  const sideSheet = useFoto(s => s.snap !== 'closed') && layout === 'land' && screen === 'edit';
   useDrop();
   return (
-    <div className={`app foto foto-${layout}` + (screen === 'edit' ? ' editing' : ' starting')}>
+    <div className={`app foto foto-${layout}` + (screen === 'edit' ? ' editing' : ' starting') + (sideSheet ? ' land-sheet' : '')}>
       {screen === 'start' ? (
         <>
           <TopBar editing={false} />

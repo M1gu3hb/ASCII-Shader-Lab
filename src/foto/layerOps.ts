@@ -42,7 +42,8 @@ export function addLayerOf(kind: LayerKind, init: Partial<Layer> = {}): Id | nul
       if (!src) { say('Primero añade una foto al proyecto.'); return null; }
       layer = newLayer('photo', { name, source: src, ...(init as object) });
       break;
-    case 'ascii': layer = newLayer('ascii', { name, source: src ?? 'style', opaque: !src, ...(init as object) }); break;
+    // the lab's look (with its background): inside a mask it reads as ASCII, not as a faint copy of the photo
+    case 'ascii': layer = newLayer('ascii', { name, source: src ?? 'style', opaque: true, ...(init as object) }); break;
     case 'glyphs': layer = newLayer('glyphs', { name, source: src ?? 'below', ...(init as object) }); break;
     case 'text': layer = newLayer('text', { name, box: { x: 0.08, y: 0.08, w: 0.84 }, ...(init as object) }); break;
     default: layer = newLayer('shape', { name, ...(init as object) }); break;
