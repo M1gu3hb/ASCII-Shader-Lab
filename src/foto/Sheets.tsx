@@ -147,7 +147,8 @@ export function VersionsSheet() {
   return (
     <Sheet open={open} wide title="Versiones" sub="Cada tirada, variación o versión guardada, con las variantes bajo la versión de la que salieron. Restaurar devuelve el proyecto exacto." onClose={() => { setUI({ compareWith: null }); closeSheet(); }}>
       <div className="sheet-body fvers">
-        <div className="fv-tree" role="list" aria-label="Árbol de versiones">
+        <div className="fv-tree">
+          <div className="fv-tree" role="list" aria-label="Árbol de versiones">
           {ordered.map(({ v, depth }) => {
             const i = versions.list.indexOf(v);
             return (
@@ -160,6 +161,7 @@ export function VersionsSheet() {
               </div>
             );
           })}
+          </div>
           {!versions.list.length && <p className="note">Todavía no hay versiones: tira el dado o pulsa «Guardar versión».</p>}
           <button type="button" className="btn" onClick={() => saveVersion()}>Guardar el estado actual como versión</button>
         </div>

@@ -68,3 +68,28 @@ test('estudio de foto: axe sin errores graves, sin controles anidados, teclado e
   await serious(page, 'línea de tiempo');
   expect(errors).toEqual([]);
 });
+
+test('las demás hojas: versiones (con comparar), ajustes, estilos, guardar y cámara sin errores graves de axe', async ({ page }) => {
+  const errors = await openFoto(page);
+  await page.locator('.fs-tpl-main', { hasText: /Foto → ASCII completo/ }).click();
+  await finalRender(page);
+  // two versions, so that the tree has rows and «Comparar» can open
+  await page.locator('.fdeck .act.dice').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __foto: { store(): { versions: { list: unknown[] } } } }).__foto.store().versions.list.length)).toBe(2);
+  await page.getByRole('button', { name: 'Versiones', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name: 'Versiones' });
+  await expect(sheet.getByRole('list', { name: 'Árbol de versiones' }).getByRole('listitem')).toHaveCount(2);
+  await serious(page, 'versiones');
+  await sheet.getByRole('button', { name: 'Comparar' }).first().click();
+  await expect(sheet.getByRole('button', { name: /^Restaurar la versión/ })).toBeVisible();
+  await serious(page, 'versiones · comparar');
+  await page.keyboard.press('Escape');
+  for (const [id, name] of [['settings', 'Ajustes'], ['styles', 'Usar estilo del laboratorio'], ['saveas', 'Guardar'], ['camera', 'Cámara']] as const) {
+    await page.evaluate(s => (window as unknown as { __foto: { setUI(p: object): void } }).__foto.setUI({ sheet: s }), id);
+    await expect(page.getByRole('dialog', { name, exact: true })).toBeVisible();
+    await serious(page, id);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name, exact: true })).toBeHidden();
+  }
+  expect(errors).toEqual([]);
+});
