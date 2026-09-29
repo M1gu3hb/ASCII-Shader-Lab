@@ -114,7 +114,7 @@ export const fmtT = (s: number) => {
 
 let session: SelectSession | null = null;
 let sessionKey = '';
-let encoding: Promise<void> | null = null;
+let encoding: { key: string; job: Promise<void> } | null = null;
 let abort: AbortController | null = null;
 let matte: Matte | null = null;
 let edgeCanvas: HTMLCanvasElement | null = null;
@@ -124,6 +124,8 @@ let debounce: ReturnType<typeof setTimeout> | null = null;
 let decodeGen = 0;
 let press: { s: Pt; p: Pt; touch: boolean; negative: boolean; timer: ReturnType<typeof setTimeout> | null; moved: boolean } | null = null;
 let offTime: (() => void) | null = null;
+/** The overlay follows the options' state (the progress tag while following, the marks cleared after it). */
+let offState: (() => void) | null = null;
 let hostRef: ToolHost | null = null;
 const round = (v: number) => Math.round(v * 1e5) / 1e5;
 
@@ -155,8 +157,12 @@ function analyse(host: ToolHost): Promise<void> {
   if (!tg) return Promise.resolve();
   const key = frameKey(tg.src, host);
   if (session && sessionKey === key) return Promise.resolve();
-  if (encoding) return encoding;
+  if (encoding?.key === key) return encoding.job;
+  // (an analysis of another frame still running: this one follows it)
+  const before = encoding?.job ?? Promise.resolve();
   const job = (async () => {
+    await before;
+    if (session && sessionKey === key) return;
     if (!(await ensureModel(host))) return;
     const cut = await cutout();
     session?.dispose();
@@ -179,8 +185,9 @@ function analyse(host: ToolHost): Promise<void> {
       if (abort === ac) abort = null;
     }
   })();
-  encoding = job.finally(() => { encoding = null; });
-  return encoding;
+  const mine = { key, job: job.finally(() => { if (encoding === mine) encoding = null; }) };
+  encoding = mine;
+  return mine.job;
 }
 
 async function download(host: ToolHost) {
@@ -379,7 +386,7 @@ function watchTime(host: ToolHost) {
   });
 }
 
-export const trackTool: Tool & { state: () => TrackToolState } = {
+export const trackTool: Tool & { state: () => TrackToolState & { pressing: boolean; veil: boolean } } = {
   id: 'seguir',
   name: 'Seguir objeto',
   hint: 'En un video: toca el objeto en este cuadro (⌥ + clic marca lo que no es; arrastra para un recuadro), elige hasta dónde y pulsa «Seguir». En cualquier cuadro, «Corregir aquí» arregla el seguimiento. En teléfono: toca; mantén pulsado (o el interruptor «Quitar») para marcar lo que no es.',
@@ -388,7 +395,8 @@ export const trackTool: Tool & { state: () => TrackToolState } = {
   icon: ICON,
   cursor: 'crosshair',
   draws: true,
-  state: st,
+  /** (QA) the options' state, a gesture under way, the model's mask showing on the overlay. */
+  state: () => ({ ...st(), pressing: !!press, veil: !!(edgeCanvas && matte) }),
 
   activate(host) {
     hostRef = host;
@@ -400,6 +408,10 @@ export const trackTool: Tool & { state: () => TrackToolState } = {
     set({ phase: 'idle' });
     void videoMod().then(m => { video = m; useTrackTool.setState({}); });
     watchTime(host);
+    offState?.();
+    offState = useTrackTool.subscribe((s, prev) => {
+      if (s.phase !== prev.phase || s.points !== prev.points || s.box !== prev.box || s.matte !== prev.matte || (s.phase === 'running' && s.label !== prev.label)) host.redrawOverlay();
+    });
     void ensureModel(host).then(ok => { if (ok && hostRef === host) void analyse(host); });
   },
 
@@ -407,6 +419,8 @@ export const trackTool: Tool & { state: () => TrackToolState } = {
     abort?.abort();
     offTime?.();
     offTime = null;
+    offState?.();
+    offState = null;
     if (debounce) clearTimeout(debounce);
     debounce = null;
     decodeGen++;
@@ -508,7 +522,8 @@ export const trackTool: Tool & { state: () => TrackToolState } = {
     o.points.forEach((q, i) => pointMark(ctx, scr(q), q.positive, i + 1));
     if (press && !press.moved) pointMark(ctx, scr(press.p), !press.negative, o.points.length + 1, true);
     if (o.phase === 'encoding' || o.phase === 'downloading') draw.tag(ctx, { x: f.x + f.w / 2, y: f.y + 24 }, o.label || 'Preparando…', { align: 'center' });
-    if (o.phase === 'running') draw.tag(ctx, { x: f.x + f.w / 2, y: f.y + 24 }, o.label || 'Siguiendo…', { align: 'center' });
+    // (on the art only the frame count: the time left is in the options)
+    if (o.phase === 'running') draw.tag(ctx, { x: f.x + f.w / 2, y: f.y + 24 }, (o.label || 'Siguiendo…').replace(/ · quedan .*$/, ''), { align: 'center' });
   },
 
   Options: ({ host }) => <TrackOptions host={host} />,

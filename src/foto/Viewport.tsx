@@ -117,7 +117,9 @@ export function Viewport({ inset, compact }: { inset: Insets; compact?: boolean 
       if (!c || !el) return;
       const r = dpr(), w = el.clientWidth, h = el.clientHeight;
       if (c.width !== Math.round(w * r) || c.height !== Math.round(h * r)) { c.width = Math.round(w * r); c.height = Math.round(h * r); }
-      const x = c.getContext('2d')!;
+      // (a canvas kept in memory, not on the GPU: next to a busy GPU — a tracking run beside the ASCII engines —
+      // Chromium was seen, at phone sizes, to keep showing an old picture of a GPU canvas whatever clearRect said)
+      const x = c.getContext('2d', { willReadFrequently: true })!;
       x.setTransform(1, 0, 0, 1, 0, 0);
       x.clearRect(0, 0, c.width, c.height);
       x.setTransform(r, 0, 0, r, 0, 0);
