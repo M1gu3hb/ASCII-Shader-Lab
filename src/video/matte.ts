@@ -12,7 +12,7 @@ import type { MaskRasterPart, Project } from '../project/types';
 import { sourceTime } from '../project/evaluate';
 import { storeBlob, type BlobResolver } from '../project/sources';
 import type { Id } from '../project/types';
-import { lumaOf, warp, type Luma } from './flow';
+import { lumaOf, upsampleFlow, warp, type Luma } from './flow';
 import { trackTimes } from './keys';
 import { abortError, etaText } from './movie';
 import { computeFlow, geometry, loadStretchReader, storeMaskFrame } from './track';
@@ -23,7 +23,10 @@ export interface VideoMatteOptions {
   end?: number;
   /** 'portrait' (people; fast) or 'subject' (anything; much slower without WebGPU). */
   model?: 'portrait' | 'subject';
-  /** Shortest side the portrait model works at (256 is enough for most videos; 512 finer edges, 4× slower). */
+  /**
+   * Shortest side the portrait model works at: 512 (default) follows the body; 256 is ≈1.7× faster but loses dark
+   * clothes and shoulders (IoU 0.85 → 0.53 on the test portrait): for quick previews only.
+   */
   size?: number;
   /** Smoothing in time 0..1 (0 = every frame on its own; default 0.5). */
   smooth?: number;
@@ -45,8 +48,11 @@ export interface VideoMatteEstimate {
   text: string;
 }
 
-/** Per-frame seconds measured on the test machine (report-cutout.md, WASM 2 threads): portrait at 256 px, subject at 512². */
-const PER_FRAME: Record<'portrait' | 'subject', [number, number]> = { portrait: [0.33, 1.0], subject: [9, 19] };
+/**
+ * Per-frame seconds on this project's 4-vCPU test machine (WASM, shared CPU): portrait at 512 px measured here
+ * with the smoothing (1.2–1.9 s, 480×400 frames); subject from report-cutout.md (9–19 s).
+ */
+const PER_FRAME: Record<'portrait' | 'subject', [number, number]> = { portrait: [1.2, 2.0], subject: [9, 19] };
 
 export async function estimateBackgroundVideo(p: Project, o: Pick<VideoMatteOptions, 'start' | 'end' | 'model' | 'size'>): Promise<VideoMatteEstimate> {
   const model = o.model ?? 'portrait';
@@ -55,7 +61,7 @@ export async function estimateBackgroundVideo(p: Project, o: Pick<VideoMatteOpti
   const caps = await cut.cutoutCaps();
   const info = caps.models.find(m => m.id === model);
   const state = await cut.modelState(model).catch(() => 'absent' as const);
-  const k = model === 'portrait' && (o.size ?? 256) > 256 ? ((o.size ?? 256) / 256) ** 2 : 1;
+  const k = model === 'portrait' ? Math.max(0.4, ((o.size ?? 512) / 512) ** 2) : 1;
   const gpu = caps.backend === 'webgpu' ? 0.15 : 1;
   const [a, b] = PER_FRAME[model];
   const seconds: [number, number] = [n * a * k * gpu, n * b * k * gpu];
@@ -82,6 +88,9 @@ export async function removeBackgroundVideo(p: Project, o: VideoMatteOptions): P
   const mc = document.createElement('canvas');
   mc.width = g.w; mc.height = g.h;
   const mx = mc.getContext('2d', { willReadFrequently: true })!;
+  const fc = document.createElement('canvas');
+  fc.width = g.fw; fc.height = g.fh;
+  const fx = fc.getContext('2d', { willReadFrequently: true })!;
   let prevLuma: Luma | null = null, prevMatte: Float32Array | null = null;
   try {
     let i = 0;
@@ -91,14 +100,17 @@ export async function removeBackgroundVideo(p: Project, o: VideoMatteOptions): P
       mx.fillStyle = '#000';
       mx.fillRect(0, 0, g.w, g.h);
       mx.drawImage(img, g.place.x, g.place.y, g.place.w, g.place.h);
-      const luma = lumaOf(mx.getImageData(0, 0, g.w, g.h).data, g.w, g.h);
+      // the flow at its own size (≤ 320 px), brought up to the matte's for the warp
+      fx.drawImage(mc, 0, 0, g.fw, g.fh);
+      const luma = lumaOf(fx.getImageData(0, 0, g.fw, g.fh).data, g.fw, g.fh);
       const bmp = await createImageBitmap(mc);
-      const r = await cut.matteFrame(bmp, { model, upsample: false, size: o.size ?? 256, signal: o.signal });
+      const r = await cut.matteFrame(bmp, { model, upsample: false, size: o.size ?? 512, signal: o.signal });
       const m = resample(r.matte.alpha, r.matte.w, r.matte.h, g.w, g.h);
       let cur = m;
       if (prevLuma && prevMatte && smooth > 0) {
         // previous smoothed matte carried here along the flow (this frame → previous frame), then mixed
-        const carried = warp(prevMatte, computeFlow(luma, prevLuma).f);
+        const f = computeFlow(luma, prevLuma).f;
+        const carried = warp(prevMatte, f.w === g.w && f.h === g.h ? f : upsampleFlow(f, g.w, g.h));
         cur = new Float32Array(m.length);
         for (let k = 0; k < m.length; k++) cur[k] = alpha * m[k] + (1 - alpha) * carried[k];
       }
@@ -113,6 +125,7 @@ export async function removeBackgroundVideo(p: Project, o: VideoMatteOptions): P
   } finally {
     reader.close();
     mc.width = mc.height = 0;
+    fc.width = fc.height = 0;
   }
   if (!refs.length) throw new Error('No se pudo leer el video.');
   return { kind: 'raster', op: 'add', media: refs[0].media, frames: refs, interp: true, soft: 0, alpha: 1, origin: 'subject' };

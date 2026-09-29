@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { createReadStream, statSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import type { ViteDevServer } from 'vite';
+import { fileUrl, MODELS, variantFiles } from '../../src/cutout/models';
 
 /**
  * Movie exports, sound, the playback clock and tracking, driven through the QA page dev/video.html (window.vq).
@@ -22,6 +23,9 @@ import type { ViteDevServer } from 'vite';
  *   - GIF: 256 colours + ordered dithering: MAE ≤ 14 of 255 per channel (measured ≈ 10).
  *   - sound: the tone must start where it starts in the source (0.5 s, or where the plan puts it) within one audio
  *     frame (Opus: 20 ms) and keep its 440 Hz within 2 %; the duration within one audio frame of the picture's.
+ *   - background removal (portrait model on the CC0 test portrait panning): IoU ≥ 0.75 per frame against its
+ *     hand-drawn outline (a working matte ≈0.85, a broken one < 0.5), and smoothing must lower the frame-to-frame
+ *     change of the matte without costing IoU. Needs the local model files (skipped otherwise, like cutout.spec).
  *   - tracking (synthetic square, colour oracle as the model): IoU ≥ 0.8 on every frame. The square is 36 px on a
  *     320×180 frame: its edge is VP9-blurred over ~2 px and the masks are drawn with a soft edge, so a correct mask
  *     scores 0.85–1.0; a mask one frame late (≈2.4 px of motion per frame) still scores ≈0.87, two frames late
@@ -43,6 +47,14 @@ const manifest: { files: Array<{ url: string; source: string }> } | null = exist
   ? JSON.parse(readFileSync(join(MODELS_DIR, 'manifest.json'), 'utf8'))
   : null;
 const localBySource = new Map((manifest?.files ?? []).map(f => [f.source, f.url]));
+const hasModel = (id: string) => {
+  const spec = MODELS.find(m => m.id === id)!;
+  return !!spec.wasm && variantFiles(spec.wasm).every(f => {
+    const local = localBySource.get(fileUrl(spec, f));
+    return !!local && existsSync(join(MODELS_DIR, local));
+  });
+};
+const NEED = (id: string) => `Faltan los archivos locales de «${id}» en ${MODELS_DIR}: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm`;
 let files: Server | null = null;
 let filesOrigin = '';
 
@@ -348,6 +360,44 @@ test('a correction repairs a bad stretch and recomputes only that stretch', asyn
   c.changed.forEach((ch, i) => { if (i <= 30 || i >= 60) expect(ch, `cuadro ${i}`).toBe(false); });
   expect(c.changed.filter(Boolean).length).toBe(29);
   expect(c.names[45]).toBe('pista-000045-correccion.png');
+});
+
+test('video background removal (portrait model, WASM): the person followed frame by frame, smoothed in time', async () => {
+  test.skip(!hasModel('portrait'), NEED('portrait'));
+  test.setTimeout(420_000);
+  await open();
+  expect(await vq('downloadModel', 'portrait')).toMatch(/cached|ready/);
+  await vq('portrait');
+  // the CC0 portrait of tests/fixtures/photos panning 32 px over 2 s; its hand-drawn outline moved with it is the truth
+  const raw = await vq<{ frames: number; scores: number[]; flicker: number; origin: string; estimate: { seconds: number[]; text: string } }>('matte', { smooth: 0, end: 0.6 });
+  const smooth = await vq<typeof raw>('matte', { smooth: 0.5, end: 0.6 });
+  expect(smooth.origin).toBe('subject');
+  expect(smooth.frames).toBe(6);
+  // the outline ignores hair strands and is a few px off along the edge: a working matte scores ≈0.85 (0.905 for a
+  // still with the full guided upsampling, report-cutout.md); a broken one (empty, inverted, the background) < 0.5
+  expect(Math.min(...smooth.scores)).toBeGreaterThanOrEqual(0.75);
+  // smoothing keeps the person (same IoU within 0.02) and calms the edge from frame to frame
+  const mean = (a: number[]) => a.reduce((p, q) => p + q, 0) / a.length;
+  expect(Math.abs(mean(smooth.scores) - mean(raw.scores))).toBeLessThan(0.02);
+  expect(smooth.flicker).toBeLessThan(raw.flicker);
+  // the estimate is said before starting, in words
+  expect(smooth.estimate.text).toMatch(/cuadros con «Retrato»/);
+});
+
+test('tracking with the real point-selection model (EdgeTAM, WASM) on the moving square', async () => {
+  test.skip(!hasModel('select'), NEED('select'));
+  test.setTimeout(600_000);
+  await open();
+  expect(await vq('downloadModel', 'select')).toMatch(/cached|ready/);
+  await vq('makeClip', {});
+  await vq('build', 'layers');
+  const r = await vq<{ ok: boolean; error?: string; frames: number; scores: number[]; stats: { keyframes: number; occluded: number; modelMs: number; flowMs: number; keyIoU: number[] } }>('track', { segmenter: 'model', keyEvery: 0.5 });
+  expect(r.ok, r.error).toBe(true);
+  expect(r.frames).toBe(90);
+  // the model's own edge follows the VP9-blurred square a little differently from the oracle: 0.75 per frame
+  expect(Math.min(...r.scores)).toBeGreaterThanOrEqual(0.75);
+  expect(r.scores.reduce((p, q) => p + q, 0) / r.scores.length).toBeGreaterThanOrEqual(0.85);
+  expect(r.stats.occluded).toBe(0);
 });
 
 test('playback clock: reverse shows earlier frames by seeking, loops stay in their region, nothing runs when paused', async () => {

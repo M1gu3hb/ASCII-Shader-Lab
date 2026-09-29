@@ -797,9 +797,9 @@ function portraitTruth(i: number, w: number, h: number): Float32Array {
 
 async function runMatte(o: { smooth?: number; size?: number; end?: number } = {}) {
   const { removeBackgroundVideo, estimateBackgroundVideo } = await import('../src/video/index');
-  const est = await estimateBackgroundVideo(project!, { model: 'portrait', size: o.size ?? 256 });
+  const est = await estimateBackgroundVideo(project!, { model: 'portrait', size: o.size ?? 512, ...(o.end ? { end: o.end } : {}) });
   const t0 = performance.now();
-  const part = await removeBackgroundVideo(project!, { source: project!.sources[0].id, model: 'portrait', size: o.size ?? 256, smooth: o.smooth ?? 0.5, ...(o.end ? { end: o.end } : {}) });
+  const part = await removeBackgroundVideo(project!, { source: project!.sources[0].id, model: 'portrait', size: o.size ?? 512, smooth: o.smooth ?? 0.5, ...(o.end ? { end: o.end } : {}) });
   const ms = Math.round(performance.now() - t0);
   const { storeBlob } = await import('../src/project/sources');
   const scores: number[] = [];
@@ -822,7 +822,7 @@ async function runMatte(o: { smooth?: number; size?: number; end?: number } = {}
     prev = m;
   }
   const n = part.frames?.length ?? 0;
-  timing(`Quitar el fondo del video (retrato ${o.size ?? 256} px, suavizado ${o.smooth ?? 0.5})`, `${n} cuadros en ${ms} ms (${Math.round(ms / Math.max(1, n))} ms/cuadro) · IoU media ${(scores.reduce((a, b) => a + b, 0) / Math.max(1, n)).toFixed(3)} · estimado: ${est.text}`);
+  timing(`Quitar el fondo del video (retrato ${o.size ?? 512} px, suavizado ${o.smooth ?? 0.5})`, `${n} cuadros en ${ms} ms (${Math.round(ms / Math.max(1, n))} ms/cuadro) · IoU media ${(scores.reduce((a, b) => a + b, 0) / Math.max(1, n)).toFixed(3)} · estimado: ${est.text}`);
   applyTracked(part);
   return { ms, frames: n, scores, estimate: est, flicker: Math.round((flicker / Math.max(1, n - 1)) * 10000) / 10000, origin: part.origin };
 }
