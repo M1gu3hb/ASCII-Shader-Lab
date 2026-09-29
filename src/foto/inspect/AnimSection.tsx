@@ -30,7 +30,7 @@ export function AnimSection({ l }: { l: Layer }) {
   const clips = [...l.clips].sort((a, b) => a.start - b.start);
   const nameOf = (id: string) => templateById(id)?.name ?? (ready ? `${id} (no disponible)` : '…');
   return (
-    <Section title="Animación" className="fanim" count={clips.length || undefined} open={clips.length > 0}>
+    <Section title="Animación" className="fanim" count={clips.length || undefined}>
       {clips.length ? (
         <ol className="fanim-list" aria-label={`Animaciones de «${l.name}»`}>
           {clips.map(c => (
