@@ -95,6 +95,16 @@ export function isProject(files: ZipEntry[]): boolean {
   return files.some(isRecipeFile);
 }
 
+/**
+ * Only the recipe of a project archive, without reading its media (for telling what a file is), or null.
+ * Recipe files larger than `max` bytes (as the archive declares them) are not read.
+ */
+export async function readProjectRecipe(files: ZipEntry[], max = 32 * 1024 * 1024): Promise<Recipe | null> {
+  const rec = files.find(isRecipeFile);
+  if (!rec || rec.size > max) return null;
+  return parseRecipe(await rec.text());
+}
+
 /** Opens a project archive. Returns null when there is no valid recipe in it. */
 export async function readProject(files: ZipEntry[]): Promise<{ recipe: Recipe; media: UnpackedMedia | null } | null> {
   const rec = files.find(isRecipeFile);
