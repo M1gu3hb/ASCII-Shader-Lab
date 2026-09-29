@@ -22,6 +22,7 @@ import { TimeSlot } from './TimeSlot';
 import { say, setUI, useFoto } from './ui';
 import { Viewport, type Insets } from './Viewport';
 import { useSuggestion } from './suggest';
+import { ExtrasRoot } from './extras/ExtrasRoot';
 
 const ExportSheet = lazy(() => import('./ExportSheet').then(m => ({ default: m.ExportSheet })));
 const CutoutPanel = lazy(() => import('./cutout/index').then(m => ({ default: m.CutoutPanel })));
@@ -63,6 +64,7 @@ export function App() {
       <CameraSheet />
       <SaveAsSheet />
       <OnDemand sheet="export"><ExportSheet /></OnDemand>
+      <ExtrasRoot />
       <LiveLine />
     </div>
   );
