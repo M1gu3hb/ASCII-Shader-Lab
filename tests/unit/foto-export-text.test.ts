@@ -107,4 +107,13 @@ describe('README', () => {
     expect(r.notes.join(' ')).toMatch(/fuera del ASCII básico/);
     expect(r.notes.join(' ')).toMatch(/GIF/);
   });
+
+  it('the project name is one line of text in the heading, never HTML or Markdown of its own', () => {
+    const name = 'Pieza <img src=x onerror=alert(1)>\n\n<script>alert(2)</script>\n# otro';
+    const r = readmeMarkdown({ title: name, image: { file: 'pieza.png', alt: name, w: 800, h: 400, moving: false } });
+    const [head, second] = r.md.split('\n');
+    expect(head).toBe('# Pieza &lt;img src=x onerror=alert(1)&gt; &lt;script&gt;alert(2)&lt;/script&gt; # otro');
+    expect(second).toBe('');
+    expect(r.md).not.toMatch(/<script|<img src=x/);
+  });
 });
