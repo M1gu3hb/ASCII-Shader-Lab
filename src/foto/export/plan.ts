@@ -28,6 +28,8 @@ export interface Plan {
   transparent: boolean;
   loop: boolean;
   audio: 'keep' | 'none';
+  /** Whose sound (a video source id) when several videos have one; null = the bottom-most video with sound. */
+  audioSource: string | null;
   /** JPEG / WebP quality 0..1. */
   quality: number;
   gif: { colors: number; dither: 'none' | 'bayer' | 'floyd'; palette: 'global' | 'frame' };
@@ -64,7 +66,7 @@ export function defaultPlan(p: { canvas: { transparent: boolean }; time: { durat
   return {
     dest: 'libre', what: 'resultado', target: null, format: 'png', size: 'proyecto', dpi: 300, orient: 'auto', fit: 'cover',
     t: Math.max(0, Math.min(t, dur)), start: 0, end: dur, fps: Math.min(60, Math.max(1, p.time.fps || 24)),
-    transparent: p.canvas.transparent, loop: p.time.loop !== false, audio: 'keep', quality: 0.92,
+    transparent: p.canvas.transparent, loop: p.time.loop !== false, audio: 'keep', audioSource: null, quality: 0.92,
     gif: { colors: 256, dither: 'bayer', palette: 'global' }, depth: 'truecolor', readmeText: null, readmeW: 800, embedFonts: true,
   };
 }

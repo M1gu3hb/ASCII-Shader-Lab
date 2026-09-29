@@ -174,7 +174,7 @@ function useDrop() {
       // in the editor: a dropped photo becomes a new photo layer of this project
       const r = await importMedia(f);
       if (!r.ok) { say(r.message); return; }
-      addPhotoSource(r.ref, r.kind === 'video' ? { duration: r.duration, fps: r.fps } : {});
+      addPhotoSource(r.ref, r.kind === 'video' ? { duration: r.duration, fps: r.fps, ...(r.hasAudio !== undefined ? { hasAudio: r.hasAudio } : {}) } : {});
     };
     addEventListener('dragover', over);
     addEventListener('dragleave', leave);

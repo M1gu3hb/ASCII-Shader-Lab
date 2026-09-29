@@ -36,7 +36,7 @@ export async function stillCaps(): Promise<{ jpeg: boolean; webp: boolean }> {
  * when the module also has movieFormatsFor (sized probing), it is asked with the sheet's size and range.
  * Resolves [] when this version has no movie export (the sheet then says so).
  */
-export async function movieCaps(p: Project, o: Pick<MovieOptions, 'width' | 'height' | 'fps' | 'start' | 'end' | 'transparent'>): Promise<FormatInfo[]> {
+export async function movieCaps(p: Project, o: Pick<MovieOptions, 'width' | 'height' | 'fps' | 'start' | 'end' | 'transparent' | 'audioSource'>): Promise<FormatInfo[]> {
   try {
     const m = await import('../../video/index') as typeof import('../../video/index') & { movieFormatsFor?: (p: Project, o: Record<string, unknown>) => Promise<FormatInfo[]> };
     if (typeof m.movieFormatsFor === 'function') return await m.movieFormatsFor(p, o);

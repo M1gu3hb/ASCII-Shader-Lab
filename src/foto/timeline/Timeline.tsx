@@ -6,6 +6,10 @@
  * a keyboard path. Playback (play, pause, stop, reverse, speed, loop region) comes from a clock (clock.ts)
  * that works only while playing; the playhead moves outside React, so playing re-renders nothing here.
  *
+ * A layer whose mask follows an object in a video (tracking) shows the tracked stretch and its keyframes as small
+ * ticks on its row (the model's keyframes, the person's corrections, frames where the object was hidden); a
+ * click or Enter on one moves the playhead there.
+ *
  * Keyboard (the timeline focused): ←/→ one frame (⇧ one second) · Home/End · Space play/pause · ⇧Space play
  * backwards · K a key at the playhead · Delete the selection · Alt+←/→ move the selection · +/− zoom · Esc.
  * Touch: one finger pans, two fingers zoom, a long press opens the menu of a clip, a key or a row.
@@ -22,6 +26,7 @@ import { clipOverlaps, contentEnd, deleteClip, duplicateClip, moveClip, resizeCl
 import type { LibraryItem } from '../../anim/library';
 import { addKey, animatablePaths, deleteKey, findClip, keyTimes, moveKey, pathInfo, setClipLoop, setKeyEase, setKeyValue, shiftKeys, type KeyRef, type PathInfo } from '../../anim/keys';
 import { easeLabel } from '../../anim/ease';
+import { keysOfFrames, roleOf } from '../../video/keys';
 import { addChoreography, addLibraryItem, fitDuration } from './actions';
 import { createClock, type PlaybackClock, type PlaybackState } from './clock';
 import { LibraryPicker } from './LibraryPicker';
@@ -287,6 +292,8 @@ export function Timeline(props: TimelineProps) {
     }
     if (!el || !project) return;
     const act = el.dataset.act!;
+    // a tracking keyframe: its click moves the playhead (no drag starts here)
+    if (act === 'tk') return;
     setMenu(null);
     let g: G | null = null;
     const gid = `g${e.timeStamp}`;
@@ -596,7 +603,8 @@ export function Timeline(props: TimelineProps) {
               onSelect={() => select([l.id])}
               onVisible={() => edit(d => { const x = d.layers.find(y => y.id === l.id); if (x) x.visible = !x.visible; })}
               onAddKey={path => { const t = frameStep(useProject.getState().time, fps, 0, len); edit(d => { addKey(d, l.id, path, t); fitDuration(d); }); setFocusPath({ layer: l.id, path }); }}
-              onOpenClip={(id, el) => openClipPop(id, el)} onOpenKey={(ref, el) => openKeyPop(ref, el)} />
+              onOpenClip={(id, el) => openClipPop(id, el)} onOpenKey={(ref, el) => openKeyPop(ref, el)}
+              onGoTo={t => { goTo(t); setView(v => reveal(v, t)); say(`Cabezal en ${formatTime(t)}.`); }} />
           ))}
           <div className="tl-lanes-layer" style={{ left: headW }} aria-hidden="true">
             <div ref={playheadRef} className="tl-playhead"><span className="knob" /></div>
@@ -689,9 +697,10 @@ function LayerRows(p: {
   compact: boolean; layer: Layer; project: Project; view: View; expanded: boolean; selected: boolean; sel: Sel; len: number; time: number;
   focusPath: { layer: Id; path: string } | null; onFocusPath: (f: { layer: Id; path: string }) => void;
   onToggle: () => void; onSelect: () => void; onVisible: () => void; onAddKey: (path: string) => void;
-  onOpenClip: (id: Id, el: Element) => void; onOpenKey: (ref: KeyRef, el: Element) => void;
+  onOpenClip: (id: Id, el: Element) => void; onOpenKey: (ref: KeyRef, el: Element) => void; onGoTo: (t: number) => void;
 }) {
   const { layer: l, view: v } = p;
+  const followed = trackMarks(l, p.project.time.fps);
   const tracks = p.project.tracks.filter(t => t.layer === l.id);
   const lanes = clipLanes(l.clips);
   const rowH = 44 + (lanes.lanes - 1) * 22;
@@ -721,6 +730,14 @@ function LayerRows(p: {
           <span key={`${o.a}-${o.b}`} className="tl-trans" style={{ left: x(o.start), width: Math.max(4, (o.end - o.start) * v.pps) }} title="Transición: los dos clips actúan a la vez"><span>⇄</span></span>
         ))}
         {l.clips.map(c => <ClipBlock key={c.id} clip={c} v={v} lane={lanes.lane.get(c.id) ?? 0} h={clipH} selected={p.sel?.kind === 'clip' && p.sel.id === c.id} kind={l.kind} onOpen={p.onOpenClip} />)}
+        {followed.map((tr, n) => (
+          <span key={`tr${tr.index}`} className="tl-track" style={{ left: x(tr.from), width: Math.max(2, (tr.to - tr.from) * v.pps), top: 1 + n * 3 }} aria-hidden="true" title={`Seguimiento ${n + 1}: ${formatTime(tr.from)}–${formatTime(tr.to)}`} />
+        ))}
+        {followed.flatMap((tr, n) => tr.keys.map(k => (
+          <button key={`tk${tr.index}-${k.t}`} type="button" data-act="tk" data-t={k.t} className={`tl-tk ${k.role}`} style={{ left: x(k.t), top: n * 3 }}
+            aria-label={`${TK_NAME[k.role]} del seguimiento${followed.length > 1 ? ` ${n + 1}` : ''} de «${l.name}» en ${formatTime(k.t)}: ir ahí`}
+            title={`${TK_NAME[k.role]} · ${formatTime(k.t)}`} onClick={() => p.onGoTo(k.t)} />
+        )))}
       </div>
       {p.expanded && tracks.map(tr => {
         const info = pathInfo(l, tr.path);
@@ -747,6 +764,24 @@ function LayerRows(p: {
       )}
     </>
   );
+}
+
+const TK_NAME = { clave: 'Clave', correccion: 'Corrección', oculto: 'Objeto oculto', inicio: 'Inicio' } as const;
+
+/** The tracked parts of a layer's mask: their stretch and their keyframes (from the names of their frames). */
+function trackMarks(l: Layer, fps: number): Array<{ index: number; from: number; to: number; keys: Array<{ t: number; role: keyof typeof TK_NAME }> }> {
+  const out: Array<{ index: number; from: number; to: number; keys: Array<{ t: number; role: keyof typeof TK_NAME }> }> = [];
+  (l.mask?.parts ?? []).forEach((part, index) => {
+    if (part.kind !== 'raster' || part.origin !== 'track' || !part.frames?.length) return;
+    const f = part.frames;
+    const keys = keysOfFrames(f);
+    if (!keys.includes(f.length - 1)) keys.push(f.length - 1);
+    out.push({
+      index, from: f[0].t, to: f[f.length - 1].t + 1 / Math.max(1, fps),
+      keys: keys.map(i => ({ t: f[i].t, role: (roleOf(f[i].media.name) || 'inicio') as keyof typeof TK_NAME })),
+    });
+  });
+  return out;
 }
 
 function groupPaths(list: PathInfo[]): Array<[string, PathInfo[]]> {

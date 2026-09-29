@@ -34,7 +34,7 @@ export function Start() {
           <span className="fs-drop-s">o pulsa para elegir · JPG, PNG, WebP, AVIF, MP4, WebM</span>
         </button>
         <div className="fs-acts">
-          <button type="button" className="btn" onClick={() => openSheet('camera')}><ICamera width={17} height={17} /> Tomar una foto</button>
+          <button type="button" className="btn" onClick={() => openSheet('camera')}><ICamera width={17} height={17} /> Cámara: foto o clip</button>
           <button type="button" className="btn" onClick={() => void open()}><IFolder width={17} height={17} /> Abrir un proyecto</button>
         </div>
         <p className="privacy">Tus fotos no se suben: todo se procesa en tu navegador y tus proyectos se guardan en este equipo.</p>

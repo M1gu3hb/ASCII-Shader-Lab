@@ -8,7 +8,7 @@ import type { MediaRef } from '../engine/recipe';
 
 export type Imported =
   | { ok: true; kind: 'image'; ref: MediaRef; stored: boolean }
-  | { ok: true; kind: 'video'; ref: MediaRef; stored: boolean; duration: number; fps: number }
+  | { ok: true; kind: 'video'; ref: MediaRef; stored: boolean; duration: number; fps: number; hasAudio?: boolean }
   | { ok: false; message: string };
 
 const MB = 1024 * 1024;
@@ -52,7 +52,31 @@ export function videoInfo(file: Blob): Promise<{ w: number; h: number; duration:
   });
 }
 
-/** Stores a picked photo or video and returns its reference (with the video's length). */
+/**
+ * A video's frame rate (from its frames' timestamps, snapped to a common rate) and whether it has a sound track,
+ * read with mediabunny (lazy). Null when this browser cannot read the file that way: the element's length is used
+ * and 30 fps assumed.
+ */
+export async function videoFacts(file: Blob): Promise<{ fps: number; hasAudio: boolean; duration: number } | null> {
+  try {
+    const mb = await import('mediabunny');
+    const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS });
+    try {
+      const v = await input.getPrimaryVideoTrack();
+      if (!v) return null;
+      const m = await v.computeFrameRateMetrics({ targetPacketCount: 120 });
+      const a = await input.getPrimaryAudioTrack().catch(() => null);
+      const fps = Number.isFinite(m.bestGuessFrameRate) && m.bestGuessFrameRate > 0 ? Math.round(m.bestGuessFrameRate * 1000) / 1000 : 30;
+      // the picture's own length (the element reports the longest track: a sound a few ms longer adds a frame past the end)
+      const duration = Math.max(0, (await v.computeDuration()) - (await v.getFirstTimestamp()));
+      return { fps: Math.min(60, Math.max(1, fps)), hasAudio: !!a, duration: Number.isFinite(duration) ? duration : 0 };
+    } finally { input.dispose(); }
+  } catch {
+    return null;
+  }
+}
+
+/** Stores a picked photo or video and returns its reference (with the video's length, frame rate and sound). */
 export async function importMedia(file: File): Promise<Imported> {
   const kind = kindOfFile(file);
   if (!kind) {
@@ -69,9 +93,11 @@ export async function importMedia(file: File): Promise<Imported> {
   }
   const v = await videoInfo(file);
   if (!v) return { ok: false, message: 'Este navegador no puede reproducir ese video. Prueba con MP4 (H.264) o WebM.' };
+  const facts = await Promise.race([videoFacts(file), new Promise<null>(r => setTimeout(() => r(null), 8000))]);
   const ref = await putMedia(file, { kind, name: file.name || 'video.mp4', w: v.w, h: v.h, lastModified: file.lastModified });
   const { stored, ...r } = ref;
-  return { ok: true, kind, ref: r, stored, duration: v.duration, fps: 30 };
+  const duration = facts && facts.duration > 0.05 && facts.duration <= v.duration + 0.05 ? facts.duration : v.duration;
+  return { ok: true, kind, ref: r, stored, duration, fps: facts?.fps ?? 30, ...(facts ? { hasAudio: facts.hasAudio } : {}) };
 }
 
 /** A file picker (resolves with the chosen files, or none when cancelled). */

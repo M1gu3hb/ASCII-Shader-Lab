@@ -10,6 +10,8 @@
  *      light, dark and high-contrast backgrounds; before/after;
  *   5. what to do with it: a new cut-out layer, a mask on the target layer (the subject, or the background =
  *      inverted), or both — one undo step; export the transparent PNG and the matte.
+ * For a video source, «Quitar fondo del video» (VideoCutout.tsx) comes first: every frame of a stretch, as a
+ * mask per frame or a cut-out video layer; the flow above then cuts out only the frame at the playhead.
  */
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { CutoutCaps, CutoutModelId, Matte, ModelState, RefineOptions } from '../../cutout';
@@ -20,6 +22,7 @@ import { pickColor, toHex } from '../tools/color';
 import type { ToolHost } from '../tools/types';
 import { Button, Note, Progress, Row, Segmented, Slider, pct, px } from '../tools/ui';
 import { applyCutout, decodeSource, sourceFor } from './apply';
+import { VideoCutout } from './VideoCutout';
 import './panel.css';
 
 type Cut = typeof import('../../cutout');
@@ -62,6 +65,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
   const [timing, setTiming] = useState('');
   const [tick, setTick] = useState(0);
   const [edits, setEdits] = useState(0);
+  const [videoBusy, setVideoBusy] = useState(false);
 
   const targetId = host.target();
   const src = useMemo<Source | null>(() => (project ? sourceFor(project, targetId, asked) : null), [project?.id, targetId, asked]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -345,9 +349,13 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
   const chosen = models.find(m => m.id === model);
   const busy = phase === 'downloading' || phase === 'running' || phase === 'applying';
 
+  const isVideo = src?.kind === 'video';
   return (
     <div className="cp" data-phase={phase}>
-      <p className="cp-lead">El recorte ocurre en este equipo: tu foto no se sube.{src ? <> Foto: <span className="tool-mono">{src.name || 'sin nombre'}</span>.</> : null}</p>
+      <p className="cp-lead">El recorte ocurre en este equipo: tu {isVideo ? 'video' : 'foto'} no se sube.{src ? <> {isVideo ? 'Video' : 'Foto'}: <span className="tool-mono">{src.name || 'sin nombre'}</span>.</> : null}</p>
+      {isVideo && src ? <VideoCutout host={host} source={src} onBusy={setVideoBusy} onClose={onClose} /> : null}
+      {isVideo && !videoBusy && phase !== 'loading' && phase !== 'error' ? <h3 className="cp-frame-h">Sólo el cuadro actual</h3> : null}
+      {videoBusy ? null : <>
       {error ? <Note tone="warn">{error}</Note> : null}
 
       {phase === 'loading' ? <Progress value={null} label="Mirando qué puede hacer este equipo…" /> : null}
@@ -472,6 +480,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
       ) : null}
 
       {phase === 'error' ? <Row><Button onClick={onClose}>Cerrar</Button></Row> : null}
+      </>}
     </div>
   );
 }

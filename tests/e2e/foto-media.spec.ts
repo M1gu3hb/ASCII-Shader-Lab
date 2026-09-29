@@ -33,8 +33,8 @@ test('un video se abre, se ve y la línea de tiempo lo recorre', async ({ page }
 
 test('la cámara: frontal en espejo por defecto, la elección se recuerda, la foto es lo que se ve', async ({ page }) => {
   const errors = await openFoto(page);
-  await page.getByRole('button', { name: 'Tomar una foto' }).click();
-  const sheet = page.getByRole('dialog', { name: 'Tomar una foto' });
+  await page.getByRole('button', { name: 'Cámara: foto o clip' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Cámara' });
   await expect(sheet.locator('video')).toBeVisible();
   const mirror = sheet.getByRole('switch', { name: /Espejo/ });
   await expect(mirror).toBeChecked({ timeout: 20_000 });

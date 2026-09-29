@@ -31,6 +31,8 @@ function fnv(d: Uint8ClampedArray): string {
 }
 
 export function installQA() {
+  // the video editing hooks (window.__fotoVideo) come in their own chunk
+  void import('./videoqa').then(m => m.installVideoQA());
   const reports: unknown[] = [];
   onRendered(r => { reports.push({ seq: r.seq, light: r.light, scale: r.scale, ms: r.report.ms, t: r.state.t, layers: r.report.layers.map(l => [l.kind, l.ms]) }); if (reports.length > 50) reports.shift(); });
   window.__foto = {

@@ -48,9 +48,9 @@ import { cssAdjustCpu, cssFilter, fitRect, needsTone, toneCpu } from './adjust';
 import type { CellGrid, TileFactory } from './clips';
 import { drawShape, drawText, ensureFont } from './draw2d';
 import type { FrameState, LayerFrame } from './evaluate';
-import { coverageOfImage, maskCanvas } from './masks';
+import { coverageOfImage, maskCanvas, rasterFrames } from './masks';
 import { createSourceProvider, type Drawable, type SourceProvider } from './sources';
-import type { AsciiLayer, CompositeBlend, GlyphsLayer, Id, Layer, LayerFit, LayerKind, PhotoLayer, Source } from './types';
+import type { AsciiLayer, CompositeBlend, GlyphsLayer, Id, Layer, LayerFit, LayerKind, MaskRasterPart, PhotoLayer, Source } from './types';
 
 export interface CompositorOptions {
   /** Where pictures come from (default: the media store, video frames from a video element). */
@@ -360,7 +360,9 @@ export class Compositor {
       if (l.kind === 'photo' || l.kind === 'ascii' || l.kind === 'glyphs') needSource(lf.source);
       for (const p of l.mask?.parts ?? []) {
         if (p.kind === 'raster') {
-          for (const m of [p.media, ...(p.frames ?? []).map(f => f.media)]) {
+          // only the one or two stored pictures the part shows at t (a tracked mask has one per frame: decoding
+          // them all for every frame cost more than the frame itself)
+          for (const m of rasterRefsAt(p, state.t)) {
             const k = m.id ?? '?';
             if (seen.has('m:' + k)) continue;
             seen.add('m:' + k);
@@ -677,7 +679,7 @@ export class Compositor {
     } else {
       feed = fit(lf.source, l.fit ?? 'cover', lf.srcTime);
       const src = lf.source;
-      if (src) version = `${src.id}:${src.media.map(m => m.id ?? '?').join(',')}@${src.kind === 'image' || src.kind === 'cutout' ? 0 : lf.srcTime}|${l.fit ?? 'cover'}|${rw}x${rh}`;
+      if (src) version = `${src.id}:${src.media.map(m => m.id ?? '?').join(',')}@${src.kind === 'image' || src.kind === 'cutout' ? 0 : lf.srcTime}${this.provider.frameKey?.(src, lf.srcTime) ?? ''}|${l.fit ?? 'cover'}|${rw}x${rh}`;
     }
     if (!feed) return lf.source ? 'Falta la imagen de esta capa.' : 'Esta capa no tiene imagen.';
     // cells are output px: at a smaller scale the same grid is drawn smaller
@@ -862,6 +864,15 @@ function mediaIdsOfFrame(state: FrameState, frames: LayerFrame[]): Set<string> {
   return ids;
 }
 
+/**
+ * The stored pictures a raster mask part reads at t: its own picture, or — for per-frame masks (tracking, video
+ * background removal) — the frame at t and, when interpolated, the next one (see masks.ts rasterFrames).
+ */
+export function rasterRefsAt(part: MaskRasterPart, t: number): MediaRef[] {
+  const fr = rasterFrames(part, t);
+  return fr.b && fr.k > 0 ? [fr.a, fr.b] : [fr.a];
+}
+
 /** Time of a source's frame in this state (the time its layers ask for). */
 function frameTimeOf(state: FrameState, s: Source | null): number {
   if (!s) return 0;
@@ -928,7 +939,7 @@ export function layerDependsOnTime(lf: LayerFrame): boolean {
  */
 export function layerKeys(
   lf: LayerFrame, state: FrameState, r: { rw: number; rh: number; scale: number; quality: string }, below: string | null,
-  provider?: Pick<SourceProvider, 'image'>,
+  provider?: Pick<SourceProvider, 'image' | 'frameKey'>,
 ): LayerKeys | null {
   if (lf.cells || lf.reveal || lf.tiles) return null;
   const l = lf.layer;
@@ -941,7 +952,7 @@ export function layerKeys(
       if (below === null) return null;
       src = 'bajo:' + below;
     } else if (l.source === 'style') src = 'estilo';
-    else src = lf.source ? `${lf.source.id}:${lf.source.media.map(m => m.id ?? '?').join(',')}@${lf.srcTime}` : 'sin fuente';
+    else src = lf.source ? `${lf.source.id}:${lf.source.media.map(m => m.id ?? '?').join(',')}@${lf.srcTime}${provider?.frameKey?.(lf.source, lf.srcTime) ?? ''}` : 'sin fuente';
   }
   const time = layerDependsOnTime(lf) ? `t=${state.t}` : '';
   const content = [JSON.stringify(own), src, time, `${r.rw}x${r.rh}@${r.scale}|${r.quality}|${state.w}x${state.h}|${state.seed}`, lf.glyphs].join('\u0001');
@@ -949,7 +960,7 @@ export function layerKeys(
   const mask = l.mask && !l.mask.off ? l.mask : null;
   if (mask || lf.within.length) {
     // a painted part reads a picture (kept only once it is there); colour parts read sources at t
-    const avail = mask ? mask.parts.map(p => (p.kind === 'raster' ? (provider?.image(p.media) ? 1 : 0) : '-')).join('') : '';
+    const avail = mask ? mask.parts.map(p => (p.kind === 'raster' ? (rasterRefsAt(p, state.t).every(m => provider?.image(m)) ? 1 : 0) : '-')).join('') : '';
     const timed = !!mask?.parts.some(p => (p.kind === 'raster' && p.frames?.length) || p.kind === 'color');
     masks = JSON.stringify([mask, lf.within, avail, timed ? state.t : 0]);
   }

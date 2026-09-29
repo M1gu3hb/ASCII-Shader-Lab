@@ -24,3 +24,6 @@
 .cp-canvas { display: block; width: 100%; height: auto; touch-action: none; }
 .cp-canvas.paint { cursor: crosshair; }
 .cp-consent { max-width: none; }
+.cp-video { padding-bottom: 14px; border-bottom: 1px solid var(--graphite, #2a2723); }
+.cp-video .tool-seg { flex-wrap: wrap; }
+.cp-frame-h { margin-top: 2px; }

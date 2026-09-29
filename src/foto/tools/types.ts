@@ -75,6 +75,12 @@ export interface ToolHost {
    * without it hide the object tool's link to it.
    */
   openCutout?(): void;
+  /**
+   * Optional (added by lane «video-studio»): a video source's picture at the current time, placed in the frame
+   * the way the first layer showing it places it (its fit), at the project canvas size scaled down to `maxSide`:
+   * the frame object tracking reads. Null when the picture is not there.
+   */
+  videoPixels?(sourceId: Id, maxSide?: number): Promise<HTMLCanvasElement | null>;
 }
 
 export interface Tool {
