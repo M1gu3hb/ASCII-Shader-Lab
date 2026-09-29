@@ -1,6 +1,7 @@
 /**
  * H.264 in MP4: the AVC description the browser's encoder hands over, checked before it goes into the file.
- * Pure: no DOM.
+ * repairAvcDescription is pure (no DOM); withRepairedAvc wraps the browser's VideoEncoder while a render runs
+ * (shared by the lab's exports, studio/exporting.ts, and the movie exports, video/movie.ts).
  */
 
 /**
@@ -37,4 +38,32 @@ export function repairAvcDescription(desc: Uint8Array): Uint8Array | null {
   if (!fixed) return null;
   out.push(...desc.subarray(p));
   return new Uint8Array(out);
+}
+
+/**
+ * While a render runs, the video encoder's AVC description goes through repairAvcDescription before the
+ * muxer sees it (the encoder is created inside mediabunny). Returns the function that puts things back.
+ */
+export function withRepairedAvc(): () => void {
+  const g = globalThis as unknown as { VideoEncoder?: typeof VideoEncoder };
+  const Orig = g.VideoEncoder;
+  if (!Orig) return () => {};
+  class Repairing extends Orig {
+    constructor(init: VideoEncoderInit) {
+      super({
+        ...init,
+        output: (chunk, meta) => {
+          const d = meta?.decoderConfig?.description;
+          if (d && meta?.decoderConfig) {
+            const bytes = ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength) : new Uint8Array(d);
+            const fixed = /^avc1/.test(meta.decoderConfig.codec) ? repairAvcDescription(bytes) : null;
+            if (fixed) meta = { ...meta, decoderConfig: { ...meta.decoderConfig, description: fixed } };
+          }
+          init.output(chunk, meta);
+        },
+      });
+    }
+  }
+  g.VideoEncoder = Repairing;
+  return () => { if (g.VideoEncoder === Repairing) g.VideoEncoder = Orig; };
 }
