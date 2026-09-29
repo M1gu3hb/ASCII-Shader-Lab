@@ -197,7 +197,7 @@
 .tl-menu button.danger { color: #ff9b85; }
 
 /* ---------------------------------------------------------------- library picker */
-.tl-lib { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: rgba(12, 11, 10, .97); }
+.tl-lib { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: var(--tl-ink); }
 .tl-lib header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--tl-line); flex-wrap: wrap; }
 .tl-lib header h3 { margin: 0 8px 0 4px; font: 600 14px/1.2 var(--tl-ui); }
 .tl-lib .tabs { display: flex; gap: 2px; }
@@ -205,11 +205,11 @@
 .tl-lib h4 { margin: 16px 0 8px; font: 600 11px/1.2 var(--tl-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--tl-smoke); }
 .tl-lib h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
 .tl-lib .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 184px), 1fr)); gap: 8px; }
-.tl-card { display: grid; gap: 4px; text-align: left; padding: 6px; border: 1px solid var(--tl-line); border-radius: 10px; background: var(--tl-ink2); min-height: 44px; }
+.tl-card { display: grid; gap: 4px; align-content: start; text-align: left; padding: 6px; border: 1px solid var(--tl-line); border-radius: 10px; background: var(--tl-ink2); min-height: 44px; }
 .tl-card:hover { border-color: #4a453e; }
 .tl-card canvas { width: 100%; aspect-ratio: 8 / 5; height: auto; display: block; border-radius: 6px; background: #11100e; }
 .tl-card b { font-size: 12px; font-weight: 600; }
-.tl-card span { font-size: 11px; color: var(--tl-smoke); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tl-card span { font-size: 11px; line-height: 1.35; max-height: 2.7em; color: var(--tl-smoke); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tl-lib .note { color: var(--tl-smoke); font-size: 12px; }
 
 /* ---------------------------------------------------------------- phones */

@@ -269,6 +269,8 @@ test.describe('on a phone', () => {
     const lb = (await lane.boundingBox())!;
     const y = lb.y + lb.height / 2;
     const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', pts: Array<[number, number]>) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, yy], id) => ({ x, y: yy, id })) });
+    // taps through the same touch channel as the gestures (mixing it with the page's own tap() loses clicks)
+    const tap = async (l: ReturnType<Page['locator']>) => { const b = (await l.boundingBox())!; await touch('touchStart', [[b.x + b.width / 2, b.y + b.height / 2]]); await touch('touchEnd', []); };
     // two fingers apart: zoom in
     const pps0 = Number(await page.locator('.tl').getAttribute('data-pps'));
     const cx = lb.x + lb.width / 2;
@@ -284,20 +286,23 @@ test.describe('on a phone', () => {
     await touch('touchEnd', []);
     expect(Number(await page.locator('.tl').getAttribute('data-start'))).toBeGreaterThan(s0);
     // long press on a clip: its menu
-    await page.locator('.tl').evaluate(() => undefined);
-    await page.getByRole('button', { name: 'Ver todo' }).tap();
+    await tap(page.getByRole('button', { name: 'Ver todo' }));
+    // (the click of a tap may land a moment later: wait for the whole length to be in view again)
+    await expect.poll(async () => Number(await page.locator('.tl').getAttribute('data-pps'))).toBeLessThan(pps1 / 1.4);
     const c = (await page.locator('[data-clip="c-entra"]').boundingBox())!;
     await touch('touchStart', [[c.x + c.width / 2, c.y + c.height / 2]]);
     await page.waitForTimeout(700);
     await touch('touchEnd', []);
     const menu = page.getByRole('menu');
     await expect(menu).toBeVisible();
-    await menu.getByRole('menuitem', { name: 'Al revés' }).tap();
+    await tap(menu.getByRole('menuitem', { name: 'Al revés' }));
+    await expect(menu).toBeHidden();
     expect((await ev<{ reverse: boolean }>(page, 'qa => qa.clip("c-entra")')).reverse).toBe(true);
     // a tap on a clip opens its panel as a sheet
-    await page.locator('[data-clip="c-glitch"]').tap();
+    await tap(page.locator('[data-clip="c-glitch"]'));
     await expect(page.getByRole('dialog', { name: /Glitch/ })).toBeVisible();
-    await page.getByRole('button', { name: 'Cerrar' }).first().tap();
+    await tap(page.getByRole('button', { name: 'Cerrar' }).first());
+    await expect(page.getByRole('dialog', { name: /Glitch/ })).toBeHidden();
     // controls of the bar and the rows are at least 44 px tall
     const small = await page.locator('.tl-bar button, .tl-head button.name, .tl-head .mini').evaluateAll(els => els.filter(e => (e as HTMLElement).offsetParent && e.getBoundingClientRect().height < 43.5).map(e => e.getAttribute('aria-label') ?? e.textContent));
     expect(small).toEqual([]);
