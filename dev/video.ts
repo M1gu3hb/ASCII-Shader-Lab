@@ -734,6 +734,94 @@ async function measureFlow() {
   return { w: g.w, h: g.h, cpu, gl, agree };
 }
 
+/* ------------------------------------------------------------------ a person moving: background removal */
+
+/** Hand-drawn outline of the person in tests/fixtures/photos/retrato-pelo.jpg (1024×858 px; from tests/e2e/cutout.spec.ts). */
+const PORTRAIT = [330, 72, 400, 66, 470, 80, 540, 110, 600, 160, 640, 220, 670, 290, 700, 360, 725, 440, 745, 520, 790, 590, 825, 650, 835, 740, 828, 858, 90, 858, 70, 760, 60, 660, 70, 600, 130, 570, 135, 500, 130, 420, 140, 340, 160, 260, 190, 190, 230, 130, 280, 90];
+const PORTRAIT_CLIP = { w: 480, h: 400, fps: 10, seconds: 2, scale: 0.5, travel: 32 };
+const portraitShift = (i: number) => Math.round((PORTRAIT_CLIP.travel * i) / Math.max(1, PORTRAIT_CLIP.fps * PORTRAIT_CLIP.seconds - 1));
+
+/** The CC0 portrait panning sideways (the person moves across the frame), 480×400, 10 fps, 2 s, no sound. */
+async function makePortraitClip(): Promise<{ ref: MediaRef; ms: number }> {
+  const t0 = performance.now();
+  const bmp = await createImageBitmap(await (await fetch('/tests/fixtures/photos/retrato-pelo.jpg')).blob());
+  const mb = await import('mediabunny');
+  const P = PORTRAIT_CLIP;
+  const c = document.createElement('canvas');
+  c.width = P.w; c.height = P.h;
+  const x = c.getContext('2d')!;
+  const target = new mb.BufferTarget();
+  const output = new mb.Output({ format: new mb.WebMOutputFormat(), target });
+  const src = new mb.CanvasSource(c, { codec: 'vp9', quality: mb.QUALITY_VERY_HIGH, keyFrameInterval: 1 });
+  output.addVideoTrack(src, { frameRate: P.fps });
+  await output.start();
+  const n = P.fps * P.seconds;
+  for (let i = 0; i < n; i++) {
+    x.drawImage(bmp, -portraitShift(i), 0, bmp.width * P.scale, bmp.height * P.scale);
+    await src.add(i / P.fps, 1 / P.fps);
+  }
+  await output.finalize();
+  bmp.close();
+  const blob = new Blob([target.buffer!], { type: 'video/webm' });
+  const name = 'retrato-paneo.webm';
+  const r = await put(blob, { kind: 'video', name, w: P.w, h: P.h });
+  keepBlob(r.id, blob, name);
+  return { ref: { id: r.id, kind: 'video', name, type: 'video/webm', size: blob.size, w: P.w, h: P.h }, ms: Math.round(performance.now() - t0) };
+}
+
+/** The person's mask in frame i, at w×h of the (portrait) project frame. */
+function portraitTruth(i: number, w: number, h: number): Float32Array {
+  const P = PORTRAIT_CLIP;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  const k = w / P.w;
+  x.beginPath();
+  for (let j = 0; j < PORTRAIT.length; j += 2) {
+    const px = (PORTRAIT[j] * P.scale - portraitShift(i)) * k, py = PORTRAIT[j + 1] * P.scale * k;
+    if (j === 0) x.moveTo(px, py); else x.lineTo(px, py);
+  }
+  x.closePath();
+  x.fillStyle = '#fff';
+  x.fill();
+  const d = x.getImageData(0, 0, w, h).data;
+  const m = new Float32Array(w * h);
+  for (let j = 0; j < m.length; j++) m[j] = d[j * 4] / 255;
+  return m;
+}
+
+async function runMatte(o: { smooth?: number; size?: number } = {}) {
+  const { removeBackgroundVideo, estimateBackgroundVideo } = await import('../src/video/index');
+  const est = await estimateBackgroundVideo(project!, { model: 'portrait', size: o.size ?? 256 });
+  const t0 = performance.now();
+  const part = await removeBackgroundVideo(project!, { source: project!.sources[0].id, model: 'portrait', size: o.size ?? 256, smooth: o.smooth ?? 0.5 });
+  const ms = Math.round(performance.now() - t0);
+  const { storeBlob } = await import('../src/project/sources');
+  const scores: number[] = [];
+  let flicker = 0;
+  let prev: Float32Array | null = null;
+  for (const [i, f] of (part.frames ?? []).entries()) {
+    const got = await storeBlob(f.media.id!);
+    const bmp = await createImageBitmap(got!.blob);
+    const c = document.createElement('canvas');
+    c.width = bmp.width; c.height = bmp.height;
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.drawImage(bmp, 0, 0);
+    bmp.close();
+    const d = x.getImageData(0, 0, c.width, c.height).data;
+    const m = new Float32Array(c.width * c.height);
+    for (let j = 0; j < m.length; j++) m[j] = d[j * 4] / 255;
+    scores.push(Math.round(iou(m, portraitTruth(i, c.width, c.height)) * 1000) / 1000);
+    // temporal stability: mean absolute change of the matte from one frame to the next (the person moves 1.7 px/frame)
+    if (prev) { let s = 0; for (let j = 0; j < m.length; j++) s += Math.abs(m[j] - prev[j]); flicker += s / m.length; }
+    prev = m;
+  }
+  const n = part.frames?.length ?? 0;
+  timing(`Quitar el fondo del video (retrato ${o.size ?? 256} px, suavizado ${o.smooth ?? 0.5})`, `${n} cuadros en ${ms} ms (${Math.round(ms / Math.max(1, n))} ms/cuadro) · IoU media ${(scores.reduce((a, b) => a + b, 0) / Math.max(1, n)).toFixed(3)} · estimado: ${est.text}`);
+  applyTracked(part);
+  return { ms, frames: n, scores, estimate: est, flicker: Math.round((flicker / Math.max(1, n - 1)) * 10000) / 10000, origin: part.origin };
+}
+
 /* ------------------------------------------------------------------ open codecs (a cancel must close them all) */
 
 const codecs = new Set<{ state: string }>();
@@ -811,6 +899,22 @@ const vq: Vq = {
   measureFlow: () => measureFlow(),
   squareAt: (t: number) => squareAt(clip!.spec, t),
   project: () => project,
+  /** A model of src/cutout downloaded and verified (the test routes Hugging Face to local files). */
+  downloadModel: async (id: 'select' | 'portrait') => { const cut = await import('../src/cutout'); await cut.downloadModel(id); return cut.modelState(id); },
+  cutoutCaps: async () => { const cut = await import('../src/cutout'); const c = await cut.cutoutCaps(); return { backend: c.backend, threads: c.threads, models: c.models.map(m => ({ id: m.id, available: m.available, bytes: m.bytes })) }; },
+  portrait: async () => {
+    const c = await makePortraitClip();
+    const P = PORTRAIT_CLIP;
+    clip = { ref: c.ref, spec: { ...DEFAULT_CLIP, w: P.w, h: P.h, fps: P.fps, seconds: P.seconds, audio: false } };
+    project = projectFromVideo(c.ref, { duration: P.seconds, fps: P.fps, hasAudio: false }, { name: 'Retrato' });
+    const style = preset('media', 'fosforo');
+    style.glyph.cell = 7;
+    project.layers.push(newLayer('ascii', { name: 'Persona en ASCII', source: project.sources[0].id, style, opaque: false }));
+    mountPlayback();
+    await refreshFormats();
+    return { ms: c.ms, w: P.w, h: P.h, frames: P.fps * P.seconds };
+  },
+  matte: (o?: { smooth?: number; size?: number }) => runMatte(o),
 };
 (window as unknown as { vq: Vq }).vq = vq;
 
