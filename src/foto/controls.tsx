@@ -137,11 +137,11 @@ export function TextField({ label, value, onChange, area, mono, rows = 3, max = 
 }
 
 /** A collapsible group of controls with its heading (the inspector's modules). */
-export function Section({ title, children, open: open0 = true, extra, count }: { title: string; children: ReactNode; open?: boolean; extra?: ReactNode; count?: ReactNode }) {
+export function Section({ title, children, open: open0 = true, extra, count, className }: { title: string; children: ReactNode; open?: boolean; extra?: ReactNode; count?: ReactNode; className?: string }) {
   const [open, setOpen] = useState(open0);
   const id = useId();
   return (
-    <section className={'fsec' + (open ? ' open' : '')} aria-labelledby={id + 'h'}>
+    <section className={'fsec' + (open ? ' open' : '') + (className ? ' ' + className : '')} aria-labelledby={id + 'h'}>
       <div className="fsec-h">
         <button type="button" id={id + 'h'} className="fsec-t" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
           <span className="fsec-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>{title}{count !== undefined && <span className="fsec-n">{count}</span>}

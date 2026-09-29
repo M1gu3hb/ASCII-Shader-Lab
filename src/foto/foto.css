@@ -54,6 +54,8 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fvt-z { min-width: 54px; height: 32px; border: 0; background: none; color: var(--text); font: 500 11.5px/1 var(--font-mono); border-radius: 7px; font-variant-numeric: tabular-nums; }
 .fvt-z:hover { background: var(--field); }
 .fvt-hold .lbl-s { display: none; }
+.app.foto .fvt-mv { font-size: 12.5px; }
+.foto-phone .fvt-mv, .foto-land .fvt-mv { display: none; }
 .app.foto .fvt-hold { font-size: 12.5px; }
 .fq { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-2); background: #090808; color: var(--muted); font: 600 9.5px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; }
 .fq .fq-ms { font: 500 11px/1 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--dim); }
@@ -76,7 +78,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .tbtn:hover { color: var(--text); background: var(--field); border-color: var(--line); }
 .tbtn[aria-pressed="true"] { color: var(--ink); background: var(--bone); }
 .tbtn kbd { position: absolute; right: 2px; bottom: 1px; font: 600 8.5px/1 var(--font-mono); opacity: .6; border: 0; padding: 0; }
-.trail-empty { writing-mode: vertical-rl; transform: rotate(180deg); margin: 10px 0; font: 500 9.5px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); opacity: .7; }
+.trail-empty { writing-mode: vertical-rl; transform: rotate(180deg); margin: 10px 0; font: 500 10px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
 .trail-sep { width: 24px; height: 1px; background: var(--line); margin: 4px 0; flex: none; }
 .frail.horiz { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; border: 0; padding: 0 0 10px; background: none; overflow: visible; }
 .frail.horiz .trail-g { flex-direction: row; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 6px; margin: 0; }

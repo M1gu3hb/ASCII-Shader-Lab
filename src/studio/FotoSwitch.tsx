@@ -61,7 +61,7 @@ export function FotoSwitch() {
     }
   };
   return (
-    <nav className="sw" aria-label="Estudios de GLYPHOS" ref={box}>
+    <nav className="sw compact" aria-label="Estudios de GLYPHOS" ref={box}>
       <a className="sw-seg" href="/studio/" aria-current="page" title="Laboratorio: patrones, fondos, texto y terminal">
         <span className="sw-long">Laboratorio</span><span className="sw-short" aria-hidden="true">Lab</span>
       </a>

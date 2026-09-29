@@ -37,9 +37,15 @@ export function videoInfo(file: Blob): Promise<{ w: number; h: number; duration:
     const done = (r: { w: number; h: number; duration: number } | null) => { URL.revokeObjectURL(url); v.removeAttribute('src'); v.load(); res(r); };
     const t = setTimeout(() => done(null), 15_000);
     v.addEventListener('loadedmetadata', () => {
-      clearTimeout(t);
-      const d = Number.isFinite(v.duration) ? v.duration : 0;
-      done(v.videoWidth > 0 ? { w: v.videoWidth, h: v.videoHeight, duration: d } : null);
+      if (!(v.videoWidth > 0)) { clearTimeout(t); done(null); return; }
+      if (Number.isFinite(v.duration)) { clearTimeout(t); done({ w: v.videoWidth, h: v.videoHeight, duration: v.duration }); return; }
+      // a recording without its length in the header (MediaRecorder files): seeking far makes the browser find it
+      v.addEventListener('durationchange', () => {
+        if (!Number.isFinite(v.duration)) return;
+        clearTimeout(t);
+        done({ w: v.videoWidth, h: v.videoHeight, duration: v.duration });
+      });
+      v.currentTime = 1e7;
     }, { once: true });
     v.addEventListener('error', () => { clearTimeout(t); done(null); }, { once: true });
     v.src = url;

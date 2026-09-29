@@ -11,7 +11,7 @@ import type { MaskOp } from '../project/types';
 import { IDice, IDownload, INext, IPrev, IRedo, IStar, IUndo, ILock, IUnlock } from '../studio/icons';
 import { azar, favorite, next, prev, redo, saveVersion, toggleCompare, undo, zoomFit, zoomStep, zoomTo, goVersion } from './actions';
 import { activeTool, host } from './host';
-import { ICompare, IFit, IHand, IHelp, ILab, IScissors, ISettings, IZoomIn, IZoomOut, IFolder, ISave } from './icons';
+import { ICompare, IFit, IHand, IHelp, ILab, IMask, IScissors, ISettings, IZoomIn, IZoomOut, IFolder, ISave } from './icons';
 import { selectTool } from './keys';
 import { backToStart } from './session';
 import { TOOLS } from './tools/index';
@@ -74,7 +74,7 @@ export function TopBar({ editing }: { editing: boolean }) {
           </div>
         )}
         <div className="tb-group">
-          <button type="button" className="ib ghost hide-sm" onClick={() => openSheet('settings')} title="Ajustes: calidad de la vista y modelos descargados" aria-label="Ajustes"><ISettings /></button>
+          <button type="button" className="ib ghost hide-sm" onClick={() => openSheet('settings')} title="Ajustes: calidad de la vista y modelos descargados" aria-label="Ajustes del estudio"><ISettings /></button>
           <button type="button" className="ib ghost hide-sm" onClick={() => openSheet('help')} title="Atajos y ayuda (?)" aria-label="Atajos y ayuda"><IHelp /></button>
         </div>
         {editing && (
@@ -174,6 +174,7 @@ export function ViewTools() {
         <button type="button" className="ib ghost" onClick={() => zoomStep(1, k)} aria-label="Acercar (+)" title="Acercar (+)"><IZoomIn /></button>
         <button type="button" className="ib ghost" aria-pressed={zoom === 'fit'} onClick={zoomFit} aria-label="Ajustar a la ventana (0)" title="Ajustar a la ventana (0)"><IFit /></button>
       </div>
+      <MaskViewButton />
       <div className="fvt-g" role="group" aria-label="Comparar con el original">
         <button type="button" className="ib ghost" aria-pressed={compare} onClick={toggleCompare} title="Antes y después: divisor arrastrable (C)" aria-label="Antes y después (C)"><ICompare /></button>
         <button type="button" className="ib ghost fvt-hold" title="Mantén pulsado para ver el original"
@@ -193,6 +194,23 @@ export function ViewTools() {
           Motor básico
         </span>
       )}
+    </div>
+  );
+}
+
+/** Cycles the mask view of the selected layer (tint · mask only · hidden) when it has a mask. */
+function MaskViewButton() {
+  const view = useFoto(s => s.maskView);
+  const has = useProject(s => { const l = s.project?.layers.find(x => x.id === s.selection[0]); return !!l?.mask?.parts.length; });
+  if (!has) return null;
+  const names: Record<string, string> = { tint: 'Tinte', grey: 'Sólo máscara', off: 'Oculta' };
+  const nextV = view === 'tint' ? 'grey' : view === 'grey' ? 'off' : 'tint';
+  return (
+    <div className="fvt-g">
+      <button type="button" className="ib ghost" aria-pressed={view !== 'off'} onClick={() => setUI({ maskView: nextV })}
+        title={`Vista de la máscara: ${names[view]} (pulsa para ${names[nextV].toLowerCase()})`} aria-label={`Vista de la máscara: ${names[view]}`}>
+        <IMask /><span className="lbl fvt-mv">{names[view]}</span>
+      </button>
     </div>
   );
 }

@@ -32,7 +32,7 @@ export function MaskSection({ l, p }: { l: Layer; p: Project }) {
     say(`${PART_NAMES[kind]} añadido a la máscara, en el centro. Ajusta sus números abajo o con las herramientas.`);
   };
   return (
-    <Section title="Máscara" count={m ? m.parts.length : undefined}>
+    <Section title="Máscara" className="fmask" count={m ? m.parts.length : undefined}>
       <SegGroup label="Vista de la máscara" value={view} opts={VIEWS} onPick={v => setUI({ maskView: v })} />
       {!m && <Note>Sin máscara: la capa se ve en todo el cuadro. Dibuja una zona con las herramientas, o añade una aquí.</Note>}
       {m && (

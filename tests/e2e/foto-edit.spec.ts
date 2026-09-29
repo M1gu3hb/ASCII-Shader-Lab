@@ -143,3 +143,20 @@ test('capas: orden (teclado y arrastre), opacidad, fusión, visibilidad, acabado
   expect(base.hash).not.toBe(off.hash);
   expect(errors).toEqual([]);
 });
+
+test('«Quitar fondo» abre el panel «Recorte» (con su cierre); los ajustes dicen qué modelos hay guardados', async ({ page }) => {
+  const errors = await openFoto(page);
+  await startFromPhoto(page);
+  await page.getByRole('toolbar', { name: 'Herramientas' }).getByRole('button', { name: 'Quitar fondo' }).click();
+  const panel = page.getByRole('complementary', { name: 'Recorte' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Recorte' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Cerrar el recorte' }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page.locator('.fl-list')).toBeVisible();
+  await page.getByRole('button', { name: 'Ajustes del estudio' }).click();
+  const settings = page.getByRole('dialog', { name: 'Ajustes' });
+  await expect(settings.locator('.fmodels')).toContainText(/Ninguno|MB/);
+  await expect(settings.getByRole('button', { name: 'Borrar los modelos descargados' })).toBeVisible();
+  expect(errors).toEqual([]);
+});

@@ -119,7 +119,7 @@ function Editor({ layout }: { layout: Layout }) {
           <aside className="fpanel" aria-label="Capas y ajustes">
             {cutoutPanel || (
               <>
-                <Layers onOpenMask={() => document.querySelector<HTMLElement>('.finsp .fsec [aria-controls]')?.scrollIntoView({ block: 'nearest' })} />
+                <Layers onOpenMask={() => requestAnimationFrame(() => document.querySelector<HTMLElement>('.finsp .fmask')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))} />
                 <Inspector />
               </>
             )}
