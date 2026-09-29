@@ -10,6 +10,9 @@ import { finalRender, framePoint, installTestTool, openFoto, project } from './f
 type Pt = { x: number; y: number };
 async function touch(client: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', points: Pt[]) {
   await client.send('Input.dispatchTouchEvent', { type, touchPoints: points.map((p, i) => ({ x: p.x, y: p.y, id: i + 1, radiusX: 4, radiusY: 4, force: 0.5 })) });
+  // a quick one-finger swipe ends in a fling, and Chrome swallows the click of a tap that lands while it
+  // stops one (measured: every tap within ~0 ms of such a swipe, none after 450 ms), as on a real phone
+  if (type === 'touchEnd') await new Promise(r => setTimeout(r, 450));
 }
 const ui = (page: Page) => page.evaluate(() => (window as unknown as { __foto: { ui(): { zk: number; pan: { x: number; y: number }; snap: string; tool: string | null } } }).__foto.ui());
 

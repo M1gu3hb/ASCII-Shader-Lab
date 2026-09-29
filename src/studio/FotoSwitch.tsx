@@ -62,14 +62,14 @@ export function FotoSwitch() {
   };
   return (
     <nav className="sw compact" aria-label="Estudios de GLYPHOS" ref={box}>
-      <a className="sw-seg" href="/studio/" aria-current="page" title="Laboratorio: patrones, fondos, texto y terminal">
-        <span className="sw-long">Laboratorio</span><span className="sw-short" aria-hidden="true">Lab</span>
+      {/* one accessible name whichever label shows (the short ones on narrower bars) */}
+      <a className="sw-seg" href="/studio/" aria-current="page" aria-label="Laboratorio" title="Laboratorio: patrones, fondos, texto y terminal">
+        <span className="sw-long">Laboratorio</span><span className="sw-short">Lab</span>
       </a>
       <div className="sw-go">
-        <button type="button" className="sw-seg" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} title="Foto y video: capas, máscaras y recortes sobre tu foto"
+        <button type="button" className="sw-seg" aria-label="Foto y video" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} title="Foto y video: capas, máscaras y recortes sobre tu foto"
           onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}>
-          <span className="sw-long">Foto y video</span><span className="sw-short" aria-hidden="true">Foto</span>
-          <span className="sr-only"> (menú)</span>
+          <span className="sw-long">Foto y video</span><span className="sw-short">Foto</span>
         </button>
         {open && (
           <div className="sw-menu" role="menu" onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); box.current?.querySelector<HTMLButtonElement>('.sw-go > button')?.focus(); } }}>

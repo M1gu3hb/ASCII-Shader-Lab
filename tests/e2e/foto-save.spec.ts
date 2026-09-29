@@ -73,8 +73,10 @@ test('el archivo del proyecto (.glyphos.zip) se abre igual; proyectos recientes 
   await page.locator('.toast', { hasText: '«Frutero» eliminado' }).getByRole('button', { name: 'Deshacer' }).click();
   await expect(page.locator('.fs-card')).toHaveCount(3);
   await page.getByRole('button', { name: 'Abrir «Frutero»' }).click();
+  // opening first lets the autosaver finish, then reads the project: wait for the editor
+  await expect(page.locator('.fv-art')).toBeVisible();
+  await expect.poll(async () => (await project(page))?.name).toBe('Frutero');
   await finalRender(page);
-  expect((await project(page)).name).toBe('Frutero');
   expect((await settle(page)).hash).toBe(h.hash);
   expect(errors).toEqual([]);
 });

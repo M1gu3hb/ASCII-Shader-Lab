@@ -28,17 +28,17 @@ import './switch.css';
 export function StudioSwitch({ current }: { current: 'lab' | 'foto' }) {
   return (
     <nav className="sw" aria-label="Estudios de GLYPHOS">
-      <a className="sw-seg" href="/studio/" aria-current={current === 'lab' ? 'page' : undefined} title="Laboratorio: patrones, fondos, texto y terminal"
+      <a className="sw-seg" href="/studio/" aria-current={current === 'lab' ? 'page' : undefined} aria-label="Laboratorio" title="Laboratorio: patrones, fondos, texto y terminal"
         onClick={e => {
           // what is waiting to be saved goes first (a page being left may not finish its writes)
           if (current !== 'foto' || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
           e.preventDefault();
           void import('../project/store').then(s => s.saveNow()).finally(() => { location.href = '/studio/'; });
         }}>
-        <span className="sw-long">Laboratorio</span><span className="sw-short" aria-hidden="true">Lab</span>
+        <span className="sw-long">Laboratorio</span><span className="sw-short">Lab</span>
       </a>
-      <a className="sw-seg" href="/studio/foto/" aria-current={current === 'foto' ? 'page' : undefined} title="Foto y video: capas, máscaras y recortes sobre tu foto">
-        <span className="sw-long">Foto y video</span><span className="sw-short" aria-hidden="true">Foto</span>
+      <a className="sw-seg" href="/studio/foto/" aria-current={current === 'foto' ? 'page' : undefined} aria-label="Foto y video" title="Foto y video: capas, máscaras y recortes sobre tu foto">
+        <span className="sw-long">Foto y video</span><span className="sw-short">Foto</span>
       </a>
     </nav>
   );

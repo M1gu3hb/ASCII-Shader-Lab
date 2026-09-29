@@ -17,7 +17,7 @@ import { thumbVersion } from './actions';
 import { releaseViewport } from './scheduler';
 import { templateById, sampleRef } from './templates';
 import { importMedia, isProjectFile } from './media';
-import { say, setUI } from './ui';
+import { say, setUI, ui } from './ui';
 import type { MediaRef } from '../engine/recipe';
 
 const P = () => useProject.getState();
@@ -32,11 +32,11 @@ export function startEditing(p: Project, o: { versions?: VersionList; fresh?: bo
   const top = p.layers[p.layers.length - 1];
   openProject(p, { ...(o.versions ? { versions: o.versions } : {}), select: top ? [top.id] : [] });
   setUI({ screen: 'edit', zoom: 'fit', pan: { x: 0, y: 0 }, tool: null, compare: false, holding: false, snap: 'closed', compareWith: null });
-  setHash(p.id);
   if (o.fresh) {
     thumbVersion(commitVersion('inicio'));
-    void saveNow();
-  }
+    // the address names the project once it is saved: a reload before that would find nothing to open
+    void saveNow().finally(() => { if (P().project?.id === p.id && ui().screen === 'edit') setHash(p.id); });
+  } else setHash(p.id);
 }
 
 export async function openSavedProject(id: Id): Promise<boolean> {
