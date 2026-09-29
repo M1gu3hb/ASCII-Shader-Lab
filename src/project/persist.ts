@@ -62,11 +62,14 @@ function idsWith(p: Project, versions?: VersionList | null): Set<string> {
  * Saves a project (and, when given, its versions and a thumbnail; a thumbnail not given keeps the saved one).
  * The media refs are written first: a collection running meanwhile already keeps the files.
  */
-export async function saveProject(p: Project, o: { thumb?: string; versions?: VersionList } = {}): Promise<SaveResult> {
+export async function saveProject(p: Project, o: { thumb?: string; versions?: VersionList; keep?: Iterable<string> } = {}): Promise<SaveResult> {
   try {
     let versions = o.versions ?? null;
     if (!versions) versions = normalizeVersions(await get(V + p.id, store()));
-    await setMediaRefs(owner(p.id), idsWith(p, versions));
+    // (`keep`: files the open project may get back, e.g. by undo, though it does not use them now)
+    const ids = idsWith(p, versions);
+    for (const id of o.keep ?? []) ids.add(id);
+    await setMediaRefs(owner(p.id), ids);
     const prev = o.thumb ? undefined : await get<ProjectSummary>(S + p.id, store());
     await set(P + p.id, p, store());
     await set(S + p.id, summaryOf(p, o.thumb ?? prev?.thumb), store());
@@ -173,6 +176,8 @@ export interface Autosaver {
 export function autosaver(o: {
   get: () => Project | null;
   versions?: () => VersionList | null;
+  /** Media to keep listed besides the project's own (what undo and redo can bring back). */
+  keep?: () => Iterable<string>;
   thumb?: (p: Project) => Promise<string | null>;
   delay?: number;
   onSaved?: (r: SaveResult, p: Project) => void;
@@ -187,7 +192,7 @@ export function autosaver(o: {
     if (!p) return null;
     const job = (async () => {
       const thumb = o.thumb ? await o.thumb(p).catch(() => null) : null;
-      const r = await saveProject(p, { ...(thumb ? { thumb } : {}), ...(o.versions?.() ? { versions: o.versions()! } : {}) });
+      const r = await saveProject(p, { ...(thumb ? { thumb } : {}), ...(o.versions?.() ? { versions: o.versions()! } : {}), ...(o.keep ? { keep: o.keep() } : {}) });
       o.onSaved?.(r, p);
       return r;
     })();

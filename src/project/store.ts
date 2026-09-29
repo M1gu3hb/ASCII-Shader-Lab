@@ -14,6 +14,7 @@ import { create } from 'zustand';
 import type { LockGroup } from '../random/spaces';
 import { rollProject, varyProject, type DiceOptions, type DiceResult } from './dice';
 import { cloneProject, normalizeProject } from './normalize';
+import { projectMediaIds } from './refs';
 import {
   autosaver, deleteProject, listProjects, loadProject, loadVersions, saveProject, type Autosaver, type ProjectSummary, type SaveResult,
 } from './persist';
@@ -126,6 +127,17 @@ export function redo(): boolean {
 
 /** Steps held for undo and redo (for the UI and tests). */
 export const undoDepth = () => ({ past: past.length, future: future.length });
+
+/**
+ * Stored files that undo or redo can bring back (a deleted layer's painted mask, a replaced photo). Saves list
+ * them with the project's own, so a media collection (the lab's, from another tab) does not delete them while
+ * one undo would need them again.
+ */
+export function heldMediaIds(): Set<string> {
+  const ids = new Set<string>();
+  for (const p of [...past, ...future]) for (const id of projectMediaIds(p)) ids.add(id);
+  return ids;
+}
 
 /* ------------------------------------------------------------------ layers */
 
@@ -271,7 +283,7 @@ function diceStep(kind: VersionKind, run: (p: Project) => DiceResult): DiceResul
 export function startAutosave(o: { thumb?: (p: Project) => Promise<string | null>; delay?: number } = {}): () => Promise<void> {
   void saver?.stop();
   const s = autosaver({
-    get: () => S().project, versions: () => S().versions, ...(o.thumb ? { thumb: o.thumb } : {}), ...(o.delay ? { delay: o.delay } : {}),
+    get: () => S().project, versions: () => S().versions, keep: heldMediaIds, ...(o.thumb ? { thumb: o.thumb } : {}), ...(o.delay ? { delay: o.delay } : {}),
     onSaved: r => { useProject.setState({ storage: r }); void refreshSaved(); },
   });
   saver = s;
@@ -282,7 +294,7 @@ export async function saveNow(): Promise<SaveResult | null> {
   const p = S().project;
   if (!p) return null;
   if (saver) { saver.schedule(); return saver.flush(); }
-  const r = await saveProject(p, { versions: S().versions });
+  const r = await saveProject(p, { versions: S().versions, keep: heldMediaIds() });
   useProject.setState({ storage: r });
   await refreshSaved();
   return r;

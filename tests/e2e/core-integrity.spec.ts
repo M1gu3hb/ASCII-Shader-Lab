@@ -237,3 +237,32 @@ test('«Capa sola» of a layer that reads what is under it: its characters of th
     expect(r[kind].diff).toBeLessThanOrEqual(3);
   }
 });
+
+test('a media collection (the lab’s, in another tab) keeps the files undo can bring back', async ({ page }) => {
+  await blank(page);
+  const r = await run<{ layers: number; stored: boolean; kept: boolean }>(page, `${HELPERS}
+    const store = await import('/src/project/store.ts');
+    const persist = await import('/src/project/persist.ts');
+    const MS = await import('/src/studio/mediaStore.ts');
+    // a layer with a painted mask, its picture in the media store, the project saved
+    const { stored, ...ref } = await persist.putMedia(await png(true), { kind: 'image', name: 'mascara.png', w: 32, h: 32 });
+    const p = N.newProject({ w: 64, h: 64 });
+    const l = N.newLayer('shape', { name: 'Forma' });
+    l.mask = { invert: false, feather: 0, opacity: 1, parts: [{ kind: 'raster', op: 'add', media: ref, soft: 0, alpha: 1, origin: 'paint' }] };
+    p.layers.push(l);
+    store.openProject(p);
+    await store.saveNow();
+    // the layer is deleted and the project saved again; later the lab collects what nothing lists
+    store.removeLayer(l.id);
+    await store.saveNow();
+    await MS.gcMedia(new Set(), 0);
+    // one undo brings the layer back: its mask must still be there
+    store.undo();
+    const kept = await MS.hasMedia(ref.id);
+    await persist.deleteProject(p.id);
+    return { layers: store.useProject.getState().project.layers.length, stored, kept };
+  `);
+  expect(r.stored).toBe(true);
+  expect(r.layers).toBe(1);
+  expect(r.kept).toBe(true);
+});
