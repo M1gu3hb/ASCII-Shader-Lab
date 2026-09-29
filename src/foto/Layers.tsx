@@ -144,7 +144,13 @@ function LayerRow({ l, p, selected, dragging, dropHere, onGrip, onOpenMask }: {
   const key = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); e.stopPropagation(); nudgeLayer(l.id, e.key === 'ArrowUp' ? 1 : -1); return; }
     if (e.key === 'F2') { e.preventDefault(); setRenaming(true); return; }
-    if (e.key === 'Delete') { e.preventDefault(); deleteLayer(l.id); return; }
+    if (e.key === 'Delete') {
+      e.preventDefault();
+      deleteLayer(l.id);
+      // the focus goes on to the layer now selected (the row it was on is gone)
+      requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.lr.on .lr-main')?.focus());
+      return;
+    }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       e.stopPropagation();

@@ -159,6 +159,13 @@ test('capas: orden (teclado y arrastre), opacidad, fusión, visibilidad, acabado
   await page.keyboard.press('Control+Z');
   p = await project(page);
   expect(p.layers.map(l => l.kind)).toEqual(['photo', 'text', 'glyphs']);
+  // Supr on a layer deletes it and the keyboard goes on from the layer selected next (the focus is not lost)
+  await page.locator(`.lr[data-id="${p.layers[1].id}"] .lr-main`).focus();
+  await page.keyboard.press('Delete');
+  expect((await project(page)).layers.map(l => l.kind)).toEqual(['photo', 'glyphs']);
+  await expect(page.locator('.lr.on .lr-main')).toBeFocused();
+  await page.keyboard.press('Control+Z');
+  expect((await project(page)).layers.map(l => l.kind)).toEqual(['photo', 'text', 'glyphs']);
 
   // opacity and blend of the selected layer (characters)
   await page.locator('.lr', { hasText: 'Caracteres' }).locator('.lr-main').click();
