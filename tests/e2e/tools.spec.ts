@@ -477,10 +477,10 @@ test('the part editor: click selects the topmost part, a vertex drags, a double-
   await drag([[0.45, 0.45], [0.55, 0.55]], { mods: ['Alt'] });
   await tool('editar-partes');
   await click(0.5, 0.5);
-  await expect(page.locator('#opts [data-tool="editar-partes"] .tl-title')).toContainText('Elipse');
+  await expect(page.locator('#opts [data-tool="editar-partes"] .tool-title')).toContainText('Elipse');
   await page.keyboard.press('Escape');
   await click(0.35, 0.35);
-  await expect(page.locator('#opts [data-tool="editar-partes"] .tl-title')).toContainText('PolÃ­gono');
+  await expect(page.locator('#opts [data-tool="editar-partes"] .tool-title')).toContainText('PolÃ­gono');
   // drag the (0.7, 0.3) vertex
   const v = await at(page, 0.7, 0.3);
   await page.mouse.move(v.x, v.y);
@@ -576,13 +576,13 @@ test('object tool: nothing downloads before consent; points select the guitar; Â
   const before = await sample(probe);
   for (const [x, y] of [[0.43, 0.41], [0.16, 0.68], [0.55, 0.74]] as Array<[number, number]>) await click(x, y);
   await page.waitForFunction(() => { const s = (window as unknown as { qa: { objectState(): { phase: string; matte: boolean } } }).qa.objectState(); return s.matte && s.phase === 'ready'; }, null, { timeout: 120_000 });
-  await expect(page.locator('.tl-points li')).toHaveCount(3);
+  await expect(page.locator('.tool-points li')).toHaveCount(3);
   // a point can be removed (the mask updates), then added back as a negative one with âŒ¥
   await page.getByRole('button', { name: 'Quitar el punto 3' }).click();
-  await expect(page.locator('.tl-points li')).toHaveCount(2);
+  await expect(page.locator('.tool-points li')).toHaveCount(2);
   await click(0.55, 0.74);
   await click(0.08, 0.08, ['Alt']);
-  await expect(page.locator('.tl-points .neg')).toHaveCount(1);
+  await expect(page.locator('.tool-points .neg')).toHaveCount(1);
   await page.waitForFunction(() => { const s = (window as unknown as { qa: { objectState(): { phase: string; matte: boolean } } }).qa.objectState(); return s.matte && s.phase === 'ready'; }, null, { timeout: 120_000 });
   await page.waitForTimeout(400);
   await page.getByRole('button', { name: /^Aceptar/ }).click();
@@ -600,7 +600,7 @@ test('object tool: nothing downloads before consent; points select the guitar; Â
   await page.keyboard.press('Tab');
   await page.getByRole('button', { name: 'Editar puntos' }).click();
   expect(await qa('tool')).toBe('objeto');
-  await expect(page.locator('.tl-points li')).toHaveCount(4);
+  await expect(page.locator('.tool-points li')).toHaveCount(4);
   await expect(page.getByRole('button', { name: /^Actualizar/ })).toBeVisible();
   // only model files were fetched from outside our origin, and nothing was uploaded
   for (const r of requests) {
