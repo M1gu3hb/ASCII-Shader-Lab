@@ -57,12 +57,12 @@ export async function newFromFile(file: File): Promise<boolean> {
   const r = await importMedia(file);
   if (!r.ok) { say(r.message); return false; }
   const p = r.kind === 'video'
-    ? projectFromVideo(r.ref, { duration: r.duration, fps: r.fps })
+    ? projectFromVideo(r.ref, { duration: r.duration, fps: r.fps, ...(r.hasAudio !== undefined ? { hasAudio: r.hasAudio } : {}) })
     : projectFromImage(r.ref);
   startEditing(p, { fresh: true });
   if (!r.stored) toast('Este archivo es demasiado grande para guardarlo en el navegador: funciona mientras la pestaña siga abierta.');
   say(r.kind === 'video'
-    ? 'Video abierto: recórrelo con la línea de tiempo y anima sus capas. Por ahora se exportan imágenes fijas del instante que muestra.'
+    ? `Video abierto: reprodúcelo${r.hasAudio ? ' (con su sonido)' : ''}, sigue un objeto con «Seguir objeto» (T) o quítale el fondo, y expórtalo en video o GIF.`
     : 'Foto abierta. Añade una capa ASCII o empieza por «Azar».');
   return true;
 }

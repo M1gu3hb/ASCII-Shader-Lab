@@ -290,6 +290,88 @@ function playState() {
   };
 }
 
+/* ------------------------------------------------------------------ the cost of tracked masks */
+
+/**
+ * Render time of the viewport's compositor with a tracked mask of `frames` frames (synthetic: a moving
+ * rectangle, 480 px PNGs kept in this tab) on the top layer, at `samples` different times — as the compositor
+ * prepares it now (only the one or two pictures a frame shows), and with the preparation it did before this
+ * change re-run by hand (every picture of the part decoded for each frame; the provider keeps 16).
+ */
+async function benchMasks(o: { frames?: number; samples?: number; scale?: number } = {}) {
+  const n = o.frames ?? 90, samples = o.samples ?? 12, scale = o.scale ?? 0.5;
+  const p = project();
+  const { keepBlob } = await import('../project/sources');
+  const { hashBytes } = await import('../studio/mediaStore');
+  const { Compositor } = await import('../project/compositor');
+  const w = 480, h = Math.max(16, Math.round((480 * p.canvas.h) / p.canvas.w));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const x = c.getContext('2d')!;
+  const frames: Array<{ t: number; media: import('../engine/recipe').MediaRef }> = [];
+  const fps = p.time.fps || 30;
+  for (let i = 0; i < n; i++) {
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#fff'; x.fillRect(20 + (i / n) * (w - 100), h / 3, 60, h / 3);
+    const blob = await new Promise<Blob>(r => c.toBlob(b => r(b!), 'image/png'));
+    const id = await hashBytes(new Uint8Array(await blob.arrayBuffer()));
+    keepBlob(id, blob, `pista-${String(i).padStart(6, '0')}.png`);
+    frames.push({ t: i / fps, media: { id, kind: 'image', name: `pista-${String(i).padStart(6, '0')}.png`, type: 'image/png', size: blob.size, w, h } });
+  }
+  const part: MaskRasterPart = { kind: 'raster', op: 'add', media: frames[0].media, frames, interp: true, soft: 0, alpha: 1, origin: 'track' };
+  const q = JSON.parse(JSON.stringify(p)) as Project;
+  const top = q.layers[q.layers.length - 1];
+  top.mask = { invert: false, feather: 0, opacity: 1, parts: [part] };
+  const times = Array.from({ length: samples }, (_, i) => ((i * 7) % n) / fps);
+  const { clearMaskCache } = await import('../project/masks');
+  const run = async (old: boolean) => {
+    // (the masks' own cache is shared by every compositor: each run starts without it)
+    clearMaskCache();
+    const comp = new Compositor({ maxEngines: 2 });
+    const out = document.createElement('canvas');
+    const ms: number[] = [];
+    try {
+      await comp.render(evaluate(q, 0), out, { scale, quality: 'preview' });
+      for (const t of times) {
+        const t0 = performance.now();
+        if (old) await Promise.all([part.media, ...frames.map(f => f.media)].map(m => comp.provider.prepareMedia(m)));
+        await comp.render(evaluate(q, t), out, { scale, quality: 'preview' });
+        ms.push(performance.now() - t0);
+      }
+    } finally { comp.destroy(); comp.provider.release(); }
+    const mean = ms.reduce((a, b) => a + b, 0) / ms.length;
+    return { meanMs: Math.round(mean * 10) / 10, worstMs: Math.round(Math.max(...ms)) };
+  };
+  const before = await run(true);
+  const after = await run(false);
+  c.width = c.height = 0;
+  return { frames: n, samples, scale, w: Math.round(p.canvas.w * scale), h: Math.round(p.canvas.h * scale), before, after };
+}
+
+/** A photo sequence project (each photo `hold` s) from photos given as base64 JPEGs, opened in the editor. */
+async function sequenceProject(photos: string[], hold = 0.25, size = 320) {
+  const { putMedia } = await import('../project/persist');
+  const { projectFromSequence } = await import('../project/normalize');
+  const { startEditing } = await import('./session');
+  const refs: import('../engine/recipe').MediaRef[] = [];
+  for (const [i, d] of photos.entries()) {
+    // small copies (the test only needs different pictures)
+    const bmp = await createImageBitmap(fromB64(d, 'image/jpeg'));
+    const k = size / Math.max(bmp.width, bmp.height);
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    const blob = await new Promise<Blob>(r => c.toBlob(b => r(b!), 'image/jpeg', 0.9));
+    const { stored: _s, ...ref } = await putMedia(blob, { kind: 'image', name: `foto-${i + 1}.jpg`, w: c.width, h: c.height });
+    refs.push(ref);
+  }
+  const p = projectFromSequence(refs, hold, { name: 'Secuencia de prueba' });
+  p.time.fps = 12;
+  startEditing(p, { fresh: true });
+  return { frames: refs.length, duration: p.time.duration };
+}
+
 export function installVideoQA() {
-  window.__fotoVideo = { clip, portraitClip, squareAt, trackScores, portraitScores, tone, playState };
+  window.__fotoVideo = { clip, portraitClip, squareAt, trackScores, portraitScores, tone, playState, benchMasks, sequenceProject };
 }

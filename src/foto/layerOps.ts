@@ -56,10 +56,10 @@ export function addLayerOf(kind: LayerKind, init: Partial<Layer> = {}): Id | nul
 }
 
 /** A new photo source from a stored file, with a photo layer showing it. */
-export function addPhotoSource(ref: MediaRef, o: { duration?: number; fps?: number } = {}): Id | null {
+export function addPhotoSource(ref: MediaRef, o: { duration?: number; fps?: number; hasAudio?: boolean } = {}): Id | null {
   const p = P().project;
   if (!p) return null;
-  const s: Source = sourceFromMedia(ref, o.duration !== undefined ? { duration: o.duration, fps: o.fps } : {});
+  const s: Source = sourceFromMedia(ref, o.duration !== undefined ? { duration: o.duration, fps: o.fps, ...(o.hasAudio !== undefined ? { hasAudio: o.hasAudio } : {}) } : {});
   const layer = newLayer('photo', { name: ref.name ? ref.name.replace(/\.[a-z0-9]{2,5}$/i, '') : 'Foto', source: s.id });
   edit(d => {
     d.sources.push(s);
@@ -68,7 +68,7 @@ export function addPhotoSource(ref: MediaRef, o: { duration?: number; fps?: numb
     d.layers.splice(at > 0 ? at : d.layers.length, 0, layer);
   });
   select([layer.id]);
-  say('Foto añadida como capa nueva.');
+  say(o.duration !== undefined ? 'Video añadido como capa nueva.' : 'Foto añadida como capa nueva.');
   return layer.id;
 }
 

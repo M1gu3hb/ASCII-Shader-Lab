@@ -144,6 +144,7 @@ async function movieJob(p: Project, plan: Plan, ctx: JobContext, size: ResolvedS
   const res = await m.exportMovie(p, {
     format, width: video ? even(size.w) : size.w, height: video ? even(size.h) : size.h, fps: plan.fps, start: plan.start, end: plan.end,
     audio: plan.audio, transparent: plan.transparent,
+    ...(plan.audioSource && video ? { audioSource: plan.audioSource } : {}),
     ...(format === 'gif' ? { gif: { colors: plan.gif.colors, dither: plan.gif.dither, loop: plan.loop, palette: plan.gif.palette } as never } : {}),
     onProgress: pr => ctx.onProgress(pr), signal: ctx.signal,
   });

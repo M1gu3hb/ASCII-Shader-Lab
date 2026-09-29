@@ -340,6 +340,13 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fcam-view { position: relative; background: #000; border-radius: 10px; overflow: hidden; aspect-ratio: 4 / 3; display: grid; place-items: center; margin-bottom: 12px; }
 .fcam-view video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .fcam-view .note { position: absolute; }
+.fcam-rec { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 16px; background: rgba(12, 11, 10, .82); color: var(--text); font: 500 12.5px/1 var(--font-mono); }
+.fcam-rec i, .fcam-clip i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent, #ff5b1f); flex: none; }
+.fcam-clip i { background: currentColor; }
+.fcam-clip.on i { border-radius: 2px; background: var(--accent, #ff5b1f); }
+.fcam-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.fcam-btns .btn { min-height: 44px; }
+.fcam-clip.on { border-color: var(--accent, #ff5b1f); }
 .fsaveas { display: grid; gap: 8px; margin-bottom: 8px; }
 .fsaveas input { background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; }
 .fexp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }

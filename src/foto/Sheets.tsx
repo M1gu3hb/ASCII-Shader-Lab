@@ -1,6 +1,6 @@
 /**
  * The photo studio's sheets: help and shortcuts, the lab's styles, versions (tree of variants, compare
- * two, restore), settings (view quality, downloaded models), the camera and «Guardar como».
+ * two, restore), settings (view quality, downloaded models), the camera (a photo or a clip) and «Guardar como».
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Compositor } from '../project/compositor';
@@ -11,11 +11,13 @@ import { Sheet } from '../studio/Sheet';
 import { ICamera, IStar } from '../studio/icons';
 import { goVersion, saveVersion, thumbVersion } from './actions';
 import { applyLabStyle, readLabStyles, type LabStyle } from './bridge';
-import { captureFrame, cameraCount, cameraProblem, loadOverrides, mirrorFor, openCamera, saveOverride, stopStream, type Facing } from './camera';
+import { CLIP_MAX_S, CLIP_UNSUPPORTED, captureFrame, cameraCount, cameraProblem, clipFormat, loadOverrides, mirrorFor, openCamera, recordClip, saveOverride, stopStream, type ClipRecorder, type Facing } from './camera';
 import { KIND_NAMES, orderVersions } from './Chrome';
 import { SegGroup, Toggle } from './controls';
 import { putMedia } from '../project/persist';
-import { downloadProjectFile, newFromRef, saveAs } from './session';
+import { downloadProjectFile, newFromRef, saveAs, startEditing } from './session';
+import { projectFromVideo } from '../project/normalize';
+import { videoInfo } from './media';
 import { TOOLS } from './tools/index';
 import { closeSheet, say, setQuality, setUI, useFoto } from './ui';
 
@@ -254,6 +256,13 @@ export function CameraSheet() {
   /** The video shows a frame (a stream can take a moment to give its first one). */
   const [ready, setReady] = useState(false);
   const mirror = mirrorFor(facing, overrides);
+  // a clip follows the mirror switch while it records (what the preview shows is what the file holds)
+  const mirrorNow = useRef(mirror);
+  mirrorNow.current = mirror;
+  const [clipOk] = useState(() => !!clipFormat());
+  const [sound, setSound] = useState(false);
+  const rec = useRef<{ r: ClipRecorder; mic: MediaStream | null } | null>(null);
+  const [recS, setRecS] = useState<number | null>(null);
   useEffect(() => {
     if (!open) return;
     let gone = false, s: MediaStream | null = null;
@@ -270,6 +279,17 @@ export function CameraSheet() {
     }).catch(e => { if (!gone) setError(cameraProblem(e)); });
     return () => { gone = true; stopStream(s); setStream(null); };
   }, [open, want]);
+  // closing the sheet (or switching cameras) while recording throws the clip away
+  useEffect(() => () => { if (rec.current) { rec.current.r.cancel(); stopStream(rec.current.mic); rec.current = null; setRecS(null); } }, [open, want]);
+  useEffect(() => {
+    if (recS === null) return;
+    const h = setInterval(() => { if (rec.current) setRecS(rec.current.r.seconds()); }, 250);
+    return () => clearInterval(h);
+  }, [recS === null]); // eslint-disable-line react-hooks/exhaustive-deps
+  const stamp = () => {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+  };
   const take = async () => {
     const v = video.current;
     if (!v || !v.videoWidth) { say('La cámara aún no da imagen: espera un momento.'); return; }
@@ -277,32 +297,88 @@ export function CameraSheet() {
     const c = captureFrame(v, mirror);
     const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', 0.92));
     if (!blob) { setBusy(false); return; }
-    const d = new Date();
-    const name = `camara-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}.jpg`;
+    const name = `camara-${stamp()}.jpg`;
     const { stored: _s, ...ref } = await putMedia(blob, { kind: 'image', name, w: c.width, h: c.height });
     setBusy(false);
     closeSheet();
     newFromRef(ref, 'Foto de la cámara');
     say('Foto tomada: se guardó tal como la veías.');
   };
+  const startClip = async () => {
+    const v = video.current;
+    if (!v || !v.videoWidth) { say('La cámara aún no da imagen: espera un momento.'); return; }
+    let mic: MediaStream | null = null;
+    if (sound) {
+      try { mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); } catch (e) {
+        say(`${cameraProblem(e).replace(/cámara/g, 'micrófono')} El clip se graba sin sonido.`);
+      }
+    }
+    try {
+      const r = recordClip(v, () => mirrorNow.current, { mic, onLimit: () => void stopClip(`Llegó al máximo de ${CLIP_MAX_S} s.`) });
+      rec.current = { r, mic };
+      setRecS(0);
+      say(`Grabando${mic ? ' con sonido' : ' sin sonido'}${mirrorNow.current ? ', en espejo como lo ves' : ''}. Pulsa «Detener» para terminar.`);
+    } catch (e) {
+      stopStream(mic);
+      say((e as Error)?.message || CLIP_UNSUPPORTED);
+    }
+  };
+  const stopClip = async (why = '') => {
+    const cur = rec.current;
+    if (!cur) return;
+    rec.current = null;
+    setRecS(null);
+    setBusy(true);
+    try {
+      const r = await cur.r.stop();
+      stopStream(cur.mic);
+      if (r.blob.size < 1024 || r.seconds < 0.3) { say('El clip salió vacío: graba al menos un segundo.'); return; }
+      const name = `camara-${stamp()}.${r.ext}`;
+      const info = await videoInfo(r.blob);
+      const { stored, ...ref } = await putMedia(r.blob, { kind: 'video', name, w: info?.w ?? r.w, h: info?.h ?? r.h });
+      closeSheet();
+      startEditing(projectFromVideo(ref, { duration: info?.duration ?? r.seconds, fps: 30, hasAudio: r.audio }, { name: 'Clip de la cámara' }), { fresh: true });
+      say(`${why ? why + ' ' : ''}Clip grabado (${Math.round(r.seconds)} s${r.audio ? ', con sonido' : ''}): se guardó tal como lo veías.${stored ? '' : ' Es grande para el navegador: se conserva mientras la pestaña siga abierta.'}`);
+    } catch (e) {
+      say((e as Error)?.message || 'No se pudo guardar el clip.');
+    } finally {
+      setBusy(false);
+    }
+  };
   const f: Facing = facing === 'environment' ? 'environment' : 'user';
+  const recording = recS !== null;
+  const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
   return (
-    <Sheet open={open} title="Tomar una foto" sub="Lo que ves es lo que se guarda: el espejo también va en la foto." onClose={closeSheet}>
+    <Sheet open={open} title="Cámara" sub="Lo que ves es lo que se guarda: el espejo también va en la foto y en el clip." onClose={closeSheet}>
       <div className="sheet-body fcam">
         {error ? <p className="warn" role="alert">{error}</p> : (
           <div className="fcam-view">
             <video ref={video} muted playsInline style={mirror ? { transform: 'scaleX(-1)' } : undefined} aria-label="Vista de la cámara"
               onLoadedData={() => setReady(true)} onEmptied={() => setReady(false)} />
             {!stream && <p className="note mt-spin">Pidiendo la cámara…</p>}
+            {recording && <span className="fcam-rec" role="status"><i aria-hidden="true" />Grabando {mmss(recS ?? 0)} / {mmss(CLIP_MAX_S)}</span>}
           </div>
         )}
         <div className="fcam-ctl">
           <Toggle label="Espejo: como te ves en un espejo" checked={mirror} onChange={v => setOverrides(saveOverride(f, v))}
             hint={f === 'user' ? 'La cámara frontal empieza en espejo, como la app de cámara del teléfono.' : 'La cámara trasera empieza sin espejo.'} />
-          {cams !== 1 && (
+          {cams !== 1 && !recording && (
             <SegGroup label="Cámara" value={want} opts={[['user', 'Frontal'], ['environment', 'Trasera']]} onPick={v => setWant(v)} />
           )}
-          <button type="button" className="btn primary" disabled={!stream || !ready || busy} onClick={() => void take()}><ICamera width={18} height={18} /> {busy ? 'Guardando…' : 'Tomar la foto'}</button>
+          {clipOk && (
+            <Toggle label="Clip con sonido (micrófono)" checked={sound} disabled={recording || busy} onChange={setSound}
+              hint={sound ? 'Al grabar se pide el micrófono; el sonido va en el clip, sin espejo (el sonido no se invierte).' : 'Sin sonido no se pide el micrófono.'} />
+          )}
+          <div className="fcam-btns">
+            <button type="button" className="btn primary" disabled={!stream || !ready || busy || recording} onClick={() => void take()}><ICamera width={18} height={18} /> {busy && !recording ? 'Guardando…' : 'Tomar la foto'}</button>
+            {clipOk ? (
+              <button type="button" className={'btn fcam-clip' + (recording ? ' on' : '')} aria-pressed={recording} disabled={!stream || !ready || (busy && !recording)}
+                onClick={() => void (recording ? stopClip() : startClip())}>
+                <i aria-hidden="true" />{recording ? `Detener (${mmss(recS ?? 0)})` : 'Grabar un clip'}
+              </button>
+            ) : null}
+          </div>
+          {!clipOk && <p className="note">{CLIP_UNSUPPORTED}</p>}
         </div>
       </div>
     </Sheet>

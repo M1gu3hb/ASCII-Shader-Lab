@@ -628,28 +628,35 @@ function TrackOptions({ host }: { host: ToolHost }) {
   const { start, end } = stretchOf(project, layer);
   const est = video ? video.trackEstimate(project, { start, end, keyEvery: KEY_EVERY[o.precision] }) : null;
   const fixable = tracks.length ? correctionAt(layer, null, time) : null;
+  const fps = Math.max(1, project.time.fps);
+  // (the desktop's options bar is one row: the primary action comes right after the marks, details after it)
   return (
     <div className="tool-opts" data-tool="seguir">
-      <span className="tool-title">Seguir objeto</span>
       <Switch label={o.positive ? 'Añadir' : 'Quitar'} checked={!o.positive} onChange={v => set({ positive: !v })} hint="Qué marca el próximo toque: parte del objeto (añadir) o lo que no es (quitar)" />
-      {pointsList ?? <Note tone="quiet">{o.box ? 'Recuadro marcado.' : `Toca el objeto en este cuadro (${fmtT(time)}).`}</Note>}
+      {pointsList ?? <Note tone="quiet">{o.box ? 'Recuadro marcado.' : 'Toca el objeto.'}</Note>}
       {busy}
-      <span className="tool-mono" title="El seguimiento empieza en el cuadro donde marcas el objeto">Desde {fmtT(start)}</span>
-      <Slider label="Hasta" value={end} min={Math.min(project.time.duration, start + 1 / Math.max(1, project.time.fps))} max={Math.max(start + 0.05, project.time.duration)} step={1 / Math.max(1, project.time.fps)}
-        format={fmtT} onChange={v => set({ end: v })} hint="Hasta dónde se sigue el objeto (por defecto, el final de la capa o del video)" />
-      <Segmented<Precision> label="Precisión" value={o.precision} options={[
-        { value: 'alta', label: 'Alta', title: 'El modelo decide cada 0,25 s: sigue mejor lo rápido, tarda más' },
-        { value: 'normal', label: 'Normal', title: 'El modelo decide cada 0,5 s' },
-        { value: 'rapida', label: 'Rápida', title: 'El modelo decide cada segundo: para movimientos lentos' },
-      ]} onChange={v => set({ precision: v })} />
-      {est ? <Note tone="quiet">{est.text}</Note> : null}
-      {o.error ? <Note tone="warn">{o.error}</Note> : null}
       <Button primary disabled={!marked} onClick={() => void follow(host)} kbd="Intro">Seguir</Button>
-      <Button disabled={!marked} onClick={() => clearMarks(host, 'Puntos borrados')} kbd="Esc">Borrar puntos</Button>
+      {marked ? <Button onClick={() => clearMarks(host, 'Puntos borrados')} kbd="Esc">Borrar</Button> : null}
       {tracks.length ? (
         <Button disabled={!fixable} onClick={() => startFix(host, null)} title={fixable ? 'Marca el objeto en este cuadro para arreglar el seguimiento aquí' : 'Ve a un cuadro del seguimiento (las marcas en la fila de la capa)'}>Corregir aquí</Button>
       ) : null}
-      {o.at !== null && o.at > (layer?.span?.in ?? 0) + 1e-3 ? <Note tone="quiet">Lo que pasa antes de {fmtT(o.at)} no se sigue: para seguir desde el principio, marca el objeto en el primer cuadro.</Note> : null}
+      <span className="tool-mono" title="El seguimiento empieza en el cuadro donde marcas el objeto">Desde {fmtT(start)}</span>
+      <Slider label="hasta" value={end} min={Math.min(project.time.duration, start + 1 / fps)} max={Math.max(start + 0.05, project.time.duration)} step={1 / fps}
+        format={fmtT} onChange={v => set({ end: v })} hint="Hasta dónde se sigue el objeto (por defecto, el final de la capa o del video)" />
+      <Segmented<Precision> label="Precisión" value={o.precision} options={[
+        { value: 'alta', label: 'Precisa', title: 'El modelo decide cada 0,25 s: sigue mejor lo rápido, tarda más' },
+        { value: 'normal', label: 'Normal', title: 'El modelo decide cada 0,5 s' },
+        { value: 'rapida', label: 'Rápida', title: 'El modelo decide cada segundo: para movimientos lentos' },
+      ]} onChange={v => set({ precision: v })} />
+      {est ? <span className="tool-mono track-est" title={est.text} aria-label={est.text}>{est.frames} cuadros · {etaRange(est.seconds)}</span> : null}
+      {o.error ? <Note tone="warn">{o.error}</Note> : null}
+      {o.at !== null && o.at > (layer?.span?.in ?? 0) + 1e-3 ? <Note tone="quiet">Antes de {fmtT(o.at)} no se sigue: para todo el clip, marca el objeto en el primer cuadro.</Note> : null}
     </div>
   );
+}
+
+/** «15–50 s», «1–3 min»: the estimate's range, short. */
+function etaRange([lo, hi]: [number, number]): string {
+  if (hi < 90) return `${Math.max(1, Math.round(lo / 5) * 5)}–${Math.max(5, Math.round(hi / 5) * 5)} s`;
+  return `${Math.max(1, Math.round(lo / 60))}–${Math.max(1, Math.round(hi / 60))} min`;
 }

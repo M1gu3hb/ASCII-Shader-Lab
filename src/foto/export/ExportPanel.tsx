@@ -10,7 +10,8 @@ import { evaluate } from '../../project/evaluate';
 import { exportMask, projectFiles } from '../../project/export';
 import { createSourceProvider, storeBlob } from '../../project/sources';
 import { useProject } from '../../project/store';
-import type { Project } from '../../project/types';
+import type { Project, Source } from '../../project/types';
+import { videoSourcesInOrder } from '../../video/audioplan';
 import type { FormatInfo } from '../../video/index';
 import { copyText, downloadBlob, shareFile, useSaved } from '../../studio/download';
 import type { PickOpt } from '../../studio/ui/Picker';
@@ -121,7 +122,10 @@ export function ExportPanel({ p }: { p: Project }) {
   const up = (patch: Partial<Plan>) => setPlan(x => ({ ...x, ...patch }));
   const moving = projectMoves(p);
   const size = planSize(p, plan);
-  const hasAudio = p.sources.some(s => s.kind === 'video' && s.hasAudio !== false);
+  // the videos whose files really carry sound (probed here; until then, what the project says)
+  const sounds = useSounds(p);
+  const hasAudio = sounds ? sounds.length > 0 : p.sources.some(s => s.kind === 'video' && s.hasAudio !== false);
+  const soundOf = sounds && sounds.length > 1 ? (sounds.find(s => s.id === plan.audioSource) ?? sounds[0]) : null;
 
   // facts: still encoders, SVG faithfulness at the instant, glyph layers
   const [base, setBase] = useState<Base | null>(null);
@@ -136,11 +140,11 @@ export function ExportPanel({ p }: { p: Project }) {
     if (!moving) { setMovies([]); return; }
     let gone = false;
     const h = setTimeout(() => {
-      void movieCaps(p, { width: size.w, height: size.h, fps: plan.fps, start: plan.start, end: plan.end, transparent: plan.transparent })
+      void movieCaps(p, { width: size.w, height: size.h, fps: plan.fps, start: plan.start, end: plan.end, transparent: plan.transparent, ...(plan.audioSource ? { audioSource: plan.audioSource } : {}) })
         .then(m => { if (!gone) setMovies(m); });
     }, 250);
     return () => { gone = true; clearTimeout(h); };
-  }, [p, moving, size.w, size.h, plan.fps, plan.start, plan.end, plan.transparent]);
+  }, [p, moving, size.w, size.h, plan.fps, plan.start, plan.end, plan.transparent, plan.audioSource]);
   const facts: Facts | null = base ? { ...base, movies } : null;
   const target = plan.target;
   const hasMask = !!p.layers.find(l => l.id === target)?.mask?.parts.length;
@@ -459,6 +463,13 @@ export function ExportPanel({ p }: { p: Project }) {
           {hasAudio && (fmt?.id === 'mp4' || fmt?.id === 'webm') && (
             <SegGroup label="Sonido" value={plan.audio} opts={[['keep', 'Conservar el del video'], ['none', 'Sin sonido']]} onPick={v => up({ audio: v })} />
           )}
+          {soundOf && sounds && plan.audio === 'keep' && (fmt?.id === 'mp4' || fmt?.id === 'webm') && (
+            <Select<string> label="Sonido de" value={soundOf.id} onChange={v => up({ audioSource: v })} minWidth={260}
+              options={sounds.map((s, i) => ({ value: s.id, label: s.name || `Video ${i + 1}`, ...(i === 0 ? { desc: 'El de más abajo en la pila (el de siempre).' } : {}) }))} />
+          )}
+          {soundOf && plan.audio === 'keep' && (fmt?.id === 'mp4' || fmt?.id === 'webm') && (
+            <p className="xp-note">Sale el sonido de un solo video, sin mezclar: «{soundOf.name}», sólo mientras se ve.</p>
+          )}
           {(fmt?.id === 'ansi' || fmt?.id === 'shell' || fmt?.id === 'cast' || fmt?.id === 'node' || fmt?.id === 'python') && (
             <SegGroup label="Color de terminal" value={plan.depth} opts={[['truecolor', 'Color real'], ['256', '256 colores'], ['16', '16 colores'], ['none', 'Sin color']]} onPick={v => up({ depth: v })} />
           )}
@@ -494,6 +505,24 @@ export function ExportPanel({ p }: { p: Project }) {
       </div>
     </div>
   );
+}
+
+/** Video sources shown in the project whose files carry sound (null until probed). */
+function useSounds(p: Project): Source[] | null {
+  const vids = videoSourcesInOrder(p);
+  const key = vids.map(s => `${s.id}:${s.media[0]?.id ?? ''}`).join('|');
+  const [out, setOut] = useState<Source[] | null>(vids.length ? null : []);
+  useEffect(() => {
+    if (!vids.length) { setOut([]); return; }
+    let gone = false;
+    void import('../../video/audio').then(async m => {
+      const list: Source[] = [];
+      for (const s of vids) if (await m.probeSound(s, storeBlob).catch(() => null)) list.push(s);
+      if (!gone) setOut(list);
+    }).catch(() => { if (!gone) setOut(null); });
+    return () => { gone = true; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return out;
 }
 
 function summaryOf(plan: Plan, fmt: FormatOption | null, size: { w: number; h: number; dpi?: number }, frames: number, moving: boolean, gifOk: boolean): ReactNode {
