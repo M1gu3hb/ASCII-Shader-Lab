@@ -150,6 +150,8 @@ export const gradientTool: Tool & { editor: PartEditor } = (() => {
     },
 
     overlay(ctx, host) {
+      // another layer was picked while a gradient waited for Intro: it goes in first (see shapes.tsx)
+      if (pending && pending.layer !== host.target()) { const p = pending; pending = null; host.preview(null); commit(host, p.layer, p.part); }
       if (pending && pending.layer === host.target()) drawPart(ctx, host, pending.part, { handles: true, end: pending.end, touch: editor.touch, dash: [5, 4] });
       editor.draw(ctx, host);
       const d = draft();

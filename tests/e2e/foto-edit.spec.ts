@@ -211,3 +211,36 @@ test('«Quitar fondo» abre el panel «Recorte» (con su cierre); los ajustes di
   await expect(settings.getByRole('button', { name: 'Borrar los modelos descargados' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('una forma colocada con el teclado no se queda en la vista sin estar en la máscara al elegir otra capa', async ({ page }) => {
+  const errors = await openFoto(page);
+  await page.locator('.fs-tpl-main', { hasText: /Zonas circulares/ }).click();
+  await finalRender(page);
+  type F = { __foto: { sched(): { preview: boolean }; viewProject(): { layers: Array<{ mask: null | { parts: unknown[] } }> }; project(): { layers: Array<{ id: string; mask: null | { parts: unknown[] } }> }; store(): { selection: string[] } } };
+  const state = () => page.evaluate(() => {
+    const F = (window as unknown as F).__foto;
+    return {
+      preview: F.sched().preview,
+      shown: F.viewProject().layers.map(l => l.mask?.parts.length ?? 0),
+      kept: F.project().layers.map(l => l.mask?.parts.length ?? 0),
+      target: F.project().layers.findIndex(l => l.id === F.store().selection[0]),
+    };
+  });
+  // «Rectángulo», Intro: a centred rectangle waits (previewed) on the selected layer for Intro
+  await page.locator('.fv-over').hover();
+  await page.keyboard.press('m');
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('Enter');
+  const s0 = await state();
+  expect(s0.preview).toBe(true);
+  expect(s0.shown[s0.target]).toBe(s0.kept[s0.target] + 1);
+  // another layer picked in the list: the waiting rectangle goes into the first layer's mask (one undo
+  // step), and what the viewport shows is what the project holds
+  await page.locator('.lr .lr-main').nth(2).click();
+  await expect.poll(async () => (await state()).preview).toBe(false);
+  const s1 = await state();
+  expect(s1.target).not.toBe(s0.target);
+  expect(s1.kept[s0.target]).toBe(s0.kept[s0.target] + 1);
+  expect(s1.shown).toEqual(s1.kept);
+  expect(errors).toEqual([]);
+});
