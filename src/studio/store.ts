@@ -359,6 +359,9 @@ export function edit(fn: (r: Recipe) => void, key = '') {
   const next = cloneRecipe(e.recipe);
   fn(next);
   if (next.source !== e.recipe.source) nameLoadedMedia(next);
+  // the camera's mirror is the camera's (setCameraMirror): a photo or video that takes its place starts as
+  // it is, not flipped (the front camera is mirrored by default, and that used to stay with the new picture)
+  if (e.recipe.source === 'camera' && next.source !== 'camera' && next.media.mirror === e.recipe.media.mirror) next.media.mirror = false;
   if (sameRecipe(next, e.recipe) && JSON.stringify(next.meta) === JSON.stringify(e.recipe.meta)) return;
   const st = stackOf(e.id), now = performance.now();
   if (!(key && st.key === key && now - st.t < 900)) {

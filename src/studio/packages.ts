@@ -229,6 +229,21 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * Files of the photo and video studio: its projects end in .glyphos.zip too (with proyecto.glyphos.json,
+ * src/project/file.ts) and its saved settings are .glyphos-ajuste.json. They open there: say so, with the
+ * way to it, rather than «not a GLYPHOS project».
+ */
+const FOTO_PROJECT_JSON = 'proyecto.glyphos.json';
+export const isFotoProject = (files: Array<{ name: string }>) =>
+  files.some(f => f.name.slice(f.name.lastIndexOf('/') + 1) === FOTO_PROJECT_JSON && !f.name.startsWith('__MACOSX/'));
+export function fotoFileNote(what: 'proyecto' | 'ajuste') {
+  toast(what === 'proyecto'
+    ? 'Ese archivo es un proyecto del estudio de foto y video (capas, máscaras y medios): se abre allí, con «Abrir un proyecto».'
+    : 'Ese archivo es un ajuste del estudio de foto y video: se aplica allí, sobre otra foto.',
+  { label: 'Ir al estudio de foto', run: () => { location.href = '/studio/foto/'; } }, 9000);
+}
+
 /** Opens a dropped or picked .zip: a session or a project. */
 export async function openPackage(file: Blob, label = '') {
   let files;
@@ -236,6 +251,7 @@ export async function openPackage(file: Blob, label = '') {
   try {
     if (isSession(files)) await openSession(files);
     else if (isProject(files)) await openProject(files, label.replace(/\.(glyphos|monotrama)$/i, ''));
+    else if (isFotoProject(files)) fotoFileNote('proyecto');
     else toast('Ese .zip no es un proyecto ni una sesión de GLYPHOS.');
   } catch (err) {
     toast('No se pudo abrir: ' + (err as Error).message);

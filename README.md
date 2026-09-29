@@ -92,12 +92,12 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 | Receta `.json` | todos los ajustes | no (sólo nombre y medidas) | exacta |
 | Enlace | la receta comprimida tras el `#` (nunca llega a un servidor) | no, ni su nombre | exacta; quien lo abre elige su propia imagen |
 | Favorito (★) | receta en la colección de este navegador | sí, guardada en este navegador | exacta |
-| Proyecto `.glyphos.zip` (también abre los `.monotrama.zip` de antes) | receta + archivo original + LEEME.txt | sí | exacta y completa, en cualquier equipo |
+| Proyecto `.glyphos.zip` (también abre los `.monotrama.zip` de antes; los `.glyphos.zip` del estudio de foto y video se abren allí, y el laboratorio lo dice) | receta + archivo original + LEEME.txt | sí | exacta y completa, en cualquier equipo |
 | Colección `.zip` | tus favoritos con sus imágenes y videos | sí | exacta |
 | Sesión `.zip` | historial + colección (+ medios opcionales) | opcional | exacta |
 | Rampa propia | tus caracteres ordenados, en este navegador (`mt.v2.ramps`, hasta 40) | — | la receta lleva los caracteres, así que enlaces y proyectos no dependen de ella |
 
-- Las imágenes (≤ 40 MB) y videos (≤ 200 MB) que cargas se guardan en IndexedDB (`mt-media`) con su contenido original, identificados por su contenido (SHA-256; en archivos de más de 16 MB, tamaño más tres muestras para no duplicar el archivo en memoria); volver en el historial o abrir un favorito los recupera. Lo más grande funciona mientras la pestaña esté abierta. La cámara nunca se guarda. Lo que ya nada usa se borra solo.
+- Las imágenes (≤ 40 MB) y videos (≤ 200 MB) que cargas se guardan en IndexedDB (`mt-media`) con su contenido original, identificados por su contenido (SHA-256; en archivos de más de 16 MB, tamaño más tres muestras para no duplicar el archivo en memoria); volver en el historial o abrir un favorito los recupera. Lo más grande funciona mientras la pestaña esté abierta (y no viaja al estudio de foto: el laboratorio lo dice). La cámara nunca se guarda, salvo la imagen fija que pides al llevar una pieza de cámara al estudio de foto. Lo que ya nada usa se borra solo.
 - **Una pestaña a la vez**: si abres el estudio en otra pestaña, la nueva toma el control (Web Locks + BroadcastChannel) y la anterior guarda, se detiene y ofrece «Usar aquí»; así dos pestañas no se pisan el historial ni la colección. Si IndexedDB no está disponible o está lleno, el estudio lo dice («Sin guardar» / «Sin espacio») y ofrece guardar la sesión en un archivo.
 - Al abrir una sesión que pasa de 1000 resultados se descartan los más antiguos por fecha, y el aviso dice cuántos antes de hacerlo.
 - Antes de copiar el enlace de una pieza con imagen o video, el estudio avisa de que el archivo no viaja y ofrece exportar el proyecto.
@@ -165,6 +165,8 @@ Lighthouse 12 móvil (4× CPU, red simulada) y web-vitals en Pixel 7 emulado, so
 
 Tercera pasada (Lighthouse 12, Chromium con SwiftShader, mediana de 3 intercaladas, máquina compartida: el TBT varía mucho): portada móvil LCP 2.62 → 2.72 s, CLS 0 → 0, TBT 3.67 → 2.98 s; escritorio LCP 0.61 → 0.66 s, TBT 1.91 → 1.13 s; JS inicial de la portada 33.7 → 20.7 KB gzip (el HTML crece de 5.8 a 12.5 KB porque la hoja de contactos y los destinos están en la página). El h1 sigue siendo el LCP.
 
+Fase 4 (estudio de foto y video; `vite preview`, Chromium con SwiftShader, 3 cargas por página): la portada carga lo mismo (83 KB de JS transferidos, CLS 0); la primera vista del laboratorio pasa de 253 a 267 KB de JS transferidos (con «ahorro de datos»: el dock, la hoja con alturas, el modo inmersivo, la cámara y el interruptor; del estudio de foto sólo trae 1 KB), con LCP y CLS iguales (CLS 0.001). Ni la portada ni el laboratorio descargan nada del estudio de foto (recorte, ONNX Runtime, animación, compositor).
+
 Qué se hizo: motor básico, hoja de exportación, colección, componentes y codificadores de video se cargan bajo demanda (`tests/e2e/perf.spec.ts` lo vigila); fuentes de respaldo con métricas ajustadas; miniaturas del historial perezosas. El INP en laboratorio lo domina el dibujo por software: no se afirma que se cumplan las Core Web Vitals sin datos reales.
 
 ### Privacidad y accesibilidad
@@ -203,7 +205,7 @@ Qué se hizo: motor básico, hoja de exportación, colección, componentes y cod
 | Cuadros PNG (.zip) | un PNG por cuadro, idéntico a la vista | sin sonido; pesa mucho |
 | Proyecto `.glyphos.zip` | todo para reabrirlo | — |
 
-**Modelos de recorte**: «Sujeto» (BiRefNet_lite a 512 px, pesos MIT; 192 MB en WASM o 99 MB con WebGPU), «Sujeto (alta definición)» (1024 px, sólo con WebGPU, 115 MB), «Retrato» (MODNet, Apache-2.0, unos 7 MB) y «Seleccionar objeto» (EdgeTAM, Apache-2.0, 21 MB con WebGPU o 41 MB en WASM). Sólo modelos cuyo código **y** cuyos pesos tienen licencia permisiva (por eso no los RMBG de BRIA, de uso no comercial). Autores, enlaces y la nota sobre los datos de entrenamiento: [`/licencia/`](licencia/index.html#modelos-de-recorte); el registro, fijado por versión y huella: `src/cutout/models.ts`.
+**Modelos de recorte**: «Sujeto» (BiRefNet_lite a 512 px, pesos MIT; 192 MB en WASM o 99 MB con WebGPU), «Sujeto (alta definición)» (1024 px, sólo con WebGPU, 115 MB), «Retrato» (MODNet, Apache-2.0, unos 7 MB en WASM o 13 MB con WebGPU) y «Seleccionar objeto» (EdgeTAM, Apache-2.0, 21 MB con WebGPU o 41 MB en WASM). Sólo modelos cuyo código **y** cuyos pesos tienen licencia permisiva (por eso no los RMBG de BRIA, de uso no comercial). Autores, enlaces y la nota sobre los datos de entrenamiento: [`/licencia/`](licencia/index.html#modelos-de-recorte); el registro, fijado por versión y huella: `src/cutout/models.ts`.
 
 **Consentimiento y privacidad**: ningún modelo viene con el sitio. Antes de descargar uno, el estudio dice cuál es, cuánto pesa, de dónde viene y su licencia, y no descarga nada sin tu «sí». Se descarga una vez desde Hugging Face (o desde una copia del propio sitio si existe `/models/manifest.json`), se comprueba su SHA-256 y queda guardado en este navegador; se borra desde «Ajustes del estudio». **Tus fotos y videos no salen del equipo**: el recorte corre en un worker con ONNX Runtime Web (WebGPU o WASM), y para los hilos de WASM la página va aislada (COOP/COEP sólo en `/studio/foto/`). Tiempos medidos aquí (laboratorio: WASM con 2 hilos, CPU compartida, no datos de campo): «Retrato» 1–3 s por foto; «Sujeto» 9–19 s y unos 3 GB de memoria; «Seleccionar objeto» analiza la foto en 1–4 s y responde a cada punto en menos de medio segundo.
 

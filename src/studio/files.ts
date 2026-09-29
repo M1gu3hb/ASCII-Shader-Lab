@@ -2,7 +2,7 @@ import { parseRecipe } from '../shared/share';
 import { looksLikeZip } from '../shared/zip';
 import { loadFile, syncMedia } from './media';
 import { MEDIA_LIMITS } from './mediaStore';
-import { openPackage } from './packages';
+import { fotoFileNote, openPackage } from './packages';
 import { applyRecipe, edit, importFavorites, setSpace, useStudio } from './store';
 import { spaceForOpened } from './presets';
 import { toast } from './toast';
@@ -52,6 +52,8 @@ export async function handleFile(f: File) {
         toast(n === 1 ? '1 pieza añadida a tu colección' : `${n} piezas añadidas a tu colección`);
         return;
       }
+      // the photo and video studio's own files (a project without its media, a saved setting)
+      if (o && (o.glyphos === 'project' || o.glyphos === 'ajuste')) { fotoFileNote(o.glyphos === 'project' ? 'proyecto' : 'ajuste'); return; }
     } catch { /* handled below */ }
     const r = parseRecipe(text);
     if (!r) { toast('Ese archivo no parece una receta de GLYPHOS.'); return; }
