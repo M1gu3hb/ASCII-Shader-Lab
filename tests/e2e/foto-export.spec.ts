@@ -528,6 +528,8 @@ test('un video con sonido: MP4/WebM con el sonido del original y los cuadros del
   const clip = await page.evaluate(() => (window as unknown as W).__fotoExport.makeVideoProject({ w: 320, h: 180, fps: 12, seconds: 1.5 }));
   await finalRender(page);
   sheet = await openExport(page);
+  // a video project opens on a video format
+  await expect(sheet.locator('input[name="xp-format"][value="mp4"], input[name="xp-format"][value="webm"]').and(sheet.locator(':checked'))).toHaveCount(1);
   await expect(sheet.locator('.xp-sum')).toContainText('18 cuadros');
   const here = await movieFormatsHere(page);
   let checked = 0;

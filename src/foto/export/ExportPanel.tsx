@@ -115,7 +115,9 @@ export function ExportPanel({ p }: { p: Project }) {
   const comp = useSheetCompositor();
   const session = useMemo(() => frameSession({ compositor: comp }), [comp]);
   useEffect(() => () => session.release(), [session]);
-  const [plan, setPlan] = useState<Plan>(() => defaultPlan(p, useProject.getState().time));
+  // a video project opens on a video format (once lane video says which one this browser writes)
+  const videoProject = p.sources.some(s => s.kind === 'video') && p.time.duration > 0;
+  const [plan, setPlan] = useState<Plan>(() => ({ ...defaultPlan(p, useProject.getState().time), ...(videoProject ? { format: 'mp4' as const } : {}) }));
   const up = (patch: Partial<Plan>) => setPlan(x => ({ ...x, ...patch }));
   const moving = projectMoves(p);
   const size = planSize(p, plan);
@@ -148,7 +150,7 @@ export function ExportPanel({ p }: { p: Project }) {
   // the first facts: start on a format that works here
   const settled = useRef(false);
   useEffect(() => {
-    if (!facts || settled.current) return;
+    if (!facts || settled.current || (videoProject && movies === null)) return;
     settled.current = true;
     const ok = usableFormat(formats, plan.format);
     if (ok && ok !== plan.format) up({ format: ok });
