@@ -186,8 +186,8 @@ function GradientOptions({ host, use }: { host: ToolHost; use: () => number }) {
   };
   const ease = (g?.ease?.kind ?? (g ? 'linear' : st.gradEase)) as ToolSettings['gradEase'];
   return (
-    <div className="tl-opts" data-tool="degradado">
-      <span className="tl-title">Degradado</span>
+    <div className="tool-opts" data-tool="degradado">
+      <span className="tool-title">Degradado</span>
       <Segmented label="Forma" value={g ? g.shape : st.gradShape} options={[{ value: 'linear', label: 'Lineal' }, { value: 'radial', label: 'Circular' }]} onChange={v => set({ gradShape: v }, true)} />
       <Slider label="Inicio" value={g ? g.alpha0 : st.gradFrom} min={0} max={1} step={0.05} format={pct} onChange={v => set({ gradFrom: v })} onCommit={(_v, how) => d.commit(how)} hint="Cuánto se ve la capa donde empieza el degradado" />
       <Slider label="Final" value={g ? g.alpha1 : st.gradTo} min={0} max={1} step={0.05} format={pct} onChange={v => set({ gradTo: v })} onCommit={(_v, how) => d.commit(how)} hint="Cuánto se ve la capa donde termina" />

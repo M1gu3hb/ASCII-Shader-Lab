@@ -6,6 +6,7 @@
 import { Compositor } from '../project/compositor';
 import { thumbnail } from '../project/export';
 import type { Project } from '../project/types';
+import { animFor } from './anim';
 
 let comp: Compositor | null = null;
 let idleT = 0;
@@ -24,7 +25,7 @@ function releaseSoon() {
 /** A data URL of the project at time t, `width` px wide (WebP when this browser encodes it). */
 export function projectThumb(p: Project, width = 240, t = 0): Promise<string | null> {
   const job = chain.then(async () => {
-    try { return await thumbnail(p, { width, t, compositor: compositor() }); } catch { return null; } finally { releaseSoon(); }
+    try { await animFor(p); return await thumbnail(p, { width, t, compositor: compositor() }); } catch { return null; } finally { releaseSoon(); }
   });
   chain = job.catch(() => null);
   return job;

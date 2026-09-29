@@ -7,6 +7,10 @@
  *     zones of the masks.
  * Locks: the lab's groups (forma, color, glifos, movimiento, efectos) and the studio's keep set
  * (seleccion = masks stay, paleta = colours stay). A layer with its own lock (Layer.locked) never changes.
+ * Inside a mask (an ASCII layer whose mask is on), a roll keeps its characters readable against the photo
+ * around them (fitMasked): given the brightness under the mask (`under`), a piece with its own background
+ * never becomes a light patch on a dark photo (nor a dark one on a light photo), and characters without a
+ * background get ink that stands out from what is under them — unless «Color» is locked or «Paleta» kept.
  * Deterministic: the same seed on the same project gives the same result (src/random Rng, no Math.random).
  */
 import { FINISHES } from '../fx/index';
@@ -15,8 +19,55 @@ import { rollProject, type KeepLock } from '../project/dice';
 import { cloneProject } from '../project/normalize';
 import type { GlyphStyle, GlyphsLayer, Id, Layer, Project } from '../project/types';
 import { CURATED, Rng, type LockGroup } from '../random';
+import type { Recipe } from '../engine/recipe';
 
-export interface StudioDice { locks: LockGroup[]; keep: KeepLock[]; seed: string; seen?: Set<string> }
+export interface StudioDice {
+  locks: LockGroup[]; keep: KeepLock[]; seed: string; seen?: Set<string>;
+  /** Mean brightness 0..1 of the photo under a layer's mask (null: no mask, or unknown). */
+  under?: (layer: Id) => number | null;
+}
+
+/** Relative brightness 0..1 of a #rrggbb colour. */
+export function hexLum(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 0.5;
+  const n = parseInt(m[1], 16);
+  return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+}
+
+/** How far a background may be from the photo around it before it reads as a pasted patch. */
+export const BG_GAP = 0.4;
+/** How far the ink of characters without a background must be from the photo under them. */
+export const INK_GAP = 0.38;
+
+/**
+ * An ASCII style rolled inside a mask, fitted to what is under it (see the top of this file). `under` is the
+ * brightness under the mask; returns true when the colours changed.
+ */
+export function fitMasked(style: Recipe, opaque: boolean, under: number, rng: Rng): boolean {
+  const c = style.color;
+  if (opaque) {
+    if (Math.abs(hexLum(c.bg) - under) <= BG_GAP) return false;
+    const fits = CURATED.filter(p => Math.abs(hexLum(p.bg) - under) <= BG_GAP * 0.75);
+    if (!fits.length) return false;
+    const pal = rng.pick(fits);
+    c.stops = [...pal.stops];
+    c.bg = pal.bg;
+    return true;
+  }
+  // without a background, the photo's own colours (mode 'source') or a ramp near its brightness vanish into it
+  const ink = c.mode === 'source' ? under : hexLum(c.stops[c.stops.length - 1] ?? '#ffffff');
+  if (Math.abs(ink - under) >= INK_GAP) return false;
+  const gap = (p: (typeof CURATED)[number]) => Math.abs(hexLum(p.stops[p.stops.length - 1]) - under);
+  // the palettes whose ink stands out well; on a mid-grey photo, the few that stand out most
+  let fits = CURATED.filter(p => gap(p) >= INK_GAP + 0.12);
+  if (!fits.length) fits = [...CURATED].sort((a, b) => gap(b) - gap(a)).slice(0, 3);
+  const pal = rng.pick(fits);
+  c.mode = 'ramp';
+  c.stops = [...pal.stops];
+  c.bg = pal.bg;
+  return true;
+}
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -77,7 +128,14 @@ function nudgeMask(l: Layer, rng: Rng): void {
 export function rollLayer(p: Project, id: Id, o: StudioDice): Project {
   const l = p.layers.find(x => x.id === id);
   if (!l || l.locked) return p;
-  if (l.kind === 'ascii') return rollProject(p, { layer: id, locks: o.locks, keep: o.keep, seed: `${o.seed}:${id}`, ...(o.seen ? { seen: o.seen } : {}) }).project;
+  if (l.kind === 'ascii') {
+    const q = rollProject(p, { layer: id, locks: o.locks, keep: o.keep, seed: `${o.seed}:${id}`, ...(o.seen ? { seen: o.seen } : {}) }).project;
+    const under = o.under?.(id) ?? null;
+    if (under === null || o.locks.includes('color') || o.keep.includes('paleta')) return q;
+    const a = q.layers.find(x => x.id === id);
+    if (a?.kind === 'ascii') fitMasked(a.style, !!a.opaque, under, new Rng(`${o.seed}:${id}:zona`));
+    return q;
+  }
   if (l.kind === 'glyphs') {
     const q = cloneProject(p);
     const g = q.layers.find(x => x.id === id) as GlyphsLayer;

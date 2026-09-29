@@ -229,8 +229,8 @@ function EditOptions({ host, editor, use }: { host: ToolHost; editor: PartEditor
   const d = usePartDraft(host, sel, p => { if (editor.sel) editor.sel.part = p; host.redrawOverlay(); });
   if (!sel) {
     return (
-      <div className="tl-opts" data-tool="editar-partes">
-        <span className="tl-title">Editar partes</span>
+      <div className="tool-opts" data-tool="editar-partes">
+        <span className="tool-title">Editar partes</span>
         <Note tone="quiet">{parts.length ? `La máscara tiene ${parts.length} ${parts.length === 1 ? 'parte' : 'partes'}: haz clic en una (o pulsa Tab).` : 'Esta capa todavía no tiene máscara: dibuja una zona con otra herramienta.'}</Note>
         {parts.length ? <Button onClick={() => editTool.select(host, parts.length - 1)} kbd="Tab">Elegir la última</Button> : null}
       </div>
@@ -246,8 +246,8 @@ function EditOptions({ host, editor, use }: { host: ToolHost; editor: PartEditor
   };
   const commit = (_v: number, how: 'pointer' | 'key') => d.commit(how);
   return (
-    <div className="tl-opts" data-tool="editar-partes">
-      <span className="tl-title">{PART_NAME(p)} · {sel.index + 1}/{parts.length}</span>
+    <div className="tool-opts" data-tool="editar-partes">
+      <span className="tool-title">{PART_NAME(p)} · {sel.index + 1}/{parts.length}</span>
       <Segmented label="Operación" value={p.op} options={OPS} onChange={v => { set({ op: v }, true); host.say(`La parte ahora ${v === 'add' ? 'suma' : v === 'subtract' ? 'resta' : 'interseca'}`); }} />
       <Slider label="Intensidad" value={p.alpha} min={0} max={1} step={0.05} format={pct} onChange={v => set({ alpha: v })} onCommit={commit} />
       {'soft' in p && p.kind !== 'color' ? <Slider label="Borde suave" value={p.soft} min={0} max={80} step={1} format={px} onChange={v => set({ soft: v } as Partial<MaskPart>)} onCommit={commit} /> : null}

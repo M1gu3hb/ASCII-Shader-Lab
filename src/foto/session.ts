@@ -62,7 +62,7 @@ export async function newFromFile(file: File): Promise<boolean> {
   startEditing(p, { fresh: true });
   if (!r.stored) toast('Este archivo es demasiado grande para guardarlo en el navegador: funciona mientras la pestaña siga abierta.');
   say(r.kind === 'video'
-    ? 'Video abierto. Muévete por él con la línea de tiempo; la exportación de video llega en la próxima versión.'
+    ? 'Video abierto: recórrelo con la línea de tiempo y anima sus capas. Por ahora se exportan imágenes fijas del instante que muestra.'
     : 'Foto abierta. Añade una capa ASCII o empieza por «Azar».');
   return true;
 }

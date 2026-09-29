@@ -9,6 +9,7 @@ import { freshSeed, rollComposition, rollLayer, rollable } from './dice';
 import { request } from './scheduler';
 import { projectThumb } from './thumbs';
 import { say, setUI, ui } from './ui';
+import { brightnessUnder } from './under';
 
 const P = () => useProject.getState();
 const seen = new Set<string>();
@@ -36,21 +37,23 @@ export function azar(scope = ui().diceScope) {
   if (!p) return;
   const locks = P().locks, keep = P().keep;
   const seed = freshSeed();
+  // inside a mask, the roll keeps contrast with the photo under it
+  const under = (id: Id) => { try { return brightnessUnder(p, id); } catch { return null; } };
   let next: Project | null = null;
   let what = '';
   if (scope === 'capa') {
     const id = diceLayer(p);
     if (!id) {
       if (!rollable(p).length) { say('No hay nada que el dado pueda cambiar: añade una capa ASCII o de caracteres (o desbloquéala).'); return; }
-      next = rollComposition(p, { locks, keep, seed, seen });
+      next = rollComposition(p, { locks, keep, seed, seen, under });
       what = 'la composición';
     } else {
-      next = rollLayer(p, id, { locks, keep, seed, seen });
+      next = rollLayer(p, id, { locks, keep, seed, seen, under });
       what = `«${p.layers.find(l => l.id === id)?.name ?? 'la capa'}»`;
     }
   } else {
     if (!rollable(p).length) { say('No hay nada que el dado pueda cambiar: todas las capas están bloqueadas o no tienen estilo.'); return; }
-    next = rollComposition(p, { locks, keep, seed, seen });
+    next = rollComposition(p, { locks, keep, seed, seen, under });
     what = 'la composición';
   }
   if (!next || next === p) { say('El dado no cambió nada (revisa los candados).'); return; }

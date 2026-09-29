@@ -21,41 +21,78 @@ import { closeSheet, say, setQuality, setUI, useFoto } from './ui';
 
 /* ------------------------------------------------------------------ help */
 
-const KEYS: Array<[string, string]> = [
+/**
+ * The keyboard map (it is also what keys.ts does): the active tool first, then the studio; the timeline and
+ * the layer list use their own keys while they have the focus. No letter is used twice at the same level:
+ * tools V M O P L K W J G B E R, the studio H F C Z (+ digits and symbols). K is «Contorno preciso» in the
+ * studio and «llave» inside the timeline; Espacio rolls the dice in the studio and plays inside the timeline.
+ */
+export const STUDIO_KEYS: Array<[string, string]> = [
   ['Espacio (toque) · →', 'Azar (→ va primero a la versión siguiente si la hay)'],
   ['←', 'Versión anterior'],
   ['F', 'Favorita ★'],
   ['Z · Ctrl/⌘ Z', 'Deshacer'],
-  ['⇧ Ctrl/⌘ Z · Ctrl Y', 'Rehacer'],
-  ['Espacio + arrastrar · H', 'Mover la vista (mano)'],
+  ['⇧ Z · ⇧ Ctrl/⌘ Z · Ctrl Y', 'Rehacer'],
+  ['H · Espacio + arrastrar', 'Mano: mover la vista'],
   ['Rueda · pellizco', 'Acercar y alejar donde está el cursor'],
   ['0 · 1 · + · −', 'Ajustar · 100 % · acercar · alejar'],
   ['C', 'Antes y después (← → mueven el divisor)'],
-  ['[ ]', 'Tamaño del pincel (con un pincel activo)'],
   ['Esc', 'Cancela el gesto o suelta la herramienta'],
-  ['Alt ↑ ↓ · F2 · Supr', 'En la lista de capas: mover, renombrar, eliminar'],
   ['?', 'Esta ayuda'],
 ];
+
+export const TOOL_KEYS: Array<[string, string]> = [
+  ['⇧ · ⌥ al empezar', 'Sumar · restar la zona (⇧⌥ intersecar); sin teclas, lo que diga la barra de opciones'],
+  ['⇧ · ⌥ al arrastrar', 'Cuadrado o círculo · desde el centro'],
+  ['[ ]', 'Tamaño del pincel; con «Editar partes», girar la parte'],
+  ['Flechas · Intro', 'Dibujar rectángulos, elipses, degradados y polígonos con el teclado'],
+];
+
+export const TIMELINE_KEYS: Array<[string, string]> = [
+  ['← →', 'Un cuadro (⇧: un segundo)'],
+  ['Inicio · Fin', 'Al principio · al final'],
+  ['Espacio · ⇧ Espacio', 'Reproducir o pausar · reproducir al revés'],
+  ['K', 'Llave de la propiedad elegida en el cabezal'],
+  ['Supr', 'Borrar el clip o las llaves elegidas'],
+  ['Alt ← →', 'Mover lo elegido un cuadro (⇧: un segundo)'],
+  ['+ −', 'Acercar y alejar el tiempo'],
+];
+
+const LAYER_KEYS: Array<[string, string]> = [
+  ['↑ ↓', 'Elegir la capa de arriba o de abajo'],
+  ['Alt ↑ ↓', 'Subir o bajar la capa'],
+  ['F2 · Supr', 'Renombrar · eliminar'],
+];
+
+const GROUPS: Array<[string, string]> = [['seleccion', 'Selección'], ['pincel', 'Pinceles'], ['objeto', 'Objeto'], ['dibujo', 'Dibujo']];
+
+const KeyList = ({ list }: { list: Array<[string, string]> }) => <div className="keys">{list.map(([k, v]) => <div key={k}><span>{v}</span><kbd>{k}</kbd></div>)}</div>;
 
 export function HelpSheet() {
   const open = useFoto(s => s.sheet === 'help');
   return (
-    <Sheet open={open} title="Atajos y gestos" sub="El teclado va primero a la herramienta activa; lo que ella no usa, lo usa el estudio." onClose={closeSheet}>
+    <Sheet open={open} title="Atajos y gestos" sub="El teclado va primero a la herramienta activa; lo que ella no usa, lo usa el estudio. La línea de tiempo y la lista de capas tienen sus teclas mientras tienen el foco." onClose={closeSheet}>
       <div className="sheet-body">
         <h3 className="data-h">Estudio</h3>
-        <div className="keys">{KEYS.map(([k, v]) => <div key={k}><span>{v}</span><kbd>{k}</kbd></div>)}</div>
+        <KeyList list={STUDIO_KEYS} />
         <h3 className="data-h">Herramientas</h3>
-        {TOOLS.length ? (
-          <div className="keys">{TOOLS.map(t => <div key={t.id}><span>{t.name}: {t.hint}</span><kbd>{t.shortcut?.toUpperCase() ?? '—'}</kbd></div>)}</div>
-        ) : (
-          <p className="note">Las herramientas de selección (V editar partes, M rectángulo y elipse, L lazo, P polígono, B pincel, E borrar efecto) llegan en la próxima actualización. Mientras tanto, las zonas de la máscara se añaden y ajustan en «Máscara» con el teclado.</p>
-        )}
+        {GROUPS.map(([g, name]) => {
+          const list = TOOLS.filter(t => t.group === g);
+          if (!list.length) return null;
+          return <KeyList key={g} list={list.map(t => [t.shortcut?.toUpperCase() ?? '—', `${name}: ${t.name}`] as [string, string])} />;
+        })}
+        <KeyList list={TOOL_KEYS} />
+        <h3 className="data-h">Línea de tiempo (con el foco en ella)</h3>
+        <KeyList list={TIMELINE_KEYS} />
+        <h3 className="data-h">Lista de capas</h3>
+        <KeyList list={LAYER_KEYS} />
         <h3 className="data-h">En el teléfono</h3>
         <ul className="fhelp-list">
           <li>Un dedo dibuja con la herramienta activa; dos dedos mueven y acercan la vista (y cancelan el trazo en curso).</li>
           <li>Sin herramienta, un dedo mueve la vista.</li>
-          <li>«Herramientas» abre la hoja de abajo: arrástrala para verla a medias o entera, o hacia abajo para cerrarla.</li>
+          <li>«Herramientas» abre la hoja de abajo: arrástrala para verla a medias o entera, o hacia abajo para cerrarla. «Tiempo» tiene la línea de tiempo.</li>
           <li>El botón ± cambia entre sumar y restar zonas sin teclas.</li>
+          <li>En la línea de tiempo, un dedo la desplaza, dos la acercan y mantener pulsado un clip o una llave abre sus opciones.</li>
         </ul>
       </div>
     </Sheet>

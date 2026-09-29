@@ -40,8 +40,8 @@
 .tl-btn[aria-pressed="true"] { border-color: var(--tl-signal); color: #fff; background: var(--tl-soft); }
 .tl-btn:disabled { opacity: .4; cursor: default; }
 .tl-btn svg { width: 18px; height: 18px; flex: none; }
-.tl-btn.primary { background: var(--tl-signal); color: #1a0700; border-color: var(--tl-signal); font-weight: 600; }
-.tl-btn.primary:hover { background: #ff6e3a; }
+.tl-btn.primary { background: var(--tl-bone); color: var(--tl-ink); border-color: var(--tl-bone); font-weight: 600; }
+.tl-btn.primary:hover { background: #fff; }
 .tl-time { font: 500 13px/1 var(--tl-mono); letter-spacing: .02em; padding: 0 8px; min-width: 9.5em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tl-time small { color: var(--tl-smoke); }
 .tl-select { height: 36px; background: var(--tl-ink3); border: 1px solid var(--tl-line); border-radius: 8px; padding: 0 6px; }
@@ -143,7 +143,7 @@
 .tl-scroll .track::before { content: ""; position: absolute; inset: -12px 0; }
 .tl.compact .tl-scroll { height: 28px; }
 .tl.compact .tl-scroll .track { margin: 8px 8px 8px 0; }
-.tl-scroll .thumb { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: #4a453e; cursor: grab; }
+.tl-scroll .tl-thumb { position: absolute; top: 0; bottom: 0; height: auto; border-radius: 4px; background: #4a453e; cursor: grab; }
 
 /* ---------------------------------------------------------------- panels (popovers) */
 .tl-pop { position: absolute; z-index: 10; width: 320px; max-width: calc(100% - 16px); overflow: auto; overscroll-behavior: contain;
@@ -214,6 +214,10 @@
 
 /* ---------------------------------------------------------------- phones */
 .tl.compact { --tl-head: 118px; }
+/* phones: two rows of transport (the loop region stays on larger screens, unless one is set) */
+.tl.compact .tl-bar { padding: 4px 6px; gap: 2px; row-gap: 2px; }
+.tl.compact .tl-region[aria-pressed="false"] { display: none; }
+.tl.compact .tl-bar .tl-btn { padding: 0 8px; }
 .tl.compact .tl-time { min-width: 0; padding: 0 4px; font-size: 12px; }
 .tl.compact .tl-head .kind { display: none; }
 .tl.compact .tl-head.path, .tl.compact .tl-lane.path, .tl.compact .tl-head.path .name { min-height: 44px; height: auto; }

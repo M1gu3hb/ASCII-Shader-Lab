@@ -36,9 +36,12 @@ import { startFotoAutosave } from './autosave';
 import { say, setUI } from './ui';
 import { refreshSaved } from '../project/store';
 import { installQA } from './qa';
+import { startPlayback } from './playback';
 
 startScheduler();
 startKeys();
+// one playback clock for the editor (the timeline's own until lane «video» gives its video clock)
+startPlayback();
 // the open project saves itself a moment after each change (with a small picture for the list)
 startFotoAutosave();
 

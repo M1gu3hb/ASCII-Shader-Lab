@@ -2,7 +2,7 @@
  * The photo studio on a phone: immersive by default (only the art and four actions: anterior, Azar,
  * siguiente, «Herramientas»), and a bottom sheet with snap points (asomar · mitad · entera) that leaves the
  * art visible above it: drag its handle, or swipe it down to close. In a landscape phone the sheet is a
- * side drawer. Tabs: tools, layers, the selected layer, explore (dice, locks, versions).
+ * side drawer. Tabs: tools, layers, the selected layer, the timeline (compact), explore (dice, locks, versions).
  */
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useProject } from '../project/store';
@@ -13,9 +13,10 @@ import { activeTool, host } from './host';
 import { ILayers, ITools, IPlusMinus } from './icons';
 import { Inspector } from './inspect/Inspector';
 import { Layers } from './Layers';
+import { PhoneTimeline } from './TimeSlot';
 import { openSheet, setUI, useFoto, type MobileTab, type Snap } from './ui';
 
-const TABS: Array<[MobileTab, string]> = [['herramientas', 'Herramientas'], ['capas', 'Capas'], ['capa', 'Ajustes'], ['explorar', 'Explorar']];
+const TABS: Array<[MobileTab, string]> = [['herramientas', 'Herramientas'], ['capas', 'Capas'], ['capa', 'Ajustes'], ['tiempo', 'Tiempo'], ['explorar', 'Explorar']];
 
 export function PhoneBar() {
   const versions = useProject(s => s.versions);
@@ -102,10 +103,11 @@ export function ToolSheet({ land, onCutout }: { land: boolean; onCutout: () => v
         </div>
         <button type="button" className="close" onClick={() => setUI({ snap: 'closed' })} aria-label="Cerrar la hoja"><IClose /></button>
       </div>
-      <div className="fsheet-body" id="fsheet-body" role="tabpanel" aria-labelledby={'ft-' + tab}>
+      <div className={'fsheet-body' + (tab === 'tiempo' ? ' fsheet-tl' : '')} id="fsheet-body" role="tabpanel" aria-labelledby={'ft-' + tab}>
         {tab === 'herramientas' && <ToolsTab onCutout={onCutout} />}
         {tab === 'capas' && <Layers onOpenMask={() => setUI({ mtab: 'capa' })} />}
         {tab === 'capa' && <Inspector />}
+        {tab === 'tiempo' && <PhoneTimeline />}
         {tab === 'explorar' && <ExploreTab />}
       </div>
     </section>

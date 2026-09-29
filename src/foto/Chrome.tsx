@@ -102,32 +102,83 @@ export function ToolIcon({ t }: { t: Tool }) {
   return <span className="t-ic" aria-hidden="true" dangerouslySetInnerHTML={{ __html: t.icon }} />;
 }
 
-/** The palette: the built-in hand, then TOOLS grouped (empty today: it fills when the tools arrive). */
+/** A tool's hint for this device: the mouse and keyboard part, or what it says «En teléfono». */
+export function hintFor(hint: string, touch: boolean): string {
+  const i = hint.indexOf('En teléfono:');
+  if (i < 0) return hint;
+  if (!touch) return hint.slice(0, i).trim();
+  const t = hint.slice(i + 'En teléfono:'.length).trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** Short names for the phone's labelled palette (the full name stays in the button's accessible name). */
+const SHORT: Record<string, string> = {
+  'Editar partes': 'Editar', 'Contorno preciso': 'Contorno', 'Pasar a ASCII': 'A ASCII', 'Borrar efecto': 'Borrar', 'Restaurar original': 'Restaurar',
+};
+
+interface Tip { x: number; y: number; name: string; key?: string; hint: string }
+
+/**
+ * The palette: the built-in hand, then TOOLS by group (selection, brushes, object, drawing), then «Quitar
+ * fondo». On the desktop a vertical rail of icons with their shortcut letters and a tooltip (name, key, what
+ * it does) on hover or keyboard focus; on phones a row of labelled buttons that scrolls sideways.
+ */
 export function ToolRail({ onCutout, vertical = true }: { onCutout: () => void; vertical?: boolean }) {
   const tool = useFoto(s => s.tool);
   useFoto(s => s.toolsV);
+  const [tip, setTip] = useState<Tip | null>(null);
+  const timer = useRef(0);
+  const row = useRef<HTMLDivElement>(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  // the active tool stays in view in the phone's row
+  useEffect(() => { if (!vertical) row.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }, [tool, vertical]);
   const groups = (['seleccion', 'pincel', 'objeto', 'dibujo'] as const).map(g => [g, TOOLS.filter(t => t.group === g)] as const).filter(([, l]) => l.length);
+  const show = (el: HTMLElement, t: Omit<Tip, 'x' | 'y'>, now: boolean) => {
+    if (!vertical) return;
+    clearTimeout(timer.current);
+    const go = () => { const r = el.getBoundingClientRect(); setTip({ ...t, x: r.right + 10, y: r.top + r.height / 2 }); };
+    if (now) go(); else timer.current = window.setTimeout(go, 280);
+  };
+  const hide = () => { clearTimeout(timer.current); setTip(null); };
+  const tipOf = (name: string, key: string | undefined, hint: string) => ({
+    onPointerEnter: (e: React.PointerEvent<HTMLButtonElement>) => { if (e.pointerType === 'mouse') show(e.currentTarget, { name, key, hint }, false); },
+    onPointerLeave: hide,
+    onFocus: (e: React.FocusEvent<HTMLButtonElement>) => { if (e.currentTarget.matches(':focus-visible')) show(e.currentTarget, { name, key, hint }, true); },
+    onBlur: hide,
+    onPointerDown: hide,
+  });
+  const button = (id: string, name: string, key: string | undefined, hint: string, icon: ReactNode, onClick: () => void, pressed?: boolean) => (
+    <button key={id} type="button" className="tbtn" aria-pressed={pressed} aria-label={`${name}${key ? ` (${key})` : ''}`}
+      data-tool={id} onClick={onClick} {...tipOf(name, key, hint)}>
+      {icon}
+      {vertical ? key && <kbd aria-hidden="true">{key}</kbd> : <span className="t-name" aria-hidden="true">{SHORT[name] ?? name}</span>}
+    </button>
+  );
   return (
-    <div className={'frail' + (vertical ? '' : ' horiz')} role="toolbar" aria-label="Herramientas" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
-      <button type="button" className="tbtn" aria-pressed={tool === 'mano'} title="Mano: mover la vista (H, o espacio + arrastrar)" aria-label="Mano (H)" onClick={() => selectTool('mano')}><IHand /><kbd>H</kbd></button>
+    <div ref={row} className={'frail' + (vertical ? '' : ' horiz')} role="toolbar" aria-label="Herramientas" aria-orientation={vertical ? 'vertical' : 'horizontal'}>
+      {button('mano', 'Mano', 'H', 'Arrastra para mover la vista (también: espacio + arrastrar, o dos dedos).', <IHand />, () => selectTool('mano'), tool === 'mano')}
       {groups.map(([g, list]) => (
         <div key={g} className="trail-g" role="group" aria-label={GROUP_NAMES[g]}>
-          {list.map(t => (
-            <button key={t.id} type="button" className="tbtn" aria-pressed={tool === t.id} title={`${t.name}${t.shortcut ? ` (${t.shortcut.toUpperCase()})` : ''}: ${t.hint}`}
-              aria-label={`${t.name}${t.shortcut ? ` (${t.shortcut.toUpperCase()})` : ''}`} onClick={() => selectTool(t.id)}>
-              <ToolIcon t={t} />{t.shortcut && <kbd>{t.shortcut.toUpperCase()}</kbd>}
-            </button>
-          ))}
+          {list.map(t => button(t.id, t.name, t.shortcut?.toUpperCase(), hintFor(t.hint, false), <ToolIcon t={t} />, () => selectTool(t.id), tool === t.id))}
         </div>
       ))}
-      {!TOOLS.length && <p className="trail-empty" title="Rectángulo, elipse, lazo, pinceles, color y objeto: llegan en la próxima actualización del estudio">Selección y pinceles: pronto</p>}
-      <span className="trail-sep" aria-hidden="true" />
-      <button type="button" className="tbtn" title="Quitar fondo: recorta el sujeto en tu equipo" aria-label="Quitar fondo" onClick={onCutout}><IScissors /></button>
+      <div className="trail-g" role="group" aria-label="Recorte">
+        {button('recorte', 'Quitar fondo', undefined, 'Recorta el sujeto en tu equipo: lo usas como capa, como máscara o en PNG transparente.', <IScissors />, onCutout)}
+      </div>
+      {tip && (
+        <div className="frail-tip" role="tooltip" style={{ left: tip.x, top: tip.y }}>
+          <span className="frt-h"><b>{tip.name}</b>{tip.key && <kbd>{tip.key}</kbd>}</span>
+          <span className="frt-b">{tip.hint}</span>
+        </div>
+      )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ options bar */
+
+/** The phone layouts (their hints speak of fingers). */
+const touchUI = () => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 760px), (max-height: 500px) and (orientation: landscape) and (max-width: 1000px), (pointer: coarse)').matches;
 
 export function OptionsBar() {
   const toolId = useFoto(s => s.tool);
@@ -148,7 +199,7 @@ export function OptionsBar() {
   return (
     <div className="fopts" role="region" aria-label={`Opciones de ${t.name}`}>
       <span className="fo-name"><ToolIcon t={t} /> {t.name}</span>
-      <span className="fo-hint">{t.hint}</span>
+      <span className="fo-hint" title={t.hint}>{hintFor(t.hint, touchUI())}</span>
       {(t.group === 'seleccion' || t.group === 'objeto' || t.group === 'pincel') && (
         <div className="seg fo-op" role="radiogroup" aria-label="Operación de la máscara">
           {OPS.map(([v, name, title]) => (

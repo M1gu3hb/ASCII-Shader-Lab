@@ -18,6 +18,7 @@ import { evaluate, type FrameState } from '../project/evaluate';
 import { cloneProject, defaultMask } from '../project/normalize';
 import { useProject } from '../project/store';
 import type { Id, MaskPart, Project } from '../project/types';
+import { animFor, animSettled, needsAnim } from './anim';
 import { setUI, ui, useFoto } from './ui';
 
 /** Changes closer than this are one interaction (light renders); after it, the final render. */
@@ -155,6 +156,14 @@ async function run(light: boolean) {
   if (!p || !canvas) { dirty = false; return; }
   busy = true;
   dirty = false;
+  // a project with clips waits for the animation library (never drawn with its clips unknown)
+  if (!animSettled() && needsAnim(p)) {
+    await animFor(p);
+    busy = false;
+    dirty = true;
+    kick();
+    return;
+  }
   const mine = ++seq;
   const scale = scaleFor(p, light);
   const t = useProject.getState().time;

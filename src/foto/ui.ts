@@ -4,13 +4,13 @@
  * (zoom, pan, compare), the active tool, the open sheet, the phone layout and the status line.
  */
 import { create } from 'zustand';
-import type { MaskOp } from '../project/types';
+import type { Id, MaskOp } from '../project/types';
 
 export type MaskView = 'tint' | 'grey' | 'off';
 export type SheetId = 'none' | 'export' | 'help' | 'styles' | 'versions' | 'settings' | 'camera' | 'saveas' | 'new';
 /** Snap points of the phone's tools sheet. */
 export type Snap = 'closed' | 'peek' | 'half' | 'full';
-export type MobileTab = 'herramientas' | 'capas' | 'capa' | 'explorar';
+export type MobileTab = 'herramientas' | 'capas' | 'capa' | 'tiempo' | 'explorar';
 export type Quality = 'auto' | 'ligera';
 
 export interface RenderInfo {
@@ -59,12 +59,18 @@ export interface FotoUI {
   /** Phones: only the art and the four actions. */
   immersive: boolean;
   status: string;
+  /** The «Quitar fondo» recommendation for the project's photo (suggest.tsx), while it shows. */
+  hint: { id: string; text: string } | null;
   /** Screen-reader announcement (cleared a few seconds later). */
   live: string;
   diceScope: 'capa' | 'todo';
   quality: Quality;
   render: RenderInfo;
   playing: boolean;
+  /** The timeline slot open or closed by hand; null: open when the project moves (clips, keys, a video). */
+  tlOpen: boolean | null;
+  /** «Animar»: the library opened for a layer (the templates or the choreographies). */
+  anim: { layer: Id; tab: 'plantillas' | 'coreografias' } | null;
   /** A version to compare with the current one (the versions sheet). */
   compareWith: string | null;
   /** An edit waits to be saved. */
@@ -82,8 +88,8 @@ function loadQuality(): Quality {
 export const useFoto = create<FotoUI>(() => ({
   screen: 'start', tool: null, op: 'add', maskView: 'tint', maskPin: false, maskFocus: false, compare: false, split: 0.5, holding: false,
   zoom: 'fit', zk: 1, pan: { x: 0, y: 0 }, sheet: 'none', cutout: false, snap: 'closed', mtab: 'capas', sheetH: 0, immersive: narrow(),
-  status: '', live: '', diceScope: 'capa', quality: loadQuality(),
-  render: { ms: 0, scale: 0, light: false, w: 0, h: 0, warnings: [], basic: false, n: 0 }, playing: false, compareWith: null, toolsV: 0, saving: false,
+  status: '', hint: null, live: '', diceScope: 'capa', quality: loadQuality(),
+  render: { ms: 0, scale: 0, light: false, w: 0, h: 0, warnings: [], basic: false, n: 0 }, playing: false, tlOpen: null, anim: null, compareWith: null, toolsV: 0, saving: false,
 }));
 
 export const ui = () => useFoto.getState();
@@ -106,10 +112,19 @@ export function setQuality(q: Quality) {
 
 let liveT = 0;
 let statusT = 0;
-/** The status line and a screen-reader announcement (both in Spanish). */
-export function say(msg: string, o: { keep?: boolean } = {}) {
+/**
+ * The status line and a screen-reader announcement (both in Spanish). `quiet`: only the announcement (what
+ * the screen already shows elsewhere, e.g. a tool's hint in its options bar).
+ */
+export function say(msg: string, o: { keep?: boolean; quiet?: boolean } = {}) {
   clearTimeout(liveT);
   clearTimeout(statusT);
+  if (o.quiet) {
+    setUI({ live: '' });
+    requestAnimationFrame(() => setUI({ live: msg }));
+    liveT = window.setTimeout(() => setUI({ live: '' }), 7000);
+    return;
+  }
   setUI({ status: msg, live: '' });
   requestAnimationFrame(() => setUI({ live: msg }));
   liveT = window.setTimeout(() => setUI({ live: '' }), 7000);

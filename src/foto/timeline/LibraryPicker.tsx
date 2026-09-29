@@ -10,10 +10,11 @@ import type { Drawable } from '../../project/sources';
 import type { LayerKind } from '../../project/types';
 import { PreviewScheduler, type PreviewItem } from './previews';
 import { bestKind } from './samples';
+import './timeline.css';
 
 const KIND_NAMES: Record<LayerKind, string> = { photo: 'foto', ascii: 'ASCII', glyphs: 'caracteres', text: 'texto', shape: 'forma' };
 
-export function LibraryPicker({ kind, onPick, onChoreo, onClose, picture, basic }: {
+export function LibraryPicker({ kind, onPick, onChoreo, onClose, picture, basic, initialTab }: {
   /** The kind of the layer the clip goes on (null: every template, each previewed on its best kind). */
   kind: LayerKind | null;
   onPick: (item: LibraryItem) => void;
@@ -21,8 +22,10 @@ export function LibraryPicker({ kind, onPick, onChoreo, onClose, picture, basic 
   onClose: () => void;
   picture?: () => Drawable | null;
   basic?: boolean;
+  /** The tab it opens on (default: the templates). */
+  initialTab?: 'plantillas' | 'coreografias';
 }) {
-  const [tab, setTab] = useState<'plantillas' | 'coreografias'>('plantillas');
+  const [tab, setTab] = useState<'plantillas' | 'coreografias'>(initialTab ?? 'plantillas');
   const [q, setQ] = useState('');
   const scroll = useRef<HTMLDivElement>(null);
   const sched = useRef<PreviewScheduler | null>(null);

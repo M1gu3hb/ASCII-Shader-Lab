@@ -37,6 +37,11 @@ export function Start() {
           <button type="button" className="btn" onClick={() => void open()}><IFolder width={17} height={17} /> Abrir un proyecto</button>
         </div>
         <p className="privacy">Tus fotos no se suben: todo se procesa en tu navegador y tus proyectos se guardan en este equipo.</p>
+        <ol className="fs-steps" aria-label="Así funciona">
+          <li><b>Una foto</b><span>Súbela, tómala o empieza por una plantilla.</span></li>
+          <li><b>Zonas en caracteres</b><span>Dibújalas con las herramientas o usa «Quitar fondo»; el dado propone estilos.</span></li>
+          <li><b>Anima y exporta</b><span>Clips de la biblioteca en la línea de tiempo; PNG, capas, máscaras o texto.</span></li>
+        </ol>
       </section>
       <section className="fs-sec" aria-labelledby="fs-tpl">
         <h2 id="fs-tpl" className="fs-h"><ITemplate width={16} height={16} /> Empieza por una plantilla</h2>
@@ -81,7 +86,7 @@ function TemplateCard({ id, name, blurb }: { id: string; name: string; blurb: st
   return (
     <li className="fs-tpl">
       <button type="button" className="fs-tpl-main" onClick={() => void newFromTemplate(id)} aria-label={`${name}: ${blurb} (con el paisaje de muestra)`}>
-        <span className="fs-tpl-img" style={thumb ? { backgroundImage: `url(${JSON.stringify(thumb)})` } : undefined} aria-hidden="true" />
+        <span className={'fs-tpl-img' + (thumb ? '' : ' wait')} style={thumb ? { backgroundImage: `url(${JSON.stringify(thumb)})` } : undefined} aria-hidden="true" />
         <span className="fs-tpl-name">{name}</span>
         <span className="fs-tpl-blurb">{blurb}</span>
       </button>
