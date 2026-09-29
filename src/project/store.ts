@@ -210,15 +210,17 @@ export function commitVersion(kind: VersionKind, o: { label?: string; parent?: I
 }
 
 /**
- * Shows a version: the project becomes exactly the one it holds (every field, `updated` included), and
- * what was there is one undo step away.
+ * Shows a version: the project becomes exactly the one it holds (every field, `updated` included) except
+ * what names the project itself, its id and its name (a rename made after the version stays, as «Guardar
+ * como» keeps the copy's name in its versions), and what was there is one undo step away.
  */
 export function restoreVersion(id: Id): boolean {
   const vl = S().versions;
   const i = indexOfVersion(vl, id);
-  if (i < 0 || !S().project) return false;
+  const cur = S().project;
+  if (i < 0 || !cur) return false;
   const v = vl.list[i];
-  edit(() => projectOf(v), '', { stamp: false });
+  edit(() => ({ ...projectOf(v), id: cur.id, name: cur.name }), '', { stamp: false });
   useProject.setState({ versions: goV(S().versions, id) });
   return true;
 }
