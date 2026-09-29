@@ -63,7 +63,7 @@ export interface PlaybackStats {
   /** Times handed to onFrame, and renders that finished. */
   emitted: number;
   rendered: number;
-  /** Ticks skipped because the previous render had not finished. */
+  /** Frames of the project's grid the preview passed over while playing (renders slower than a frame). */
   dropped: number;
   /** Mean and worst render time (ms) of the finished renders. */
   renderMs: number;
@@ -406,9 +406,15 @@ export function createPlayback(o: PlaybackOptions): Playback {
     }
     const fps = project.time.fps > 0 ? project.time.fps : 30;
     const out = grid ? Math.max(0, (reverse ? Math.ceil(t * fps - 1e-6) : Math.floor(t * fps + 1e-6)) / fps) : t;
-    if (out !== lastOut) {
-      if (busy) st.dropped++;
-      else { lastOut = out; emit(out); }
+    if (out !== lastOut && !busy) {
+      // frames of the grid passed over since the last one drawn (a render that took longer than a frame, or a
+      // main thread too busy to tick): what the preview did not show
+      if (Number.isFinite(lastOut)) {
+        const gap = Math.round(Math.abs(out - lastOut) * fps) - 1;
+        if (gap > 0 && !w.wrapped) st.dropped += gap;
+      }
+      lastOut = out;
+      emit(out);
     }
     raf = requestAnimationFrame(frame);
   }

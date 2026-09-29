@@ -205,11 +205,15 @@ let lastStrip = -1;
 let shown = 0;
 const stripLog: Array<{ t: number; frame: number }> = [];
 
+/** Longest side of the video pictures the preview gets (the «Vista ligera» can ask for less). */
+let previewSide = 1920;
+
 function mountPlayback() {
   playback?.dispose();
   comp?.destroy();
   const pb = createPlayback({
     project: project!,
+    maxSide: previewSide,
     onFrame: async t => {
       const q = Number($<HTMLSelectElement>('#quality').value);
       await comp!.render(frameAt(project!, t), view(), { scale: q, quality: q >= 1 ? 'final' : 'preview' });
@@ -672,7 +676,8 @@ async function playFor(ms: number, o: { reverse?: boolean; rate?: number; from?:
 }
 
 /** 1080p 30 fps clip, video + ASCII layer (2 layers), played for `seconds`: frames shown vs frames the video had. */
-async function measurePlayback(seconds = 6, scale = 0.5) {
+async function measurePlayback(seconds = 6, scale = 0.5, side = 1920) {
+  previewSide = side;
   const c = await makeClip({ w: 1920, h: 1080, fps: 30, seconds: Math.max(4, seconds + 1), size: 216, audio: true });
   clip = c;
   project = buildProject('layers');
@@ -899,7 +904,8 @@ const vq: Vq = {
   playFor: (ms: number, o?: Parameters<typeof playFor>[1]) => playFor(ms, o),
   seekShow: async (t: number) => { await playback!.seek(t); return lastStrip; },
   pbStats: () => playback!.stats(),
-  measurePlayback: (s?: number, scale?: number) => measurePlayback(s, scale),
+  previewSide: (n: number) => { previewSide = n; mountPlayback(); return n; },
+  measurePlayback: (s?: number, scale?: number, side?: number) => measurePlayback(s, scale, side),
   measureLong: (s?: number, f?: 'webm' | 'mp4', w?: number) => measureLong(s, f, w),
   measureFlow: () => measureFlow(),
   squareAt: (t: number) => squareAt(clip!.spec, t),
