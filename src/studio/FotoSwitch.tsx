@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cloneRecipe, type MediaRef } from '../engine/recipe';
 import { putHandoff } from '../foto/handoff';
 import { mediaElement } from './media';
-import { put } from './mediaStore';
+import { hasMedia, put } from './mediaStore';
 import { currentEntry, currentRecipe, persistNow } from './store';
 import { toast } from './toast';
 import '../foto/switch.css';
@@ -40,7 +40,17 @@ export function FotoSwitch() {
       const r = cloneRecipe(currentRecipe());
       let ref: MediaRef | null = null;
       let video: { duration: number } | undefined;
+      // only what this browser keeps travels (the photo studio reads it from the media store): a file too big
+      // for it, or kept when there was no room, lives only in this tab, and the project would open without it
+      const unkept = () => {
+        setBusy(false);
+        setOpen(false);
+        const video = r.source === 'video';
+        toast(`${video ? 'Este video no está guardado' : 'Esta foto no está guardada'} en el navegador (pesa demasiado o no quedó espacio), así que no puede viajar al estudio de foto. Ábre${video ? 'lo' : 'la'} allí directamente.`,
+          { label: 'Ir al estudio de foto', run: () => { location.href = '/studio/foto/'; } }, 9000);
+      };
       if ((r.source === 'image' || r.source === 'video') && r.media.ref?.id) {
+        if (!(await hasMedia(r.media.ref.id))) { unkept(); return; }
         ref = r.media.ref;
         const v = r.source === 'video' ? mediaElement('video') as HTMLVideoElement | null : null;
         if (v && Number.isFinite(v.duration)) video = { duration: v.duration };
@@ -56,6 +66,7 @@ export function FotoSwitch() {
           const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', 0.92));
           if (blob) {
             const s = await put(blob, { kind: 'image', name: 'camara.jpg', w: c.width, h: c.height });
+            if (!s.stored) { unkept(); return; }
             ref = { id: s.id, kind: 'image', name: 'camara.jpg', type: 'image/jpeg', size: blob.size, w: c.width, h: c.height };
             r.source = 'image';
             r.media.mirror = false;

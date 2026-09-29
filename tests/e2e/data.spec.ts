@@ -146,6 +146,25 @@ test.describe('historial y medios locales', () => {
     await expect(page).toHaveURL(/\/studio\/foto\/$/);
   });
 
+  test('«Llevar al estudio de foto» con una foto que el navegador no guardó lo dice, en lugar de abrir un proyecto sin ella', async ({ page }) => {
+    await openStudio(page);
+    await page.keyboard.press('3'); // Imagen
+    await drop(page, 'foto-a.png', 'image/png', A);
+    await expect((await sourceFile(page)).getByText('foto-a.png')).toBeVisible();
+    // as with a file over the size limit, or a full disk: it shows in this tab, but the store does not have it
+    await page.waitForTimeout(800);
+    await page.evaluate(() => new Promise<void>(res => {
+      const rq = indexedDB.open('mt-media');
+      rq.onsuccess = () => { const tx = rq.result.transaction('blobs', 'readwrite'); tx.objectStore('blobs').clear(); tx.oncomplete = () => { rq.result.close(); res(); }; };
+    }));
+    await page.getByRole('button', { name: 'Foto y video' }).click();
+    await page.getByRole('menuitem', { name: /Llevar al estudio de foto/ }).click();
+    await expect(page.locator('.toast').filter({ hasText: 'no está guardada en el navegador' })).toBeVisible();
+    await page.waitForTimeout(1500);
+    expect(new URL(page.url()).pathname).toBe('/studio/');
+    await expect((await sourceFile(page)).getByText('foto-a.png')).toBeVisible();
+  });
+
   test('copiar el enlace de una pieza con imagen pide confirmación y el enlace no lleva la imagen', async ({ browser }) => {
     const a = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
     const pa = await a.newPage();
