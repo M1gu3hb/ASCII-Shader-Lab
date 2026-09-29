@@ -163,7 +163,7 @@ async function encodeVideo(p: Project, o: MovieOptions, c: Common): Promise<Movi
   let audio: AudioJob | null = null;
   const restore = v.codec === 'avc' ? withRepairedAvc() : () => {};
   let done = false;
-  // the canvas the encoder reads: frameLoop's output canvas, assigned on its first frame
+  // the canvas the encoder reads (each frame of the loop is copied into it)
   let src: import('mediabunny').CanvasSource | null = null;
   const holder = document.createElement('canvas');
   holder.width = size.W; holder.height = size.H;
