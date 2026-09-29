@@ -247,3 +247,17 @@
 @media (min-width: 600px) and (max-width: 900px) {
   .app .ph-dock .nav button, .app .ph-dock .act { font-size: 13px; }
 }
+
+/* ---------- «Libre» on phones: the view picker is an icon ----------
+   With the piece alone on stage the picker's pill (238 px with the immersive toggle) covered a band of the
+   art at its top; as an icon beside the immersive toggle it takes 100 px. Its name and value stay for
+   assistive tech; the other views keep the wide picker (their options and «Exportar» come with them). */
+@media (max-width: 900px) {
+  .app .vbar:not(.more) .vbar-sel { padding: 3px; }
+  .app .vbar:not(.more) .vsel-pk { flex: none; width: 44px; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; border-radius: 10px; }
+  .app .vbar:not(.more) .vsel-pk .pk-val { flex: none; }
+  .app .vbar:not(.more) .vsel-pk .pk-ic { display: inline-flex; }
+  .app .vbar:not(.more) .vsel-pk .pk-ic svg { width: 20px; height: 20px; }
+  .app .vbar:not(.more) .vsel-pk .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .app .vbar:not(.more) .vsel-pk .pk-caret { display: none; }
+}
