@@ -216,11 +216,14 @@ export function CameraSheet() {
   const [error, setError] = useState('');
   const [cams, setCams] = useState(0);
   const [busy, setBusy] = useState(false);
+  /** The video shows a frame (a stream can take a moment to give its first one). */
+  const [ready, setReady] = useState(false);
   const mirror = mirrorFor(facing, overrides);
   useEffect(() => {
     if (!open) return;
     let gone = false, s: MediaStream | null = null;
     setError('');
+    setReady(false);
     void openCamera(want).then(async c => {
       if (gone) { stopStream(c.stream); return; }
       s = c.stream;
@@ -234,7 +237,7 @@ export function CameraSheet() {
   }, [open, want]);
   const take = async () => {
     const v = video.current;
-    if (!v || !v.videoWidth) return;
+    if (!v || !v.videoWidth) { say('La cámara aún no da imagen: espera un momento.'); return; }
     setBusy(true);
     const c = captureFrame(v, mirror);
     const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', 0.92));
@@ -253,7 +256,8 @@ export function CameraSheet() {
       <div className="sheet-body fcam">
         {error ? <p className="warn" role="alert">{error}</p> : (
           <div className="fcam-view">
-            <video ref={video} muted playsInline style={mirror ? { transform: 'scaleX(-1)' } : undefined} aria-label="Vista de la cámara" />
+            <video ref={video} muted playsInline style={mirror ? { transform: 'scaleX(-1)' } : undefined} aria-label="Vista de la cámara"
+              onLoadedData={() => setReady(true)} onEmptied={() => setReady(false)} />
             {!stream && <p className="note mt-spin">Pidiendo la cámara…</p>}
           </div>
         )}
@@ -263,7 +267,7 @@ export function CameraSheet() {
           {cams !== 1 && (
             <SegGroup label="Cámara" value={want} opts={[['user', 'Frontal'], ['environment', 'Trasera']]} onPick={v => setWant(v)} />
           )}
-          <button type="button" className="btn primary" disabled={!stream || busy} onClick={() => void take()}><ICamera width={18} height={18} /> {busy ? 'Guardando…' : 'Tomar la foto'}</button>
+          <button type="button" className="btn primary" disabled={!stream || !ready || busy} onClick={() => void take()}><ICamera width={18} height={18} /> {busy ? 'Guardando…' : 'Tomar la foto'}</button>
         </div>
       </div>
     </Sheet>
