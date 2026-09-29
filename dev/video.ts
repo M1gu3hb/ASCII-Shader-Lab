@@ -770,6 +770,12 @@ const vq: Vq = {
   formats: async (o?: Partial<MovieOptions>) => movieFormatsFor(project!, o ?? {}),
   export: (o: MovieOptions, cancelAfter?: number) => runExport(o, cancelAfter),
   inspect: () => inspect(),
+  /** The test clip itself, inspected the same way (its sound's duration and onset are the reference). */
+  inspectSource: async () => {
+    const { storeBlob } = await import('../src/project/sources');
+    const got = await storeBlob(clip!.ref.id!);
+    return inspect(got!.blob);
+  },
   compare: (times?: number[]) => compare(times),
   lastBytes: async () => Array.from(new Uint8Array(await lastBlob!.arrayBuffer()).slice(0, 16)),
   lastHash: async () => { const d = await crypto.subtle.digest('SHA-256', await lastBlob!.arrayBuffer()); return Array.from(new Uint8Array(d).slice(0, 8), b => b.toString(16).padStart(2, '0')).join(''); },
@@ -799,6 +805,7 @@ const vq: Vq = {
   cancelTrack: () => trackAbort?.abort(),
   playFor: (ms: number, o?: Parameters<typeof playFor>[1]) => playFor(ms, o),
   seekShow: async (t: number) => { await playback!.seek(t); return lastStrip; },
+  pbStats: () => playback!.stats(),
   measurePlayback: (s?: number, scale?: number) => measurePlayback(s, scale),
   measureLong: (s?: number, f?: 'webm' | 'mp4', w?: number) => measureLong(s, f, w),
   measureFlow: () => measureFlow(),

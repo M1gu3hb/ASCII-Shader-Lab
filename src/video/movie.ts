@@ -318,6 +318,8 @@ async function encodePngs(p: Project, o: MovieOptions, c: Common): Promise<Movie
   const notes = [...size.notes];
   if (p.sources.some(s => s.kind === 'video' && s.hasAudio) && (o.audio ?? 'keep') === 'keep') notes.push('La secuencia PNG no lleva sonido: exporta el video original si lo necesitas.');
   const files: ZipInput[] = [];
+  // the project's own date on every entry: the same project gives the same .zip, byte for byte
+  const stamp = new Date(p.updated || 0);
   const base = exportName(p, 'png').replace(/\.png$/, '');
   const loop = await frameLoop(p, {
     times, W: size.W, H: size.H, scale: size.scale, transparent: c.transparent, blob: c.blob, signal: o.signal,
@@ -325,7 +327,7 @@ async function encodePngs(p: Project, o: MovieOptions, c: Common): Promise<Movie
     frame: async (canvas, i) => {
       const b = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/png'));
       if (!b) throw new Error('No se pudo crear el PNG de un cuadro.');
-      files.push({ name: `${base}/${base}-${String(i + 1).padStart(6, '0')}.png`, data: b });
+      files.push({ name: `${base}/${base}-${String(i + 1).padStart(6, '0')}.png`, data: b, date: stamp });
     },
   });
   notes.push(...loop.warnings);
@@ -342,6 +344,6 @@ async function encodePngs(p: Project, o: MovieOptions, c: Common): Promise<Movie
     '',
     'Para armar un video: impórtalos como secuencia de imágenes en tu editor con esa velocidad.',
   ].join('\n');
-  const blob = await zip([{ name: `${base}/LEEME.txt`, data: readme }, ...files]);
+  const blob = await zip([{ name: `${base}/LEEME.txt`, data: readme, date: stamp }, ...files]);
   return { blob, name: exportName(p, 'zip', 'cuadros'), mime: 'application/zip', audio: 'none', notes };
 }
