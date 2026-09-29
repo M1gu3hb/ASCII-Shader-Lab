@@ -145,13 +145,14 @@ test('the palette: every tool with its Spanish name, touch hint, shortcut and ic
   const errors = await open(page);
   const tools = await qa<Array<{ id: string; name: string; shortcut: string; hint: string; group: string }>>('tools');
   expect(tools.map(t => `${t.shortcut} ${t.name}`)).toEqual([
-    'V Editar partes', 'M Rectángulo', 'O Elipse', 'P Polígono', 'L Lazo', 'K Contorno preciso', 'W Color', 'J Objeto', 'G Degradado',
+    'V Editar partes', 'M Rectángulo', 'O Elipse', 'P Polígono', 'L Lazo', 'K Contorno preciso', 'W Color', 'J Objeto', 'T Seguir objeto',
+    'G Degradado',
     'B Pasar a ASCII', 'E Borrar efecto', 'R Restaurar original',
   ]);
   for (const t of tools) expect(t.hint).toMatch(/teléfono/);
   const buttons = page.locator('#palette button');
-  await expect(buttons).toHaveCount(12);
-  for (let i = 0; i < 12; i++) {
+  await expect(buttons).toHaveCount(13);
+  for (let i = 0; i < 13; i++) {
     await expect(buttons.nth(i)).toHaveAttribute('aria-label', new RegExp(tools[i].name));
     expect(await buttons.nth(i).locator('svg[viewBox="0 0 24 24"]').count()).toBe(1);
   }
