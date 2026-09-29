@@ -76,11 +76,8 @@ export function HelpSheet() {
         <h3 className="data-h">Estudio</h3>
         <KeyList list={STUDIO_KEYS} />
         <h3 className="data-h">Herramientas</h3>
-        {GROUPS.map(([g, name]) => {
-          const list = TOOLS.filter(t => t.group === g);
-          if (!list.length) return null;
-          return <KeyList key={g} list={list.map(t => [t.shortcut?.toUpperCase() ?? '—', `${name}: ${t.name}`] as [string, string])} />;
-        })}
+        <KeyList list={GROUPS.flatMap(([g, name]) => TOOLS.filter(t => t.group === g).map(t => [t.shortcut?.toUpperCase() ?? '—', `${t.name}${t.name.toLowerCase() === name.toLowerCase() ? '' : ` · ${name.toLowerCase()}`}`] as [string, string]))} />
+        <h3 className="data-h">Al dibujar</h3>
         <KeyList list={TOOL_KEYS} />
         <h3 className="data-h">Línea de tiempo (con el foco en ella)</h3>
         <KeyList list={TIMELINE_KEYS} />

@@ -606,7 +606,7 @@ export function Timeline(props: TimelineProps) {
       </div>
       <TimeScroll view={view} len={len} onStart={st => setView(v => clampView({ ...v, start: st }, len))} />
       <p className="tl-hint">
-        {props.compact ? 'Un dedo desplaza, dos acercan; mantén pulsado un clip o una llave para ver sus opciones.' : <><kbd>←</kbd><kbd>→</kbd> cuadro · <kbd>⇧</kbd> segundo · <kbd>Espacio</kbd> reproducir · <kbd>K</kbd> llave · <kbd>Supr</kbd> borrar · <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> mover selección · <kbd>Ctrl</kbd>+rueda zoom · clic derecho: opciones</>}
+        {props.compact && (typeof matchMedia !== 'function' || matchMedia('(pointer: coarse)').matches) ? 'Un dedo desplaza, dos acercan; mantén pulsado un clip o una llave para ver sus opciones.' : <><kbd>←</kbd><kbd>→</kbd> cuadro · <kbd>⇧</kbd> segundo · <kbd>Espacio</kbd> reproducir · <kbd>K</kbd> llave · <kbd>Supr</kbd> borrar · <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> mover selección · <kbd>Ctrl</kbd>+rueda zoom · clic derecho: opciones</>}
       </p>
 
       {/* ---------------------------------------------------------------- popovers */}

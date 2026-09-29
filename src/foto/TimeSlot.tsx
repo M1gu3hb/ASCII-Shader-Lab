@@ -20,9 +20,13 @@ const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart
 const H_KEY = 'glyphos.foto.tiempo.alto';
 const H_MIN = 190, H_DEF = 260;
 
+/** The height kept in this browser, or one that leaves the art most of a short window. */
 function loadHeight(): number {
-  try { const v = Number(localStorage.getItem(H_KEY)); return Number.isFinite(v) && v >= H_MIN ? v : H_DEF; } catch { return H_DEF; }
+  const def = Math.max(H_MIN, Math.min(H_DEF, Math.round(window.innerHeight * 0.3)));
+  try { const v = Number(localStorage.getItem(H_KEY)); return Number.isFinite(v) && v >= H_MIN ? v : def; } catch { return def; }
 }
+/** Below this width (px) the slot's timeline is the compact one (two rows of transport, a narrower header). */
+const NARROW = 720;
 
 /** The project's photo, small, for the library's animated previews. */
 export function previewPicture() {
@@ -56,10 +60,11 @@ export function TimeSlot() {
   useEffect(() => { if (open) void loadAnim().catch(() => undefined); }, [open]);
   // the notices float above it
   const box = useRef<HTMLElement>(null);
+  const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const set = () => document.documentElement.style.setProperty('--ftl-h', el.offsetHeight + 'px');
+    const set = () => { document.documentElement.style.setProperty('--ftl-h', el.offsetHeight + 'px'); setNarrow(el.clientWidth < NARROW); };
     set();
     const ro = new ResizeObserver(set);
     ro.observe(el);
@@ -90,7 +95,7 @@ export function TimeSlot() {
       {open && (
         <div className="ftl-body" id="ftl-body" style={{ height: h }}>
           <Suspense fallback={<p className="note mt-spin ftl-wait">Cargando la línea de tiempo…</p>}>
-            <Timeline clock={clock} onSay={s => say(s)} previewPicture={previewPicture} basicPreviews={basic} />
+            <Timeline compact={narrow} clock={clock} onSay={s => say(s)} previewPicture={previewPicture} basicPreviews={basic} />
           </Suspense>
         </div>
       )}

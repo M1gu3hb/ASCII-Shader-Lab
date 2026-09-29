@@ -27,7 +27,7 @@ export function AnimSheet() {
   };
   return (
     <Sheet open={open} wide title={layer ? `Animar «${layer.name}»` : 'Animar'}
-      sub="Solo lo que funciona en esta capa. Se añade en el cabezal de la línea de tiempo; después ajustas su duración, su curva y sus parámetros." onClose={close}>
+      sub="Solo lo que funciona en esta capa. Se añade en el cabezal; su duración, su curva y sus parámetros se ajustan en la línea de tiempo." onClose={close}>
       {open && layer && req && (
         <div className="tl fanim-pick">
           <Suspense fallback={<p className="note mt-spin">Cargando la biblioteca de animaciones…</p>}>

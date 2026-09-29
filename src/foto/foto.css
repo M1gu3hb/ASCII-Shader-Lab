@@ -95,10 +95,10 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 /* phones: one row of labelled buttons that scrolls sideways */
 .frail.horiz { flex-direction: row; align-items: stretch; gap: 4px; border: 0; padding: 0 0 10px; margin: 0 -12px; padding-inline: 12px; background: none; overflow-x: auto; overflow-y: hidden; scroll-padding-inline: 12px; }
 .frail.horiz .trail-g { flex-direction: row; align-items: stretch; width: auto; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 4px; margin: 0; gap: 4px; }
-.frail.horiz .tbtn { width: 62px; height: 58px; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-color: var(--line); background: var(--field); }
+.frail.horiz .tbtn { width: 66px; height: 58px; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-color: var(--line); background: var(--field); }
 .frail.horiz .tbtn[aria-pressed="true"] { background: var(--bone); }
 .frail.horiz .tbtn[aria-pressed="true"]::before { left: 12px; right: 12px; top: auto; bottom: -1px; width: auto; height: 2px; }
-.frail.horiz .t-name { font: 500 10.5px/1.1 var(--font-ui); max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frail.horiz .t-name { font: 500 10.5px/1.1 var(--font-ui); max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- deck: dice and versions ---------- */
 .fdeck { flex: none; height: var(--deck-h); display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--line); background: var(--bg); }
@@ -160,6 +160,10 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .app.foto .fanim-x { width: 30px; height: 30px; border: 0; font: 500 16px/1 var(--font-ui); }
 .fanim-pick { height: min(68vh, 640px); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 0 0 4px; }
 .fanim-pick > .note { padding: 16px; }
+.fanim-pick .tl-lib header h3, .fanim-pick .tl-lib header > .tl-btn:last-child { display: none; }
+@media (max-width: 760px) { .fanim-pick { height: calc(100dvh - 190px); border-radius: 8px; } }
+/* short desktop windows: the keyboard line of the timeline is in the help sheet («?») */
+@media (max-height: 860px) { .ftl-body .tl-hint { display: none; } }
 
 /* ---------- panel: layers and inspector ---------- */
 .fpanel { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--line); background: var(--panel); }
@@ -302,6 +306,8 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fhint .fsg-x { width: 36px; height: 36px; }
 
 /* ---------- sheets ---------- */
+.app.foto .keys div { align-items: center; }
+.app.foto .keys kbd { flex: none; max-width: 55%; white-space: normal; text-align: center; line-height: 1.25; }
 .app.foto .data-h { margin: 18px 0 10px; font: 600 10.5px/1.2 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .app.foto .data-h:first-child { margin-top: 0; }
 .fhelp-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -415,6 +421,10 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
   .fsheet-tabs { gap: 0; }
   .fsheet-tabs [role=tab] { padding: 0 7px; font-size: 13px; }
 }
+/* the side drawer of a phone on its side is 420 px at most: the same compact tabs */
+.fsheet.land .fsheet-head { gap: 2px; padding: 0 6px 0 4px; }
+.fsheet.land .fsheet-tabs { gap: 0; }
+.fsheet.land .fsheet-tabs [role=tab] { padding: 0 7px; font-size: 13px; }
 @media (max-width: 379px) {
   .fsheet-head .close { display: none; }
   .fsheet-tabs [role=tab] { padding: 0 6px; }
