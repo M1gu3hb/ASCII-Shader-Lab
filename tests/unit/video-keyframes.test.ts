@@ -79,9 +79,20 @@ describe('choice among candidates', () => {
 
   it('calls it occluded when nothing overlaps enough', () => {
     const elsewhere = rect(w, h, 45, 25, 10, 10);
-    const tiny = rect(w, h, 25, 15, 3, 3);
+    // a small piece straddling the edge of the expected mask (mostly outside it)
+    const straddling = rect(w, h, 33, 22, 6, 6);
     expect(chooseCandidate([elsewhere], expected).occluded).toBe(true);
-    expect(chooseCandidate([tiny], expected).occluded).toBe(true);
+    expect(chooseCandidate([straddling], expected).occluded).toBe(true);
     expect(chooseCandidate([new Float32Array(w * h)], expected).index).toBe(-1);
+  });
+
+  it('recovers from a loose expectation: a tight candidate inside it is taken', () => {
+    // the expected mask grew (a keyframe took in background); the model finds the object tightly, inside it
+    const loose = rect(w, h, 10, 2, 40, 36);
+    const tight = rect(w, h, 22, 12, 14, 14);
+    const c = chooseCandidate([tight], loose);
+    expect(c.index).toBe(0);
+    expect(c.occluded).toBe(false);
+    expect(c.iou).toBeCloseTo(0.6, 5);
   });
 });

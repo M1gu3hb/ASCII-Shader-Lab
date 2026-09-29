@@ -32,8 +32,8 @@ import { FRAME_EPS, keepBlob, openPreviewVideo, storeBlob, type BlobResolver } f
 import type { MediaRef } from '../engine/recipe';
 import type { MaskRasterPart, Project, Source } from '../project/types';
 import { put } from '../studio/mediaStore';
-import { carryMask, flow as cpuFlow, lumaOf, type FlowField, type Luma } from './flow';
-import { glFlow } from './flow-gl';
+import { erode, fitAffine, flow as cpuFlow, lumaOf, warpAffine, type Affine, type FlowField, type Luma } from './flow';
+import { glFlow, releaseGlFlow } from './flow-gl';
 import type { TrackOptions } from './index';
 import {
   chooseCandidate, frameName, keyframeIndices, keysOfFrames, keyStep, nearestIndex, promptsFrom, promptVariants, roleOf, stretchAround, trackTimes,
@@ -91,11 +91,16 @@ const cutoutSegmenter: Segmenter = {
 export const MASK_SIDE = 480;
 /** Longest side of the frames the model sees (it works at 1024² inside). */
 export const SEG_SIDE = 1024;
+/** Longest side of the optical flow (the object's motion is fitted to it, then applied at the mask size). */
+export const FLOW_SIDE = 320;
 
 export interface Geometry {
-  /** Mask / flow size, frame space. */
+  /** Mask size, frame space. */
   w: number;
   h: number;
+  /** Flow size, frame space (≤ the mask size). */
+  fw: number;
+  fh: number;
   /** Where the video sits in that frame (fit of the layer that shows it). */
   place: { x: number; y: number; w: number; h: number };
   /** Model frame size. */
@@ -109,8 +114,10 @@ export function geometry(p: Project, s: Source): Geometry {
   const w = Math.max(16, Math.round(p.canvas.w * k)), h = Math.max(16, Math.round(p.canvas.h * k));
   const ks = Math.min(1, SEG_SIDE / Math.max(p.canvas.w, p.canvas.h));
   const sw = Math.max(16, Math.round(p.canvas.w * ks)), sh = Math.max(16, Math.round(p.canvas.h * ks));
+  const kf = Math.min(1, FLOW_SIDE / Math.max(w, h));
+  const fw = Math.max(16, Math.round(w * kf)), fh = Math.max(16, Math.round(h * kf));
   const fit = sourceFit(p, s.id);
-  return { w, h, place: fitRect(s.w, s.h, w, h, fit), sw, sh, splace: fitRect(s.w, s.h, sw, sh, fit) };
+  return { w, h, fw, fh, place: fitRect(s.w, s.h, w, h, fit), sw, sh, splace: fitRect(s.w, s.h, sw, sh, fit) };
 }
 
 interface Reader {
@@ -234,16 +241,60 @@ async function loadMask(ref: MediaRef, w: number, h: number, blobOf: BlobResolve
 
 /* ------------------------------------------------------------------ flow */
 
-let glBroken = false;
-/** Dense flow a → b on WebGL2 when it works here, else on the CPU (same maths, flow.ts). */
+/** Which flow runs faster here, decided on the first pair of frames (per size): both are the same maths. */
+const flowChoice = new Map<string, 'gl' | 'cpu'>();
+
+/**
+ * Dense flow a → b: on WebGL2 or the CPU, whichever measured faster on this device for this size (a GPU does it
+ * in a few ms; a software WebGL — SwiftShader on test machines — was 6× slower than plain JS here). Same results.
+ */
 export function computeFlow(a: Luma, b: Luma): { f: FlowField; backend: 'gl' | 'cpu' } {
-  if (!glBroken) {
-    try {
-      const f = glFlow(a, b);
-      if (f) return { f, backend: 'gl' };
-    } catch { glBroken = true; }
+  const key = `${a.w}x${a.h}`;
+  const pick = flowChoice.get(key);
+  if (pick === 'cpu') return { f: cpuFlow(a, b), backend: 'cpu' };
+  if (pick === 'gl') {
+    try { const f = glFlow(a, b); if (f) return { f, backend: 'gl' }; } catch { /* below */ }
+    flowChoice.set(key, 'cpu');
+    return { f: cpuFlow(a, b), backend: 'cpu' };
   }
-  return { f: cpuFlow(a, b), backend: 'cpu' };
+  let gl: FlowField | null = null, glMs = Infinity;
+  try {
+    // the first GL call compiles the shaders: time the second
+    if (glFlow(a, b)) { const t0 = performance.now(); gl = glFlow(a, b); glMs = performance.now() - t0; }
+  } catch { gl = null; }
+  const t0 = performance.now();
+  const cpu = cpuFlow(a, b);
+  const cpuMs = performance.now() - t0;
+  const useGl = !!gl && glMs < cpuMs;
+  flowChoice.set(key, useGl ? 'gl' : 'cpu');
+  if (!useGl) releaseGlFlow();
+  return useGl ? { f: gl!, backend: 'gl' } : { f: cpu, backend: 'cpu' };
+}
+
+/** The flow backend chosen on this device for a size (after a first flow), for the timings. */
+export const flowBackendFor = (w: number, h: number) => flowChoice.get(`${w}x${h}`) ?? null;
+
+/**
+ * A mask carried from frame A to frame B: `fwd` = flow(A, B) at the flow size. The object's motion is fitted to
+ * the flow inside the mask (eroded, so windows that also saw the background are left out) and the whole mask
+ * moves with it, at the mask size: the outline keeps its shape (flow.ts carryMask, with the two sizes).
+ */
+export function carry(mask: Float32Array, w: number, h: number, fwd: FlowField): { mask: Float32Array; motion: Affine } {
+  const kx = w / fwd.w, ky = h / fwd.h;
+  // the mask at the flow's size (nearest), eroded
+  const small = new Float32Array(fwd.w * fwd.h);
+  for (let y = 0; y < fwd.h; y++) {
+    for (let x = 0; x < fwd.w; x++) {
+      const X = Math.min(w - 1, Math.floor((x + 0.5) * kx)), Y = Math.min(h - 1, Math.floor((y + 0.5) * ky));
+      small[y * fwd.w + x] = mask[Y * w + X];
+    }
+  }
+  let inner = erode(small, fwd.w, fwd.h, 2);
+  if (!inner.some(v => v > 0)) inner = Float32Array.from(small, v => (v >= 0.5 ? 1 : 0));
+  const A = fitAffine(fwd, inner);
+  // flow px → mask px (x_m = kx·x_f, y_m = ky·y_f)
+  const M: Affine = [A[0], A[1] * (kx / ky), A[2] * kx, A[3] * (ky / kx), A[4], A[5] * ky];
+  return { mask: warpAffine(mask, w, h, M), motion: M };
 }
 
 /* ------------------------------------------------------------------ stats and estimates */
@@ -252,6 +303,8 @@ export interface TrackStats {
   frames: number;
   keyframes: number;
   occluded: number;
+  /** Flows computed (both directions). */
+  flows: number;
   /** ms: decoding frames, flow (all frames, both directions), the model (encode + decodes), writing masks. */
   decodeMs: number;
   flowMs: number;
@@ -296,14 +349,16 @@ async function readStretch(c: Ctx, reader: Reader, idx: number[], keys: Set<numb
   const out = new Map<number, { luma: Luma; seg: HTMLCanvasElement | null }>();
   const t0 = performance.now();
   const mc = document.createElement('canvas');
-  mc.width = c.g.w; mc.height = c.g.h;
+  mc.width = c.g.fw; mc.height = c.g.fh;
+  const kx = c.g.fw / c.g.w, ky = c.g.fh / c.g.h;
+  const fplace = { x: c.g.place.x * kx, y: c.g.place.y * ky, w: c.g.place.w * kx, h: c.g.place.h * ky };
   let j = 0;
   for await (const img of reader.frames(idx.map(i => sourceTime(c.s, c.times[i])))) {
     check(c.signal);
     const i = idx[j++];
     if (!img) continue;
-    const x = place(mc, img, c.g.place);
-    const luma = lumaOf(x.getImageData(0, 0, c.g.w, c.g.h).data, c.g.w, c.g.h);
+    const x = place(mc, img, fplace);
+    const luma = lumaOf(x.getImageData(0, 0, c.g.fw, c.g.fh).data, c.g.fw, c.g.fh);
     let seg: HTMLCanvasElement | null = null;
     if (keys.has(i)) {
       seg = document.createElement('canvas');
@@ -328,9 +383,8 @@ async function decodeKey(c: Ctx, frame: HTMLCanvasElement, expected: Float32Arra
   });
   let variants: Prompt[];
   if (user) {
+    // the person's own prompt; if the model finds nothing there, the same points with the box of the mask there
     variants = [user];
-    const fromMask = expected ? promptsFrom(expected, c.g.w, c.g.h) : null;
-    if (fromMask && user.points.length) variants.push({ points: user.points, box: fromMask.box });
   } else {
     const pr = expected ? promptsFrom(expected, c.g.w, c.g.h) : null;
     if (!pr) return null;
@@ -344,62 +398,79 @@ async function decodeKey(c: Ctx, frame: HTMLCanvasElement, expected: Float32Arra
       const m = await sf.mask(toSeg(v));
       if (m) cands.push(resizeMask(m, sf.w, sf.h, c.g.w, c.g.h));
     }
+    const fromMask = user && !cands.length && expected ? promptsFrom(expected, c.g.w, c.g.h) : null;
+    if (fromMask && user) {
+      const m = await sf.mask(toSeg({ points: user.points, box: fromMask.box }));
+      if (m) cands.push(resizeMask(m, sf.w, sf.h, c.g.w, c.g.h));
+    }
   } finally { sf.dispose(); }
   c.stats.modelMs += performance.now() - t0;
   if (!cands.length) return null;
-  if (user) {
-    // the person's own prompt decides; the expected mask only breaks ties between the variants
-    const ch = expected ? chooseCandidate(cands, expected, { minIoU: 0, minArea: 0 }) : { index: 0, iou: 1 };
-    return { mask: cands[Math.max(0, ch.index)], occluded: false, iou: ch.iou };
-  }
+  // the person's own prompt decides (what they clicked is the object, whatever the flow expected)
+  if (user) return { mask: cands[0], occluded: false, iou: 1 };
   const ch = chooseCandidate(cands, expected!);
   if (ch.index < 0) return null;
   return { mask: cands[ch.index], occluded: ch.occluded, iou: ch.iou };
 }
 
-function timeFlow(c: Ctx, a: Luma, b: Luma): FlowField {
-  const t0 = performance.now();
-  const r = computeFlow(a, b);
-  c.stats.flowBackend = r.backend;
-  c.stats.flowMs += performance.now() - t0;
-  return r.f;
+type Frames = Map<number, { luma: Luma }>;
+
+/** Flows of a stretch, each computed once (from → to). */
+function flows(c: Ctx, frames: Frames) {
+  const cache = new Map<string, FlowField | null>();
+  return (from: number, to: number): FlowField | null => {
+    const k = `${from}>${to}`;
+    if (cache.has(k)) return cache.get(k)!;
+    const la = frames.get(from)?.luma, lb = frames.get(to)?.luma;
+    let f: FlowField | null = null;
+    if (la && lb) {
+      const t0 = performance.now();
+      const r = computeFlow(la, lb);
+      c.stats.flowBackend = r.backend;
+      c.stats.flowMs += performance.now() - t0;
+      c.stats.flows++;
+      f = r.f;
+    }
+    cache.set(k, f);
+    return f;
+  };
 }
 
 /**
  * Fills the frames strictly between keyframes a and b: forward carry from mA, backward carry from mB, blended by
  * their signed distances. Returns the masks of a+1 … b−1.
  */
-function fillBetween(c: Ctx, a: number, b: number, mA: Float32Array, mB: Float32Array, luma: Map<number, { luma: Luma }>): Map<number, Float32Array> {
+function fillBetween(c: Ctx, a: number, b: number, mA: Float32Array, mB: Float32Array, flowOf: ReturnType<typeof flows>): Map<number, Float32Array> {
   const out = new Map<number, Float32Array>();
   if (b - a < 2) return out;
   const fwd = new Map<number, Float32Array>();
   let cur = mA;
   for (let j = a + 1; j < b; j++) {
-    const la = luma.get(j - 1)?.luma, lb = luma.get(j)?.luma;
-    if (la && lb) cur = carryMask(cur, timeFlow(c, la, lb)).mask;
+    const f = flowOf(j - 1, j);
+    if (f) cur = carry(cur, c.g.w, c.g.h, f).mask;
     fwd.set(j, cur);
   }
   cur = mB;
   for (let j = b - 1; j > a; j--) {
-    const la = luma.get(j + 1)?.luma, lb = luma.get(j)?.luma;
-    if (la && lb) cur = carryMask(cur, timeFlow(c, la, lb)).mask;
+    const f = flowOf(j + 1, j);
+    if (f) cur = carry(cur, c.g.w, c.g.h, f).mask;
     out.set(j, blendMasks(fwd.get(j)!, cur, c.g.w, c.g.h, (j - a) / (b - a)));
   }
   return out;
 }
 
-/** Carries a mask from frame a to frame b (forward) along the flow; the expected mask at b. */
-function carryTo(c: Ctx, a: number, b: number, m: Float32Array, luma: Map<number, { luma: Luma }>): Float32Array {
+/** Carries a mask from frame a to frame b (forward) along the flow: the mask expected at b. */
+function carryTo(c: Ctx, a: number, b: number, m: Float32Array, flowOf: ReturnType<typeof flows>): Float32Array {
   let cur = m;
   for (let j = a + 1; j <= b; j++) {
-    const la = luma.get(j - 1)?.luma, lb = luma.get(j)?.luma;
-    if (la && lb) cur = carryMask(cur, timeFlow(c, la, lb)).mask;
+    const f = flowOf(j - 1, j);
+    if (f) cur = carry(cur, c.g.w, c.g.h, f).mask;
   }
   return cur;
 }
 
 function newStats(): TrackStats {
-  return { frames: 0, keyframes: 0, occluded: 0, decodeMs: 0, flowMs: 0, modelMs: 0, storeMs: 0, totalMs: 0, flowBackend: '', keyIoU: [] };
+  return { frames: 0, keyframes: 0, occluded: 0, flows: 0, decodeMs: 0, flowMs: 0, modelMs: 0, storeMs: 0, totalMs: 0, flowBackend: '', keyIoU: [] };
 }
 
 function contextFor(p: Project, o: Pick<TrackOptions, 'source' | 'onProgress' | 'signal'>, times: number[], blob: BlobResolver): Ctx {
@@ -456,12 +527,13 @@ export async function trackObjectImpl(p: Project, o: TrackOptions & { blob?: Blo
         if (!r) throw new Error('El modelo no encontró un objeto en esos puntos: prueba con otro punto o un recuadro.');
         mB = r.mask;
       } else {
-        const expected = carryTo(c, a, b, prevMask!, frames);
+        const flowOf = flows(c, frames);
+        const expected = carryTo(c, a, b, prevMask!, flowOf);
         const r = await decodeKey(c, fb.seg, expected, null);
         if (!r || r.occluded) { mB = expected; role = 'oculto'; c.stats.occluded++; }
         else mB = r.mask;
         c.stats.keyIoU.push(r ? Math.round(r.iou * 1000) / 1000 : 0);
-        const between = fillBetween(c, a, b, prevMask!, mB, frames);
+        const between = fillBetween(c, a, b, prevMask!, mB, flowOf);
         const ts = performance.now();
         for (const [j, m] of between) refs[j] = await storeMask(m, c.g.w, c.g.h, frameName(j, ''));
         c.stats.storeMs += performance.now() - ts;
@@ -512,6 +584,7 @@ export async function correctTrackImpl(
     const idx: number[] = [];
     for (let i = a; i <= b; i++) idx.push(i);
     const lumas = await readStretch(c, reader, idx, new Set([ci]));
+    const flowOf = flows(c, lumas);
     const fc = lumas.get(ci);
     if (!fc?.seg) throw new Error('No se pudo leer ese cuadro del video.');
     const current = await loadMask(frames[ci].media, c.g.w, c.g.h, blob);
@@ -524,11 +597,11 @@ export async function correctTrackImpl(
     // the stretches on both sides, between the keyframes around the corrected one
     if (prev !== null) {
       const mA = await loadMask(frames[prev].media, c.g.w, c.g.h, blob);
-      if (mA) for (const [j, m] of fillBetween(c, prev, ci, mA, r.mask, lumas)) out[j] = { t: times[j], media: await storeMask(m, c.g.w, c.g.h, frameName(j, '')) };
+      if (mA) for (const [j, m] of fillBetween(c, prev, ci, mA, r.mask, flowOf)) out[j] = { t: times[j], media: await storeMask(m, c.g.w, c.g.h, frameName(j, '')) };
     }
     if (next !== null) {
       const mB = await loadMask(frames[next].media, c.g.w, c.g.h, blob);
-      if (mB) for (const [j, m] of fillBetween(c, ci, next, r.mask, mB, lumas)) out[j] = { t: times[j], media: await storeMask(m, c.g.w, c.g.h, frameName(j, roleOf(frames[j].media.name))) };
+      if (mB) for (const [j, m] of fillBetween(c, ci, next, r.mask, mB, flowOf)) out[j] = { t: times[j], media: await storeMask(m, c.g.w, c.g.h, frameName(j, roleOf(frames[j].media.name))) };
     }
     c.progress(times.length, 'Corrección lista');
   } finally {

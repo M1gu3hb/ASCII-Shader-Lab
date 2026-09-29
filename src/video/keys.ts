@@ -131,17 +131,23 @@ export function promptVariants(p: { box: Prompt['box']; points: PromptPoint[] })
   return out;
 }
 
+/** How much a candidate that lies inside the expected mask counts, next to its IoU (see chooseCandidate). */
+export const CONTAIN_WEIGHT = 0.6;
+
 /**
- * Picks the candidate that agrees best with the expected mask (IoU), not the model's own score: the model may
- * prefer a part or the whole scene, the flow says where the object should be. `occluded` when even the best one
- * overlaps too little (below `minIoU`) or is much smaller than expected (the object is hidden): then the last
- * mask is kept.
+ * Picks the candidate that agrees best with the expected mask, not the model's own score: the model may prefer a
+ * part or the whole scene, the flow says where the object should be. Agreement is the IoU, or — when the expected
+ * mask has grown too big (a keyframe that took in some background carries it along) — 0.6 × the share of the
+ * candidate that lies inside it, so a tight, correct candidate inside a loose expectation still wins and the track
+ * recovers, while a candidate somewhere else scores nothing. `occluded` when even the best one agrees less than
+ * `minIoU`, or is much smaller than expected and mostly outside it (the object is hidden): then the last mask is
+ * kept.
  */
 export function chooseCandidate(cands: ReadonlyArray<ArrayLike<number>>, expected: ArrayLike<number>, o: { minIoU?: number; minArea?: number } = {}): { index: number; iou: number; occluded: boolean; ious: number[] } {
   const minIoU = o.minIoU ?? 0.3;
   const minArea = o.minArea ?? 0.25;
   const ious: number[] = [];
-  let index = -1, best = -1;
+  let index = -1, best = -1, bestContain = 0;
   let expArea = 0;
   for (let i = 0; i < expected.length; i++) if (expected[i] >= 0.5) expArea++;
   for (let k = 0; k < cands.length; k++) {
@@ -156,13 +162,16 @@ export function chooseCandidate(cands: ReadonlyArray<ArrayLike<number>>, expecte
     const v = uni ? inter / uni : 0;
     ious.push(v);
     if (area === 0) continue;
-    if (v > best) { best = v; index = k; }
+    const score = Math.max(v, CONTAIN_WEIGHT * (inter / area));
+    if (score > best) { best = score; index = k; bestContain = inter / area; }
   }
   if (index < 0) return { index: -1, iou: 0, occluded: true, ious };
   let area = 0;
   const c = cands[index];
   for (let i = 0; i < c.length; i++) if (c[i] >= 0.5) area++;
-  const occluded = best < minIoU || (expArea > 0 && area < expArea * minArea);
+  // much smaller than expected and not inside it: the object is (mostly) hidden. Much smaller but inside it: the
+  // visible part of the object, or a tight mask inside a loose expectation — kept (that is how a track recovers).
+  const occluded = best < minIoU || (expArea > 0 && area < expArea * minArea && bestContain < 0.8);
   return { index, iou: best, occluded, ious };
 }
 
