@@ -189,8 +189,9 @@ const qa = {
     const c = document.createElement('canvas');
     const r = await enqueue(() => renderInto(c, projectOf(id, o), t, o.scale ?? 1));
     const d = pixelsOf(c);
+    // every pixel (every 4th one reads the same column of each cell when cells are 2 or 4 px wide)
     let s = 0, s2 = 0, n = 0;
-    for (let k = 0; k < d.length; k += 16) { const l = d[k] * 0.3 + d[k + 1] * 0.59 + d[k + 2] * 0.11; s += l; s2 += l * l; n++; }
+    for (let k = 0; k < d.length; k += 4) { const l = d[k] * 0.3 + d[k + 1] * 0.59 + d[k + 2] * 0.11; s += l; s2 += l * l; n++; }
     const mean = s / n;
     return { w: c.width, h: c.height, hash: fnv(d), std: Math.sqrt(Math.max(0, s2 / n - mean * mean)), ms: r.ms, warnings: r.warnings, notes: r.layers.filter(l => l.note).map(l => l.note) };
   },
