@@ -3,7 +3,11 @@ import { SOURCE_NAMES } from '../engine/catalog';
 import { EngineNotes, StageFatal } from './BasicMode';
 import { mountStudioEngine, destroyStudioEngine } from './engineBridge';
 import { handleFile, pickFile } from './files';
-import { startCamera, useMedia } from './media';
+import { chooseFacing, startCamera, useMedia } from './media';
+import { IFlip } from './icons';
+import { SegGroup } from './controls';
+import { ImmersiveToggle } from './ui/Immersive';
+import { useMatch } from './ui/useMatch';
 import { edit, setPlaying, useRecipe, useStudio } from './store';
 import { useView } from './views/state';
 import { ViewBar, ViewStage, useStageInsets, type Insets } from './views/Views';
@@ -63,7 +67,7 @@ export function Stage() {
       {/* registration marks at the stage's corners: the loom's frame (decoration) */}
       <i className="stage-marks" aria-hidden="true" />
       <div className="stage-top" ref={top}>
-        <ViewBar view={view} />
+        <ViewBar view={view} extra={<><CameraFlip /><ImmersiveToggle className="vbar-imm" /></>} />
         {/* the studio's one notification area (Notices.tsx): it hangs under this bar, wherever the bar ends,
             and never changes the room the views use */}
         <div className="notices">
@@ -93,6 +97,7 @@ function MediaPrompt({ ins }: { ins: Insets }) {
   const notes = useNoticesHeight();
   const area = { top: ins.top + (notes ? notes + 6 : 0), bottom: ins.bottom };
   const media = useMedia();
+  const touch = useMatch('(pointer: coarse)');
   const need = (source === 'image' && !media.image) || (source === 'video' && !media.video) || (source === 'camera' && media.camera !== 'on');
   if (!need) return null;
   const cam = source === 'camera';
@@ -150,7 +155,14 @@ function MediaPrompt({ ins }: { ins: Insets }) {
         <h2>{title}</h2>
         <p>{text}</p>
         {cam
-          ? <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>
+          ? (
+            <>
+              {/* phones and tablets have two cameras: choose before the permission is asked */}
+              {touch && <SegGroup label="Qué cámara" className="prompt-cam" value={media.camWant.facing} activate="manual"
+                opts={[['user', 'Cámara frontal'], ['environment', 'Cámara trasera']]} onPick={f => chooseFacing(f)} />}
+              <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>
+            </>
+          )
           : (
             <div className="row2">
               <button type="button" className="btn primary" onClick={() => pickFile(video ? 'video' : 'image')}>{video ? 'Elegir video' : 'Elegir imagen'}</button>
@@ -161,6 +173,26 @@ function MediaPrompt({ ins }: { ins: Insets }) {
         <p className="privacy">Se procesa en tu navegador. Nada se sube a ningún servidor.</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * With the camera on, on a touch screen or with more than one camera: front ↔ rear in one tap, over
+ * the piece (the settings have the same choice, and the device list).
+ */
+function CameraFlip() {
+  const source = useStudio(s => s.entries[s.cursor]?.recipe.source);
+  const cam = useMedia(s => s.camera);
+  const facing = useMedia(s => s.camFacing);
+  const many = useMedia(s => s.cameras.length > 1);
+  const touch = useMatch('(pointer: coarse)');
+  if (source !== 'camera' || cam !== 'on' || !(many || touch)) return null;
+  const to = facing === 'environment' ? 'user' : 'environment';
+  const label = to === 'user' ? 'Cambiar a la cámara frontal' : 'Cambiar a la cámara trasera';
+  return (
+    <button type="button" className="vbar-cam" onClick={() => chooseFacing(to)} aria-label={label} title={label}>
+      <IFlip />
+    </button>
   );
 }
 

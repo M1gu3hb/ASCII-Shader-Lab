@@ -13,12 +13,15 @@
  *                     (nearest earlier frame, or a blend of the two around t with `interp`), `soft` blur;
  *     color           pixels of a source close to a colour: RGB distance (0..1) up to `tol` shows, then a
  *                     ramp of width `soft` to nothing;
+ *     gradient        a graded zone: alpha0 → alpha1 along a segment (linear) or out from a centre (radial),
+ *                     in pixels (a radial one is round whatever the frame's aspect), shaped by `ease`;
  *   combined in order: add = union (a + c − a·c), subtract = a·(1 − c), intersect = a·c; the first part
  *   starts from nothing when it adds and from everything when it subtracts or intersects; no parts = all;
  *   then `feather` (blur of the whole edge, σ in output px), `invert`, `opacity`.
  */
 import type { MediaRef } from '../engine/recipe';
-import type { Mask, MaskColorPart, MaskOp, MaskPart, MaskRasterPart, MaskStrokePart } from './types';
+import { easeAt } from './ease';
+import type { Mask, MaskColorPart, MaskGradientPart, MaskOp, MaskPart, MaskRasterPart, MaskStrokePart } from './types';
 
 export interface MaskInputs {
   /** Render size in px. */
@@ -241,6 +244,33 @@ function colorCoverage(part: MaskColorPart, rgba: Uint8ClampedArray, W: number, 
   }
 }
 
+/**
+ * Coverage of a gradient part (before its overall strength): alpha0 → alpha1 along the segment (linear) or out
+ * from the centre (radial), measured in pixels, eased through a lookup table (a bézier per pixel would be slow).
+ */
+function gradientCoverage(part: MaskGradientPart, W: number, H: number, out: Float32Array) {
+  const ax = part.x0 * W, ay = part.y0 * H, bx = part.x1 * W, by = part.y1 * H;
+  const vx = bx - ax, vy = by - ay, len2 = vx * vx + vy * vy;
+  const a0 = clamp01(part.alpha0), a1 = clamp01(part.alpha1);
+  const N = 1024;
+  const lut = new Float32Array(N + 1);
+  const e = part.ease;
+  for (let i = 0; i <= N; i++) lut[i] = a0 + (a1 - a0) * (e && e.kind !== 'linear' ? easeAt(e, i / N) : i / N);
+  // a gradient with no length is its end strength everywhere (as if the ramp were infinitely steep)
+  if (len2 < 1e-9) { out.fill(a1); return; }
+  const radial = part.shape === 'radial';
+  const inv = radial ? 1 / Math.sqrt(len2) : 1 / len2;
+  for (let y = 0; y < H; y++) {
+    const dy = y + 0.5 - ay, row = y * W;
+    for (let x = 0; x < W; x++) {
+      const dx = x + 0.5 - ax;
+      let k = radial ? Math.sqrt(dx * dx + dy * dy) * inv : (dx * vx + dy * vy) * inv;
+      k = k < 0 ? 0 : k > 1 ? 1 : k;
+      out[row + x] = lut[Math.round(k * N)];
+    }
+  }
+}
+
 function hexRgb(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   const v = m ? parseInt(m[1], 16) : 0xffffff;
@@ -288,6 +318,7 @@ export function partCoverage(part: MaskPart, inp: MaskInputs): Float32Array | nu
       colorCoverage(part, px, w, h, out);
       break;
     }
+    case 'gradient': gradientCoverage(part, w, h, out); break;
   }
   if ((part.kind === 'rect' || part.kind === 'ellipse' || part.kind === 'polygon' || part.kind === 'raster') && part.soft > 0) {
     blurAlpha(out, w, h, part.soft * inp.scale);

@@ -8,7 +8,10 @@
  * engines created and styled), then all layers are drawn at once (sync), bottom to top:
  *   content  photo (fit + adjustments) · ascii (an offscreen engine per layer, fed by the layer's source,
  *            the composite below, or its own pattern) · glyphs (real characters, glyphs/) · text · shape;
- *   then     finishes (fx/) → cell reveal of clips → mask (destination-in) → opacity + blend + transform.
+ *   then     cell reveal and tiles of clips → finishes (fx/) → mask (destination-in) → masks of clips
+ *            (`within`) → opacity + blend + transform.
+ * Tiles (clips that move a layer's cells, clips.ts TileFx) cost nothing unless a clip asks for them: the
+ * layer's picture is copied once and each moved cell is cleared and drawn again at its new place.
  *
  * ASCII engines: one per ASCII layer, kept in a pool by layer id (re-styled only when the style changes),
  * at most `maxEngines` (WebGL contexts are limited: a browser drops the oldest past about 16). Layers past
@@ -21,9 +24,9 @@ import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import { cloneRecipe, type MediaRef, type Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 import { applyFinishes, releaseFinishes } from '../fx/index';
-import { drawGlyphs, ensureGlyphFont, glyphGridWith, sampleOf, type CellFx, type GlyphGrid } from '../glyphs/index';
+import { cellColors, drawGlyphs, ensureGlyphFont, glyphGridWith, sampleOf, type CellFx, type GlyphGrid } from '../glyphs/index';
 import { cssAdjustCpu, cssFilter, fitRect, needsTone, toneCpu } from './adjust';
-import type { CellGrid } from './clips';
+import type { CellGrid, TileFactory } from './clips';
 import { drawShape, drawText, ensureFont } from './draw2d';
 import type { FrameState, LayerFrame } from './evaluate';
 import { coverageOfImage, maskCanvas } from './masks';
@@ -175,6 +178,9 @@ export class Compositor {
   private grids = new Map<Id, { key: string; grid: GlyphGrid }>();
   /** Where photo layers that need CPU passes are drawn (read back often: kept in memory). */
   private cpuCanvas: HTMLCanvasElement | null = null;
+  /** A copy of a layer while its tiles move (clips), and the small canvas cell brightness is read from. */
+  private tileCanvas: HTMLCanvasElement | null = null;
+  private lumCanvas: HTMLCanvasElement | null = null;
   private clock = 0;
   private destroyed = false;
   /** Prefix of this compositor's canvases in the finishes' pool (fx/canvas.ts), so it frees only its own. */
@@ -205,6 +211,8 @@ export class Compositor {
     this.shared = null;
     for (const c of [...this.layerCanvases.values(), ...this.feeds.values()]) { c.width = 0; c.height = 0; }
     if (this.cpuCanvas) { this.cpuCanvas.width = this.cpuCanvas.height = 0; this.cpuCanvas = null; }
+    if (this.tileCanvas) { this.tileCanvas.width = this.tileCanvas.height = 0; this.tileCanvas = null; }
+    if (this.lumCanvas) { this.lumCanvas.width = this.lumCanvas.height = 0; this.lumCanvas = null; }
     for (const key of this.pooled) releaseFinishes(key);
     this.pooled.clear();
     this.layerCanvases.clear();
@@ -291,7 +299,7 @@ export class Compositor {
       if (l.kind === 'text') jobs.push(ensureFont(this.fonts, l.font, l.weight, l.italic, l.text));
       if (l.kind === 'shape' && l.label?.text) jobs.push(ensureFont(this.fonts, l.label.font, 500, false, l.label.text));
       // (plus the cursors the typing templates draw)
-      if (l.kind === 'glyphs') jobs.push(ensureGlyphFont(l.glyphs.font, l.glyphs.weight, sampleOf(l.glyphs) + '█▌_'));
+      if (l.kind === 'glyphs') jobs.push(ensureGlyphFont(l.glyphs.font, l.glyphs.weight, sampleOf(l.glyphs) + '█▌_' + lf.glyphs));
     }
     const ascii = frames.filter(f => f.layer.kind === 'ascii').map(f => f.layer as AsciiLayer);
     if (ascii.length > this.maxEngines) {
@@ -380,12 +388,19 @@ export class Compositor {
     switch (l.kind) {
       case 'photo': note = this.drawPhoto(l, lf, lx, rw, rh, scale); break;
       case 'ascii': note = this.drawAscii(l, lf, lx, target, rw, rh, scale, state, sequential, fit); break;
-      case 'glyphs': note = this.drawGlyphLayer(l, lf, lx, target, rw, rh, scale, fit); break;
+      case 'glyphs': note = this.drawGlyphLayer(l, lf, lx, target, rw, rh, scale, fit, state); break;
       case 'text': drawText(lx, l, rw, rh); break;
       case 'shape': drawShape(lx, l, rw, rh, scale); break;
     }
     // what could not be drawn (a missing picture) leaves the composite as it was
     if (note) return note;
+    if (lf.tiles && (l.kind === 'photo' || l.kind === 'text' || l.kind === 'shape')) {
+      // square tiles of tileCell output px over the frame
+      const cw = Math.max(1, lf.tileCell * scale);
+      const cols = Math.max(1, Math.ceil(rw / cw)), rows = Math.max(1, Math.ceil(rh / cw));
+      const g = this.gridOf(cols, rows, cw, cw, scale, state, undefined, () => this.cellLum(lc, cols, rows, cw, cw));
+      this.applyTiles(lx, lc, lf.tiles, g, cols, rows, cw, cw, scale);
+    }
     let out: HTMLCanvasElement = lc;
     const on = l.finishes.filter(f => f.on && f.amount > 0);
     if (on.length) {
@@ -412,14 +427,27 @@ export class Compositor {
       ox.drawImage(m.canvas, 0, 0);
       ox.restore();
     }
+    for (const w of lf.within) {
+      // clips' masks (an iris, a wipe) are shapes: nothing to read from sources or the media store
+      const m = maskCanvas(w, { w: rw, h: rh, scale, t: state.t, raster: () => null, pixels: () => null, pixelsKey: id => id });
+      const ox = out.getContext('2d')!;
+      ox.save();
+      ox.setTransform(1, 0, 0, 1, 0, 0);
+      ox.globalAlpha = 1;
+      ox.globalCompositeOperation = 'destination-in';
+      ox.drawImage(m.canvas, 0, 0);
+      ox.restore();
+    }
     ctx.save();
     ctx.globalAlpha = Math.min(1, Math.max(0, l.opacity));
     ctx.globalCompositeOperation = BLEND[l.blend] ?? 'source-over';
     const xf = l.xf;
-    if (xf.x || xf.y || xf.rot || xf.scale !== 1) {
+    const st = lf.stretch;
+    if (xf.x || xf.y || xf.rot || xf.scale !== 1 || st) {
       ctx.translate(rw / 2 + xf.x * rw, rh / 2 + xf.y * rh);
       ctx.rotate((xf.rot * Math.PI) / 180);
-      ctx.scale(xf.scale, xf.scale);
+      // a clip's stretch (squash and stretch, a TV switching off) is non-uniform, inside the layer's own scale
+      ctx.scale(xf.scale * (st?.x ?? 1), xf.scale * (st?.y ?? 1));
       ctx.translate(-rw / 2, -rh / 2);
     }
     ctx.drawImage(out, 0, 0);
@@ -476,18 +504,23 @@ export class Compositor {
     eng.transparent = !l.opaque;
     eng.renderAt(state.t);
     x.drawImage(eng.canvas, 0, 0, rw, rh);
-    if (lf.reveal) {
+    if (lf.reveal || lf.tiles) {
       // the engine's own grid (its canvas may be larger than the layer: see enginePixelRatio), in layer px
       const ew = eng.canvas.width, eh = eng.canvas.height;
       const g = engineGrid(style, ew, eh, ew / state.w);
-      applyReveal(x, lf.reveal({ cols: g.cols, rows: g.rows }), g.cols, g.rows, (g.cw * rw) / ew, (g.ch * rh) / eh);
+      const cw = (g.cw * rw) / ew, ch = (g.ch * rh) / eh;
+      // brightness per cell, when a clip asks: the picture the layer reads (or its own drawing)
+      const lumSrc = feed ?? x.canvas;
+      const grid = this.gridOf(g.cols, g.rows, cw, ch, scale, state, undefined, () => this.cellLum(lumSrc, g.cols, g.rows, cw, ch));
+      if (lf.reveal) applyReveal(x, lf.reveal(grid), g.cols, g.rows, cw, ch);
+      if (lf.tiles) this.applyTiles(x, x.canvas, lf.tiles, grid, g.cols, g.rows, cw, ch, scale);
     }
     return undefined;
   }
 
   private drawGlyphLayer(
     l: GlyphsLayer, lf: LayerFrame, x: CanvasRenderingContext2D, target: HTMLCanvasElement, rw: number, rh: number, scale: number,
-    fit: (s: Source | null, m: LayerFit, t: number) => HTMLCanvasElement | null,
+    fit: (s: Source | null, m: LayerFit, t: number) => HTMLCanvasElement | null, state: FrameState,
   ): string | undefined {
     let feed: HTMLCanvasElement | null;
     // what the picture is, when it is known: the grid is kept while only the clips' cell changes move on
@@ -514,7 +547,9 @@ export class Compositor {
       grid = glyphGridWith(feed, style, { w: rw, h: rh }, version ? { version } : {});
       if (key) this.grids.set(l.id, { key, grid }); else this.grids.delete(l.id);
     }
-    const g: CellGrid = { cols: grid.cols, rows: grid.rows, chars: grid.chars };
+    const g = this.gridOf(grid.cols, grid.rows, grid.cw, grid.ch, scale, state, grid.chars, grid.lum);
+    let colors: Uint32Array | undefined;
+    Object.defineProperty(g, 'colors', { get: () => (colors ??= cellColors(grid, style)), enumerable: true });
     const cells = lf.cells ? lf.cells(g) : null;
     const reveal = lf.reveal ? lf.reveal(g) : null;
     let fx: ((i: number, col: number, row: number) => CellFx | null) | undefined;
@@ -530,7 +565,112 @@ export class Compositor {
       };
     }
     drawGlyphs(x, grid, style, fx);
+    if (lf.tiles) this.applyTiles(x, x.canvas, lf.tiles, g, grid.cols, grid.rows, grid.cw, grid.ch, scale);
     return undefined;
+  }
+
+  /** The grid clips see: cells and frame in output px, brightness given or measured when first read. */
+  private gridOf(
+    cols: number, rows: number, cw: number, ch: number, scale: number, state: FrameState,
+    chars: readonly string[] | undefined, lum: ArrayLike<number> | (() => ArrayLike<number>),
+  ): CellGrid {
+    const g: CellGrid = { cols, rows, cw: cw / scale, ch: ch / scale, w: state.w, h: state.h, ...(chars ? { chars } : {}) };
+    if (typeof lum === 'function') {
+      let v: ArrayLike<number> | undefined;
+      Object.defineProperty(g, 'lum', { get: () => (v ??= lum()), enumerable: true });
+    } else Object.defineProperty(g, 'lum', { value: lum, enumerable: true });
+    return g;
+  }
+
+  /** Brightness 0..1 of each cell of a picture (cells of cw×ch px of `src`), times its alpha. */
+  private cellLum(src: HTMLCanvasElement, cols: number, rows: number, cw: number, ch: number): Float32Array {
+    const out = new Float32Array(cols * rows);
+    try {
+      const c = this.lumCanvas ??= memCanvas();
+      const { x } = canvas2d(cols, rows, c);
+      x.imageSmoothingQuality = 'medium';
+      x.drawImage(src, 0, 0, src.width, src.height, 0, 0, src.width / cw, src.height / ch);
+      const d = x.getImageData(0, 0, cols, rows).data;
+      for (let i = 0; i < out.length; i++) {
+        const o = i * 4;
+        out[i] = ((d[o] * 0.2126 + d[o + 1] * 0.7152 + d[o + 2] * 0.0722) / 255) * (d[o + 3] / 255);
+      }
+    } catch { /* an unreadable picture: every cell reads as dark */ }
+    return out;
+  }
+
+  /**
+   * Moves the cells of a layer's picture (clips' tiles): the picture is copied, each moved cell is cleared
+   * and drawn again from the copy with its offset, scale, rotation and alpha. Cells that stay are untouched.
+   */
+  private applyTiles(
+    x: CanvasRenderingContext2D, from: HTMLCanvasElement, tiles: TileFactory, grid: CellGrid,
+    cols: number, rows: number, cw: number, ch: number, scale: number,
+  ) {
+    const at = tiles(grid);
+    const moved: number[] = [];
+    const fxs: Array<NonNullable<ReturnType<typeof at>>> = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const f = at(c, r);
+      if (!f) continue;
+      if (!f.dx && !f.dy && (f.scale ?? 1) === 1 && (f.sy ?? 1) === 1 && !f.rot && (f.alpha ?? 1) >= 1) continue;
+      moved.push(r * cols + c);
+      fxs.push(f);
+    }
+    if (!moved.length) return;
+    const w = from.width, h = from.height;
+    const { c: copy, x: cx } = canvas2d(w, h, this.tileCanvas ?? undefined);
+    this.tileCanvas = copy;
+    cx.drawImage(from, 0, 0);
+    x.save();
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    // cell edges on whole pixels, so neighbours neither overlap nor leave hairlines
+    const X = (c: number) => Math.round(c * cw), Y = (r: number) => Math.round(r * ch);
+    // neighbours in a row are cleared (and, when they move alike, drawn) as one strip: far fewer draw calls
+    for (let k = 0; k < moved.length;) {
+      const i = moved[k], c = i % cols, r = (i / cols) | 0;
+      let n = 1;
+      while (k + n < moved.length && moved[k + n] === i + n && ((i + n) / cols | 0) === r) n++;
+      x.clearRect(X(c), Y(r), X(c + n) - X(c), Y(r + 1) - Y(r));
+      k += n;
+    }
+    const plain = (f: NonNullable<ReturnType<typeof at>>) => (f.scale ?? 1) === 1 && (f.sy ?? 1) === 1 && !f.rot;
+    const same = (a: NonNullable<ReturnType<typeof at>>, b: NonNullable<ReturnType<typeof at>>) =>
+      Math.abs((a.dx ?? 0) - (b.dx ?? 0)) < 0.01 && Math.abs((a.dy ?? 0) - (b.dy ?? 0)) < 0.01 && Math.abs((a.alpha ?? 1) - (b.alpha ?? 1)) < 0.004;
+    for (let k = 0; k < moved.length; k++) {
+      const f = fxs[k];
+      const a = Math.min(1, Math.max(0, f.alpha ?? 1));
+      const s = f.scale ?? 1, sy = f.sy ?? 1;
+      if (!(a > 0.003) || !(s > 0.001) || !(sy > 0.0005)) continue;
+      const i = moved[k], c = i % cols, r = (i / cols) | 0;
+      if (plain(f)) {
+        let n = 1;
+        while (k + n < moved.length && moved[k + n] === i + n && ((i + n) / cols | 0) === r && plain(fxs[k + n]) && same(f, fxs[k + n])) n++;
+        if (n > 1) {
+          const sx = X(c), sy0 = Y(r), sw = X(c + n) - sx, sh = Y(r + 1) - sy0;
+          const tw = Math.min(sw, w - sx), th = Math.min(sh, h - sy0);
+          if (tw > 0 && th > 0) {
+            x.globalAlpha = a;
+            x.imageSmoothingEnabled = true;
+            x.setTransform(1, 0, 0, 1, sx + (f.dx ?? 0) * scale, sy0 + (f.dy ?? 0) * scale);
+            x.drawImage(copy, sx, sy0, tw, th, 0, 0, tw, th);
+          }
+          k += n - 1;
+          continue;
+        }
+      }
+      const sx = X(c), sy0 = Y(r), sw = X(c + 1) - sx, sh = Y(r + 1) - sy0;
+      if (sw <= 0 || sh <= 0 || sx >= w || sy0 >= h) continue;
+      const tw = Math.min(sw, w - sx), th = Math.min(sh, h - sy0);
+      const rad = ((f.rot ?? 0) * Math.PI) / 180;
+      const cos = Math.cos(rad) * s, sin = Math.sin(rad) * s;
+      x.globalAlpha = a;
+      // a tile blown up (a single glyph filling the frame) stays crisp pixels instead of a blur
+      x.imageSmoothingEnabled = s < 2;
+      x.setTransform(cos, sin, -sin * sy, cos * sy, sx + sw / 2 + (f.dx ?? 0) * scale, sy0 + sh / 2 + (f.dy ?? 0) * scale);
+      x.drawImage(copy, sx, sy0, tw, th, -sw / 2, -sh / 2, tw, th);
+    }
+    x.restore();
   }
 }
 

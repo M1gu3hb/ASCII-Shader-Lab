@@ -390,6 +390,25 @@ export function redo() {
   st.past.push(e.recipe); st.key = '';
   replaceCurrent({ ...e, recipe: nx, edited: !sameRecipe(nx, e.origin) }, 'edit');
 }
+/**
+ * The camera's own orientation (media.ts, cameraMirror.ts): the current camera piece takes the mirror of
+ * the camera that is on. It is not an edit: the piece, the result it came from and its undo steps all
+ * change together, so it is not marked «editado» and undo never brings the other orientation back.
+ */
+export function setCameraMirror(mirror: boolean) {
+  const e = currentEntry();
+  if (!e || e.recipe.source !== 'camera' || e.recipe.media.mirror === mirror) return;
+  const turn = (r: Recipe) => {
+    if (r.source !== 'camera' || r.media.mirror === mirror) return r;
+    const x = cloneRecipe(r);
+    x.media.mirror = mirror;
+    return x;
+  };
+  const st = stacks.get(e.id);
+  if (st) { st.past = st.past.map(turn); st.future = st.future.map(turn); }
+  const recipe = turn(e.recipe), origin = turn(e.origin);
+  replaceCurrent({ ...e, recipe, origin, edited: !sameRecipe(recipe, origin) }, 'edit');
+}
 export function restoreOrigin() {
   const e = currentEntry(); if (!e || !e.edited) return;
   edit(r => Object.assign(r, cloneRecipe(e.origin)), 'restore');

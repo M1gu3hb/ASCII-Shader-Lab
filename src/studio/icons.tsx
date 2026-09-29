@@ -35,6 +35,12 @@ export const IExplore = (p: P) => <svg {...base(p)}><rect x="3" y="3" width="8" 
 export const IMore = (p: P) => <svg {...base(p)}><circle cx="5" cy="12" r="1.3" fill="currentColor" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /><circle cx="19" cy="12" r="1.3" fill="currentColor" /></svg>;
 export const ITerminal = (p: P) => <svg {...base(p)}><rect x="3" y="4.5" width="18" height="15" rx="2" /><path d="m7 9 3 3-3 3M12 15h5" /></svg>;
 export const ITune = (p: P) => <svg {...base(p)}><path d="M5 4v16M12 4v16M19 4v16" /><rect x="3" y="13" width="4" height="3" rx="1" fill="currentColor" /><rect x="10" y="7" width="4" height="3" rx="1" fill="currentColor" /><rect x="17" y="15" width="4" height="3" rx="1" fill="currentColor" /></svg>;
+/** A seed: the number that repeats a piece. */
+export const ISeed = (p: P) => <svg {...base(p)}><path d="M12 20.5c-4.4 0-7-3.3-7-7.2C5 8.4 9 5 12 3.5c3 1.5 7 4.9 7 9.8 0 3.9-2.6 7.2-7 7.2Z" /><path d="M12 9v11.5" /></svg>;
+/** Recipes: starting points, a small stack of cards. */
+export const IRecipes = (p: P) => <svg {...base(p)}><rect x="4" y="7.5" width="13" height="12.5" rx="1.5" /><path d="M7.5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v10.5" /><path d="M7 12h7M7 15.5h4.5" /></svg>;
+/** Switch between the front and the rear camera. */
+export const IFlip = (p: P) => <svg {...base(p)}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><path d="M9.3 12.2a3 3 0 0 1 5.2-1.4M14.7 13.8a3 3 0 0 1-5.2 1.4" /><path d="M14.7 9.4v1.6h-1.6M9.3 16.6V15h1.6" /></svg>;
 
 /* ---------- spaces, settings groups and destination views: one small set, drawn on the same 24 px grid ---------- */
 
@@ -65,6 +71,6 @@ type Icon = (p: P) => React.JSX.Element;
 /** Each creative space (the top bar, its picker on narrow screens). */
 export const SPACE_ICON: Record<string, Icon> = { fondos: IFondos, arte: IArte, media: IImage, tipo: ITipo, terminal: ITerminal, componentes: IPiezas };
 /** Each settings group, by its id (the same group has a different name in some spaces). */
-export const TAB_ICON: Record<string, Icon> = { forma: IForma, color: IColor, glifos: IGlifos, mov: IMov, fx: IFx, fuente: IFuente, msg: IMsg, term: ITerminal, xform: IXform };
+export const TAB_ICON: Record<string, Icon> = { forma: IForma, color: IColor, glifos: IGlifos, mov: IMov, fx: IFx, fuente: IFuente, msg: IMsg, term: ITerminal, xform: IXform, recetas: IRecipes };
 /** Each destination view. */
 export const VIEW_ICON: Record<string, Icon> = { libre: IVLibre, web: IVWeb, movil: IVMovil, tarjeta: IVTarjeta, vertical: IVVertical, readme: IVReadme, terminal: ITerminal };

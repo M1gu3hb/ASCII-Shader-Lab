@@ -51,9 +51,13 @@ async function walk(page: Page, w: number, full: boolean) {
     await page.waitForTimeout(200);
     await look('vista ' + v);
   }
+  // (phones: the dice settings are in «Más», beside the dock)
+  if (phone) await page.getByRole('button', { name: 'Más acciones' }).click();
   await page.getByRole('button', { name: 'Ajustes del azar' }).click();
   await look('ajustes del azar');
-  await page.getByRole('button', { name: 'Ajustes del azar' }).click();
+  if (phone) await page.keyboard.press('Escape');
+  else await page.getByRole('button', { name: 'Ajustes del azar' }).click();
+  await expect(page.getByRole('dialog', { name: 'Ajustes del azar' })).toHaveCount(0);
   await blur(page);
   await page.keyboard.press('e');
   const sheet = page.getByRole('dialog', { name: 'Llevar la pieza fuera' });
@@ -72,9 +76,11 @@ async function walk(page: Page, w: number, full: boolean) {
     await look('colección');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Colección e historial' })).toBeHidden();
-    // narrow windows: the settings sheet covers the seed line while it is open
-    if (phone && !(await page.locator('.app.panel-off').count())) await page.getByRole('button', { name: 'Cerrar ajustes' }).click();
-    await page.locator('.seedline').getByRole('button', { name: 'semilla' }).click();
+    // narrow windows: the seed is one of «Más» in the dock
+    if (phone) {
+      await page.getByRole('button', { name: 'Más acciones' }).click();
+      await page.getByRole('button', { name: 'Escribir una semilla' }).click();
+    } else await page.locator('.seedline').getByRole('button', { name: 'semilla' }).click();
     await expect(page.getByRole('dialog', { name: 'Semilla' })).toBeVisible();
     await look('semilla');
     await page.keyboard.press('Escape');
@@ -104,6 +110,8 @@ test.describe('acceso horizontal', () => {
       const found: string[] = [];
       for (const [w, h] of widths) {
         await page.setViewportSize({ width: w, height: h });
+        // the layout of the width in place (phones: the dock at the bottom) before looking
+        await page.waitForFunction(pw => pw === !!document.querySelector('.ph-dock'), w <= 900);
         await page.waitForTimeout(300);
         found.push(...await walk(page, w, w === 1366 || w === 768));
       }
@@ -131,18 +139,24 @@ test.describe('acceso horizontal', () => {
   });
 
   test('una fila que no cabe lo dice, se desplaza con la rueda sólo mientras puede y con sus flechas', async ({ page }) => {
-    // a narrow window with a mouse: the settings are a sheet whose sections do not fit in one row
+    // a narrow window with a mouse. (The settings' sections are a grid there now, all in view: the row
+    // that does not fit is the history in thumbnails, shown above the dock from «Más».)
     await page.setViewportSize({ width: 440, height: 900 });
     await openStudio(page, '#space=arte');
-    await openPanel(page);
-    const box = page.locator('.panel .ptabs-box');
-    const row = page.locator('.panel .ptabs');
+    await blur(page);
+    for (let i = 0; i < 12; i++) await page.keyboard.press('r');
+    await expect(page.locator('.seedline')).toContainText('13/13');
+    await page.getByRole('button', { name: 'Más acciones' }).click();
+    await page.getByRole('button', { name: /^Historial en miniaturas/ }).click();
+    await page.keyboard.press('Escape');
+    const box = page.locator('.ph-strip .strip-box');
+    const row = page.locator('.ph-strip .strip');
     await expect(row).toBeVisible();
-    await page.getByRole('tab', { name: 'Capas' }).click();
     await expect.poll(() => row.evaluate(el => el.scrollWidth > el.clientWidth + 1)).toBe(true);
-    // more on the right: a visible «más», nothing on the left
+    // it shows the current (last) item; from its start: more on the right only
+    await expect(box.locator('.srow-prev')).toBeVisible();
+    await row.evaluate(el => { el.style.scrollBehavior = 'auto'; el.scrollLeft = 0; });
     await expect(box.locator('.srow-next')).toBeVisible();
-    await expect(box.locator('.srow-next')).toContainText('más');
     await expect(box.locator('.srow-prev')).toBeHidden();
 
     // the wheel over the row scrolls it sideways…
@@ -181,7 +195,9 @@ test.describe('teclado', () => {
       // sections: one Tab stop; ← → move and choose; Home and End jump; each one comes into view
       const tabs = page.locator('.panel [role=tab]');
       const n = await tabs.count();
-      expect(n).toBe(7);
+      // (phones: the recipes are a section too, the first)
+      const phone = w <= 900;
+      expect(n).toBe(phone ? 8 : 7);
       await page.getByRole('tab', { name: 'Capas' }).click();
       await expect(page.locator('.panel [role=tab][tabindex="0"]')).toHaveCount(1);
       const seen = new Set<string>();
@@ -200,16 +216,19 @@ test.describe('teclado', () => {
       await expect(page.getByRole('tab', { name: 'Mensaje' })).toHaveAttribute('aria-selected', 'true');
       await expect(page.getByRole('tab', { name: 'Mensaje' })).toBeInViewport({ ratio: 1 });
       await page.keyboard.press('Home');
-      await expect(page.getByRole('tab', { name: 'Capas' })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: phone ? 'Recetas' : 'Capas' })).toHaveAttribute('aria-selected', 'true');
       // ← → inside the row never move the history
       await expect(page.locator('.seedline')).toContainText('1/1');
 
-      // recipes: each one takes focus with Tab, in view
+      // recipes: each one takes focus with Tab, in view (in their row; on phones, in their section)
       const chips = page.locator('.panel .recipes .chip');
       await chips.first().focus();
       for (let i = 0; i < await chips.count(); i++) {
         await expect(chips.nth(i)).toBeFocused();
-        await expect.poll(() => chips.nth(i).evaluate(el => { const row = el.closest('.srow-list')!.getBoundingClientRect(), b = el.getBoundingClientRect(); return b.left >= row.left - 1 && b.right <= row.right + 1; })).toBe(true);
+        await expect.poll(() => chips.nth(i).evaluate(el => {
+          const row = el.closest('.srow-list, .pane')!.getBoundingClientRect(), b = el.getBoundingClientRect();
+          return b.left >= row.left - 1 && b.right <= row.right + 1 && b.top >= row.top - 1 && b.bottom <= row.bottom + 1;
+        })).toBe(true);
         await page.keyboard.press('Tab');
       }
     }

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>QA · línea de tiempo</title>
+<style>
+:root{color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:#0c0b0a;color:#ede6da;font:13px/1.45 system-ui,sans-serif;display:flex;flex-direction:column}
+header{padding:8px 12px;border-bottom:1px solid #2a2723;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+header b{font:600 14px/1.2 ui-monospace,monospace}
+#status{color:#8c857a;font:12px ui-monospace,monospace}
+#stage{flex:0 0 auto;display:flex;justify-content:center;align-items:center;padding:10px;background:repeating-conic-gradient(#171614 0 25%,#131210 0 50%) 0 0/16px 16px;min-height:0}
+#stage canvas{max-width:100%;max-height:44vh;height:auto;display:block;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+#tl{flex:1 1 auto;min-height:280px;display:flex;flex-direction:column}
+#tl>.tl{flex:1}
+#say{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style></head>
+<body>
+<header><b>Línea de tiempo</b><span id="status">preparando…</span></header>
+<div id="stage"><canvas id="preview" aria-label="Vista previa del proyecto"></canvas></div>
+<div id="tl"></div>
+<div id="say" aria-live="polite"></div>
+<script type="module" src="./timeline.tsx"></script>
+</body></html>

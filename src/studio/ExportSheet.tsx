@@ -3,7 +3,7 @@ import { cloneRecipe, type Recipe } from '../engine/recipe';
 import { byteSize, gridToAnsi, gridToHtml, gridToHtmlPage, gridToText, toAsciicast, toJsString, toNodePlayer, toPythonPlayer, toShellBanner, type ColorDepth } from '../exporters/text';
 import { recipeFile, shareUrl } from '../shared/share';
 import { imageFormats, recorderLabel, useCaps, videoEncoderWhy, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
-import { copyText, downloadBlob, downloadText } from './download';
+import { copyText, downloadBlob, downloadText, shareFile, useSaved } from './download';
 import {
   SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize, trailWarmup,
   smallerEncodable, startRecording, stopRecording, useRecording, useStopOnLeave, videoSupport, type Cancel,
@@ -27,6 +27,7 @@ import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
 import type { Fallback } from '../exporters/code';
 import './css/export-code.css';
 import { useSwap } from './motion/hooks';
+import { getEngine } from './engineBridge';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -49,12 +50,13 @@ export function ExportSheet() {
     setOpening(n => n + 1);
     setTab(r?.tab ?? (space === 'terminal' ? 'terminal' : space === 'fondos' ? 'codigo' : 'imagen'));
   }, [open, space]);
+  useStageSizeTick(open);
   // another format: its options resolve in (lightly; the sheet itself stays put)
   const body = useRef<HTMLDivElement>(null);
   useSwap(body, open ? tab : null, (a, b) => (a && b ? 'tab' : null));
   return (
     <Sheet open={open} onClose={() => setUI({ sheet: 'none' })} wide title="Llevar la pieza fuera" sub="Todo se genera en tu navegador. Elige el formato según dónde la vayas a usar.">
-      <ScrollRow role="tablist" aria-label="Formatos" className="sheet-tabs" boxClassName="sheet-tabs-box">
+      <ScrollRow role="tablist" aria-label="Formatos" className="sheet-tabs ex-tabs" boxClassName="sheet-tabs-box">
         {TABS.map(([id, name]) => <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{name}</button>)}
       </ScrollRow>
       <div className="sheet-body" ref={body}>
@@ -65,7 +67,43 @@ export function ExportSheet() {
         {tab === 'codigo' && <CodeTab />}
         {tab === 'receta' && <RecipeTab />}
       </div>
+      <SavedBar open={open} />
     </Sheet>
+  );
+}
+
+/**
+ * The sizes «como la vista» follow the stage: when it changes while the sheet is open (on a phone the
+ * settings sheet closes as this one opens, and the piece takes its room back), the sizes shown follow.
+ */
+function useStageSizeTick(open: boolean) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const c = getEngine()?.canvas;
+    if (!open || !c || typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(() => setTick(t => t + 1));
+    ro.observe(c);
+    return () => ro.disconnect();
+  }, [open]);
+}
+
+/**
+ * At the sheet's foot, once something was saved while it is open: what, and «Compartir» where the system
+ * shares files (the notices are under this sheet, and on a phone it fills the screen).
+ */
+function SavedBar({ open }: { open: boolean }) {
+  const saved = useSaved();
+  // what was saved before this opening is not this sheet's news
+  const from = useRef(saved.n);
+  const was = useRef(false);
+  if (open && !was.current) from.current = useSaved.getState().n;
+  was.current = open;
+  if (!open || saved.n <= from.current) return null;
+  return (
+    <div className="ex-saved" role="status">
+      <p>Descargado: <b>{saved.name}</b></p>
+      {saved.file && <button type="button" className="btn ex-share" onClick={() => { if (saved.file) void shareFile(saved.file); }}>Compartir</button>}
+    </div>
   );
 }
 

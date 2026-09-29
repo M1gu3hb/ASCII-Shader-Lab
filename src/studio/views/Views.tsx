@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { create } from 'zustand';
 import { gridToText } from '../../exporters/text';
 import { copyText } from '../download';
@@ -18,6 +18,9 @@ import {
 import { ScrollRow } from '../ui/ScrollRow';
 import { Picker } from '../ui/Picker';
 import { VIEW_OVERLAY_LABEL } from '../ui/copy';
+import { LAND_Q, PHONE_Q, useMatch, usePhone } from '../ui/useMatch';
+import { useSheet } from '../ui/sheetSnap';
+import { useImmersive } from '../ui/Immersive';
 import '../css/views.css';
 import '../css/controls.css';
 
@@ -79,51 +82,49 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
   const hide = useStudio(s => s.ui.hideUI);
   const guiding = useGuide(s => s.path !== null);
   const cursor = useStudio(s => s.cursor);
+  const imm = useImmersive(s => s.on);
+  const dragging = useSheet(s => s.dragging);
+  const snap = useSheet(s => s.snap);
   useLayoutEffect(() => {
     const st = stage.current;
     const app = st?.closest<HTMLElement>('.app');
-    if (!st || !app) return;
+    const wrap = st?.closest<HTMLElement>('.stage-wrap');
+    if (!st || !app || !wrap) return;
     const measure = () => {
+      // the sheet is being dragged: the stage keeps its room until it is let go
+      if (useSheet.getState().dragging) return;
       const bar = top.current;
-      const t = hide || !bar ? 12 : bar.offsetTop + bar.offsetHeight + 10;
-      let b = 12;
+      const t = hide || !bar || !bar.offsetHeight ? 12 : bar.offsetTop + bar.offsetHeight + 10;
+      // what covers the stage from below, in the app's coordinates: the settings sheet on phones held
+      // upright, else the deck and the seed line (or the immersive bar) where they overlap the stage
+      const bottom = wrap.offsetTop + wrap.offsetHeight;
+      let cover = bottom;
       if (!hide) {
         const sheet = app.querySelector<HTMLElement>('.panel');
-        const phone = innerWidth <= 900;
-        if (phone && sheet && !app.classList.contains('panel-off')) b = app.clientHeight - sheet.offsetTop + 8;
+        const upright = matchMedia(PHONE_Q).matches && !matchMedia(LAND_Q).matches;
+        if (upright && sheet && !app.classList.contains('panel-off')) cover = sheet.offsetTop;
         else {
-          const tops = [...app.querySelectorAll<HTMLElement>('.deck, .seedline')].map(el => el.offsetTop);
-          if (tops.length) b = app.clientHeight - Math.min(...tops) + 10;
+          const tops = [...app.querySelectorAll<HTMLElement>('.deck, .seedline, .imm-bar')]
+            .filter(el => el.offsetParent !== null && el.offsetLeft < wrap.offsetLeft + wrap.offsetWidth)
+            .map(el => el.offsetTop);
+          if (tops.length) cover = Math.min(cover, ...tops);
         }
       }
+      const b = Math.max(12, bottom - cover + 10);
       setIns(p => (p.top === t && p.bottom === b ? p : { top: t, bottom: b }));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(st);
     if (top.current) ro.observe(top.current);
-    for (const el of app.querySelectorAll('.deck, .seedline, .panel')) ro.observe(el);
+    for (const el of app.querySelectorAll('.deck, .seedline, .panel, .imm-bar')) ro.observe(el);
     addEventListener('resize', measure);
     return () => { ro.disconnect(); removeEventListener('resize', measure); };
-  }, [stage, top, panel, hide, guiding, cursor]);
+  }, [stage, top, panel, hide, guiding, cursor, imm, dragging, snap]);
   return ins;
 }
 
 const areaStyle = (ins: Insets): CSSProperties => ({ top: ins.top, bottom: ins.bottom });
-
-const PHONE = '(max-width: 900px)';
-/** True on phone-sized screens (the layout's own breakpoint). */
-function usePhone() {
-  const [phone, setPhone] = useState(() => typeof matchMedia === 'function' && matchMedia(PHONE).matches);
-  useEffect(() => {
-    if (typeof matchMedia !== 'function') return;
-    const mq = matchMedia(PHONE);
-    const on = () => setPhone(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return phone;
-}
 
 /* ------------------------------------------------------------------ */
 /* The stage in each view                                               */
@@ -150,8 +151,15 @@ export function ViewStage({ view, host, ins }: { view: ViewId; host: HTMLElement
  */
 function FreeView({ host, ins }: { host: HTMLElement; ins: Insets }) {
   const phone = usePhone();
+  const land = useMatch(LAND_Q);
   const guiding = useGuide(s => s.path !== null);
+  // phones held upright with the settings sheet at its peek or half: the whole piece above the sheet
+  // (at full height the sheet takes the screen: the piece stays as it was behind it)
+  const sheetOpen = useStudio(s => s.ui.panel);
+  const snap = useSheet(s => s.snap);
   if (phone && guiding) return <div className="vw-area vw-free" style={areaStyle(ins)}><Slot host={host} className="vw-fill" /></div>;
+  // (the view bar floats over the piece, as it does with the sheet closed)
+  if (phone && !land && sheetOpen && snap !== 'full') return <div className="vw-area vw-free vw-above" style={{ top: 0, bottom: Math.max(0, ins.bottom - 10) }}><Slot host={host} className="vw-fill" /></div>;
   return <Slot host={host} className="vw-fill" />;
 }
 
@@ -389,7 +397,7 @@ function TerminalView({ host, ins }: { host: HTMLElement; ins: Insets }) {
 /* The bar: selector, what the view simulates, its options, export     */
 /* ------------------------------------------------------------------ */
 
-export function ViewBar({ view }: { view: ViewId }) {
+export function ViewBar({ view, extra }: { view: ViewId; extra?: ReactNode }) {
   const info = viewInfo(view);
   // phones: the options fold away so the preview keeps the room
   const [open, setOpen] = useState(false);
@@ -424,6 +432,7 @@ export function ViewBar({ view }: { view: ViewId }) {
           </button>
         )}
         {more && <button type="button" className="vbar-go vbar-go-sm" onClick={go} title={hint} aria-label={goLabel}><IDownload /><span>Exportar</span></button>}
+        {extra}
       </div>
       {more && (
         <div className="vbar-more">

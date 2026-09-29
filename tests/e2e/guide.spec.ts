@@ -262,7 +262,7 @@ test.describe('caminos', () => {
 
     // 4 · the code, copied; the test page, downloaded
     await expect(stepTitle(page)).toContainText('Llévalo a tu web');
-    await expect(guide(page).getByRole('textbox', { name: /Código/ })).toHaveValue(/GLYPHOS\.mount/);
+    await expect(guide(page).getByRole('textbox', { name: /Código/ })).toHaveValue(/Glyphos\.mount/);
     await guide(page).getByRole('button', { name: 'Copiar el código' }).click();
     await expect(page.locator('.toast').last()).toContainText('Código copiado');
     const code = await page.evaluate(() => navigator.clipboard.readText());

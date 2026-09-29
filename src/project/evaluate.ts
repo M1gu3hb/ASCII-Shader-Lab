@@ -11,14 +11,14 @@
  *   4. values brought back into range (normLayer), so a keyframe can never push a layer out of its limits;
  *   5. the time of its source frame (video: seconds into the file; sequence: which photo).
  */
-import { clipTime, hashString, paramsOf, templateById, type CellFxFactory, type ClipEffect, type ParamValue, type RevealFactory } from './clips';
+import { clipTime, hashString, paramsOf, templateById, type CellFxFactory, type ClipEffect, type ParamValue, type RevealFactory, type TileFactory } from './clips';
 import { easeAt } from './ease';
 import { normLayer } from './normalize';
 // the first templates register themselves with clips.ts (a project that uses them evaluates anywhere)
 import './templates';
 import type { CellFx } from '../glyphs/index';
 import { finishesDependOnTime } from '../fx/index';
-import type { Id, Key, Layer, Mask, Project, Source, Track } from './types';
+import type { Finish, Id, Key, Layer, Mask, Project, Source, Track } from './types';
 
 export interface ClipState {
   id: Id;
@@ -46,6 +46,15 @@ export interface LayerFrame {
   cells: CellFxFactory | null;
   /** Per-cell visibility from clips ('ascii' and 'glyphs' layers), multiplied in clip order. */
   reveal: RevealFactory | null;
+  /** Per-tile movement of the layer's picture from clips (offsets add, scales multiply), and the tile size for layers without a grid. */
+  tiles: TileFactory | null;
+  tileCell: number;
+  /** Masks from clips the layer must also be inside (after its own mask). */
+  within: Mask[];
+  /** Non-uniform scale of the whole layer from clips (multiplied), or null. */
+  stretch: { x: number; y: number } | null;
+  /** Characters clips may draw on a glyph layer (their font is loaded first). */
+  glyphs: string;
   clips: ClipState[];
 }
 
@@ -179,6 +188,22 @@ function composeCells(a: CellFxFactory | null, b: CellFxFactory): CellFxFactory 
   };
 }
 
+function composeTiles(a: TileFactory | null, b: TileFactory): TileFactory {
+  if (!a) return b;
+  return grid => {
+    const fa = a(grid), fb = b(grid);
+    return (col, row) => {
+      const x = fa(col, row), y = fb(col, row);
+      if (!x) return y;
+      if (!y) return x;
+      return {
+        dx: (x.dx ?? 0) + (y.dx ?? 0), dy: (x.dy ?? 0) + (y.dy ?? 0), scale: (x.scale ?? 1) * (y.scale ?? 1), sy: (x.sy ?? 1) * (y.sy ?? 1),
+        rot: (x.rot ?? 0) + (y.rot ?? 0), alpha: (x.alpha ?? 1) * (y.alpha ?? 1),
+      };
+    };
+  };
+}
+
 function composeReveal(a: RevealFactory | null, b: RevealFactory): RevealFactory {
   if (!a) return b;
   return grid => {
@@ -219,6 +244,12 @@ export function evaluateLayer(project: Project, index: number, t: number, tracks
   let mask: Mask | null | undefined;
   let cells: CellFxFactory | null = null;
   let reveal: RevealFactory | null = null;
+  let tiles: TileFactory | null = null;
+  let tileCell = 32;
+  const within: Mask[] = [];
+  let stretch: { x: number; y: number } | null = null;
+  const added: Finish[] = [];
+  let glyphs = '';
   const states: ClipState[] = [];
   for (const clip of base.clips) {
     const def = templateById(clip.template);
@@ -228,7 +259,7 @@ export function evaluateLayer(project: Project, index: number, t: number, tracks
     let fx: ClipEffect | null = null;
     try {
       fx = def.apply({
-        layer, clip, params: paramsOf(def, clip), p: ct.p, linear: ct.linear, raw: ct.raw, local: ct.local, t,
+        layer, clip, params: paramsOf(def, clip), p: ct.p, linear: ct.linear, raw: ct.raw, local: ct.local, pos: ct.pos, t,
         seed: `${project.seed}|${base.id}|${clip.id}`, project,
       });
     } catch {
@@ -240,10 +271,24 @@ export function evaluateLayer(project: Project, index: number, t: number, tracks
     if (fx.mask !== undefined) mask = fx.mask;
     if (fx.cells) cells = composeCells(cells, fx.cells);
     if (fx.reveal) reveal = composeReveal(reveal, fx.reveal);
+    if (fx.tiles) {
+      tiles = composeTiles(tiles, fx.tiles);
+      if (typeof fx.tileCell === 'number' && Number.isFinite(fx.tileCell)) tileCell = Math.min(512, Math.max(2, fx.tileCell));
+    }
+    if (fx.within) within.push(clone(fx.within));
+    if (fx.stretch && Number.isFinite(fx.stretch.x) && Number.isFinite(fx.stretch.y)) {
+      const sx = Math.min(100, Math.max(0, fx.stretch.x)), sy = Math.min(100, Math.max(0, fx.stretch.y));
+      const prev = stretch as { x: number; y: number } | null;
+      stretch = { x: (prev?.x ?? 1) * sx, y: (prev?.y ?? 1) * sy };
+    }
+    if (fx.finishes?.length) added.push(...fx.finishes);
+    if (fx.glyphs) glyphs += fx.glyphs;
   }
-  if (touched || mask !== undefined || opacity !== 1) {
+  if (touched || mask !== undefined || opacity !== 1 || added.length) {
     const l = own();
     if (mask !== undefined) l.mask = mask ? clone(mask) : null;
+    // (finishes past the limit of a layer are left out; normLayer checks each one)
+    if (added.length) l.finishes = [...l.finishes, ...clone(added)];
     // back into range (a keyframe or a template may have pushed a value past its limits)
     layer = normLayer(l, l.id) ?? l;
     layer.opacity *= opacity;
@@ -251,7 +296,7 @@ export function evaluateLayer(project: Project, index: number, t: number, tracks
   const srcId = 'source' in layer ? layer.source : null;
   const source = srcId ? project.sources.find(s => s.id === srcId) ?? null : null;
   const local = base.span ? t - base.span.in : t;
-  return { layer, index, local, source, srcTime: sourceTime(source, t), cells, reveal, clips: states };
+  return { layer, index, local, source, srcTime: sourceTime(source, t), cells, reveal, tiles, tileCell, within, stretch, glyphs, clips: states };
 }
 
 /** The frame at time t (see the top of this file). */

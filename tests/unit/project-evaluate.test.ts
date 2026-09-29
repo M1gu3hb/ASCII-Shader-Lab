@@ -232,7 +232,8 @@ describe('clips', () => {
     rev.layers[0].clips[0].reverse = true;
     expect(text(0.2, rev)).toBe('hola mund▌');
     expect(text(1, rev)).toBe('hola ▌');
-    expect(text(3, rev)).toBe('');
+    // after the reversed clip: its last state is the forward clip's first (an empty prompt with its cursor)
+    expect(text(3, rev)).toBe('▌');
   });
 
   it('«Escritura de terminal» on a glyph grid types the visible characters in reading order', () => {
