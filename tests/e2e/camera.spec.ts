@@ -196,6 +196,45 @@ test.describe('la cámara', () => {
     await browser.close();
   });
 
+  test('el espejo de la cámara es de la cámara: una foto que tome su lugar sale derecha', async ({ playwright, baseURL }) => {
+    test.setTimeout(240_000);
+    const browser = await playwright.chromium.launch({ args: [...GL, ...FAKE] });
+    const { page, errors } = await studio(browser, baseURL!);
+    await page.locator('.prompt .card').getByRole('button', { name: 'Activar cámara' }).click();
+    await cameraOn(page);
+    await expect(mirrorSwitch(page)).toBeChecked();
+    // a photo dropped on the stage (bright on its left third), as one does after trying the camera
+    await page.evaluate(async () => {
+      const c = document.createElement('canvas');
+      c.width = 320; c.height = 240;
+      const x = c.getContext('2d')!;
+      x.fillStyle = '#101010'; x.fillRect(0, 0, 320, 240);
+      x.fillStyle = '#f0f0f0'; x.fillRect(0, 0, 107, 240);
+      const blob = await new Promise<Blob>(res => c.toBlob(b => res(b!), 'image/png'));
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], 'marca.png', { type: 'image/png' }));
+      document.querySelector('.stage')!.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    await expect(page.locator('.panel').getByText('marca.png')).toBeVisible();
+    // the photo as it is: «Espejo» off, and the stage bright on its left
+    const photoMirror = page.getByRole('switch', { name: 'Espejo', exact: true });
+    await expect(photoMirror).not.toBeChecked();
+    await pause(page);
+    const onStage = await stage(page);
+    const left = onStage.slice(0, 5).reduce((s, v) => s + v, 0), right = onStage.slice(11).reduce((s, v) => s + v, 0);
+    expect(left, `escenario ${onStage.map(v => Math.round(v)).join(' ')}`).toBeGreaterThan(right * 1.3);
+    // choosing the camera again: it is a mirror again (the front camera's default), and undo keeps each its own
+    await page.getByRole('radio', { name: 'Cámara', exact: true }).click();
+    await page.locator('.prompt .card').getByRole('button', { name: 'Activar cámara' }).click();
+    await cameraOn(page);
+    await expect(mirrorSwitch(page)).toBeChecked();
+    await page.keyboard.press('Control+z');
+    await expect(page.locator('.panel').getByText('marca.png')).toBeVisible();
+    await expect(photoMirror).not.toBeChecked();
+    expect(errors).toEqual([]);
+    await browser.close();
+  });
+
   test('la trasera, sin espejo; lo que eliges se mantiene al apagar y encender, y el espejo automático no cuenta como edición', async ({ playwright, baseURL }) => {
     test.setTimeout(300_000);
     const browser = await playwright.chromium.launch({ args: [...GL, ...FAKE.map(a => (a === FAKE[0] ? `${a}=device-count=2` : a))] });
