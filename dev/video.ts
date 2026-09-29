@@ -713,6 +713,45 @@ async function measureLong(seconds = 60, format: 'webm' | 'mp4' = 'webm', width?
   return out;
 }
 
+/**
+ * Where an export's time goes, per frame, on the current project: render (evaluate + compositor, frame-exact
+ * video streamed), encode alone (the same codec settings on a still canvas), and the whole export of `n` frames.
+ */
+async function breakdown(n = 20) {
+  const p = project!;
+  const { createStreamProvider } = await import('../src/video/frames');
+  const times = Array.from({ length: n }, (_, i) => i / p.time.fps);
+  const prov = createStreamProvider(p, times);
+  const c = new Compositor({ provider: prov });
+  const cv = document.createElement('canvas');
+  const render: number[] = [];
+  for (const t of times) {
+    const t0 = performance.now();
+    await c.render(frameAt(p, t), cv, { scale: 1, quality: 'final', sequential: true });
+    render.push(performance.now() - t0);
+  }
+  c.destroy();
+  await prov.close();
+  const mb = await import('mediabunny');
+  const e = document.createElement('canvas');
+  e.width = p.canvas.w; e.height = p.canvas.h;
+  const ex = e.getContext('2d')!;
+  ex.drawImage(cv, 0, 0);
+  const out = new mb.Output({ format: new mb.WebMOutputFormat(), target: new mb.BufferTarget() });
+  const src = new mb.CanvasSource(e, { codec: 'vp9', quality: new mb.Quality({ quality: 'very-high', preferBitrate: true }), keyFrameInterval: 2 });
+  out.addVideoTrack(src, { frameRate: p.time.fps });
+  await out.start();
+  const e0 = performance.now();
+  for (let i = 0; i < n; i++) { ex.fillRect(i * 3, i * 3, 6, 6); await src.add(i / p.time.fps, 1 / p.time.fps); }
+  await out.finalize();
+  const encode = (performance.now() - e0) / n;
+  const whole = await runExport({ format: 'webm', end: n / p.time.fps });
+  const mean = (a: number[]) => a.slice(2).reduce((x, y) => x + y, 0) / Math.max(1, a.length - 2);
+  const r = { w: p.canvas.w, h: p.canvas.h, renderMs: Math.round(mean(render)), encodeVp9Ms: Math.round(encode), exportPerFrameMs: Math.round(whole.ms / n) };
+  timing(`Una exportación por dentro (${r.w}×${r.h}, por cuadro)`, `render ${r.renderMs} ms · codificar VP9 ${r.encodeVp9Ms} ms · exportación completa ${r.exportPerFrameMs} ms`);
+  return r;
+}
+
 /** Flow speed here: CPU and WebGL2 on two frames of the clip at the tracker's size. */
 async function measureFlow() {
   const g = geometry(project!, project!.sources[0]);
@@ -908,6 +947,7 @@ const vq: Vq = {
   measurePlayback: (s?: number, scale?: number, side?: number) => measurePlayback(s, scale, side),
   measureLong: (s?: number, f?: 'webm' | 'mp4', w?: number) => measureLong(s, f, w),
   measureFlow: () => measureFlow(),
+  breakdown: (n?: number) => breakdown(n),
   squareAt: (t: number) => squareAt(clip!.spec, t),
   project: () => project,
   /** A model of src/cutout downloaded and verified (the test routes Hugging Face to local files). */
