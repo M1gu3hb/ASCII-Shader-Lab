@@ -385,6 +385,12 @@ export interface PerCellOptions {
   revealOnly?: boolean;
   /** Characters the clip may draw (glyph layers load their font). */
   glyphs?: string;
+  /**
+   * Only moves (no characters or colours change): glyph layers are moved as tiles of their drawing too.
+   * A turned or scaled character is a text raster of its own (thousands of them cost seconds in a
+   * software canvas); a tile is one image draw.
+   */
+  motion?: boolean;
 }
 
 /**
@@ -400,7 +406,7 @@ export function perCell(ctx: ClipContext, make: CellMaker, o: PerCellOptions = {
       return z ? (i, c, r) => (z(i, c, r) ? f(i, c, r) : null) : f;
     }
     : make;
-  if (kind === 'glyphs') return { cells: withZone, ...(o.glyphs ? { glyphs: o.glyphs } : {}) };
+  if (kind === 'glyphs' && !o.motion) return { cells: withZone, ...(o.glyphs ? { glyphs: o.glyphs } : {}) };
   if (kind === 'ascii' && o.revealOnly) {
     return {
       reveal: g => {
@@ -417,7 +423,7 @@ export function perCell(ctx: ClipContext, make: CellMaker, o: PerCellOptions = {
       return (c, r) => cellToTile(f(r * cols + c, c, r));
     },
   };
-  if (kind !== 'ascii') eff.tileCell = o.tileCell ?? 24;
+  if (kind !== 'ascii' && kind !== 'glyphs') eff.tileCell = o.tileCell ?? 24;
   return eff;
 }
 
@@ -507,6 +513,30 @@ export function gradientAt(stops: readonly string[], x: number): string {
   const t = clamp01(x) * (stops.length - 1);
   const i = Math.min(stops.length - 2, Math.floor(t));
   return mixColor(stops[i], stops[i + 1], t - i);
+}
+
+/* numeric colours for per-cell work (no string parsing per cell): 0xrrggbb ints */
+const HEX2 = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+export const intHex = (v: number) => '#' + HEX2[(v >> 16) & 255] + HEX2[(v >> 8) & 255] + HEX2[v & 255];
+export const hexInt = (hex: string) => { const [r, g, b] = parseColor(hex); return (r << 16) | (g << 8) | b; };
+export function mixInt(a: number, b: number, k: number): number {
+  const t = k <= 0 ? 0 : k >= 1 ? 1 : k;
+  const r = ((a >> 16) & 255) + ((((b >> 16) & 255) - ((a >> 16) & 255)) * t);
+  const g = ((a >> 8) & 255) + ((((b >> 8) & 255) - ((a >> 8) & 255)) * t);
+  const bl = (a & 255) + (((b & 255) - (a & 255)) * t);
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl);
+}
+/** A gradient over colours as a function x → 0xrrggbb (closed: the last colour blends back into the first). */
+export function rampInt(colors: readonly string[], closed = false): (x: number) => number {
+  const list = colors.length ? colors.map(hexInt) : [0xede6da];
+  if (closed) list.push(list[0]);
+  const n = list.length;
+  return x => {
+    if (n === 1) return list[0];
+    const t = (closed ? frac(x) : clamp01(x)) * (n - 1);
+    const i = Math.min(n - 2, Math.floor(t));
+    return mixInt(list[i], list[i + 1], t - i);
+  };
 }
 
 /** Palettes offered by colour templates (fx palettes that have colours, plus a few of the brand). */

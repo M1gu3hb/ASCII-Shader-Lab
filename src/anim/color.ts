@@ -15,7 +15,7 @@ import { hashString, rand01, registerTemplate, type ClipContext, type ClipEffect
 import type { Finish } from '../project/types';
 import {
   ALL_KINDS, bool, cellX, cellY, clamp01, colorSet, COLOR_SET_OPTIONS, frac, geo, gradientAt, hueRotate, lumAt, mixColor, num, orderField,
-  P, perCell, smooth, span01, str, sweep, toHex, TAU, type OrderKind,
+  P, perCell, rampInt, smooth, span01, str, sweep, toHex, TAU, intHex, mixInt, hexInt, type OrderKind,
 } from './kit';
 
 const hexOf = (v: number) => toHex((v >> 16) & 255, (v >> 8) & 255, v & 255);
@@ -61,11 +61,12 @@ registerTemplate({
           cells: g => {
             const o = orderField(kind, g, seed);
             const cols = g.colors;
+            const ramp = rampInt(pal);
             return i => {
               const v = sweep(o[i], p, soft);
               if (v <= 0) return null;
-              const target = gradientAt(pal, lumAt(g, i));
-              return { color: cols && v < 1 ? mixColor(hexOf(cols[i] ?? 0), target, v) : target };
+              const target = ramp(lumAt(g, i));
+              return { color: intHex(cols && v < 1 ? mixInt(cols[i] ?? 0, target, v) : target) };
             };
           },
         };
@@ -126,7 +127,7 @@ registerTemplate({
         if (l.glyphs.color === 'palette') { l.glyphs.palette.forEach((_, i) => { set[`glyphs.palette.${i}`] = cyc(pal, i / Math.max(1, l.glyphs.palette.length) + x); }); return { set }; }
         if (l.glyphs.color === 'mono') return { set: { 'glyphs.ink': cyc(pal, x) } };
         // colour from the photo: colour bands climb through the brightness
-        return { cells: g => i => ({ color: cyc(pal, lumAt(g, i) + x) }) };
+        return { cells: g => { const ramp = rampInt(pal, true); return i => ({ color: intHex(ramp(lumAt(g, i) + x)) }); } };
       case 'ascii': {
         const k = l.style.color.stops.length;
         for (let i = 0; i < k; i++) set[`style.color.stops.${i}`] = cyc(pal, i / Math.max(1, k) + x);
@@ -228,11 +229,12 @@ registerTemplate({
       cells: g => {
         const G = geo(g);
         const cols = g.colors;
+        const ramp = rampInt(pal, true);
         return (i, c, r) => {
           const x = cellX(G, c) / G.w, y = cellY(G, r) / G.h;
           const d = shape === 'y' ? y : shape === 'radial' ? Math.hypot(x - 0.5, (y - 0.5) * (G.h / G.w)) : shape === 'luz' ? lumAt(g, i) : x;
-          const col = cyc(pal, d / len - n * ctx.p);
-          return { color: cols && mix < 1 ? mixColor(hexOf(cols[i] ?? 0), col, mix) : col };
+          const col = ramp(d / len - n * ctx.p);
+          return { color: intHex(cols && mix < 1 ? mixInt(cols[i] ?? 0, col, mix) : col) };
         };
       },
     };
@@ -269,6 +271,7 @@ registerTemplate({
       const kk = k(l.box.x + l.box.w / 2, l.box.y + l.size / 2);
       return kk > 0.001 ? { set: { color: mixColor(l.color, color, kk) } } : null;
     }
+    const light = hexInt(color);
     return perCell(ctx, g => {
       const G = geo(g);
       const cols = g.colors;
@@ -276,7 +279,7 @@ registerTemplate({
         const kk = k(cellX(G, c) / G.w, cellY(G, r) / G.h);
         if (kk <= 0.001) return null;
         const f = { scale: 1 + swell * kk * 0.6 };
-        return l.kind === 'glyphs' ? { ...f, color: cols ? mixColor(hexOf(cols[i] ?? 0), color, kk) : color } : f;
+        return l.kind === 'glyphs' ? { ...f, color: cols ? intHex(mixInt(cols[i] ?? 0, light, kk)) : color } : f;
       };
     }, { tileCell: 12 });
   },

@@ -76,7 +76,7 @@ function signature(lf: LayerFrame | undefined): string {
   return JSON.stringify(round({
     // the layer as drawn (its clips and id are not part of the picture)
     layer: { ...lf.layer, clips: [], id: '' }, cells: cells.some(x => x) ? cells : [], reveal: reveal.some(v => v < 1) ? reveal : [], tiles: tiles.some(x => x) ? tiles : [],
-    within: lf.within, glyphs: '',
+    within: lf.within, stretch: lf.stretch, glyphs: '',
   }));
 }
 
@@ -106,7 +106,7 @@ function assertFinite(eff: ClipEffect | null, where: string) {
     if (typeof v === 'number' && !Number.isFinite(v)) bad.push(path);
     else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, `${path}.${k}`);
   };
-  walk({ set: eff.set, opacity: eff.opacity, mask: eff.mask, within: eff.within, finishes: eff.finishes, tileCell: eff.tileCell }, where);
+  walk({ set: eff.set, opacity: eff.opacity, mask: eff.mask, within: eff.within, stretch: eff.stretch, finishes: eff.finishes, tileCell: eff.tileCell }, where);
   if (eff.cells) { const f = eff.cells(G); for (let i = 0; i < COLS * ROWS; i += 7) walk(f(i, i % COLS, Math.floor(i / COLS)), `${where}.cells[${i}]`); }
   if (eff.reveal) { const f = eff.reveal(G); for (let i = 0; i < COLS * ROWS; i += 7) walk(f(i % COLS, Math.floor(i / COLS)), `${where}.reveal[${i}]`); }
   if (eff.tiles) { const f = eff.tiles(G); for (let i = 0; i < COLS * ROWS; i += 7) walk(f(i % COLS, Math.floor(i / COLS)), `${where}.tiles[${i}]`); }

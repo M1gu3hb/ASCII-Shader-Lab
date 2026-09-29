@@ -199,7 +199,7 @@ registerTemplate({
           const s = v.scatter * (0.75 + 0.25 * o[i]);
           return { visible: vis, dx: Math.cos(ang) * len * s, dy: Math.sin(ang) * len * s, rot: noise2(seed + 5, nx * 3, ny * 3) * 180 * s };
         };
-      }, { tileCell: 16 }));
+      }, { tileCell: 16, motion: v.scatter > 0 }));
     }
     return Object.keys(eff).length ? eff : null;
   },

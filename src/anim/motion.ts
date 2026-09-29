@@ -92,7 +92,7 @@ function scatterEffect(ctx: ClipContext, amountAt: (i: number, o: number) => num
       if (q >= 1 && mode !== 'desintegrar') return { visible: 0 };
       return scatterPath(mode, G, seed, i, c, r, cx, cy, dir)(Math.min(1, q));
     };
-  }, { tileCell: TILE, zone: str(ctx, 'zona', 'todo') });
+  }, { tileCell: TILE, zone: str(ctx, 'zona', 'todo'), motion: true });
 }
 
 registerTemplate({
@@ -208,7 +208,7 @@ registerTemplate({
           }
         }
       };
-    }, { tileCell: TILE, zone: str(ctx, 'zona', 'todo') });
+    }, { tileCell: TILE, zone: str(ctx, 'zona', 'todo'), motion: true });
   },
 });
 
@@ -265,7 +265,7 @@ registerTemplate({
         const nx = rx * Math.cos(a) - ry * Math.sin(a), ny = rx * Math.sin(a) + ry * Math.cos(a);
         return { dx: nx - rx + offX * k, dy: ny - ry + offY * k, rot: angle * k, visible: q <= 0 ? 0.85 : 1 };
       };
-    }, { tileCell: 16 });
+    }, { tileCell: 16, motion: true });
   },
 });
 
@@ -303,7 +303,7 @@ registerTemplate({
         const d = (first ? -1 : 1) * dist * e;
         return vertical ? { dy: d } : { dx: d };
       };
-    }, { tileCell: 12 });
+    }, { tileCell: 12, motion: true });
   },
 });
 
@@ -323,28 +323,19 @@ registerTemplate({
   apply(ctx: ClipContext): ClipEffect | null {
     const p = ctx.p;
     if (p <= 0) return null;
+    // squashed into a line (vertical), the line into a dot (horizontal), then the dot goes out
     const e1 = easeInCubic(span01(p, 0, 0.5)), e2 = easeInOutCubic(span01(p, 0.45, 0.85)), e3 = span01(p, 0.8, 1);
     const color = str(ctx, 'color', '#f4fff8');
-    const glyphs = ctx.layer.kind === 'glyphs';
-    const eff = perCell(ctx, g => {
-      const G = geo(g);
-      return (_i, c, r) => {
-        const x = cellX(G, c), y = cellY(G, r);
-        const f: CellFx & { sy?: number } = {
-          dy: (G.h / 2 - y) * e1, dx: (G.w / 2 - x) * e2 * 0.985,
-          visible: (1 - e3) * (1 - 0.3 * e2), scale: 1 - 0.7 * e2,
-        };
-        if (glyphs && e1 > 0.55) f.color = color;
-        return f;
-      };
-    }, { tileCell: 8 });
-    if (eff.tiles && !glyphs) {
-      // tiles also squash vertically into the line
-      const base = eff.tiles;
-      eff.tiles = g => { const f = base(g); return (c, r) => { const t = f(c, r); return t ? { ...t, sy: 1 - 0.985 * e1 } : t; }; };
-    }
+    const eff: ClipEffect = { stretch: { x: Math.max(0.004, 1 - 0.99 * e2), y: Math.max(0.003, 1 - 0.994 * e1) } };
+    if (e3 > 0) eff.opacity = 1 - smooth(e3);
     const glow = num(ctx, 'brillo', 0.7) * e1 * (1 - e3);
-    if (glow > 0.001) eff.finishes = [{ kind: 'glow', on: true, amount: Math.min(1, glow), params: { threshold: 0.2, radius: 18, strength: 2, tint: color, blend: 'add' } }];
+    if (glow > 0.001) {
+      // the line burns white: brighter levels and a glow in its colour
+      eff.finishes = [
+        { kind: 'levels', on: true, amount: Math.min(1, e1 * 0.9), params: { black: 0, white: 0.55, gamma: 1.4, outBlack: 0.1, outWhite: 1 } },
+        { kind: 'glow', on: true, amount: Math.min(1, glow), params: { threshold: 0.2, radius: 18, strength: 2, tint: color, blend: 'add' } },
+      ];
+    }
     return eff;
   },
 });
@@ -468,7 +459,7 @@ registerTemplate({
       set: { 'xf.x': xf.x + (noise1(seed, x) * amp) / w, 'xf.y': xf.y + (noise1(seed + 17, x) * amp) / h, 'xf.rot': xf.rot + noise1(seed + 29, x * 0.7) * num(ctx, 'giro', 1.5) * env },
     };
     if (bool(ctx, 'celdas') && ctx.layer.kind !== 'text' && ctx.layer.kind !== 'shape') {
-      Object.assign(eff, perCell(ctx, () => i => ({ dx: noise1(seed + i, x * 1.3) * amp * 0.5, dy: noise1(seed + i * 3, x * 1.3) * amp * 0.5 }), { tileCell: 20 }));
+      Object.assign(eff, perCell(ctx, () => i => ({ dx: noise1(seed + i, x * 1.3) * amp * 0.5, dy: noise1(seed + i * 3, x * 1.3) * amp * 0.5 }), { tileCell: 20, motion: true }));
     }
     return eff;
   },
@@ -513,7 +504,7 @@ registerTemplate({
         }
         return { dx: vx * k * 0.85, dy: vy * k * 0.85, scale: 1 - 0.55 * k };
       };
-    }, { tileCell: 14 });
+    }, { tileCell: 14, motion: true });
   },
 });
 
@@ -549,7 +540,7 @@ registerTemplate({
         const tc = clamp(c + jx, 0, G.cols - 1), tr = clamp(r + jy, 0, G.rows - 1);
         return { dx: (tc - c) * G.cw * e, dy: (tr - r) * G.ch * e };
       };
-    }, { tileCell: 16 });
+    }, { tileCell: 16, motion: true });
   },
 });
 
@@ -594,7 +585,7 @@ registerTemplate({
         // pushed out from the lens centre as if magnified
         return { dx: (x - X) * (m - 1) * 0.5, dy: (y - Y) * (m - 1) * 0.5, scale: m };
       };
-    }, { tileCell: 14 });
+    }, { tileCell: 14, motion: true });
   },
 });
 
@@ -629,7 +620,7 @@ registerTemplate({
         if (flip) return { scale: Math.max(0.05, Math.abs(Math.cos(e * Math.PI * turns))) };
         return { rot: 360 * turns * e, scale: 1 - 0.25 * Math.sin(Math.PI * q) };
       };
-    }, { tileCell: 16 });
+    }, { tileCell: 16, motion: true });
   },
 });
 
@@ -667,7 +658,7 @@ registerTemplate({
         if (moves === 'tamano') return { scale: 1 + (A / 40) * s };
         return moves === 'lado' ? { dx: A * s } : { dy: A * s };
       };
-    }, { tileCell: 12 });
+    }, { tileCell: 12, motion: true });
   },
 });
 
@@ -698,7 +689,7 @@ registerTemplate({
           const s = Math.sin(Math.PI * (n * p - d * 1.5)) ** 2 * Math.sin(Math.PI * p) ** 0.3;
           return { scale: 1 + A * 4 * s * (0.3 + lumAt(g, i)) };
         };
-      }, { tileCell: 16 });
+      }, { tileCell: 16, motion: true });
     }
     if (b < 1e-6) return null;
     return { set: { 'xf.scale': ctx.layer.xf.scale * (1 + A * b) } };
@@ -733,7 +724,7 @@ registerTemplate({
           const ph = (noise2(seed, c / G.cols * 3, r / G.rows * 3) * 0.5 + 0.5) * TAU;
           return { dx: A * 0.4 * (Math.sin(a + ph) - Math.sin(ph)), dy: A * (Math.sin(2 * a + ph) - Math.sin(ph)) * 0.5 };
         };
-      }, { tileCell: 16 });
+      }, { tileCell: 16, motion: true });
     }
     const { w, h } = ctx.project.canvas;
     const xf = ctx.layer.xf;
@@ -779,6 +770,6 @@ registerTemplate({
         if (!d) return null;
         return horiz ? { dx: d } : { dy: d };
       };
-    }, { tileCell: 12 });
+    }, { tileCell: 12, motion: true });
   },
 });

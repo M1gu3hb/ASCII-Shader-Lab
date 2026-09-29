@@ -14,6 +14,7 @@
  *     engine's cells for 'ascii', the glyph grid for 'glyphs', squares of `tileCell` px for the others) is
  *     drawn as a tile, moved, scaled, turned or faded — fragments of shader ASCII or of a photo;
  *   - `within`: a mask the layer also has to be inside (after its own mask: an iris, a wipe);
+ *   - `stretch`: a non-uniform scale of the whole layer (squash and stretch, a TV switching off);
  *   - `finishes`: finishes added after the layer's own for this frame (a glow that pulses, a pixelate-in);
  *   - `glyphs`: characters the clip may draw on a glyph layer (so their font is loaded before drawing).
  * Progress runs 0 → 1 over the clip (after repeats, ping-pong and easing); 1 is the template's end state.
@@ -80,6 +81,8 @@ export interface ClipEffect {
   tileCell?: number;
   /** The layer also shows only inside this mask (applied after its own). */
   within?: Mask;
+  /** Non-uniform scale of the whole layer around its centre (1 = as is), inside its own transform. */
+  stretch?: { x: number; y: number };
   /** Finishes added after the layer's own, for this frame only. */
   finishes?: Finish[];
   /** Characters this clip may draw on a glyph layer (their font is loaded before drawing). */

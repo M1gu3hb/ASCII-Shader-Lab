@@ -442,10 +442,12 @@ export class Compositor {
     ctx.globalAlpha = Math.min(1, Math.max(0, l.opacity));
     ctx.globalCompositeOperation = BLEND[l.blend] ?? 'source-over';
     const xf = l.xf;
-    if (xf.x || xf.y || xf.rot || xf.scale !== 1) {
+    const st = lf.stretch;
+    if (xf.x || xf.y || xf.rot || xf.scale !== 1 || st) {
       ctx.translate(rw / 2 + xf.x * rw, rh / 2 + xf.y * rh);
       ctx.rotate((xf.rot * Math.PI) / 180);
-      ctx.scale(xf.scale, xf.scale);
+      // a clip's stretch (squash and stretch, a TV switching off) is non-uniform, inside the layer's own scale
+      ctx.scale(xf.scale * (st?.x ?? 1), xf.scale * (st?.y ?? 1));
       ctx.translate(-rw / 2, -rh / 2);
     }
     ctx.drawImage(out, 0, 0);
@@ -624,16 +626,39 @@ export class Compositor {
     x.setTransform(1, 0, 0, 1, 0, 0);
     // cell edges on whole pixels, so neighbours neither overlap nor leave hairlines
     const X = (c: number) => Math.round(c * cw), Y = (r: number) => Math.round(r * ch);
-    for (const i of moved) {
-      const c = i % cols, r = (i / cols) | 0;
-      x.clearRect(X(c), Y(r), X(c + 1) - X(c), Y(r + 1) - Y(r));
+    // neighbours in a row are cleared (and, when they move alike, drawn) as one strip: far fewer draw calls
+    for (let k = 0; k < moved.length;) {
+      const i = moved[k], c = i % cols, r = (i / cols) | 0;
+      let n = 1;
+      while (k + n < moved.length && moved[k + n] === i + n && ((i + n) / cols | 0) === r) n++;
+      x.clearRect(X(c), Y(r), X(c + n) - X(c), Y(r + 1) - Y(r));
+      k += n;
     }
+    const plain = (f: NonNullable<ReturnType<typeof at>>) => (f.scale ?? 1) === 1 && (f.sy ?? 1) === 1 && !f.rot;
+    const same = (a: NonNullable<ReturnType<typeof at>>, b: NonNullable<ReturnType<typeof at>>) =>
+      Math.abs((a.dx ?? 0) - (b.dx ?? 0)) < 0.01 && Math.abs((a.dy ?? 0) - (b.dy ?? 0)) < 0.01 && Math.abs((a.alpha ?? 1) - (b.alpha ?? 1)) < 0.004;
     for (let k = 0; k < moved.length; k++) {
       const f = fxs[k];
       const a = Math.min(1, Math.max(0, f.alpha ?? 1));
       const s = f.scale ?? 1, sy = f.sy ?? 1;
       if (!(a > 0.003) || !(s > 0.001) || !(sy > 0.0005)) continue;
       const i = moved[k], c = i % cols, r = (i / cols) | 0;
+      if (plain(f)) {
+        let n = 1;
+        while (k + n < moved.length && moved[k + n] === i + n && ((i + n) / cols | 0) === r && plain(fxs[k + n]) && same(f, fxs[k + n])) n++;
+        if (n > 1) {
+          const sx = X(c), sy0 = Y(r), sw = X(c + n) - sx, sh = Y(r + 1) - sy0;
+          const tw = Math.min(sw, w - sx), th = Math.min(sh, h - sy0);
+          if (tw > 0 && th > 0) {
+            x.globalAlpha = a;
+            x.imageSmoothingEnabled = true;
+            x.setTransform(1, 0, 0, 1, sx + (f.dx ?? 0) * scale, sy0 + (f.dy ?? 0) * scale);
+            x.drawImage(copy, sx, sy0, tw, th, 0, 0, tw, th);
+          }
+          k += n - 1;
+          continue;
+        }
+      }
       const sx = X(c), sy0 = Y(r), sw = X(c + 1) - sx, sh = Y(r + 1) - sy0;
       if (sw <= 0 || sh <= 0 || sx >= w || sy0 >= h) continue;
       const tw = Math.min(sw, w - sx), th = Math.min(sh, h - sy0);

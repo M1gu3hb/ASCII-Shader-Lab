@@ -165,7 +165,7 @@ registerTemplate({
         if (v <= 0) return { visible: 0 };
         return { visible: Math.min(1, v * 2), scale: pop > 0 ? easeOutBack(v, 2.2 * pop) : 1 };
       };
-    }, { tileCell: 20 });
+    }, { tileCell: 20, motion: true });
   },
 });
 
@@ -195,16 +195,19 @@ registerTemplate({
     const ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
     const D = Math.hypot(W, H) + 4, s = D / N;
     const L = 1 / (1 + (N - 1) * lag);
-    const parts: MaskPart[] = [];
+    // every open slat in ONE polygon (one pass of the mask rasteriser instead of one per slat): the slats
+    // are joined along their far ends, outside the frame, where the joins add nothing
+    const pts: number[] = [];
+    const corner = (u: number, v: number) => [(W / 2 + ux * u + vx * v) / W, (H / 2 + uy * u + vy * v) / H];
     for (let j = 0; j < N; j++) {
       const f = clamp01((p - j * lag * L) / L);
       if (f <= 0) continue;
       const u0 = -D / 2 + j * s, u1 = u0 + f * s + (f >= 1 ? 1 : 0);
-      const corner = (u: number, v: number) => [(W / 2 + ux * u + vx * v) / W, (H / 2 + uy * u + vy * v) / H];
-      parts.push({ kind: 'polygon', op: 'add', pts: [...corner(u0, -D / 2), ...corner(u1, -D / 2), ...corner(u1, D / 2), ...corner(u0, D / 2)], soft, alpha: 1 });
+      pts.push(...corner(u0, -D / 2), ...corner(u1, -D / 2), ...corner(u1, D / 2), ...corner(u0, D / 2), ...corner(u0, -D / 2));
     }
     // nothing open yet: an empty polygon keeps everything hidden
-    return { within: maskOf(parts.length ? parts : [{ kind: 'polygon', op: 'add', pts: [0, 0, 0, 0, 0, 0], soft: 0, alpha: 1 }]) };
+    const part: MaskPart = { kind: 'polygon', op: 'add', pts: pts.length >= 6 ? pts : [0, 0, 0, 0, 0, 0], soft, alpha: 1 };
+    return { within: maskOf([part]) };
   },
 });
 
@@ -302,7 +305,7 @@ registerTemplate({
           default: { const v = sweep(within[i], q, 0.15); return v >= 1 ? null : { visible: v }; }
         }
       };
-    }, { tileCell: 20, revealOnly: how === 'aparecer' || how === 'escribir' });
+    }, { tileCell: 20, revealOnly: how === 'aparecer' || how === 'escribir', motion: how === 'crecer' || how === 'cae' });
   },
 });
 

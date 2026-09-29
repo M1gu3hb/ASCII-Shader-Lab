@@ -250,15 +250,18 @@ const qa = {
       apply.push(performance.now() - t0);
     }
     const c = document.createElement('canvas');
-    const withClip: number[] = [], without: number[] = [];
+    const withClip: number[] = [], without: number[] = [], total: number[] = [];
     const bare: Project = JSON.parse(JSON.stringify(p));
     bare.layers[bare.layers.length - 1].clips = [];
+    // the animated layer's own time in the render report (the layers under it are the same either way)
+    const layerMs = (r: { layers: Array<{ id: string; ms: number }> }) => r.layers.find(l => l.id === lay.id)?.ms ?? 0;
+    await enqueue(() => renderInto(c, bare, 0));
     for (let k = 0; k < Math.min(3, n); k++) {
       const t = ((k + 0.5) / 3) * def.dur;
-      let t0 = performance.now(); await enqueue(() => renderInto(c, p, t)); withClip.push(performance.now() - t0);
-      t0 = performance.now(); await enqueue(() => renderInto(c, bare, t)); without.push(performance.now() - t0);
+      const a = await enqueue(() => renderInto(c, p, t)); withClip.push(layerMs(a)); total.push(a.ms);
+      const b = await enqueue(() => renderInto(c, bare, t)); without.push(layerMs(b));
     }
-    return { id, kind, cells: N, applyMs: Math.round(med(apply) * 10) / 10, renderMs: Math.round(med(withClip)), baseMs: Math.round(med(without)) };
+    return { id, kind, cells: N, applyMs: Math.round(med(apply) * 10) / 10, layerMs: Math.round(med(withClip)), baseLayerMs: Math.round(med(without)), frameMs: Math.round(med(total)) };
   },
   sampleProject, compositor, evaluate, newProject, newLayer, PHOTO,
 };

@@ -51,6 +51,8 @@ export interface LayerFrame {
   tileCell: number;
   /** Masks from clips the layer must also be inside (after its own mask). */
   within: Mask[];
+  /** Non-uniform scale of the whole layer from clips (multiplied), or null. */
+  stretch: { x: number; y: number } | null;
   /** Characters clips may draw on a glyph layer (their font is loaded first). */
   glyphs: string;
   clips: ClipState[];
@@ -245,6 +247,7 @@ export function evaluateLayer(project: Project, index: number, t: number, tracks
   let tiles: TileFactory | null = null;
   let tileCell = 32;
   const within: Mask[] = [];
+  let stretch: { x: number; y: number } | null = null;
   const added: Finish[] = [];
   let glyphs = '';
   const states: ClipState[] = [];
@@ -273,6 +276,11 @@ export function evaluateLayer(project: Project, index: number, t: number, tracks
       if (typeof fx.tileCell === 'number' && Number.isFinite(fx.tileCell)) tileCell = Math.min(512, Math.max(2, fx.tileCell));
     }
     if (fx.within) within.push(clone(fx.within));
+    if (fx.stretch && Number.isFinite(fx.stretch.x) && Number.isFinite(fx.stretch.y)) {
+      const sx = Math.min(100, Math.max(0, fx.stretch.x)), sy = Math.min(100, Math.max(0, fx.stretch.y));
+      const prev = stretch as { x: number; y: number } | null;
+      stretch = { x: (prev?.x ?? 1) * sx, y: (prev?.y ?? 1) * sy };
+    }
     if (fx.finishes?.length) added.push(...fx.finishes);
     if (fx.glyphs) glyphs += fx.glyphs;
   }
@@ -288,7 +296,7 @@ export function evaluateLayer(project: Project, index: number, t: number, tracks
   const srcId = 'source' in layer ? layer.source : null;
   const source = srcId ? project.sources.find(s => s.id === srcId) ?? null : null;
   const local = base.span ? t - base.span.in : t;
-  return { layer, index, local, source, srcTime: sourceTime(source, t), cells, reveal, tiles, tileCell, within, glyphs, clips: states };
+  return { layer, index, local, source, srcTime: sourceTime(source, t), cells, reveal, tiles, tileCell, within, stretch, glyphs, clips: states };
 }
 
 /** The frame at time t (see the top of this file). */

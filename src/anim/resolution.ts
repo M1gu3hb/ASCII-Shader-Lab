@@ -108,6 +108,7 @@ registerTemplate({
     const b = span01(p, split, 1);
     if (b <= 0) return eff;
     const glyph = str(ctx, 'glifo', '');
+    const glyphLayer = ctx.layer.kind === 'glyphs';
     const e = easeInOutCubic(b);
     const make = (g: CellGrid) => {
       const G = geo(g);
@@ -123,7 +124,8 @@ registerTemplate({
         // the others fold into the centre and fade (the ones nearer the seed last)
         const d = Math.hypot(col - sc, row - sr) / Math.hypot(G.cols, G.rows);
         const q = clamp01(e * 1.35 - (1 - d) * 0.35);
-        return { dx: tx * q, dy: ty * q, visible: 1 - smooth(q * 1.2), scale: 1 - q * 0.6 };
+        // (characters are not scaled one by one: each would be a text raster of its own)
+        return { dx: tx * q, dy: ty * q, visible: 1 - smooth(q * 1.2), ...(glyphLayer ? {} : { scale: 1 - q * 0.6 }) };
       };
     };
     return { ...eff, ...perCell(ctx, make, glyph ? { glyphs: glyph } : {}) };
@@ -178,7 +180,9 @@ registerTemplate({
         if (q >= 1) return null;
         if (q <= 0) return { visible: 0 };
         const e = easeOutCubic(q);
-        return { visible: Math.min(1, q * 3), dx: (sx - x) * (1 - e), dy: (sy - y) * (1 - e), scale: 0.3 + 0.7 * easeOutBack(q, 1.6) };
+        const f = { visible: Math.min(1, q * 3), dx: (sx - x) * (1 - e), dy: (sy - y) * (1 - e) };
+        // tiles grow as they fly; characters only move (a scaled character is a text raster of its own)
+        return ctx.layer.kind === 'glyphs' ? f : { ...f, scale: 0.3 + 0.7 * easeOutBack(q, 1.6) };
       };
     }, glyph ? { glyphs: glyph } : {});
   },
