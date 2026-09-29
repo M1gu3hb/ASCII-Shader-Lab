@@ -21,6 +21,7 @@ import { OPS } from './inspect/MaskSection';
 import { orderVersions } from './tree';
 export { orderVersions };
 import './switch.css';
+import { ExtrasMenu } from './extras/ExtrasMenu';
 
 /* ------------------------------------------------------------------ the switch */
 
@@ -83,6 +84,7 @@ export function TopBar({ editing }: { editing: boolean }) {
           <button type="button" className="ib ghost hide-sm" onClick={() => openSheet('settings')} title="Ajustes: calidad de la vista y modelos descargados" aria-label="Ajustes del estudio"><ISettings /></button>
           <button type="button" className="ib ghost hide-sm" onClick={() => openSheet('help')} title="Atajos y ayuda (?)" aria-label="Atajos y ayuda"><IHelp /></button>
         </div>
+        {editing && <ExtrasMenu />}
         {editing && (
           <>
             <button type="button" className="ib hide-xs" onClick={() => openSheet('saveas')} title="Guardar como, descargar el proyecto" aria-label="Guardar"><ISave /><span className="lbl">Guardar</span></button>
