@@ -275,7 +275,7 @@ export function Timeline(props: TimelineProps) {
     | { act: 'region'; edge: 'in' | 'out'; r0: { in: number; out: number } }
     | { act: 'pan'; x0: number; y0: number; start0: number; top0: number; moved: boolean; lane?: Id }
     | { act: 'pinch'; d0: number; mid0: number; view0: View };
-  const gesture = useRef<{ pid: number; g: G; touch: boolean; timer: number } | null>(null);
+  const gesture = useRef<{ pid: number; g: G; touch: boolean; timer: number; at: number; xy: { clientX: number; clientY: number } } | null>(null);
   const touches = useRef(new Map<number, { x: number; y: number }>());
   const lastTap = useRef<{ id: string; at: number } | null>(null);
 
@@ -290,7 +290,7 @@ export function Timeline(props: TimelineProps) {
     if (touch && touches.current.size === 2) {
       cancelLong();
       const [a, b] = [...touches.current.values()];
-      gesture.current = { pid: -1, touch: true, timer: 0, g: { act: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), mid0: (a.x + b.x) / 2 - lanesLeft(), view0: viewRef.current } };
+      gesture.current = { pid: -1, touch: true, timer: 0, at: e.timeStamp, xy: { clientX: e.clientX, clientY: e.clientY }, g: { act: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), mid0: (a.x + b.x) / 2 - lanesLeft(), view0: viewRef.current } };
       setSnapAt(null);
       return;
     }
@@ -325,7 +325,7 @@ export function Timeline(props: TimelineProps) {
     if (!g) return;
     e.preventDefault();
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* the pointer may be gone */ }
-    const c = { pid: e.pointerId, g, touch, timer: 0 };
+    const c = { pid: e.pointerId, g, touch, timer: 0, at: e.timeStamp, xy: { clientX: e.clientX, clientY: e.clientY } };
     gesture.current = c;
     // long press (touch): the menu of what is under the finger
     if (touch && (g.act === 'clip' || g.act === 'key' || g.act === 'pan')) {
@@ -428,6 +428,9 @@ export function Timeline(props: TimelineProps) {
     setSnapAt(null);
     const g = c.g;
     if (e.type === 'pointercancel') return;
+    // a long press whose timer could not run in time (a busy frame): the lift still opens the menu
+    const still = !((g as { moved?: boolean }).moved ?? false);
+    if (c.touch && still && e.timeStamp - c.at >= LONG_PRESS && (g.act === 'clip' || g.act === 'key' || g.act === 'pan')) { openMenuFor(g, c.xy); return; }
     if (g.act === 'clip' && !g.moved) openClipPop(g.id, g.el);
     if (g.act === 'key' && !g.moved) {
       // a tap on touch, or a second click within 400 ms (pointer capture keeps dblclick from reaching the key)
@@ -447,11 +450,10 @@ export function Timeline(props: TimelineProps) {
 
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const v = viewRef.current;
+    // (the page's own scroll and zoom are cancelled by the native listener below: React's is passive)
     if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
       setView(clampView(zoomAt(v, Math.exp(-e.deltaY * 0.0022), xOf(e)), len));
     } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-      e.preventDefault();
       const d = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
       setView(clampView({ ...v, start: v.start + d / v.pps }, len));
     }
@@ -541,7 +543,7 @@ export function Timeline(props: TimelineProps) {
 
   return (
     <div ref={root} className={`tl${props.compact ? ' compact' : ''} ${props.className ?? ''}`} style={{ ...props.style, ['--tl-head' as string]: `${headW}px` }}
-      role="region" aria-label="Línea de tiempo" tabIndex={0} onKeyDown={onKeyDown}>
+      role="region" aria-label="Línea de tiempo" tabIndex={0} onKeyDown={onKeyDown} data-pps={Math.round(view.pps * 100) / 100} data-start={Math.round(view.start * 1000) / 1000}>
       {/* ---------------------------------------------------------------- transport */}
       <div className="tl-bar" role="toolbar" aria-label="Reproducción y vista">
         <div className="grp">
@@ -611,6 +613,7 @@ export function Timeline(props: TimelineProps) {
           </div>
         </div>
       </div>
+      <TimeScroll view={view} len={len} onStart={st => setView(v => clampView({ ...v, start: st }, len))} />
       <p className="tl-hint">
         {props.compact ? 'Un dedo desplaza, dos acercan; mantén pulsado un clip o una llave para ver sus opciones.' : <><kbd>←</kbd><kbd>→</kbd> cuadro · <kbd>⇧</kbd> segundo · <kbd>Espacio</kbd> reproducir · <kbd>K</kbd> llave · <kbd>Supr</kbd> borrar · <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> mover selección · <kbd>Ctrl</kbd>+rueda zoom · clic derecho: opciones</>}
       </p>
@@ -652,6 +655,39 @@ export function Timeline(props: TimelineProps) {
         <LibraryPicker kind={selLayer?.kind ?? null} onPick={addFromLibrary} onChoreo={addChoreo} onClose={() => { setPicker(false); root.current?.focus(); }}
           {...(props.previewPicture ? { picture: props.previewPicture } : {})} {...(props.basicPreviews ? { basic: true } : {})} />
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ the scrollbar of time */
+
+/** Where the view is over the whole length; drag the thumb (or tap the track) to move through time. */
+function TimeScroll({ view, len, onStart }: { view: View; len: number; onStart: (start: number) => void }) {
+  const track = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ id: number; x0: number; s0: number } | null>(null);
+  const lo = -0.5, range = len + 1;
+  const span = view.width / view.pps;
+  const w = Math.min(1, span / range), left = Math.min(1 - w, Math.max(0, (view.start - lo) / range));
+  const toTime = (dx: number) => (dx / Math.max(1, track.current?.clientWidth ?? 1)) * range;
+  return (
+    <div className="tl-scroll">
+      <span />
+      <div ref={track} className="track" role="scrollbar" aria-orientation="horizontal" aria-label="Desplazar en el tiempo"
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(left * 100)}
+        onPointerDown={e => {
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          const r = e.currentTarget.getBoundingClientRect();
+          const onThumb = e.clientX >= r.left + left * r.width && e.clientX <= r.left + (left + w) * r.width;
+          // a tap on the track centres the view there; the thumb is dragged
+          const s0 = onThumb ? view.start : lo + ((e.clientX - r.left) / r.width) * range - span / 2;
+          if (!onThumb) onStart(s0);
+          drag.current = { id: e.pointerId, x0: e.clientX, s0 };
+        }}
+        onPointerMove={e => { const d = drag.current; if (d && d.id === e.pointerId) onStart(d.s0 + toTime(e.clientX - d.x0)); }}
+        onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
+        <span className="thumb" style={{ left: `${left * 100}%`, width: `${Math.max(2, w * 100)}%` }} />
+      </div>
     </div>
   );
 }

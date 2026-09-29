@@ -138,8 +138,11 @@
 .tl-hint kbd { font: 11px/1 var(--tl-mono); border: 1px solid var(--tl-line); border-radius: 4px; padding: 1px 4px; color: var(--tl-bone); }
 
 /* scrollbar of time */
-.tl-scroll { height: 16px; display: grid; grid-template-columns: var(--tl-head) 1fr; border-top: 1px solid var(--tl-line); }
-.tl-scroll .track { position: relative; margin: 4px 8px; background: var(--tl-ink2); border-radius: 4px; touch-action: none; }
+.tl-scroll { height: 20px; display: grid; grid-template-columns: var(--tl-head) 1fr; border-top: 1px solid var(--tl-line); }
+.tl-scroll .track { position: relative; margin: 6px 8px 6px 0; background: var(--tl-ink2); border-radius: 4px; touch-action: none; cursor: pointer; }
+.tl-scroll .track::before { content: ""; position: absolute; inset: -12px 0; }
+.tl.compact .tl-scroll { height: 28px; }
+.tl.compact .tl-scroll .track { margin: 8px 8px 8px 0; }
 .tl-scroll .thumb { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: #4a453e; cursor: grab; }
 
 /* ---------------------------------------------------------------- panels (popovers) */
@@ -213,6 +216,10 @@
 .tl.compact { --tl-head: 118px; }
 .tl.compact .tl-time { min-width: 0; padding: 0 4px; font-size: 12px; }
 .tl.compact .tl-head .kind { display: none; }
+.tl.compact .tl-head.path, .tl.compact .tl-lane.path, .tl.compact .tl-head.path .name { min-height: 44px; height: auto; }
+.tl.compact .tl-head.path .name { height: 44px; }
+.tl.compact .tl-key { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+.tl.compact .tl-key::after { left: 16px; top: 16px; }
 .tl.compact .tl-pop { left: 8px !important; right: 8px; width: auto; top: auto !important; bottom: 8px; max-height: 62%; }
 @media (prefers-reduced-motion: reduce) {
   .tl-pop .toggle::after { transition: none; }

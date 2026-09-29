@@ -16,7 +16,7 @@ import { hashString, registerTemplate, type CellGrid, type ClipContext, type Cli
 
 /* ------------------------------------------------------------------ Foto → ASCII */
 
-const SWEEP_ORDER: Record<string, OrderKind> = { izquierda: 'izquierda', derecha: 'derecha', arriba: 'arriba', abajo: 'abajo', centro: 'centro' };
+const SWEEP_ORDER: Record<string, OrderKind> = { izquierda: 'izquierda', derecha: 'derecha', arriba: 'arriba', abajo: 'abajo', centro: 'centro', diagonal: 'diagonal' };
 const MODE_ORDER: Record<string, OrderKind> = { disolver: 'azar', ruido: 'ruido', brillo: 'brillo', sombras: 'sombras', bordes: 'contornos', radial: 'centro' };
 
 registerTemplate({
@@ -31,7 +31,7 @@ registerTemplate({
       key: 'modo', label: 'Cómo aparecen', type: 'select', def: 'disolver',
       options: [['disolver', 'Celdas al azar'], ['barrido', 'Barrido'], ['radial', 'Desde un punto'], ['ruido', 'Por manchas'], ['brillo', 'Luces primero'], ['sombras', 'Sombras primero'], ['bordes', 'Contornos primero'], ['fundido', 'Fundido']],
     },
-    { key: 'direccion', label: 'Dirección del barrido', type: 'select', options: [['izquierda', 'Desde la izquierda'], ['derecha', 'Desde la derecha'], ['arriba', 'Desde arriba'], ['abajo', 'Desde abajo'], ['centro', 'Desde el centro']], def: 'izquierda', when: { modo: ['barrido'] } },
+    { key: 'direccion', label: 'Dirección del barrido', type: 'select', options: [['izquierda', 'Desde la izquierda'], ['derecha', 'Desde la derecha'], ['arriba', 'Desde arriba'], ['abajo', 'Desde abajo'], ['centro', 'Desde el centro'], ['diagonal', 'En diagonal']], def: 'izquierda', when: { modo: ['barrido'] } },
     { key: 'x', label: 'Punto horizontal', type: 'range', min: 0, max: 1, step: 0.01, def: 0.5, when: { modo: ['radial'] } },
     { key: 'y', label: 'Punto vertical', type: 'range', min: 0, max: 1, step: 0.01, def: 0.5, when: { modo: ['radial'] } },
     { key: 'suavidad', label: 'Suavidad del borde', type: 'range', min: 0, max: 1, step: 0.05, def: 0.25, help: 'Cuántas celdas están a medio aparecer a la vez.' },

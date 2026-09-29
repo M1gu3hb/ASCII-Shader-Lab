@@ -183,6 +183,7 @@ const qa = {
   get ids() { return templates().map(d => d.id); },
   items: () => libraryItems().map(i => ({ id: i.id, template: i.template, group: i.group, kinds: i.kinds })),
   kinds: (id: string) => templateById(id)?.kinds ?? [],
+  dur: (id: string) => templateById(id)?.dur ?? 2,
   /** Renders a template at t on a sample layer; hash of the pixels, how varied they are, the report. */
   async render(id: string, t: number, o: RenderOpts = {}) {
     const c = document.createElement('canvas');
@@ -226,10 +227,10 @@ const qa = {
    * 22 815 cells) — evaluate + every per-cell hook asked for every cell — and a full compositor render at
    * that size with and without the clip. Medians of `n`.
    */
-  async bench(id: string, n = 5) {
+  async bench(id: string, n = 5, want?: LayerKind) {
     const def = templateById(id);
     if (!def) return null;
-    const kind: LayerKind = def.kinds.includes('glyphs') ? 'glyphs' : def.kinds[0];
+    const kind: LayerKind = want && def.kinds.includes(want) ? want : def.kinds.includes('glyphs') ? 'glyphs' : def.kinds[0];
     const p = sampleProject(id, kind, { w: 1080, h: 1350 });
     const lay = p.layers[p.layers.length - 1];
     if (lay.kind === 'glyphs') { lay.glyphs.cell = 8; lay.glyphs.aspect = 1; }
