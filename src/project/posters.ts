@@ -508,9 +508,10 @@ function ascii(b: B, name: string, style: Recipe, o: Partial<AsciiLayer> = {}): 
 }
 
 /** A lab preset as an ASCII layer's style, cells in output px. */
-function labStyle(id: string, cell: number): Recipe {
+function labStyle(id: string, cell: number, tone: Partial<Recipe['tone']> = {}): Recipe {
   const p = PRESETS.media.find(x => x.id === id) ?? PRESETS.media[0];
   const r = p.make();
+  r.tone = { ...r.tone, ...tone };
   r.interact = { ...r.interact, mode: 'none', auto: false };
   r.glyph = { ...r.glyph, cell: Math.round(clamp(cell, 4, 200)) };
   // posters are stills: the style holds still unless someone animates it
@@ -778,7 +779,7 @@ export const POSTERS: PosterDef[] = [
         const name = `${roman[i]} · ${b.f.labels[i] || ''}`.trim();
         if (i === 0) photo(b, name, { mask: m, xf: P.xf, finishes: [finish('dither', { algo: 'atkinson', color: 'bn', ink, paper: '#f3eee4', pixel: Math.max(1, Math.round((u * 0.32) / P.s)), contrast: 1.25, serpentine: true })] });
         else if (i === 1) glyphs(b, name, { charset: 'estandar2', font: 'plex', weight: 500, color: 'mono', ink, paper: '#f3eee4', invert: !!b.cut || (b.tone ?? 0.5) > 0.42, contrast: 1.35, cell: (u * 0.62) / P.s, aspect: 1.75 }, { source: b.cut ?? b.src, mask: m, xf: P.xf });
-        else ascii(b, name, labStyle('retrato', (u * 0.7) / P.s), { mask: m, xf: P.xf });
+        else ascii(b, name, labStyle('retrato', (u * 0.7) / P.s, { bright: 0.12, contrast: 1.25, gamma: 0.8 }), { mask: m, xf: P.xf });
         shape(b, `Marco ${roman[i]}`, 'rect', [r.x, r.y, r.w, r.h], { stroke: ink, width: line, opacity: 0.6 });
         fitted(b, `${roman[i]} — ${b.f.labels[i] ?? ''}`, { name: `Rótulo ${roman[i]}`, field: `label${i}`, font: 'jetbrains', weight: 500, color: ink, x: r.x, y: r.y + r.h + fy(b, labPx * 0.9), w: r.w, max: labPx, min: 7, lines: 1, upper: true, tracking: 0.1 });
       }

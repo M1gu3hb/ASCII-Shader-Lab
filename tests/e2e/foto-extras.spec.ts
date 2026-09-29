@@ -99,6 +99,11 @@ test('cada cartel sobre la foto se exporta en PNG igual a la vista; comparar y v
       expect((await project(page)).layers.map(l => l.kind)).toEqual(['photo']);
       await page.getByRole('button', { name: /^Versión 2:/ }).click();
       expect((await project(page)).canvas.w).toBe(1080);
+      // the dice works on the poster's character layer: a variant linked to the poster's version
+      await page.getByRole('button', { name: 'Azar', exact: true }).click();
+      await expect.poll(() => page.evaluate(() => (window as unknown as W).__foto.store().versions.list.length)).toBe(3);
+      const last = await page.evaluate(() => { const l = (window as unknown as W).__foto.store().versions.list; return { kind: l[2].kind, parent: l[2].parent === l[1].id }; });
+      expect(last).toEqual({ kind: 'azar', parent: true });
     }
   }
   // a print size: the canvas takes the page with its bleed, and the guides show over the art (not in the file)
