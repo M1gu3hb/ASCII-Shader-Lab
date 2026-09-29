@@ -166,6 +166,25 @@ test('capas: orden (teclado y arrastre), opacidad, fusión, visibilidad, acabado
   await expect(page.locator('.lr.on .lr-main')).toBeFocused();
   await page.keyboard.press('Control+Z');
   expect((await project(page)).layers.map(l => l.kind)).toEqual(['photo', 'text', 'glyphs']);
+  // F2 renames; Intro (or Esc) ends and the keyboard stays on the layer
+  const row = page.locator(`.lr[data-id="${p.layers[1].id}"] .lr-main`);
+  await row.focus();
+  await page.keyboard.press('F2');
+  await page.getByRole('textbox', { name: 'Nombre de la capa' }).fill('Título');
+  await page.keyboard.press('Enter');
+  expect((await project(page)).layers[1].name).toBe('Título');
+  await expect(row).toBeFocused();
+  await page.keyboard.press('F2');
+  await page.getByRole('textbox', { name: 'Nombre de la capa' }).fill('No');
+  await page.keyboard.press('Escape');
+  expect((await project(page)).layers[1].name).toBe('Título');
+  await expect(row).toBeFocused();
+  // and the project's name in the top bar
+  await page.locator('.fproj-name').click();
+  await page.getByRole('textbox', { name: 'Nombre del proyecto' }).fill('Capas de prueba');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.fproj-name')).toBeFocused();
+  await expect.poll(async () => (await project(page)).name).toBe('Capas de prueba');
 
   // opacity and blend of the selected layer (characters)
   await page.locator('.lr', { hasText: 'Caracteres' }).locator('.lr-main').click();

@@ -170,7 +170,12 @@ function LayerRow({ l, p, selected, dragging, dropHere, onGrip, onOpenMask }: {
       {renaming ? (
         <input className="lr-name-in" defaultValue={l.name} aria-label="Nombre de la capa" autoFocus maxLength={80}
           onBlur={e => { renameLayer(l.id, e.target.value); setRenaming(false); }}
-          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { e.stopPropagation(); setRenaming(false); } }} />
+          onKeyDown={e => {
+            // done from the keyboard: the focus goes back to the layer (the field it was in is gone)
+            const back = () => requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`.lr[data-id="${l.id}"] .lr-main`)?.focus());
+            if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); back(); }
+            if (e.key === 'Escape') { e.stopPropagation(); setRenaming(false); back(); }
+          }} />
       ) : (
         <button type="button" className="lr-main" aria-pressed={selected} aria-label={`${l.name}, ${KIND_LABEL[l.kind]}, capa ${idx + 1} de ${p.layers.length}${l.visible ? '' : ', oculta'}${l.locked ? ', bloqueada' : ''}${l.mask ? ', con máscara' : ''}`}
           onClick={() => select([l.id])} onDoubleClick={() => setRenaming(true)} onKeyDown={key}>

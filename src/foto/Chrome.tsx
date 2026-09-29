@@ -64,7 +64,12 @@ export function TopBar({ editing }: { editing: boolean }) {
           {editName ? (
             <input className="fproj-in" defaultValue={name} aria-label="Nombre del proyecto" autoFocus maxLength={120}
               onBlur={e => { const v = e.target.value.trim(); if (v && v !== name) void import('../project/store').then(s => s.edit(p => { p.name = v.slice(0, 120); })); setEditName(false); }}
-              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditName(false); }} />
+              onKeyDown={e => {
+                // done from the keyboard: the focus goes back to the name (the field it was in is gone)
+                const back = () => requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.fproj-name')?.focus());
+                if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); back(); }
+                if (e.key === 'Escape') { e.stopPropagation(); setEditName(false); back(); }
+              }} />
           ) : (
             <button type="button" className="fproj-name" onClick={() => setEditName(true)} title="Cambiar el nombre">{name}</button>
           )}
