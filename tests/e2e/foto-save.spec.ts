@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { download } from './helpers';
 import { finalRender, openFoto, project, settle, startFromPhoto } from './foto-helpers';
 
@@ -78,5 +78,48 @@ test('el archivo del proyecto (.glyphos.zip) se abre igual; proyectos recientes 
   await expect.poll(async () => (await project(page))?.name).toBe('Frutero');
   await finalRender(page);
   expect((await settle(page)).hash).toBe(h.hash);
+  expect(errors).toEqual([]);
+});
+
+/** The project as this browser keeps it (IndexedDB 'glyphos-projects'), or null. */
+const stored = (page: Page, id: string) => page.evaluate(id => new Promise<{ layers: Array<{ mask: null | { parts: unknown[] } }> } | null>((res, rej) => {
+  const req = indexedDB.open('glyphos-projects');
+  req.onsuccess = () => {
+    const g = req.result.transaction('projects', 'readonly').objectStore('projects').get('p:' + id);
+    g.onsuccess = () => { res(g.result ?? null); req.result.close(); };
+    g.onerror = () => rej(g.error);
+  };
+  req.onerror = () => rej(req.error);
+}), id);
+
+test('un cambio hecho justo antes de recargar o de abrir otro proyecto también se guarda', async ({ page }) => {
+  const errors = await openFoto(page);
+  await startFromPhoto(page);
+  await page.getByRole('button', { name: 'Añadir capa' }).click();
+  await page.getByRole('menuitem', { name: /ASCII \(render gráfico\)/ }).click();
+  await expect(page.locator('.fsave')).toHaveText('guardado', { timeout: 30_000 });
+  // an edit and, at once, a reload (the autosave's moment has not come yet)
+  await page.getByRole('button', { name: '+ Zona elíptica' }).click();
+  const first = await project(page);
+  expect(first.layers[1].mask?.parts).toHaveLength(1);
+  await page.reload();
+  await expect(page.locator('.fv-art')).toBeVisible({ timeout: 45_000 });
+  await finalRender(page);
+  expect((await project(page)).layers[1].mask?.parts).toHaveLength(1);
+
+  // an edit and, at once, another project dropped on the editor: the first one keeps its edit
+  await page.waitForTimeout(1500);
+  await page.getByRole('button', { name: '+ Zona elíptica' }).click();
+  expect((await project(page)).layers[1].mask?.parts).toHaveLength(2);
+  await page.evaluate(() => {
+    const p = (window as unknown as { __foto: { project(): Record<string, unknown> } }).__foto.project();
+    const dt = new DataTransfer();
+    dt.items.add(new File([JSON.stringify({ glyphos: 'project', project: { ...p, name: 'Otro' } })], 'otro.glyphos.json', { type: 'application/json' }));
+    window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, cancelable: true }));
+  });
+  await expect.poll(async () => (await project(page))?.name).toBe('Otro');
+  // (and nothing waits long enough to overwrite it afterwards)
+  await page.waitForTimeout(2500);
+  expect((await stored(page, first.id))?.layers[1].mask?.parts).toHaveLength(2);
   expect(errors).toEqual([]);
 });

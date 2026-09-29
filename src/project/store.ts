@@ -64,6 +64,8 @@ function flags() {
 
 /** Opens a project (a new one, a saved one, one from a file): clean undo, its versions (or none). */
 export function openProject(p: Project, o: { versions?: VersionList; select?: Id[] } = {}): void {
+  // what the project being replaced still had waiting is written first (the autosaver reads the open project)
+  saver?.now();
   past = []; future = []; lastKey = ''; lastAt = 0;
   useProject.setState({
     project: p, versions: o.versions ?? emptyVersions(), selection: o.select ?? [], time: 0, canUndo: false, canRedo: false, storage: 'idle',
@@ -71,7 +73,7 @@ export function openProject(p: Project, o: { versions?: VersionList; select?: Id
 }
 
 export function closeProject(): void {
-  void saver?.flush();
+  saver?.now();
   past = []; future = [];
   useProject.setState({ project: null, versions: emptyVersions(), selection: [], canUndo: false, canRedo: false });
 }

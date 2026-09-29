@@ -12,7 +12,7 @@
  *
  * autosaver() saves a project a moment after it changes (and at once when the page is hidden or left).
  */
-import { createStore, del, get, getMany, keys, set, type UseStore } from 'idb-keyval';
+import { createStore, del, get, getMany, keys, setMany, type UseStore } from 'idb-keyval';
 import type { MediaRef } from '../engine/recipe';
 import { dropMediaRefs, gcMedia, put, setMediaRefs, type MediaKind } from '../studio/mediaStore';
 import { normalizeProject } from './normalize';
@@ -58,22 +58,63 @@ function idsWith(p: Project, versions?: VersionList | null): Set<string> {
   return ids;
 }
 
+/** Thumbnails of saved summaries this tab has seen: a save made as the page is left cannot read them first. */
+const knownThumb = new Map<Id, string>();
+/** Saves started per project: a save that a later one overtook while it waited writes nothing. */
+const started = new Map<Id, number>();
+const startSave = (id: Id) => { const n = (started.get(id) ?? 0) + 1; started.set(id, n); return n; };
+
+/** The project, its summary and (when given) its versions: one transaction, so they never disagree. */
+function records(p: Project, thumb: string | undefined, versions: VersionList | null | undefined): Array<[string, unknown]> {
+  if (thumb) knownThumb.set(p.id, thumb);
+  const out: Array<[string, unknown]> = [[P + p.id, p], [S + p.id, summaryOf(p, thumb)]];
+  if (versions) out.push([V + p.id, versions]);
+  return out;
+}
+
 /**
  * Saves a project (and, when given, its versions and a thumbnail; a thumbnail not given keeps the saved one).
- * The media refs are written first: a collection running meanwhile already keeps the files.
+ * The media refs are written first: a collection running meanwhile already keeps the files. A save that a
+ * later save of the same project overtook while it waited (e.g. one made as the page was left) writes nothing.
  */
 export async function saveProject(p: Project, o: { thumb?: string; versions?: VersionList } = {}): Promise<SaveResult> {
+  const n = startSave(p.id);
   try {
     let versions = o.versions ?? null;
     if (!versions) versions = normalizeVersions(await get(V + p.id, store()));
     await setMediaRefs(owner(p.id), idsWith(p, versions));
     const prev = o.thumb ? undefined : await get<ProjectSummary>(S + p.id, store());
-    await set(P + p.id, p, store());
-    await set(S + p.id, summaryOf(p, o.thumb ?? prev?.thumb), store());
-    if (o.versions) await set(V + p.id, o.versions, store());
+    if (started.get(p.id) !== n) return 'ok';
+    await setMany(records(p, o.thumb ?? prev?.thumb, o.versions), store());
     return 'ok';
   } catch (e) {
     return isQuota(e) ? 'full' : 'unavailable';
+  }
+}
+
+/**
+ * Saves at once, for a page being left (or a project being replaced by another): the project, its summary
+ * and its versions go in one transaction that starts before this returns (while the database is open) and
+ * is committed at once, so it does not depend on the page living through a chain of awaits; the media refs
+ * are written beside it. Saves of the same project still on their way write nothing after it.
+ */
+export function saveProjectAtOnce(p: Project, o: { versions?: VersionList } = {}): Promise<SaveResult> {
+  startSave(p.id);
+  try {
+    if (o.versions) void setMediaRefs(owner(p.id), idsWith(p, o.versions)).catch(() => undefined);
+    const puts = records(p, knownThumb.get(p.id), o.versions);
+    return store()('readwrite', st => {
+      for (const [k, v] of puts) st.put(v, k);
+      const tx = st.transaction;
+      const done = new Promise<SaveResult>(res => {
+        tx.oncomplete = () => res('ok');
+        tx.onabort = tx.onerror = () => res(isQuota(tx.error) ? 'full' : 'unavailable');
+      });
+      tx.commit?.();
+      return done;
+    }).catch(e => (isQuota(e) ? 'full' : 'unavailable'));
+  } catch (e) {
+    return Promise.resolve(isQuota(e) ? 'full' : 'unavailable');
   }
 }
 
@@ -83,15 +124,18 @@ export async function saveProject(p: Project, o: { thumb?: string; versions?: Ve
  */
 export async function saveThumb(id: Id, thumb: string): Promise<void> {
   try {
+    knownThumb.set(id, thumb);
     const s = await get<ProjectSummary>(S + id, store());
-    if (s) await set(S + id, { ...s, thumb }, store());
+    if (s) await setMany([[S + id, { ...s, thumb }]], store());
   } catch { /* storage unavailable */ }
 }
 
 /** A saved project (normalised), or null. */
 export async function loadProject(id: Id): Promise<Project | null> {
   try {
-    const raw = await get(P + id, store());
+    const [raw, sum] = await getMany([P + id, S + id], store());
+    const thumb = (sum as ProjectSummary | undefined)?.thumb;
+    if (typeof thumb === 'string') knownThumb.set(id, thumb);
     return raw ? normalizeProject(raw) : null;
   } catch { return null; }
 }
@@ -105,6 +149,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
   try {
     const ks = (await keys<string>(store())).filter(k => typeof k === 'string' && k.startsWith(S));
     const list = (await getMany<ProjectSummary>(ks, store())).filter((s): s is ProjectSummary => !!s && typeof s.id === 'string');
+    for (const s of list) if (typeof s.thumb === 'string') knownThumb.set(s.id, s.thumb);
     return list.sort((a, b) => b.updated - a.updated);
   } catch { return []; }
 }
@@ -166,6 +211,11 @@ export interface Autosaver {
   schedule(): void;
   /** Saves now if something is waiting. */
   flush(): Promise<SaveResult | null>;
+  /**
+   * Saves what is waiting at once, with a write that starts before this returns (saveProjectAtOnce): for a
+   * page being hidden or left, and before the open project is replaced by another.
+   */
+  now(): void;
   /** Stops listening (a pending save is flushed). */
   stop(): Promise<void>;
 }
@@ -179,23 +229,47 @@ export function autosaver(o: {
 }): Autosaver {
   const delay = o.delay ?? 900;
   let timer = 0, dirty = false, running: Promise<SaveResult | null> | null = null;
+  /** An edit not written yet (waiting for its moment, or on its way). */
+  let unsaved = false;
+  // on a reload pagehide comes too late for IndexedDB, beforeunload does not; it is listened to only while
+  // something is unsaved (browsers keep pages that listen to it out of their back-forward cache)
+  let guarding = false;
+  const guard = (on: boolean) => {
+    unsaved = on;
+    if (typeof window === 'undefined' || on === guarding) return;
+    guarding = on;
+    if (on) window.addEventListener('beforeunload', onLeave);
+    else window.removeEventListener('beforeunload', onLeave);
+  };
   const run = async (): Promise<SaveResult | null> => {
     if (running) await running;
     if (!dirty) return null;
     dirty = false;
     const p = o.get();
-    if (!p) return null;
+    if (!p) { guard(false); return null; }
     const job = (async () => {
       const thumb = o.thumb ? await o.thumb(p).catch(() => null) : null;
       const r = await saveProject(p, { ...(thumb ? { thumb } : {}), ...(o.versions?.() ? { versions: o.versions()! } : {}) });
+      if (!dirty) guard(false);
       o.onSaved?.(r, p);
       return r;
     })();
     running = job;
     try { return await job; } finally { running = null; }
   };
-  const onHide = () => { if (document.visibilityState === 'hidden' && dirty) { clearTimeout(timer); void run(); } };
-  const onLeave = () => { if (dirty) { clearTimeout(timer); void run(); } };
+  // (a page being left does not live through run()'s chain of awaits: what is unsaved is written at once,
+  // also what a save on its way was writing)
+  const now = (): void => {
+    if (!unsaved) return;
+    clearTimeout(timer);
+    dirty = false;
+    const p = o.get();
+    if (!p) { guard(false); return; }
+    const v = o.versions?.() ?? null;
+    void saveProjectAtOnce(p, v ? { versions: v } : {}).then(r => { if (!dirty) guard(false); o.onSaved?.(r, p); });
+  };
+  const onHide = () => { if (document.visibilityState === 'hidden') now(); };
+  const onLeave = () => now();
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', onLeave);
@@ -203,10 +277,12 @@ export function autosaver(o: {
   return {
     schedule() {
       dirty = true;
+      guard(true);
       clearTimeout(timer);
       timer = window.setTimeout(() => void run(), delay);
     },
     flush() { clearTimeout(timer); return run(); },
+    now,
     async stop() {
       clearTimeout(timer);
       if (typeof document !== 'undefined') {
@@ -214,6 +290,7 @@ export function autosaver(o: {
         window.removeEventListener('pagehide', onLeave);
       }
       await run();
+      guard(false);
     },
   };
 }
