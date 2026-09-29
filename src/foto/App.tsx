@@ -118,7 +118,8 @@ function Editor({ layout }: { layout: Layout }) {
             {phone && <ViewToolsPhone />}
           </div>
           {!phone && <Deck />}
-          <TimeSlot />
+          {/* (phones: the timeline is the sheet's «Tiempo» tab, and play rides with the view tools) */}
+          {!phone && <TimeSlot />}
         </main>
         {!phone && (
           <aside className="fpanel" aria-label="Capas y ajustes">
