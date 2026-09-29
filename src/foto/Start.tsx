@@ -12,6 +12,7 @@ import { deleteSavedWithUndo, duplicateSaved, newFromFile, newFromTemplate, open
 import { TEMPLATES, sampleRef } from './templates';
 import { projectThumb } from './thumbs';
 import { openSheet, say } from './ui';
+import { ExtrasStart } from './extras/ExtrasStart';
 
 export function Start() {
   const saved = useProject(s => s.saved);
@@ -44,6 +45,7 @@ export function Start() {
           {TEMPLATES.map(t => <TemplateCard key={t.id} id={t.id} name={t.name} blurb={t.blurb} />)}
         </ul>
       </section>
+      <ExtrasStart />
       <section className="fs-sec" aria-labelledby="fs-rec">
         <h2 id="fs-rec" className="fs-h">Proyectos recientes <span className="fsec-n">{saved.length}</span></h2>
         {saved.length ? (

@@ -46,7 +46,7 @@ export function GuidesOverlay() {
       {g.bleed > 0 && <div className="xg-trim" style={box(g.trim)} />}
       <div className="xg-safe" style={box(g.safe)} />
       {g.zones.map((z, i) => <div key={i} className="xg-zone" style={box(z)} />)}
-      <span className="xg-tag" style={{ left: pct(g.safe.x), top: pct(g.safe.y) }}>{g.label}{g.bleed > 0 ? ' · la línea continua es el corte' : ''}</span>
+      <span className="xg-tag" style={{ left: pct(g.safe.x), top: pct(g.safe.y) }}>{g.label}</span>
     </div>,
     el,
   );

@@ -12,6 +12,7 @@ import { AsciiInspector } from './AsciiInspector';
 import { Finishes } from './Finishes';
 import { GlyphsInspector, PhotoInspector, ShapeInspector, TextInspector } from './KindInspectors';
 import { MaskSection } from './MaskSection';
+import { PresetSection } from '../extras/PresetSection';
 
 const pct = (v: number) => Math.round(v * 100) + ' %';
 
@@ -49,6 +50,7 @@ export const Inspector = forwardRef<HTMLDivElement, { maskFirst?: boolean }>(fun
       <MaskSection l={l} p={project} />
       <Finishes l={l} />
       <Placement l={l} />
+      <PresetSection l={l} />
     </div>
   );
 });
