@@ -35,10 +35,10 @@ export function StudioSwitch({ current }: { current: 'lab' | 'foto' }) {
           e.preventDefault();
           void import('../project/store').then(s => s.saveNow()).finally(() => { location.href = '/studio/'; });
         }}>
-        <span className="sw-long">Laboratorio</span><span className="sw-short">Lab</span>
+        <span className="sw-long">Laboratorio</span><span className="sw-short" aria-hidden="true">Lab</span>
       </a>
       <a className="sw-seg" href="/studio/foto/" aria-current={current === 'foto' ? 'page' : undefined} aria-label="Foto y video" title="Foto y video: capas, máscaras y recortes sobre tu foto">
-        <span className="sw-long">Foto y video</span><span className="sw-short">Foto</span>
+        <span className="sw-long">Foto y video</span><span className="sw-short" aria-hidden="true">Foto</span>
       </a>
     </nav>
   );
