@@ -58,6 +58,15 @@ export function ToolSheet({ land, onCutout }: { land: boolean; onCutout: () => v
   }, [h, land]);
   useEffect(() => () => { setUI({ sheetH: 0 }); document.documentElement.style.removeProperty('--fsheet-h'); }, []);
   useEffect(() => { if (snap !== 'closed') box.current?.querySelector<HTMLElement>('[role=tab][aria-selected=true]')?.focus({ preventScroll: true }); }, [snap === 'closed']);
+  // closed with the focus inside (Esc, «Cerrar la hoja», a swipe): the focus goes back to «Herramientas»
+  // instead of being lost with the sheet (read while the sheet is still there, in the render that closes it)
+  const inside = useRef(false);
+  if (snap === 'closed' && box.current?.contains(document.activeElement)) inside.current = true;
+  useLayoutEffect(() => {
+    if (snap !== 'closed' || !inside.current) return;
+    inside.current = false;
+    if (!document.activeElement || document.activeElement === document.body) document.querySelector<HTMLElement>('.fphone-bar [aria-expanded]')?.focus({ preventScroll: true });
+  }, [snap]);
   if (snap === 'closed') return null;
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
