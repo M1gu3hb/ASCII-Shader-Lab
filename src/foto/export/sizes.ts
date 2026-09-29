@@ -119,7 +119,7 @@ export interface MemoryNote {
  * layer being drawn, the picture it reads and the finishes' scratch canvases, so a render needs several
  * full-size canvases at once (`layers` + 3 is the rough count used here).
  */
-export function memoryNote(w: number, h: number, layers: number, hasAscii = false): MemoryNote {
+export function memoryNote(w: number, h: number, layers: number, hasAscii = false, always = false): MemoryNote {
   const px = w * h;
   const mp = px / 1e6;
   const canvasMB = (px * 4) / (1024 * 1024);
@@ -139,6 +139,8 @@ export function memoryNote(w: number, h: number, layers: number, hasAscii = fals
     parts.push(`Cada lienzo ocupa unos ${Math.round(canvasMB)} MB y la composición usa varios a la vez (en total, unos ${Math.round(totalMB / 50) * 50} MB): en teléfonos o equipos con poca memoria puede fallar.`);
   } else if (totalMB > 250) {
     parts.push(`Cada lienzo ocupa unos ${Math.round(canvasMB)} MB y la composición usa varios a la vez (unos ${Math.round(totalMB / 10) * 10} MB): tarda más y en teléfonos puede fallar.`);
+  } else if (always) {
+    parts.push(`Memoria: cada lienzo ocupa unos ${Math.round(canvasMB)} MB y la composición usa varios a la vez (unos ${Math.max(10, Math.round(totalMB / 10) * 10)} MB en total).`);
   }
   return { mp, canvasMB, totalMB, risky, note: parts.join(' ') };
 }

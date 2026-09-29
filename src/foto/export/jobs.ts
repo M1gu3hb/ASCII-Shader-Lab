@@ -8,7 +8,7 @@ import { buildProjectFile } from '../../project/file';
 import type { Project } from '../../project/types';
 import { zip } from '../../shared/zip';
 import type { FormatInfo, MovieFormat } from '../../video/index';
-import { frameCount, type Plan } from './plan';
+import { frameCount, readmeTextTime, type Plan } from './plan';
 import { exportSized, pngDataUrl, renderSized } from './render';
 import { glyphFrameAt, glyphFrames, frameSession, Cancelled } from './frames';
 import { notesText } from './frameGrid';
@@ -155,6 +155,8 @@ async function textJob(p: Project, plan: Plan, ctx: JobContext): Promise<JobOutp
   const id = plan.target;
   const layer = p.layers.find(l => l.id === id);
   if (!id || !layer || layer.kind !== 'glyphs') throw new Error('Elige una capa de caracteres reales.');
+  // the file is named after the project, and the layer when its name adds something
+  const what = layer.name.trim().toLowerCase() === p.name.trim().toLowerCase() ? '' : layer.name;
   if (STILL_TEXT.has(plan.format)) {
     ctx.onProgress({ done: 0, total: 1, label: 'Leyendo los caracteres…' });
     const s = frameSession(ctx.compositor ? { compositor: ctx.compositor } : {});
@@ -162,7 +164,7 @@ async function textJob(p: Project, plan: Plan, ctx: JobContext): Promise<JobOutp
       const f = await glyphFrameAt(p, id, plan.t, s);
       if (!f) throw new Error('Falta la imagen de esta capa: no hay caracteres que escribir.');
       const out = stillText(f, plan.format as StillTextFormat, { depth: plan.depth, title: layer.name });
-      return { files: [{ name: exportName(p, out.ext, layer.name), blob: new Blob([out.text], { type: out.mime + ';charset=utf-8' }) }], notes: notesText(f.notes) };
+      return { files: [{ name: exportName(p, out.ext, what), blob: new Blob([out.text], { type: out.mime + ';charset=utf-8' }) }], notes: notesText(f.notes) };
     } finally { s.release(); }
   }
   if (MOVING_TEXT.has(plan.format)) {
@@ -177,7 +179,7 @@ async function textJob(p: Project, plan: Plan, ctx: JobContext): Promise<JobOutp
     ctx.onProgress({ done: total, total, label: 'Escribiendo el archivo…' });
     const out = await movingText(fr, plan.format as MovingTextFormat, { depth: plan.depth, title: layer.name, loop: plan.loop, transparent: plan.transparent });
     const notes = notesText(fr.notes, fr.frames.length);
-    const res: JobOutput = { files: [{ name: exportName(p, out.ext, layer.name + (plan.format === 'web' ? '-web' : '')), blob: new Blob([out.text], { type: out.mime + ';charset=utf-8' }) }], notes };
+    const res: JobOutput = { files: [{ name: exportName(p, out.ext, [what, plan.format === 'web' ? 'web' : ''].filter(Boolean).join('-')), blob: new Blob([out.text], { type: out.mime + ';charset=utf-8' }) }], notes };
     if (plan.format === 'web') res.snippet = { label: 'Pega este bloque en tu página (texto real animado, sin dependencias)', code: out.text };
     return res;
   }
@@ -211,8 +213,13 @@ async function readmeJob(p: Project, plan: Plan, ctx: JobContext): Promise<JobOu
   if (plan.readmeText) {
     const s = frameSession(ctx.compositor ? { compositor: ctx.compositor } : {});
     try {
-      const f = await glyphFrameAt(p, plan.readmeText, plan.t, s);
-      if (f) { text = stillText(f, 'txt').text; notes.push(...notesText(f.notes)); }
+      const at = readmeTextTime(plan, p.time.duration > 0 && plan.end > plan.start);
+      const f = await glyphFrameAt(p, plan.readmeText, at, s);
+      if (f) {
+        text = stillText(f, 'txt').text;
+        notes.push(...notesText(f.notes));
+        if (at !== plan.t) notes.push(`El texto del README es el último cuadro del tramo (${at.toFixed(2).replace('.', ',')} s), donde la animación termina.`);
+      }
     } finally { s.release(); }
   }
   const r = readmeMarkdown({ title: p.name, image: { file: image.name, alt: p.name, w, h, moving }, ...(text ? { text } : {}) });

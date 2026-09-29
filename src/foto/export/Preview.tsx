@@ -61,7 +61,7 @@ export function TextView({ grid, style, bg }: { grid: GlyphGrid; style: GlyphSty
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [grid, W, H]);
+  }, [grid.cols, grid.rows, grid.cw, grid.ch, W, H]); // (a new frame of the same size keeps the fit)
   const rows: ReactNode[] = [];
   for (let y = 0; y < grid.rows; y++) {
     const spans: ReactNode[] = [];

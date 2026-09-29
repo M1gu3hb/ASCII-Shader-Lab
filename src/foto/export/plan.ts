@@ -122,3 +122,10 @@ export function fpsOptions(projectFps: number): number[] {
 
 /** Frames a stretch gives at a rate (the export loop's count: round((end − start)·fps), at least 1). */
 export const frameCount = (start: number, end: number, fps: number) => Math.max(1, Math.round(Math.max(0, end - start) * fps));
+
+/**
+ * The instant a README's text version is written from: the last frame of a moving stretch (where an entry has
+ * arrived, as the GIF ends), the chosen instant otherwise.
+ */
+export const readmeTextTime = (plan: Pick<Plan, 't' | 'start' | 'end' | 'fps'>, moving: boolean) =>
+  moving && plan.end > plan.start ? Math.max(plan.start, plan.end - 1 / Math.max(1, plan.fps)) : plan.t;

@@ -19,10 +19,12 @@ import { SegGroup, Select, Slider, Toggle } from '../controls';
 import { say } from '../ui';
 import { baseFacts, movieCaps, projectMoves, svgFacts } from './facts';
 import { formatsFor, usableFormat, type Facts, type FormatId, type FormatOption, type WhatKind } from './formats';
-import { glyphFrameAt, frameSession, type GlyphFrame } from './frames';
+import { glyphFrameAt, glyphFrames, frameSession, type GlyphFrame } from './frames';
+import type { GlyphGrid } from '../../glyphs/index';
+import type { GlyphStyle } from '../../project/types';
 import { notesText } from './frameGrid';
 import { runJob, planSize, type JobOutput, type Progress } from './jobs';
-import { applyDestination, defaultPlan, DESTINATIONS, destinationById, fpsOptions, frameCount, type DestId, type Plan } from './plan';
+import { applyDestination, defaultPlan, DESTINATIONS, destinationById, fpsOptions, frameCount, readmeTextTime, type DestId, type Plan } from './plan';
 import { Preview, type PreviewData } from './Preview';
 import { renderSized } from './render';
 import { compositionSvg } from './svg';
@@ -40,6 +42,7 @@ type JobState =
   | { state: 'error'; message: string };
 
 const STILL_FORMATS = new Set<FormatId>(['png', 'jpeg', 'webp', 'svg', 'svg-img']);
+const PICTURES = new Set<FormatId>(['png', 'jpeg', 'webp', 'svg-img']);
 const MOVIE_FORMATS = new Set<FormatId>(['mp4', 'webm', 'gif', 'png-zip']);
 const TEXT_STILL = new Set<FormatId>(['txt', 'ansi', 'html', 'svg-text', 'shell']);
 const TEXT_MOVING = new Set<FormatId>(['cast', 'node', 'python', 'html-anim', 'web']);
@@ -164,13 +167,33 @@ export function ExportPanel({ p }: { p: Project }) {
   const [scrub, setScrub] = useState<number | null>(null);
   const isMovie = MOVIE_FORMATS.has(plan.format) || plan.format === 'readme';
   const isTextMoving = TEXT_MOVING.has(plan.format);
-  const previewT = (isMovie || isTextMoving) && moving ? Math.min(plan.end, Math.max(plan.start, scrub ?? plan.start)) : plan.t;
+  // a stretch is previewed at the studio's playhead, or at its last frame (where an entry has arrived)
+  const lastFrame = Math.max(plan.start, plan.end - 1 / Math.max(1, plan.fps));
+  const previewT = (isMovie || isTextMoving) && moving ? Math.min(lastFrame, Math.max(plan.start, scrub ?? (plan.t > 0 ? plan.t : lastFrame))) : plan.t;
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [pvBusy, setPvBusy] = useState(false);
   const [readmeText, setReadmeText] = useState<string | null>(null);
   const token = useRef(0);
   const [textFrame, setTextFrame] = useState<GlyphFrame | null>(null);
   const [alphaInside, setAlphaInside] = useState<boolean | null>(null);
+  // moving text: the frames themselves, played in the preview (the same frames the file will hold)
+  const [play, setPlay] = useState<{ frames: GlyphGrid[]; fps: number; bg: string; style: GlyphStyle } | 'loading' | null>(null);
+  const [pi, setPi] = useState(0);
+  useEffect(() => { setPlay(null); }, [p, plan.what, plan.target, plan.start, plan.end, plan.fps, plan.format]);
+  useEffect(() => {
+    if (!play || play === 'loading') return;
+    const n = play.frames.length;
+    const h = setInterval(() => setPi(i => (i + 1) % n), 1000 / play.fps);
+    return () => clearInterval(h);
+  }, [play]);
+  const startPlay = async () => {
+    if (!target) return;
+    setPlay('loading');
+    const fr = await glyphFrames(p, target, { fps: plan.fps, from: plan.start, to: plan.end, compositor: comp }).catch(() => null);
+    if (!fr) { setPlay(null); return; }
+    setPi(0);
+    setPlay({ frames: fr.frames, fps: fr.fps, bg: fr.bg, style: fr.style });
+  };
   useEffect(() => {
     if (!box.w) return;
     const my = ++token.current;
@@ -201,7 +224,7 @@ export function ExportPanel({ p }: { p: Project }) {
           const canvas = await renderSized(p, { w, h: hh, fit: plan.format === 'readme' || MOVIE_FORMATS.has(plan.format) ? 'cover' : plan.fit, t: previewT, transparent: plan.transparent && (fmt?.alpha ?? true), extra: extraFor(w, hh), compositor: comp, format: plan.format === 'jpeg' ? 'jpeg' : 'png' });
           if (plan.format === 'readme') {
             if (plan.readmeText) {
-              const f = await glyphFrameAt(p, plan.readmeText, plan.t, session);
+              const f = await glyphFrameAt(p, plan.readmeText, readmeTextTime(plan, moving), session);
               setReadmeText(f ? stillText(f, 'txt').text : null);
             } else setReadmeText(null);
           }
@@ -316,7 +339,7 @@ export function ExportPanel({ p }: { p: Project }) {
 
   /* ---------------------------------------------------------------- view */
   const dest = destinationById(plan.dest);
-  const mem = memoryNote(size.w, size.h, p.layers.filter(l => l.visible).length, p.layers.some(l => l.kind === 'ascii'));
+  const mem = memoryNote(size.w, size.h, p.layers.filter(l => l.visible).length, p.layers.some(l => l.kind === 'ascii'), !!size.dpi);
   const frames = frameCount(plan.start, plan.end, plan.fps);
   const summary = summaryOf(plan, fmt, size, frames, moving);
   const caption = captionOf(plan, size, previewT, moving, isMovie || isTextMoving, textFrame);
@@ -338,9 +361,16 @@ export function ExportPanel({ p }: { p: Project }) {
       </div>
 
       <div className="xp-stage" ref={viewRef}>
-        <Preview data={preview} dest={plan.dest} busy={pvBusy} caption={caption} zones={plan.dest === 'vertical'}
+        <Preview data={play && play !== 'loading' && plan.what === 'texto' ? { kind: 'text', grid: play.frames[pi % play.frames.length], style: play.style, bg: play.bg } : preview}
+          dest={plan.dest} busy={pvBusy && !(play && play !== 'loading')} caption={caption} zones={plan.dest === 'vertical'}
           readme={plan.format === 'readme' ? { title: p.name, text: readmeText } : undefined} />
-        {(showRange || (showT && moving)) && (
+        {plan.what === 'texto' && isTextMoving && fmt?.available && (
+          <button type="button" className="btn xp-play" aria-pressed={!!play && play !== 'loading'} disabled={play === 'loading'}
+            onClick={() => { if (play) setPlay(null); else void startPlay(); }}>
+            {play === 'loading' ? 'Preparando los cuadros…' : play ? 'Parar la vista previa' : `Reproducir los ${frames} cuadros`}
+          </button>
+        )}
+        {(showRange || (showT && moving)) && !(play && play !== 'loading') && (
           <div className="xp-scrub">
             {showRange ? (
               <Slider label="Ver el instante" value={previewT} min={plan.start} max={Math.max(plan.start + 0.01, plan.end)} step={1 / Math.max(1, plan.fps)} fmt={fmtTime} onChange={setScrub}
@@ -455,7 +485,7 @@ function summaryOf(plan: Plan, fmt: FormatOption | null, size: { w: number; h: n
   if (!fmt.available) return fmt.why ?? 'No disponible aquí.';
   const parts: string[] = [fmt.label];
   if (plan.what === 'resultado' && plan.format !== 'svg' && plan.format !== 'readme') parts.push(sizeText(size.w, size.h));
-  if (size.dpi && plan.what === 'resultado') parts.push(printText(size.w, size.h, size.dpi));
+  if (size.dpi && plan.what === 'resultado' && PICTURES.has(plan.format)) parts.push(printText(size.w, size.h, size.dpi));
   if (fmt.moving || plan.format === 'readme') {
     if (moving) parts.push(`${fmtTime(plan.start)}–${fmtTime(plan.end)} · ${plan.fps} fps · ${frames} cuadros`);
   } else if (moving && plan.what !== 'proyecto' && plan.what !== 'original' && plan.what !== 'recorte') parts.push(`instante ${fmtTime(plan.t)}`);
@@ -466,9 +496,15 @@ function captionOf(plan: Plan, size: { w: number; h: number; dpi?: number }, t: 
   const bits: string[] = [];
   if (plan.what === 'texto' && frame) bits.push(`${frame.grid.cols} × ${frame.grid.rows} caracteres`);
   else if (plan.what === 'resultado' || plan.what === 'capa' || plan.what === 'mascara') bits.push(plan.format === 'readme' ? `${Math.min(plan.readmeW, 1600)} px de ancho` : `${size.w} × ${size.h} px`);
-  if (size.dpi && plan.what === 'resultado') bits.push(printText(size.w, size.h, size.dpi));
+  if (size.dpi && plan.what === 'resultado' && PICTURES.has(plan.format)) bits.push(printText(size.w, size.h, size.dpi));
   if (moving && plan.what !== 'proyecto' && plan.what !== 'original' && plan.what !== 'recorte') bits.push((ranged ? 'vista en ' : 'instante ') + fmtTime(t));
-  return <>Vista previa: la exportación dibujada con el mismo código, más pequeña. <span className="xp-cap-m">{bits.join(' · ')}</span></>;
+  return (
+    <>
+      {plan.what === 'texto' ? 'Vista previa: los caracteres que se exportan, como texto.' : 'Vista previa: la exportación dibujada con el mismo código, más pequeña.'}
+      {' '}<span className="xp-cap-m">{bits.join(' · ')}</span>
+      {plan.dest === 'vertical' && <> · Las bandas marcan dónde suelen ir los textos y botones de las apps (aproximado: cada app cambia).</>}
+    </>
+  );
 }
 
 function FormatList({ formats, value, loading, onPick }: { formats: FormatOption[]; value: FormatId; loading: boolean; onPick: (id: FormatId) => void }) {
@@ -502,9 +538,10 @@ function FormatList({ formats, value, loading, onPick }: { formats: FormatOption
             <p className="xp-gname" aria-hidden="true">{g.name}</p>
             {g.items.map(f => (
               <label key={f.id} className={'xp-fmt' + (f.available ? '' : ' off') + (value === f.id ? ' on' : '')}>
-                <input type="radio" name="xp-format" value={f.id} checked={value === f.id} disabled={!f.available} onChange={() => onPick(f.id)} />
-                <span className="xp-fn">{f.label}</span>
-                <span className="xp-fl">{f.available ? f.limit : f.why}</span>
+                <input type="radio" name="xp-format" value={f.id} checked={value === f.id} disabled={!f.available} onChange={() => onPick(f.id)}
+                  aria-labelledby={`xpf-${f.id}`} aria-describedby={`xpl-${f.id}`} />
+                <span className="xp-fn" id={`xpf-${f.id}`}>{f.label}</span>
+                <span className="xp-fl" id={`xpl-${f.id}`}>{f.available ? f.limit : f.why}</span>
                 {!f.available && f.alt && formats.find(x => x.id === f.alt)?.available && (
                   <button type="button" className="xp-alt" onClick={e => { e.preventDefault(); onPick(f.alt!); }}>Usar {labelOf(f.alt)}</button>
                 )}
