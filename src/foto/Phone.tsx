@@ -15,6 +15,8 @@ import { Inspector } from './inspect/Inspector';
 import { Layers } from './Layers';
 import { PhoneTimeline } from './TimeSlot';
 import { openSheet, setUI, useFoto, type MobileTab, type Snap } from './ui';
+import { ExtrasList } from './extras/ExtrasMenu';
+import { backToStart } from './session';
 
 const TABS: Array<[MobileTab, string]> = [['herramientas', 'Herramientas'], ['capas', 'Capas'], ['capa', 'Ajustes'], ['tiempo', 'Tiempo'], ['explorar', 'Explorar']];
 
@@ -120,6 +122,8 @@ function ToolsTab({ onCutout }: { onCutout: () => void }) {
       <ToolRail vertical={false} onCutout={onCutout} />
       <OptionsBar />
       <p className="note">Un dedo dibuja con la herramienta; dos dedos mueven y acercan la vista.</p>
+      {/* (the top bar's «Más» on wider screens) */}
+      <ExtrasList />
     </>
   );
 }
@@ -134,8 +138,10 @@ function ExploreTab() {
       </div>
       <div className="row2 btns">
         <button type="button" className="btn ghost" onClick={() => openSheet('saveas')}>Guardar</button>
-        <button type="button" className="btn ghost" onClick={() => setUI({ immersive: false, snap: 'closed' })}>Ver la barra superior</button>
+        {/* (the top bar's «Proyectos» on wider screens) */}
+        <button type="button" className="btn ghost" onClick={() => void backToStart()} title="Tus proyectos, plantillas y archivos">Proyectos</button>
       </div>
+      <button type="button" className="btn ghost" onClick={() => setUI({ immersive: false, snap: 'closed' })}>Ver la barra superior</button>
     </>
   );
 }

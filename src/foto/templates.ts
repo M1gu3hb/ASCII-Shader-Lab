@@ -84,7 +84,7 @@ export const TEMPLATES: Template[] = [
       }));
       p.layers.push(newLayer('ascii', { name: 'Zona tramada', source: src.id, style: preset('media', 'periodico', 8), opaque: true, mask: shapeMask('rect', 0.52, 0.36, 0.3, 0.34) }));
       p.layers.push(newLayer('shape', { name: 'Marco', shape: 'bracket', pts: [0.52, 0.36, 0.3, 0.34], stroke: '#1c1a17', width: 2, fill: null, dash: null }));
-      p.layers.push(newLayer('shape', { name: 'Nota FL33', shape: 'callout', pts: [0.67, 0.45, 0.8, 0.2, 0.9, 0.2], stroke: '#1c1a17', width: 1.5, fill: null, dash: null, label: { text: 'FL33', font: 'jetbrains', size: 0.018, color: '#1c1a17' } }));
+      p.layers.push(newLayer('shape', { name: 'Nota FL33', shape: 'callout', pts: [0.67, 0.45, 0.76, 0.2, 0.86, 0.2], stroke: '#1c1a17', width: 1.5, fill: null, dash: null, label: { text: 'FL33', font: 'jetbrains', size: 0.018, color: '#1c1a17' } }));
       p.layers.push(newLayer('shape', { name: 'Regla', shape: 'line', pts: [0.06, 0.12, 0.94, 0.12], stroke: '#1c1a17', width: 2, fill: null, dash: null }));
       p.layers.push(newLayer('text', { name: 'Título', text: 'Teje luz', font: 'serif', weight: 400, italic: true, size: 0.085, color: '#1c1a17', align: 'left', box: { x: 0.06, y: 0.03, w: 0.9 }, tracking: -0.01, leading: 1, upper: false }));
       p.layers.push(newLayer('text', { name: 'Pie', text: 'GLYPHOS · estudio de foto — una foto, dos maneras de verla: píxeles y caracteres.', font: 'jetbrains', weight: 500, size: 0.017, color: '#1c1a17', align: 'left', box: { x: 0.06, y: 0.785, w: 0.6 }, tracking: 0.04, leading: 1.5, upper: true }));

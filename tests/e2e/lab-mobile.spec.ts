@@ -32,13 +32,19 @@ type Box = { x: number; y: number; width: number; height: number };
 const box = async (page: Page, sel: string) => (await page.locator(sel).first().boundingBox()) as Box;
 const sheet = (page: Page) => page.locator('aside.panel');
 
-/** The sheet at rest (its height stops changing). */
+/**
+ * The sheet at rest: its transitions (the slide in, the height between rests) are over and its box stops
+ * changing. (Box alone is not enough on a busy machine: frames come seconds apart there, so two reads
+ * can agree in the middle of a transition.)
+ */
 async function settled(page: Page) {
-  let last = -1;
+  let last = '';
   await expect.poll(async () => {
-    const h = Math.round((await sheet(page).boundingBox())?.height ?? 0);
-    const same = h === last;
-    last = h;
+    const moving = await sheet(page).evaluate(el => el.getAnimations().filter(a => a.playState === 'running').length);
+    const b = await sheet(page).boundingBox();
+    const now = `${moving}|${Math.round(b?.y ?? 0)}|${Math.round(b?.height ?? 0)}`;
+    const same = moving === 0 && now === last;
+    last = now;
     return same;
   }, { intervals: [300, 300, 300, 500, 500, 1000] }).toBe(true);
 }

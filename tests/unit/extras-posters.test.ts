@@ -6,6 +6,7 @@ import {
   setPosterField, truncate, wrapLines, type PosterFormat,
 } from '../../src/project/posters';
 import type { Project, ShapeLayer, TextLayer } from '../../src/project/types';
+import { calloutBox } from '../../src/project/draw2d';
 
 const photo = (w: number, h: number): MediaRef => ({ id: 'a'.repeat(16), kind: 'image', name: 'foto.jpg', w, h });
 
@@ -38,6 +39,20 @@ function checkText(p: Project, l: TextLayer, inside: { x: number; y: number; w: 
   expect(bottom, `${l.name} baja hasta ${bottom.toFixed(3)}`).toBeLessThanOrEqual(inside.y + inside.h + EPS);
 }
 
+/** Whether the segment runs through the inside of the box (touching its edges does not count). */
+function crossesBox(x0: number, y0: number, x1: number, y1: number, bx: number, by: number, bw: number, bh: number) {
+  const m = 1;
+  let t0 = 0, t1 = 1;
+  const dx = x1 - x0, dy = y1 - y0;
+  for (const [pp, q] of [[-dx, x0 - (bx + m)], [dx, bx + bw - m - x0], [-dy, y0 - (by + m)], [dy, by + bh - m - y0]]) {
+    if (pp === 0) { if (q < 0) return false; continue; }
+    const r = q / pp;
+    if (pp < 0) t0 = Math.max(t0, r); else t1 = Math.min(t1, r);
+    if (t0 > t1) return false;
+  }
+  return Math.hypot(dx, dy) * (t1 - t0) > 0.5;
+}
+
 function checkShape(p: Project, l: ShapeLayer) {
   if (l.xf.rot || l.mask) return;
   const box = ['rect', 'ellipse', 'bracket', 'crosshair'].includes(l.shape);
@@ -49,11 +64,16 @@ function checkShape(p: Project, l: ShapeLayer) {
     expect(y + h, l.name).toBeLessThanOrEqual(1 + EPS);
   } else for (const v of l.pts) { expect(v, l.name).toBeGreaterThanOrEqual(-EPS); expect(v, l.name).toBeLessThanOrEqual(1 + EPS); }
   if (l.shape === 'callout' && l.label?.text) {
-    // the boxed label opens away from the frame's centre and stays inside it
-    const W = p.canvas.w, px = l.label.size * p.canvas.h;
-    const bw = (estimateWidth(l.label.text, l.label.font, 500, false, px) + px * 0.8) / W;
-    const lx = l.pts[l.pts.length - 2];
-    if (lx > 0.5) expect(lx - bw).toBeGreaterThanOrEqual(-EPS); else expect(lx + bw).toBeLessThanOrEqual(1 + EPS);
+    // the boxed label sits beyond the leader's end (draw2d.calloutBox): inside the frame, and no segment of the
+    // leader runs through it (it used to open toward the centre, where the line came from)
+    const W = p.canvas.w, H = p.canvas.h, px = l.label.size * H;
+    const bw = estimateWidth(l.label.text, l.label.font, 500, false, px) + px * 0.8, bh = px * 1.5;
+    const n = l.pts.length >> 1;
+    const X = (i: number) => l.pts[i * 2] * W, Y = (i: number) => l.pts[i * 2 + 1] * H;
+    const b = calloutBox(X(n - 1), Y(n - 1), X(n - 1) - X(n - 2), Y(n - 1) - Y(n - 2), bw, bh, W, H);
+    expect(b.x, l.name).toBeGreaterThanOrEqual(-0.5);
+    expect(b.x + bw, l.name).toBeLessThanOrEqual(W + 0.5);
+    for (let i = 0; i + 1 < n; i++) expect(crossesBox(X(i), Y(i), X(i + 1), Y(i + 1), b.x, b.y, bw, bh), `${l.name}: el tramo ${i + 1} cruza la etiqueta`).toBe(false);
   }
 }
 

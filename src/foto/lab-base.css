@@ -1,0 +1,9 @@
+/* The lab's base styles, the photo studio's own copy (src/foto/main.tsx imports this file, not the lab's
+   files). Imported from both pages' entries, Vite moved studio.css and loom.css into a chunk shared by the
+   two pages, which the lab loaded before its other stylesheets instead of after them: rules of the same
+   specificity in guide.css, fixes.css or phone.css then won where the lab's own base used to (a 42 px
+   button in the welcome, the dock's colours). Inlined here (Vite inlines @import), the lab keeps its
+   cascade and the photo studio keeps the same order as before: these first, then its own. */
+@import '../studio/studio.css';
+@import '../studio/css/controls.css';
+@import '../studio/css/loom.css';
