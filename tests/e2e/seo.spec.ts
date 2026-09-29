@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 /** Public site: crawl files, canonical URLs, share tags, structured data, guides and the brand credit. */
 const SITE = 'https://glyphos-ascii.vercel.app';
-const PATHS = ['/', '/studio/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
+const PATHS = ['/', '/studio/', '/studio/foto/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
 const GUIDES: Array<[string, string]> = [
   ['/imagen-a-ascii/', '/studio/?camino=foto'],
   ['/video-a-ascii/', '/studio/#space=media&source=video'],
