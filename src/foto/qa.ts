@@ -16,6 +16,7 @@ import { objectTool } from './tools/objectTool';
 import { live } from './tools/state';
 import { studioClock } from './playback';
 import { animLoaded } from './anim';
+import { selectTool } from './keys';
 import type { Tool } from './tools/types';
 import { setUI, ui } from './ui';
 
@@ -69,6 +70,8 @@ export function installQA() {
     /** The studio's playback clock (play, pause, reverse, speed). */
     clock: () => { const c = studioClock(); return { ...c.state() }; },
     animLoaded,
+    /** Picks a tool as the palette does (the previous one is cancelled and deactivated), or none. */
+    selectTool,
     /** For measurements (scratch benches): the core's renderer pieces. */
     Compositor, evaluate, cloneProject, newLayer,
   };
