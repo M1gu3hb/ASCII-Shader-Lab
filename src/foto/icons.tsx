@@ -42,5 +42,6 @@ const PART_PATH: Record<MaskPart['kind'], ReactElement> = {
   stroke: <path d="M4 17c3-6 5 1 8-4s5-3 8-6" strokeWidth={2.6} />,
   raster: <><rect x="4" y="4" width="16" height="16" rx="1.5" /><path d="M8 8h2v2H8zM12 8h2v2h-2zM10 10h2v2h-2zM14 10h2v2h-2zM8 12h2v2H8zM12 14h2v2h-2z" fill="currentColor" stroke="none" /></>,
   color: <><path d="M12 4s6 6.5 6 10.5a6 6 0 0 1-12 0C6 10.5 12 4 12 4z" /></>,
+  gradient: <><rect x="4" y="4" width="16" height="16" /><path d="M8 4v16" strokeDasharray="1 1.6" /><path d="M12 4v16" strokeDasharray="1 2.6" /><path d="M16 4v16" strokeDasharray="1 4" /></>,
 };
 export const PartIcon = ({ kind, ...p }: P & { kind: string }) => <svg {...base(p)}>{PART_PATH[kind as MaskPart['kind']] ?? <circle cx="12" cy="12" r="7" />}</svg>;

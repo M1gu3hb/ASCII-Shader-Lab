@@ -361,6 +361,7 @@ export interface MaskGradientPart {
   ease?: Ease;
   /** Overall strength 0..1 (like every part's). */
   alpha: number;
+  off?: boolean;
 }
 
 export type MaskPart = MaskShapePart | MaskPolygonPart | MaskStrokePart | MaskRasterPart | MaskColorPart | MaskGradientPart;
