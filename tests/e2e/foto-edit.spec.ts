@@ -38,9 +38,11 @@ test('una foto, una capa ASCII con máscara dibujada por la herramienta, deshace
   await page.mouse.down();
   for (let i = 1; i <= 6; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 6, a.y + ((b.y - a.y) * i) / 6);
   await page.waitForFunction(n => (window as unknown as { __foto: { ui(): { render: { n: number; light: boolean } } } }).__foto.ui().render.n > n, before);
-  const during = await page.evaluate(() => (window as unknown as { __foto: { ui(): { render: { light: boolean } } } }).__foto.ui().render);
-  expect(during.light).toBe(true);
+  // the part is drawn live (host.preview) and not committed until release
+  expect(await page.evaluate(() => (window as unknown as { __foto: { commits?: number; sched(): { preview: boolean } } }).__foto.sched().preview)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { __foto: { commits?: number } }).__foto.commits ?? 0)).toBe(0);
   await page.mouse.up();
+  expect(await page.evaluate(() => (window as unknown as { __foto: { sched(): { preview: boolean } } }).__foto.sched().preview)).toBe(false);
   await finalRender(page, await renderCount(page) - 1);
   p = await project(page);
   const ascii = p.layers[1];
@@ -76,6 +78,24 @@ test('una foto, una capa ASCII con máscara dibujada por la herramienta, deshace
   // Escape drops the tool
   await page.keyboard.press('Escape');
   await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  expect(errors).toEqual([]);
+});
+
+test('«Vista ligera»: con «Siempre ligera» se dibuja a menor escala; al volver a automática, la calidad final', async ({ page }) => {
+  const errors = await openFoto(page);
+  await startFromPhoto(page);
+  const full = await settle(page);
+  await page.getByRole('button', { name: 'Ajustes del estudio' }).click();
+  await page.getByRole('radio', { name: 'Siempre ligera' }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Añadir capa' }).click();
+  await page.getByRole('menuitem', { name: /ASCII \(render gráfico\)/ }).click();
+  await expect(page.locator('.fq')).toContainText('Vista ligera');
+  const r = await page.evaluate(() => (window as unknown as { __foto: { ui(): { render: { scale: number; light: boolean } } } }).__foto.ui().render);
+  expect(r.light).toBe(true);
+  expect(r.scale).toBeLessThan(full.scale);
+  await page.locator('.fq').click();
+  await expect(page.locator('.fq')).toContainText('Calidad final');
   expect(errors).toEqual([]);
 });
 

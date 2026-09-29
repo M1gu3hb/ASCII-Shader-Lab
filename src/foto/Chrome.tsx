@@ -185,7 +185,7 @@ export function ViewTools() {
         </button>
       </div>
       <button type="button" className={'fq' + (render.light ? ' light' : '')} onClick={() => setQuality(quality === 'ligera' ? 'auto' : 'ligera')}
-        title={quality === 'ligera' ? 'Vista ligera siempre (equipos lentos). Pulsa para calidad final al soltar.' : 'Vista ligera mientras cambias algo; calidad final al soltar. Pulsa para dejar la ligera siempre.'}
+        title={quality === 'ligera' ? 'Vista ligera siempre (equipos lentos). Pulsa para volver a la automática.' : 'Automática: ligera sólo mientras cambias algo y la composición tarda; final al soltar. Pulsa para dejar la ligera siempre.'}
         aria-label={`${render.light ? 'Vista ligera' : 'Calidad final'}, ${render.ms} ms. ${quality === 'ligera' ? 'Ligera siempre' : 'Automática'}`}>
         <i className="q-live on" aria-hidden="true" />{render.light ? 'Vista ligera' : 'Calidad final'}<span className="fq-ms">{render.ms} ms</span>
       </button>

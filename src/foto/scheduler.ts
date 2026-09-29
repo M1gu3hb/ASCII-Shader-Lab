@@ -5,19 +5,25 @@
  * requestAnimationFrame runs only while something is waiting to be drawn or a video plays.
  *
  * Two scales, one code path: while the person is interacting (a pointer is down, or changes keep coming
- * less than IDLE_MS apart) the frame is drawn at a reduced scale, «Vista ligera»; once things settle, it is
- * drawn again at the display's full resolution with quality 'final'. At 100 % zoom (or more) that final
- * render is exactly the export at 1× (tests/e2e/foto-export.spec.ts compares them pixel for pixel).
+ * less than IDLE_MS apart) and a full render costs more than LIGHT_WHEN_MS, the frame is drawn at a reduced
+ * scale, «Vista ligera»; once things settle, it is drawn again at the display's full resolution with quality
+ * 'final'. When full renders are cheap they are simply kept during the interaction: changing scales has a
+ * cost of its own (engines and character grids are re-derived for each size), so a light view that is not
+ * needed would only be slower. «Siempre ligera» (Ajustes) forces the reduced scale.
+ * At 100 % zoom (or more) the final render is exactly the export at 1× (tests/e2e/foto-export.spec.ts
+ * compares them pixel for pixel).
  */
 import { Compositor, type RenderReport } from '../project/compositor';
 import { evaluate, type FrameState } from '../project/evaluate';
 import { cloneProject, defaultMask } from '../project/normalize';
 import { useProject } from '../project/store';
 import type { Id, MaskPart, Project } from '../project/types';
-import { setUI, ui } from './ui';
+import { setUI, ui, useFoto } from './ui';
 
 /** Changes closer than this are one interaction (light renders); after it, the final render. */
 export const IDLE_MS = 260;
+/** A full render slower than this (ms) makes interactions use the light view. */
+export const LIGHT_WHEN_MS = 90;
 /** Light renders keep the frame's long side at least this many px (below it the picture is mush). */
 const LIGHT_MIN_SIDE = 360;
 
@@ -71,8 +77,9 @@ export function setDisplayScale(s: number) {
   // zooming out keeps showing the sharper picture (the browser scales it down); zooming in, or far out, draws again
   if (v > finalScale * 1.02 || v < finalScale * 0.6) request(true);
 }
-/** Scale of the last final render. */
+/** Scale of the last final render, and what it cost (ms). */
 let finalScale = 0;
+let finalMs = 0;
 
 export function forceScale(s: number | null) { forced = s; request(false); }
 
@@ -107,7 +114,7 @@ function tick() {
   raf = 0;
   if (busy || !art) return;
   if (dirty) {
-    const light = ui().quality === 'ligera' || interactingNow();
+    const light = ui().quality === 'ligera' || (interactingNow() && (finalMs > LIGHT_WHEN_MS || Math.abs(finalScale - displayScale) > 1e-4));
     void run(light);
     return;
   }
@@ -144,7 +151,7 @@ async function run(light: boolean) {
     const report = await viewCompositor().render(state, canvas, { scale, quality: light ? 'preview' : 'final' });
     const lightDone = light && forced === null && ui().quality !== 'ligera';
     needFinal = lightDone;
-    if (!light || forced !== null) finalScale = scale;
+    if (!light || forced !== null) { finalScale = scale; finalMs = report.ms; }
     const prev = ui().render;
     setUI({ render: { ms: report.ms, scale, light: lightDone || ui().quality === 'ligera', w: report.w, h: report.h, warnings: report.warnings, basic: report.engines.basic > 0 || (prev.basic && report.engines.webgl2 === 0), n: prev.n + 1 } });
     for (const fn of listeners) fn({ state, report, scale, light, project: p, seq: mine });
@@ -179,9 +186,14 @@ export function startScheduler(): () => void {
       request(!other);
     } else if (s.time !== prev.time) request(true);
   });
-  stops = [unsub, () => { removeEventListener('pointerdown', down, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true); }];
+  // «Siempre ligera» on or off: draw again at the scale it asks for
+  const unsubUI = useFoto.subscribe((s, prev) => { if (s.quality !== prev.quality) request(false); });
+  stops = [unsub, unsubUI, () => { removeEventListener('pointerdown', down, true); removeEventListener('pointerup', up, true); removeEventListener('pointercancel', up, true); }];
   return () => { stops.forEach(f => f()); stops = []; };
 }
+
+/** The loop's state (tests and the QA hooks). */
+export const schedulerState = () => ({ busy, dirty, needFinal, seq, pointers, displayScale, finalScale, finalMs, raf: raf !== 0, preview: previewPart !== null });
 
 /** Frees the viewport's engines and pictures (leaving the editor). */
 export function releaseViewport() {

@@ -7,7 +7,7 @@ import * as ps from '../project/store';
 import { useProject } from '../project/store';
 import type { Project } from '../project/types';
 import { host } from './host';
-import { forceScale, settled, viewCompositor } from './scheduler';
+import { forceScale, onRendered, schedulerState, settled, viewCompositor } from './scheduler';
 import { TOOLS } from './tools/index';
 import type { Tool } from './tools/types';
 import { setUI, ui } from './ui';
@@ -23,6 +23,8 @@ function fnv(d: Uint8ClampedArray): string {
 }
 
 export function installQA() {
+  const reports: unknown[] = [];
+  onRendered(r => { reports.push({ seq: r.seq, light: r.light, scale: r.scale, ms: r.report.ms, layers: r.report.layers.map(l => [l.kind, l.ms]) }); if (reports.length > 50) reports.shift(); });
   window.__foto = {
     host,
     TOOLS,
@@ -48,6 +50,8 @@ export function installQA() {
       return { w: c.width, h: c.height, hash: fnv(d), scale: r.scale, light: r.light, ms: r.report.ms };
     },
     release: () => forceScale(null),
+    sched: schedulerState,
+    reports: () => reports,
     compositor: viewCompositor,
   };
 }

@@ -188,8 +188,8 @@ export function SettingsSheet() {
     <Sheet open={open} title="Ajustes" onClose={closeSheet}>
       <div className="sheet-body">
         <h3 className="data-h">Calidad de la vista</h3>
-        <SegGroup label="Mientras editas" value={quality} opts={[['auto', 'Ligera al mover, final al soltar'], ['ligera', 'Siempre ligera']]} onPick={setQuality} />
-        <p className="note">La vista ligera dibuja a menor escala mientras cambias algo; al soltar, la calidad final. Las exportaciones siempre salen a calidad final. Último cuadro: {render.ms} ms a {Math.round(render.scale * 100)} %.</p>
+        <SegGroup label="Mientras editas" value={quality} opts={[['auto', 'Automática'], ['ligera', 'Siempre ligera']]} onPick={setQuality} />
+        <p className="note">Automática: si la composición tarda en dibujarse, mientras mueves algo se ve a menor escala («Vista ligera») y al soltar vuelve la calidad final; si es rápida, siempre se ve final. «Siempre ligera» ayuda en equipos lentos. Las exportaciones salen siempre a calidad final. Último cuadro: {render.ms} ms a {Math.round(render.scale * 100)} %.</p>
         {render.warnings.map(w => <p key={w} className="warn">{w}</p>)}
         <h3 className="data-h">Modelos descargados</h3>
         <p className="note">Los modelos que quitan fondos se descargan una vez (con tu permiso) y quedan guardados en este navegador. Tus fotos nunca se suben.</p>
