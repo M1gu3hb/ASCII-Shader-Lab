@@ -299,7 +299,12 @@ export const objectTool: Tool & { timings: ObjectTimings; reedit(layer: Id, inde
     },
 
     overlay(ctx, host) {
-      if (layerId !== host.target()) return;
+      if (layerId !== host.target()) {
+        // another layer was picked: the points and the live matte were for the other one; they go (as a tap on
+        // this layer would drop them), instead of leaving that matte on the art with no points to show for it
+        if (matte || obj().points.length || obj().box) { reset(host, false); layerId = editableTarget(host, true)?.id ?? null; }
+        return;
+      }
       const f = host.view().frame;
       if (edgeCanvas && matte) {
         ctx.save();
