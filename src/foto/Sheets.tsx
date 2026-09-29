@@ -72,7 +72,8 @@ export function HelpSheet() {
   const open = useFoto(s => s.sheet === 'help');
   return (
     <Sheet open={open} title="Atajos y gestos" sub="El teclado va primero a la herramienta activa; lo que ella no usa, lo usa el estudio. La línea de tiempo y la lista de capas tienen sus teclas mientras tienen el foco." onClose={closeSheet}>
-      <div className="sheet-body">
+      {/* (a long list with nothing to press: the list itself takes the focus, so the keyboard can scroll it) */}
+      <div className="sheet-body" tabIndex={0} role="region" aria-label="Lista de atajos">
         <h3 className="data-h">Estudio</h3>
         <KeyList list={STUDIO_KEYS} />
         <h3 className="data-h">Herramientas</h3>

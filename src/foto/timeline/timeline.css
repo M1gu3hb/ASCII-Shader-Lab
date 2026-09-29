@@ -37,7 +37,7 @@
 .tl-btn { min-width: 44px; height: 44px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--tl-bone); }
 .tl-btn:hover { background: var(--tl-ink3); }
-.tl-btn[aria-pressed="true"] { border-color: var(--tl-signal); color: #fff; background: var(--tl-soft); }
+.tl-btn[aria-pressed="true"], .tl-btn[role="tab"][aria-selected="true"] { border-color: var(--tl-signal); color: #fff; background: var(--tl-soft); }
 .tl-btn:disabled { opacity: .4; cursor: default; }
 .tl-btn svg { width: 18px; height: 18px; flex: none; }
 .tl-btn.primary { background: var(--tl-bone); color: var(--tl-ink); border-color: var(--tl-bone); font-weight: 600; }

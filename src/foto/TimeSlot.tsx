@@ -59,7 +59,7 @@ export function TimeSlot() {
   const open = want ?? moves;
   useEffect(() => { if (open) void loadAnim().catch(() => undefined); }, [open]);
   // the notices float above it
-  const box = useRef<HTMLElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {
     const el = box.current;
@@ -82,7 +82,8 @@ export function TimeSlot() {
     onPointerUp: () => { drag.current = null; try { localStorage.setItem(H_KEY, String(h)); } catch { /* storage unavailable */ } },
   };
   return (
-    <section ref={box} className={'ftl' + (open ? ' open' : '')} aria-label="Línea de tiempo">
+    // (not a landmark itself: the timeline inside is the region «Línea de tiempo»)
+    <div ref={box} className={'ftl' + (open ? ' open' : '')}>
       {open && <div className="ftl-grip" aria-hidden="true" {...resize} onPointerCancel={resize.onPointerUp} />}
       <div className="ftl-head">
         <button type="button" className="ftl-toggle" aria-expanded={open} aria-controls="ftl-body" onClick={() => setUI({ tlOpen: !open })}
@@ -99,7 +100,7 @@ export function TimeSlot() {
           </Suspense>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 

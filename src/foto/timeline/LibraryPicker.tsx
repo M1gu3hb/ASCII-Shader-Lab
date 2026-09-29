@@ -54,8 +54,8 @@ export function LibraryPicker({ kind, onPick, onChoreo, onClose, picture, basic,
       <header>
         <h3>Añadir animación</h3>
         <div className="tabs" role="tablist">
-          <button type="button" role="tab" className="tl-btn" aria-selected={tab === 'plantillas'} aria-pressed={tab === 'plantillas'} onClick={() => setTab('plantillas')}>Plantillas</button>
-          <button type="button" role="tab" className="tl-btn" aria-selected={tab === 'coreografias'} aria-pressed={tab === 'coreografias'} onClick={() => setTab('coreografias')}>Coreografías</button>
+          <button type="button" role="tab" className="tl-btn" aria-selected={tab === 'plantillas'} onClick={() => setTab('plantillas')}>Plantillas</button>
+          <button type="button" role="tab" className="tl-btn" aria-selected={tab === 'coreografias'} onClick={() => setTab('coreografias')}>Coreografías</button>
         </div>
         {tab === 'plantillas' && <input className="tl-select" type="search" placeholder="Buscar…" aria-label="Buscar plantillas" value={q} onChange={e => setQ(e.target.value)} style={{ flex: '1 1 140px', minWidth: 0 }} />}
         <span className="tl-spacer" />

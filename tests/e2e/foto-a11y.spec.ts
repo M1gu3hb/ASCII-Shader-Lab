@@ -55,5 +55,16 @@ test('estudio de foto: axe sin errores graves, sin controles anidados, teclado e
   await page.keyboard.press('?');
   await expect(page.getByRole('dialog', { name: 'Atajos y gestos' })).toBeVisible();
   await serious(page, 'atajos');
+  await page.keyboard.press('Escape');
+  // the animation library for the selected layer, then the timeline open
+  await page.getByRole('region', { name: /^Ajustes de/ }).getByRole('button', { name: 'Animar…' }).click();
+  const lib = page.getByRole('dialog', { name: /^Animar/ });
+  await expect(lib.locator('.tl-card').first()).toBeVisible({ timeout: 30_000 });
+  await serious(page, 'animar');
+  await page.keyboard.press('Escape');
+  await expect(lib).toBeHidden();
+  await page.locator('.ftl-toggle').click();
+  await expect(page.getByRole('region', { name: 'Línea de tiempo' }).locator('.tl-bar')).toBeVisible({ timeout: 30_000 });
+  await serious(page, 'línea de tiempo');
   expect(errors).toEqual([]);
 });
