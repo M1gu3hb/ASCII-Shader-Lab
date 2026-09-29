@@ -296,6 +296,8 @@ test('tus palabras llenan la figura, llegan volando y quedan listas para exporta
   expect(words[0].source).toBe(q.sources.find(s => s.kind === 'cutout')!.id);
   // real characters: the export sheet offers them as text
   await page.getByRole('button', { name: /Exportar/ }).first().click();
-  await expect(page.getByRole('dialog', { name: 'Exportar' }).getByText('Tus palabras', { exact: true })).toBeVisible();
+  const exp = page.getByRole('dialog', { name: 'Exportar' });
+  await exp.getByRole('combobox', { name: 'Qué exportar' }).click();
+  await expect(page.getByRole('option', { name: /Caracteres de «Tus palabras»/ })).toBeVisible();
   expect(errors).toEqual([]);
 });
