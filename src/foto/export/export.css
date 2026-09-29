@@ -140,6 +140,9 @@
   .xp-slide-in, .xp-browser-page, .xp-term-screen, .xp-paper, .xp-plain { min-height: 0; }
   .xp-textbox { flex: none; width: 100%; aspect-ratio: var(--r, 1.6); max-height: 46vh; }
   .xp-readme-b > .xp-fit { flex: none; }
+  .xp-readme-code { flex: none; max-height: 24vh; }
+  .xp-phone-screen .xp-fit, .xp-slide-in .xp-fit { container-type: size; height: 100%; }
+  .xp-phone-screen .xp-pic, .xp-slide-in .xp-pic { width: min(100cqw, 100cqh * var(--r, 1)); }
   .app .xp-dest .seg.srow-list {
     flex-wrap: nowrap; overflow-x: auto;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent);

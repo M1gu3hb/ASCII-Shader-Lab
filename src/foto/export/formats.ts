@@ -74,12 +74,13 @@ const MOVIE_LABEL: Record<MovieFormat, string> = { mp4: 'MP4', webm: 'WebM', gif
 /** The first sentence of a longer text (the one-line limit), and the rest. */
 export function firstSentence(s: string): { line: string; rest: string } {
   const t = s.trim();
-  // the first stop (. : ;) followed by a space, at least a few words in (a «MP4:» label is not a sentence)
-  const re = /[.:;](?=\s)/g;
-  for (let m = re.exec(t); m; m = re.exec(t)) {
-    if (m.index + 1 < 24) continue;
-    return { line: t.slice(0, m.index + 1), rest: t.slice(m.index + 1).trim() };
-  }
+  const stops = (re: RegExp) => { const out: number[] = []; for (let m = re.exec(t); m; m = re.exec(t)) out.push(m.index); return out; };
+  // the first full sentence, when it is not too long for one line of the list
+  const dot = stops(/\.(?=\s)/g).find(i => i + 1 >= 24);
+  if (dot !== undefined && dot < 170) return { line: t.slice(0, dot + 1), rest: t.slice(dot + 1).trim() };
+  // else its first clause (a «MP4:» label is not a sentence), closed with a full stop
+  const semi = stops(/;(?=\s)/g).find(i => i + 1 >= 24);
+  if (semi !== undefined) return { line: t.slice(0, semi) + '.', rest: t.slice(semi + 1).trim() };
   return { line: t, rest: '' };
 }
 

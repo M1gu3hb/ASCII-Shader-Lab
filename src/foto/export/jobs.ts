@@ -244,7 +244,8 @@ async function readmeJob(p: Project, plan: Plan, ctx: JobContext): Promise<JobOu
   if (plan.readmeText) {
     const s = frameSession(ctx.compositor ? { compositor: ctx.compositor } : {});
     try {
-      const at = readmeTextTime(plan, p.time.duration > 0 && plan.end > plan.start);
+      // the text of the frame the picture shows: the GIF's last frame, or the still's instant
+      const at = readmeTextTime(plan, moving);
       const f = await glyphFrameAt(p, plan.readmeText, at, s);
       if (f) {
         text = stillText(f, 'txt').text;

@@ -167,7 +167,9 @@ export function ExportPanel({ p }: { p: Project }) {
   /* ---------------------------------------------------------------- preview */
   const [viewRef, box] = useBox<HTMLDivElement>();
   const [scrub, setScrub] = useState<number | null>(null);
-  const isMovie = MOVIE_FORMATS.has(plan.format) || plan.format === 'readme';
+  // a README moves only where lane video writes GIF here (a still PNG of the instant otherwise)
+  const gifOk = !!movies?.find(f => f.format === 'gif' && f.available);
+  const isMovie = MOVIE_FORMATS.has(plan.format) || (plan.format === 'readme' && gifOk);
   const isTextMoving = TEXT_MOVING.has(plan.format);
   // a stretch is previewed at the studio's playhead, or at its last frame (where an entry has arrived)
   const lastFrame = Math.max(plan.start, plan.end - 1 / Math.max(1, plan.fps));
@@ -228,7 +230,7 @@ export function ExportPanel({ p }: { p: Project }) {
           const canvas = await renderSized(p, { w, h: hh, fit: plan.format === 'readme' || MOVIE_FORMATS.has(plan.format) ? 'cover' : plan.fit, t: previewT, transparent: plan.transparent && (fmt?.alpha ?? true), extra: extraFor(w, hh), compositor: comp, format: plan.format === 'jpeg' ? 'jpeg' : 'png' });
           if (plan.format === 'readme') {
             if (plan.readmeText) {
-              const f = await glyphFrameAt(p, plan.readmeText, readmeTextTime(plan, moving), session);
+              const f = await glyphFrameAt(p, plan.readmeText, readmeTextTime(plan, moving && gifOk), session);
               setReadmeText(f ? stillText(f, 'txt').text : null);
             } else setReadmeText(null);
           }
@@ -287,7 +289,7 @@ export function ExportPanel({ p }: { p: Project }) {
       }
     }
     // (the preview follows everything it shows)
-  }, [p, plan, previewT, box.w, matchMedia('(max-width: 900px)').matches ? 0 : box.h, base?.svg.vector]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [p, plan, previewT, box.w, matchMedia('(max-width: 900px)').matches ? 0 : box.h, base?.svg.vector, gifOk]); // eslint-disable-line react-hooks/exhaustive-deps
   // object URLs of image previews go when replaced
   useEffect(() => () => {
     if (preview?.kind === 'image') URL.revokeObjectURL(preview.url);
@@ -351,12 +353,12 @@ export function ExportPanel({ p }: { p: Project }) {
   const dest = destinationById(plan.dest);
   const mem = memoryNote(size.w, size.h, p.layers.filter(l => l.visible).length, p.layers.some(l => l.kind === 'ascii'), !!size.dpi);
   const frames = frameCount(plan.start, plan.end, plan.fps);
-  const summary = summaryOf(plan, fmt, size, frames, moving);
+  const summary = summaryOf(plan, fmt, size, frames, moving, gifOk);
   const caption = captionOf(plan, size, previewT, moving, isMovie || isTextMoving, textFrame);
   const sized = plan.what === 'resultado' && plan.format !== 'svg' && plan.format !== 'readme';
   const partSized = plan.what === 'capa' || plan.what === 'mascara';
-  const showT = moving && (STILL_FORMATS.has(plan.format) || TEXT_STILL.has(plan.format) || plan.what === 'capa' || plan.what === 'mascara' || plan.format === 'readme');
-  const showRange = moving && (MOVIE_FORMATS.has(plan.format) || TEXT_MOVING.has(plan.format) || plan.format === 'readme');
+  const showT = moving && (STILL_FORMATS.has(plan.format) || TEXT_STILL.has(plan.format) || plan.what === 'capa' || plan.what === 'mascara' || (plan.format === 'readme' && !gifOk));
+  const showRange = moving && (MOVIE_FORMATS.has(plan.format) || TEXT_MOVING.has(plan.format) || (plan.format === 'readme' && gifOk));
 
   return (
     <div className="xp">
@@ -468,7 +470,7 @@ export function ExportPanel({ p }: { p: Project }) {
             </>
           )}
           {sized && mem.note && <p className={mem.risky ? 'warn' : 'xp-note'}>{mem.note}</p>}
-          {plan.what === 'texto' && textFrame && notesText(textFrame.notes).length > 0 && (
+          {plan.what === 'texto' && textFrame && job.state !== 'done' && notesText(textFrame.notes).length > 0 && (
             <ul className="xp-notes xp-pre">{notesText(textFrame.notes).map((n, i) => <li key={i}>{n}</li>)}</ul>
           )}
         </div>
@@ -494,13 +496,15 @@ export function ExportPanel({ p }: { p: Project }) {
   );
 }
 
-function summaryOf(plan: Plan, fmt: FormatOption | null, size: { w: number; h: number; dpi?: number }, frames: number, moving: boolean): ReactNode {
+function summaryOf(plan: Plan, fmt: FormatOption | null, size: { w: number; h: number; dpi?: number }, frames: number, moving: boolean, gifOk: boolean): ReactNode {
   if (!fmt) return 'Revisando qué puede escribir este navegador…';
   if (!fmt.available) return fmt.why ?? 'No disponible aquí.';
   const parts: string[] = [fmt.label];
   if (plan.what === 'resultado' && plan.format !== 'svg' && plan.format !== 'readme') parts.push(sizeText(size.w, size.h));
   if (size.dpi && plan.what === 'resultado' && PICTURES.has(plan.format)) parts.push(printText(size.w, size.h, size.dpi));
-  if (fmt.moving || plan.format === 'readme') {
+  if (plan.format === 'readme') {
+    parts.push(moving && gifOk ? `GIF de ${fmtTime(plan.start)}–${fmtTime(plan.end)} · ${Math.min(plan.fps, 24)} fps` : `PNG${moving ? ` del instante ${fmtTime(plan.t)}` : ''}`);
+  } else if (fmt.moving) {
     if (moving) parts.push(`${fmtTime(plan.start)}–${fmtTime(plan.end)} · ${plan.fps} fps · ${frames} cuadros`);
   } else if (moving && plan.what !== 'proyecto' && plan.what !== 'original' && plan.what !== 'recorte') parts.push(`instante ${fmtTime(plan.t)}`);
   return parts.join(' · ');
@@ -577,7 +581,7 @@ function Busy({ job, onCancel }: { job: JobState; onCancel: () => void }) {
       <span className="sr-only" role="status">{label}</span>
       <div className="progress" role="progressbar" aria-label="Progreso de la exportación" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ '--v': pct + '%' } as React.CSSProperties} /></div>
       <div className="xp-busy-row">
-        <span aria-hidden="true">{label}{total > 1 ? ` · ${pct} %` : ''}{job.eta ? ` · quedan ${job.eta}` : ''}</span>
+        <span aria-hidden="true">{label}{total > 1 ? ` · ${pct} %` : ''}{job.eta && !/queda/i.test(label) ? ` · quedan ${job.eta}` : ''}</span>
         <button type="button" className="btn xp-cancel" onClick={onCancel}>Cancelar</button>
       </div>
     </div>

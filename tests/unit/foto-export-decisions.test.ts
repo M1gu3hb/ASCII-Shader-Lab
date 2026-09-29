@@ -119,7 +119,10 @@ describe('formats: what is possible here, why not, and what instead', () => {
 
   it('firstSentence keeps short texts whole', () => {
     expect(firstSentence('Corto. Otro.')).toEqual({ line: 'Corto. Otro.', rest: '' });
-    expect(firstSentence('Una frase larga que explica algo: y sigue. Detalle.')).toEqual({ line: 'Una frase larga que explica algo:', rest: 'y sigue. Detalle.' });
+    expect(firstSentence('Una frase larga que explica algo: y sigue. Detalle.')).toEqual({ line: 'Una frase larga que explica algo: y sigue.', rest: 'Detalle.' });
+    // lane video's MP4 line: a long first sentence is cut at its first clause
+    const av1 = 'Este navegador no codifica H.264, así que va en AV1: lo reproducen Chrome, Edge y Firefox recientes y los equipos Apple con chip M3 o A17 Pro en adelante; muchas redes y editores aún no lo aceptan. Para H.264, exporta desde Safari.';
+    expect(firstSentence(av1).line).toBe('Este navegador no codifica H.264, así que va en AV1: lo reproducen Chrome, Edge y Firefox recientes y los equipos Apple con chip M3 o A17 Pro en adelante.');
   });
 });
 
