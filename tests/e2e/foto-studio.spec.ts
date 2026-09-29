@@ -152,7 +152,7 @@ test('una animación de la biblioteca: reproducir, al revés, mover el cabezal; 
   let p = await project(page);
   expect(p.layers[1].clips).toHaveLength(1);
   // the timeline opened with the clip
-  const tl = page.getByRole('region', { name: 'Línea de tiempo' }).locator('.tl');
+  const tl = page.getByRole('region', { name: 'Línea de tiempo' });
   await expect(tl.locator('.tl-clip')).toHaveCount(1);
   await expect(page.getByRole('region', { name: /^Ajustes de/ }).locator('.fanim-list li')).toHaveCount(1);
 
