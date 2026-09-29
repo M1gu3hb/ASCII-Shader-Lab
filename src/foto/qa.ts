@@ -3,6 +3,9 @@
  * the viewport's canvas once a final render has settled, and look at the open project. Nothing here is
  * used by the studio itself.
  */
+import { Compositor } from '../project/compositor';
+import { evaluate } from '../project/evaluate';
+import { cloneProject, newLayer } from '../project/normalize';
 import * as ps from '../project/store';
 import { useProject } from '../project/store';
 import type { Project } from '../project/types';
@@ -55,5 +58,7 @@ export function installQA() {
     sched: schedulerState,
     reports: () => reports,
     compositor: viewCompositor,
+    /** For measurements (scratch benches): the core's renderer pieces. */
+    Compositor, evaluate, cloneProject, newLayer,
   };
 }

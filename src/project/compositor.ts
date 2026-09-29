@@ -17,13 +17,23 @@
  * at most `maxEngines` (WebGL contexts are limited: a browser drops the oldest past about 16). Layers past
  * that budget share one more engine, re-styled for each (slower, same pixels) and the report says so.
  * Without WebGL 2 the engines are the Canvas 2D basic engine (engine/create.ts): same API, same output.
+ *
+ * Caches (never for sequences, nor past CACHE_MAX_PX): each layer keeps its last pictures per render size
+ * (at most SIZES_PER_LAYER sizes, e.g. the light and the final view), and a layer whose evaluated state is
+ * the same as when a picture was made is not drawn again, only composited: its content (after finishes) is
+ * keyed by everything that draws it — the evaluated layer without its opacity, blend, transform and mask,
+ * its source's picture and frame time, the composite under it when it reads 'below', the render size and
+ * quality, and the time when it depends on time (ASCII engines and finishes over time always do) — and the
+ * masked picture additionally by its mask and the clips' masks. Layers with per-cell hooks from clips
+ * (functions) are never cached. So moving a mask redraws that one layer, and opacity or blend changes only
+ * composite. Glyph grids are kept per scale too, so light and final views do not re-derive them.
  */
 import { createRenderer } from '../engine/create';
 import { createFontLoader, type FontLoader } from '../engine/fonts';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import { cloneRecipe, type MediaRef, type Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
-import { applyFinishes, releaseFinishes } from '../fx/index';
+import { applyFinishes, finishesDependOnTime, releaseFinishes } from '../fx/index';
 import { cellColors, drawGlyphs, ensureGlyphFont, glyphGridWith, sampleOf, type CellFx, type GlyphGrid } from '../glyphs/index';
 import { cssAdjustCpu, cssFilter, fitRect, needsTone, toneCpu } from './adjust';
 import type { CellGrid, TileFactory } from './clips';
@@ -159,6 +169,32 @@ function engineGrid(style: Recipe, w: number, h: number, pr: number) {
 
 interface Engine { eng: Renderer; key: string; size: string; lost: boolean; used: number; feed: HTMLCanvasElement | null }
 
+/** Render sizes a layer keeps pictures for (the viewport's light and final views). */
+export const SIZES_PER_LAYER = 2;
+/** Renders bigger than this (px) keep nothing between frames (exports at print sizes). */
+export const CACHE_MAX_PX = 4_200_000;
+/** Glyph grids kept per layer (one per scale). */
+const GRIDS_PER_LAYER = 3;
+
+/** A layer's canvases at one render size, and what they hold. */
+interface Slot {
+  size: string;
+  /** The layer's content (drawn), its content after finishes, and its masked picture. */
+  lc: HTMLCanvasElement | null;
+  pre: HTMLCanvasElement | null;
+  mc: HTMLCanvasElement | null;
+  out: HTMLCanvasElement | null;
+  contentKey: string | null;
+  outKey: string | null;
+  used: number;
+}
+
+/** What makes a layer's picture: see «Caches» at the top. */
+export interface LayerKeys { content: string; out: string }
+
+/** Top-level fields of a layer that do not change its own picture (they act when it is composited). */
+const COMPOSITE_ONLY = new Set(['opacity', 'blend', 'xf', 'name', 'locked', 'visible', 'span', 'clips', 'mask', 'depth']);
+
 /* ------------------------------------------------------------------ compositor */
 
 export class Compositor {
@@ -169,13 +205,16 @@ export class Compositor {
   private ownsProvider: boolean;
   private engines = new Map<Id, Engine>();
   private shared: Engine | null = null;
-  private layerCanvases = new Map<Id, HTMLCanvasElement>();
+  /** Each layer's canvases per render size (see «Caches»). */
+  private slots = new Map<Id, Slot[]>();
+  /** Renders drawn with the caches (hits: layers composited from a kept picture). */
+  readonly cacheStats = { layers: 0, hits: 0, contentHits: 0 };
   private feeds = new Map<Id, HTMLCanvasElement>();
   private chain: Promise<unknown> = Promise.resolve();
   /** The engine each ASCII layer of the frame being drawn uses (set by prepare). */
   private assigned = new Map<Id, Engine>();
-  /** The last glyph grid of each glyph layer and what it was made from. */
-  private grids = new Map<Id, { key: string; grid: GlyphGrid }>();
+  /** The last glyph grids of each glyph layer (one per scale) and what they were made from. */
+  private grids = new Map<Id, Array<{ key: string; grid: GlyphGrid }>>();
   /** Where photo layers that need CPU passes are drawn (read back often: kept in memory). */
   private cpuCanvas: HTMLCanvasElement | null = null;
   /** A copy of a layer while its tiles move (clips), and the small canvas cell brightness is read from. */
@@ -209,13 +248,14 @@ export class Compositor {
     this.engines.clear();
     this.shared?.eng.destroy();
     this.shared = null;
-    for (const c of [...this.layerCanvases.values(), ...this.feeds.values()]) { c.width = 0; c.height = 0; }
+    for (const list of this.slots.values()) for (const sl of list) freeSlot(sl);
+    for (const c of this.feeds.values()) { c.width = 0; c.height = 0; }
     if (this.cpuCanvas) { this.cpuCanvas.width = this.cpuCanvas.height = 0; this.cpuCanvas = null; }
     if (this.tileCanvas) { this.tileCanvas.width = this.tileCanvas.height = 0; this.tileCanvas = null; }
     if (this.lumCanvas) { this.lumCanvas.width = this.lumCanvas.height = 0; this.lumCanvas = null; }
     for (const key of this.pooled) releaseFinishes(key);
     this.pooled.clear();
-    this.layerCanvases.clear();
+    this.slots.clear();
     this.feeds.clear();
     this.grids.clear();
     if (this.ownsProvider) this.provider.release();
@@ -239,7 +279,18 @@ export class Compositor {
     const frames = o.only ? state.layers.filter(l => o.only!.includes(l.layer.id)) : state.layers;
     const report: RenderReport = { w: rw, h: rh, t: state.t, ms: 0, layers: [], warnings: [], missing: [], engines: { webgl2: 0, basic: 0, shared: false } };
 
-    await this.prepare(state, frames, scale, report);
+    // what each layer's picture is made of (null: drawn anew every time), and which are kept already
+    const cacheOn = !o.sequential && rw * rh <= CACHE_MAX_PX;
+    const keys = cacheOn ? this.frameKeys(state, frames, rw, rh, scale, quality, transparent) : frames.map(() => null);
+    const size = `${rw}x${rh}`;
+    const kept = frames.map((lf, i) => {
+      const k = keys[i];
+      if (!k) return false;
+      const sl = this.slots.get(lf.layer.id)?.find(x => x.size === size);
+      return !!sl && sl.outKey === k.out && !!sl.out && sl.out.width === rw && sl.out.height === rh;
+    });
+
+    await this.prepare(state, frames.filter((_, i) => !kept[i]), scale, report);
 
     const { x: ctx } = canvas2d(rw, rh, target);
     if (!transparent) { ctx.fillStyle = state.bg; ctx.fillRect(0, 0, rw, rh); }
@@ -258,9 +309,10 @@ export class Compositor {
       fitted.set(k, c);
       return c;
     };
-    for (const lf of frames) {
+    for (let i = 0; i < frames.length; i++) {
+      const lf = frames[i];
       const ts = performance.now();
-      const note = this.drawLayer(lf, state, ctx, target, rw, rh, scale, quality, !!o.sequential, fit);
+      const note = this.drawLayer(lf, state, ctx, target, rw, rh, scale, quality, !!o.sequential, fit, keys[i]);
       report.layers.push({ id: lf.layer.id, kind: lf.layer.kind, ms: Math.round((performance.now() - ts) * 10) / 10, ...(note ? { note } : {}) });
     }
     for (const c of fitted.values()) if (c) { c.width = 0; c.height = 0; }
@@ -362,82 +414,141 @@ export class Compositor {
   /** Canvases of layers that no longer exist go away (engines stay until the budget needs them). */
   private sweep(state: FrameState) {
     const ids = new Set(state.project.layers.map(l => l.id));
-    for (const [id, c] of this.layerCanvases) if (!ids.has(id)) { c.width = c.height = 0; this.layerCanvases.delete(id); }
+    for (const [id, list] of this.slots) if (!ids.has(id)) { for (const sl of list) freeSlot(sl); this.slots.delete(id); }
     for (const [id, c] of this.feeds) if (!ids.has(id)) { c.width = c.height = 0; this.feeds.delete(id); }
     for (const [id, e] of this.engines) if (!ids.has(id)) { e.eng.destroy(); this.engines.delete(id); }
     for (const id of this.grids.keys()) if (!ids.has(id)) this.grids.delete(id);
     // the finishes' canvases of deleted layers
-    for (const key of this.pooled) if (!ids.has(key.slice(this.poolId.length + 1))) { releaseFinishes(key); this.pooled.delete(key); }
+    for (const key of this.pooled) if (!ids.has(key.slice(this.poolId.length + 1).split('|')[0])) { releaseFinishes(key); this.pooled.delete(key); }
   }
 
-  private layerCanvas(id: Id, w: number, h: number) {
-    const r = canvas2d(w, h, this.layerCanvases.get(id));
-    this.layerCanvases.set(id, r.c);
-    return r;
+  /** The canvases of a layer at a render size (the size used longest ago goes when a new one comes). */
+  private slot(id: Id, w: number, h: number): Slot {
+    const size = `${w}x${h}`;
+    let list = this.slots.get(id);
+    if (!list) this.slots.set(id, list = []);
+    let sl = list.find(x => x.size === size);
+    if (!sl) {
+      while (list.length >= SIZES_PER_LAYER) {
+        list.sort((a, b) => a.used - b.used);
+        const old = list.shift()!;
+        freeSlot(old);
+        const pk = `${this.poolId}:${id}|${old.size}`;
+        if (this.pooled.delete(pk)) releaseFinishes(pk);
+      }
+      sl = { size, lc: null, pre: null, mc: null, out: null, contentKey: null, outKey: null, used: 0 };
+      list.push(sl);
+    }
+    sl.used = ++this.clock;
+    return sl;
+  }
+
+  /**
+   * The keys of every layer of a frame (see «Caches»), bottom to top: a layer that reads 'below' is keyed by
+   * the composite under it, which is known only while every layer under it has keys.
+   */
+  private frameKeys(state: FrameState, frames: LayerFrame[], rw: number, rh: number, scale: number, quality: string, transparent: boolean): Array<LayerKeys | null> {
+    let below: string | null = `${transparent ? 'transparente' : state.bg}|${rw}x${rh}`;
+    return frames.map(lf => {
+      const k = layerKeys(lf, state, { rw, rh, scale, quality }, below, this.provider);
+      below = below !== null && k ? `${below}\n${k.out}|${compositeKey(lf)}` : null;
+      return k;
+    });
   }
 
   /** Draws one layer onto the composite. Returns a note when it could not be drawn as asked. */
   private drawLayer(
     lf: LayerFrame, state: FrameState, ctx: CanvasRenderingContext2D, target: HTMLCanvasElement, rw: number, rh: number, scale: number,
     quality: 'preview' | 'final', sequential: boolean, fit: (s: Source | null, m: LayerFit, t: number) => HTMLCanvasElement | null,
+    keys: LayerKeys | null,
   ): string | undefined {
     const l = lf.layer;
     if (l.opacity <= 0) return undefined;
-    const { c: lc, x: lx } = this.layerCanvas(l.id, rw, rh);
-    let note: string | undefined;
-    switch (l.kind) {
-      case 'photo': note = this.drawPhoto(l, lf, lx, rw, rh, scale); break;
-      case 'ascii': note = this.drawAscii(l, lf, lx, target, rw, rh, scale, state, sequential, fit); break;
-      case 'glyphs': note = this.drawGlyphLayer(l, lf, lx, target, rw, rh, scale, fit, state); break;
-      case 'text': drawText(lx, l, rw, rh); break;
-      case 'shape': drawShape(lx, l, rw, rh, scale); break;
-    }
-    // what could not be drawn (a missing picture) leaves the composite as it was
-    if (note) return note;
-    if (lf.tiles && (l.kind === 'photo' || l.kind === 'text' || l.kind === 'shape')) {
-      // square tiles of tileCell output px over the frame
-      const cw = Math.max(1, lf.tileCell * scale);
-      const cols = Math.max(1, Math.ceil(rw / cw)), rows = Math.max(1, Math.ceil(rh / cw));
-      const g = this.gridOf(cols, rows, cw, cw, scale, state, undefined, () => this.cellLum(lc, cols, rows, cw, cw));
-      this.applyTiles(lx, lc, lf.tiles, g, cols, rows, cw, cw, scale);
-    }
-    let out: HTMLCanvasElement = lc;
-    const on = l.finishes.filter(f => f.on && f.amount > 0);
-    if (on.length) {
-      const key = `${this.poolId}:${l.id}`;
-      this.pooled.add(key);
-      out = applyFinishes(lc, on, { t: state.t, seed: `${state.seed}|${l.id}`, scale, quality }, key);
-    }
-    // a mask switched off (Mask.off) is kept with the layer but not applied
-    if (l.mask && !l.mask.off) {
-      const m = maskCanvas(l.mask, {
-        w: rw, h: rh, scale, t: state.t,
-        raster: ref => { const img = this.provider.image(ref); return img ? coverageOfImage(img, rw, rh) : null; },
-        pixels: id => {
-          const s = state.project.sources.find(x => x.id === id) ?? null;
-          const c = fit(s, fitOfSource(state, id), frameTimeOf(state, s));
-          return c ? c.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, rw, rh).data : null;
-        },
-        pixelsKey: id => { const s = state.project.sources.find(x => x.id === id) ?? null; return `${id}@${frameTimeOf(state, s)}|${fitOfSource(state, id)}`; },
-      });
-      const ox = out.getContext('2d')!;
-      ox.save();
-      ox.setTransform(1, 0, 0, 1, 0, 0);
-      ox.globalAlpha = 1;
-      ox.globalCompositeOperation = 'destination-in';
-      ox.drawImage(m.canvas, 0, 0);
-      ox.restore();
-    }
-    for (const w of lf.within) {
-      // clips' masks (an iris, a wipe) are shapes: nothing to read from sources or the media store
-      const m = maskCanvas(w, { w: rw, h: rh, scale, t: state.t, raster: () => null, pixels: () => null, pixelsKey: id => id });
-      const ox = out.getContext('2d')!;
-      ox.save();
-      ox.setTransform(1, 0, 0, 1, 0, 0);
-      ox.globalAlpha = 1;
-      ox.globalCompositeOperation = 'destination-in';
-      ox.drawImage(m.canvas, 0, 0);
-      ox.restore();
+    const sl = this.slot(l.id, rw, rh);
+    const fits = (c: HTMLCanvasElement | null): c is HTMLCanvasElement => !!c && c.width === rw && c.height === rh;
+    let out: HTMLCanvasElement;
+    if (keys) this.cacheStats.layers++;
+    if (keys && sl.outKey === keys.out && fits(sl.out)) {
+      // the same picture as last time at this size: only composited
+      out = sl.out;
+      this.cacheStats.hits++;
+    } else {
+      sl.outKey = null;
+      let pre: HTMLCanvasElement;
+      if (keys && sl.contentKey === keys.content && fits(sl.pre)) {
+        pre = sl.pre;
+        this.cacheStats.contentHits++;
+      } else {
+        sl.contentKey = null;
+        const { c: lc, x: lx } = canvas2d(rw, rh, sl.lc ?? undefined);
+        sl.lc = lc;
+        let note: string | undefined;
+        switch (l.kind) {
+          case 'photo': note = this.drawPhoto(l, lf, lx, rw, rh, scale); break;
+          case 'ascii': note = this.drawAscii(l, lf, lx, target, rw, rh, scale, state, sequential, fit); break;
+          case 'glyphs': note = this.drawGlyphLayer(l, lf, lx, target, rw, rh, scale, fit, state); break;
+          case 'text': drawText(lx, l, rw, rh); break;
+          case 'shape': drawShape(lx, l, rw, rh, scale); break;
+        }
+        // what could not be drawn (a missing picture) leaves the composite as it was
+        if (note) return note;
+        if (lf.tiles && (l.kind === 'photo' || l.kind === 'text' || l.kind === 'shape')) {
+          // square tiles of tileCell output px over the frame
+          const cw = Math.max(1, lf.tileCell * scale);
+          const cols = Math.max(1, Math.ceil(rw / cw)), rows = Math.max(1, Math.ceil(rh / cw));
+          const g = this.gridOf(cols, rows, cw, cw, scale, state, undefined, () => this.cellLum(lc, cols, rows, cw, cw));
+          this.applyTiles(lx, lc, lf.tiles, g, cols, rows, cw, cw, scale);
+        }
+        pre = lc;
+        const on = l.finishes.filter(f => f.on && f.amount > 0);
+        if (on.length) {
+          const key = `${this.poolId}:${l.id}|${sl.size}`;
+          this.pooled.add(key);
+          pre = applyFinishes(lc, on, { t: state.t, seed: `${state.seed}|${l.id}`, scale, quality }, key);
+        }
+        sl.pre = pre;
+        sl.contentKey = keys ? keys.content : null;
+      }
+      // a mask switched off (Mask.off) is kept with the layer but not applied
+      const mask = l.mask && !l.mask.off ? l.mask : null;
+      if (mask || lf.within.length) {
+        // kept content stays as it is: the mask goes on a copy (without keys, on the content itself)
+        if (keys) {
+          const { c: mc, x: mx } = canvas2d(rw, rh, sl.mc ?? undefined);
+          sl.mc = mc;
+          mx.drawImage(pre, 0, 0);
+          out = mc;
+        } else {
+          out = pre;
+          sl.contentKey = null;
+        }
+        if (mask) {
+          const m = maskCanvas(mask, {
+            w: rw, h: rh, scale, t: state.t,
+            raster: ref => { const img = this.provider.image(ref); return img ? coverageOfImage(img, rw, rh) : null; },
+            pixels: id => {
+              const s = state.project.sources.find(x => x.id === id) ?? null;
+              const c = fit(s, fitOfSource(state, id), frameTimeOf(state, s));
+              return c ? c.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, rw, rh).data : null;
+            },
+            pixelsKey: id => { const s = state.project.sources.find(x => x.id === id) ?? null; return `${id}@${frameTimeOf(state, s)}|${fitOfSource(state, id)}`; },
+          });
+          clipTo(out, m.canvas);
+        }
+        for (const w of lf.within) {
+          // clips' masks (an iris, a wipe) are shapes: nothing to read from sources or the media store
+          const m = maskCanvas(w, { w: rw, h: rh, scale, t: state.t, raster: () => null, pixels: () => null, pixelsKey: id => id });
+          clipTo(out, m.canvas);
+        }
+      } else if (keys && pre !== sl.lc) {
+        // the finishes' canvas belongs to their pool (which may drop it): the kept picture is a copy of our own
+        const { c: mc, x: mx } = canvas2d(rw, rh, sl.mc ?? undefined);
+        sl.mc = mc;
+        mx.drawImage(pre, 0, 0);
+        out = mc;
+      } else out = pre;
+      sl.out = out;
+      sl.outKey = keys ? keys.out : null;
     }
     ctx.save();
     ctx.globalAlpha = Math.min(1, Math.max(0, l.opacity));
@@ -453,7 +564,7 @@ export class Compositor {
     }
     ctx.drawImage(out, 0, 0);
     ctx.restore();
-    return note;
+    return undefined;
   }
 
   private drawPhoto(l: PhotoLayer, lf: LayerFrame, x: CanvasRenderingContext2D, rw: number, rh: number, scale: number): string | undefined {
@@ -541,12 +652,21 @@ export class Compositor {
     // cells are output px: at a smaller scale the same grid is drawn smaller
     const style = { ...l.glyphs, cell: l.glyphs.cell * scale };
     const key = version ? `${version}|${JSON.stringify(style)}` : '';
-    const kept = this.grids.get(l.id);
+    // (one per scale: the light and the final view each keep theirs)
+    const kept = this.grids.get(l.id) ?? [];
+    const hit = key ? kept.find(g => g.key === key) : undefined;
     let grid: GlyphGrid;
-    if (key && kept?.key === key) grid = kept.grid;
-    else {
+    if (hit) {
+      grid = hit.grid;
+      kept.splice(kept.indexOf(hit), 1);
+      kept.push(hit);
+    } else {
       grid = glyphGridWith(feed, style, { w: rw, h: rh }, version ? { version } : {});
-      if (key) this.grids.set(l.id, { key, grid }); else this.grids.delete(l.id);
+      if (key) {
+        kept.push({ key, grid });
+        while (kept.length > GRIDS_PER_LAYER) kept.shift();
+        this.grids.set(l.id, kept);
+      }
     }
     const g = this.gridOf(grid.cols, grid.rows, grid.cw, grid.ch, scale, state, grid.chars, grid.lum);
     let colors: Uint32Array | undefined;
@@ -729,6 +849,71 @@ export function sourceFit(project: { layers: Layer[] }, id: string): LayerFit {
   return l?.fit ?? 'cover';
 }
 const fitOfSource = (state: FrameState, id: string) => sourceFit(state.project, id);
+
+/* ------------------------------------------------------------------ caches */
+
+function freeSlot(sl: Slot) {
+  for (const c of [sl.lc, sl.mc]) if (c) { c.width = 0; c.height = 0; }
+  sl.lc = sl.mc = sl.pre = sl.out = null;
+  sl.contentKey = sl.outKey = null;
+}
+
+/** Keeps only what the mask covers (destination-in). */
+function clipTo(out: HTMLCanvasElement, m: HTMLCanvasElement) {
+  const ox = out.getContext('2d')!;
+  ox.save();
+  ox.setTransform(1, 0, 0, 1, 0, 0);
+  ox.globalAlpha = 1;
+  ox.globalCompositeOperation = 'destination-in';
+  ox.drawImage(m, 0, 0);
+  ox.restore();
+}
+
+/** How a layer is put on the composite (its picture does not depend on it). */
+export function compositeKey(lf: LayerFrame): string {
+  const l = lf.layer;
+  return JSON.stringify([l.opacity, l.blend, l.xf, lf.stretch]);
+}
+
+/** Whether a layer's own picture depends on the time beyond its source frame (see «Caches»). */
+export function layerDependsOnTime(lf: LayerFrame): boolean {
+  const l = lf.layer;
+  return l.kind === 'ascii' || finishesDependOnTime(l.finishes);
+}
+
+/**
+ * The keys of a layer's picture (see «Caches»), or null when it cannot be kept: per-cell hooks from clips
+ * (functions), or a 'below' source over a composite that is not keyed.
+ */
+export function layerKeys(
+  lf: LayerFrame, state: FrameState, r: { rw: number; rh: number; scale: number; quality: string }, below: string | null,
+  provider?: Pick<SourceProvider, 'image'>,
+): LayerKeys | null {
+  if (lf.cells || lf.reveal || lf.tiles) return null;
+  const l = lf.layer;
+  // the layer's own fields, without those that only act when it is composited
+  const own: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(l)) if (!COMPOSITE_ONLY.has(k)) own[k] = v;
+  let src = '';
+  if ('source' in l) {
+    if (l.source === 'below') {
+      if (below === null) return null;
+      src = 'bajo:' + below;
+    } else if (l.source === 'style') src = 'estilo';
+    else src = lf.source ? `${lf.source.id}:${lf.source.media.map(m => m.id ?? '?').join(',')}@${lf.srcTime}` : 'sin fuente';
+  }
+  const time = layerDependsOnTime(lf) ? `t=${state.t}` : '';
+  const content = [JSON.stringify(own), src, time, `${r.rw}x${r.rh}@${r.scale}|${r.quality}|${state.w}x${state.h}|${state.seed}`, lf.glyphs].join('\u0001');
+  let masks = '';
+  const mask = l.mask && !l.mask.off ? l.mask : null;
+  if (mask || lf.within.length) {
+    // a painted part reads a picture (kept only once it is there); colour parts read sources at t
+    const avail = mask ? mask.parts.map(p => (p.kind === 'raster' ? (provider?.image(p.media) ? 1 : 0) : '-')).join('') : '';
+    const timed = !!mask?.parts.some(p => (p.kind === 'raster' && p.frames?.length) || p.kind === 'color');
+    masks = JSON.stringify([mask, lf.within, avail, timed ? state.t : 0]);
+  }
+  return { content, out: content + '\u0002' + masks };
+}
 
 /* ------------------------------------------------------------------ convenience */
 
