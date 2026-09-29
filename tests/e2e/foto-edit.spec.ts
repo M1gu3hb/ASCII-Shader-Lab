@@ -78,6 +78,35 @@ test('una foto, una capa ASCII con máscara dibujada por la herramienta, deshace
   // Escape drops the tool
   await page.keyboard.press('Escape');
   await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  // like a quick mask: without a tool the art shows as it exports, unless «Ver la máscara» is pinned
+  await expect(page.locator('.fv-mask')).toBeHidden();
+  const pin = page.getByRole('button', { name: 'Ver la máscara' });
+  await pin.click();
+  await expect(pin).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.fv-mask')).toBeVisible();
+  await pin.click();
+  await expect(page.locator('.fv-mask')).toBeHidden();
+
+  // the host's optional verbs: a live part that stands in for part 0 (editing it), setTool, openCutout
+  const live = await page.evaluate(() => {
+    const F = (window as unknown as { __foto: any }).__foto; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const l = F.project().layers[1];
+    F.host.preview({ layer: l.id, part: { ...l.mask.parts[0], x: 0.5 }, replace: 0 });
+    const replaced = F.viewProject().layers[1].mask.parts.map((q: { x: number }) => q.x);
+    F.host.preview({ layer: l.id, part: { ...l.mask.parts[0], x: 0.5 } });
+    const appended = F.viewProject().layers[1].mask.parts.length;
+    F.host.preview(null);
+    return { replaced, appended, stored: F.project().layers[1].mask.parts.length };
+  });
+  expect(live.replaced).toEqual([0.5, expect.any(Number)]);
+  expect(live.appended).toBe(3);
+  expect(live.stored).toBe(2);
+  await page.evaluate(() => (window as unknown as { __foto: { host: { setTool(id: string): void } } }).__foto.host.setTool('prueba-rect'));
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => (window as unknown as { __foto: { host: { openCutout(): void } } }).__foto.host.openCutout());
+  await expect(page.getByRole('heading', { name: 'Recorte' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar el recorte' }).click();
   expect(errors).toEqual([]);
 });
 

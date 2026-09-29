@@ -5,8 +5,10 @@
 import { fitRect } from '../project/adjust';
 import { evaluate } from '../project/evaluate';
 import { useProject } from '../project/store';
-import type { Id, Layer, LayerFit, MaskOp, MaskPart, Project } from '../project/types';
-import { setPreview, viewCompositor } from './scheduler';
+import type { Id, Layer, LayerFit, MaskOp, Project } from '../project/types';
+import { openCutout } from './actions';
+import { selectTool } from './keys';
+import { setPreview, viewCompositor, type LivePart } from './scheduler';
 import { toolById } from './tools/index';
 import type { Tool, ToolHost } from './tools/types';
 import { say, setUI, ui } from './ui';
@@ -22,15 +24,28 @@ let overlayRedraw: () => void = () => undefined;
 /** The viewport tells the host how to redraw its overlay. */
 export function setOverlayRedraw(fn: () => void) { overlayRedraw = fn; }
 
-export const host: ToolHost = {
+/**
+ * Beyond the base contract, the optional additions lane «tools» asked for: preview with `replace` (the part
+ * being edited stands in for that index of the mask), setTool (switch tools, e.g. after a gesture) and
+ * openCutout (the «Recorte» panel).
+ */
+export interface StudioHost extends ToolHost {
+  preview(part: LivePart | null): void;
+  setTool(id: string | null): void;
+  openCutout(): void;
+}
+
+export const host: StudioHost = {
   view: () => currentView(),
   target: () => useProject.getState().selection[0] ?? null,
   op: () => ui().op,
   setOp: (op: MaskOp) => setUI({ op }),
   redrawOverlay: () => overlayRedraw(),
-  preview: (part: { layer: Id; part: MaskPart } | null) => setPreview(part),
+  preview: (part: LivePart | null) => setPreview(part),
   sourcePixels: () => sourcePixels(),
   say: (msg: string) => say(msg),
+  setTool: (id: string | null) => { if (ui().tool !== id) selectTool(id); },
+  openCutout: () => openCutout(),
 };
 
 const hasSource = (l: Layer): l is Layer & { source: string; fit?: LayerFit } => 'source' in l && typeof (l as { source?: unknown }).source === 'string';

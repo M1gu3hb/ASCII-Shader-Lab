@@ -7,7 +7,7 @@ import * as ps from '../project/store';
 import { useProject } from '../project/store';
 import type { Project } from '../project/types';
 import { host } from './host';
-import { forceScale, onRendered, schedulerState, settled, viewCompositor } from './scheduler';
+import { forceScale, onRendered, schedulerState, settled, viewCompositor, viewProject } from './scheduler';
 import { TOOLS } from './tools/index';
 import type { Tool } from './tools/types';
 import { setUI, ui } from './ui';
@@ -33,6 +33,8 @@ export function installQA() {
     ui,
     setUI,
     project: (): Project | null => useProject.getState().project,
+    /** What the viewport draws (the project with a tool's live part). */
+    viewProject,
     store: () => useProject.getState(),
     engines: () => { const r = ui().render; return { warnings: r.warnings }; },
     /** Adds a tool to the palette (tests only) and re-renders the palette. */

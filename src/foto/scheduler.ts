@@ -48,19 +48,31 @@ let lastChange = 0;
 let prevChange = -1e9;
 let pointers = 0;
 let displayScale = 0.5;
-/** A tool's part drawn live (ToolHost.preview). */
-let previewPart: { layer: Id; part: MaskPart } | null = null;
+/** A tool's part drawn live (ToolHost.preview): appended to the layer's mask, or standing in for part `replace`. */
+export interface LivePart { layer: Id; part: MaskPart; replace?: number }
+let previewPart: LivePart | null = null;
 /** Tests and the pixel-exact check: render at this scale instead of the display's. */
 let forced: number | null = null;
 const listeners = new Set<(r: Rendered) => void>();
 
-/** The project the viewport draws: the open one, with the live part of a tool appended to its target's mask. */
+/**
+ * The project the viewport draws: the open one, with the live part of a tool appended to its target's mask
+ * (or, with `replace`, standing in for that part while it is being edited).
+ */
 export function viewProject(): Project | null {
   const p = useProject.getState().project;
   if (!p || !previewPart) return p;
   const q = cloneProject(p);
-  const l = q.layers.find(x => x.id === previewPart!.layer);
-  if (l) l.mask = l.mask ? { ...l.mask, off: false, parts: [...l.mask.parts, previewPart.part] } : { ...defaultMask(), parts: [previewPart.part] };
+  const live = previewPart;
+  const l = q.layers.find(x => x.id === live.layer);
+  if (l) {
+    const parts = l.mask?.parts ?? [];
+    const r = live.replace;
+    const next = r !== undefined && Number.isInteger(r) && r >= 0 && r < parts.length
+      ? parts.map((x, i) => (i === r ? live.part : x))
+      : [...parts, live.part];
+    l.mask = l.mask ? { ...l.mask, off: false, parts: next } : { ...defaultMask(), parts: next };
+  }
   return q;
 }
 
@@ -83,7 +95,7 @@ let finalMs = 0;
 
 export function forceScale(s: number | null) { forced = s; request(false); }
 
-export function setPreview(p: { layer: Id; part: MaskPart } | null) {
+export function setPreview(p: LivePart | null) {
   previewPart = p;
   request(true);
 }

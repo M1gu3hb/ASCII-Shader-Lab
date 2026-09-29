@@ -131,3 +131,9 @@ export function toggleCompare() {
   say(on ? 'Antes y después: arrastra el divisor (o usa ← →) para comparar con el original.' : 'Comparación cerrada.');
   request(false);
 }
+
+/** Opens the «Recorte» panel (it works on the project's photo). */
+export function openCutout() {
+  if (!useProject.getState().project?.sources.length) { say('Primero añade una foto: el recorte trabaja sobre ella.'); return; }
+  setUI({ cutout: true, snap: 'closed' });
+}

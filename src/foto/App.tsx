@@ -3,11 +3,12 @@
  * (options bar above it, dice and versions under it, the timeline slot at the bottom) and the panel with
  * the layers and the inspector. Phones: immersive by default, the four actions, the tools sheet.
  */
-import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { useProject } from '../project/store';
 import { holdToast, useToasts } from '../studio/toast';
 import { IMore, IClose } from '../studio/icons';
 import { Deck, OptionsBar, ToolRail, TopBar, ViewTools } from './Chrome';
+import { openCutout } from './actions';
 import { host } from './host';
 import { Inspector } from './inspect/Inspector';
 import { Layers } from './Layers';
@@ -73,10 +74,7 @@ function Editor({ layout }: { layout: Layout }) {
   const sheetH = useFoto(s => s.sheetH);
   const snap = useFoto(s => s.snap);
   const project = useProject(s => s.project);
-  const openCutout = useCallback(() => {
-    if (!project?.sources.length) { say('Primero añade una foto: el recorte trabaja sobre ella.'); return; }
-    setUI({ cutout: true, snap: 'closed' });
-  }, [project]);
+
   const suggestion = useSuggestion(openCutout);
   if (!project) return null;
   const phone = layout !== 'desk';
