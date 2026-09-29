@@ -100,6 +100,12 @@ export const PAGES: SitePage[] = [
     title: 'Estudio GLYPHOS — Generador ASCII en tu navegador',
     description: 'Genera arte ASCII en tiempo real: tira el dado, ajusta patrón, color y glifos, usa tu foto, video o cámara y exporta a PNG, SVG, MP4, GIF, ANSI o código.',
   },
+  {
+    id: 'foto', file: 'studio/foto/index.html', path: '/studio/foto/', kind: 'app', crumb: 'Estudio de foto y video', sitemap: true,
+    image: og('imagen-a-ascii', 'Paisaje al atardecer convertido en caracteres de colores con el estilo Retrato'),
+    title: 'Estudio de foto y video GLYPHOS — tu foto en capas de ASCII',
+    description: 'Convierte sólo las partes que elijas de tu foto en ASCII: capas, máscaras, recortes y acabados como tramado o semitono. En tu navegador; exporta PNG.',
+  },
   guidePage('imagen', 'imagen-a-ascii/index.html',
     'Imagen a ASCII: convierte tu foto en arte ASCII · GLYPHOS',
     'Convierte una foto en arte ASCII en tu navegador, sin subirla a ningún servidor. Ajusta glifos y color, y descarga PNG, SVG, texto o video.'),

@@ -261,6 +261,8 @@ export type Layer = PhotoLayer | AsciiLayer | GlyphsLayer | TextLayer | ShapeLay
 
 /** Where a layer shows: parts combined in order (add, subtract, intersect), then feather, invert, opacity. */
 export interface Mask {
+  /** Kept but not applied (the layer shows everywhere) while true: the studio's «Usar máscara» switch. */
+  off?: boolean;
   invert: boolean;
   /** Blur of the whole mask edge, in output px. */
   feather: number;
@@ -274,6 +276,8 @@ export type MaskOp = 'add' | 'subtract' | 'intersect';
 export interface MaskShapePart {
   kind: 'rect' | 'ellipse';
   op: MaskOp;
+  /** Hidden: kept in the list but not applied (every part kind has it). */
+  off?: boolean;
   /** Frame units, top-left + size; rot in degrees around the centre. */
   x: number; y: number; w: number; h: number; rot: number;
   /** Edge softness of this part only (output px). */
@@ -285,6 +289,7 @@ export interface MaskShapePart {
 export interface MaskPolygonPart {
   kind: 'polygon';
   op: MaskOp;
+  off?: boolean;
   /** Frame units [x0, y0, x1, y1, …]; closed. Freehand lasso is a dense polygon. */
   pts: number[];
   soft: number;
@@ -295,6 +300,7 @@ export interface MaskPolygonPart {
 export interface MaskStrokePart {
   kind: 'stroke';
   op: MaskOp;
+  off?: boolean;
   /** Frame units [x0, y0, x1, y1, …] and, optionally, per-point pressure 0..1. */
   pts: number[];
   pressure?: number[];
@@ -312,6 +318,7 @@ export interface MaskStrokePart {
 export interface MaskRasterPart {
   kind: 'raster';
   op: MaskOp;
+  off?: boolean;
   media: MediaRef;
   frames?: Array<{ t: number; media: MediaRef }>;
   interp?: boolean;
@@ -327,6 +334,7 @@ export interface MaskRasterPart {
 export interface MaskColorPart {
   kind: 'color';
   op: MaskOp;
+  off?: boolean;
   source: Id;
   color: string;
   /** Distance in RGB (0..1) that still counts, and the soft ramp after it. */

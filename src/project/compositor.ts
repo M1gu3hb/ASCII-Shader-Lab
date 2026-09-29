@@ -393,7 +393,8 @@ export class Compositor {
       this.pooled.add(key);
       out = applyFinishes(lc, on, { t: state.t, seed: `${state.seed}|${l.id}`, scale, quality }, key);
     }
-    if (l.mask) {
+    // a mask switched off (Mask.off) is kept with the layer but not applied
+    if (l.mask && !l.mask.off) {
       const m = maskCanvas(l.mask, {
         w: rw, h: rh, scale, t: state.t,
         raster: ref => { const img = this.provider.image(ref); return img ? coverageOfImage(img, rw, rh) : null; },

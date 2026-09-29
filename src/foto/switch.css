@@ -1,0 +1,31 @@
+/* «Laboratorio ⇄ Foto y video»: the same switch in both studios' top bars (src/foto/Chrome.tsx and
+   src/studio/FotoSwitch.tsx). Two segments; the current studio is bone with a vermilion thread. */
+.sw { align-self: center; display: inline-flex; flex: none; gap: 2px; padding: 2px; margin: 0 10px 0 6px; border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, .2); }
+.sw-seg {
+  position: relative; display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 6px; color: var(--muted);
+  font: 500 12.5px/1 var(--font-ui); text-decoration: none; white-space: nowrap;
+}
+.sw-seg:hover { color: var(--text); background: var(--field); }
+.sw-seg[aria-current="page"] { color: var(--ink); background: var(--bone); font-weight: 600; }
+.sw-seg[aria-current="page"]::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 3px; height: 1.5px; background: var(--accent); border-radius: 1px; }
+.sw-seg:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sw-short { display: none; }
+.sw-go { position: relative; }
+.sw-menu {
+  position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; width: 290px; padding: 6px; background: var(--panel-2); border: 1px solid var(--line-2);
+  border-radius: 10px; box-shadow: 0 20px 60px rgba(0, 0, 0, .55); display: flex; flex-direction: column; gap: 2px;
+}
+.sw-menu a, .sw-menu button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; text-align: left; padding: 9px 10px; border-radius: 7px;
+  border: 0; background: none; color: var(--text); text-decoration: none; font: 500 13px/1.25 var(--font-ui); min-height: 44px; cursor: pointer;
+}
+.sw-menu small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.sw-menu a:hover, .sw-menu button:hover, .sw-menu a:focus-visible, .sw-menu button:focus-visible { background: var(--field-2); outline: none; }
+.sw-menu button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 1280px) { .sw-long { display: none; } .sw-short { display: inline; } }
+/* the lab's top bar is full (six spaces, instruments, Exportar): the short names until wide screens */
+@media (max-width: 1600px) { .sw.compact .sw-long { display: none; } .sw.compact .sw-short { display: inline; } .sw.compact .sw-seg { padding: 0 7px; font-size: 12px; } .sw.compact { margin: 0 4px 0 0; } }
+@media (max-width: 900px), (pointer: coarse) { .sw-seg { min-height: 44px; padding: 0 12px; font-size: 14px; } .sw { margin: 0 6px 0 2px; } }
+@media (max-width: 420px) { .sw-seg { padding: 0 9px; } .sw { margin: 0 4px 0 0; } }
+/* room for the switch in the lab's bar: its spaces a little tighter between 1201 and 1440 px */
+@media (min-width: 1201px) and (max-width: 1440px) { .app .topbar .spaces button { padding: 0 8px; } }

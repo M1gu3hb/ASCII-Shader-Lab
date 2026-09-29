@@ -226,6 +226,13 @@ const soft = (v: unknown) => num(v, 0, 0, 1000);
 const alpha = (v: unknown) => num(v, 1, 0, 1);
 
 export function normMaskPart(v: unknown): MaskPart | null {
+  const part = normMaskPartBody(v);
+  // hidden parts stay hidden (only `true` is kept: a visible part has no flag)
+  if (part && obj(v).off === true) part.off = true;
+  return part;
+}
+
+function normMaskPartBody(v: unknown): MaskPart | null {
   const o = obj(v);
   const op = oneOf(o.op, OPS, 'add');
   switch (o.kind) {
@@ -295,7 +302,9 @@ export function normMask(v: unknown): Mask | null {
     const n = normMaskPart(p);
     if (n) parts.push(n);
   }
-  return { invert: bool(o.invert, false), feather: num(o.feather, 0, 0, 1000), opacity: num(o.opacity, 1, 0, 1), parts };
+  const m: Mask = { invert: bool(o.invert, false), feather: num(o.feather, 0, 0, 1000), opacity: num(o.opacity, 1, 0, 1), parts };
+  if (o.off === true) m.off = true;
+  return m;
 }
 
 /* ------------------------------------------------------------------ sources */

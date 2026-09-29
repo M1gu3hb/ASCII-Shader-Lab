@@ -99,10 +99,12 @@ function website() {
   };
 }
 
-function webApplication() {
-  const studio = page('studio');
+/** The lab (/studio/) by default; the photo and video studio (/studio/foto/) describes itself. */
+function webApplication(studio: SitePage = page('studio')) {
+  const foto = studio.id === 'foto';
   return {
-    '@type': 'WebApplication', '@id': ID.app, name: 'Estudio GLYPHOS', url: absUrl(studio.path), description: studio.description,
+    '@type': 'WebApplication', '@id': foto ? `${SITE_URL}/studio/foto/#app` : ID.app, name: foto ? 'Estudio de foto y video GLYPHOS' : 'Estudio GLYPHOS',
+    url: absUrl(studio.path), description: studio.description,
     applicationCategory: 'DesignApplication', operatingSystem: 'Web',
     browserRequirements: 'Requiere JavaScript; WebGL 2 para el motor completo',
     isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'MXN' },
@@ -134,7 +136,7 @@ export function jsonLd(p: SitePage): object | null {
   const graph = (nodes: object[]) => ({ '@context': 'https://schema.org', '@graph': nodes });
   switch (p.kind) {
     case 'home': return graph([website(), organization(), webApplication()]);
-    case 'app': return graph([webApplication(), website(), organization()]);
+    case 'app': return graph([webApplication(p), website(), organization()]);
     case 'guide':
     case 'doc': return graph([...webPage(p), website(), organization()]);
     default: return null;

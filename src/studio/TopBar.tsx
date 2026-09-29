@@ -6,6 +6,7 @@ import { IGuide } from './guide/Welcome';
 import { openWelcome, useGuide } from './guide/state';
 import { Picker } from './ui/Picker';
 import { QualityReadout } from './Quality';
+import { FotoSwitch } from './FotoSwitch';
 
 export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
@@ -32,6 +33,7 @@ export function TopBar() {
   return (
     <header className="topbar">
       <a className="brand" href="/" aria-label="GLYPHOS, volver a la portada" dangerouslySetInnerHTML={{ __html: logoMark(24) + wordmark(14, { className: 'brand-word' }) + '<span class="brand-sub">estudio</span>' }} />
+      <FotoSwitch />
       <nav className="spaces" aria-label="Espacios del estudio">
         {SPACES.map((s, i) => {
           const Ic = SPACE_ICON[s.id];
