@@ -70,6 +70,21 @@ test.describe('azar con memoria', () => {
     await expect(cell).toHaveValue('20');
   });
 
+  test('«Laboratorio» en la barra (la página en la que estás) no la recarga: deshacer sigue ahí', async ({ page }) => {
+    await openStudio(page);
+    await page.getByRole('tab', { name: /Glifos/ }).click();
+    const cell = page.getByLabel('Tamaño de celda');
+    const before = await cell.inputValue();
+    await cell.fill('20');
+    await expect(cell).toHaveValue('20');
+    await page.evaluate(() => { (window as unknown as { sinRecargar: boolean }).sinRecargar = true; });
+    await page.getByRole('navigation', { name: 'Estudios de GLYPHOS' }).getByRole('link', { name: 'Laboratorio' }).click();
+    await page.waitForTimeout(1500);
+    expect(await page.evaluate(() => (window as unknown as { sinRecargar?: boolean }).sinRecargar)).toBe(true);
+    await page.keyboard.press('Control+z');
+    await expect(cell).toHaveValue(before);
+  });
+
   test('la misma semilla reproduce la misma pieza', async ({ browser }) => {
     const urls: string[] = [];
     for (let i = 0; i < 2; i++) {

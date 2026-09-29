@@ -84,7 +84,9 @@ export function FotoSwitch() {
   return (
     <nav className="sw compact" aria-label="Estudios de GLYPHOS" ref={box}>
       {/* one accessible name whichever label shows (the short ones on narrower bars) */}
-      <a className="sw-seg" href="/studio/" aria-current="page" aria-label="Laboratorio" title="Laboratorio: patrones, fondos, texto y terminal">
+      {/* the page you are on: a tap does not reload it (that dropped the undo steps and turned the camera off) */}
+      <a className="sw-seg" href="/studio/" aria-current="page" aria-label="Laboratorio" title="Laboratorio: patrones, fondos, texto y terminal"
+        onClick={e => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) e.preventDefault(); }}>
         <span className="sw-long">Laboratorio</span><span className="sw-short" aria-hidden="true">Lab</span>
       </a>
       <div className="sw-go">
