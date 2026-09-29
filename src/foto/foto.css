@@ -381,12 +381,13 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .app.foto.foto-phone.editing .fnotes { top: auto; bottom: calc(var(--bar-h) + var(--fsheet-h, 0px) + 14px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); }
 .app.foto.foto-land.editing .fnotes { top: auto; bottom: 12px; left: calc((100vw - var(--land-bar) - var(--land-sheet)) / 2); width: min(520px, calc(100vw - var(--land-bar) - var(--land-sheet) - 24px)); }
 .app.foto.foto-phone .fstatus, .app.foto.foto-land .fstatus { font-size: 13px; border-radius: 12px; }
-.app.foto.foto-land { --bar-h: 0px; --land-bar: 88px; --land-sheet: 0px; }
+.app.foto.foto-land { --bar-h: 0px; --land-bar: 96px; --land-sheet: 0px; }
 /* the side drawer covers the right of the stage: what floats over the art stays left of it */
 .app.foto.foto-land.land-sheet { --land-sheet: min(420px, 50vw); }
 /* a short screen: the suggestion rides beside the view buttons instead of over the art */
 .foto-land .fstage .fsuggest { top: 8px; left: 196px; right: calc(var(--land-sheet) + 60px); font-size: 12px; }
 .foto-land .fimm-exit { right: calc(var(--land-sheet) + 8px); }
+.foto-land.land-sheet .fsuggest { display: none; }
 .app.foto.foto-land.editing { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); }
 .foto-land.editing > .topbar { grid-column: 1 / -1; }
 .foto-land.editing > .fedit { grid-column: 1; grid-row: 2; min-height: 0; }

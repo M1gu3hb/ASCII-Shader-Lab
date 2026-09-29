@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultMirror, mirrorFor } from '../../src/foto/camera';
 import { rollComposition, rollLayer, rollGlyphs } from '../../src/foto/dice';
 import { orderVersions } from '../../src/foto/tree';
+import { maskShown, useFoto } from '../../src/foto/ui';
 import { clampPan, frameRect, makeView, panForZoom, zoomValue } from '../../src/foto/view';
 import { newLayer, projectFromImage } from '../../src/project/normalize';
 import { Rng } from '../../src/random';
@@ -113,5 +114,18 @@ describe('the studio dice', () => {
       expect(['mono', 'source', 'palette']).toContain(s.color);
       expect(s.charset).not.toBe('custom');
     }
+  });
+});
+
+describe('mask view', () => {
+  it('shows like a quick mask: while you work on it, when pinned, never when hidden', () => {
+    const s = { ...useFoto.getState(), maskView: 'tint' as const, maskPin: false, maskFocus: false, tool: null, immersive: false, snap: 'closed' as const, mtab: 'capas' as const };
+    expect(maskShown(s)).toBe(false);
+    expect(maskShown({ ...s, tool: 'rect' })).toBe(true);
+    expect(maskShown({ ...s, maskFocus: true })).toBe(true);
+    expect(maskShown({ ...s, maskPin: true })).toBe(true);
+    expect(maskShown({ ...s, immersive: true, snap: 'half', mtab: 'capa' })).toBe(true);
+    expect(maskShown({ ...s, immersive: true, snap: 'closed', mtab: 'capa' })).toBe(false);
+    expect(maskShown({ ...s, maskView: 'off', maskPin: true, tool: 'rect' })).toBe(false);
   });
 });
