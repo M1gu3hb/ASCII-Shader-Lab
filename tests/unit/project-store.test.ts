@@ -82,18 +82,34 @@ describe('versions', () => {
   it('restore gives back exactly the project a version holds', () => {
     const v1 = commitVersion('guardado', { label: 'antes' })!;
     const kept = JSON.stringify(P());
-    edit(p => { p.name = 'cambiado'; p.layers[0].opacity = 0.2; });
+    edit(p => { p.canvas.bg = '#123456'; p.layers[0].opacity = 0.2; });
     commitVersion('edición');
     expect(restoreVersion(v1.id)).toBe(true);
     expect(JSON.stringify(P())).toBe(kept);
     expect(useProject.getState().versions.cursor).toBe(0);
     expect(nextVersion()).toBe(true);
-    expect(P().name).toBe('cambiado');
+    expect(P().canvas.bg).toBe('#123456');
     expect(prevVersion()).toBe(true);
     expect(JSON.stringify(P())).toBe(kept);
     // and restoring is an edit: undo goes back
     undo();
-    expect(P().name).toBe('cambiado');
+    expect(P().canvas.bg).toBe('#123456');
+  });
+
+  it('a rename made after a version stays when versions are browsed (the name is the project\'s, not the look\'s)', () => {
+    const v1 = commitVersion('guardado')!;
+    edit(p => { p.layers[0].opacity = 0.3; });
+    const v2 = commitVersion('edición')!;
+    edit(p => { p.name = 'Mi cartel'; });
+    const id = P().id;
+    expect(prevVersion()).toBe(true);
+    expect(P().name).toBe('Mi cartel');
+    expect(P().layers[0].opacity).toBe(v1.project.layers[0].opacity);
+    expect(nextVersion()).toBe(true);
+    expect(P().name).toBe('Mi cartel');
+    expect(P().layers[0].opacity).toBe(0.3);
+    expect(JSON.stringify({ ...P(), name: v2.project.name })).toBe(JSON.stringify(v2.project));
+    expect(P().id).toBe(id);
   });
 
   it('rolls and variations are linked to the version they came from; favourites survive the limit', () => {

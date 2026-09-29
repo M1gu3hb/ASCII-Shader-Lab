@@ -505,7 +505,13 @@ export const trackTool: Tool & { state: () => TrackToolState & { pressing: boole
   },
 
   overlay(ctx, host) {
-    if (layerId !== host.target()) return;
+    if (layerId !== host.target()) {
+      // another layer was picked: the marks and their live mask were for the other one; they go (as a tap on this
+      // layer would drop them), instead of leaving that mask on the art with no marks to show for it
+      const o = st();
+      if (o.phase !== 'running' && (matte || o.points.length || o.box)) { clearMarks(host); set({ mode: 'new', fix: null }); layerId = editableTarget(host, true)?.id ?? null; }
+      return;
+    }
     const f = host.view().frame;
     const o = st();
     if (edgeCanvas && matte && o.matte) {

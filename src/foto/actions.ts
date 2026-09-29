@@ -106,7 +106,8 @@ export function favorite() {
   const p = P().project;
   if (!p) return;
   let v = currentVersion();
-  if (!v || JSON.stringify(v.project) !== JSON.stringify(p)) v = saveVersion() ?? undefined;
+  // (the project's id, name and date are not what a version keeps: a rename alone is not a new version)
+  if (!v || JSON.stringify({ ...v.project, id: p.id, name: p.name, updated: p.updated }) !== JSON.stringify(p)) v = saveVersion() ?? undefined;
   if (!v) return;
   toggleFavorite(v.id);
   const now = P().versions.list.find(x => x.id === v!.id)?.fav;

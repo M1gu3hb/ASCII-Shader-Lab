@@ -186,6 +186,9 @@ export function makeShapeTool(kind: Kind): Tool & { editor: PartEditor } {
     },
 
     overlay(ctx, host) {
+      // another layer was picked while a shape waited for Intro: it goes in first, as when the tool is left
+      // (its live preview would otherwise stay on the art with no handles, and never be exported)
+      if (pending && pending.layer !== host.target()) commitPending(host);
       if (pending && pending.layer === host.target()) drawPart(ctx, host, pending.part, { handles: true, touch: editor.touch, dash: [5, 4] });
       editor.draw(ctx, host);
       const d = draftOf(host);

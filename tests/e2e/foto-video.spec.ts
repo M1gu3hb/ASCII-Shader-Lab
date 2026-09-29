@@ -378,6 +378,31 @@ async function openExport(page: Page): Promise<Locator> {
 }
 const exportNow = (page: Page, sheet: Locator) => download(page, () => sheet.locator('.xp-btns .btn.primary').click());
 
+test('seguir objeto: elegir otra capa quita las marcas y su máscara viva (no se queda en la vista sin estar en la máscara)', async ({ page, context }) => {
+  test.skip(!hasModel('select'), NEED('select'));
+  test.setTimeout(600_000);
+  await routeModels(context);
+  const errors = await openFoto(page);
+  const c = await openClip(page);
+  await addAscii(page);
+  await page.locator('.fv-over').hover();
+  await page.keyboard.press('t');
+  const opts = page.locator('.tool-opts[data-tool="seguir"]');
+  await expect(opts.getByRole('heading', { name: /¿Descargar/ })).toBeVisible({ timeout: 30_000 });
+  await opts.getByRole('button', { name: /^Descargar/ }).click();
+  await expect(opts).toContainText('Toca el objeto', { timeout: 180_000 });
+  const q = await V<{ x: number; y: number }>(page, 'squareAt', c.spec, 0);
+  const at = await framePoint(page, (q.x + c.spec.size / 2) / c.spec.w, (q.y + c.spec.size / 2) / c.spec.h);
+  await page.mouse.click(at.x, at.y);
+  await expect.poll(() => page.evaluate(() => (window as unknown as W).__foto.sched().preview), { timeout: 60_000 }).toBe(true);
+  // the video layer picked in the list: the marks made on the ASCII layer and their mask go
+  await page.locator('.lr').last().locator('.lr-main').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as W).__foto.sched().preview)).toBe(false);
+  await expect(opts.locator('.tool-points')).toHaveCount(0);
+  expect((await project(page)).layers.every(l => !l.mask?.parts.length)).toBe(true);
+  expect(errors.filter(e => !/Failed to load resource/.test(e))).toEqual([]);
+});
+
 test('exportar MP4 y WebM con sonido desde el estudio: los cuadros son render(t) y el tono suena a tiempo; «Sonido de» elige el video', async ({ page }) => {
   test.setTimeout(600_000);
   const errors = await openFoto(page);

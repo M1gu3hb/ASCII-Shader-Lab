@@ -127,5 +127,29 @@ test('antes y después con el dedo; salir del inmersivo muestra la barra superio
   await expect(page.locator('.topbar')).toBeVisible();
   await expect(page.getByRole('button', { name: /Exportar/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  // and back to the art alone: the switch works both ways
+  await page.getByRole('button', { name: 'Herramientas', exact: true }).tap();
+  await page.getByRole('tab', { name: 'Explorar' }).tap();
+  await page.getByRole('button', { name: 'Ocultar la barra superior' }).tap();
+  await expect(page.locator('.topbar')).toBeHidden();
+  await expect(page.getByRole('button', { name: /Mostrar la barra superior/ })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('la hoja de herramientas, cerrada con Esc o con «Cerrar la hoja», devuelve el foco a «Herramientas»', async ({ page }) => {
+  const errors = await openFoto(page);
+  await page.locator('.fs-tpl-main', { hasText: /Foto → ASCII completo/ }).tap();
+  await finalRender(page);
+  const tools = page.getByRole('button', { name: 'Herramientas', exact: true });
+  for (const close of ['Escape', 'Cerrar la hoja']) {
+    await tools.focus();
+    await page.keyboard.press('Enter');
+    // the sheet takes the focus to its selected tab
+    await expect(page.getByRole('tab', { selected: true })).toBeFocused();
+    if (close === 'Escape') await page.keyboard.press('Escape');
+    else { await page.getByRole('button', { name: close }).focus(); await page.keyboard.press('Enter'); }
+    await expect(page.locator('.fsheet')).toHaveCount(0);
+    await expect(tools).toBeFocused();
+  }
   expect(errors).toEqual([]);
 });

@@ -147,7 +147,8 @@ export function VersionsSheet() {
   return (
     <Sheet open={open} wide title="Versiones" sub="Cada tirada, variación o versión guardada, con las variantes bajo la versión de la que salieron. Restaurar devuelve el proyecto exacto." onClose={() => { setUI({ compareWith: null }); closeSheet(); }}>
       <div className="sheet-body fvers">
-        <div className="fv-tree" role="list" aria-label="Árbol de versiones">
+        <div className="fv-tree">
+          <div className="fv-tree" role="list" aria-label="Árbol de versiones">
           {ordered.map(({ v, depth }) => {
             const i = versions.list.indexOf(v);
             return (
@@ -160,6 +161,7 @@ export function VersionsSheet() {
               </div>
             );
           })}
+          </div>
           {!versions.list.length && <p className="note">Todavía no hay versiones: tira el dado o pulsa «Guardar versión».</p>}
           <button type="button" className="btn" onClick={() => saveVersion()}>Guardar el estado actual como versión</button>
         </div>
@@ -396,7 +398,7 @@ export function SaveAsSheet() {
   return (
     <Sheet open={open} title="Guardar" sub="El proyecto se guarda solo en este navegador mientras trabajas." onClose={closeSheet}>
       <div className="sheet-body">
-        <p className="note">Estado: <b>{storage === 'ok' ? 'guardado en este navegador' : storage === 'full' ? 'sin espacio: descarga el proyecto' : storage === 'unavailable' ? 'el navegador no deja guardar: descarga el proyecto' : 'se guardará al primer cambio'}</b>.</p>
+        <p className="note">Estado: <b>{storage === 'ok' ? 'guardado en este navegador' : storage === 'full' ? 'sin espacio: descarga el proyecto' : storage === 'unavailable' ? 'el navegador no deja guardar: descarga el proyecto' : storage === 'conflict' ? 'otra pestaña guardó este proyecto y aquí ya no se guarda: «Guardar como» lo conserva como copia' : 'se guardará al primer cambio'}</b>.</p>
         <h3 className="data-h">Guardar como</h3>
         <form className="fsaveas" onSubmit={e => { e.preventDefault(); closeSheet(); void saveAs(v); }}>
           <label className="lbl" htmlFor="fsaveas-n">Nombre de la copia</label>
@@ -404,7 +406,7 @@ export function SaveAsSheet() {
           <button type="submit" className="btn">Guardar como copia nueva</button>
         </form>
         <h3 className="data-h">Archivo del proyecto</h3>
-        <p className="note">Un .glyphos.zip con las capas, las máscaras, las versiones actuales y tus fotos originales: se abre aquí o en otro navegador con «Abrir un proyecto».</p>
+        <p className="note">Un .glyphos.zip con el proyecto tal como está (capas, máscaras, animación) y tus fotos originales: se abre aquí o en otro navegador con «Abrir un proyecto». Las versiones y las favoritas no van en el archivo: se quedan en este navegador.</p>
         <button type="button" className="btn" onClick={() => void downloadProjectFile()}>Descargar el proyecto (.glyphos.zip)</button>
       </div>
     </Sheet>

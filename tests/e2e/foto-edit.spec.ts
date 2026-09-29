@@ -70,7 +70,9 @@ test('una foto, una capa ASCII con máscara dibujada por la herramienta, deshace
   const outside2 = await meanIn(page, 0.6, 0.2, 0.3, 0.6);
   for (let k = 0; k < 3; k++) expect(Math.abs(outside2[k] - outside[k])).toBeLessThan(1);
 
-  // the keyboard reaches the tool first (Enter adds a zone, arrows move it), then the studio
+  // the keyboard reaches the tool first (Enter adds a zone, arrows move it), then the studio — once the
+  // focus has left the «Deshacer» button (Enter on a focused button presses that button)
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('live')).toContainText('Zona en x 0.35');
   await page.keyboard.press('Enter');
@@ -157,6 +159,32 @@ test('capas: orden (teclado y arrastre), opacidad, fusión, visibilidad, acabado
   await page.keyboard.press('Control+Z');
   p = await project(page);
   expect(p.layers.map(l => l.kind)).toEqual(['photo', 'text', 'glyphs']);
+  // Supr on a layer deletes it and the keyboard goes on from the layer selected next (the focus is not lost)
+  await page.locator(`.lr[data-id="${p.layers[1].id}"] .lr-main`).focus();
+  await page.keyboard.press('Delete');
+  expect((await project(page)).layers.map(l => l.kind)).toEqual(['photo', 'glyphs']);
+  await expect(page.locator('.lr.on .lr-main')).toBeFocused();
+  await page.keyboard.press('Control+Z');
+  expect((await project(page)).layers.map(l => l.kind)).toEqual(['photo', 'text', 'glyphs']);
+  // F2 renames; Intro (or Esc) ends and the keyboard stays on the layer
+  const row = page.locator(`.lr[data-id="${p.layers[1].id}"] .lr-main`);
+  await row.focus();
+  await page.keyboard.press('F2');
+  await page.getByRole('textbox', { name: 'Nombre de la capa' }).fill('Título');
+  await page.keyboard.press('Enter');
+  expect((await project(page)).layers[1].name).toBe('Título');
+  await expect(row).toBeFocused();
+  await page.keyboard.press('F2');
+  await page.getByRole('textbox', { name: 'Nombre de la capa' }).fill('No');
+  await page.keyboard.press('Escape');
+  expect((await project(page)).layers[1].name).toBe('Título');
+  await expect(row).toBeFocused();
+  // and the project's name in the top bar
+  await page.locator('.fproj-name').click();
+  await page.getByRole('textbox', { name: 'Nombre del proyecto' }).fill('Capas de prueba');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.fproj-name')).toBeFocused();
+  await expect.poll(async () => (await project(page)).name).toBe('Capas de prueba');
 
   // opacity and blend of the selected layer (characters)
   await page.locator('.lr', { hasText: 'Caracteres' }).locator('.lr-main').click();
@@ -203,9 +231,51 @@ test('«Quitar fondo» abre el panel «Recorte» (con su cierre); los ajustes di
   await panel.getByRole('button', { name: 'Cerrar el recorte' }).click();
   await expect(panel).toHaveCount(0);
   await expect(page.locator('.fl-list')).toBeVisible();
+  // with the keyboard: the focus goes back to «Quitar fondo» (not lost with the panel)
+  const opener = page.getByRole('toolbar', { name: 'Herramientas' }).getByRole('button', { name: 'Quitar fondo' });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toBeVisible();
+  await panel.getByRole('button', { name: 'Cerrar el recorte' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toHaveCount(0);
+  await expect(opener).toBeFocused();
   await page.getByRole('button', { name: 'Ajustes del estudio' }).click();
   const settings = page.getByRole('dialog', { name: 'Ajustes' });
   await expect(settings.locator('.fmodels')).toContainText(/Ninguno|MB/);
   await expect(settings.getByRole('button', { name: 'Borrar los modelos descargados' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('una forma colocada con el teclado no se queda en la vista sin estar en la máscara al elegir otra capa', async ({ page }) => {
+  const errors = await openFoto(page);
+  await page.locator('.fs-tpl-main', { hasText: /Zonas circulares/ }).click();
+  await finalRender(page);
+  type F = { __foto: { sched(): { preview: boolean }; viewProject(): { layers: Array<{ mask: null | { parts: unknown[] } }> }; project(): { layers: Array<{ id: string; mask: null | { parts: unknown[] } }> }; store(): { selection: string[] } } };
+  const state = () => page.evaluate(() => {
+    const F = (window as unknown as F).__foto;
+    return {
+      preview: F.sched().preview,
+      shown: F.viewProject().layers.map(l => l.mask?.parts.length ?? 0),
+      kept: F.project().layers.map(l => l.mask?.parts.length ?? 0),
+      target: F.project().layers.findIndex(l => l.id === F.store().selection[0]),
+    };
+  });
+  // «Rectángulo», Intro: a centred rectangle waits (previewed) on the selected layer for Intro
+  await page.locator('.fv-over').hover();
+  await page.keyboard.press('m');
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('Enter');
+  const s0 = await state();
+  expect(s0.preview).toBe(true);
+  expect(s0.shown[s0.target]).toBe(s0.kept[s0.target] + 1);
+  // another layer picked in the list: the waiting rectangle goes into the first layer's mask (one undo
+  // step), and what the viewport shows is what the project holds
+  await page.locator('.lr .lr-main').nth(2).click();
+  await expect.poll(async () => (await state()).preview).toBe(false);
+  const s1 = await state();
+  expect(s1.target).not.toBe(s0.target);
+  expect(s1.kept[s0.target]).toBe(s0.kept[s0.target] + 1);
+  expect(s1.shown).toEqual(s1.kept);
   expect(errors).toEqual([]);
 });

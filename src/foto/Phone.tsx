@@ -58,6 +58,15 @@ export function ToolSheet({ land, onCutout }: { land: boolean; onCutout: () => v
   }, [h, land]);
   useEffect(() => () => { setUI({ sheetH: 0 }); document.documentElement.style.removeProperty('--fsheet-h'); }, []);
   useEffect(() => { if (snap !== 'closed') box.current?.querySelector<HTMLElement>('[role=tab][aria-selected=true]')?.focus({ preventScroll: true }); }, [snap === 'closed']);
+  // closed with the focus inside (Esc, «Cerrar la hoja», a swipe): the focus goes back to «Herramientas»
+  // instead of being lost with the sheet (read while the sheet is still there, in the render that closes it)
+  const inside = useRef(false);
+  if (snap === 'closed' && box.current?.contains(document.activeElement)) inside.current = true;
+  useLayoutEffect(() => {
+    if (snap !== 'closed' || !inside.current) return;
+    inside.current = false;
+    if (!document.activeElement || document.activeElement === document.body) document.querySelector<HTMLElement>('.fphone-bar [aria-expanded]')?.focus({ preventScroll: true });
+  }, [snap]);
   if (snap === 'closed') return null;
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -129,6 +138,7 @@ function ToolsTab({ onCutout }: { onCutout: () => void }) {
 }
 
 function ExploreTab() {
+  const immersive = useFoto(s => s.immersive);
   return (
     <>
       <Deck compact />
@@ -141,7 +151,8 @@ function ExploreTab() {
         {/* (the top bar's «Proyectos» on wider screens) */}
         <button type="button" className="btn ghost" onClick={() => void backToStart()} title="Tus proyectos, plantillas y archivos">Proyectos</button>
       </div>
-      <button type="button" className="btn ghost" onClick={() => setUI({ immersive: false, snap: 'closed' })}>Ver la barra superior</button>
+      {/* (both ways: the «…» over the art shows the bar, this hides it again for the art alone) */}
+      <button type="button" className="btn ghost" onClick={() => setUI({ immersive: !immersive, snap: 'closed' })}>{immersive ? 'Ver la barra superior' : 'Ocultar la barra superior'}</button>
     </>
   );
 }

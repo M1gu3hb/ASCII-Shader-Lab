@@ -247,6 +247,14 @@ test('herramienta «Objeto»: descarga con permiso, puntos sobre la guitarra, un
   await expect.poll(async () => (await parts(page)).length, { timeout: 30_000 }).toBe(1);
   expect((await parts(page))[0]).toMatchObject({ kind: 'raster', origin: 'object' });
   await expect(page.locator('.fmask .parts > li').first()).toContainText('Objeto');
+  // points waiting for «Aceptar» belong to their layer: picking another layer drops them and their live matte
+  type F = { __foto: { objectState(): { matte: boolean; points: number; phase: string }; sched(): { preview: boolean } } };
+  await clickAt(page, 0.43, 0.41);
+  await page.waitForFunction(() => { const F = (window as unknown as F).__foto; const s = F.objectState(); return s.matte && s.points === 1 && s.phase === 'ready' && F.sched().preview; }, null, { timeout: 120_000 });
+  await page.locator('.lr', { hasText: 'Foto original' }).locator('.lr-main').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as F).__foto.sched().preview)).toBe(false);
+  expect((await page.evaluate(() => (window as unknown as F).__foto.objectState())).points).toBe(0);
+  expect(await parts(page)).toHaveLength(1);
   // «Quitar fondo…» from the tool opens the real cutout panel
   await opts.getByRole('button', { name: 'Quitar fondo…' }).click();
   await expect(page.getByRole('complementary', { name: 'Recorte' })).toBeVisible();

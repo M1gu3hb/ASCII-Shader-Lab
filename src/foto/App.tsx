@@ -94,11 +94,11 @@ function Editor({ layout }: { layout: Layout }) {
     <aside className="fcut" aria-labelledby="fcut-t">
       <div className="fcut-h">
         <h2 id="fcut-t">Recorte</h2>
-        <button type="button" className="close" onClick={() => setUI({ cutout: false })} aria-label="Cerrar el recorte"><IClose /></button>
+        <button type="button" className="close" onClick={closeCutout} aria-label="Cerrar el recorte"><IClose /></button>
       </div>
       <div className="fcut-b">
         <Suspense fallback={<p className="note mt-spin">Cargando el recorte…</p>}>
-          <CutoutBody onClose={() => setUI({ cutout: false })} />
+          <CutoutBody onClose={closeCutout} />
         </Suspense>
       </div>
     </aside>
@@ -139,6 +139,16 @@ function Editor({ layout }: { layout: Layout }) {
       {phone && <PhoneBar />}
     </>
   );
+}
+
+/**
+ * Closes the «Recorte» panel; when the focus was in it, the focus goes back to what opens it («Quitar fondo» in
+ * the palette, or «Herramientas» on phones) instead of being lost with the panel.
+ */
+function closeCutout() {
+  const inside = !!document.activeElement?.closest('.fcut');
+  setUI({ cutout: false });
+  if (inside) requestAnimationFrame(() => (document.querySelector<HTMLElement>('.frail [data-tool="recorte"]') ?? document.querySelector<HTMLElement>('.fphone-bar [aria-expanded]'))?.focus({ preventScroll: true }));
 }
 
 /** Phones: play (when the project moves), the compare button and the hold-to-see-original, small, at the top of the art. */

@@ -65,6 +65,8 @@ function flags() {
 
 /** Opens a project (a new one, a saved one, one from a file): clean undo, its versions (or none). */
 export function openProject(p: Project, o: { versions?: VersionList; select?: Id[] } = {}): void {
+  // what the project being replaced still had waiting is written first (the autosaver reads the open project)
+  saver?.now();
   past = []; future = []; lastKey = ''; lastAt = 0;
   useProject.setState({
     project: p, versions: o.versions ?? emptyVersions(), selection: o.select ?? [], time: 0, canUndo: false, canRedo: false, storage: 'idle',
@@ -72,7 +74,7 @@ export function openProject(p: Project, o: { versions?: VersionList; select?: Id
 }
 
 export function closeProject(): void {
-  void saver?.flush();
+  saver?.now();
   past = []; future = [];
   useProject.setState({ project: null, versions: emptyVersions(), selection: [], canUndo: false, canRedo: false });
 }
@@ -228,15 +230,17 @@ export function commitVersion(kind: VersionKind, o: { label?: string; parent?: I
 }
 
 /**
- * Shows a version: the project becomes exactly the one it holds (every field, `updated` included), and
- * what was there is one undo step away.
+ * Shows a version: the project becomes exactly the one it holds (every field, `updated` included) except
+ * what names the project itself, its id and its name (a rename made after the version stays, as «Guardar
+ * como» keeps the copy's name in its versions), and what was there is one undo step away.
  */
 export function restoreVersion(id: Id): boolean {
   const vl = S().versions;
   const i = indexOfVersion(vl, id);
-  if (i < 0 || !S().project) return false;
+  const cur = S().project;
+  if (i < 0 || !cur) return false;
   const v = vl.list[i];
-  edit(() => projectOf(v), '', { stamp: false });
+  edit(() => ({ ...projectOf(v), id: cur.id, name: cur.name }), '', { stamp: false });
   useProject.setState({ versions: goV(S().versions, id) });
   return true;
 }
