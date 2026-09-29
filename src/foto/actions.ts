@@ -10,6 +10,7 @@ import { request } from './scheduler';
 import { projectThumb } from './thumbs';
 import { say, setUI, ui } from './ui';
 import { brightnessUnder } from './under';
+import { dismissHint } from './suggest';
 
 const P = () => useProject.getState();
 const seen = new Set<string>();
@@ -139,4 +140,6 @@ export function toggleCompare() {
 export function openCutout() {
   if (!useProject.getState().project?.sources.length) { say('Primero añade una foto: el recorte trabaja sobre ella.'); return; }
   setUI({ cutout: true, snap: 'closed' });
+  // the «Quitar fondo» recommendation has been answered: it does not stay over the art beside the panel
+  dismissHint();
 }
