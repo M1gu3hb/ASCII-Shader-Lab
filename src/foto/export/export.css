@@ -150,6 +150,7 @@
   .xp-fmt { grid-template-columns: 18px minmax(0, 1fr); }
   .xp-fl, .xp-alt { grid-column: 2; }
   .xp-fmt { min-height: 44px; }
+  .xp-alt { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .xp-view.busy .xp-pic, .xp-view.busy .xp-textbox { transition: none; }

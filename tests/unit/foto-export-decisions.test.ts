@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { firstSentence, formatsFor, usableFormat, type Facts } from '../../src/foto/export/formats';
 import { applyDestination, defaultPlan, frameCount, fpsOptions } from '../../src/foto/export/plan';
 import { memoryNote, paperPixels, placement, printText, resolveSize, sizeText } from '../../src/foto/export/sizes';
-import { nameList, svgDecision, type SvgLayerInfo } from '../../src/foto/export/svg';
+import { fontFaces, fontNote, nameList, svgDecision, withFonts, type SvgLayerInfo } from '../../src/foto/export/svg';
 import type { FormatInfo } from '../../src/video/index';
 
 const L = (o: Partial<SvgLayerInfo> & Pick<SvgLayerInfo, 'kind'>): SvgLayerInfo => ({ name: o.kind, finishes: [], mask: false, blend: 'normal', ...o });
@@ -139,6 +139,9 @@ describe('destinations', () => {
     expect(applyDestination(base, 'cartel', moving)).toMatchObject({ size: 'a4', dpi: 300, format: 'png', fit: 'contain' });
     expect(applyDestination(base, 'readme', moving)).toMatchObject({ format: 'readme', readmeText: 'g' });
     expect(applyDestination(base, 'presentacion', facts())).toMatchObject({ size: 'pantalla', fit: 'contain', format: 'png' });
+    // a video keeps its own proportion unless it is 16:9
+    expect(applyDestination(base, 'presentacion', { ...moving, aspect: 1.6 })).toMatchObject({ size: 'proyecto', format: 'mp4' });
+    expect(applyDestination(base, 'presentacion', { ...moving, aspect: 16 / 9 })).toMatchObject({ size: 'pantalla', format: 'mp4' });
   });
 
   it('web: the text player when the whole piece is one moving layer of characters; otherwise a light picture or a video', () => {
@@ -194,5 +197,22 @@ describe('sizes', () => {
     expect(a3.note).toMatch(/iPhone y iPad/);
     expect(memoryNote(9000, 3000, 2, true).note).toMatch(/8192 px/);
     expect(sizeText(2480, 3508)).toBe('2480 × 3508 px · 8,7 MP');
+  });
+});
+
+describe('fonts inside an SVG', () => {
+  it('embeds the studio\'s files for the fonts used, lists the others, and puts the rules after the title', async () => {
+    const asked: string[] = [];
+    const r = await fontFaces([{ font: 'jetbrains', weight: 500 }, { font: 'jetbrains', weight: 520 }, { font: 'serif', weight: 400 }, { font: 'Comic Sans', weight: 400 }, { font: 'system', weight: 400 }],
+      async url => { asked.push(url); return new Uint8Array([1, 2, 3]).buffer; });
+    expect(asked).toHaveLength(2);
+    expect(r.css).toContain('@font-face{font-family:"JetBrains Mono";src:url(data:font/woff;base64,AQID) format("woff");font-weight:500');
+    expect(r.css).toContain('font-family:"Instrument Serif"');
+    expect(r.embedded).toEqual(['JetBrains Mono 500', 'Instrument Serif 400']);
+    expect(r.missing).toEqual(['Comic Sans', 'Mono del sistema']);
+    expect(fontNote(r)).toMatch(/No van dentro/);
+    const svg = withFonts('<svg xmlns="http://www.w3.org/2000/svg">\n<title>t</title>\n<g/></svg>', r.css);
+    expect(svg.indexOf('<style>')).toBeGreaterThan(svg.indexOf('</title>'));
+    expect(withFonts('<svg a="1"><g/></svg>', 'x{}')).toBe('<svg a="1">\n<style>\nx{}\n</style><g/></svg>');
   });
 });

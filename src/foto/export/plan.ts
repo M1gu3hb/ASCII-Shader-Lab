@@ -36,6 +36,8 @@ export interface Plan {
   /** README: the glyph layer whose text goes in it (null = none) and the picture's width. */
   readmeText: string | null;
   readmeW: number;
+  /** SVGs carry the studio's font files (so they look the same in a browser). */
+  embedFonts: boolean;
 }
 
 export interface Destination {
@@ -52,7 +54,7 @@ export const DESTINATIONS: Destination[] = [
   { id: 'vertical', name: 'Vertical (historias)', what: '1080 × 1920 para historias, reels y shorts: video si se mueve, imagen si no.' },
   { id: 'cartel', name: 'Cartel para imprimir', what: 'A4, A3, Carta o Tabloide a 300 ppp, en PNG sin pérdida.' },
   { id: 'readme', name: 'README', what: 'Un README.md con la pieza (GIF o PNG) y su versión en texto, listo para GitHub.' },
-  { id: 'presentacion', name: 'Presentación', what: '1920 × 1080 (16:9) para diapositivas: la pieza completa, con bandas si su proporción es otra.' },
+  { id: 'presentacion', name: 'Presentación', what: 'Para diapositivas: una imagen 1920 × 1080 (16:9) con la pieza entera; un video a su propia proporción.' },
 ];
 
 export const destinationById = (id: string) => DESTINATIONS.find(d => d.id === id) ?? DESTINATIONS[0];
@@ -63,7 +65,7 @@ export function defaultPlan(p: { canvas: { transparent: boolean }; time: { durat
     dest: 'libre', what: 'resultado', target: null, format: 'png', size: 'proyecto', dpi: 300, orient: 'auto', fit: 'cover',
     t: Math.max(0, Math.min(t, dur)), start: 0, end: dur, fps: Math.min(60, Math.max(1, p.time.fps || 24)),
     transparent: p.canvas.transparent, loop: p.time.loop !== false, audio: 'keep', quality: 0.92,
-    gif: { colors: 256, dither: 'bayer', palette: 'global' }, depth: 'truecolor', readmeText: null, readmeW: 800,
+    gif: { colors: 256, dither: 'bayer', palette: 'global' }, depth: 'truecolor', readmeText: null, readmeW: 800, embedFonts: true,
   };
 }
 
@@ -105,11 +107,16 @@ export function applyDestination(plan: Plan, dest: DestId, facts: Facts): Plan {
       return { ...next, what: 'resultado', target: null, size: 'a4', dpi: 300, orient: 'auto', fit: 'contain', format: 'png' };
     case 'readme':
       return { ...next, what: 'resultado', target: null, format: 'readme', readmeText: glyph?.id ?? null, readmeW: 800 };
-    case 'presentacion':
+    case 'presentacion': {
+      // a still goes whole on the 16:9 slide (bands); a video keeps its own proportion unless it is 16:9
+      // already (a video that does not match is cropped, and a slide can hold a video of any shape)
+      const wide = Math.abs((facts.aspect ?? 16 / 9) - 16 / 9) < 0.01;
       return {
-        ...next, what: 'resultado', target: null, size: 'pantalla', fit: 'contain',
+        ...next, what: 'resultado', target: null, fit: 'contain',
+        size: moving && !wide ? 'proyecto' : 'pantalla',
         format: moving ? firstOf(facts, 'resultado', ['mp4', 'webm', 'png']) : firstOf(facts, 'resultado', ['png', 'jpeg']),
       };
+    }
   }
 }
 

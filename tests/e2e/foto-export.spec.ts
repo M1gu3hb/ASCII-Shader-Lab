@@ -311,7 +311,30 @@ test('una capa de caracteres animada: el .cast guarda los cuadros tal como se di
     const same = await textEqualsDrawn(page, id, t);
     expect(same.differ, `t=${t}: píxeles distintos (máx. ${same.max})`).toBe(0);
   }
+  // the web player: a snippet that plays these frames as text, with nothing fetched from anywhere
+  await sheet.getByRole('radio', { name: 'Web', exact: true }).click();
+  await pickWhat(page, sheet, /Caracteres de «Caracteres»/);
+  await pickFormat(sheet, 'Código para tu web');
+  const web = await exportNow(page, sheet);
+  expect(web.name).toMatch(/-web\.html$/);
+  const snippet = readFileSync(web.path, 'utf8');
+  await expect(sheet.locator('.xp-snip textarea')).toHaveValue(/glyphos-texto/);
+  const player = await page.context().newPage();
+  const requests: string[] = [];
+  player.on('request', r => { if (!r.url().startsWith('data:') && !r.url().startsWith('about:')) requests.push(r.url()); });
+  await player.emulateMedia({ reducedMotion: 'reduce' });
+  await player.setContent(`<!doctype html><meta charset="utf-8"><body style="margin:0;width:1200px">${snippet}</body>`);
+  const shown = () => player.evaluate(() => document.querySelector('.glyphos-texto pre')!.textContent!.split('\n').map(l => l.replace(/\s+$/, '')).join('\n').replace(/\n+$/, ''));
+  // with reduced motion: the last frame, still
+  expect(await shown()).toBe(want.texts[35].replace(/\n+$/, ''));
+  await player.locator('.glyphos-texto').click();
+  await expect.poll(shown, { timeout: 5000 }).not.toBe(want.texts[35].replace(/\n+$/, ''));
+  expect(want.texts.map((t: string) => t.replace(/\n+$/, ''))).toContain(await shown());
+  expect(requests).toEqual([]);
+  await player.close();
+
   // the player preview plays those frames
+  await sheet.getByRole('radio', { name: 'Terminal', exact: true }).click();
   await sheet.getByRole('button', { name: 'Reproducir los 36 cuadros' }).click();
   await expect(sheet.getByRole('button', { name: 'Parar la vista previa' })).toBeVisible();
   await sheet.getByRole('button', { name: 'Parar la vista previa' }).click();
@@ -424,5 +447,111 @@ test('la hoja dice los límites de cada formato; SVG vectorial sólo cuando es f
   const glyphText = await page.evaluate(id => (window as unknown as W).__fotoExport.frameText(id, 0), gid);
   expect(parsed.texts.join('').replace(/\s/g, '')).toContain(glyphText.text.replace(/\s/g, '').slice(0, 200));
   expect(parsed.paths).toBeGreaterThan(1);
+  expect(errors).toEqual([]);
+});
+
+/* ------------------------------------------------------------------ moving pictures (lane video) */
+
+/**
+ * Thresholds (the same as lane video's own spec, tests/e2e/video.spec.ts): the PNG sequence is lossless, so its
+ * frames must equal a fresh render at the same time (MAE ≤ 0.5 of 255: only the PNG round trip); video is lossy,
+ * 26 dB PSNR is the floor for «same picture, codec loss only», and each decoded frame must be closer to render(t)
+ * than to render(t ± one frame) — a one-frame shift fails that; GIF (256 colours, dithering): MAE ≤ 14.
+ */
+type MovieCmp = Array<{ t: number; mae: number; psnr: number; maePrev: number | null; maeNext: number | null; w: number; h: number }>;
+
+async function movieFormatsHere(page: Page): Promise<Array<{ format: string; available: boolean; alpha: boolean; audio: boolean }>> {
+  return page.evaluate(() => (window as unknown as W).__fotoExport.movieFormats());
+}
+
+function expectFrames(c: MovieCmp, o: { minPsnr?: number; maxMae?: number }) {
+  expect(c.length).toBeGreaterThanOrEqual(3);
+  for (const f of c) {
+    if (o.minPsnr !== undefined) expect(f.psnr, `t=${f.t}`).toBeGreaterThanOrEqual(o.minPsnr);
+    if (o.maxMae !== undefined) expect(f.mae, `t=${f.t}`).toBeLessThanOrEqual(o.maxMae);
+    if (f.maePrev !== null && Number.isFinite(f.maePrev)) expect(f.mae, `t=${f.t} frente al cuadro anterior`).toBeLessThan(f.maePrev);
+    if (f.maeNext !== null && Number.isFinite(f.maeNext)) expect(f.mae, `t=${f.t} frente al cuadro siguiente`).toBeLessThan(f.maeNext);
+  }
+}
+
+const b64 = (path: string) => readFileSync(path).toString('base64');
+const MIME: Record<string, string> = { mp4: 'video/mp4', webm: 'video/webm', gif: 'image/gif', zip: 'application/zip' };
+const NO_VIDEO = 'Esta rama todavía no tiene la exportación de video (src/video es el contrato vacío): se prueba cuando el carril «video» se fusione.';
+
+test('video, GIF y cuadros de una animación de foto: decodificados, son los cuadros del estudio', async ({ page }) => {
+  test.setTimeout(600_000);
+  const errors = await openFoto(page);
+  await fromTemplate(page, /Foto → ASCII completo/);
+  const id = await addGlyphLayer(page);
+  await page.evaluate(id => {
+    const F = (window as unknown as W).__foto;
+    F.ps.edit((d: { time: { duration: number; fps: number } }) => { d.time.duration = 1; d.time.fps = 12; });
+    F.ps.updateLayer(id, (l: { clips: unknown[] }) => { l.clips.push({ id: 'tecleo', template: 'escritura', start: 0, dur: 1, params: { unidad: 'linea' }, reverse: false, ease: { kind: 'linear' }, repeat: 1, pingpong: false }); });
+  }, id);
+  await finalRender(page);
+  const sheet = await openExport(page);
+  const formats = await movieFormatsHere(page);
+  test.skip(!formats.length, NO_VIDEO);
+  const p = await project(page);
+  for (const f of formats) {
+    const radio = sheet.locator(`input[name="xp-format"][value="${f.format}"]`);
+    if (!f.available) {
+      await expect(radio).toBeDisabled();
+      continue;
+    }
+    await radio.check();
+    await expect(sheet.locator('.xp-sum')).toContainText('12 cuadros');
+    const file = await exportNow(page, sheet);
+    const ext = file.name.split('.').pop()!;
+    const info = await page.evaluate(([d, t]) => (window as unknown as W).__fotoExport.inspectMovie(d, t), [b64(file.path), MIME[ext]] as const);
+    if (f.format === 'gif') { expect(info.gif.frames).toBe(12); expect([info.gif.w, info.gif.h]).toEqual([p.canvas.w, p.canvas.h]); }
+    else if (f.format === 'png-zip') { expect(info.zip.pngs).toBe(12); expect([info.zip.w, info.zip.h]).toEqual([p.canvas.w, p.canvas.h]); }
+    else { expect(info.video.frames).toBe(12); expect([info.video.w, info.video.h]).toEqual([p.canvas.w, p.canvas.h]); }
+    const cmp: MovieCmp = await page.evaluate(([d, t, w]) => (window as unknown as W).__fotoExport.compareMovie(d, t, { fps: 12, start: 0, end: 1, width: w, transparent: false }), [b64(file.path), MIME[ext], p.canvas.w] as const);
+    if (f.format === 'png-zip') expectFrames(cmp, { maxMae: 0.5 });
+    else if (f.format === 'gif') expectFrames(cmp, { maxMae: 14 });
+    else expectFrames(cmp, { minPsnr: 26 });
+    await expect(sheet.locator('.xp-res')).toContainText('Descargado:');
+  }
+  expect(errors).toEqual([]);
+});
+
+test('un video con sonido: MP4/WebM con el sonido del original y los cuadros del estudio', async ({ page }) => {
+  test.setTimeout(600_000);
+  const errors = await openFoto(page);
+  await fromTemplate(page, /Foto → ASCII completo/);
+  // the sheet's code (and its test hooks) loads with the sheet
+  let sheet = await openExport(page);
+  const formats = await movieFormatsHere(page);
+  test.skip(!formats.length, NO_VIDEO);
+  await page.keyboard.press('Escape');
+  const clip = await page.evaluate(() => (window as unknown as W).__fotoExport.makeVideoProject({ w: 320, h: 180, fps: 12, seconds: 1.5 }));
+  await finalRender(page);
+  sheet = await openExport(page);
+  await expect(sheet.locator('.xp-sum')).toContainText('18 cuadros');
+  const here = await movieFormatsHere(page);
+  let checked = 0;
+  for (const fmt of ['webm', 'mp4']) {
+    const radio = sheet.locator(`input[name="xp-format"][value="${fmt}"]`);
+    if (!(await radio.isEnabled())) continue;
+    await radio.check();
+    if (clip.sound) await sheet.getByRole('radio', { name: 'Conservar el del video' }).check();
+    const file = await exportNow(page, sheet);
+    const ext = file.name.split('.').pop()!;
+    const info = await page.evaluate(([d, t]) => (window as unknown as W).__fotoExport.inspectMovie(d, t), [b64(file.path), MIME[ext]] as const);
+    expect(info.video.frames).toBe(18);
+    expect([info.video.w, info.video.h]).toEqual([320, 180]);
+    // the sound: said after the export; when it went in, the tone is there and lasts as long as the picture
+    await expect(sheet.locator('.xp-res')).toContainText(/[Ss]onido/);
+    if (clip.sound && here.find(f => f.format === fmt)?.audio) {
+      expect(info.audio, 'el video exportado no trae sonido').toBeTruthy();
+      expect(info.audio.peak).toBeGreaterThan(0.2);
+      expect(Math.abs(info.audio.duration - info.video.duration)).toBeLessThan(0.1);
+    }
+    const cmp: MovieCmp = await page.evaluate(([d, t]) => (window as unknown as W).__fotoExport.compareMovie(d, t, { fps: 12, start: 0, end: 1.5, width: 320, transparent: false }), [b64(file.path), MIME[ext]] as const);
+    expectFrames(cmp, { minPsnr: 26 });
+    checked++;
+  }
+  expect(checked, 'ningún formato de video disponible aquí').toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });

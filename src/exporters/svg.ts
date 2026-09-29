@@ -42,6 +42,18 @@ const FILES: Record<string, Record<number, string>> = {
   martian: { 300: mm300, 400: mm400, 700: mm700, 800: mm800 },
 };
 
+/**
+ * The embeddable file (Latin subset, WOFF) of a catalog font at its weight nearest to the one asked for, or
+ * null when the catalog has no file for it (system fonts). For SVGs that carry their fonts.
+ */
+export function fontFile(fontId: string, weight: number): { url: string; weight: number } | null {
+  const files = FILES[fontId];
+  if (!files) return null;
+  const ws = Object.keys(files).map(Number);
+  const w = ws.reduce((a, b) => (Math.abs(b - weight) < Math.abs(a - weight) ? b : a), ws[0]);
+  return { url: files[w], weight: w };
+}
+
 interface OFont {
   unitsPerEm: number; ascender: number; descender: number;
   /** 0 = not in the font (.notdef). opentype's hasChar() is true for every character, so it can't be used. */

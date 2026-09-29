@@ -12,7 +12,7 @@ import { frameCount, readmeTextTime, type Plan } from './plan';
 import { exportSized, pngDataUrl, renderSized } from './render';
 import { glyphFrameAt, glyphFrames, frameSession, Cancelled } from './frames';
 import { notesText } from './frameGrid';
-import { compositionSvg, rasterSvg, type SvgDecision, type SvgLayerPart } from './svg';
+import { compositionSvg, fontFaces, fontNote, fontsOf, rasterSvg, withFonts, type SvgDecision, type SvgLayerPart } from './svg';
 import { movingText, readmeMarkdown, stillText, type MovingTextFormat, type StillTextFormat } from './text';
 import { resolveSize, type ResolvedSize } from './sizes';
 
@@ -36,6 +36,13 @@ export interface JobContext {
 }
 
 const MOVIES = new Set<string>(['mp4', 'webm', 'gif', 'png-zip']);
+
+const AUDIO_NOTE: Record<string, string> = {
+  copied: 'Sonido: el del video original, copiado tal cual y en sincronía.',
+  reencoded: 'Sonido: el del video original, convertido para que quepa en este formato.',
+  none: '',
+  unsupported: 'Sin sonido: este navegador no puede llevar el sonido del video a este formato (el video sí se exportó).',
+};
 
 const check = (s: AbortSignal) => { if (s.aborted) throw new Cancelled(); };
 
@@ -101,8 +108,14 @@ export async function runJob(p: Project, plan: Plan, ctx: JobContext): Promise<J
   if (plan.format === 'svg') {
     if (!ctx.svg?.decision.vector) throw new Error(`Aquí un SVG no sería fiel: ${ctx.svg?.decision.reasons.join(' ') ?? ''}`);
     say('Escribiendo el SVG…');
-    const text = compositionSvg({ w: p.canvas.w, h: p.canvas.h, bg: p.canvas.bg, transparent: plan.transparent, title: p.name, parts: ctx.svg.parts });
-    return { files: [{ name: exportName(p, 'svg'), blob: new Blob([text], { type: 'image/svg+xml' }) }], notes: ctx.svg.decision.notes };
+    let text = compositionSvg({ w: p.canvas.w, h: p.canvas.h, bg: p.canvas.bg, transparent: plan.transparent, title: p.name, parts: ctx.svg.parts });
+    const notes = [...ctx.svg.decision.notes];
+    if (plan.embedFonts) {
+      const f = await fontFaces(fontsOf(ctx.svg.parts));
+      text = withFonts(text, f.css);
+      if (fontNote(f)) notes.push(fontNote(f));
+    }
+    return { files: [{ name: exportName(p, 'svg'), blob: new Blob([text], { type: 'image/svg+xml' }) }], notes };
   }
   if (plan.format === 'svg-img') {
     say('Dibujando la imagen para el SVG…');
@@ -135,12 +148,24 @@ async function movieJob(p: Project, plan: Plan, ctx: JobContext, size: ResolvedS
     onProgress: pr => ctx.onProgress(pr), signal: ctx.signal,
   });
   const notes = [...res.notes];
-  if (!size.sameAspect) notes.push('La proporción era otra: el video se recortó al centro.');
-  const out: JobOutput = { files: [{ name: res.name || exportName(p, format === 'png-zip' ? 'zip' : format), blob: res.blob }], notes };
+  // what happened to the sound, said once (lane video's notes may already say it)
+  if (video && !notes.some(n => /sonido|audio/i.test(n))) {
+    const say = AUDIO_NOTE[res.audio];
+    if (say && !(res.audio === 'none' && plan.audio === 'none')) notes.push(say);
+  }
+  if (plan.audio === 'none' && video && res.audio !== 'none') notes.push('Sin sonido, como pediste.');
+  if (!size.sameAspect) notes.push('La proporción era otra: la imagen se recortó al centro.');
+  const name = res.name || exportName(p, format === 'png-zip' ? 'zip' : format);
+  const out: JobOutput = { files: [{ name, blob: res.blob }], notes };
   if (plan.dest === 'web' && (format === 'webm' || format === 'mp4')) {
     out.snippet = {
       label: 'Para tu web (es un video: el efecto no corre fuera del estudio)',
-      code: `<video src="${res.name}" autoplay muted loop playsinline width="${size.w}" height="${size.h}" style="max-width:100%;height:auto"></video>`,
+      code: `<video src="${name}" autoplay muted loop playsinline width="${size.w}" height="${size.h}" style="max-width:100%;height:auto"></video>`,
+    };
+  } else if (plan.dest === 'web' && format === 'gif') {
+    out.snippet = {
+      label: 'Para tu web (es un GIF: una imagen animada, no el efecto)',
+      code: `<img src="${name}" alt="${p.name.replace(/"/g, '&quot;')}" width="${size.w}" height="${size.h}" style="max-width:100%;height:auto">`,
     };
   }
   return out;
@@ -164,7 +189,13 @@ async function textJob(p: Project, plan: Plan, ctx: JobContext): Promise<JobOutp
       const f = await glyphFrameAt(p, id, plan.t, s);
       if (!f) throw new Error('Falta la imagen de esta capa: no hay caracteres que escribir.');
       const out = stillText(f, plan.format as StillTextFormat, { depth: plan.depth, title: layer.name });
-      return { files: [{ name: exportName(p, out.ext, what), blob: new Blob([out.text], { type: out.mime + ';charset=utf-8' }) }], notes: notesText(f.notes) };
+      const notes = notesText(f.notes);
+      if (plan.format === 'svg-text' && plan.embedFonts) {
+        const ff = await fontFaces([{ font: f.style.font, weight: f.style.weight }]);
+        out.text = withFonts(out.text, ff.css);
+        if (fontNote(ff)) notes.push(fontNote(ff));
+      }
+      return { files: [{ name: exportName(p, out.ext, what), blob: new Blob([out.text], { type: out.mime + ';charset=utf-8' }) }], notes };
     } finally { s.release(); }
   }
   if (MOVING_TEXT.has(plan.format)) {

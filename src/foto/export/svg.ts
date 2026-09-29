@@ -9,6 +9,8 @@
  * svgDecision is pure (unit-tested). compositionSvg measures text with a Canvas 2D context in the browser
  * (the same measurements drawText uses, so lines break where the studio breaks them).
  */
+import { FONTS } from '../../engine/catalog';
+import { fontFile } from '../../exporters/svg';
 import { fontStack, fontWeight, wrapText } from '../../project/draw2d';
 import type { Layer, ShapeLayer, TextLayer } from '../../project/types';
 import { gridToSvgText, type GlyphGrid } from '../../glyphs/index';
@@ -303,4 +305,71 @@ export function rasterSvg(o: { w: number; h: number; title: string; png: string;
 <image width="${o.w}" height="${o.h}" xlink:href="${o.png}" href="${o.png}"/>
 </svg>
 `;
+}
+
+/* ------------------------------------------------------------------ fonts inside the SVG */
+
+export interface FontUse { font: string; weight: number }
+
+/** The fonts a composition's parts draw with. */
+export function fontsOf(parts: SvgLayerPart[]): FontUse[] {
+  const out: FontUse[] = [];
+  for (const { layer: l, glyph } of parts) {
+    if (l.kind === 'text') out.push({ font: l.font, weight: l.weight });
+    if (l.kind === 'shape' && l.label?.text) out.push({ font: l.label.font, weight: 500 });
+    if (l.kind === 'glyphs' && glyph) out.push({ font: glyph.style.font, weight: glyph.style.weight });
+  }
+  return out;
+}
+
+function base64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+/**
+ * @font-face rules with the studio's own font files (Latin subsets, from this site) for the fonts used, so a
+ * browser shows the SVG with them. Fonts that are not the studio's (the system's, a family typed by hand)
+ * cannot go in: they are listed.
+ */
+export async function fontFaces(uses: FontUse[], fetcher: (url: string) => Promise<ArrayBuffer> = u => fetch(u).then(r => r.arrayBuffer())): Promise<{ css: string; embedded: string[]; missing: string[] }> {
+  const rules: string[] = [];
+  const embedded: string[] = [], missing: string[] = [];
+  const seen = new Set<string>();
+  for (const u of uses) {
+    const def = FONTS.find(f => f.id === u.font);
+    const file = def?.family ? fontFile(u.font, u.weight) : null;
+    const key = file ? `${u.font}@${file.weight}` : u.font;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!def?.family || !file) { missing.push(def?.name ?? u.font); continue; }
+    try {
+      const data = base64(await fetcher(file.url));
+      rules.push(`@font-face{font-family:"${def.family}";src:url(data:font/woff;base64,${data}) format("woff");font-weight:${file.weight};font-style:normal}`);
+      embedded.push(`${def.name} ${file.weight}`);
+    } catch {
+      missing.push(def.name);
+    }
+  }
+  return { css: rules.join('\n'), embedded, missing };
+}
+
+/** The SVG with a <style> of font rules right after its opening tag (and title, if any). */
+export function withFonts(svg: string, css: string): string {
+  if (!css) return svg;
+  const style = `<style>\n${css}\n</style>`;
+  const i = svg.indexOf('>', svg.indexOf('<svg'));
+  const title = svg.indexOf('</title>');
+  const at = title > 0 ? title + '</title>'.length : i + 1;
+  return svg.slice(0, at) + '\n' + style + svg.slice(at);
+}
+
+/** Spanish note on what went into the file. */
+export function fontNote(r: { embedded: string[]; missing: string[] }): string {
+  const parts: string[] = [];
+  if (r.embedded.length) parts.push(`Fuentes dentro del SVG: ${r.embedded.join(', ')} (sólo letras latinas; bloques, braille u otros alfabetos usan las fuentes de quien lo abre).`);
+  if (r.missing.length) parts.push(`No van dentro (no son del estudio): ${[...new Set(r.missing)].join(', ')}; se verán con las fuentes de quien lo abra.`);
+  return parts.join(' ');
 }

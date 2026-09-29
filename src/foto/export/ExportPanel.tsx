@@ -27,7 +27,7 @@ import { runJob, planSize, type JobOutput, type Progress } from './jobs';
 import { applyDestination, defaultPlan, DESTINATIONS, destinationById, fpsOptions, frameCount, readmeTextTime, type DestId, type Plan } from './plan';
 import { Preview, type PreviewData } from './Preview';
 import { renderSized } from './render';
-import { compositionSvg } from './svg';
+import { compositionSvg, fontFaces, fontsOf, withFonts } from './svg';
 import { stillText } from './text';
 import { memoryNote, PRINT_DPI, printText, resolveSize, SIZE_PRESETS, sizeText, type Dpi, type Fit, type Orient, type SizeId } from './sizes';
 import './export.css';
@@ -215,7 +215,9 @@ export function ExportPanel({ p }: { p: Project }) {
           if (plan.format === 'svg' && base?.svg.vector) {
             const sv = await svgFacts(p, previewT, session);
             if (sv.decision.vector) {
-              const text = compositionSvg({ w: p.canvas.w, h: p.canvas.h, bg: p.canvas.bg, transparent: plan.transparent, title: p.name, parts: sv.parts });
+              let text = compositionSvg({ w: p.canvas.w, h: p.canvas.h, bg: p.canvas.bg, transparent: plan.transparent, title: p.name, parts: sv.parts });
+              // (an SVG shown as an image sees no fonts but its own: the preview carries them as the file will)
+              if (plan.embedFonts) text = withFonts(text, (await fontFaces(fontsOf(sv.parts))).css);
               return { kind: 'image', url: URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' })), w: p.canvas.w, h: p.canvas.h, alpha: plan.transparent, label: 'Vista previa del SVG' };
             }
           }
@@ -252,6 +254,7 @@ export function ExportPanel({ p }: { p: Project }) {
           if (!f) return { kind: 'none', message: 'Falta la imagen de esta capa.' };
           if (plan.format === 'svg-text') {
             const out = stillText(f, 'svg-text');
+            if (plan.embedFonts) out.text = withFonts(out.text, (await fontFaces([{ font: f.style.font, weight: f.style.weight }])).css);
             return { kind: 'image', url: URL.createObjectURL(new Blob([out.text], { type: 'image/svg+xml' })), w: p.canvas.w, h: p.canvas.h, alpha: !f.paper, label: 'Vista previa del SVG con texto' };
           }
           return { kind: 'text', grid: f.grid, style: f.style, bg: f.bg };
@@ -284,7 +287,12 @@ export function ExportPanel({ p }: { p: Project }) {
     // (the preview follows everything it shows)
   }, [p, plan, previewT, box.w, matchMedia('(max-width: 900px)').matches ? 0 : box.h, base?.svg.vector]); // eslint-disable-line react-hooks/exhaustive-deps
   // object URLs of image previews go when replaced
-  useEffect(() => () => { if (preview && (preview.kind === 'image')) URL.revokeObjectURL(preview.url); if (preview?.kind === 'files' && preview.thumb) URL.revokeObjectURL(preview.thumb); }, [preview]);
+  useEffect(() => () => {
+    if (preview?.kind === 'image') URL.revokeObjectURL(preview.url);
+    if (preview?.kind === 'files' && preview.thumb) URL.revokeObjectURL(preview.thumb);
+    // (a replaced preview canvas is out of the page by now: its memory goes at once)
+    if (preview?.kind === 'picture') preview.canvas.width = preview.canvas.height = 0;
+  }, [preview]);
 
   /* ---------------------------------------------------------------- export */
   const [job, setJob] = useState<JobState>({ state: 'idle' });
@@ -426,6 +434,10 @@ export function ExportPanel({ p }: { p: Project }) {
                   : !plan.transparent ? 'Lo que no cubre ninguna capa queda transparente (en lugar del fondo del proyecto).'
                     : alphaInside === false ? 'Las capas lo cubren todo: aunque esté activado, en este cuadro no queda nada transparente.'
                       : 'La composición tiene zonas transparentes: el archivo las conserva.'} />
+          )}
+          {(fmt?.id === 'svg' || fmt?.id === 'svg-text') && fmt.available && (
+            <Toggle label="Incrustar las fuentes" checked={plan.embedFonts} onChange={v => up({ embedFonts: v })}
+              hint={plan.embedFonts ? 'El SVG lleva los archivos de las fuentes del estudio (letras latinas): se ve igual en cualquier navegador; pesa más.' : 'Más ligero; quien lo abra lo verá con sus fuentes (o parecidas).'} />
           )}
           {(fmt?.id === 'jpeg' || fmt?.id === 'webp') && (
             <Slider label="Calidad" value={plan.quality} min={0.5} max={1} step={0.01} fmt={v => Math.round(v * 100) + ' %'} onChange={v => up({ quality: v })} hint="Menos calidad, archivo más ligero." />

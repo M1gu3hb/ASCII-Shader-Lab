@@ -81,7 +81,7 @@ export async function baseFacts(p: Project, t: number, s: FrameSession, transpar
   const [stills, svg] = await Promise.all([stillCaps(), svgFacts(p, t, s)]);
   return {
     moving: projectMoves(p), duration: p.time.duration, transparent, stills,
-    glyphs: glyphFacts(p), shaderAscii: p.layers.filter(l => l.kind === 'ascii').length, soloGlyph: soloGlyph(p),
+    glyphs: glyphFacts(p), shaderAscii: p.layers.filter(l => l.kind === 'ascii').length, soloGlyph: soloGlyph(p), aspect: p.canvas.w / p.canvas.h,
     svg: svg.decision, svgParts: svg.parts,
   };
 }

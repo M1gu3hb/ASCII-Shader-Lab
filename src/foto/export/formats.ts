@@ -63,6 +63,8 @@ export interface Facts {
   shaderAscii: number;
   /** The only visible layer, when it is a glyph layer (the whole piece is that text: it can run as code). */
   soloGlyph: string | null;
+  /** The project's proportion (width / height), for destinations that pick a size. */
+  aspect?: number;
   svg: SvgDecision;
 }
 
