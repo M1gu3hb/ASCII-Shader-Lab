@@ -34,9 +34,13 @@ test('el archivo del proyecto (.glyphos.zip) se abre igual; proyectos recientes 
   const errors = await openFoto(page);
   await page.locator('.fs-tpl-main', { hasText: /Zonas circulares/ }).click();
   await finalRender(page);
+  // a second version: the file carries the project as it is, its versions stay in this browser (and it says so)
+  await page.locator('.fdeck .act.dice').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __foto: { store(): { versions: { list: unknown[] } } } }).__foto.store().versions.list.length)).toBe(2);
   const p = await project(page);
   const h = await settle(page);
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Guardar' })).toContainText('Las versiones y las favoritas no van en el archivo');
   const file = await download(page, () => page.getByRole('button', { name: 'Descargar el proyecto (.glyphos.zip)' }).click());
   expect(file.name).toBe('zonas-circulares.glyphos.zip');
   mkdirSync(test.info().outputDir, { recursive: true });
@@ -57,6 +61,7 @@ test('el archivo del proyecto (.glyphos.zip) se abre igual; proyectos recientes 
   expect(q.id).not.toBe(p.id);
   expect(q.layers.map(l => [l.kind, l.name])).toEqual(p.layers.map(l => [l.kind, l.name]));
   expect((await settle(page)).hash).toBe(h.hash);
+  expect(await page.evaluate(() => (window as unknown as { __foto: { store(): { versions: { list: unknown[] } } } }).__foto.store().versions.list.length)).toBe(1);
 
   // recent projects: duplicate, rename, delete and undo
   await page.getByRole('button', { name: 'Proyectos' }).click();

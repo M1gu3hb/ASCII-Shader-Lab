@@ -406,7 +406,7 @@ export function SaveAsSheet() {
           <button type="submit" className="btn">Guardar como copia nueva</button>
         </form>
         <h3 className="data-h">Archivo del proyecto</h3>
-        <p className="note">Un .glyphos.zip con las capas, las máscaras, las versiones actuales y tus fotos originales: se abre aquí o en otro navegador con «Abrir un proyecto».</p>
+        <p className="note">Un .glyphos.zip con el proyecto tal como está (capas, máscaras, animación) y tus fotos originales: se abre aquí o en otro navegador con «Abrir un proyecto». Las versiones y las favoritas no van en el archivo: se quedan en este navegador.</p>
         <button type="button" className="btn" onClick={() => void downloadProjectFile()}>Descargar el proyecto (.glyphos.zip)</button>
       </div>
     </Sheet>
