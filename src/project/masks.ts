@@ -339,9 +339,11 @@ export function combine(acc: Float32Array, c: Float32Array, op: MaskOp): void {
 /** The whole mask as coverage 0..1 per pixel (row-major, w·h). */
 export function rasterizeMask(mask: Mask, inp: MaskInputs): Float32Array {
   const { w, h } = inp;
-  const first = mask.parts[0];
+  // hidden parts (off) are kept in the list but take no part
+  const parts = mask.parts.filter(p => !p.off);
+  const first = parts[0];
   const acc = new Float32Array(w * h).fill(!first || first.op !== 'add' ? 1 : 0);
-  for (const part of mask.parts) {
+  for (const part of parts) {
     const c = partCoverage(part, inp);
     // a part whose picture is missing counts as empty (an add adds nothing; an intersect leaves nothing)
     combine(acc, c ?? new Float32Array(w * h), part.op);

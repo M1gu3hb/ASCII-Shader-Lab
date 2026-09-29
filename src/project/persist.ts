@@ -77,6 +77,17 @@ export async function saveProject(p: Project, o: { thumb?: string; versions?: Ve
   }
 }
 
+/**
+ * Replaces only the thumbnail of a saved project's summary (the project itself is not written): a picture
+ * made after a save, without holding the save up while it renders.
+ */
+export async function saveThumb(id: Id, thumb: string): Promise<void> {
+  try {
+    const s = await get<ProjectSummary>(S + id, store());
+    if (s) await set(S + id, { ...s, thumb }, store());
+  } catch { /* storage unavailable */ }
+}
+
 /** A saved project (normalised), or null. */
 export async function loadProject(id: Id): Promise<Project | null> {
   try {
