@@ -106,6 +106,15 @@ export async function openPreviewVideo(blob: Blob, maxSide = 1920): Promise<Vide
   };
 }
 
+/**
+ * How far past t a frame may start and still count as the frame at t (seconds). Containers store timestamps in
+ * ticks (WebM: 1 ms), so the frame shown from 86/30 s is stored at 2.867 s, after 2.8667: asked for exactly t, the
+ * last frame starting at or before t is the one before it, and a 30 fps export of a 30 fps video repeated every
+ * third frame and skipped the next one. One millisecond covers the rounding (at most half a tick of 1 ms) and is
+ * far below a frame at any real frame rate.
+ */
+export const FRAME_EPS = 1e-3;
+
 /** Frame-exact video frames with mediabunny (WebCodecs). Null when this browser cannot decode the file. */
 export async function openExactVideo(blob: Blob, maxSide = 3840): Promise<VideoFrameProvider | null> {
   if (typeof VideoDecoder === 'undefined' || typeof document === 'undefined') return null;
@@ -130,7 +139,7 @@ export async function openExactVideo(blob: Blob, maxSide = 3840): Promise<VideoF
         const target = Math.max(0, t);
         if (target === last) return true;
         // the file's clock may not start at 0: frames are asked for at its first timestamp + t
-        const wc = await sink.getCanvas(first + target) ?? await sink.getCanvas(first);
+        const wc = await sink.getCanvas(first + target + FRAME_EPS) ?? await sink.getCanvas(first);
         if (!wc || closed) return false;
         ctx.clearRect(0, 0, size.w, size.h);
         ctx.drawImage(wc.canvas as CanvasImageSource, 0, 0, size.w, size.h);
