@@ -12,7 +12,7 @@
  *                  provider, for the video and GIF exporters of a later round;
  *   thumbnail      a small picture of the project (versions, the project list).
  */
-import { Compositor, sourceFit, type RenderReport } from './compositor';
+import { Compositor, rasterRefsAt, sourceFit, type RenderReport } from './compositor';
 import { fitRect } from './adjust';
 import { evaluate, frameTimes } from './evaluate';
 import { maskCanvas, coverageOfImage, coverageToGrey } from './masks';
@@ -118,7 +118,9 @@ export async function exportMask(p: Project, layerId: Id, o: { t?: number; width
   const provider = o.compositor?.provider ?? createSourceProvider({ video: 'exact' });
   try {
     for (const part of mask.parts) {
-      if (part.kind === 'raster') for (const m of [part.media, ...(part.frames ?? []).map(f => f.media)]) await provider.prepareMedia(m);
+      // only the stored picture(s) the part shows at t: decoding every frame of a tracked mask pushed the ones
+      // needed at t out of the provider's pictures (it keeps a few), and the mask came out empty
+      if (part.kind === 'raster') for (const m of rasterRefsAt(part, t)) await provider.prepareMedia(m);
       if (part.kind === 'color') { const s = p.sources.find(x => x.id === part.source); if (s) await provider.prepare(s, t); }
     }
     const m = maskCanvas(mask, {

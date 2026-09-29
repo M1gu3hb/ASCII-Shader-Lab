@@ -116,6 +116,15 @@ export async function openPreviewVideo(blob: Blob, maxSide = 1920): Promise<Vide
  */
 export const FRAME_EPS = 1e-3;
 
+/**
+ * The timestamp a decoder is asked for the frame shown at t seconds into a video (`first`: the track's first
+ * timestamp): t on the file's own clock, as the video element plays it, so the preview and the export show the
+ * same frame. A picture that starts after 0 shows its first frame until then; frames before 0 are never shown
+ * (an MP4 trimmed without re-encoding keeps the cut-away part as pre-roll with negative timestamps: asking for
+ * first + t exported that part and lost the end).
+ */
+export const fileTime = (t: number, first: number) => Math.max(first, Math.max(0, t)) + FRAME_EPS;
+
 /** Frame-exact video frames with mediabunny (WebCodecs). Null when this browser cannot decode the file. */
 export async function openExactVideo(blob: Blob, maxSide = 3840): Promise<VideoFrameProvider | null> {
   if (typeof VideoDecoder === 'undefined' || typeof document === 'undefined') return null;
@@ -134,13 +143,13 @@ export async function openExactVideo(blob: Blob, maxSide = 3840): Promise<VideoF
     const inp = input;
     let last = NaN, closed = false;
     return {
-      kind: 'exact', width: dw, height: dh, duration: Math.max(0, duration - first), canvas,
+      kind: 'exact', width: dw, height: dh, duration: Math.max(0, duration), canvas,
       async seek(t) {
         if (closed) return false;
         const target = Math.max(0, t);
         if (target === last) return true;
-        // the file's clock may not start at 0: frames are asked for at its first timestamp + t
-        const wc = await sink.getCanvas(first + target + FRAME_EPS) ?? await sink.getCanvas(first);
+        // the file's own clock, as the video element plays it (see fileTime)
+        const wc = await sink.getCanvas(fileTime(target, first)) ?? await sink.getCanvas(first);
         if (!wc || closed) return false;
         ctx.clearRect(0, 0, size.w, size.h);
         ctx.drawImage(wc.canvas as CanvasImageSource, 0, 0, size.w, size.h);

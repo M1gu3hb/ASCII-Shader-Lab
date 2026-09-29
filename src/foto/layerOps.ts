@@ -83,6 +83,8 @@ export function replaceSource(layerId: Id, ref: MediaRef, o: { duration?: number
     (l as { source: string }).source = s.id;
     // every layer that read the old picture now reads the new one (ASCII over the photo keeps following it)
     for (const x of d.layers) if ('source' in x && (x as { source: string }).source === old) (x as { source: string }).source = s.id;
+    // and colour masks that read it (left on a removed source, they came out empty: the layer vanished)
+    for (const x of d.layers) for (const part of x.mask?.parts ?? []) if (part.kind === 'color' && part.source === old) part.source = s.id;
     if (!d.layers.some(x => 'source' in x && (x as { source: string }).source === old)) d.sources = d.sources.filter(x => x.id !== old);
   });
   say('Foto cambiada: las capas que la leían ahora leen la nueva.');

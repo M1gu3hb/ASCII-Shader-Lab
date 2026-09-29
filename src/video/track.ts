@@ -28,7 +28,7 @@
 import { sourceFit } from '../project/compositor';
 import { fitRect } from '../project/adjust';
 import { sourceTime } from '../project/evaluate';
-import { FRAME_EPS, keepBlob, openPreviewVideo, storeBlob, type BlobResolver } from '../project/sources';
+import { fileTime, keepBlob, openPreviewVideo, storeBlob, type BlobResolver } from '../project/sources';
 import type { MediaRef } from '../engine/recipe';
 import type { MaskRasterPart, Project, Source } from '../project/types';
 import { put } from '../studio/mediaStore';
@@ -142,7 +142,7 @@ async function openReader(s: Source, blobOf: BlobResolver): Promise<Reader> {
       const sink = new mb.CanvasSink(track, { width: Math.max(1, Math.round(dw * k)), height: Math.max(1, Math.round(dh * k)), fit: 'fill', poolSize: 2 });
       return {
         async *frames(times) {
-          for await (const wc of sink.canvasesAtTimestamps(times.map(t => first + Math.max(0, t) + FRAME_EPS))) yield (wc?.canvas as CanvasImageSource) ?? null;
+          for await (const wc of sink.canvasesAtTimestamps(times.map(t => fileTime(t, first)))) yield (wc?.canvas as CanvasImageSource) ?? null;
         },
         close: () => input.dispose(),
       };

@@ -4,7 +4,7 @@
  */
 import { cellColors, ensureGlyphFont, glyphGridWith, gridDims, sampleOf, type GlyphGrid } from '../../glyphs/index';
 import type { CellGrid } from '../../project/clips';
-import { Compositor, sourceFit } from '../../project/compositor';
+import { Compositor, rasterRefsAt, sourceFit } from '../../project/compositor';
 import { fitRect } from '../../project/adjust';
 import { evaluate, frameTimes, type LayerFrame } from '../../project/evaluate';
 import { coverageOfImage, rasterizeMask } from '../../project/masks';
@@ -53,7 +53,8 @@ async function maskCells(p: Project, lf: LayerFrame, t: number, W: number, H: nu
   let acc: Float32Array | null = null;
   for (const m of masks) {
     for (const part of m.parts) {
-      if (part.kind === 'raster') for (const r of [part.media, ...(part.frames ?? []).map(f => f.media)]) await s.provider.prepareMedia(r);
+      // only what the part shows at t (all the frames of a tracked mask pushed those out of the provider)
+      if (part.kind === 'raster') for (const r of rasterRefsAt(part, t)) await s.provider.prepareMedia(r);
       if (part.kind === 'color') { const src = p.sources.find(x => x.id === part.source); if (src) await s.provider.prepare(src, t); }
     }
     const cov = rasterizeMask(m, {

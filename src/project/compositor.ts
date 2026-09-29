@@ -292,13 +292,20 @@ export class Compositor {
     const rw = Math.max(1, Math.round(state.w * scale)), rh = Math.max(1, Math.round(state.h * scale));
     const quality = o.quality ?? (scale >= 1 ? 'final' : 'preview');
     const transparent = o.transparent ?? state.transparent;
-    const frames = o.only ? state.layers.filter(l => o.only!.includes(l.layer.id)) : state.layers;
+    const chosen = (lf: LayerFrame) => !o.only || o.only.includes(lf.layer.id);
+    // a chosen layer that reads the picture under it ('below') reads the whole composition under it, as in the
+    // full render: the layers under it are drawn aside (in `under`), not into the output («Capa sola» of an
+    // ASCII layer over its photo is the characters of that photo, not of an empty frame)
+    let last = -1;
+    state.layers.forEach((lf, i) => { if (chosen(lf)) last = i; });
+    const aside = !!o.only && state.layers.some(lf => chosen(lf) && readsBelow(lf.layer));
+    const frames = aside ? state.layers.slice(0, last + 1) : state.layers.filter(chosen);
     const report: RenderReport = { w: rw, h: rh, t: state.t, ms: 0, layers: [], warnings: [], missing: [], engines: { webgl2: 0, basic: 0, shared: false } };
 
     // what each layer's picture is made of (null: drawn anew every time), and which are kept already
     const cacheOn = !o.sequential && rw * rh <= CACHE_MAX_PX;
     // (the chain of 'below' keys counts every layer; cheap layers are drawn again instead of kept)
-    const keys = (cacheOn ? this.frameKeys(state, frames, rw, rh, scale, quality, transparent) : frames.map(() => null))
+    const keys = (cacheOn ? this.frameKeys(state, frames, rw, rh, scale, quality, aside ? state.transparent : transparent) : frames.map(() => null))
       .map((k, i) => (k && worthKeeping(frames[i]) ? k : null));
     const size = `${rw}x${rh}`;
     const kept = frames.map((lf, i) => {
@@ -327,12 +334,19 @@ export class Compositor {
       fitted.set(k, c);
       return c;
     };
+    // the composition as the full render has it, when chosen layers read what is under them (see `aside`)
+    const under = aside ? canvas2d(rw, rh) : null;
+    if (under && !state.transparent) { under.x.fillStyle = state.bg; under.x.fillRect(0, 0, rw, rh); }
     for (let i = 0; i < frames.length; i++) {
       const lf = frames[i];
-      const ts = performance.now();
-      const note = this.drawLayer(lf, state, ctx, target, rw, rh, scale, quality, !!o.sequential, fit, keys[i]);
-      report.layers.push({ id: lf.layer.id, kind: lf.layer.kind, ms: Math.round((performance.now() - ts) * 10) / 10, ...(note ? { note } : {}) });
+      if (chosen(lf)) {
+        const ts = performance.now();
+        const note = this.drawLayer(lf, state, ctx, under ? under.c : target, rw, rh, scale, quality, !!o.sequential, fit, keys[i]);
+        report.layers.push({ id: lf.layer.id, kind: lf.layer.kind, ms: Math.round((performance.now() - ts) * 10) / 10, ...(note ? { note } : {}) });
+      }
+      if (under && i < frames.length - 1) this.drawLayer(lf, state, under.x, under.c, rw, rh, scale, quality, !!o.sequential, fit, keys[i]);
     }
+    if (under) { under.c.width = 0; under.c.height = 0; }
     for (const c of fitted.values()) if (c) { c.width = 0; c.height = 0; }
     // a print-size render keeps nothing: the canvases used while drawing go now instead of waiting for the next render
     if (rw * rh > CACHE_MAX_PX) this.freeScratch();
@@ -616,7 +630,7 @@ export class Compositor {
     if (cpu) {
       const data = target.getImageData(0, 0, rw, rh);
       if (css !== 'none' && !gpu) cssAdjustCpu(data.data, rw, rh, a, scale);
-      if (needsTone(a)) toneCpu(data.data, rw, rh, a);
+      if (needsTone(a)) toneCpu(data.data, rw, rh, a, scale);
       target.putImageData(data, 0, 0);
       x.drawImage(target.canvas, 0, 0);
     }
@@ -903,6 +917,9 @@ function worthKeeping(lf: LayerFrame): boolean {
   if (l.kind !== 'text' && l.kind !== 'shape') return true;
   return l.finishes.some(f => f.on && f.amount > 0);
 }
+
+/** Whether a layer's picture is made from the composition under it. */
+const readsBelow = (l: Layer) => (l.kind === 'ascii' || l.kind === 'glyphs') && l.source === 'below';
 
 function freeSlot(sl: Slot) {
   for (const c of [sl.lc, sl.mc]) if (c) { c.width = 0; c.height = 0; }

@@ -110,6 +110,24 @@ describe('project file', () => {
     expect(!rec.ok && rec.message).toMatch(/laboratorio/);
   });
 
+  it('a lab project is told apart without reading its picture (a damaged or huge one does not lose the recipe)', async () => {
+    const r = defaultRecipe();
+    r.meta.name = 'Con foto';
+    r.source = 'image';
+    r.media.ref = { id: 'a1b2c3d4e5f60718', kind: 'image', name: 'foto.png', type: 'image/png', w: 64, h: 64 };
+    const pic = new Uint8Array(4096).map((_, i) => i & 255);
+    const good = new Uint8Array(await (await buildProject(r, { name: 'foto.png', type: 'image/png', data: pic })).arrayBuffer());
+    // the picture's bytes damaged (its CRC no longer matches): reading it would fail, as a zip bomb or a
+    // 200 MB video would cost the whole file in memory just to say «this is a lab project»
+    const at = good.findIndex((_, i) => good[i] === 0 && good[i + 1] === 1 && good[i + 2] === 2 && good[i + 3] === 3 && good[i + 4] === 4);
+    expect(at).toBeGreaterThan(0);
+    const bad = good.slice();
+    bad[at + 100] ^= 0xff;
+    const lab = await openProjectFile(new Blob([bad]), { store: async () => { throw new Error('no debería guardar nada'); } });
+    expect(lab).toMatchObject({ ok: false, reason: 'proyecto-laboratorio' });
+    expect(!lab.ok && lab.recipe?.meta.name).toBe('Con foto');
+  });
+
   it('refuses garbage safely', async () => {
     const cases: Blob[] = [
       new Blob([new Uint8Array([1, 2, 3])]),

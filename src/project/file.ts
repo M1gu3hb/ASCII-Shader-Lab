@@ -9,7 +9,7 @@
  * a lab recipe (the lab opens those), a damaged or foreign archive, a file too big.
  */
 import type { MediaRef, Recipe } from '../engine/recipe';
-import { isProject as isLabProject, readProject as readLabProject, safeFileName } from '../shared/project';
+import { isProject as isLabProject, readProjectRecipe, safeFileName } from '../shared/project';
 import { isSession } from '../shared/session';
 import { parseRecipe } from '../shared/share';
 import { SITE_URL } from '../shared/site';
@@ -147,8 +147,10 @@ async function open(input: Blob, sink: MediaSink): Promise<OpenResult> {
   const main = files.find(f => baseName(f.name) === PROJECT_JSON && !hidden(f));
   if (!main) {
     if (isLabProject(files)) {
-      const lab = await readLabProject(files).catch(() => null);
-      return fail('proyecto-laboratorio', lab?.recipe);
+      // only its recipe: its picture or video (up to hundreds of MB, or a crafted entry that inflates to GB)
+      // is not needed to say what the file is
+      const recipe = await readProjectRecipe(files, MAX_JSON).catch(() => null);
+      return fail('proyecto-laboratorio', recipe ?? undefined);
     }
     if (isSession(files)) return fail('sesion-laboratorio');
     return fail('no-es-proyecto');

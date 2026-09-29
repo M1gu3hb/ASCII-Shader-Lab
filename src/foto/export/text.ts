@@ -98,7 +98,11 @@ export interface ReadmeParts {
 export function readmeMarkdown(r: ReadmeParts): { md: string; snippet: string; notes: string[] } {
   const notes: string[] = [];
   const width = Math.min(800, r.image.w);
-  const img = `<img src="${r.image.file}" alt="${r.image.alt.replace(/"/g, '&quot;')}" width="${width}">`;
+  // names are text, not Markdown or HTML (they can come from someone else's project file): one line, escaped
+  // (a blank line inside the alt would end the <img> HTML block and let what follows be HTML of its own)
+  const line = (s: string) => s.replace(/[\r\n\u2028\u2029]+/g, ' ').trim();
+  const attr = (s: string) => line(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const img = `<img src="${attr(r.image.file)}" alt="${attr(r.image.alt)}" width="${width}">`;
   const snippet = [img, ...(r.text ? ['', markdownBlock(r.text).trimEnd()] : [])].join('\n');
   if (r.text) {
     const odd = nonAscii(r.text);
@@ -107,6 +111,7 @@ export function readmeMarkdown(r: ReadmeParts): { md: string; snippet: string; n
     if (widest > 100) notes.push(`El texto tiene ${widest} columnas: en GitHub el bloque se desplaza de lado. Para que quepa (unas 100 columnas), agranda las celdas de la capa de caracteres.`);
   }
   if (r.image.moving) notes.push('GitHub reproduce los GIF en bucle; si pesan más de 10 MB no los muestra en el README.');
-  const md = `# ${r.title}\n\n${img}\n${r.text ? `\n${markdownBlock(r.text)}` : ''}\n<sub>Hecho con [GLYPHOS](https://glyphos-ascii.vercel.app).</sub>\n`;
+  const title = line(r.title).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || 'GLYPHOS';
+  const md = `# ${title}\n\n${img}\n${r.text ? `\n${markdownBlock(r.text)}` : ''}\n<sub>Hecho con [GLYPHOS](https://glyphos-ascii.vercel.app).</sub>\n`;
   return { md, snippet, notes };
 }

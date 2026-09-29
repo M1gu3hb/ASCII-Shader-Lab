@@ -180,6 +180,47 @@ describe('photo adjustments', () => {
     expect(d[2]).toBeLessThan(50);
   });
 
+  it('sharpening is sized in output px: a smaller render sharpens like the file made smaller, not four times as coarsely', () => {
+    // a 64×64 grey picture with detail at every scale
+    const N = 64;
+    const img = new Uint8ClampedArray(N * N * 4);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const v = 128 + 50 * Math.sin(x * 0.9) * Math.cos(y * 0.35) + 40 * Math.sin(x * 0.2 + y * 0.13);
+      const o = (y * N + x) * 4;
+      img[o] = img[o + 1] = img[o + 2] = v; img[o + 3] = 255;
+    }
+    /** Averages k×k blocks (what a preview at 1/k is made of). */
+    const shrink = (d: Uint8ClampedArray, n: number, k: number) => {
+      const m = n / k, out = new Uint8ClampedArray(m * m * 4);
+      for (let y = 0; y < m; y++) for (let x = 0; x < m; x++) for (let c = 0; c < 4; c++) {
+        let s = 0;
+        for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) s += d[((y * k + j) * n + x * k + i) * 4 + c];
+        out[(y * m + x) * 4 + c] = s / (k * k);
+      }
+      return out;
+    };
+    const err = (a: Uint8ClampedArray, b: Uint8ClampedArray, m: number) => {
+      let s = 0, n = 0;
+      // (the rim of the picture keeps its pixels: leave it out)
+      for (let y = 3; y < m - 3; y++) for (let x = 3; x < m - 3; x++) { s += Math.abs(a[(y * m + x) * 4] - b[(y * m + x) * 4]); n++; }
+      return s / n;
+    };
+    const sharp = { ...defaultAdjust(), sharpen: 1 };
+    // the file (scale 1), made 4× smaller: what the preview should look like
+    const file = img.slice(); toneCpu(file, N, N, sharp, 1);
+    const want = shrink(file, N, 4);
+    // the preview: the picture drawn 4× smaller, then its adjustments at scale 0.25
+    const plain = shrink(img, N, 4);
+    const preview = plain.slice(); toneCpu(preview, N / 4, N / 4, sharp, 0.25);
+    expect(err(preview, want, N / 4)).toBeLessThanOrEqual(err(plain, want, N / 4) + 0.5);
+    // and at scale 1 it is the classic 3×3 unsharp mask: v + 1.5·(v − box)
+    const one = img.slice(); toneCpu(one, N, N, sharp);
+    const at = (x: number, y: number) => img[(y * N + x) * 4];
+    let box = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) box += at(20 + i, 30 + j);
+    expect(Math.abs(one[(30 * N + 20) * 4] - Math.min(255, Math.max(0, at(20, 30) + 1.5 * (at(20, 30) - box / 9))))).toBeLessThanOrEqual(1);
+  });
+
   it('fit: cover fills and crops, contain fits inside, fill stretches', () => {
     expect(fitRect(200, 100, 100, 100, 'cover')).toEqual({ x: -50, y: 0, w: 200, h: 100 });
     expect(fitRect(200, 100, 100, 100, 'contain')).toEqual({ x: 0, y: 25, w: 100, h: 50 });

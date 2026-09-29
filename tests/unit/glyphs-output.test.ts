@@ -80,6 +80,10 @@ describe('text outputs', () => {
     expect(svg).not.toContain('<path');
     const clear = gridToSvgText(g, style({ paper: null }));
     expect(clear).not.toContain('<rect');
+    // a title with control characters (a name from a project file) stays well-formed XML
+    const titled = gridToSvgText(g, style(), { title: 'Pieza\u0001\u001b[31m <1>' });
+    expect(titled).toContain('<title>Pieza[31m &lt;1&gt;</title>');
+    expect(titled).not.toMatch(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/);
   });
 
   it('SVG runs split where the colour changes', () => {
