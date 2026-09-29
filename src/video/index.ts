@@ -3,8 +3,20 @@
  * Compositor as the preview (preview = export), the original audio kept in sync when possible, and object
  * tracking for masks on video. CONTRACT for the studio UI (export sheet, timeline, tracking tool): the
  * signatures below are fixed; lane «video» implements them. Import lazily (mediabunny is heavy).
+ *
+ *   movie.ts      exportMovie / movieFormats: the frame loop into MP4, WebM, GIF, PNG .zip
+ *   frames.ts     frame-exact video decoded in order for the loop; tracked masks trimmed per frame
+ *   audio.ts      the sound (packet copy or re-encode) next to the picture; audioplan.ts which sound, where
+ *   formats.ts    what this browser encodes (probed) and what each format can carry, in Spanish
+ *   gifcore.ts    GIF limits, palettes and dithering
+ *   playback.ts   the studio preview's clock (video elements or rAF), reverse, loops, rate
+ *   track.ts      trackObject / correctTrack (keyframed model decodes + optical flow + SDF blends)
+ *   flow.ts, flow-gl.ts, sdf.ts, keys.ts   the pieces of tracking
+ *   matte.ts      removeBackgroundVideo (per-frame matting, flow-compensated smoothing)
  */
 import type { Id, MaskRasterPart, Project } from '../project/types';
+import { exportMovieImpl, movieFormatsFor } from './movie';
+import { correctTrackImpl, trackObjectImpl } from './track';
 
 export type MovieFormat = 'mp4' | 'webm' | 'gif' | 'png-zip';
 
@@ -31,8 +43,16 @@ export interface MovieOptions {
   end?: number;
   /** Keep the sound of the project's video sources ('keep') or leave it out. */
   audio?: 'keep' | 'none';
-  /** GIF: colours, dithering and whether it loops forever. */
-  gif?: { colors?: number; dither?: 'none' | 'bayer' | 'floyd'; loop?: boolean };
+  /**
+   * Whose sound (a video source id). Default: the bottom-most layer's video that has sound. Only one source's
+   * sound goes out (no mixing).
+   */
+  audioSource?: Id;
+  /**
+   * GIF: colours, dithering, whether it loops forever, and one palette for the whole clip ('global', default:
+   * stable colours, smaller file) or one per frame ('frame': better colours, may shimmer).
+   */
+  gif?: { colors?: number; dither?: 'none' | 'bayer' | 'floyd'; loop?: boolean; palette?: 'global' | 'frame' };
   /** Keep transparency where the format allows it. */
   transparent?: boolean;
   onProgress?: (p: { done: number; total: number; label: string }) => void;
@@ -50,12 +70,16 @@ export interface MovieResult {
 }
 
 /** What this browser can write for this project (codecs are probed, never assumed). */
-export async function movieFormats(_p: Project): Promise<FormatInfo[]> {
-  return [];
+export async function movieFormats(p: Project): Promise<FormatInfo[]> {
+  return movieFormatsFor(p);
 }
 
-export async function exportMovie(_p: Project, _o: MovieOptions): Promise<MovieResult> {
-  throw new Error('La exportación de video todavía no está disponible en esta versión.');
+/**
+ * Renders and encodes the project. Rejects with an Error named 'AbortError' when `signal` aborts (everything it
+ * opened is closed first), or with a Spanish message when the format cannot be written here.
+ */
+export async function exportMovie(p: Project, o: MovieOptions): Promise<MovieResult> {
+  return exportMovieImpl(p, o);
 }
 
 export interface TrackOptions {
@@ -74,8 +98,8 @@ export interface TrackOptions {
 }
 
 /** Follows an object through a video: a raster mask part with one frame per step (origin 'track'). */
-export async function trackObject(_p: Project, _o: TrackOptions): Promise<MaskRasterPart> {
-  throw new Error('El seguimiento de objetos todavía no está disponible en esta versión.');
+export async function trackObject(p: Project, o: TrackOptions): Promise<MaskRasterPart> {
+  return trackObjectImpl(p, o);
 }
 
 /**
@@ -83,10 +107,16 @@ export async function trackObject(_p: Project, _o: TrackOptions): Promise<MaskRa
  * its neighbouring keyframes is recomputed. Returns the updated part.
  */
 export async function correctTrack(
-  _p: Project,
-  _part: MaskRasterPart,
-  _at: { t: number; points: Array<{ x: number; y: number; positive: boolean }> },
-  _o: Pick<TrackOptions, 'source' | 'layer' | 'onProgress' | 'signal'>,
+  p: Project,
+  part: MaskRasterPart,
+  at: { t: number; points: Array<{ x: number; y: number; positive: boolean }> },
+  o: Pick<TrackOptions, 'source' | 'layer' | 'onProgress' | 'signal'>,
 ): Promise<MaskRasterPart> {
-  throw new Error('El seguimiento de objetos todavía no está disponible en esta versión.');
+  return correctTrackImpl(p, part, at, o);
 }
+
+export { movieFormatsFor, movieResources, outputSize } from './movie';
+export { createPlayback, type Playback, type PlaybackOptions, type PlaybackStats } from './playback';
+export { removeBackgroundVideo, estimateBackgroundVideo, type VideoMatteOptions, type VideoMatteEstimate } from './matte';
+export { setTrackSegmenter, trackEstimate, type Segmenter, type TrackStats, lastTrackStats } from './track';
+export { frameAt, trimMaskFrames } from './frames';
