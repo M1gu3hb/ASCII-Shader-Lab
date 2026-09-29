@@ -127,5 +127,11 @@ test('antes y después con el dedo; salir del inmersivo muestra la barra superio
   await expect(page.locator('.topbar')).toBeVisible();
   await expect(page.getByRole('button', { name: /Exportar/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  // and back to the art alone: the switch works both ways
+  await page.getByRole('button', { name: 'Herramientas', exact: true }).tap();
+  await page.getByRole('tab', { name: 'Explorar' }).tap();
+  await page.getByRole('button', { name: 'Ocultar la barra superior' }).tap();
+  await expect(page.locator('.topbar')).toBeHidden();
+  await expect(page.getByRole('button', { name: /Mostrar la barra superior/ })).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -129,6 +129,7 @@ function ToolsTab({ onCutout }: { onCutout: () => void }) {
 }
 
 function ExploreTab() {
+  const immersive = useFoto(s => s.immersive);
   return (
     <>
       <Deck compact />
@@ -141,7 +142,8 @@ function ExploreTab() {
         {/* (the top bar's «Proyectos» on wider screens) */}
         <button type="button" className="btn ghost" onClick={() => void backToStart()} title="Tus proyectos, plantillas y archivos">Proyectos</button>
       </div>
-      <button type="button" className="btn ghost" onClick={() => setUI({ immersive: false, snap: 'closed' })}>Ver la barra superior</button>
+      {/* (both ways: the «…» over the art shows the bar, this hides it again for the art alone) */}
+      <button type="button" className="btn ghost" onClick={() => setUI({ immersive: !immersive, snap: 'closed' })}>{immersive ? 'Ver la barra superior' : 'Ocultar la barra superior'}</button>
     </>
   );
 }
