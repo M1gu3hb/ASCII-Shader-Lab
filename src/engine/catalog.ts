@@ -33,6 +33,7 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'lava', name: 'Lava', family: 'organico', a: 'Tamaño', b: 'Suavidad', cost: 1 },
   { id: 'celulas', name: 'Células', family: 'organico', a: 'Densidad', b: 'Relieve', cost: 2 },
   { id: 'grietas', name: 'Grietas', family: 'organico', a: 'Densidad', b: 'Grosor', cost: 2 },
+  { id: 'dunas', name: 'Dunas', family: 'organico', a: 'Líneas', b: 'Viento', cost: 2 },
 
   { id: 'anillos', name: 'Anillos', family: 'geometrico', a: 'Frecuencia', b: 'Dureza', cost: 1 },
   { id: 'cuadros', name: 'Cuadros', family: 'geometrico', a: 'Frecuencia', b: 'Dureza', cost: 1 },
@@ -45,6 +46,9 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'rombos', name: 'Rombos', family: 'geometrico', a: 'Densidad', b: 'Anillos', cost: 1 },
   { id: 'franjas', name: 'Franjas', family: 'geometrico', a: 'Cantidad', b: 'Inclinación', cost: 1 },
   { id: 'caleido', name: 'Caleidoscopio', family: 'geometrico', a: 'Espejos', b: 'Detalle', cost: 2 },
+  { id: 'circuitos', name: 'Circuitos', family: 'geometrico', a: 'Densidad', b: 'Brillo', cost: 1 },
+  { id: 'entrelazado', name: 'Entrelazado', family: 'geometrico', a: 'Tamaño', b: 'Relieve', cost: 1 },
+  { id: 'quasicristal', name: 'Cuasicristal', family: 'geometrico', a: 'Frecuencia', b: 'Contraste', cost: 1 },
 
   { id: 'ondas', name: 'Ondas', family: 'ondas', a: 'Frecuencia', b: 'Oleaje', cost: 1 },
   { id: 'interferencia', name: 'Interferencia', family: 'ondas', a: 'Frecuencia', b: 'Separación', cost: 1 },
@@ -52,6 +56,7 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'lissajous', name: 'Lissajous', family: 'ondas', a: 'Ritmo X', b: 'Ritmo Y', cost: 3 },
   { id: 'ecualizador', name: 'Ecualizador', family: 'ondas', a: 'Bandas', b: 'Separación', cost: 1 },
   { id: 'horizonte', name: 'Horizonte', family: 'ondas', a: 'Líneas', b: 'Pico', cost: 3 },
+  { id: 'topografia', name: 'Topografía', family: 'ondas', a: 'Escala', b: 'Curvas', cost: 2 },
   { id: 'radar', name: 'Radar', family: 'señal', a: 'Estela', b: 'Anillos', cost: 1 },
 
   { id: 'tunel', name: 'Túnel', family: 'espacio', a: 'Paredes', b: 'Avance', cost: 1 },
@@ -74,8 +79,15 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'metabolas', name: 'Metal líquido', family: 'solidos', a: 'Tamaño', b: 'Fusión', cost: 3 },
   { id: 'engranajes', name: 'Engranajes', family: 'solidos', a: 'Dientes', b: 'Radios', cost: 3 },
   { id: 'cristales', name: 'Cristales', family: 'solidos', a: 'Cantidad', b: 'Largo', cost: 3 },
+  { id: 'obelisco', name: 'Obelisco', family: 'solidos', a: 'Anchura', b: 'Grabado', cost: 3 },
+  { id: 'prisma', name: 'Prisma hexagonal', family: 'solidos', a: 'Anchura', b: 'Bandas', cost: 3 },
+  { id: 'reloj_arena', name: 'Reloj de arena', family: 'solidos', a: 'Vientre', b: 'Arena', cost: 3 },
 
   { id: 'julia', name: 'Julia', family: 'matematico', a: 'Zoom', b: 'Deriva', cost: 3 },
+  { id: 'mandelbrot', name: 'Mandelbrot', family: 'matematico', a: 'Zoom', b: 'Bandas', cost: 3 },
+  { id: 'sierpinski', name: 'Tapiz fractal', family: 'matematico', a: 'Escala', b: 'Tinta', cost: 1 },
+  { id: 'filotaxis', name: 'Filotaxis', family: 'matematico', a: 'Separación', b: 'Semillas', cost: 3 },
+  { id: 'espirografo', name: 'Espirógrafo', family: 'matematico', a: 'Vueltas', b: 'Brazo', cost: 3 },
   { id: 'rosa', name: 'Rosa polar', family: 'matematico', a: 'Pétalos', b: 'Trazo', cost: 1 },
   { id: 'degradado', name: 'Degradado', family: 'matematico', a: 'Ángulo', b: 'Ondulación', cost: 1 },
 

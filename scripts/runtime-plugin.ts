@@ -16,6 +16,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const ENTRY = resolve(ROOT, 'src/runtime/entry.ts');
 const ENTRY_BASIC = resolve(ROOT, 'src/runtime/entry-basic.ts');
 const PATTERNS = resolve(ROOT, 'src/engine/basic/patterns.ts');
+const PATTERNS_EXTRA = resolve(ROOT, 'src/engine/basic/patterns-extra.ts');
 const CORE = resolve(ROOT, 'src/engine/basic/core.ts');
 const SHIM = resolve(ROOT, 'src/runtime/basic-patterns.ts');
 
@@ -39,11 +40,21 @@ function topLevel(body: string): string[] {
 }
 
 const TABLE = /export const BASIC_PATTERNS: Record<string, BasicPattern> = \{([\s\S]*?)\n\};/;
+const EXTRA_TABLE = /export const EXTRA_BASIC: Record<string, BasicPattern> = \{([\s\S]*?)\n\};/;
 
 /** id → the expression of each entry of the BASIC_PATTERNS table in patterns.ts. */
 export function patternTable(src = readFileSync(PATTERNS, 'utf8')): Array<[string, string]> {
   const m = TABLE.exec(src);
   if (!m) throw new Error('runtime-plugin: no encuentro la tabla BASIC_PATTERNS en ' + PATTERNS);
+  return topLevel(m[1]).map(s => {
+    const i = s.indexOf(':');
+    return i < 0 ? [s, s] : [s.slice(0, i).trim().replace(/^['"]|['"]$/g, ''), s.slice(i + 1).trim()];
+  });
+}
+
+function extraTable(src = readFileSync(PATTERNS_EXTRA, 'utf8')): Array<[string, string]> {
+  const m = EXTRA_TABLE.exec(src);
+  if (!m) throw new Error('runtime-plugin: no encuentro EXTRA_BASIC en ' + PATTERNS_EXTRA);
   return topLevel(m[1]).map(s => {
     const i = s.indexOf(':');
     return i < 0 ? [s, s] : [s.slice(0, i).trim().replace(/^['"]|['"]$/g, ''), s.slice(i + 1).trim()];
@@ -60,25 +71,31 @@ function coreNames(): string[] {
  * patterns.ts with a table of only that pattern (esbuild drops the others) and core.ts replaced by the
  * runtime's own helpers (__C), wrapped so it does nothing on a page without the basic engine.
  */
-async function patternScript(id: string, src: string, table: Array<[string, string]>, names: string[]): Promise<string> {
-  const m = TABLE.exec(src)!;
+async function patternScript(id: string, src: string, table: Array<[string, string]>, names: string[], extra = false): Promise<string> {
+  const re = extra ? EXTRA_TABLE : TABLE;
+  const file = extra ? PATTERNS_EXTRA : PATTERNS;
+  const tableName = extra ? 'EXTRA_BASIC' : 'BASIC_PATTERNS';
+  const pxName = extra ? 'setExtraPX' : 'setPX';
   const expr = table.find(([k]) => k === id)![1];
   // the other patterns' tables and constants are marked pure, so esbuild drops them with their patterns
-  const only = (src.slice(0, m.index) + `export const BASIC_PATTERNS: Record<string, BasicPattern> = { ${JSON.stringify(id)}: ${expr} };` + src.slice(m.index + m[0].length))
+  const original = extra ? src : src.replace("import { EXTRA_BASIC, setExtraPX } from './patterns-extra';", '')
+    .replace('setExtraPX(v);', '').replace('Object.assign(BASIC_PATTERNS, EXTRA_BASIC);', '');
+  const found = re.exec(original)!;
+  const only = (original.slice(0, found.index) + `export const ${tableName}: Record<string, BasicPattern> = { ${JSON.stringify(id)}: ${expr} };` + original.slice(found.index + found[0].length))
     .replace(/\bnew (Float64Array|Float32Array|Int32Array|Uint32Array|Uint16Array|Uint8Array)\(/g, '/* @__PURE__ */ new $1(')
     .replace(/= \(\(\) => \{/g, '= /* @__PURE__ */ (() => {');
   const subset: EsbuildPlugin = {
     name: 'mt-pattern-subset',
     setup(b) {
-      b.onLoad({ filter: /[\\/]engine[\\/]basic[\\/]patterns\.ts$/ }, () => ({ contents: only, loader: 'ts' }));
-      b.onResolve({ filter: /^\.\/core$/ }, a => (a.importer === PATTERNS ? { path: 'mt-core', namespace: 'mt' } : undefined));
+      b.onLoad({ filter: /[\\/]engine[\\/]basic[\\/]patterns(?:-extra)?\.ts$/ }, a => (a.path === file ? { contents: only, loader: 'ts' } : undefined));
+      b.onResolve({ filter: /^\.\/core$/ }, a => (a.importer === file ? { path: 'mt-core', namespace: 'mt' } : undefined));
       // a call marked pure per helper: esbuild drops the ones this pattern does not use
       b.onLoad({ filter: /^mt-core$/, namespace: 'mt' }, () => ({ contents: names.map(n => `export const ${n} = /* @__PURE__ */ __G(${JSON.stringify(n)});`).join('\n'), loader: 'js' }));
     },
   };
   const out = await build({
     ...common,
-    stdin: { contents: `import { BASIC_PATTERNS, setPX } from ${JSON.stringify(PATTERNS)}; const p = BASIC_PATTERNS[${JSON.stringify(id)}]; __OUT = { f: p.f, prep: p.prep, px: setPX };`, resolveDir: ROOT, loader: 'ts' },
+    stdin: { contents: `import { ${tableName}, ${pxName} } from ${JSON.stringify(file)}; const p = ${tableName}[${JSON.stringify(id)}]; __OUT = { f: p.f, prep: p.prep, px: ${pxName} };`, resolveDir: ROOT, loader: 'ts' },
     plugins: [subset],
     pure: ['Math.cos', 'Math.sin', 'Math.sqrt', 'Math.fround'],
   });
@@ -97,11 +114,12 @@ export async function buildRuntimes(): Promise<{ runtime: string; basic: string;
     },
   };
   const basic = (await build({ ...common, entryPoints: [ENTRY_BASIC], plugins: [shim] })).outputFiles[0].text;
-  const src = readFileSync(PATTERNS, 'utf8');
-  const table = patternTable(src);
+  const src = readFileSync(PATTERNS, 'utf8'), srcExtra = readFileSync(PATTERNS_EXTRA, 'utf8');
+  const table = patternTable(src), tableExtra = extraTable(srcExtra);
   const names = coreNames();
   const patterns: Record<string, string> = {};
   await Promise.all(table.map(async ([id]) => { patterns[id] = await patternScript(id, src, table, names); }));
+  await Promise.all(tableExtra.map(async ([id]) => { patterns[id] = await patternScript(id, srcExtra, tableExtra, names, true); }));
   return { runtime, basic, patterns };
 }
 
@@ -117,7 +135,7 @@ export function runtimePlugin(): Plugin {
       if (source !== ids['virtual:mt-runtime'] && source !== ids['virtual:mt-runtime-basic']) return null;
       built ??= buildRuntimes();
       const b = await built;
-      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, SHIM]) this.addWatchFile(f);
+      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, PATTERNS_EXTRA, SHIM]) this.addWatchFile(f);
       return source === ids['virtual:mt-runtime']
         ? `export default ${JSON.stringify(b.runtime)};`
         : `export const runtime = ${JSON.stringify(b.basic)};\nexport const patterns = ${JSON.stringify(b.patterns)};`;
