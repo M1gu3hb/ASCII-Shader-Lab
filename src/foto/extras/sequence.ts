@@ -179,6 +179,8 @@ export function applySequence(p0: Project, spec: SequenceSpec): Project {
   p.sources = [...b.sources, ...p.sources.filter(s => !is(s.id, P.src) && !is(s.id, P.next) && s.id !== old?.id)];
   const own = p.layers.filter(l => !gone.has(l.id));
   for (const l of own) if ('source' in l && old && l.source === old.id) (l as { source: string }).source = src.id;
+  // colour masks that read the old sequence follow it too (left on a removed source they come out empty)
+  for (const l of own) for (const part of l.mask?.parts ?? []) if (part.kind === 'color' && old && part.source === old.id) part.source = src.id;
   p.layers = [...b.layers, ...own];
   p.tracks = [...b.tracks, ...p.tracks.filter(t => !gone.has(t.layer))];
   p.time = { ...p.time, duration: sequenceDuration(spec), loop: spec.loop };

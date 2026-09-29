@@ -76,6 +76,19 @@ describe('photo sequences', () => {
     expect(back).toMatchObject({ hold: 2, transition: 'caracteres' });
     expect(sequenceSpecOf(sequenceProject(spec({ transition: 'fundido', change: 0.7 })))).toMatchObject({ transition: 'fundido', change: 0.7 });
   });
+
+  it('rebuilding moves colour masks that read the old sequence to the new one', () => {
+    const p = sequenceProject(spec({ transition: 'fundido' }));
+    const oldSrc = p.sources.find(s => s.kind === 'sequence')!.id;
+    const own = newLayer('glyphs', { name: 'Mía', source: oldSrc });
+    own.mask = { invert: false, feather: 0, opacity: 1, parts: [{ kind: 'color', op: 'add', source: oldSrc, color: '#ff0000', tol: 0.2, soft: 0.1, alpha: 1 }] };
+    p.layers.push(own);
+    const next = applySequence(p, { ...spec({ transition: 'fundido' }), photos: reorder(photos, 0, 2) });
+    const src = next.sources.find(s => s.kind === 'sequence')!.id;
+    const part = next.layers.find(l => l.name === 'Mía')!.mask!.parts[0] as { source: string };
+    expect(part.source).toBe(src);
+    expect(next.sources.some(s => s.id === part.source)).toBe(true);
+  });
 });
 
 describe('depth and parallax', () => {
