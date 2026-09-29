@@ -505,7 +505,9 @@ export function createPlayback(o: PlaybackOptions): Playback {
       project = p;
       // elements of sources that are gone
       for (const [id, v] of vids) if (!p.sources.some(s => s.id === id)) { closeVid(v); vids.delete(id); }
-      if (!playing) void pb.seek(t);
+      // (paused, the playhead may have been moved by the studio since the last frame this clock handed out)
+      const at = o.get?.();
+      if (!playing) void pb.seek(at !== undefined && Number.isFinite(at) ? at : t);
     },
     stats() {
       const clk = clockSource();

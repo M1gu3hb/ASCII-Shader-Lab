@@ -20,6 +20,7 @@ import { useProject } from '../project/store';
 import type { Id, MaskPart, Project } from '../project/types';
 import { animFor, animSettled, needsAnim } from './anim';
 import { setUI, ui, useFoto } from './ui';
+import { viewProvider } from './viewProvider';
 
 /** Changes closer than this are one interaction (light renders); after it, the final render. */
 export const IDLE_MS = 260;
@@ -31,9 +32,12 @@ const LIGHT_MIN_SIDE = 360;
 export interface Rendered { state: FrameState; report: RenderReport; scale: number; light: boolean; project: Project; seq: number }
 
 let comp: Compositor | null = null;
-/** The viewport's compositor (created on first use; ASCII engines are pooled per layer inside it). */
+/**
+ * The viewport's compositor (created on first use; ASCII engines are pooled per layer inside it). Its pictures
+ * come from viewProvider.ts: the media store, and video frames from the studio's video clock when there is one.
+ */
 export function viewCompositor(): Compositor {
-  return (comp ??= new Compositor());
+  return (comp ??= new Compositor({ provider: viewProvider }));
 }
 
 let art: HTMLCanvasElement | null = null;
@@ -55,6 +59,8 @@ let previewPart: LivePart | null = null;
 /** Tests and the pixel-exact check: render at this scale instead of the display's. */
 let forced: number | null = null;
 const listeners = new Set<(r: Rendered) => void>();
+/** Called when any render ends (drawn or failed), with the number it started with. */
+const ended = new Set<(seq: number) => void>();
 
 /**
  * The project the viewport draws: the open one, with the live part of a tool appended to its target's mask
@@ -165,6 +171,16 @@ async function run(light: boolean) {
     return;
   }
   const mine = ++seq;
+  try {
+    await draw(p, canvas, light, mine);
+  } finally {
+    busy = false;
+    for (const f of [...ended]) f(mine);
+  }
+  if (dirty || needFinal) kick();
+}
+
+async function draw(p: Project, canvas: HTMLCanvasElement, light: boolean, mine: number) {
   const scale = scaleFor(p, light);
   const t = useProject.getState().time;
   const state = evaluate(p, t);
@@ -178,10 +194,26 @@ async function run(light: boolean) {
     for (const fn of listeners) fn({ state, report, scale, light, project: p, seq: mine });
   } catch (e) {
     console.warn('foto: render failed', e);
-  } finally {
-    busy = false;
   }
-  if (dirty || needFinal) kick();
+}
+
+/**
+ * Asks for a render and resolves once one that started after this call has ended (drawn or failed): the video
+ * clock waits for it before handing out the next time, so a slow render lowers the frame rate instead of
+ * piling up. Resolves at once when there is no viewport to draw into.
+ */
+export function renderNow(timeout = 8000): Promise<void> {
+  if (!art) return Promise.resolve();
+  const want = seq + 1;
+  return new Promise(res => {
+    const done = () => { clearTimeout(tm); ended.delete(on); res(); };
+    const on = (n: number) => { if (n >= want) done(); };
+    const tm = setTimeout(done, timeout);
+    ended.add(on);
+    request(true);
+    // (the clock calls from its own animation frame: start drawing now rather than one frame later)
+    if (!busy && raf) { cancelAnimationFrame(raf); raf = 0; tick(); }
+  });
 }
 
 /* ------------------------------------------------------------------ what triggers renders */
@@ -223,6 +255,7 @@ export function releaseViewport() {
   clearTimeout(idleT);
   comp?.destroy();
   comp = null;
+  viewProvider.release();
   art = null;
   previewPart = null;
 }

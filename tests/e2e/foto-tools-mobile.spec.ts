@@ -36,7 +36,7 @@ test('herramientas reales con el dedo: rectángulo, ± para restar, dos dedos ca
   const sheet = page.getByRole('region', { name: 'Herramientas y capas' });
   await sheet.getByRole('tab', { name: 'Herramientas' }).tap();
   const btns = sheet.locator('.frail .tbtn');
-  await expect(btns).toHaveCount(14);
+  await expect(btns).toHaveCount(15);
   for (const b of (await btns.all()).slice(0, 5)) {
     const r = (await b.boundingBox())!;
     expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(44);

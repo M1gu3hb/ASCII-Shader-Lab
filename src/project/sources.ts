@@ -88,7 +88,8 @@ export async function openPreviewVideo(blob: Blob, maxSide = 1920): Promise<Vide
     async seek(t) {
       if (closed) return false;
       const d = Number.isFinite(v.duration) ? v.duration : 0;
-      const target = Math.max(0, d > 0 ? Math.min(t, d - 1e-3) : t);
+      // FRAME_EPS (below): the frame stored a tick after t is the frame at t, as in the exact provider
+      const target = Math.max(0, d > 0 ? Math.min(t + FRAME_EPS, d - 1e-3) : t + FRAME_EPS);
       if (target === last) return true;
       if (Math.abs(v.currentTime - target) > 1e-4 || v.readyState < 2) {
         const seeked = new Promise<boolean>(res => {
@@ -167,6 +168,12 @@ export interface SourceProvider {
   image(ref: MediaRef): Drawable | null;
   /** Media asked for and not available (no id, not stored, or not decodable here). */
   missing(): MediaRef[];
+  /**
+   * Optional: what else identifies the picture frame(source, t) gives, beyond the source and t (the
+   * compositor's caches add it to their keys). A provider whose pictures at the same t can differ (a playing
+   * video element hands out what it shows, not the exact frame) returns something that tells them apart.
+   */
+  frameKey?(source: Source, t: number): string;
   /** Frees every bitmap, video and decoder. The provider can be used again afterwards. */
   release(): void;
 }

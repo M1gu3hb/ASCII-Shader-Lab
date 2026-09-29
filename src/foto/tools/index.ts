@@ -4,7 +4,7 @@
  * whatever is here and copes with an empty list.
  *
  * Shortcuts: V editar partes · M rectángulo · O elipse · P polígono · L lazo · K contorno preciso · W color ·
- * J objeto · G degradado · B pasar a ASCII · E borrar efecto · R restaurar original.
+ * J objeto · T seguir objeto (video) · G degradado · B pasar a ASCII · E borrar efecto · R restaurar original.
  */
 import type { Tool } from './types';
 import { asciiBrush, eraseBrush, restoreBrush } from './brushes';
@@ -15,6 +15,7 @@ import { lassoTool, polygonTool } from './freeform';
 import { gradientTool } from './gradientTool';
 import { objectTool } from './objectTool';
 import { ellipseTool, rectangleTool } from './shapes';
+import { trackTool } from './track';
 
 export type { Pt, Tool, ToolEvent, ToolHost, View } from './types';
 
@@ -27,6 +28,7 @@ export const TOOLS: Tool[] = [
   contourTool,
   colorTool,
   objectTool,
+  trackTool,
   gradientTool,
   asciiBrush,
   eraseBrush,

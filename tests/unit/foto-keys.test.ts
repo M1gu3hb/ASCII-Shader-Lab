@@ -12,7 +12,7 @@ describe('keyboard map', () => {
     expect(letters.length).toBe(TOOLS.length);
     expect(new Set(letters).size).toBe(letters.length);
     for (const l of letters) expect(STUDIO_LETTERS).not.toContain(l);
-    expect(letters.sort().join('')).toBe('begjklmoprvw');
+    expect(letters.sort().join('')).toBe('begjklmoprtvw');
   });
 
   it('the help sheet lists the studio keys and the timeline keys', () => {

@@ -84,8 +84,8 @@ test('las herramientas reales: rectángulo, lazo, pincel, color y degradado; la 
   const h0 = (await settle(page)).hash;
   await page.evaluate(() => (window as unknown as { __foto: { release(): void } }).__foto.release());
 
-  // the palette: 12 tools with their letters, grouped, and no «pronto»
-  await expect(page.locator('.frail .tbtn[data-tool]')).toHaveCount(14);
+  // the palette: 13 tools with their letters (+ the hand and «Quitar fondo»), grouped, and no «pronto»
+  await expect(page.locator('.frail .tbtn[data-tool]')).toHaveCount(15);
   await expect(page.locator('.frail')).not.toContainText('pronto');
   // a letter picks a tool (over the art), the tooltip names it
   await page.locator('.fv-over').hover();

@@ -3,6 +3,7 @@
  * lifetime; it reads the live viewport, the selection and the options bar each time it is asked.
  */
 import { fitRect } from '../project/adjust';
+import { sourceFit } from '../project/compositor';
 import { evaluate } from '../project/evaluate';
 import { useProject } from '../project/store';
 import type { Id, Layer, LayerFit, MaskOp, Project } from '../project/types';
@@ -33,6 +34,7 @@ export interface StudioHost extends ToolHost {
   preview(part: LivePart | null): void;
   setTool(id: string | null): void;
   openCutout(): void;
+  videoPixels(sourceId: Id, maxSide?: number): Promise<HTMLCanvasElement | null>;
 }
 
 export const host: StudioHost = {
@@ -46,7 +48,33 @@ export const host: StudioHost = {
   say: (msg: string) => say(msg),
   setTool: (id: string | null) => { if (ui().tool !== id) selectTool(id); },
   openCutout: () => openCutout(),
+  videoPixels: (id: Id, maxSide?: number) => videoPixels(id, maxSide),
 };
+
+/** A source's picture at the current time, placed like its first layer places it (see ToolHost.videoPixels). */
+export async function videoPixels(sourceId: Id, maxSide = 4096): Promise<HTMLCanvasElement | null> {
+  const s = useProject.getState();
+  const p = s.project;
+  const src = p?.sources.find(x => x.id === sourceId);
+  if (!p || !src) return null;
+  const prov = viewCompositor().provider;
+  const lf = evaluate(p, s.time).layers.find(l => l.source?.id === sourceId);
+  const d = src.duration ?? 0;
+  const st = lf?.srcTime ?? (d > 0 ? ((s.time % d) + d) % d : s.time);
+  if (!(await prov.prepare(src, st))) return null;
+  const img = prov.frame(src, st);
+  if (!img) return null;
+  const k = Math.min(1, maxSide / Math.max(p.canvas.w, p.canvas.h));
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(p.canvas.w * k)); out.height = Math.max(1, Math.round(p.canvas.h * k));
+  const r = fitRect(img.width, img.height, out.width, out.height, sourceFit(p, sourceId));
+  const x = out.getContext('2d')!;
+  x.fillStyle = '#000';
+  x.fillRect(0, 0, out.width, out.height);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(img, r.x, r.y, r.w, r.h);
+  return out;
+}
 
 const hasSource = (l: Layer): l is Layer & { source: string; fit?: LayerFit } => 'source' in l && typeof (l as { source?: unknown }).source === 'string';
 

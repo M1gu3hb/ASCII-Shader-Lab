@@ -228,3 +228,15 @@
 @media (prefers-reduced-motion: reduce) {
   .tl-pop .toggle::after { transition: none; }
 }
+
+/* ---------------------------------------------------------------- tracking (a mask that follows an object) */
+.tl-track { position: absolute; height: 2px; border-radius: 1px; background: rgba(237, 230, 218, .45); pointer-events: none; }
+.tl-tk { position: absolute; width: 16px; height: 16px; margin-left: -8px; padding: 0; border: 0; background: none; z-index: 2; touch-action: none; }
+.tl-tk::after { content: ""; position: absolute; left: 7px; top: 1px; width: 2px; height: 9px; border-radius: 1px; background: var(--tl-bone); box-shadow: 0 0 0 1px var(--tl-ink); }
+.tl-tk.correccion::after { left: 4px; width: 8px; height: 8px; border-radius: 50%; }
+.tl-tk.oculto::after { background: var(--tl-smoke); }
+.tl-tk.inicio::after { height: 12px; }
+.tl-tk:hover::after, .tl-tk:focus-visible::after { background: var(--tl-signal); }
+.tl.compact .tl-tk { width: 24px; height: 22px; margin-left: -12px; }
+.tl.compact .tl-tk::after { left: 11px; }
+.tl.compact .tl-tk.correccion::after { left: 8px; }

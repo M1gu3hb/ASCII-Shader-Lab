@@ -24,7 +24,7 @@ import { closeSheet, say, setQuality, setUI, useFoto } from './ui';
 /**
  * The keyboard map (it is also what keys.ts does): the active tool first, then the studio; the timeline and
  * the layer list use their own keys while they have the focus. No letter is used twice at the same level:
- * tools V M O P L K W J G B E R, the studio H F C Z (+ digits and symbols). K is «Contorno preciso» in the
+ * tools V M O P L K W J T G B E R, the studio H F C Z (+ digits and symbols). K is «Contorno preciso» in the
  * studio and «llave» inside the timeline; Espacio rolls the dice in the studio and plays inside the timeline.
  */
 export const STUDIO_KEYS: Array<[string, string]> = [

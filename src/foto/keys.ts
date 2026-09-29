@@ -3,7 +3,7 @@
  *   espacio (tap) / →  azar (→ goes to the next version first when there is one)   ←  versión anterior
  *   espacio + arrastrar  mover la vista                                             F  favorita
  *   Z · ⌘Z / Ctrl+Z  deshacer        ⇧Z · ⇧⌘Z · Ctrl+Y  rehacer                     [ ]  tamaño del pincel (herramientas)
- *   tools (Tool.shortcut): V M O P L K W J G B E R  ·  H  mano                      C  antes y después
+ *   tools (Tool.shortcut): V M O P L K W J T G B E R  ·  H  mano                      C  antes y después
  *   0  ajustar  ·  1  100 %  ·  + −  zoom  ·  ?  atajos  ·  Esc  cancela el gesto o suelta la herramienta
  * The timeline (focused) and the layer list keep their own keys (they stop them here): the map, in Spanish,
  * is the help sheet's (Sheets.tsx STUDIO_KEYS, TOOL_KEYS, TIMELINE_KEYS); tests/unit/foto-keys.test.ts keeps

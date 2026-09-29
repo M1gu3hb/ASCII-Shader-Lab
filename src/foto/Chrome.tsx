@@ -116,6 +116,7 @@ export function hintFor(hint: string, touch: boolean): string {
 /** Short names for the phone's labelled palette (the full name stays in the button's accessible name). */
 const SHORT: Record<string, string> = {
   'Editar partes': 'Editar', 'Contorno preciso': 'Contorno', 'Pasar a ASCII': 'A ASCII', 'Borrar efecto': 'Borrar', 'Restaurar original': 'Restaurar',
+  'Seguir objeto': 'Seguir',
 };
 
 interface Tip { x: number; y: number; name: string; key?: string; hint: string }
