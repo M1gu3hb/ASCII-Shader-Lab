@@ -9,7 +9,7 @@ import { getEngine } from './engineBridge';
 import { mediaElement } from './media';
 import { offscreenEngine, stageSize, type OffscreenSize } from './offscreen';
 import { toast } from './toast';
-import { repairAvcDescription } from '../exporters/avc';
+import { withRepairedAvc } from '../exporters/avc';
 import { xformK } from '../engine/catalog';
 import type { Renderer } from '../engine/renderer';
 import { activeXforms } from '../engine/xform';
@@ -155,34 +155,6 @@ async function warmTrail(r: Recipe, eng: Renderer, clip: ReturnType<typeof video
     eng.renderAt(clipTime(r, start, -i / fps), start - i / fps);
     if (i % 8 === 0) await nextFrame();
   }
-}
-
-/**
- * While a render runs, the video encoder's AVC description goes through repairAvcDescription before the
- * muxer sees it (the encoder is created inside mediabunny). Returns the function that puts things back.
- */
-function withRepairedAvc(): () => void {
-  const g = globalThis as unknown as { VideoEncoder?: typeof VideoEncoder };
-  const Orig = g.VideoEncoder;
-  if (!Orig) return () => {};
-  class Repairing extends Orig {
-    constructor(init: VideoEncoderInit) {
-      super({
-        ...init,
-        output: (chunk, meta) => {
-          const d = meta?.decoderConfig?.description;
-          if (d && meta?.decoderConfig) {
-            const bytes = ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength) : new Uint8Array(d);
-            const fixed = /^avc1/.test(meta.decoderConfig.codec) ? repairAvcDescription(bytes) : null;
-            if (fixed) meta = { ...meta, decoderConfig: { ...meta.decoderConfig, description: fixed } };
-          }
-          init.output(chunk, meta);
-        },
-      });
-    }
-  }
-  g.VideoEncoder = Repairing;
-  return () => { if (g.VideoEncoder === Repairing) g.VideoEncoder = Orig; };
 }
 
 /** Deterministic, frame-by-frame render: no dropped frames even on slow machines. */
