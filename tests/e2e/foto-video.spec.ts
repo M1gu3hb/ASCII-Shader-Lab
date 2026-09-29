@@ -306,7 +306,8 @@ test('seguir el cuadrado con el modelo real: marca, «Seguir», IoU por cuadro, 
   await tl.focus();
   await page.keyboard.press('Home');
   for (let i = 0; i < 20; i++) await page.keyboard.press('ArrowRight');
-  const q3 = await V<{ x: number; y: number }>(page, 'squareAt', c.spec, 20 / 30);
+  // (the square where it is at the playhead's frame)
+  const q3 = await V<{ x: number; y: number }>(page, 'squareAt', c.spec, Math.round((await storeTime(page)) * 30) / 30);
   const inside = [(q3.x + 8) / c.spec.w, (q3.y + 8) / c.spec.h, 20 / c.spec.w, 20 / c.spec.h] as const;
   const outside = [0.7, 0.6, 0.2, 0.3] as const;
   await settle(page, 1);
@@ -336,11 +337,15 @@ test('seguir el cuadrado con el modelo real: marca, «Seguir», IoU por cuadro, 
   await toggle(seg, true);
   for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowRight');
   // at 1.5 s: around the object the second style, on the object the first one (each region its own style)
-  const q4 = await V<{ x: number; y: number }>(page, 'squareAt', c.spec, 1.5);
+  const t4 = await storeTime(page);
+  expect(t4).toBeGreaterThan(1);
+  expect(t4).toBeLessThan(2);
+  const q4 = await V<{ x: number; y: number }>(page, 'squareAt', c.spec, Math.round(t4 * 30) / 30);
   const in4 = [(q4.x + 8) / c.spec.w, (q4.y + 8) / c.spec.h, 20 / c.spec.w, 20 / c.spec.h] as const;
   const out4 = [q4.x / c.spec.w > 0.5 ? 0.05 : 0.7, 0.62, 0.2, 0.3] as const;
   await settle(page, 1);
   const both = { in: await meanIn(page, ...in4), out: await meanIn(page, ...out4) };
+  await shot(page, 'dos-estilos');
   await toggle(seg, false);
   await settle(page, 1);
   const first = { in: await meanIn(page, ...in4), out: await meanIn(page, ...out4) };
@@ -348,7 +353,6 @@ test('seguir el cuadrado con el modelo real: marca, «Seguir», IoU por cuadro, 
   expect(dist(both.in, first.in), 'en el objeto, sólo el primero').toBeLessThan(1.5);
   await toggle(seg, true);
   await release(page);
-  await shot(page, 'dos-estilos');
   expect(video).toBeTruthy();
   expect(errors).toEqual([]);
 });

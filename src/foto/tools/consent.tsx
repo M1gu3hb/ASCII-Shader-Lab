@@ -32,9 +32,17 @@ export async function selectModelState(): Promise<{ state: 'ready' } | { state: 
   return { state: 'ready' };
 }
 
+/** The model's privacy sentence, said of a selection (and of a video when it is one). */
+function privacy(text: string, video: boolean): string {
+  const t = text.replace(/\. El modelo se descarga.*$/, '.').replace('el recorte ocurre', 'la selección ocurre');
+  return video ? t.replace('Tus fotos no se suben', 'Tu video no se sube') : t;
+}
+
 /** The consent box (or, after «Ahora no», a one-line reminder with «Descargar…»). */
-export function ModelConsent({ c, error, purpose, title, tool, host, onDownload }: {
+export function ModelConsent({ c, error, purpose, title, tool, host, onDownload, video }: {
   c: ConsentFacts; error: string | null;
+  /** The privacy sentence speaks of the video instead of the photos. */
+  video?: boolean;
   /** «seleccionar objetos con puntos», «seguir un objeto en el video»… */
   purpose: string;
   /** The options bar's title («Objeto», «Seguir objeto»). */
@@ -59,7 +67,7 @@ export function ModelConsent({ c, error, purpose, title, tool, host, onDownload 
     <div className="tool-opts" data-tool={tool}>
       <section className="tool-consent wide" aria-labelledby={id}>
         <h3 id={id}>¿Descargar «{c.name}» ({c.size})?</h3>
-        <p>Para {purpose} hace falta este modelo. Se descarga una sola vez desde {c.from} y queda guardado aquí. {c.text.replace(/\. El modelo se descarga.*$/, '.').replace('el recorte ocurre', 'la selección ocurre')}</p>
+        <p>Para {purpose} hace falta este modelo. Se descarga una sola vez desde {c.from} y queda guardado aquí. {privacy(c.text, !!video)}</p>
         <Note tone="quiet">Licencia: {c.licence}.{c.note ? ` ${c.note}` : ''}</Note>
         {error ? <Note tone="warn">{error}</Note> : null}
         <Row>

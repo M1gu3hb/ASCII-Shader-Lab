@@ -591,7 +591,7 @@ function TrackOptions({ host }: { host: ToolHost }) {
     );
   }
   if (o.phase === 'consent' && o.consent) {
-    return <ModelConsent c={o.consent} error={o.error} purpose="seguir un objeto en el video" title="Seguir objeto" tool="seguir" host={host} onDownload={() => void download(host)} />;
+    return <ModelConsent c={o.consent} error={o.error} purpose="seguir un objeto en el video" title="Seguir objeto" tool="seguir" host={host} video onDownload={() => void download(host)} />;
   }
   if (o.phase === 'error') {
     return (
