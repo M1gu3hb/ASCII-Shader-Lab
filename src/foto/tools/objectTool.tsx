@@ -381,16 +381,16 @@ function ObjectOptions({ host, actions }: { host: ToolHost; actions: { download(
     const c = o.consent;
     if (later) {
       return (
-        <div className="tl-opts" data-tool="objeto">
-          <span className="tl-title">Objeto</span>
+        <div className="tool-opts" data-tool="objeto">
+          <span className="tool-title">Objeto</span>
           <Note tone="quiet">Seleccionar objetos necesita un modelo de {c.size} que todavía no está en este navegador.</Note>
           <Button onClick={() => setLater(false)}>Descargar…</Button>
         </div>
       );
     }
     return (
-      <div className="tl-opts" data-tool="objeto">
-        <section className="tl-consent wide" aria-labelledby="tl-consent-h">
+      <div className="tool-opts" data-tool="objeto">
+        <section className="tool-consent wide" aria-labelledby="tl-consent-h">
           <h3 id="tl-consent-h">¿Descargar «{c.name}» ({c.size})?</h3>
           <p>Para seleccionar objetos con puntos hace falta este modelo. Se descarga una sola vez desde {c.from} y queda guardado aquí. {c.text.replace(/\. El modelo se descarga.*$/, '.').replace('el recorte ocurre', 'la selección ocurre')}</p>
           <Note tone="quiet">Licencia: {c.licence}.{c.note ? ` ${c.note}` : ''}</Note>
@@ -404,8 +404,8 @@ function ObjectOptions({ host, actions }: { host: ToolHost; actions: { download(
     );
   }
   return (
-    <div className="tl-opts" data-tool="objeto">
-      <span className="tl-title">Objeto</span>
+    <div className="tool-opts" data-tool="objeto">
+      <span className="tool-title">Objeto</span>
       {o.phase === 'downloading' || o.phase === 'encoding' ? (
         <>
           <Progress value={o.progress} label={o.label || (o.phase === 'downloading' ? 'Descargando…' : 'Analizando la foto…')} />
@@ -420,7 +420,7 @@ function ObjectOptions({ host, actions }: { host: ToolHost; actions: { download(
         <>
           <Switch label={o.positive ? 'Añadir' : 'Quitar'} checked={!o.positive} onChange={v => setObject({ positive: !v })} hint="Qué marca el próximo toque: parte del objeto (añadir) o lo que no es (quitar)" />
           {o.points.length ? (
-            <ul className="tl-points" aria-label="Puntos">
+            <ul className="tool-points" aria-label="Puntos">
               {o.points.map((p, i) => (
                 <li key={i}>
                   <span className={p.positive ? 'pos' : 'neg'}>{i + 1} {p.positive ? '+' : '−'}</span>
@@ -429,7 +429,7 @@ function ObjectOptions({ host, actions }: { host: ToolHost; actions: { download(
               ))}
             </ul>
           ) : <Note tone="quiet">{o.box ? 'Recuadro marcado.' : 'Toca el objeto en la foto.'}</Note>}
-          {o.phase === 'busy' ? <span className="tl-mono" aria-live="polite">calculando…</span> : null}
+          {o.phase === 'busy' ? <span className="tool-mono" aria-live="polite">calculando…</span> : null}
           <Button primary disabled={!o.points.length && !o.box} onClick={actions.accept} kbd="Intro">{o.editing !== null ? 'Actualizar' : 'Aceptar'}</Button>
           <Button disabled={!o.points.length && !o.box} onClick={actions.reset} kbd="Esc">Borrar puntos</Button>
           {host.openCutout ? <Button onClick={() => host.openCutout!()} title="Recorte automático del sujeto, con refinado de bordes y PNG transparente">Quitar fondo…</Button> : null}

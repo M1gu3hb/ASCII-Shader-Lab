@@ -3,12 +3,20 @@
  * the viewport's canvas once a final render has settled, and look at the open project. Nothing here is
  * used by the studio itself.
  */
+import { Compositor } from '../project/compositor';
+import { evaluate } from '../project/evaluate';
+import { cloneProject, newLayer } from '../project/normalize';
 import * as ps from '../project/store';
 import { useProject } from '../project/store';
 import type { Project } from '../project/types';
 import { host } from './host';
 import { forceScale, onRendered, schedulerState, settled, viewCompositor, viewProject } from './scheduler';
 import { TOOLS } from './tools/index';
+import { objectTool } from './tools/objectTool';
+import { live } from './tools/state';
+import { studioClock } from './playback';
+import { animLoaded } from './anim';
+import { selectTool } from './keys';
 import type { Tool } from './tools/types';
 import { setUI, ui } from './ui';
 
@@ -24,7 +32,7 @@ function fnv(d: Uint8ClampedArray): string {
 
 export function installQA() {
   const reports: unknown[] = [];
-  onRendered(r => { reports.push({ seq: r.seq, light: r.light, scale: r.scale, ms: r.report.ms, layers: r.report.layers.map(l => [l.kind, l.ms]) }); if (reports.length > 50) reports.shift(); });
+  onRendered(r => { reports.push({ seq: r.seq, light: r.light, scale: r.scale, ms: r.report.ms, t: r.state.t, layers: r.report.layers.map(l => [l.kind, l.ms]) }); if (reports.length > 50) reports.shift(); });
   window.__foto = {
     host,
     TOOLS,
@@ -55,5 +63,16 @@ export function installQA() {
     sched: schedulerState,
     reports: () => reports,
     compositor: viewCompositor,
+    /** The object tool's state (phase: consent · downloading · encoding · ready · busy · error). */
+    objectState: () => { const o = live().object; return { phase: o.phase, points: o.points.length, error: o.error, matte: !!objectTool.matte() }; },
+    /** The cutout panel's state and last run (loaded on demand: null until the panel has opened). */
+    cutoutState: async () => { const m = await import('./cutout/Panel'); return { state: m.cutoutPanelQA.state(), last: m.cutoutPanelQA.last }; },
+    /** The studio's playback clock (play, pause, reverse, speed). */
+    clock: () => { const c = studioClock(); return { ...c.state() }; },
+    animLoaded,
+    /** Picks a tool as the palette does (the previous one is cancelled and deactivated), or none. */
+    selectTool,
+    /** For measurements (scratch benches): the core's renderer pieces. */
+    Compositor, evaluate, cloneProject, newLayer,
   };
 }

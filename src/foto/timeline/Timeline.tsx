@@ -17,11 +17,12 @@ import { edit, select, setTime, useProject } from '../../project/store';
 import type { Drawable } from '../../project/sources';
 import type { AnimClip, Ease, Id, Layer, LayerKind, Project } from '../../project/types';
 import '../../anim/index';
-import { applyChoreo, type Choreo } from '../../anim/choreo';
-import { addClip, clipOverlaps, contentEnd, deleteClip, duplicateClip, moveClip, resizeClip, setClipEase, setClipParam, setClipReverse, setSpan } from '../../anim/edit';
-import { newClip, type LibraryItem } from '../../anim/library';
+import type { Choreo } from '../../anim/choreo';
+import { clipOverlaps, contentEnd, deleteClip, duplicateClip, moveClip, resizeClip, setClipEase, setClipParam, setClipReverse, setSpan } from '../../anim/edit';
+import type { LibraryItem } from '../../anim/library';
 import { addKey, animatablePaths, deleteKey, findClip, keyTimes, moveKey, pathInfo, setClipLoop, setKeyEase, setKeyValue, shiftKeys, type KeyRef, type PathInfo } from '../../anim/keys';
 import { easeLabel } from '../../anim/ease';
+import { addChoreography, addLibraryItem, fitDuration } from './actions';
 import { createClock, type PlaybackClock, type PlaybackState } from './clock';
 import { LibraryPicker } from './LibraryPicker';
 import { clampView, clipLanes, dragTo, fitView, formatTime, frameStep, pinchZoom, reveal, rulerTicks, snapClipStart, snapTargets, snapTime, timeToX, xToTime, zoomAt, type View } from './math';
@@ -177,28 +178,18 @@ export function Timeline(props: TimelineProps) {
   const goTo = (t: number) => { clock.pause(); setTime(Math.min(lenOf(projRef.current), Math.max(0, t))); };
 
   /** Grows the project's duration when content passes its end (a still project gets a length). */
-  const fitDuration = (d: Project) => { const end = contentEnd(d); if (end > d.time.duration) d.time.duration = Math.round(end * 100) / 100; };
 
   /* ---------------------------------------------------------------- actions */
   const addFromLibrary = (item: LibraryItem) => {
-    const target = selLayer && item.kinds.includes(selLayer.kind) ? selLayer : project?.layers.slice().reverse().find(l => item.kinds.includes(l.kind));
-    if (!target) { say(`«${item.name}» no funciona en ninguna capa de este proyecto.`); return; }
-    const c = newClip(item, useProject.getState().time);
-    edit(d => { addClip(d, target.id, c); fitDuration(d); });
-    select([target.id]);
-    setSel({ kind: 'clip', id: c.id });
-    setPicker(false);
-    say(`Añadido «${item.name}» a «${target.name}» en ${formatTime(c.start)}.`);
+    const r = addLibraryItem(item, selLayer?.id);
+    if (r.clip) setSel({ kind: 'clip', id: r.clip });
+    if (r.ok) setPicker(false);
+    say(r.msg);
   };
   const addChoreo = (c: Choreo) => {
-    const target = selLayer && c.kinds.includes(selLayer.kind) ? selLayer : project?.layers.slice().reverse().find(l => c.kinds.includes(l.kind));
-    if (!target) { say(`«${c.name}» no funciona en ninguna capa de este proyecto.`); return; }
-    const start = target.span ? target.span.in : 0;
-    const total = target.span ? target.span.out - target.span.in : Math.max(4, lenOf(project));
-    edit(d => { applyChoreo(d, target.id, c.id, start, total, 0.2); fitDuration(d); });
-    select([target.id]);
-    setPicker(false);
-    say(`Coreografía «${c.name}» en «${target.name}».`);
+    const r = addChoreography(c, selLayer?.id);
+    if (r.ok) setPicker(false);
+    say(r.msg);
   };
   const deleteSelection = () => {
     if (!sel) return;
@@ -561,7 +552,7 @@ export function Timeline(props: TimelineProps) {
             {[0.25, 0.5, 1, 1.5, 2].map(s => <option key={s} value={s}>{s}×</option>)}
           </select>
           <button type="button" className="tl-btn" aria-label="Repetir el proyecto en bucle" aria-pressed={project.time.loop} title="Bucle del proyecto" onClick={() => edit(d => { d.time.loop = !d.time.loop; })}><Icon d={I.loop} /></button>
-          <button type="button" className="tl-btn" aria-label="Región de bucle" aria-pressed={regionOn} title="Repetir solo una región"
+          <button type="button" className="tl-btn tl-region" aria-label="Región de bucle" aria-pressed={regionOn} title="Repetir solo una región"
             onClick={() => { if (regionOn) clock.setRegion(null); else { const t = useProject.getState().time; const a = Math.min(t, Math.max(0, len - 1)); clock.setRegion({ in: a, out: Math.min(len, a + Math.max(1, len / 4)) }); } }}><Icon d={I.region} /></button>
           <button type="button" className="tl-btn" aria-label="Imán: ajustar a llaves, bordes y cuadros" aria-pressed={snapOn} title="Ajustar al arrastrar (Alt lo suspende)" onClick={() => setSnapOn(s => !s)}><Icon d={I.magnet} /></button>
         </div>
@@ -615,7 +606,7 @@ export function Timeline(props: TimelineProps) {
       </div>
       <TimeScroll view={view} len={len} onStart={st => setView(v => clampView({ ...v, start: st }, len))} />
       <p className="tl-hint">
-        {props.compact ? 'Un dedo desplaza, dos acercan; mantén pulsado un clip o una llave para ver sus opciones.' : <><kbd>←</kbd><kbd>→</kbd> cuadro · <kbd>⇧</kbd> segundo · <kbd>Espacio</kbd> reproducir · <kbd>K</kbd> llave · <kbd>Supr</kbd> borrar · <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> mover selección · <kbd>Ctrl</kbd>+rueda zoom · clic derecho: opciones</>}
+        {props.compact && (typeof matchMedia !== 'function' || matchMedia('(pointer: coarse)').matches) ? 'Un dedo desplaza, dos acercan; mantén pulsado un clip o una llave para ver sus opciones.' : <><kbd>←</kbd><kbd>→</kbd> cuadro · <kbd>⇧</kbd> segundo · <kbd>Espacio</kbd> reproducir · <kbd>K</kbd> llave · <kbd>Supr</kbd> borrar · <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> mover selección · <kbd>Ctrl</kbd>+rueda zoom · clic derecho: opciones</>}
       </p>
 
       {/* ---------------------------------------------------------------- popovers */}
@@ -686,7 +677,7 @@ function TimeScroll({ view, len, onStart }: { view: View; len: number; onStart: 
         }}
         onPointerMove={e => { const d = drag.current; if (d && d.id === e.pointerId) onStart(d.s0 + toTime(e.clientX - d.x0)); }}
         onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
-        <span className="thumb" style={{ left: `${left * 100}%`, width: `${Math.max(2, w * 100)}%` }} />
+        <span className="tl-thumb" style={{ left: `${left * 100}%`, width: `${Math.max(2, w * 100)}%` }} />
       </div>
     </div>
   );

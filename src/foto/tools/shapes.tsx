@@ -215,8 +215,8 @@ function ShapeOptions({ host, kind, editor, use }: { host: ToolHost; kind: Kind;
     if (part) d.set(patch);
   };
   return (
-    <div className="tl-opts" data-tool={kind}>
-      <span className="tl-title">{NAME[kind]}</span>
+    <div className="tool-opts" data-tool={kind}>
+      <span className="tool-title">{NAME[kind]}</span>
       <Slider label="Borde suave" value={part ? part.soft : st.shapeSoft} min={0} max={80} step={1} format={px} onChange={v => set({ soft: v })} onCommit={(_v, how) => d.commit(how)} hint="Difumina el borde de esta forma (px de la imagen final)" />
       <Slider label="Intensidad" value={part ? part.alpha : st.shapeAlpha} min={0.05} max={1} step={0.05} format={pct} onChange={v => set({ alpha: v })} onCommit={(_v, how) => d.commit(how)} hint="Menos de 100 % mezcla la foto y los caracteres dentro de la forma" />
       {sel ? (

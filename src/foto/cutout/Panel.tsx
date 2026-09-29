@@ -347,7 +347,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
 
   return (
     <div className="cp" data-phase={phase}>
-      <p className="cp-lead">El recorte ocurre en este equipo: tu foto no se sube.{src ? <> Foto: <span className="tl-mono">{src.name || 'sin nombre'}</span>.</> : null}</p>
+      <p className="cp-lead">El recorte ocurre en este equipo: tu foto no se sube.{src ? <> Foto: <span className="tool-mono">{src.name || 'sin nombre'}</span>.</> : null}</p>
       {error ? <Note tone="warn">{error}</Note> : null}
 
       {phase === 'loading' ? <Progress value={null} label="Mirando qué puede hacer este equipo…" /> : null}
@@ -359,7 +359,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
             {models.map(m => (
               <label key={m.id} className={'cp-model' + (m.available ? '' : ' off') + (m.id === model ? ' on' : '')} data-model={m.id}>
                 <input type="radio" name="cp-model" value={m.id} checked={m.id === model} disabled={!m.available || busy} onChange={() => { setModel(m.id); setPhase('choose'); setConsent(null); }} />
-                <span className="cp-mname">{m.name} <span className="tl-mono">{m.bytes ? `${Math.round(m.bytes / 1e6)} MB` : ''}{m.available ? ` · ${m.backend === 'webgpu' ? 'WebGPU' : 'WASM'}` : ''}</span></span>
+                <span className="cp-mname">{m.name} <span className="tool-mono">{m.bytes ? `${Math.round(m.bytes / 1e6)} MB` : ''}{m.available ? ` · ${m.backend === 'webgpu' ? 'WebGPU' : 'WASM'}` : ''}</span></span>
                 <span className="cp-mblurb">{m.blurb}</span>
                 {!m.available ? <span className="cp-why">{m.why}</span> : m.note ? <span className="cp-why">{m.note}</span> : null}
                 <span className="cp-state">{states[m.id] === 'cached' || states[m.id] === 'ready' ? 'Descargado en este navegador' : m.available ? 'Sin descargar' : 'No disponible aquí'}</span>
@@ -374,7 +374,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
       ) : null}
 
       {phase === 'consent' && consent ? (
-        <section className="tl-consent cp-consent" aria-labelledby="cp-consent-h" role="dialog" aria-modal="false">
+        <section className="tool-consent cp-consent" aria-labelledby="cp-consent-h" role="dialog" aria-modal="false">
           <h3 id="cp-consent-h">¿Descargar «{consent.name}» ({consent.size})?</h3>
           <p>Se descarga una sola vez desde {consent.from} y queda guardado en este navegador.</p>
           <p>{consent.text}</p>
@@ -417,7 +417,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
         <>
           <section className="cp-sec" aria-labelledby="cp-edge">
             <h3 id="cp-edge">Bordes</h3>
-            <div className="tl-opts cp-stack">
+            <div className="tool-opts cp-stack">
               <Slider wide label="Suavizar" value={refine.feather} min={0} max={20} step={0.5} format={px} onChange={v => setR({ feather: v })} hint="Difumina el borde del recorte" />
               <Slider wide label="Desplazar" value={refine.shift} min={-12} max={12} step={0.5} format={v => `${v > 0 ? '+' : ''}${v} px`} onChange={v => setR({ shift: v })} hint="Negativo encoge el recorte (quita halos); positivo lo agranda" />
               <Slider wide label="Descontaminar" value={refine.decontaminate} min={0} max={1} step={0.05} format={pct} onChange={v => setR({ decontaminate: v })} hint="Quita el color del fondo viejo de los bordes semitransparentes (pelo)" />
@@ -427,7 +427,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
 
           <section className="cp-sec" aria-labelledby="cp-touch">
             <h3 id="cp-touch">Retoques</h3>
-            <div className="tl-opts">
+            <div className="tool-opts">
               <Segmented<EditTool> label="Retoque" value={tool} options={[
                 { value: 'none', label: 'Ver' }, { value: 'keep', label: 'Conservar', title: 'Pinta lo que debe quedarse' }, { value: 'remove', label: 'Quitar', title: 'Pinta lo que debe irse' },
                 { value: 'color-remove', label: 'Quitar color', title: 'Toca un color del fondo que sobra' }, { value: 'color-add', label: 'Añadir color', title: 'Toca un color del sujeto que falta' },
@@ -450,7 +450,7 @@ export function CutoutPanel({ host, source: asked, onClose }: CutoutPanelProps) 
 
           <section className="cp-sec" aria-labelledby="cp-use">
             <h3 id="cp-use">Usar el recorte</h3>
-            <div className="tl-opts">
+            <div className="tool-opts">
               <Segmented<What> label="Qué hacer" value={what} options={[{ value: 'layer', label: 'Capa nueva' }, { value: 'mask', label: 'Máscara' }, { value: 'both', label: 'Las dos' }]} onChange={setWhat} />
               {what !== 'layer' ? <Segmented<'subject' | 'background'> label="Máscara de" value={maskKind} options={[{ value: 'subject', label: 'Sujeto' }, { value: 'background', label: 'Fondo' }]} onChange={setMaskKind} /> : null}
             </div>

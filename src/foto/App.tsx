@@ -18,10 +18,12 @@ import { addPhotoSource } from './layerOps';
 import { CameraSheet, HelpSheet, SaveAsSheet, SettingsSheet, StylesSheet, VersionsSheet } from './Sheets';
 import { newFromFile, openFile } from './session';
 import { Start } from './Start';
-import { TimeSlot } from './TimeSlot';
+import { MiniTransport, TimeSlot } from './TimeSlot';
 import { say, setUI, useFoto } from './ui';
 import { Viewport, type Insets } from './Viewport';
-import { useSuggestion } from './suggest';
+import { dismissHint, holdHint, useSuggestion } from './suggest';
+import { AnimSheet } from './AnimSheet';
+import { loadAnim } from './anim';
 import { ExtrasRoot } from './extras/ExtrasRoot';
 
 const ExportSheet = lazy(() => import('./ExportSheet').then(m => ({ default: m.ExportSheet })));
@@ -47,22 +49,24 @@ export function App() {
   const screen = useFoto(s => s.screen);
   const layout = useLayout();
   const sideSheet = useFoto(s => s.snap !== 'closed') && layout === 'land' && screen === 'edit';
+  const cutOpen = useFoto(s => s.cutout) && screen === 'edit';
   useDrop();
   return (
-    <div className={`app foto foto-${layout}` + (screen === 'edit' ? ' editing' : ' starting') + (sideSheet ? ' land-sheet' : '')}>
+    <div className={`app foto foto-${layout}` + (screen === 'edit' ? ' editing' : ' starting') + (sideSheet ? ' land-sheet' : '') + (cutOpen ? ' fcut-open' : '')}>
       {screen === 'start' ? (
         <>
           <TopBar editing={false} />
           <div className="fstart-wrap"><Start /></div>
         </>
       ) : <Editor layout={layout} />}
-      <Notices />
+      <Notices layout={layout} editing={screen === 'edit'} />
       <HelpSheet />
       <StylesSheet />
       <VersionsSheet />
       <SettingsSheet />
       <CameraSheet />
       <SaveAsSheet />
+      <AnimSheet />
       <OnDemand sheet="export"><ExportSheet /></OnDemand>
       <ExtrasRoot />
       <LiveLine />
@@ -77,7 +81,9 @@ function Editor({ layout }: { layout: Layout }) {
   const snap = useFoto(s => s.snap);
   const project = useProject(s => s.project);
 
-  const suggestion = useSuggestion(openCutout);
+  useSuggestion();
+  // the animation library comes while the person looks at the art (the timeline and «Animar» use it)
+  useEffect(() => { const t = window.setTimeout(() => void loadAnim().catch(() => undefined), 1200); return () => clearTimeout(t); }, []);
   if (!project) return null;
   const phone = layout !== 'desk';
   const top = !phone || !immersive;
@@ -110,11 +116,12 @@ function Editor({ layout }: { layout: Layout }) {
             {!phone && <ViewTools />}
             {phone && <PlusMinus />}
             {phone && immersive && <ImmersiveExit><IMore /></ImmersiveExit>}
-            {suggestion}
+            {!phone && <HintCard />}
             {phone && <ViewToolsPhone />}
           </div>
           {!phone && <Deck />}
-          <TimeSlot />
+          {/* (phones: the timeline is the sheet's «Tiempo» tab, and play rides with the view tools) */}
+          {!phone && <TimeSlot />}
         </main>
         {!phone && (
           <aside className="fpanel" aria-label="Capas y ajustes">
@@ -134,9 +141,9 @@ function Editor({ layout }: { layout: Layout }) {
   );
 }
 
-/** Phones: the compare button and the hold-to-see-original, small, at the top of the art. */
+/** Phones: play (when the project moves), the compare button and the hold-to-see-original, small, at the top of the art. */
 function ViewToolsPhone() {
-  return <div className="fvt-phone"><ViewTools /></div>;
+  return <div className="fvt-phone"><MiniTransport phone /><ViewTools /></div>;
 }
 
 function CutoutBody({ onClose }: { onClose: () => void }) {
@@ -145,7 +152,6 @@ function CutoutBody({ onClose }: { onClose: () => void }) {
   return (
     <>
       <CutoutPanel host={host} {...(source ? { source } : {})} onClose={onClose} />
-      <p className="note fcut-soon">Quitar el fondo ocurre en tu equipo: el modelo se descarga una vez, con tu permiso. Si este panel está vacío, el recorte llega con la próxima actualización del estudio; mientras tanto, «Máscara» en los ajustes de la capa delimita zonas a mano.</p>
     </>
   );
 }
@@ -179,20 +185,55 @@ function useDrop() {
 
 /* ------------------------------------------------------------------ notices */
 
-function Notices() {
+/** The «Quitar fondo» recommendation on the desktop: a small card in the stage's corner, away from the notices. */
+function HintCard() {
+  const hint = useFoto(s => s.hint);
+  if (!hint) return null;
+  return (
+    <div className="fsuggest" role="status" onPointerEnter={() => holdHint(true)} onPointerLeave={() => holdHint(false)} onFocus={() => holdHint(true)} onBlur={() => holdHint(false)}>
+      <span>{hint.text}</span>
+      <button type="button" className="mini" onClick={() => { dismissHint(); openCutout(); }}>Quitar fondo</button>
+      <button type="button" className="fsg-x" aria-label="Descartar la sugerencia" onClick={dismissHint}><IClose /></button>
+    </div>
+  );
+}
+
+/**
+ * What the studio says: the status line (say), the toasts (with an action, e.g. undo) and, on phones, the
+ * «Quitar fondo» recommendation. Never two over the art at once: the most useful one shows (a toast with an
+ * action, then the recommendation, then the latest line), in one line on phones (a tap shows it whole);
+ * the status line goes by itself after a few seconds, a toast with an action stays while it is used.
+ */
+function Notices({ layout, editing }: { layout: Layout; editing: boolean }) {
   const list = useToasts(s => s.list);
   const status = useFoto(s => s.status);
-  return (
-    <div className="fnotes">
-      {status && <p className="fstatus">{status}</p>}
-      <div className="toasts" role="status" aria-live="polite">
-        {list.map(t => (
-          <div key={t.id} className="toast" onPointerEnter={() => holdToast(t.id, true)} onPointerLeave={() => holdToast(t.id, false)}
-            onFocus={() => holdToast(t.id, true)} onBlur={() => holdToast(t.id, false)}>
-            <span className="toast-msg">{t.msg}</span>{t.action && <button type="button" onClick={t.action.run}>{t.action.label}</button>}
-          </div>
-        ))}
+  const hint = useFoto(s => s.hint);
+  const [full, setFull] = useState(false);
+  const phone = layout !== 'desk' && editing;
+  const acted = [...list].reverse().find(t => t.action);
+  const latest = list[list.length - 1];
+  useEffect(() => setFull(false), [status, latest?.id, hint?.id]);
+  const toastEl = (t: (typeof list)[number]) => (
+    <div key={t.id} className="toast" onPointerEnter={() => holdToast(t.id, true)} onPointerLeave={() => holdToast(t.id, false)}
+      onFocus={() => holdToast(t.id, true)} onBlur={() => holdToast(t.id, false)}>
+      <span className="toast-msg">{t.msg}</span>{t.action && <button type="button" onClick={t.action.run}>{t.action.label}</button>}
+    </div>
+  );
+  let one: ReactNode = null;
+  if (acted) one = toastEl(acted);
+  else if (phone && hint) {
+    one = (
+      <div className="toast fhint" onPointerEnter={() => holdHint(true)} onPointerLeave={() => holdHint(false)} onFocus={() => holdHint(true)} onBlur={() => holdHint(false)}>
+        <span className="toast-msg">¿Quitar el fondo? <small>{hint.text}</small></span>
+        <button type="button" onClick={() => { dismissHint(); openCutout(); }}>Quitar fondo</button>
+        <button type="button" className="fsg-x" aria-label="Descartar la sugerencia" onClick={dismissHint}><IClose /></button>
       </div>
+    );
+  } else if (latest && !status) one = toastEl(latest);
+  else if (status) one = <p className={'fstatus' + (full ? ' full' : '')} onClick={() => setFull(!full)}>{status}</p>;
+  return (
+    <div className={'fnotes' + (phone ? ' one-line' : '')}>
+      <div className="toasts" role="status" aria-live="polite">{one}</div>
     </div>
   );
 }

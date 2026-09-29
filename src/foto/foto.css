@@ -76,19 +76,29 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .t-ic svg { width: 100%; height: 100%; }
 
 /* ---------- tool rail ---------- */
-.frail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; border-right: 1px solid var(--line); background: var(--bg); overflow-y: auto; scrollbar-width: none; }
-.trail-g { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; margin-top: 2px; border-top: 1px solid var(--line); }
-.tbtn { position: relative; width: 40px; height: 40px; border-radius: 9px; border: 1px solid transparent; background: none; color: var(--muted); display: grid; place-items: center; }
-.tbtn svg, .tbtn .t-ic { width: 19px; height: 19px; }
+.frail { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; border-right: 1px solid var(--line); background: var(--bg); overflow-y: auto; scrollbar-width: none; }
+.trail-g { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 0; margin-top: 6px; border-top: 1px solid var(--line); width: 36px; }
+.trail-g > .tbtn { margin: 0 -2px; }
+.tbtn { position: relative; flex: none; width: 40px; height: 38px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--muted); display: grid; place-items: center; padding: 0; }
+.tbtn svg, .tbtn .t-ic { width: 20px; height: 20px; display: block; }
+.tbtn .t-ic svg { width: 100%; height: 100%; }
 .tbtn:hover { color: var(--text); background: var(--field); border-color: var(--line); }
-.tbtn[aria-pressed="true"] { color: var(--ink); background: var(--bone); }
-.tbtn kbd { position: absolute; right: 2px; bottom: 1px; font: 600 8.5px/1 var(--font-mono); opacity: .6; border: 0; padding: 0; }
-.trail-empty { writing-mode: vertical-rl; transform: rotate(180deg); margin: 10px 0; font: 500 10px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
-.trail-sep { width: 24px; height: 1px; background: var(--line); margin: 4px 0; flex: none; }
-.frail.horiz { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; border: 0; padding: 0 0 10px; background: none; overflow: visible; }
-.frail.horiz .trail-g { flex-direction: row; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 6px; margin: 0; }
-.frail.horiz .trail-empty { writing-mode: horizontal-tb; transform: none; margin: 0 6px; align-self: center; }
-.frail.horiz .trail-sep { width: 1px; height: 28px; margin: 0 4px; align-self: center; }
+.tbtn[aria-pressed="true"] { color: var(--ink); background: var(--bone); border-color: var(--bone); }
+.tbtn[aria-pressed="true"]::before { content: ''; position: absolute; left: -9px; top: 9px; bottom: 9px; width: 2px; border-radius: 2px; background: var(--accent); }
+.tbtn kbd { position: absolute; right: 3px; bottom: 2px; font: 600 8.5px/1 var(--font-mono); color: inherit; opacity: .55; border: 0; padding: 0; background: none; }
+.tbtn[aria-pressed="true"] kbd { opacity: .75; }
+.frail-tip { position: fixed; z-index: 80; transform: translateY(-50%); max-width: 280px; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 9px; border-radius: 8px; border: 1px solid var(--line-2); background: rgba(20, 19, 17, .98); box-shadow: 0 12px 34px rgba(0, 0, 0, .5); pointer-events: none; }
+.frt-h { display: flex; align-items: center; gap: 8px; }
+.frt-h b { font: 600 12.5px/1.2 var(--font-ui); color: var(--text); }
+.frt-h kbd { font: 600 10.5px/1 var(--font-mono); color: var(--text); border: 1px solid var(--line-2); border-radius: 4px; padding: 3px 5px 2px; background: var(--field); }
+.frt-b { font-size: 12px; line-height: 1.4; color: var(--muted); }
+/* phones: one row of labelled buttons that scrolls sideways */
+.frail.horiz { flex-direction: row; align-items: stretch; gap: 4px; border: 0; padding: 0 0 10px; margin: 0 -12px; padding-inline: 12px; background: none; overflow-x: auto; overflow-y: hidden; scroll-padding-inline: 12px; }
+.frail.horiz .trail-g { flex-direction: row; align-items: stretch; width: auto; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 4px; margin: 0; gap: 4px; }
+.frail.horiz .tbtn { width: 66px; height: 58px; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-color: var(--line); background: var(--field); }
+.frail.horiz .tbtn[aria-pressed="true"] { background: var(--bone); }
+.frail.horiz .tbtn[aria-pressed="true"]::before { left: 12px; right: 12px; top: auto; bottom: -1px; width: auto; height: 2px; }
+.frail.horiz .t-name { font: 500 10.5px/1.1 var(--font-ui); max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- deck: dice and versions ---------- */
 .fdeck { flex: none; height: var(--deck-h); display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--line); background: var(--bg); }
@@ -117,12 +127,43 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fpop .seg button { font-size: 12.5px; }
 
 /* the timeline slot */
-.ftl { flex: none; border-top: 1px solid var(--line); background: var(--bg); }
-.ftl-toggle { border: 0; background: none; color: var(--dim); font: 600 9.5px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; padding: 8px 12px 4px; }
-.ftl-body { display: flex; align-items: center; gap: 10px; padding: 2px 12px 10px; }
-.ftl-body input[type=range] { flex: 1; min-width: 80px; }
+.ftl { position: relative; flex: none; border-top: 1px solid var(--line); background: var(--bg); }
+.ftl-head { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 12px 0 4px; }
+.ftl.open .ftl-head { min-height: 30px; }
+.ftl-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; border: 0; background: none; color: var(--dim); font: 600 9.5px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; padding: 0 8px; border-radius: 6px; }
+.ftl-toggle:hover { color: var(--text); background: var(--field); }
+.ftl-caret { font-family: var(--font-mono); letter-spacing: 0; width: 10px; }
+.ftl-sum { min-width: 0; flex: 1; font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ftl-mini { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.app.foto .ftl-mini .ib { height: 30px; min-width: 30px; padding: 0 6px; }
 .ftl-t { font: 500 11.5px/1 var(--font-mono); color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ftl-note { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ftl-body { display: flex; flex-direction: column; min-height: 0; }
+.ftl-body > .tl { flex: 1; min-height: 0; border-top: 1px solid var(--line); }
+.ftl-wait { padding: 12px; margin: 0; }
+.ftl-grip { position: absolute; z-index: 2; left: 0; right: 0; top: -4px; height: 8px; cursor: ns-resize; touch-action: none; }
+.ftl-grip:hover { background: linear-gradient(transparent 3px, var(--line-2) 3px, var(--line-2) 5px, transparent 5px); }
+.ftl-phone { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.ftl-phone > .tl { flex: 1; min-height: 0; border-top: 0; }
+.fsheet-body.fsheet-tl { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.fsheet-body.fsheet-tl > .ftl-phone { flex: 1; }
+.ftl-mini.phone { background: rgba(15, 14, 13, .92); border: 1px solid var(--line-2); border-radius: 10px; padding: 3px; }
+.app.foto .ftl-mini.phone .ib { height: 44px; min-width: 44px; }
+.fvt-phone { display: flex; align-items: center; gap: 8px; }
+
+/* «Animación» in the inspector and the library sheet */
+.fanim-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fanim-list li { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 8px; background: rgba(0, 0, 0, .16); padding: 2px; }
+.fanim-clip { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 0; background: none; color: var(--text); text-align: left; padding: 6px 6px; border-radius: 6px; font: 500 12.5px/1.2 var(--font-ui); }
+.fanim-clip span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fanim-clip small { font: 500 10.5px/1 var(--font-mono); color: var(--dim); }
+.fanim-clip:hover { background: var(--field); }
+.app.foto .fanim-x { width: 30px; height: 30px; border: 0; font: 500 16px/1 var(--font-ui); }
+.fanim-pick { height: min(68vh, 640px); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 0 0 4px; }
+.fanim-pick > .note { padding: 16px; }
+.fanim-pick .tl-lib header h3, .fanim-pick .tl-lib header > .tl-btn:last-child { display: none; }
+@media (max-width: 760px) { .fanim-pick { height: calc(100dvh - 190px); border-radius: 8px; } }
+/* short desktop windows: the keyboard line of the timeline is in the help sheet («?») */
+@media (max-height: 860px) { .ftl-body .tl-hint { display: none; } }
 
 /* ---------- panel: layers and inspector ---------- */
 .fpanel { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--line); background: var(--panel); }
@@ -240,8 +281,6 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fcut-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .fcut-h h2 { margin: 0; font: 700 14px/1.2 var(--font-display); }
 .fcut-b { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
-/* the «coming soon» line only while the panel itself renders nothing */
-.fcut-b > .fcut-soon:not(:first-child) { display: none; }
 .fcut-phone { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; height: min(78dvh, 640px); background: var(--sheet-bg); border-top: 1px solid var(--line-2); border-radius: 16px 16px 0 0; display: flex; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .fsuggest { position: absolute; z-index: 7; left: 12px; top: 12px; max-width: min(520px, calc(100% - 24px)); display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 10px; border: 1px solid var(--line-2); border-left: 2px solid var(--bone); background: rgba(20, 19, 17, .96); font-size: 12.5px; color: var(--text); box-shadow: 0 12px 40px rgba(0, 0, 0, .4); }
 .fsuggest span { flex: 1; min-width: 0; }
@@ -254,9 +293,21 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .app.foto .fnotes .toasts { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .app.foto .fnotes .toast { pointer-events: auto; }
 .fstatus { margin: 0; padding: 6px 12px; border-radius: 999px; background: rgba(12, 11, 10, .88); border: 1px solid var(--line); color: var(--muted); font-size: 12.5px; text-align: center; max-width: 100%; }
-.app.foto.editing.foto-desk .fnotes { top: auto; bottom: calc(var(--deck-h) + 64px); left: calc(var(--rail-w) + (100vw - var(--rail-w) - var(--panel-w)) / 2); width: min(560px, calc(100vw - var(--rail-w) - var(--panel-w) - 24px)); }
+.app.foto.editing.foto-desk .fnotes { top: auto; bottom: calc(var(--deck-h) + var(--ftl-h, 36px) + 62px); left: calc(var(--rail-w) + (100vw - var(--rail-w) - var(--panel-w)) / 2); width: min(560px, calc(100vw - var(--rail-w) - var(--panel-w) - 24px)); }
+/* phones: one notice, one line (a tap on the status line shows it whole) */
+.app.foto .fnotes.one-line .toasts { align-self: stretch; min-width: 0; }
+.app.foto.fcut-open .fnotes.one-line { bottom: calc(min(78dvh, 640px) + 10px + env(safe-area-inset-bottom, 0px)); }
+.fnotes.one-line .toast, .fnotes.one-line .fstatus { max-width: 100%; min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 12px; }
+.fnotes.one-line .fstatus { padding: 9px 12px; pointer-events: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left; }
+.fnotes.one-line .fstatus.full { white-space: normal; }
+.fnotes.one-line .toast-msg { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fnotes.one-line .toast button { flex: none; min-height: 36px; }
+.fhint small { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.fhint .fsg-x { width: 36px; height: 36px; }
 
 /* ---------- sheets ---------- */
+.app.foto .keys div { align-items: center; }
+.app.foto .keys kbd { flex: none; max-width: 55%; white-space: normal; text-align: center; line-height: 1.25; }
 .app.foto .data-h { margin: 18px 0 10px; font: 600 10.5px/1.2 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .app.foto .data-h:first-child { margin-top: 0; }
 .fhelp-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -315,6 +366,14 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fs-drop-s { font-size: 12.5px; color: var(--muted); }
 .fs-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
 .fs-acts .btn { width: auto; margin: 0; padding: 10px 16px; }
+.fs-steps { list-style: none; counter-reset: paso; margin: 22px 0 0; padding: 14px 0 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.fs-steps li { counter-increment: paso; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.fs-steps li b { display: flex; align-items: baseline; gap: 8px; font: 700 13px/1.2 var(--font-display); color: var(--text); }
+.fs-steps li b::before { content: counter(paso, decimal-leading-zero); font: 500 10.5px/1 var(--font-mono); color: var(--accent); }
+@media (max-width: 760px) { .fs-steps { grid-template-columns: 1fr; gap: 10px; } }
+.fs-tpl-img.wait { background: linear-gradient(100deg, var(--ink-3) 30%, #26231f 50%, var(--ink-3) 70%) 0 0 / 300% 100%; animation: fs-wait 1.6s linear infinite; }
+@keyframes fs-wait { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .fs-tpl-img.wait { animation: none; } }
 .fs-sec { margin-top: 44px; }
 .fs-h { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font: 600 11px/1.2 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .fs-tpls { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
@@ -355,11 +414,20 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fsheet-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .fsheet-tabs [role=tab] { flex: none; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--muted); font: 500 14px/1 var(--font-ui); border-bottom: 2px solid transparent; }
 .fsheet-tabs [role=tab][aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
-/* four tabs and the close button fit a 360 px phone without cutting a label */
+/* five tabs (and the close button, from 380 px) fit a phone without cutting a label; below 380 px the sheet
+   closes with its handle, the «Herramientas» button or Esc */
 @media (max-width: 400px) {
   .fsheet-head { gap: 2px; padding: 0 6px 0 4px; }
   .fsheet-tabs { gap: 0; }
-  .fsheet-tabs [role=tab] { padding: 0 7px; font-size: 13.5px; }
+  .fsheet-tabs [role=tab] { padding: 0 7px; font-size: 13px; }
+}
+/* the side drawer of a phone on its side is 420 px at most: the same compact tabs */
+.fsheet.land .fsheet-head { gap: 2px; padding: 0 6px 0 4px; }
+.fsheet.land .fsheet-tabs { gap: 0; }
+.fsheet.land .fsheet-tabs [role=tab] { padding: 0 7px; font-size: 13px; }
+@media (max-width: 379px) {
+  .fsheet-head .close { display: none; }
+  .fsheet-tabs [role=tab] { padding: 0 6px; }
 }
 .fsheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px; }
 .fsheet-body .flayers { max-height: none; border: 0; }
@@ -370,7 +438,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fsheet-body .fpop { position: fixed; left: 8px; right: 8px; bottom: calc(var(--bar-h) + 70px); width: auto; }
 .fsheet-body .fopts { border: 0; padding: 0 0 10px; flex-wrap: wrap; background: none; }
 .fsheet.land { top: 0; bottom: 0; left: auto; right: calc(var(--land-bar) + env(safe-area-inset-right, 0px)); width: min(420px, 50vw); border-radius: 0; border-top: 0; border-left: 1px solid var(--line-2); }
-.fpm { position: absolute; z-index: 8; right: 10px; top: 10px; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--line-2); background: rgba(15, 14, 13, .94); color: var(--text); font: 600 13px/1 var(--font-ui); }
+.fpm { position: absolute; z-index: 8; right: 8px; top: calc(60px + env(safe-area-inset-top, 0px)); min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--line-2); background: rgba(15, 14, 13, .94); color: var(--text); font: 600 13px/1 var(--font-ui); }
 .fpm.subtract { border-color: var(--accent); color: var(--accent); }
 .fimm-exit { position: absolute; z-index: 8; right: 8px; top: calc(8px + env(safe-area-inset-top, 0px)); width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--line-2); background: rgba(15, 14, 13, .88); color: var(--text); display: grid; place-items: center; }
 .fimm-exit svg { width: 20px; height: 20px; }
@@ -389,6 +457,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 /* a short screen: the suggestion rides beside the view buttons instead of over the art */
 .foto-land .fstage .fsuggest { top: 8px; left: 196px; right: calc(var(--land-sheet) + 60px); font-size: 12px; }
 .foto-land .fimm-exit { right: calc(var(--land-sheet) + 8px); }
+.foto-land .fpm { right: calc(var(--land-sheet) + 8px); }
 .foto-land.land-sheet .fsuggest { display: none; }
 .app.foto.foto-land.editing { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); }
 .foto-land.editing > .topbar { grid-column: 1 / -1; }

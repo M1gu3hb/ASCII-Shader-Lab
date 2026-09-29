@@ -300,8 +300,8 @@ function BrushOptions({ host, mode }: { host: ToolHost; mode: Mode }) {
   const n = mode === 'restore' ? restoreLayers().length : 0;
   const count = target ? strokeLoad(partsOf(target)).strokes : strokes;
   return (
-    <div className="tl-opts" data-tool={mode}>
-      <span className="tl-title">{NAMES[mode]}</span>
+    <div className="tool-opts" data-tool={mode}>
+      <span className="tool-title">{NAMES[mode]}</span>
       <Slider label="Tamaño" value={st.brushSize} min={0.004} max={0.5} step={0.002} format={v => `${Math.round(v * side)} px`} onChange={v => { setSettings({ brushSize: v }); host.redrawOverlay(); }} hint="Diámetro del pincel en la imagen final ([ y ] lo cambian)" />
       <Slider label="Dureza" value={st.brushHardness} min={0} max={1} step={0.05} format={pct} onChange={v => setSettings({ brushHardness: v })} hint="100 %: borde nítido; menos: borde que se desvanece" />
       <Slider label="Intensidad" value={st.brushStrength} min={0.05} max={1} step={0.05} format={pct} onChange={v => setSettings({ brushStrength: v })} />

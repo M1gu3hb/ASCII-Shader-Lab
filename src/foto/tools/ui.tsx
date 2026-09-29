@@ -6,7 +6,7 @@ import { useId, type ReactNode } from 'react';
 import './tools.css';
 
 export function Row({ children, label }: { children: ReactNode; label?: string }) {
-  return <div className="tl-row" role="group" aria-label={label}>{children}</div>;
+  return <div className="tool-row" role="group" aria-label={label}>{children}</div>;
 }
 
 export function Slider(props: {
@@ -17,8 +17,8 @@ export function Slider(props: {
   const id = useId();
   const f = props.format ?? ((v: number) => String(v));
   return (
-    <label className={'tl-slider' + (props.wide ? ' tl-wide' : '')} htmlFor={id} title={props.hint}>
-      <span className="tl-lab">{props.label}</span>
+    <label className={'tool-slider' + (props.wide ? ' tool-wide' : '')} htmlFor={id} title={props.hint}>
+      <span className="tool-lab">{props.label}</span>
       <input
         id={id} type="range" min={props.min} max={props.max} step={props.step} value={props.value}
         aria-valuetext={f(props.value)}
@@ -26,14 +26,14 @@ export function Slider(props: {
         onPointerUp={e => props.onCommit?.(Number(e.currentTarget.value), 'pointer')}
         onKeyUp={e => props.onCommit?.(Number(e.currentTarget.value), 'key')}
       />
-      <output className="tl-val" htmlFor={id}>{f(props.value)}</output>
+      <output className="tool-val" htmlFor={id}>{f(props.value)}</output>
     </label>
   );
 }
 
 export function Segmented<T extends string>(props: { label: string; value: T; options: Array<{ value: T; label: string; title?: string }>; onChange(v: T): void }) {
   return (
-    <div className="tl-seg" role="radiogroup" aria-label={props.label}>
+    <div className="tool-seg" role="radiogroup" aria-label={props.label}>
       {props.options.map(o => (
         <button
           key={o.value} type="button" role="radio" aria-checked={props.value === o.value} title={o.title}
@@ -46,8 +46,8 @@ export function Segmented<T extends string>(props: { label: string; value: T; op
 
 export function Switch(props: { label: string; checked: boolean; onChange(v: boolean): void; hint?: string }) {
   return (
-    <button type="button" role="switch" aria-checked={props.checked} className={'tl-switch' + (props.checked ? ' on' : '')} title={props.hint} onClick={() => props.onChange(!props.checked)}>
-      <span className="tl-knob" aria-hidden="true" />{props.label}
+    <button type="button" role="switch" aria-checked={props.checked} className={'tool-switch' + (props.checked ? ' on' : '')} title={props.hint} onClick={() => props.onChange(!props.checked)}>
+      <span className="tool-knob" aria-hidden="true" />{props.label}
     </button>
   );
 }
@@ -55,7 +55,7 @@ export function Switch(props: { label: string; checked: boolean; onChange(v: boo
 export function Button(props: { children: ReactNode; onClick(): void; primary?: boolean; disabled?: boolean; title?: string; kbd?: string; danger?: boolean; pressed?: boolean; label?: string }) {
   return (
     <button
-      type="button" className={'tl-btn' + (props.primary ? ' primary' : '') + (props.danger ? ' danger' : '')} disabled={props.disabled}
+      type="button" className={'tool-btn' + (props.primary ? ' primary' : '') + (props.danger ? ' danger' : '')} disabled={props.disabled}
       title={props.title} aria-label={props.label} aria-pressed={props.pressed} onClick={props.onClick}
     >
       {props.children}{props.kbd ? <kbd>{props.kbd}</kbd> : null}
@@ -64,21 +64,21 @@ export function Button(props: { children: ReactNode; onClick(): void; primary?: 
 }
 
 export function Note({ children, tone }: { children: ReactNode; tone?: 'warn' | 'quiet' }) {
-  return <p className={'tl-note' + (tone ? ' ' + tone : '')}>{children}</p>;
+  return <p className={'tool-note' + (tone ? ' ' + tone : '')}>{children}</p>;
 }
 
 export function Swatch({ color, label }: { color: string; label: string }) {
-  return <span className="tl-swatch" role="img" aria-label={label} title={label} style={{ background: color }} />;
+  return <span className="tool-swatch" role="img" aria-label={label} title={label} style={{ background: color }} />;
 }
 
 /** A thin progress bar (value 0..1, or indeterminate) with its label. */
 export function Progress({ value, label }: { value: number | null; label: string }) {
   return (
-    <div className="tl-progress">
-      <div className="tl-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value === null ? undefined : Math.round(value * 100)}>
+    <div className="tool-progress">
+      <div className="tool-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value === null ? undefined : Math.round(value * 100)}>
         <span style={{ width: value === null ? '30%' : `${Math.round(value * 100)}%` }} className={value === null ? 'indeterminate' : ''} />
       </div>
-      <span className="tl-plab">{label}</span>
+      <span className="tool-plab">{label}</span>
     </div>
   );
 }

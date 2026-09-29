@@ -2,15 +2,21 @@
  * Keyboard routing of the photo studio: the active tool first (Tool.onKey), then the studio's shortcuts.
  *   espacio (tap) / →  azar (→ goes to the next version first when there is one)   ←  versión anterior
  *   espacio + arrastrar  mover la vista                                             F  favorita
- *   Z · ⌘Z / Ctrl+Z  deshacer        ⇧⌘Z · Ctrl+Y  rehacer                          [ ]  tamaño del pincel (herramientas)
- *   letras de las herramientas (Tool.shortcut: V M L P B E…)  ·  H  mano           C  antes y después
+ *   Z · ⌘Z / Ctrl+Z  deshacer        ⇧Z · ⇧⌘Z · Ctrl+Y  rehacer                     [ ]  tamaño del pincel (herramientas)
+ *   tools (Tool.shortcut): V M O P L K W J G B E R  ·  H  mano                      C  antes y después
  *   0  ajustar  ·  1  100 %  ·  + −  zoom  ·  ?  atajos  ·  Esc  cancela el gesto o suelta la herramienta
+ * The timeline (focused) and the layer list keep their own keys (they stop them here): the map, in Spanish,
+ * is the help sheet's (Sheets.tsx STUDIO_KEYS, TOOL_KEYS, TIMELINE_KEYS); tests/unit/foto-keys.test.ts keeps
+ * the tools' letters apart from the studio's.
  * Nothing here while typing in a field or while a dialog is open.
  */
 import { azar, favorite, next, prev, redo, toggleCompare, undo, zoomFit, zoomStep, zoomTo } from './actions';
 import { activeTool, host } from './host';
 import { TOOLS } from './tools/index';
 import { say, setUI, ui, useFoto } from './ui';
+
+/** Letters and signs the studio itself uses (no tool may take them). */
+export const STUDIO_LETTERS = ['h', 'f', 'z', 'c', '0', '1', '+', '=', '-', '_', '?', '[', ']', ' '];
 
 let space = false;
 let spaceUsed = false;
@@ -37,8 +43,9 @@ export function selectTool(id: string | null) {
   if (prevTool) { try { prevTool.cancel?.(host); prevTool.deactivate?.(host); } catch (e) { console.warn(e); } host.preview(null); }
   setUI({ tool: nextId });
   const t = activeTool();
-  if (t) { try { t.activate?.(host); } catch (e) { console.warn(e); } say(`${t.name}: ${t.hint}`); }
-  else if (nextId === 'mano') say('Mano: arrastra para mover la vista.');
+  // the options bar shows the tool and its hint: the status line stays free, the screen reader hears it
+  if (t) { try { t.activate?.(host); } catch (e) { console.warn(e); } say(`${t.name}: ${t.hint}`, { quiet: true }); }
+  else if (nextId === 'mano') say('Mano: arrastra para mover la vista.', { quiet: true });
   host.redrawOverlay();
 }
 

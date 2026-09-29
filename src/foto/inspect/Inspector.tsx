@@ -8,6 +8,7 @@ import type { Layer, Project } from '../../project/types';
 import { Section, Slider } from '../controls';
 import { KindIcon } from '../icons';
 import { KIND_LABEL } from '../layerOps';
+import { AnimSection } from './AnimSection';
 import { AsciiInspector } from './AsciiInspector';
 import { Finishes } from './Finishes';
 import { GlyphsInspector, PhotoInspector, ShapeInspector, TextInspector } from './KindInspectors';
@@ -49,6 +50,7 @@ export const Inspector = forwardRef<HTMLDivElement, { maskFirst?: boolean }>(fun
       <KindBody l={l} p={project} />
       <MaskSection l={l} p={project} />
       <Finishes l={l} />
+      <AnimSection l={l} />
       <Placement l={l} />
       <PresetSection l={l} />
     </div>

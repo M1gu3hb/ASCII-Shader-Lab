@@ -276,13 +276,13 @@ function FreeformOptions({ host, poly }: { host: ToolHost; poly?: { close(): voi
   useProject(s => s.project);
   void host;
   return (
-    <div className="tl-opts" data-tool={poly ? 'poligono' : 'lazo'}>
-      <span className="tl-title">{poly ? 'Polígono' : 'Lazo'}</span>
+    <div className="tool-opts" data-tool={poly ? 'poligono' : 'lazo'}>
+      <span className="tool-title">{poly ? 'Polígono' : 'Lazo'}</span>
       <Slider label="Borde suave" value={st.shapeSoft} min={0} max={80} step={1} format={px} onChange={v => setSettings({ shapeSoft: v })} hint="Difumina el borde de la zona (px de la imagen final)" />
       <Slider label="Intensidad" value={st.shapeAlpha} min={0.05} max={1} step={0.05} format={pct} onChange={v => setSettings({ shapeAlpha: v })} />
       {poly ? (
         <>
-          <span className="tl-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'vértice' : 'vértices'}` : 'sin vértices'}</span>
+          <span className="tool-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'vértice' : 'vértices'}` : 'sin vértices'}</span>
           <Button primary disabled={n < 3} onClick={poly.close} kbd="Intro">Cerrar</Button>
           <Button disabled={!n} onClick={poly.undo} title="Retroceso">Quitar último</Button>
           <Button disabled={!n} onClick={poly.cancel} title="Esc">Cancelar</Button>

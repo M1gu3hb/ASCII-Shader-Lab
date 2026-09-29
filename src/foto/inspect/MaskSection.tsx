@@ -11,12 +11,14 @@ import type { Layer, Mask, MaskOp, MaskPart, Project } from '../../project/types
 import { IDown, IEye, IEyeOff, ITrash, IUp } from '../../studio/icons';
 import { ColorInput, Note, Section, SegGroup, Slider, Toggle } from '../controls';
 import { PartIcon } from '../icons';
+import { PART_NAME } from '../tools/index';
 import { say, setUI, useFoto, type MaskView } from '../ui';
 
-export const PART_NAMES: Record<string, string> = {
-  rect: 'Rectángulo', ellipse: 'Elipse', polygon: 'Polígono', stroke: 'Pincelada', raster: 'Máscara pintada', color: 'Por color', gradient: 'Degradado',
+/** Names of the kinds of parts (a part's own name, with its origin or shape, comes from the tools: PART_NAME). */
+export const PART_NAMES: Record<MaskPart['kind'], string> = {
+  rect: 'Rectángulo', ellipse: 'Elipse', polygon: 'Polígono', stroke: 'Trazo de pincel', raster: 'Máscara pintada', color: 'Color', gradient: 'Degradado',
 };
-const RASTER_ORIGIN: Record<string, string> = { paint: 'pintada', object: 'objeto seleccionado', subject: 'sujeto recortado', background: 'fondo recortado', track: 'seguimiento' };
+const GRAD_SHAPES: Array<['linear' | 'radial', string, string]> = [['linear', 'Lineal', 'De un punto a otro, en línea recta'], ['radial', 'Circular', 'Del centro hacia fuera']];
 export const OPS: Array<[MaskOp, string, string]> = [['add', '+ Sumar', 'Suma esta zona a lo que se ve'], ['subtract', '− Restar', 'Quita esta zona'], ['intersect', '∩ Intersecar', 'Deja sólo donde coincide con lo anterior']];
 const VIEWS: Array<[MaskView, string, string]> = [['tint', 'Tinte', 'La zona de la máscara teñida de bermellón mientras la editas'], ['grey', 'Sólo máscara', 'Blanco: se ve la capa; negro: no'], ['off', 'Oculta', 'Sin vista de la máscara']];
 
@@ -73,15 +75,14 @@ function PartRow({ i, n, part, l, p }: { i: number; n: number; part: MaskPart; l
     if (j < 0 || j >= ps.length) return;
     [ps[i], ps[j]] = [ps[j], ps[i]];
   });
-  const name = PART_NAMES[part.kind] ?? part.kind;
-  const detail = part.kind === 'raster' && part.origin ? ` · ${RASTER_ORIGIN[part.origin] ?? part.origin}` : '';
+  const name = PART_NAME(part) ?? PART_NAMES[part.kind] ?? part.kind;
   const soft = 'soft' in part ? part.soft : undefined;
   return (
     <li className={'part' + (part.off ? ' off' : '')}>
       <div className="part-h">
         <span className="part-ic" aria-hidden="true"><PartIcon kind={part.kind} /></span>
         <button type="button" className="part-name" aria-expanded={open} onClick={() => setOpen(!open)}>
-          <span>{i + 1}. {name}{detail}</span><small>{OPS.find(o => o[0] === part.op)?.[1]} · {pct(part.alpha)}</small>
+          <span>{i + 1}. {name}</span><small>{OPS.find(o => o[0] === part.op)?.[1]} · {pct(part.alpha)}</small>
         </button>
         <button type="button" className="icon-btn" aria-pressed={!!part.off} aria-label={part.off ? `Mostrar la parte ${i + 1}` : `Ocultar la parte ${i + 1}`} title={part.off ? 'Oculta: no se aplica' : 'Ocultar (se conserva)'}
           onClick={() => setPart(x => { if (x.off) delete x.off; else x.off = true; })}>{part.off ? <IEyeOff /> : <IEye />}</button>
@@ -107,6 +108,18 @@ function PartRow({ i, n, part, l, p }: { i: number; n: number; part: MaskPart; l
               <Slider label="Ancho" value={part.w} min={0} max={2} fmt={pct} onChange={v => setPart(x => { (x as { w: number }).w = v; }, 'w')} />
               <Slider label="Alto" value={part.h} min={0} max={2} fmt={pct} onChange={v => setPart(x => { (x as { h: number }).h = v; }, 'h')} />
               <Slider label="Giro" value={part.rot} min={-180} max={180} step={1} def={0} fmt={v => Math.round(v) + '°'} onChange={v => setPart(x => { (x as { rot: number }).rot = v; }, 'rot')} />
+            </>
+          )}
+          {part.kind === 'gradient' && (
+            <>
+              <SegGroup label="Forma del degradado" value={part.shape} opts={GRAD_SHAPES} onPick={v => setPart(x => { (x as { shape: string }).shape = v; })} />
+              <Slider label={part.shape === 'radial' ? 'Fuerza en el centro' : 'Fuerza al inicio'} value={part.alpha0} min={0} max={1} def={1} fmt={pct} onChange={v => setPart(x => { (x as { alpha0: number }).alpha0 = v; }, 'a0')} />
+              <Slider label={part.shape === 'radial' ? 'Fuerza en el borde' : 'Fuerza al final'} value={part.alpha1} min={0} max={1} def={0} fmt={pct} onChange={v => setPart(x => { (x as { alpha1: number }).alpha1 = v; }, 'a1')} />
+              <Slider label={part.shape === 'radial' ? 'Centro: horizontal' : 'Inicio: horizontal'} value={part.x0} min={-0.5} max={1.5} fmt={pct} onChange={v => setPart(x => { (x as { x0: number }).x0 = v; }, 'x0')} />
+              <Slider label={part.shape === 'radial' ? 'Centro: vertical' : 'Inicio: vertical'} value={part.y0} min={-0.5} max={1.5} fmt={pct} onChange={v => setPart(x => { (x as { y0: number }).y0 = v; }, 'y0')} />
+              <Slider label={part.shape === 'radial' ? 'Borde: horizontal' : 'Final: horizontal'} value={part.x1} min={-0.5} max={1.5} fmt={pct} onChange={v => setPart(x => { (x as { x1: number }).x1 = v; }, 'x1')} />
+              <Slider label={part.shape === 'radial' ? 'Borde: vertical' : 'Final: vertical'} value={part.y1} min={-0.5} max={1.5} fmt={pct} onChange={v => setPart(x => { (x as { y1: number }).y1 = v; }, 'y1')} />
+              <p className="note">Mezcla gradual de foto y caracteres: arrastra sus extremos con «Editar partes» (V) o con «Degradado» (G).</p>
             </>
           )}
           {part.kind === 'color' && (

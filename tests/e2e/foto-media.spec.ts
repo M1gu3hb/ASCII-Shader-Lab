@@ -3,8 +3,7 @@ import { expect, test } from '@playwright/test';
 import { finalRender, openFoto, project, settle } from './foto-helpers';
 
 /**
- * Other ways in: a video (opened, shown, scrubbed with the preview provider; still exports only in this
- * version) and the camera (front = mirrored by default, the person's choice kept, the photo as previewed).
+ * Other ways in: a video (opened, shown, stepped through in its timeline with the preview provider) and the camera (front = mirrored by default, the person's choice kept, the photo as previewed).
  */
 
 test.use({ launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } });
@@ -20,15 +19,15 @@ test('un video se abre, se ve y la línea de tiempo lo recorre', async ({ page }
   await finalRender(page);
   const p = await project(page);
   expect(p.layers[0].kind).toBe('photo');
-  // the timeline slot: play/pause and the playhead
-  const slot = page.getByRole('region', { name: 'Línea de tiempo' });
-  await expect(slot).toBeVisible();
-  const scrub = slot.getByRole('slider', { name: 'Posición en el tiempo' });
+  // a video opens its timeline by itself; its arrows step through the frames and the viewport follows
+  const tl = page.getByRole('region', { name: 'Línea de tiempo' });
+  await expect(tl).toBeVisible({ timeout: 30_000 });
+  await expect(tl.getByRole('button', { name: p.layers[0].name, exact: true })).toBeVisible();
   const a = await settle(page);
-  await scrub.focus();
-  for (let i = 0; i < 80; i++) await page.keyboard.press('ArrowRight');
+  await tl.focus();
+  for (let i = 0; i < 60; i++) await page.keyboard.press('ArrowRight');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __foto: { store(): { time: number } } }).__foto.store().time)).toBeGreaterThan(1.5);
   await expect.poll(async () => (await settle(page)).hash, { timeout: 30_000 }).not.toBe(a.hash);
-  await expect(slot.getByText(/llega en la próxima versión/)).toBeVisible();
   expect(errors).toEqual([]);
 });
 

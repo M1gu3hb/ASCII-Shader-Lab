@@ -277,13 +277,13 @@ function ContourOptions({ host, actions }: { host: ToolHost; actions: { close():
   useProject(s => s.project);
   void host;
   return (
-    <div className="tl-opts" data-tool="contorno">
-      <span className="tl-title">Contorno preciso</span>
+    <div className="tool-opts" data-tool="contorno">
+      <span className="tool-title">Contorno preciso</span>
       {wire === 'building' ? <Note>Preparando los bordes de la foto…</Note> : wire === 'error' ? <Note tone="warn">No se pudo leer la foto de esta capa.</Note> : null}
       <Switch label="Puntos automáticos" checked={st.wireAuto} onChange={v => setSettings({ wireAuto: v })} hint="Fija un punto solo cuando la línea deja de cambiar" />
       <Slider label="Borde suave" value={st.shapeSoft} min={0} max={80} step={1} format={px} onChange={v => setSettings({ shapeSoft: v })} />
       <Slider label="Intensidad" value={st.shapeAlpha} min={0.05} max={1} step={0.05} format={pct} onChange={v => setSettings({ shapeAlpha: v })} />
-      <span className="tl-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'punto' : 'puntos'}` : 'sin puntos'}</span>
+      <span className="tool-mono" aria-live="polite">{n ? `${n} ${n === 1 ? 'punto' : 'puntos'}` : 'sin puntos'}</span>
       <Button primary disabled={n < 2} onClick={actions.close} kbd="Intro">Cerrar</Button>
       <Button disabled={!n} onClick={actions.undo} title="Retroceso">Quitar último</Button>
       <Button disabled={!n} onClick={actions.cancel} title="Esc">Cancelar</Button>
