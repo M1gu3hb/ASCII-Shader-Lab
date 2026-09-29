@@ -658,8 +658,8 @@ async function playFor(ms: number, o: { reverse?: boolean; rate?: number; from?:
   const pb = playback!;
   if (o.scale) $<HTMLSelectElement>('#quality').value = String(o.scale);
   pb.pause();
-  pb.setReverse(!!o.reverse);
-  pb.setRate(o.rate ?? 1);
+  // the timeline's convention: a negative rate is reverse
+  pb.setRate((o.rate ?? 1) * (o.reverse ? -1 : 1));
   pb.setLoop(o.loop ?? null);
   await pb.seek(o.from ?? (o.reverse ? project!.time.duration - 0.05 : 0));
   stripLog.length = 0;
@@ -935,7 +935,7 @@ async function boot() {
     $('#fmt').addEventListener('change', showFormat);
     $('#play').addEventListener('click', () => void playback?.toggle());
     $('#rev').addEventListener('click', e => { const b = e.currentTarget as HTMLButtonElement; const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on)); playback?.setReverse(on); });
-    $('#rate').addEventListener('change', e => playback?.setRate(Number((e.target as HTMLSelectElement).value)));
+    $('#rate').addEventListener('change', e => playback?.setRate(Number((e.target as HTMLSelectElement).value) * (playback.reverse ? -1 : 1)));
     $('#loop').addEventListener('click', e => { const b = e.currentTarget as HTMLButtonElement; const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on)); playback?.setLoop(on ? { start: 0.5, end: 2.5 } : null); });
     $('#quality').addEventListener('change', () => { if (!playback?.playing) void playback?.seek(playback.t); });
     $('#scrub').addEventListener('input', e => playback?.scrub(Number((e.target as HTMLInputElement).value)));
