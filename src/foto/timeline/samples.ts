@@ -84,10 +84,10 @@ export function bestKind(template: string): LayerKind {
 }
 
 /** The ASCII style of the samples: the lab's «Retrato» look, still (no pattern motion). */
-function asciiStyle() {
+function asciiStyle(cell = 7) {
   const s = defaultAsciiStyle();
   s.source = 'image';
-  s.glyph = { ...s.glyph, cell: 7, charset: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", edge: 0.25, font: 'jetbrains', weight: 500 };
+  s.glyph = { ...s.glyph, cell, charset: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", edge: 0.25, font: 'jetbrains', weight: 500 };
   s.color = { ...s.color, mode: 'source', vivid: 0.6, bg: '#0b0a09' };
   s.motion = { ...s.motion, speed: 0 };
   s.interact = { ...s.interact, mode: 'none', auto: false };
@@ -96,7 +96,7 @@ function asciiStyle() {
 }
 
 /** The layer a clip goes on, for a kind (ids fixed so previews share one ASCII engine and one grid). */
-export function sampleLayer(kind: LayerKind, template = '', source = PHOTO.id): Layer {
+export function sampleLayer(kind: LayerKind, template = '', source = PHOTO.id, cell = 7): Layer {
   switch (kind) {
     case 'glyphs': {
       const words = template === 'palabras-figura';
@@ -106,12 +106,12 @@ export function sampleLayer(kind: LayerKind, template = '', source = PHOTO.id): 
           ...newLayer('glyphs').glyphs,
           charset: words ? 'palabras' : template === 'cuenta' ? 'numerico' : 'estandar', fill: words ? 'words' : 'ramp',
           chars: words ? 'la luz se vuelve letra y la letra vuelve a ser luz ' : '',
-          font: 'jetbrains', weight: 700, cell: 7, aspect: 2, bright: 0.1, contrast: 1.35, gamma: 1, sat: 1, invert: false, edge: 0.2, cutoff: 0.06,
+          font: 'jetbrains', weight: 700, cell, aspect: 2, bright: 0.1, contrast: 1.35, gamma: 1, sat: 1, invert: false, edge: 0.2, cutoff: 0.06,
           color: 'mono', ink: '#f1e4cf', paper: null, palette: ['#0c0b0a', '#ff5b1f', '#ede6da'],
         },
       });
     }
-    case 'ascii': return newLayer('ascii', { id: 'muestra-ascii', name: 'ASCII', source, style: asciiStyle(), opaque: true });
+    case 'ascii': return newLayer('ascii', { id: 'muestra-ascii', name: 'ASCII', source, style: asciiStyle(Math.max(6, cell)), opaque: true });
     case 'photo': return newLayer('photo', { id: 'muestra-foto-capa', name: 'Foto', source, fit: 'cover' });
     case 'text': return newLayer('text', {
       id: 'muestra-texto', name: 'Texto', text: template === 'cuenta' ? '2026 · 1080 × 1350\n60 fps · 4096 px' : 'Hola, luz.\nEsto es GLYPHOS: fotos que se vuelven letras.',
@@ -126,7 +126,7 @@ export function sampleLayer(kind: LayerKind, template = '', source = PHOTO.id): 
  * under glyphs, so the characters read), a dark stage under texts and shapes. `clip` defaults to the
  * template with its defaults over the whole project.
  */
-export function sampleProject(template: string, kind: LayerKind, o: { clip?: Partial<AnimClip>; w?: number; h?: number } = {}): Project {
+export function sampleProject(template: string, kind: LayerKind, o: { clip?: Partial<AnimClip>; w?: number; h?: number; cell?: number } = {}): Project {
   const def = templateById(template);
   const dur = o.clip?.dur ?? def?.dur ?? 2;
   const p = newProject({ name: def?.name ?? template, w: o.w ?? SAMPLE_W, h: o.h ?? SAMPLE_H, duration: dur, bg: '#0c0b0a' });
@@ -139,7 +139,7 @@ export function sampleProject(template: string, kind: LayerKind, o: { clip?: Par
     if (kind === 'glyphs' && under.kind === 'photo') under.adjust = { ...under.adjust, bright: -0.62, sat: 0.55, contrast: 0.9 };
     p.layers.push(under);
   }
-  const layer = sampleLayer(kind, template, src.id);
+  const layer = sampleLayer(kind, template, src.id, o.cell ?? 7);
   if (template === 'zonas-intercambio') {
     // two zones in two styles: this one on the left trades places with its mirror
     const zone: Mask = { invert: false, feather: 6, opacity: 1, parts: [{ kind: 'ellipse', op: 'add', x: 0.06, y: 0.12, w: 0.42, h: 0.76, rot: 0, soft: 4, alpha: 1 }] };
