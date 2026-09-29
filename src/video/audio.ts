@@ -113,12 +113,12 @@ export async function prepareAudio(
 /** The packets of one trimmed range, copied (composable Conversion, research.md §4.2). */
 async function copyJob(mb: Mb, output: Output, input: import('mediabunny').Input, plan: AudioPlan, sound: SoundProbe): Promise<AudioJob> {
   const seg = plan.segments[0];
-  const first = await (await input.getPrimaryAudioTrack())!.getFirstTimestamp();
+  // the file's own clock, as the picture (project/sources.ts fileTime) and the video element use it
   const conv = await mb.Conversion.init({
     input, output, composable: true, tracks: 'primary', showWarnings: false,
     video: { discard: true },
     audio: {},
-    trim: { start: first + seg.src, end: first + seg.src + seg.dur },
+    trim: { start: seg.src, end: seg.src + seg.dur },
   });
   if (!conv.utilizedTracks.some(t => t.type === 'audio')) {
     input.dispose();
@@ -141,7 +141,6 @@ async function copyJob(mb: Mb, output: Output, input: import('mediabunny').Input
 /** Decoded, cut to the plan (silence in its gaps) and encoded again. */
 async function encodeJob(mb: Mb, output: Output, input: import('mediabunny').Input, plan: AudioPlan, sound: SoundProbe, codec: 'aac' | 'opus'): Promise<AudioJob> {
   const track = (await input.getPrimaryAudioTrack())!;
-  const first = await track.getFirstTimestamp();
   const channels = Math.min(2, Math.max(1, sound.channels || 2));
   // Opus works at 48 kHz; AAC keeps the source's rate when it is a common one
   const sr = codec === 'opus' ? 48000 : [44100, 48000].includes(sound.sampleRate) ? sound.sampleRate : 48000;
@@ -179,7 +178,7 @@ async function encodeJob(mb: Mb, output: Output, input: import('mediabunny').Inp
     while (seg < plan.segments.length) {
       const g = plan.segments[seg];
       const segStart = Math.round(g.out * sr), segEnd = Math.round((g.out + g.dur) * sr);
-      if (!it) it = sink.samples(first + g.src, first + g.src + g.dur);
+      if (!it) it = sink.samples(g.src, g.src + g.dur);
       const r = await it.next();
       if (r.done) { it = null; seg++; if (written < segEnd && seg >= plan.segments.length) await silence(Math.min(total, segEnd)); continue; }
       const smp = r.value;
@@ -193,7 +192,7 @@ async function encodeJob(mb: Mb, output: Output, input: import('mediabunny').Inp
         }
         if (!planes.length) continue;
         // position on the export timeline of the sample's first frame
-        const at = g.out + (smp.timestamp - first - g.src);
+        const at = g.out + (smp.timestamp - g.src);
         let res = planes, len = n;
         if (rate !== sr) {
           len = Math.max(1, Math.round((n * sr) / rate));

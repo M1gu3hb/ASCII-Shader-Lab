@@ -1,4 +1,4 @@
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import type { ViteDevServer } from 'vite';
 
@@ -136,4 +136,59 @@ test('a mask whose picture was missing is drawn once the picture is there (the m
   `);
   expect(r.before).toBe(0);
   expect(r.after).toBe(255);
+});
+
+test('a video trimmed without re-encoding (MP4 edit list) exports from the cut, as the preview shows it, with its sound', async ({ page }) => {
+  test.setTimeout(120_000);
+  await blank(page);
+  const b64 = readFileSync('tests/fixtures/video/recortado-sin-recomprimir.mp4').toString('base64');
+  const r = await run<{ preview: number[]; exact: number[]; exported: number[]; audio: string; loud: number[] }>(page, `
+    const S = await import('/src/project/sources.ts');
+    const N = await import('/src/project/normalize.ts');
+    const V = await import('/src/video/index.ts');
+    // (a bare specifier does not resolve in page code: the package's own module file, to read the result back)
+    const mb = await import('/node_modules/mediabunny/dist/modules/src/index.js');
+    const bytes = Uint8Array.from(atob('${b64}'), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'video/mp4' });
+    const id = '7e57c0de7e57c0de';
+    S.keepBlob(id, blob, 'recortado.mp4');
+    const centre = c => c.getContext('2d', { willReadFrequently: true }).getImageData(c.width >> 1, c.height >> 1, 1, 1).data[0];
+    const at = [0, 1];
+    // the preview (a video element) and the export's frame-exact decoder, at the same times
+    const pv = await S.openPreviewVideo(blob), ex = await S.openExactVideo(blob);
+    const preview = [], exact = [];
+    for (const t of at) { await pv.seek(t); preview.push(centre(pv.canvas)); await ex.seek(t); exact.push(centre(ex.canvas)); }
+    pv.close(); ex.close();
+    // the whole export (WebM, the sound copied), read back
+    const p = N.projectFromVideo({ id, kind: 'video', w: 64, h: 64, name: 'recortado.mp4', type: 'video/mp4' }, { duration: 2, fps: 30, hasAudio: true });
+    const out = await V.exportMovie(p, { format: 'webm', audio: 'keep' });
+    const input = new mb.Input({ source: new mb.BlobSource(out.blob), formats: mb.ALL_FORMATS });
+    const sink = new mb.CanvasSink(await input.getPrimaryVideoTrack(), { width: 64, height: 64, fit: 'fill' });
+    const exported = [];
+    for (const t of at) {
+      const wc = await sink.getCanvas(t + 0.001);
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      c.getContext('2d').drawImage(wc.canvas, 0, 0);
+      exported.push(centre(c));
+    }
+    // where the beep is: energy per tenth of a second
+    const energy = new Array(20).fill(0);
+    for await (const s of new mb.AudioSampleSink(await input.getPrimaryAudioTrack()).samples(0, 2)) {
+      const buf = new Float32Array(s.numberOfFrames);
+      s.copyTo(buf, { planeIndex: 0, format: 'f32-planar' });
+      for (let i = 0; i < buf.length; i++) { const k = Math.floor((s.timestamp + i / s.sampleRate) * 10); if (k >= 0 && k < 20) energy[k] += buf[i] * buf[i]; }
+      s.close();
+    }
+    input.dispose();
+    return { preview, exact, exported, audio: out.audio, loud: energy.map((e, k) => (e > 5 ? k : -1)).filter(k => k >= 0) };
+  `);
+  // the cut is at frame 30 of the counter: luma 16 + 90 → ~105 at t = 0, ~210 one second later
+  for (const k of [0, 1]) {
+    expect(Math.abs(r.preview[k] - [105, 210][k])).toBeLessThan(6);
+    expect(Math.abs(r.exact[k] - r.preview[k])).toBeLessThan(4);
+    expect(Math.abs(r.exported[k] - r.preview[k])).toBeLessThan(6);
+  }
+  // the beep was at the cut: it starts the export, as it starts the trimmed video
+  expect(r.audio).toBe('copied');
+  expect(r.loud).toEqual([0, 1]);
 });

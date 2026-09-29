@@ -67,8 +67,9 @@ export async function videoFacts(file: Blob): Promise<{ fps: number; hasAudio: b
       const m = await v.computeFrameRateMetrics({ targetPacketCount: 120 });
       const a = await input.getPrimaryAudioTrack().catch(() => null);
       const fps = Number.isFinite(m.bestGuessFrameRate) && m.bestGuessFrameRate > 0 ? Math.round(m.bestGuessFrameRate * 1000) / 1000 : 30;
-      // the picture's own length (the element reports the longest track: a sound a few ms longer adds a frame past the end)
-      const duration = Math.max(0, (await v.computeDuration()) - (await v.getFirstTimestamp()));
+      // the picture's own length (the element reports the longest track: a sound a few ms longer adds a frame past the end),
+      // on the file's own clock from 0, as the element and the export read it (project/sources.ts fileTime)
+      const duration = Math.max(0, await v.computeDuration());
       return { fps: Math.min(60, Math.max(1, fps)), hasAudio: !!a, duration: Number.isFinite(duration) ? duration : 0 };
     } finally { input.dispose(); }
   } catch {

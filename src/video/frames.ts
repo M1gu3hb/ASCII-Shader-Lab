@@ -6,7 +6,7 @@
  * group of pictures decoded per exported frame (tens of frames for one). An export knows every time it will ask
  * for in advance, so this provider hands mediabunny the whole list at once (canvasesAtTimestamps: each packet
  * decoded once, a few frames ahead, bounded memory) and serves them in order. The pictures are the same: the
- * same CanvasSink settings (size, fit 'fill', alpha), the same timestamps (the file's first timestamp + t), drawn
+ * same CanvasSink settings (size, fit 'fill', alpha), the same timestamps (fileTime: t on the file's own clock), drawn
  * the same way into the canvas the compositor reads. Anything asked out of order, images, sequences and masks go
  * to the core provider (exact mode), which also falls back to the video element when WebCodecs cannot decode.
  *
@@ -15,7 +15,7 @@
  */
 import { evaluate, type FrameState } from '../project/evaluate';
 import { rasterFrames } from '../project/masks';
-import { createSourceProvider, FRAME_EPS, storeBlob, type BlobResolver, type Drawable, type SourceProvider } from '../project/sources';
+import { createSourceProvider, fileTime, storeBlob, type BlobResolver, type Drawable, type SourceProvider } from '../project/sources';
 import type { MaskPart, Project, Source } from '../project/types';
 
 type Mb = typeof import('mediabunny');
@@ -102,7 +102,7 @@ export function createStreamProvider(p: Project, times: readonly number[], o: { 
       st.first = first;
       st.canvas = document.createElement('canvas');
       st.canvas.width = size.w; st.canvas.height = size.h;
-      st.it = sink.canvasesAtTimestamps(st.plan.map(t => first + Math.max(0, t) + FRAME_EPS));
+      st.it = sink.canvasesAtTimestamps(st.plan.map(t => fileTime(t, first)));
       return true;
     } catch {
       st.dead = true;
