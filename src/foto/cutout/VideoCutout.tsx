@@ -181,11 +181,16 @@ export function VideoCutout({ host, source, onBusy, onClose }: { host: ToolHost;
               onChange={v => setRange(r => ({ start: Math.min(v, r.end - 1 / fps), end: r.end }))} />
             <Slider wide label="Hasta" value={range.end} min={1 / fps} max={Math.max(0.05, project.time.duration)} step={1 / fps} format={fmtT}
               onChange={v => setRange(r => ({ start: r.start, end: Math.max(v, r.start + 1 / fps) }))} />
-            <Segmented<Use> label="Qué hacer" value={use} onChange={setUse} options={[
-              { value: 'layer', label: 'Capa recortada', title: 'Una capa nueva: el video sólo donde está el sujeto' },
-              { value: 'subject', label: 'Máscara: sujeto', title: 'La capa elegida se ve sólo en el sujeto' },
-              { value: 'background', label: 'Máscara: fondo', title: 'La capa elegida se ve sólo en el fondo' },
+            <Segmented<'layer' | 'mask'> label="Qué hacer" value={use === 'layer' ? 'layer' : 'mask'} onChange={v => setUse(v === 'layer' ? 'layer' : 'subject')} options={[
+              { value: 'layer', label: 'Capa nueva', title: 'Una capa nueva: el video sólo donde está el sujeto' },
+              { value: 'mask', label: 'Máscara', title: 'La máscara de la capa elegida, cuadro a cuadro' },
             ]} />
+            {use !== 'layer' ? (
+              <Segmented<'subject' | 'background'> label="Máscara de" value={use} onChange={setUse} options={[
+                { value: 'subject', label: 'Sujeto', title: 'La capa elegida se ve sólo en el sujeto' },
+                { value: 'background', label: 'Fondo', title: 'La capa elegida se ve sólo en el fondo' },
+              ]} />
+            ) : null}
           </div>
           <Note tone="quiet">
             {use === 'layer' ? 'Una capa nueva encima de la elegida: el mismo video, sólo el sujeto (con transparencia alrededor).' : `La capa «${target?.name ?? '—'}» se verá sólo ${use === 'subject' ? 'en el sujeto' : 'en el fondo'}, cuadro a cuadro.`}

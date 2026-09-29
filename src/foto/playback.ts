@@ -18,7 +18,7 @@
  *
  * While it plays, ui.playing is true (the viewport then keeps to its light view when frames are slow).
  */
-import { useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { setTime, useProject } from '../project/store';
 import type { Project } from '../project/types';
 import { videoSourcesInOrder } from '../video/audioplan';
@@ -93,10 +93,18 @@ export function useStudioClock(): PlaybackClock {
   return useSyncExternalStore(f => { listeners.add(f); return () => listeners.delete(f); }, studioClock);
 }
 
+/** The same state as `prev` (a clock may hand out a new object on each call: React's store hook needs one per change). */
+export function sameState(prev: PlaybackState | null, s: PlaybackState): boolean {
+  return !!prev && prev.playing === s.playing && prev.rate === s.rate
+    && (prev.region === s.region || (!!prev.region && !!s.region && prev.region.in === s.region.in && prev.region.out === s.region.out));
+}
+
 /** React: the clock's state (playing, speed and direction, loop region). */
 export function usePlayback(): PlaybackState {
   const c = useStudioClock();
-  return useSyncExternalStore(f => c.subscribe(() => f()), () => c.state());
+  const last = useRef<PlaybackState | null>(null);
+  const snap = () => { const s = c.state(); if (sameState(last.current, s)) return last.current!; last.current = s; return s; };
+  return useSyncExternalStore(f => c.subscribe(() => f()), snap);
 }
 
 /* ------------------------------------------------------------------ the video clock */

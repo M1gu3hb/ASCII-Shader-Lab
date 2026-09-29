@@ -244,6 +244,12 @@ test('seguir el cuadrado con el modelo real: marca, «Seguir», IoU por cuadro, 
   await expect.poll(() => page.evaluate(() => (window as unknown as W).__foto.sched().preview), { timeout: 60_000 }).toBe(true);
   await expect(opts).toContainText(/90 cuadros · \d+–\d+ (s|min)/);
   await shot(page, 'seguir-marcado');
+  // «Cancelar» stops it and adds nothing; the marks stay for another try
+  await opts.getByRole('button', { name: /^Seguir/ }).click();
+  await expect(opts.getByRole('progressbar')).toBeVisible();
+  await opts.getByRole('button', { name: /^Cancelar/ }).click();
+  await expect(opts.getByRole('button', { name: /^Seguir/ })).toBeEnabled({ timeout: 60_000 });
+  expect((await project(page)).layers[1].mask).toBeNull();
   await opts.getByRole('button', { name: /^Seguir/ }).click();
   await expect(opts.getByRole('progressbar')).toBeVisible();
   await shot(page, 'seguir-progreso');
@@ -313,21 +319,34 @@ test('seguir el cuadrado con el modelo real: marca, «Seguir», IoU por cuadro, 
   expect(dist(withA.out, without.out), 'fuera del objeto, nada cambia').toBeLessThan(1.5);
   await page.evaluate(id => (window as unknown as W).__foto.ps.updateLayer(id, (l: { visible: boolean }) => { l.visible = true; }), ascii);
 
-  // another style on a time segment (1–2 s): nothing before it, there inside it
+  // another style on everything but the object (the same track, subtracted), only in a time segment (1–2 s)
   const seg = await addAscii(page);
-  await page.evaluate(([id]) => (window as unknown as W).__foto.ps.updateLayer(id, (l: { span: unknown; opacity: number }) => { l.span = { in: 1, out: 2 }; l.opacity = 0.9; }), [seg]);
+  const trackPart = (await project(page)).layers[1].mask!.parts[0];
+  await page.evaluate(([id, tp]) => (window as unknown as W).__foto.ps.updateLayer(id, (l: { span: unknown; opacity: number; mask: unknown; style: { glyph: { cell: number } } }) => {
+    l.span = { in: 1, out: 2 }; l.opacity = 0.9; l.style.glyph.cell = 6;
+    l.mask = { invert: false, feather: 0, opacity: 1, parts: [{ ...(tp as object), op: 'subtract' }] };
+  }), [seg, trackPart] as const);
+  const toggle = (id: string, v: boolean) => page.evaluate(([i, on]) => (window as unknown as W).__foto.ps.updateLayer(i, (l: { visible: boolean }) => { l.visible = on as boolean; }), [id, v] as const);
   await tl.focus();
   await page.keyboard.press('Home');
   for (let i = 0; i < 15; i++) await page.keyboard.press('ArrowRight');
   const hA = (await settle(page, 1)).hash;
-  await page.evaluate(id => (window as unknown as W).__foto.ps.updateLayer(id, (l: { visible: boolean }) => { l.visible = false; }), seg);
+  await toggle(seg, false);
   expect((await settle(page, 1)).hash, 'antes del tramo la segunda capa no se ve').toBe(hA);
-  await page.evaluate(id => (window as unknown as W).__foto.ps.updateLayer(id, (l: { visible: boolean }) => { l.visible = true; }), seg);
+  await toggle(seg, true);
   for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowRight');
-  const hB = (await settle(page, 1)).hash;
-  await page.evaluate(id => (window as unknown as W).__foto.ps.updateLayer(id, (l: { visible: boolean }) => { l.visible = false; }), seg);
-  expect((await settle(page, 1)).hash, 'dentro del tramo sí').not.toBe(hB);
-  await page.evaluate(id => (window as unknown as W).__foto.ps.updateLayer(id, (l: { visible: boolean }) => { l.visible = true; }), seg);
+  // at 1.5 s: around the object the second style, on the object the first one (each region its own style)
+  const q4 = await V<{ x: number; y: number }>(page, 'squareAt', c.spec, 1.5);
+  const in4 = [(q4.x + 8) / c.spec.w, (q4.y + 8) / c.spec.h, 20 / c.spec.w, 20 / c.spec.h] as const;
+  const out4 = [q4.x / c.spec.w > 0.5 ? 0.05 : 0.7, 0.62, 0.2, 0.3] as const;
+  await settle(page, 1);
+  const both = { in: await meanIn(page, ...in4), out: await meanIn(page, ...out4) };
+  await toggle(seg, false);
+  await settle(page, 1);
+  const first = { in: await meanIn(page, ...in4), out: await meanIn(page, ...out4) };
+  expect(dist(both.out, first.out), 'alrededor del objeto, el segundo estilo').toBeGreaterThan(8);
+  expect(dist(both.in, first.in), 'en el objeto, sólo el primero').toBeLessThan(1.5);
+  await toggle(seg, true);
   await release(page);
   await shot(page, 'dos-estilos');
   expect(video).toBeTruthy();
@@ -434,6 +453,8 @@ test('una secuencia de fotos sale en MP4, WebM y GIF desde la hoja, cuadro a cua
   expect(seq).toEqual({ frames: 3, duration: 0.75 });
   await expect(page.locator('.fv-art')).toBeVisible({ timeout: 45_000 });
   await finalRender(page);
+  // photos (a sequence) keep the timeline's own clock: there is no video to follow
+  expect((await playState(page)).clock).toBe('rAF');
   const sheet = await openExport(page);
   const p = await project(page) as unknown as { canvas: { w: number; h: number } };
   let done = 0;
@@ -482,7 +503,8 @@ test('quitar el fondo del video con el modelo de retrato: estimación antes, per
   await hasta.focus();
   for (let i = 0; i < 14; i++) await page.keyboard.press('ArrowLeft');
   await expect(sec).toContainText('6 cuadros con «Retrato»');
-  await sec.getByRole('radio', { name: 'Máscara: sujeto' }).click();
+  await sec.getByRole('radio', { name: 'Máscara', exact: true }).click();
+  await expect(sec.getByRole('radio', { name: 'Sujeto', exact: true })).toHaveAttribute('aria-checked', 'true');
   await shot(page, 'fondo-video-estimacion');
   await sec.getByRole('button', { name: 'Quitar fondo del video' }).click();
   // nothing is downloaded before the person says so
