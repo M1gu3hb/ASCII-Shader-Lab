@@ -211,7 +211,11 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .lr-mask.inv { border-style: dashed; }
 .fl-foot { display: flex; gap: 4px; padding: 6px 12px 10px; }
 .fl-foot .icon-btn { font: 600 14px/1 var(--font-ui); }
-.fl-canvas { padding: 0 12px; }
+/* «Lienzo» opened in the capped layers box: it scrolls there (it used to overflow onto the inspector
+   below) and gives way four times faster than the list of layers, down to its own header, so some rows
+   and «Lienzo» itself stay in view. (Shrink factors of 1 or more: below 1 in total, a flex box leaves
+   part of the overflow unshrunk.) */
+.fl-canvas { padding: 0 12px; flex: 0 4 auto; min-height: 44px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 .fl-canvas .fsec { border-top: 1px solid var(--line); }
 .fcanvas-wh { display: flex; align-items: flex-end; gap: 8px; margin: 0 0 12px; }
 .fcanvas-wh label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
@@ -414,8 +418,7 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fsheet-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .fsheet-tabs [role=tab] { flex: none; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--muted); font: 500 14px/1 var(--font-ui); border-bottom: 2px solid transparent; }
 .fsheet-tabs [role=tab][aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
-/* five tabs (and the close button, from 380 px) fit a phone without cutting a label; below 380 px the sheet
-   closes with its handle, the «Herramientas» button or Esc */
+/* five tabs and the close button fit a phone from 380 px without cutting a label (below, see further down) */
 @media (max-width: 400px) {
   .fsheet-head { gap: 2px; padding: 0 6px 0 4px; }
   .fsheet-tabs { gap: 0; }
@@ -425,8 +428,11 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
 .fsheet.land .fsheet-head { gap: 2px; padding: 0 6px 0 4px; }
 .fsheet.land .fsheet-tabs { gap: 0; }
 .fsheet.land .fsheet-tabs [role=tab] { padding: 0 7px; font-size: 13px; }
+/* under 380 px the five tabs take the whole row, and the close button goes up beside the handle, whose row
+   grows to 44 px (the lab's sheet has it there too) */
 @media (max-width: 379px) {
-  .fsheet-head .close { display: none; }
+  .fsheet:not(.land) .fsheet-grab { height: 44px; margin: 0 52px; }
+  .fsheet:not(.land) .fsheet-head .close { position: absolute; top: 0; right: 4px; }
   .fsheet-tabs [role=tab] { padding: 0 6px; }
 }
 .fsheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px; }
@@ -496,4 +502,11 @@ html[data-drop] .app.foto::after { content: 'Suelta para abrir'; position: fixed
   .fs-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
   .fs-card-ops { flex-wrap: wrap; }
 }
+/* a phone held upright: the top bar keeps its room for the project's name; «Proyectos» and «Más» are in the
+   tools sheet (the «Explorar» and «Herramientas» tabs), and under 400 px the symbol steps aside too (the start
+   screen keeps it; «Lab» and «Proyectos» are the ways out) */
+.app.foto.foto-phone .ftop .xm, .app.foto.foto-phone .fproj > .ib { display: none; }
+.app.foto.foto-phone .fproj { margin-left: 0; }
+.app.foto.foto-phone .fproj-name { max-width: none; padding: 7px 6px; }
+@media (max-width: 400px) { .app.foto.foto-phone.editing .ftop .brand { display: none; } }
 @media (prefers-reduced-motion: reduce) { .fsheet { transition: none; } }

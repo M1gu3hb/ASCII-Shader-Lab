@@ -50,6 +50,9 @@ const CONTROLS = 'button, a[href], select, input[type=checkbox], input[type=colo
 for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
   test.describe(name, () => {
     test('estudio: sin desbordes, controles de 44 px y hojas a pantalla completa', async ({ browser }) => {
+      // a walk through the whole studio (every section, export tab and view, the collection, the components):
+      // ~50 s alone on this machine's software GL, past the default 120 s when another suite shares the CPUs
+      test.setTimeout(300_000);
       const { ctx, page, errors } = await phone(browser, name);
       await expect(page.locator('dialog.welcome[open]')).toBeVisible();
       await noOverflow(page, 'bienvenida');

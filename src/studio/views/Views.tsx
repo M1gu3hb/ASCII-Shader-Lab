@@ -102,8 +102,14 @@ export function useStageInsets(stage: RefObject<HTMLElement | null>, top: RefObj
       if (!hide) {
         const sheet = app.querySelector<HTMLElement>('.panel');
         const upright = matchMedia(PHONE_Q).matches && !matchMedia(LAND_Q).matches;
-        if (upright && sheet && !app.classList.contains('panel-off')) cover = sheet.offsetTop;
-        else {
+        if (upright && sheet && !app.classList.contains('panel-off')) {
+          // where the sheet comes to rest (Panel.tsx sets its rest as the inline height), not where its
+          // height transition is now: the piece takes its room in the same frame the rest changes, instead
+          // of collapsing to the room above the old rest and catching up with the transition's frames
+          // (on a slow phone that was a visible flash, and a size one frame behind the sheet at rest)
+          const target = parseFloat(sheet.style.height);
+          cover = target > 0 ? sheet.offsetTop + sheet.offsetHeight - target : sheet.offsetTop;
+        } else {
           const tops = [...app.querySelectorAll<HTMLElement>('.deck, .seedline, .imm-bar')]
             .filter(el => el.offsetParent !== null && el.offsetLeft < wrap.offsetLeft + wrap.offsetWidth)
             .map(el => el.offsetTop);

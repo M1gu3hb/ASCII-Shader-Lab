@@ -22,9 +22,8 @@ import '@fontsource/vt323/latin-400.css';
 import '@fontsource/press-start-2p/latin-400.css';
 import '@fontsource/silkscreen/latin-400.css';
 import '@fontsource/silkscreen/latin-700.css';
-import '../studio/studio.css';
-import '../studio/css/controls.css';
-import '../studio/css/loom.css';
+// the lab's base styles, as this page's own copy (see lab-base.css)
+import './lab-base.css';
 import './foto.css';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

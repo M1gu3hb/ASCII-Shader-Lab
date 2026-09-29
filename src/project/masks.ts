@@ -375,6 +375,11 @@ function dynamicKey(mask: Mask, t: number, pixelsKey?: (sourceId: string) => str
 interface CacheEntry { key: string; canvas: HTMLCanvasElement; coverage: Float32Array }
 const cache: CacheEntry[] = [];
 const CACHE_MAX = 10;
+/**
+ * Masks bigger than this (px) are not kept (the compositor's CACHE_MAX_PX): at print sizes each would hold a
+ * canvas and a coverage array of ~70 MB, ten of them most of a browser's memory.
+ */
+const CACHE_MAX_PX = 4_200_000;
 
 export interface MaskCanvasOptions extends MaskInputs {
   /** Identifies the pixels `pixels(sourceId)` returns now (a video's frame time), for the cache. */
@@ -407,6 +412,7 @@ export function maskCanvas(mask: Mask, o: MaskCanvasOptions): { canvas: HTMLCanv
   }
   ctx.putImageData(img, 0, 0);
   const e = { key, canvas, coverage };
+  if (o.w * o.h > CACHE_MAX_PX) return e;
   cache.push(e);
   while (cache.length > CACHE_MAX) cache.shift();
   return e;

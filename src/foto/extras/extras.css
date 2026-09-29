@@ -65,6 +65,15 @@
 .xm-menu b { display: block; font: 600 13px/1.25 var(--font-ui); }
 .xm-menu small { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; }
 .xm-sep { height: 1px; background: var(--line); margin: 4px 6px; }
+/* the same entries in the phone's tools sheet (the top bar leaves that room to the project's name) */
+.xm-list { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--line); }
+.xm-list .sub { margin: 12px 0 6px; }
+.xm-list button { display: flex; align-items: flex-start; gap: 12px; min-height: 48px; padding: 9px 10px; border: 1px solid transparent; border-radius: 9px; background: none; color: var(--text); text-align: left; }
+.xm-list button:hover, .xm-list button:focus-visible { background: var(--field); border-color: var(--line); }
+.xm-list button svg { color: var(--accent); flex: none; margin-top: 1px; }
+.xm-list button[aria-pressed="false"] svg { color: var(--muted); }
+.xm-list b { display: block; font: 600 14px/1.25 var(--font-ui); }
+.xm-list small { display: block; font-size: 13px; color: var(--muted); line-height: 1.35; margin-top: 2px; }
 
 /* ---------------------------------------------------------------- saved settings */
 .xr { display: flex; flex-direction: column; gap: 18px; }

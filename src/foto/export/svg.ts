@@ -11,7 +11,7 @@
  */
 import { FONTS } from '../../engine/catalog';
 import { fontFile } from '../../exporters/svg';
-import { fontStack, fontWeight, wrapText } from '../../project/draw2d';
+import { calloutBox, fontStack, fontWeight, wrapText } from '../../project/draw2d';
 import type { Layer, ShapeLayer, TextLayer } from '../../project/types';
 import { gridToSvgText, type GlyphGrid } from '../../glyphs/index';
 import type { GlyphStyle } from '../../project/types';
@@ -174,7 +174,7 @@ export function shapeSvg(l: ShapeLayer, W: number, H: number): string {
   const fill = l.fill ? ` fill="${esc(l.fill)}"` : ' fill="none"';
   const out: string[] = [];
   const box = () => ({ x: P[0] * W, y: P[1] * H, bw: P[2] * W, bh: P[3] * H });
-  let labelAt: { x: number; y: number; boxed: boolean } | null = null;
+  let labelAt: { x: number; y: number; boxed: boolean; dx?: number; dy?: number } | null = null;
   switch (l.shape) {
     case 'rect': {
       const b = box();
@@ -219,7 +219,8 @@ export function shapeSvg(l: ShapeLayer, W: number, H: number): string {
       const lx = P[(n - 1) * 2] * W, ly = P[(n - 1) * 2 + 1] * H;
       if (l.shape === 'callout') {
         out.push(`<circle cx="${num(P[0] * W)}" cy="${num(P[1] * H)}" r="${num(Math.max(1.5, lw * 1.8))}" fill="${esc(l.stroke ?? l.fill ?? '#ffffff')}"/>`);
-        labelAt = { x: lx, y: ly, boxed: true };
+        const px0 = n > 1 ? P[(n - 2) * 2] * W : lx - 1, py0 = n > 1 ? P[(n - 2) * 2 + 1] * H : ly;
+        labelAt = { x: lx, y: ly, boxed: true, dx: lx - px0, dy: ly - py0 };
       } else labelAt = { x: lx, y: ly, boxed: false };
       break;
     }
@@ -237,10 +238,9 @@ export function shapeSvg(l: ShapeLayer, W: number, H: number): string {
       const attrs = `${fontAttrs(lb.font, 500, false, px)} fill="${esc(lb.color)}"`;
       if (labelAt.boxed) {
         const pad = px * 0.4, bw = tw + pad * 2, bh = px * 1.5;
-        const left = labelAt.x > W * 0.5;
-        const bx = left ? labelAt.x - bw : labelAt.x, by = labelAt.y - bh / 2;
+        const { x: bx, y: by } = calloutBox(labelAt.x, labelAt.y, labelAt.dx ?? 1, labelAt.dy ?? 0, bw, bh, W, H);
         out.push(`<rect x="${num(bx)}" y="${num(by)}" width="${num(bw)}" height="${num(bh)}" fill="none" stroke="${esc(l.stroke ?? lb.color)}" stroke-width="${num(Math.max(0.5, lw))}"/>`);
-        out.push(`<text x="${num(bx + pad)}" y="${num(labelAt.y)}" ${attrs} dominant-baseline="central" xml:space="preserve">${esc(lb.text)}</text>`);
+        out.push(`<text x="${num(bx + pad)}" y="${num(by + bh / 2)}" ${attrs} dominant-baseline="central" xml:space="preserve">${esc(lb.text)}</text>`);
       } else {
         const gap = px * 0.35;
         out.push(`<text x="${num(labelAt.x)}" y="${num(labelAt.y - gap - lw / 2)}" ${attrs} dominant-baseline="text-after-edge" xml:space="preserve">${esc(lb.text)}</text>`);

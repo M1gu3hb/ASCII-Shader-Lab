@@ -162,7 +162,7 @@ export function drawShape(ctx: CanvasRenderingContext2D, l: ShapeLayer, w: numbe
   if (l.fill) ctx.fillStyle = l.fill;
   const paint = () => { if (l.fill) ctx.fill(); if (l.stroke && lw > 0) ctx.stroke(); };
   const box = () => ({ x: P[0] * w, y: P[1] * h, bw: P[2] * w, bh: P[3] * h });
-  let labelAt: { x: number; y: number; boxed: boolean } | null = null;
+  let labelAt: { x: number; y: number; boxed: boolean; dx?: number; dy?: number } | null = null;
   switch (l.shape) {
     case 'rect': {
       const b = box();
@@ -211,7 +211,9 @@ export function drawShape(ctx: CanvasRenderingContext2D, l: ShapeLayer, w: numbe
         ctx.setLineDash([]);
         ctx.beginPath(); ctx.arc(P[0] * w, P[1] * h, Math.max(1.5 * scale, lw * 1.8), 0, Math.PI * 2);
         ctx.fillStyle = l.stroke ?? l.fill ?? '#ffffff'; ctx.fill();
-        labelAt = { x: lx, y: ly, boxed: true };
+        // (the way the leader comes in: its last segment)
+        const px0 = n > 1 ? P[(n - 2) * 2] * w : lx - 1, py0 = n > 1 ? P[(n - 2) * 2 + 1] * h : ly;
+        labelAt = { x: lx, y: ly, boxed: true, dx: lx - px0, dy: ly - py0 };
       } else labelAt = { x: lx, y: ly, boxed: false };
       break;
     }
@@ -220,8 +222,32 @@ export function drawShape(ctx: CanvasRenderingContext2D, l: ShapeLayer, w: numbe
   if (l.label?.text && labelAt) drawLabel(ctx, l, labelAt, lw, w, h);
 }
 
+/**
+ * Where a callout's label box goes (top-left corner, px), for a leader ending at (x, y) whose last segment
+ * runs along (dx, dy), a box bw × bh and a frame w × h. The box sits beyond the end, on the side away from
+ * where the line comes in: the line meets its near edge and never runs through it (it used to open toward the
+ * frame's centre, so a leader coming from the centre crossed its own label). Where that side has no room in
+ * the frame, the label rests on the line instead (beside it, its far edge at the end). Canvas and SVG use it.
+ */
+export function calloutBox(x: number, y: number, dx: number, dy: number, bw: number, bh: number, w: number, h: number): { x: number; y: number } {
+  const inX = (bx: number) => bx >= 0 && bx + bw <= w;
+  const inY = (by: number) => by >= 0 && by + bh <= h;
+  const clampX = (bx: number) => Math.max(0, Math.min(w - bw, bx));
+  const clampY = (by: number) => Math.max(0, Math.min(h - bh, by));
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    const bx = dx >= 0 ? x : x - bw;
+    if (inX(bx)) return { x: bx, y: clampY(y - bh / 2) };
+    // no room ahead: above the line (below at the top of the frame), ending where the leader ends
+    return { x: clampX(dx >= 0 ? x - bw : x), y: y - bh >= 0 ? y - bh : clampY(y) };
+  }
+  const by = dy > 0 ? y : y - bh;
+  if (inY(by)) return { x: clampX(x - bw / 2), y: by };
+  // no room ahead: beside the line, ending where the leader ends
+  return { x: x + bw <= w ? x : clampX(x - bw), y: clampY(dy > 0 ? y - bh : y) };
+}
+
 /** A small label: next to the shape, or in a box at the end of a callout (editorial «FL33» notes). */
-function drawLabel(ctx: CanvasRenderingContext2D, l: ShapeLayer, at: { x: number; y: number; boxed: boolean }, lw: number, w: number, h: number) {
+function drawLabel(ctx: CanvasRenderingContext2D, l: ShapeLayer, at: { x: number; y: number; boxed: boolean; dx?: number; dy?: number }, lw: number, w: number, h: number) {
   const lb = l.label!;
   const px = lb.size * h;
   if (px < 0.5) return;
@@ -232,13 +258,11 @@ function drawLabel(ctx: CanvasRenderingContext2D, l: ShapeLayer, at: { x: number
   const tw = ctx.measureText(lb.text).width;
   if (at.boxed) {
     const pad = px * 0.4, bw = tw + pad * 2, bh = px * 1.5;
-    // the box opens away from the frame's centre, so labels on the right stay inside the frame
-    const left = at.x > w * 0.5;
-    const bx = left ? at.x - bw : at.x, by = at.y - bh / 2;
+    const { x: bx, y: by } = calloutBox(at.x, at.y, at.dx ?? 1, at.dy ?? 0, bw, bh, w, h);
     ctx.strokeStyle = l.stroke ?? lb.color;
     ctx.lineWidth = Math.max(0.5, lw);
     ctx.strokeRect(bx, by, bw, bh);
-    ctx.fillText(lb.text, bx + pad, at.y);
+    ctx.fillText(lb.text, bx + pad, by + bh / 2);
   } else {
     const gap = px * 0.35;
     ctx.textBaseline = 'bottom';

@@ -581,10 +581,13 @@ export const POSTERS: PosterDef[] = [
       ];
       targets.forEach((t, i) => {
         if (!L[i]) return;
-        // the box opens away from the frame's centre: the leader reaches it from the outside with a short stub
+        // the leader leaves the subject, bends and runs out toward the margin; its box sits at the end against
+        // the edge of the text area, so the line meets the box's inner side and never crosses it (the box goes
+        // beyond the leader's end: draw2d.calloutBox)
         const stub = fx(b, u * 1.6);
-        const lx = t.side < 0 ? a.x + stub : a.x + a.w - stub;
-        const ex = t.side < 0 ? a.x : a.x + a.w;
+        const bw = fx(b, b.measure(L[i], 'jetbrains', 500, false, lpx) + lpx * 0.8);
+        const lx = t.side < 0 ? a.x + bw : a.x + a.w - bw;
+        const ex = t.side < 0 ? lx + stub : lx - stub;
         const ly = clamp(t.ly, a.y + fy(b, lpx * 5), a.y + a.h * 0.62);
         shape(b, `Nota ${L[i]}`, 'callout', [t.x, t.y, ex, ly, lx, ly], { stroke: BONE, width: line, label: { text: L[i], px: lpx, color: BONE, field: `label${i}` } });
       });
@@ -1048,8 +1051,10 @@ export const POSTERS: PosterDef[] = [
       const s = b.sbox;
       if (b.f.labels[0]) {
         const ly = clamp(s.y + s.h * 0.35, a.y + fy(b, small * 5), tY - fy(b, u * 8));
-        // the box opens to the left of its point: the leader comes from the margin with a short stub
-        shape(b, 'Nota', 'callout', [s.x + s.w * 0.62, s.y + s.h * 0.45, a.x + a.w, ly, a.x + a.w - fx(b, u * 1.6), ly], { stroke: BONE, width: Math.max(1, u * 0.14), label: { text: b.f.labels[0], px: small, color: BONE, field: 'label0' } });
+        // the leader runs out toward the right margin; its box sits at the end against the edge of the text
+        // area, beyond the line (draw2d.calloutBox), so the line never crosses it
+        const lx = a.x + a.w - fx(b, b.measure(b.f.labels[0], 'jetbrains', 500, false, small) + small * 0.8);
+        shape(b, 'Nota', 'callout', [s.x + s.w * 0.62, s.y + s.h * 0.45, lx - fx(b, u * 1.6), ly, lx, ly], { stroke: BONE, width: Math.max(1, u * 0.14), label: { text: b.f.labels[0], px: small, color: BONE, field: 'label0' } });
       }
     },
   },

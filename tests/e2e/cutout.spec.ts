@@ -88,10 +88,17 @@ test.afterAll(async () => {
   await new Promise(r => (files ? files.close(r) : r(null)));
 });
 
+const NO_QA = 'La página de QA no está en esta compilación. Compílala y sírvela aparte (ver el comentario al principio de este archivo) y usa BASE_URL.';
+/** Set once the QA page turned out to be missing (the site build): every test skips, not only the first. */
+let qaMissing = false;
+
 async function openQA() {
-  if (page.url().includes('/dev/cutout.html')) return;
+  test.skip(qaMissing, NO_QA);
+  // (the page stays on the 404 of a missing QA page too: the URL alone does not say the page is there)
+  if (page.url().includes('/dev/cutout.html') && await page.evaluate(() => 'cutoutQA' in window)) return;
   const res = await page.goto('/dev/cutout.html');
-  test.skip(!res || res.status() === 404, 'La página de QA no está en esta compilación. Compílala y sírvela aparte (ver el comentario al principio de este archivo) y usa BASE_URL.');
+  qaMissing = !res || res.status() === 404;
+  test.skip(qaMissing, NO_QA);
   await page.waitForSelector('html[data-ready="1"]', { timeout: 60_000 });
 }
 

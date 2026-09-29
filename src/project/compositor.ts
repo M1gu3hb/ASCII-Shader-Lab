@@ -27,6 +27,15 @@
  * masked picture additionally by its mask and the clips' masks. Layers with per-cell hooks from clips
  * (functions) are never cached. So moving a mask redraws that one layer, and opacity or blend changes only
  * composite. Glyph grids are kept per scale too, so light and final views do not re-derive them.
+ *
+ * Memory: a layer that keeps nothing (no key, past CACHE_MAX_PX, a sequence) and text and shape layers
+ * without finishes (cheaper to draw again than to keep: a poster has dozens) are drawn in a canvas of their
+ * own that goes as soon as the layer is composited, instead of one kept per layer; their finishes share one
+ * pool. After a render past CACHE_MAX_PX (print sizes: ~70 MB per canvas at A3 and 300 ppp) the other
+ * canvases used only while drawing go too. So an A3 poster needs a few full-size canvases, not a few per layer.
+ * (A fresh canvas each time, not one scratch canvas redrawn layer after layer: Chromium changes how a canvas
+ * rasterises once it has been redrawn and drawn from a few times, so a reused one drew thin lines a little
+ * differently from the export's fresh one; preview = export needs the same kind of canvas on both sides.)
  */
 import { createRenderer } from '../engine/create';
 import { createFontLoader, type FontLoader } from '../engine/fonts';
@@ -209,7 +218,8 @@ export class Compositor {
   private slots = new Map<Id, Slot[]>();
   /** Renders drawn with the caches (hits: layers composited from a kept picture). */
   readonly cacheStats = { layers: 0, hits: 0, contentHits: 0 };
-  private feeds = new Map<Id, HTMLCanvasElement>();
+  /** The picture under a glyph layer that reads 'below' (a copy: one at a time, drawn again each time). */
+  private belowFeed: HTMLCanvasElement | null = null;
   private chain: Promise<unknown> = Promise.resolve();
   /** The engine each ASCII layer of the frame being drawn uses (set by prepare). */
   private assigned = new Map<Id, Engine>();
@@ -249,16 +259,22 @@ export class Compositor {
     this.shared?.eng.destroy();
     this.shared = null;
     for (const list of this.slots.values()) for (const sl of list) freeSlot(sl);
-    for (const c of this.feeds.values()) { c.width = 0; c.height = 0; }
+    this.freeScratch();
     if (this.cpuCanvas) { this.cpuCanvas.width = this.cpuCanvas.height = 0; this.cpuCanvas = null; }
     if (this.tileCanvas) { this.tileCanvas.width = this.tileCanvas.height = 0; this.tileCanvas = null; }
     if (this.lumCanvas) { this.lumCanvas.width = this.lumCanvas.height = 0; this.lumCanvas = null; }
     for (const key of this.pooled) releaseFinishes(key);
     this.pooled.clear();
     this.slots.clear();
-    this.feeds.clear();
     this.grids.clear();
     if (this.ownsProvider) this.provider.release();
+  }
+
+  /** The canvases only used while a frame is drawn (and the finishes' shared pool). */
+  private freeScratch() {
+    for (const c of [this.belowFeed, this.cpuCanvas, this.tileCanvas]) if (c) { c.width = 0; c.height = 0; }
+    this.belowFeed = this.cpuCanvas = this.tileCanvas = null;
+    for (const key of this.pooled) if (key.startsWith(`${this.poolId}:~`)) { releaseFinishes(key); this.pooled.delete(key); }
   }
 
   /** release(), and no more renders. */
@@ -281,7 +297,9 @@ export class Compositor {
 
     // what each layer's picture is made of (null: drawn anew every time), and which are kept already
     const cacheOn = !o.sequential && rw * rh <= CACHE_MAX_PX;
-    const keys = cacheOn ? this.frameKeys(state, frames, rw, rh, scale, quality, transparent) : frames.map(() => null);
+    // (the chain of 'below' keys counts every layer; cheap layers are drawn again instead of kept)
+    const keys = (cacheOn ? this.frameKeys(state, frames, rw, rh, scale, quality, transparent) : frames.map(() => null))
+      .map((k, i) => (k && worthKeeping(frames[i]) ? k : null));
     const size = `${rw}x${rh}`;
     const kept = frames.map((lf, i) => {
       const k = keys[i];
@@ -316,6 +334,8 @@ export class Compositor {
       report.layers.push({ id: lf.layer.id, kind: lf.layer.kind, ms: Math.round((performance.now() - ts) * 10) / 10, ...(note ? { note } : {}) });
     }
     for (const c of fitted.values()) if (c) { c.width = 0; c.height = 0; }
+    // a print-size render keeps nothing: the canvases used while drawing go now instead of waiting for the next render
+    if (rw * rh > CACHE_MAX_PX) this.freeScratch();
     this.assigned.clear();
     this.sweep(state);
     const used = mediaIdsOfFrame(state, frames);
@@ -415,7 +435,6 @@ export class Compositor {
   private sweep(state: FrameState) {
     const ids = new Set(state.project.layers.map(l => l.id));
     for (const [id, list] of this.slots) if (!ids.has(id)) { for (const sl of list) freeSlot(sl); this.slots.delete(id); }
-    for (const [id, c] of this.feeds) if (!ids.has(id)) { c.width = c.height = 0; this.feeds.delete(id); }
     for (const [id, e] of this.engines) if (!ids.has(id)) { e.eng.destroy(); this.engines.delete(id); }
     for (const id of this.grids.keys()) if (!ids.has(id)) this.grids.delete(id);
     // the finishes' canvases of deleted layers
@@ -464,7 +483,19 @@ export class Compositor {
   ): string | undefined {
     const l = lf.layer;
     if (l.opacity <= 0) return undefined;
-    const sl = this.slot(l.id, rw, rh);
+    // a layer that keeps nothing is drawn in a canvas that goes once it is composited (see «Memory» at the top)
+    const sl: Slot = keys ? this.slot(l.id, rw, rh) : { size: `${rw}x${rh}`, lc: null, pre: null, mc: null, out: null, contentKey: null, outKey: null, used: 0 };
+    const note = this.drawLayerInto(sl, lf, state, ctx, target, rw, rh, scale, quality, sequential, fit, keys);
+    if (!keys && sl.lc) { sl.lc.width = 0; sl.lc.height = 0; }
+    return note;
+  }
+
+  private drawLayerInto(
+    sl: Slot, lf: LayerFrame, state: FrameState, ctx: CanvasRenderingContext2D, target: HTMLCanvasElement, rw: number, rh: number, scale: number,
+    quality: 'preview' | 'final', sequential: boolean, fit: (s: Source | null, m: LayerFit, t: number) => HTMLCanvasElement | null,
+    keys: LayerKeys | null,
+  ): string | undefined {
+    const l = lf.layer;
     const fits = (c: HTMLCanvasElement | null): c is HTMLCanvasElement => !!c && c.width === rw && c.height === rh;
     let out: HTMLCanvasElement;
     if (keys) this.cacheStats.layers++;
@@ -502,7 +533,7 @@ export class Compositor {
         pre = lc;
         const on = l.finishes.filter(f => f.on && f.amount > 0);
         if (on.length) {
-          const key = `${this.poolId}:${l.id}|${sl.size}`;
+          const key = keys ? `${this.poolId}:${l.id}|${sl.size}` : `${this.poolId}:~scratch|${sl.size}`;
           this.pooled.add(key);
           pre = applyFinishes(lc, on, { t: state.t, seed: `${state.seed}|${l.id}`, scale, quality }, key);
         }
@@ -639,9 +670,9 @@ export class Compositor {
     let version: string | undefined;
     if (l.source === 'below') {
       // a copy: the composite changes once this layer is drawn over it
-      const { c, x: fx } = canvas2d(rw, rh, this.feeds.get(l.id));
+      const { c, x: fx } = canvas2d(rw, rh, this.belowFeed ?? undefined);
       fx.drawImage(target, 0, 0);
-      this.feeds.set(l.id, c);
+      this.belowFeed = c;
       feed = c;
     } else {
       feed = fit(lf.source, l.fit ?? 'cover', lf.srcTime);
@@ -851,6 +882,16 @@ export function sourceFit(project: { layers: Layer[] }, id: string): LayerFit {
 const fitOfSource = (state: FrameState, id: string) => sourceFit(state.project, id);
 
 /* ------------------------------------------------------------------ caches */
+
+/**
+ * Whether keeping a layer's picture pays: text and shape layers without finishes are drawn again in less
+ * time than a kept full-size canvas is worth (a poster has dozens of them).
+ */
+function worthKeeping(lf: LayerFrame): boolean {
+  const l = lf.layer;
+  if (l.kind !== 'text' && l.kind !== 'shape') return true;
+  return l.finishes.some(f => f.on && f.amount > 0);
+}
 
 function freeSlot(sl: Slot) {
   for (const c of [sl.lc, sl.mc]) if (c) { c.width = 0; c.height = 0; }

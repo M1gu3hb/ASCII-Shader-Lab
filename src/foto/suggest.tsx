@@ -50,7 +50,8 @@ export function useSuggestion(): void {
       try {
         const { suggestCutout } = await import('../cutout/index');
         const s = suggestCutout(img);
-        if (gone || !s.likely) return;
+        // (not while the cut-out panel is already open: the person is doing it)
+        if (gone || !s.likely || ui().cutout) return;
         remember(mid);
         setUI({ hint: { id: mid, text: s.text } });
         armHide();
