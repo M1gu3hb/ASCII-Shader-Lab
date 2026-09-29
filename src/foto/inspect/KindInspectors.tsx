@@ -11,7 +11,6 @@ import { copyText } from '../../studio/download';
 import { ColorInput, ColorStops, Note, Section, SegGroup, Select, Slider, TextField, Toggle } from '../controls';
 import { replaceSource } from '../layerOps';
 import { importMedia, MEDIA_ACCEPT, pickFiles } from '../media';
-import { layerText } from '../textOut';
 import { say } from '../ui';
 import { sourceOptions } from './AsciiInspector';
 
@@ -37,6 +36,8 @@ function GlyphParam({ d, s, set }: { d: GlyphParamDef; s: GlyphStyle; set: (k: k
 export function GlyphsInspector({ l, p }: { l: GlyphsLayer; p: Project }) {
   const set = (k: keyof GlyphStyle, v: unknown) => updateLayer(l.id, x => { ((x as GlyphsLayer).glyphs as unknown as Record<string, unknown>)[k] = v; }, 'glyphs.' + k);
   const copy = async () => {
+    // the text exporters load on first use (they are not needed to draw)
+    const { layerText } = await import('../textOut');
     const t = await layerText(l.id, 'txt');
     if (!t) { say('No se pudo leer la imagen de esta capa.'); return; }
     await copyText(t.text, 'Caracteres copiados como texto');
