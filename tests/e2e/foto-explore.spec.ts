@@ -92,5 +92,22 @@ test('azar, versiones, favorita, variantes enlazadas, comparar y restaurar exact
   expect(JSON.stringify(await project(page))).toBe(JSON.stringify((await versions(page)).list[0].project));
   await page.keyboard.press('Escape');
   expect((await settle(page)).hash).toBe(h0.hash);
+
+  // the project's name belongs to the project: a rename stays while versions are browsed, and F stars the
+  // version on show instead of keeping a copy of it only because the name changed
+  await page.locator('.fproj-name').click();
+  await page.getByRole('textbox', { name: 'Nombre del proyecto' }).fill('Mi frutero');
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await project(page)).name).toBe('Mi frutero');
+  await page.locator('.fv-over').hover();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await versions(page)).cursor).toBe(1);
+  expect((await project(page)).name).toBe('Mi frutero');
+  const n = (await versions(page)).list.length;
+  const wasFav = (await versions(page)).list[1].fav;
+  await page.keyboard.press('f');
+  vl = await versions(page);
+  expect(vl.list).toHaveLength(n);
+  expect(vl.list[1].fav).toBe(!wasFav);
   expect(errors).toEqual([]);
 });
