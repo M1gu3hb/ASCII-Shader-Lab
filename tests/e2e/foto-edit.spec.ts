@@ -70,7 +70,9 @@ test('una foto, una capa ASCII con máscara dibujada por la herramienta, deshace
   const outside2 = await meanIn(page, 0.6, 0.2, 0.3, 0.6);
   for (let k = 0; k < 3; k++) expect(Math.abs(outside2[k] - outside[k])).toBeLessThan(1);
 
-  // the keyboard reaches the tool first (Enter adds a zone, arrows move it), then the studio
+  // the keyboard reaches the tool first (Enter adds a zone, arrows move it), then the studio — once the
+  // focus has left the «Deshacer» button (Enter on a focused button presses that button)
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('live')).toContainText('Zona en x 0.35');
   await page.keyboard.press('Enter');

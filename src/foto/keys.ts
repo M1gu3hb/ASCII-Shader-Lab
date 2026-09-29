@@ -1,5 +1,6 @@
 /**
- * Keyboard routing of the photo studio: the active tool first (Tool.onKey), then the studio's shortcuts.
+ * Keyboard routing of the photo studio: the active tool first (Tool.onKey, but never the keys the focused control
+ * uses itself: keyForTool), then the studio's shortcuts.
  *   espacio (tap) / →  azar (→ goes to the next version first when there is one)   ←  versión anterior
  *   espacio + arrastrar  mover la vista                                             F  favorita
  *   Z · ⌘Z / Ctrl+Z  deshacer        ⇧Z · ⇧⌘Z · Ctrl+Y  rehacer                     [ ]  tamaño del pincel (herramientas)
@@ -49,14 +50,34 @@ export function selectTool(id: string | null) {
   host.redrawOverlay();
 }
 
+const NAV = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+
+/**
+ * Whether a key may go to the active tool. The tool has the keyboard with nothing focused (after working
+ * on the canvas) and on its own button in the palette (the keyboard's way to draw: Enter on it, then the
+ * arrows); Escape always reaches it. Elsewhere the focused control keeps the keys it uses itself: Tab moves
+ * the focus on (a tool that cycles its parts with Tab would trap it), a slider or a list keeps its arrows,
+ * a button its Enter and Space.
+ */
+export function keyForTool(key: string, el: Element | null, tool: string | null): boolean {
+  if (key === 'Escape' || !el || el === document.body || el === document.documentElement || el.closest('.fv-over')) return true;
+  if (key === 'Tab') return false;
+  if (tool && el.closest(`.frail button[data-tool="${CSS.escape(tool)}"]`)) return true;
+  const nav = NAV.includes(key), act = key === 'Enter' || key === ' ';
+  if (el.closest('input, select, textarea, [role="slider"], [role="spinbutton"], [role="radio"], [role="tab"], [role="option"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="listbox"], [role="combobox"], [role="tree"], [role="treeitem"], [role="grid"]'))
+    return !nav && !act;
+  if (el.closest('button, a[href], summary, [role="button"], [role="switch"], [role="checkbox"], [role="link"]')) return !act;
+  return true;
+}
+
 export function startKeys(): () => void {
   const down = (e: KeyboardEvent) => {
     if (ui().screen !== 'edit') return;
     if (isField(e.target) && e.key !== 'Escape') return;
     if (document.querySelector('dialog[open]')) return;
-    // the tool first
+    // the tool first (with the keys the focused control does not use itself)
     const t = activeTool();
-    if (t?.onKey) {
+    if (t?.onKey && keyForTool(e.key, e.target instanceof Element ? e.target : null, ui().tool)) {
       let used = false;
       try { used = t.onKey(e, host); } catch (err) { console.warn('foto: tool key', err); }
       if (used) { e.preventDefault(); host.redrawOverlay(); return; }
