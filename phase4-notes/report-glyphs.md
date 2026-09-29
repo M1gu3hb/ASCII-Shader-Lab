@@ -1,0 +1,8 @@
+# Lane glyphs report (merged)
+Branch ws/p4-glyphs (489c85a, 75c7778, 772f785). src/glyphs/{index,charsets,ramp,grid,draw,exports,params}.ts; dev/glyphs.html/.ts; tests/unit/glyphs-{grid,output,draw}.test.ts.
+Exports added: glyphGridWith(src, style, out, {version}), sampleOf, ensureGlyphFont(font, weight, sample), toGridSnapshot(grid,bg,style?), gridToSvgText, gridText, copyGridText, GLYPH_PARAMS, defaultGlyphStyle, normalizeGlyphStyle, sortByInk, measureInk, resolveRamp, gridFromFine, sampleFine, flowWords, cellColors, releaseSampling. GlyphGrid.w/h optional (output size). CellFx.rot in degrees; scale 1 = unchanged.
+24 charsets (Estándar, Estándar 2, Extendido alto, Alfabético, Alfanumérico, Numérico, Flechas, Código 437, Escala de grises, Bloques (2x2 quadrants), Bloques tramados, Barras, Braille (2x4 real), Braille tramado, Braille (densidad), Símbolos matemáticos, Minimalista, Máximo, Blanco y negro, Katakana, Puntos, Líneas, Tus caracteres, Tus palabras).
+Timings 1080x1350, 8px cells (22.8k cells): drawGlyphs 2.6–18 ms (+ raster flush 2–23 ms); glyphGrid 25–57 ms (picture read 20–50 ms; mapping 2–9 ms).
+Proposed for core: GlyphStyle.wrap?: 'char'|'word'; ranges bright -1..1, contrast 0..3, gamma 0.2..3, sat 0..3, edge/cutoff 0..1; normalizeProject should use normalizeGlyphStyle; compositor should call ensureGlyphFont before drawing, use glyphGridWith(..., {version}) for still layers, keep the grid while only cellFx changes.
+Not verified: Firefox/Safari span path (auto-disables if letterSpacing missing or pixel check fails), GPU canvas timings, fallback fonts on macOS/Windows, SVG depends on viewer fonts, video sources.
+Screenshots: scratchpad/glyphs/shots/.
