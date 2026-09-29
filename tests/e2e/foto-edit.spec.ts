@@ -205,6 +205,15 @@ test('«Quitar fondo» abre el panel «Recorte» (con su cierre); los ajustes di
   await panel.getByRole('button', { name: 'Cerrar el recorte' }).click();
   await expect(panel).toHaveCount(0);
   await expect(page.locator('.fl-list')).toBeVisible();
+  // with the keyboard: the focus goes back to «Quitar fondo» (not lost with the panel)
+  const opener = page.getByRole('toolbar', { name: 'Herramientas' }).getByRole('button', { name: 'Quitar fondo' });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toBeVisible();
+  await panel.getByRole('button', { name: 'Cerrar el recorte' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel).toHaveCount(0);
+  await expect(opener).toBeFocused();
   await page.getByRole('button', { name: 'Ajustes del estudio' }).click();
   const settings = page.getByRole('dialog', { name: 'Ajustes' });
   await expect(settings.locator('.fmodels')).toContainText(/Ninguno|MB/);
