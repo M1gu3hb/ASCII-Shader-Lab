@@ -3,7 +3,7 @@
  * Each is one undo step through src/project/store.
  */
 import { cloneProject, LAYER_NAMES, newLayer, sourceFromMedia, uid } from '../project/normalize';
-import { addLayer, edit, moveLayer, removeLayer, select, updateLayer, useProject } from '../project/store';
+import { addLayer, edit, moveLayer, removeLayer, select, undo, updateLayer, useProject } from '../project/store';
 import type { Id, Layer, LayerKind, Project, Source } from '../project/types';
 import type { MediaRef } from '../engine/recipe';
 import { toast } from '../studio/toast';
@@ -113,11 +113,39 @@ export function deleteLayer(id: Id) {
   if (!p || !l) return;
   const i = p.layers.findIndex(x => x.id === id);
   removeLayer(id);
-  const rest = P().project?.layers ?? [];
+  const after = P().project;
+  const rest = after?.layers ?? [];
   const near = rest[Math.min(rest.length - 1, Math.max(0, i - 1))];
   if (near) select([near.id]);
-  toast(`Capa «${l.name}» eliminada.`, { label: 'Deshacer', run: () => { void import('../project/store').then(s => { s.undo(); select([id]); }); } });
+  toast(`Capa «${l.name}» eliminada.`, { label: 'Deshacer', run: () => bringBack(p, l, i, after) });
   say(`Capa «${l.name}» eliminada. Ctrl+Z la recupera.`);
+}
+
+/**
+ * The toast's «Deshacer» of a deletion brings THAT layer back: the undo step itself while nothing changed
+ * since, else the layer (with its keys and pictures) put back where it was, keeping the edits made since;
+ * nothing when it is already back (Ctrl+Z) or another project is open.
+ */
+function bringBack(before: Project, l: Layer, i: number, after: Project | null) {
+  const cur = P().project;
+  if (!cur || cur.id !== before.id) return;
+  if (!cur.layers.some(x => x.id === l.id)) {
+    if (cur === after) undo();
+    else {
+      const back = cloneProject({ ...before, layers: [l] });
+      const tracks = before.tracks.filter(t => t.layer === l.id);
+      edit(d => {
+        d.layers.splice(Math.min(i, d.layers.length), 0, back.layers[0]);
+        d.tracks.push(...cloneProject({ ...before, tracks }).tracks);
+        // (its picture, when a change since dropped it from the project)
+        const src = 'source' in l ? (l as { source?: unknown }).source : null;
+        const s = before.sources.find(x => x.id === src);
+        if (s && !d.sources.some(x => x.id === s.id)) d.sources.push(cloneProject({ ...before, sources: [s] }).sources[0]);
+      });
+    }
+  }
+  select([l.id]);
+  say(`Capa «${l.name}» recuperada.`);
 }
 
 export function renameLayer(id: Id, name: string) {
