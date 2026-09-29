@@ -192,3 +192,48 @@ test('a video trimmed without re-encoding (MP4 edit list) exports from the cut, 
   expect(r.audio).toBe('copied');
   expect(r.loud).toEqual([0, 1]);
 });
+
+test('«Capa sola» of a layer that reads what is under it: its characters of the photo, and over the rest it gives the full render', async ({ page }) => {
+  test.setTimeout(120_000);
+  await blank(page);
+  const r = await run<Record<string, { left: number; right: number; diff?: number }>>(page, `
+    const S = await import('/src/project/sources.ts');
+    const N = await import('/src/project/normalize.ts');
+    const X = await import('/src/project/export.ts');
+    // the photo: bright left half, black right half
+    const c = document.createElement('canvas'); c.width = 320; c.height = 200;
+    const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 320, 200); x.fillStyle = '#fff'; x.fillRect(0, 0, 160, 200);
+    S.keepBlob('00000000000fa7e1', await new Promise(r => c.toBlob(r, 'image/png')), 'foto.png');
+    const out = {};
+    for (const kind of ['ascii', 'glyphs']) {
+      const p = N.projectFromImage({ id: '00000000000fa7e1', kind: 'image', w: 320, h: 200, name: 'foto.png' });
+      const l = N.newLayer(kind, { name: kind });
+      if (kind === 'glyphs') l.glyphs = { ...l.glyphs, paper: null };
+      p.layers.push(l);
+      const photo = p.layers[0].id;
+      const pixels = async o => { const { canvas } = await X.renderStill(p, o); return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data; };
+      const alone = await pixels({ only: [l.id], transparent: true });
+      let left = 0, right = 0;
+      for (let i = 0; i < alone.length; i += 4) if (alone[i + 3] > 40) { if ((i / 4) % 320 < 160) left++; else right++; }
+      // the photo alone with the layer alone over it is the full render
+      const base = await pixels({ only: [photo] }), full = await pixels({});
+      const k = document.createElement('canvas'); k.width = 320; k.height = 200;
+      const kx = k.getContext('2d');
+      kx.putImageData(new ImageData(base, 320, 200), 0, 0);
+      const a = document.createElement('canvas'); a.width = 320; a.height = 200;
+      a.getContext('2d').putImageData(new ImageData(alone, 320, 200), 0, 0);
+      kx.drawImage(a, 0, 0);
+      const both = kx.getImageData(0, 0, 320, 200).data;
+      let diff = 0;
+      for (let i = 0; i < both.length; i++) diff = Math.max(diff, Math.abs(both[i] - full[i]));
+      out[kind] = { left, right, diff };
+    }
+    return out;
+  `);
+  for (const kind of ['ascii', 'glyphs']) {
+    // characters where the photo is bright, nothing where it is black (not an empty frame)
+    expect(r[kind].left).toBeGreaterThan(1000);
+    expect(r[kind].right).toBe(0);
+    expect(r[kind].diff).toBeLessThanOrEqual(3);
+  }
+});
