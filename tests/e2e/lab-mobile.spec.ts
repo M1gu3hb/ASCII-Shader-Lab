@@ -248,6 +248,43 @@ test.describe('390×844', () => {
   });
 });
 
+/**
+ * The top bar with the «Laboratorio ⇄ Foto y video» switch, down to the narrowest phones (320 px, a
+ * folding phone's 344 px cover screen). Under 360 px Colección (collection, sessions, projects: nowhere
+ * else on a phone) was pushed past the right edge (12 px of it in view at 320); and the switch's menu, 290 px
+ * wide from where the switch sits, ran past the right edge up to 390 px (31 px of it cut at 360).
+ */
+for (const width of [320, 344, 360, 390]) {
+  test(`${width} px de ancho: la barra superior y el menú «Foto y video» caben enteros, Colección incluida`, async ({ browser }) => {
+    const { ctx, page, errors } = await phone(browser, { width, height: 700 });
+    const controls = await page.locator('.topbar').locator('a, button').evaluateAll(els => els
+      .filter(el => el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== 'hidden')
+      .map(el => { const r = el.getBoundingClientRect(); return { name: el.getAttribute('aria-label') ?? el.textContent?.trim() ?? '', left: r.left, right: r.right, w: r.width, h: r.height }; }));
+    expect(controls.length).toBeGreaterThanOrEqual(5);
+    for (const c of controls) {
+      expect(c.left >= 0 && c.right <= width, `${c.name} [${Math.round(c.left)}–${Math.round(c.right)}]`).toBe(true);
+      expect(c.w >= 44 && c.h >= 44, `${c.name} ${Math.round(c.w)}×${Math.round(c.h)}`).toBe(true);
+    }
+    const coll = page.getByRole('button', { name: /^Colección/ });
+    await expect(coll).toBeInViewport({ ratio: 1 });
+    await coll.tap();
+    await expect(page.locator('dialog.sheet[open]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('dialog.sheet[open]')).toHaveCount(0);
+    // the photo studio: its menu opens from the bar, whole on screen (8 px from the edge at least)
+    await page.getByRole('button', { name: 'Foto y video' }).tap();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem')).toHaveCount(2);
+    for (const item of await menu.getByRole('menuitem').all()) await expect(item).toBeInViewport({ ratio: 1 });
+    const m = (await menu.boundingBox())!;
+    expect(m.x, 'menu left').toBeGreaterThanOrEqual(0);
+    expect(m.x + m.width, 'menu right').toBeLessThanOrEqual(width - 8 + 0.5);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+}
+
 test.describe('de lado (844×390)', () => {
   test('el dock en una fila, los ajustes en una columna junto a la pieza', async ({ browser }) => {
     const { ctx, page, errors } = await phone(browser, { width: 844, height: 390 });

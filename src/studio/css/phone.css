@@ -262,6 +262,14 @@
   .app .vbar:not(.more) .vsel-pk .pk-caret { display: none; }
 }
 
+/* ---------- the narrowest phones (under 360 px): the switch keeps «Foto» ----------
+   With both segments the bar ran past the right edge and Colección (collection, sessions, projects: on a
+   phone only here) was cut to a sliver, 12 px of it at 320. The lab is the page you are on; «Foto» opens
+   the menu that goes to the photo studio or takes the piece there. */
+@media (max-width: 359px) {
+  .app .topbar .sw > .sw-seg[aria-current="page"] { display: none; }
+}
+
 /* ---------- narrow phones: the space picker is its icon ----------
    With the «Laboratorio ⇄ Foto y video» switch at 44 px per segment, a phone up to 420 px has no room
    for the space's name beside it (it was cut to a few pixels at 390): the picker shows the space's icon

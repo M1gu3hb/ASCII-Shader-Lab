@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cloneRecipe, type MediaRef } from '../engine/recipe';
 import { putHandoff } from '../foto/handoff';
 import { mediaElement } from './media';
@@ -17,6 +17,16 @@ export function FotoSwitch() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    // it hangs from the switch: on a narrow screen it moves left, so it ends 8 px from the right edge
+    const m = menu.current;
+    if (!open || !m) return;
+    m.style.left = '';
+    const r = m.getBoundingClientRect();
+    const over = r.right - (document.documentElement.clientWidth - 8);
+    if (over > 0) m.style.left = `${-Math.max(0, Math.min(over, r.left - 8))}px`;
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     box.current?.querySelector<HTMLElement>('.sw-menu a')?.focus();
@@ -72,7 +82,7 @@ export function FotoSwitch() {
           <span className="sw-long">Foto y video</span><span className="sw-short" aria-hidden="true">Foto</span>
         </button>
         {open && (
-          <div className="sw-menu" role="menu" onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); box.current?.querySelector<HTMLButtonElement>('.sw-go > button')?.focus(); } }}>
+          <div className="sw-menu" role="menu" ref={menu} onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); box.current?.querySelector<HTMLButtonElement>('.sw-go > button')?.focus(); } }}>
             <a role="menuitem" href="/studio/foto/">Abrir el estudio de foto y video<small>Tus proyectos, plantillas y fotos.</small></a>
             <button type="button" role="menuitem" disabled={busy} onClick={() => void bring()}>
               {busy ? 'Llevando la pieza…' : 'Llevar al estudio de foto'}<small>Esta pieza como capa ASCII sobre su foto, en un proyecto nuevo.</small>
