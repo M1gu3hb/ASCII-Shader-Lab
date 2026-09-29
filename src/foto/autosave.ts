@@ -7,7 +7,8 @@ import { saveThumb } from '../project/persist';
 import { refreshSaved, startAutosave, useProject } from '../project/store';
 import type { Project } from '../project/types';
 import { projectThumb } from './thumbs';
-import { setUI } from './ui';
+import { say, setUI } from './ui';
+import { toast } from '../studio/toast';
 
 const thumbs = new Map<string, string>();
 let timer = 0;
@@ -29,6 +30,13 @@ export function startFotoAutosave(): () => void {
   const unsub = useProject.subscribe((s, prev) => {
     if (s.project && prev.project && s.project !== prev.project && s.project.id === prev.project.id) setUI({ saving: true });
     if (s.saved !== prev.saved) setUI({ saving: false });
+    // another tab saved this project meanwhile: this one no longer writes it (persist.ts, fenced saves)
+    if (s.storage === 'conflict' && prev.storage !== 'conflict') {
+      setUI({ saving: false });
+      const msg = 'Este proyecto se guardó en otra pestaña: aquí ya no se guarda, para no borrar lo de allá. Recarga para ver lo último, o «Guardar como» para quedarte con esto como copia.';
+      say(msg, { keep: true });
+      toast(msg, { label: 'Recargar', run: () => location.reload() }, 12_000);
+    }
   });
   return () => { unsub(); void stop(); };
 }

@@ -128,3 +128,39 @@ test('un cambio hecho justo antes de recargar o de abrir otro proyecto también 
   expect((await stored(page, first.id))?.layers[1].mask?.parts).toHaveLength(2);
   expect(errors).toEqual([]);
 });
+
+test('el mismo proyecto en dos pestañas: la que se quedó atrás no borra lo que guardó la otra', async ({ page, context }) => {
+  const errors = await openFoto(page);
+  await startFromPhoto(page);
+  await page.getByRole('button', { name: 'Añadir capa' }).click();
+  await page.getByRole('menuitem', { name: /ASCII \(render gráfico\)/ }).click();
+  await expect(page.locator('.fsave')).toHaveText('guardado', { timeout: 30_000 });
+  const id = (await project(page)).id;
+  // the same project in a second tab (a duplicated tab, or opened again from the recent projects)
+  const other = await context.newPage();
+  const errors2 = await openFoto(other, '#p=' + id);
+  await expect(other.locator('.fv-art')).toBeVisible({ timeout: 45_000 });
+  await finalRender(other);
+  // the first tab goes on: a zone, saved
+  await page.bringToFront();
+  await page.getByRole('button', { name: '+ Zona elíptica' }).click();
+  await expect.poll(async () => (await stored(page, id))?.layers[1].mask?.parts.length, { timeout: 30_000 }).toBe(1);
+  // the second tab, still on the older project, changes something: it does not save over the zone, and says why
+  await other.bringToFront();
+  await other.getByRole('button', { name: /^Ocultar «Foto original»/ }).click();
+  await expect(other.locator('.fsave')).toHaveText('abierto en otra pestaña', { timeout: 30_000 });
+  await expect(other.locator('.toast', { hasText: 'se guardó en otra pestaña' }).getByRole('button', { name: 'Recargar' })).toBeVisible();
+  await other.waitForTimeout(1500);
+  const kept = await stored(page, id);
+  expect(kept?.layers[1].mask?.parts).toHaveLength(1);
+  // the first tab keeps saving; a reload of the second shows the zone
+  await page.bringToFront();
+  await page.getByRole('button', { name: '+ Zona rectangular' }).click();
+  await expect.poll(async () => (await stored(page, id))?.layers[1].mask?.parts.length, { timeout: 30_000 }).toBe(2);
+  await other.reload();
+  await expect(other.locator('.fv-art')).toBeVisible({ timeout: 45_000 });
+  await finalRender(other);
+  expect((await project(other)).layers[1].mask?.parts).toHaveLength(2);
+  expect(errors).toEqual([]);
+  expect(errors2).toEqual([]);
+});

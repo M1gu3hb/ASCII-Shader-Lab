@@ -68,8 +68,8 @@ export function TopBar({ editing }: { editing: boolean }) {
           ) : (
             <button type="button" className="fproj-name" onClick={() => setEditName(true)} title="Cambiar el nombre">{name}</button>
           )}
-          <span className={'fsave ' + storage} role="status" title={storage === 'ok' ? 'Guardado en este navegador' : storage === 'full' ? 'No queda espacio en el navegador: descarga el proyecto' : storage === 'unavailable' ? 'El navegador no deja guardar: descarga el proyecto' : 'Se guarda solo'}>
-            {saving && storage !== 'full' && storage !== 'unavailable' ? 'guardando…' : storage === 'ok' ? 'guardado' : storage === 'full' ? 'sin espacio' : storage === 'unavailable' ? 'sin guardar' : ''}
+          <span className={'fsave ' + storage} role="status" title={storage === 'ok' ? 'Guardado en este navegador' : storage === 'full' ? 'No queda espacio en el navegador: descarga el proyecto' : storage === 'unavailable' ? 'El navegador no deja guardar: descarga el proyecto' : storage === 'conflict' ? 'Otra pestaña guardó este proyecto: aquí ya no se guarda. Recarga para ver lo último, o «Guardar como» para quedarte con esto como copia.' : 'Se guarda solo'}>
+            {saving && storage !== 'full' && storage !== 'unavailable' && storage !== 'conflict' ? 'guardando…' : storage === 'ok' ? 'guardado' : storage === 'full' ? 'sin espacio' : storage === 'unavailable' ? 'sin guardar' : storage === 'conflict' ? 'abierto en otra pestaña' : ''}
           </span>
         </div>
       )}

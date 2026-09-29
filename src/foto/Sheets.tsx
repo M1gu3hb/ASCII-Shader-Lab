@@ -398,7 +398,7 @@ export function SaveAsSheet() {
   return (
     <Sheet open={open} title="Guardar" sub="El proyecto se guarda solo en este navegador mientras trabajas." onClose={closeSheet}>
       <div className="sheet-body">
-        <p className="note">Estado: <b>{storage === 'ok' ? 'guardado en este navegador' : storage === 'full' ? 'sin espacio: descarga el proyecto' : storage === 'unavailable' ? 'el navegador no deja guardar: descarga el proyecto' : 'se guardará al primer cambio'}</b>.</p>
+        <p className="note">Estado: <b>{storage === 'ok' ? 'guardado en este navegador' : storage === 'full' ? 'sin espacio: descarga el proyecto' : storage === 'unavailable' ? 'el navegador no deja guardar: descarga el proyecto' : storage === 'conflict' ? 'otra pestaña guardó este proyecto y aquí ya no se guarda: «Guardar como» lo conserva como copia' : 'se guardará al primer cambio'}</b>.</p>
         <h3 className="data-h">Guardar como</h3>
         <form className="fsaveas" onSubmit={e => { e.preventDefault(); closeSheet(); void saveAs(v); }}>
           <label className="lbl" htmlFor="fsaveas-n">Nombre de la copia</label>

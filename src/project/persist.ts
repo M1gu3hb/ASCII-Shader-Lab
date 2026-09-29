@@ -12,7 +12,7 @@
  *
  * autosaver() saves a project a moment after it changes (and at once when the page is hidden or left).
  */
-import { createStore, del, get, getMany, keys, setMany, type UseStore } from 'idb-keyval';
+import { createStore, del, get, getMany, keys, type UseStore } from 'idb-keyval';
 import type { MediaRef } from '../engine/recipe';
 import { dropMediaRefs, gcMedia, put, setMediaRefs, type MediaKind } from '../studio/mediaStore';
 import { normalizeProject } from './normalize';
@@ -37,17 +37,22 @@ export interface ProjectSummary {
   duration: number;
   origin?: string;
   thumb?: string;
+  /** Changes with every save of the project (see `fence` in saveProject). */
+  rev?: string;
 }
 
-/** 'ok'; 'full' (no space left); 'unavailable' (storage blocked: the work lives only in this tab). */
-export type SaveResult = 'ok' | 'full' | 'unavailable';
+/**
+ * 'ok'; 'full' (no space left); 'unavailable' (storage blocked: the work lives only in this tab); 'conflict'
+ * (another tab saved this project since this tab opened or last saved it: this tab no longer writes it).
+ */
+export type SaveResult = 'ok' | 'full' | 'unavailable' | 'conflict';
 
 const isQuota = (e: unknown) => e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
 
-export function summaryOf(p: Project, thumb?: string): ProjectSummary {
+export function summaryOf(p: Project, thumb?: string, rev?: string): ProjectSummary {
   return {
     id: p.id, name: p.name, created: p.created, updated: p.updated, w: p.canvas.w, h: p.canvas.h, layers: p.layers.length,
-    duration: p.time.duration, ...(p.meta.origin ? { origin: p.meta.origin } : {}), ...(thumb ? { thumb } : {}),
+    duration: p.time.duration, ...(p.meta.origin ? { origin: p.meta.origin } : {}), ...(thumb ? { thumb } : {}), ...(rev ? { rev } : {}),
   };
 }
 
@@ -65,11 +70,57 @@ const started = new Map<Id, number>();
 const startSave = (id: Id) => { const n = (started.get(id) ?? 0) + 1; started.set(id, n); return n; };
 
 /** The project, its summary and (when given) its versions: one transaction, so they never disagree. */
-function records(p: Project, thumb: string | undefined, versions: VersionList | null | undefined): Array<[string, unknown]> {
+function records(p: Project, thumb: string | undefined, versions: VersionList | null | undefined, rev: string): Array<[string, unknown]> {
   if (thumb) knownThumb.set(p.id, thumb);
-  const out: Array<[string, unknown]> = [[P + p.id, p], [S + p.id, summaryOf(p, thumb)]];
+  const out: Array<[string, unknown]> = [[P + p.id, p], [S + p.id, summaryOf(p, thumb, rev)]];
   if (versions) out.push([V + p.id, versions]);
   return out;
+}
+
+/*
+ * Two tabs with the same project open: each would save its own copy over the other's work. Every save writes a
+ * new `rev` in the summary; this tab remembers the revs it read (opening the project) and wrote. A fenced save
+ * (the autosave's) writes only while the stored rev is one of those; otherwise another tab saved in between:
+ * nothing is written, the save says 'conflict', and this tab stops writing that project until it is opened again.
+ */
+const mine = new Map<Id, string[]>();
+const lost = new Set<Id>();
+function newRev(): string {
+  const b = new Uint8Array(8);
+  crypto.getRandomValues(b);
+  return [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+function remember(id: Id, rev: string) {
+  const l = mine.get(id) ?? [];
+  l.push(rev);
+  mine.set(id, l.slice(-64));
+}
+
+/**
+ * Writes a project's records in one readwrite transaction (started before this returns while the database is
+ * open). `fence`: first checks the stored rev (see above), in the same transaction; `commit`: commits at once
+ * (no fence then: that check needs a round trip first).
+ */
+function writeRecords(p: Project, puts: Array<[string, unknown]>, rev: string, o: { fence?: boolean; commit?: boolean }): Promise<SaveResult> {
+  if (o.fence && lost.has(p.id)) return Promise.resolve('conflict');
+  const own = mine.get(p.id);
+  remember(p.id, rev);
+  return store()('readwrite', st => new Promise<SaveResult>(res => {
+    const tx = st.transaction;
+    let clash = false;
+    if (o.fence && own) {
+      // requests run in order: this check comes back before any put is applied
+      const g = st.get(S + p.id);
+      g.onsuccess = () => {
+        const s = g.result as ProjectSummary | undefined;
+        if (s && !mine.get(p.id)?.includes(s.rev ?? '')) { clash = true; lost.add(p.id); try { tx.abort(); } catch { /* finishing */ } }
+      };
+    }
+    for (const [k, v] of puts) st.put(v, k);
+    if (o.commit && !(o.fence && own)) tx.commit?.();
+    tx.oncomplete = () => res('ok');
+    tx.onabort = () => res(clash ? 'conflict' : isQuota(tx.error) ? 'full' : 'unavailable');
+  })).catch(e => (isQuota(e) ? 'full' : 'unavailable'));
 }
 
 /**
@@ -77,16 +128,17 @@ function records(p: Project, thumb: string | undefined, versions: VersionList | 
  * The media refs are written first: a collection running meanwhile already keeps the files. A save that a
  * later save of the same project overtook while it waited (e.g. one made as the page was left) writes nothing.
  */
-export async function saveProject(p: Project, o: { thumb?: string; versions?: VersionList } = {}): Promise<SaveResult> {
+export async function saveProject(p: Project, o: { thumb?: string; versions?: VersionList; fence?: boolean } = {}): Promise<SaveResult> {
   const n = startSave(p.id);
   try {
+    if (o.fence && lost.has(p.id)) return 'conflict';
     let versions = o.versions ?? null;
     if (!versions) versions = normalizeVersions(await get(V + p.id, store()));
     await setMediaRefs(owner(p.id), idsWith(p, versions));
     const prev = o.thumb ? undefined : await get<ProjectSummary>(S + p.id, store());
     if (started.get(p.id) !== n) return 'ok';
-    await setMany(records(p, o.thumb ?? prev?.thumb, o.versions), store());
-    return 'ok';
+    const rev = newRev();
+    return await writeRecords(p, records(p, o.thumb ?? prev?.thumb, o.versions, rev), rev, { fence: !!o.fence });
   } catch (e) {
     return isQuota(e) ? 'full' : 'unavailable';
   }
@@ -98,21 +150,13 @@ export async function saveProject(p: Project, o: { thumb?: string; versions?: Ve
  * is committed at once, so it does not depend on the page living through a chain of awaits; the media refs
  * are written beside it. Saves of the same project still on their way write nothing after it.
  */
-export function saveProjectAtOnce(p: Project, o: { versions?: VersionList } = {}): Promise<SaveResult> {
+export function saveProjectAtOnce(p: Project, o: { versions?: VersionList; fence?: boolean } = {}): Promise<SaveResult> {
   startSave(p.id);
   try {
+    if (o.fence && lost.has(p.id)) return Promise.resolve('conflict');
     if (o.versions) void setMediaRefs(owner(p.id), idsWith(p, o.versions)).catch(() => undefined);
-    const puts = records(p, knownThumb.get(p.id), o.versions);
-    return store()('readwrite', st => {
-      for (const [k, v] of puts) st.put(v, k);
-      const tx = st.transaction;
-      const done = new Promise<SaveResult>(res => {
-        tx.oncomplete = () => res('ok');
-        tx.onabort = tx.onerror = () => res(isQuota(tx.error) ? 'full' : 'unavailable');
-      });
-      tx.commit?.();
-      return done;
-    }).catch(e => (isQuota(e) ? 'full' : 'unavailable'));
+    const rev = newRev();
+    return writeRecords(p, records(p, knownThumb.get(p.id), o.versions, rev), rev, { fence: !!o.fence, commit: true });
   } catch (e) {
     return Promise.resolve(isQuota(e) ? 'full' : 'unavailable');
   }
@@ -125,8 +169,12 @@ export function saveProjectAtOnce(p: Project, o: { versions?: VersionList } = {}
 export async function saveThumb(id: Id, thumb: string): Promise<void> {
   try {
     knownThumb.set(id, thumb);
-    const s = await get<ProjectSummary>(S + id, store());
-    if (s) await setMany([[S + id, { ...s, thumb }]], store());
+    // read and written in one transaction: a save landing in between is never put back to its older summary
+    await store()('readwrite', st => new Promise<void>(res => {
+      const g = st.get(S + id);
+      g.onsuccess = () => { const s = g.result as ProjectSummary | undefined; if (s) st.put({ ...s, thumb }, S + id); };
+      st.transaction.oncomplete = st.transaction.onabort = () => res();
+    }));
   } catch { /* storage unavailable */ }
 }
 
@@ -134,8 +182,11 @@ export async function saveThumb(id: Id, thumb: string): Promise<void> {
 export async function loadProject(id: Id): Promise<Project | null> {
   try {
     const [raw, sum] = await getMany([P + id, S + id], store());
-    const thumb = (sum as ProjectSummary | undefined)?.thumb;
-    if (typeof thumb === 'string') knownThumb.set(id, thumb);
+    const s = sum as ProjectSummary | undefined;
+    if (typeof s?.thumb === 'string') knownThumb.set(id, s.thumb);
+    // opened (again): this tab writes it from what it read
+    lost.delete(id);
+    mine.set(id, [typeof s?.rev === 'string' ? s.rev : '']);
     return raw ? normalizeProject(raw) : null;
   } catch { return null; }
 }
@@ -249,7 +300,7 @@ export function autosaver(o: {
     if (!p) { guard(false); return null; }
     const job = (async () => {
       const thumb = o.thumb ? await o.thumb(p).catch(() => null) : null;
-      const r = await saveProject(p, { ...(thumb ? { thumb } : {}), ...(o.versions?.() ? { versions: o.versions()! } : {}) });
+      const r = await saveProject(p, { fence: true, ...(thumb ? { thumb } : {}), ...(o.versions?.() ? { versions: o.versions()! } : {}) });
       if (!dirty) guard(false);
       o.onSaved?.(r, p);
       return r;
@@ -266,7 +317,7 @@ export function autosaver(o: {
     const p = o.get();
     if (!p) { guard(false); return; }
     const v = o.versions?.() ?? null;
-    void saveProjectAtOnce(p, v ? { versions: v } : {}).then(r => { if (!dirty) guard(false); o.onSaved?.(r, p); });
+    void saveProjectAtOnce(p, { fence: true, ...(v ? { versions: v } : {}) }).then(r => { if (!dirty) guard(false); o.onSaved?.(r, p); });
   };
   const onHide = () => { if (document.visibilityState === 'hidden') now(); };
   const onLeave = () => now();
