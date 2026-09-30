@@ -197,7 +197,11 @@ function storedRefs(list: unknown[], ids: Set<string>) {
   for (const x of list) { const o = x as { recipe?: unknown; origin?: unknown } | null; add(o?.recipe); add(o?.origin); }
 }
 
-async function storedMediaIds(): Promise<Set<string>> {
+/**
+ * (Exported for the photo and video studio's own collection, src/project/persist.ts: media the lab's saved
+ * history and collection use must survive it too.)
+ */
+export async function storedMediaIds(): Promise<Set<string>> {
   const ids = new Set<string>();
   const [bodies, [fav, h2]] = await Promise.all([idbValues(P_ENTRY), idbRead([K_FAV, K_HIST_V2])]);
   storedRefs(bodies, ids);
@@ -355,6 +359,9 @@ export function edit(fn: (r: Recipe) => void, key = '') {
   const next = cloneRecipe(e.recipe);
   fn(next);
   if (next.source !== e.recipe.source) nameLoadedMedia(next);
+  // the camera's mirror is the camera's (setCameraMirror): a photo or video that takes its place starts as
+  // it is, not flipped (the front camera is mirrored by default, and that used to stay with the new picture)
+  if (e.recipe.source === 'camera' && next.source !== 'camera' && next.media.mirror === e.recipe.media.mirror) next.media.mirror = false;
   if (sameRecipe(next, e.recipe) && JSON.stringify(next.meta) === JSON.stringify(e.recipe.meta)) return;
   const st = stackOf(e.id), now = performance.now();
   if (!(key && st.key === key && now - st.t < 900)) {
@@ -385,6 +392,25 @@ export function redo() {
   const st = stackOf(e.id); const nx = st.future.pop(); if (!nx) return;
   st.past.push(e.recipe); st.key = '';
   replaceCurrent({ ...e, recipe: nx, edited: !sameRecipe(nx, e.origin) }, 'edit');
+}
+/**
+ * The camera's own orientation (media.ts, cameraMirror.ts): the current camera piece takes the mirror of
+ * the camera that is on. It is not an edit: the piece, the result it came from and its undo steps all
+ * change together, so it is not marked «editado» and undo never brings the other orientation back.
+ */
+export function setCameraMirror(mirror: boolean) {
+  const e = currentEntry();
+  if (!e || e.recipe.source !== 'camera' || e.recipe.media.mirror === mirror) return;
+  const turn = (r: Recipe) => {
+    if (r.source !== 'camera' || r.media.mirror === mirror) return r;
+    const x = cloneRecipe(r);
+    x.media.mirror = mirror;
+    return x;
+  };
+  const st = stacks.get(e.id);
+  if (st) { st.past = st.past.map(turn); st.future = st.future.map(turn); }
+  const recipe = turn(e.recipe), origin = turn(e.origin);
+  replaceCurrent({ ...e, recipe, origin, edited: !sameRecipe(recipe, origin) }, 'edit');
 }
 export function restoreOrigin() {
   const e = currentEntry(); if (!e || !e.edited) return;

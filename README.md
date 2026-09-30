@@ -4,9 +4,11 @@
 
 GLYPHOS es un estudio de arte ASCII en tiempo real que corre en el navegador: fondos animados para web, composiciones abstractas, imagen, video y cámara convertidos en caracteres, tipografía animada, piezas para terminal y una biblioteca de componentes listos para insertar. Todo se puede guardar, reabrir, compartir y exportar como archivo o como código que funciona.
 
+Son dos experiencias con la misma tecnología: el **laboratorio** (`/studio/`), donde el dado teje piezas completas, y el **estudio de foto y video** (`/studio/foto/`), donde tu foto o tu video se vuelven capas y sólo las partes que eliges pasan a caracteres (ver [«Estudio de foto y video»](#estudio-de-foto-y-video)). El interruptor «Laboratorio ⇄ Foto y video» está en las dos barras superiores.
+
 - Sitio: https://glyphos-ascii.vercel.app (`monotrama.vercel.app` y `ascii-shader-lab.vercel.app` redirigen aquí, con la misma ruta y el mismo enlace).
 - Antes se llamó **Monotrama**: sus recetas (`.monotrama.json`), proyectos (`.monotrama.zip`), sesiones, colecciones, enlaces y el código exportado (`<monotrama-field>`, `Monotrama.mount`) siguen abriéndose y funcionando. Lo nuevo sale como GLYPHOS (`.glyphos.json`, `.glyphos.zip`, `<glyphos-field>`, `Glyphos.mount`). Marca: `public/brand/glyphos/`.
-- Estudio: `/studio/` · Guías: `/imagen-a-ascii/`, `/video-a-ascii/`, `/fondos-ascii/`, `/texto-animado-ascii/`, `/arte-ascii-terminal/` · Licencia: `/licencia/`.
+- Laboratorio: `/studio/` · Foto y video: `/studio/foto/` · Guías: `/imagen-a-ascii/`, `/video-a-ascii/`, `/fondos-ascii/`, `/texto-animado-ascii/`, `/arte-ascii-terminal/` · Licencia: `/licencia/`.
 - El prototipo original de un solo archivo se conserva en [`legacy/ASCII Shader Lab.html`](legacy/ASCII%20Shader%20Lab.html); sus ajustes JSON se abren en el estudio.
 
 Desarrollado por [Morphiq](https://morphiq.com.mx).
@@ -31,13 +33,22 @@ npm run verify:exports # verificador de exportaciones (ver abajo)
 - Paridad del motor básico: `node scripts/basic-parity.mjs [--quick]` compara los dos motores patrón por patrón (`--solo creativo` sólo transformaciones y letras).
 - Variedad del dado: `node scripts/azar-report.mjs` tira cientos de veces por espacio y cuenta estilos, patrones y objetos 3D.
 - Carteles y textos de ejemplo de las guías: `node scripts/posters.mjs`. Medios de la portada (hoja de contactos del dado y la pieza «Saturno» exportada a PNG, SVG, MP4, WebM, Web Component, script de terminal y receta en `public/ex/salidas/` con su `manifest.json`): `node scripts/posters.mjs --portada` (usa Google Chrome para el MP4 si está instalado). Logo de Morphiq: `scripts/seo-logo.sh <original.png>`. Avisos de terceros: `node scripts/third-party.mjs` (`--check` en CI).
-- Páginas de QA en `npm run dev`: `/dev/patterns.html`, `/dev/scene.html`, `/dev/basic.html` (WebGL frente a motor básico), `/dev/glyphfx.html` (apertura tejida y cortinas de glifos, con botón «Tejer» y movimiento bajo), `/dev/landing.html` (lo que usa `posters.mjs --portada`).
+- Páginas de QA en `npm run dev`: `/dev/patterns.html`, `/dev/scene.html`, `/dev/basic.html` (WebGL frente a motor básico), `/dev/glyphfx.html` (apertura tejida y cortinas de glifos, con botón «Tejer» y movimiento bajo), `/dev/landing.html` (lo que usa `posters.mjs --portada`). Del estudio de foto y video: `/dev/project.html` (el compositor; `?motor=basico` sin WebGL 2), `/dev/fx.html` (acabados), `/dev/glyphs.html` (caracteres reales y juegos de caracteres), `/dev/foto-tools.html` (herramientas de selección; `?foto=guitarra|retrato|sintetica`), `/dev/anim.html` y `/dev/timeline.html` (biblioteca de animaciones y línea de tiempo), `/dev/posters.html` (carteles), `/dev/video.html` (exportación de video, seguimiento y recorte de video). El estudio mismo acepta `?qa` (`/studio/foto/?qa`): expone `window.__foto` para las pruebas y no cambia nada más.
+- La página de QA del recorte (`/dev/cutout.html`) no va en el sitio: se compila aparte con `npx vite build --config scripts/cutout-qa.config.ts` (sale en `dist-qa/`), se sirve con `npx vite preview --config scripts/cutout-qa.config.ts --port 4195 --strictPort` y sus pruebas corren con `BASE_URL=http://localhost:4195 npx playwright test tests/e2e/cutout.spec.ts`. Sin esa página, cada prueba se omite y dice cómo compilarla.
+- **Pruebas con los modelos de recorte**: `node scripts/fetch-models.mjs --out .cache/modelos --backend wasm --only select,portrait` baja una copia local verificada (SHA-256; «Retrato» y «Seleccionar objeto», unos 47 MB; sin `--only`, también «Sujeto», 192 MB). Las pruebas que usan modelos (`cutout`, `foto-studio`, `escenarios`, `video`) nunca llaman a Hugging Face: sus direcciones se desvían a esa copia (`GLYPHOS_MODELS_DIR` cambia la carpeta); si falta, se omiten con el comando que la crea. `GLYPHOS_E2E_SUBJECT=0` omite el modelo grande. `tests/e2e/escenarios.spec.ts` recorre los escenarios completos (retrato con pelo, objeto sobre fondo cargado, varias zonas, PNG transparente, cartel, animación al revés, reabrir un proyecto, recetas antiguas y teléfono vertical) y guarda sus capturas en la carpeta `ESCENARIOS_SHOTS` si la defines. Son lentas: córrelas con `--workers=1`.
 
 ## Cómo está hecho
 
 ```
 src/
   engine/        motor WebGL2 y motor básico Canvas 2D (engine/basic), receta, catálogo, atlas, diagnóstico WebGL
+  project/       el proyecto del estudio de foto y video: contrato (types.ts), evaluate(proyecto, t), compositor, máscaras, fuentes, archivo .glyphos.zip, carteles, ajustes guardados
+  fx/            acabados sobre píxeles (tramados, semitono, brillo, sombra, paletas limitadas…), en CPU
+  glyphs/        caracteres reales: rejilla, juegos de caracteres, dibujo y salidas de texto (TXT, ANSI, SVG)
+  anim/          biblioteca de animaciones (plantillas, coreografías, llaves, curvas)
+  cutout/        recorte en el navegador: modelos, consentimiento, descarga verificada, worker de ONNX Runtime Web, refinado de bordes
+  video/         exportación de video y GIF con sonido, reloj de reproducción, seguimiento de objetos, recorte de video
+  foto/          la aplicación del estudio de foto y video (React + zustand): herramientas, capas, inspector, línea de tiempo, exportación, extras
   random/        azar con semilla: PRNG, semillas en palabras, arquetipos, paletas, mutación, huellas
   exporters/     formateadores puros: texto/ANSI/HTML/asciicast/scripts, SVG, código web
   runtime/       el motor empaquetado para webs de terceros (Glyphos.mount, <glyphos-field>)
@@ -65,7 +76,7 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 
 ### Azar con memoria
 
-- **Semillas legibles** (`faro-lunar-417`): misma semilla + mismo espacio + mismo estilo + misma versión del generador → misma pieza. La versión actual es la 3 (`GEN_VERSION`); las versiones 1 y 2 siguen disponibles (`#seed=…&gen=1`), así que los enlaces antiguos dan la misma pieza que antes.
+- **Semillas legibles** (`faro-lunar-417`): misma semilla + mismo espacio + mismo estilo + misma versión del generador → misma pieza. La versión actual es la 4 (`GEN_VERSION`); las versiones 1 a 3 siguen disponibles (`#seed=…&gen=1`), así que los enlaces antiguos dan la misma pieza que antes.
 - 14 **estilos** (arquetipos), **bloqueos** por grupo, **huellas** y una penalización por lo reciente para no repetirte lo que acabas de ver (sin prometer que una combinación no vuelva nunca). En el espacio de imagen, el dado propone también transformaciones.
 - **Miniaturas**: cada entrada del historial se dibuja desde su propia receta (a t = 4 s) en segundo plano, con una huella de la receta para no mostrar nunca la de otra; mientras tanto se ve «preparando». Aguantan ráfagas de tiradas, recargas, pérdida de WebGL y historiales antiguos sin miniatura.
 - **Transiciones** entre piezas en seis estilos (Tejido, Disolución, Lluvia, Iris, Barrido, Mosaico) y **Calidad de la vista previa** (Auto, Alta, Equilibrada, Ligera; `localStorage['mt.v3.preview']`): el cambio se prepara (shader, fuentes) antes de que empiece la transición; «Ligera» baja resolución, cuadros y movimiento de la interfaz.
@@ -81,12 +92,12 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 | Receta `.json` | todos los ajustes | no (sólo nombre y medidas) | exacta |
 | Enlace | la receta comprimida tras el `#` (nunca llega a un servidor) | no, ni su nombre | exacta; quien lo abre elige su propia imagen |
 | Favorito (★) | receta en la colección de este navegador | sí, guardada en este navegador | exacta |
-| Proyecto `.glyphos.zip` (también abre los `.monotrama.zip` de antes) | receta + archivo original + LEEME.txt | sí | exacta y completa, en cualquier equipo |
+| Proyecto `.glyphos.zip` (también abre los `.monotrama.zip` de antes; los `.glyphos.zip` del estudio de foto y video se abren allí, y el laboratorio lo dice) | receta + archivo original + LEEME.txt | sí | exacta y completa, en cualquier equipo |
 | Colección `.zip` | tus favoritos con sus imágenes y videos | sí | exacta |
 | Sesión `.zip` | historial + colección (+ medios opcionales) | opcional | exacta |
 | Rampa propia | tus caracteres ordenados, en este navegador (`mt.v2.ramps`, hasta 40) | — | la receta lleva los caracteres, así que enlaces y proyectos no dependen de ella |
 
-- Las imágenes (≤ 40 MB) y videos (≤ 200 MB) que cargas se guardan en IndexedDB (`mt-media`) con su contenido original, identificados por su contenido (SHA-256; en archivos de más de 16 MB, tamaño más tres muestras para no duplicar el archivo en memoria); volver en el historial o abrir un favorito los recupera. Lo más grande funciona mientras la pestaña esté abierta. La cámara nunca se guarda. Lo que ya nada usa se borra solo.
+- Las imágenes (≤ 40 MB) y videos (≤ 200 MB) que cargas se guardan en IndexedDB (`mt-media`) con su contenido original, identificados por su contenido (SHA-256; en archivos de más de 16 MB, tamaño más tres muestras para no duplicar el archivo en memoria); volver en el historial o abrir un favorito los recupera. Lo más grande funciona mientras la pestaña esté abierta (y no viaja al estudio de foto: el laboratorio lo dice). La cámara nunca se guarda, salvo la imagen fija que pides al llevar una pieza de cámara al estudio de foto. Lo que ya nada usa se borra solo.
 - **Una pestaña a la vez**: si abres el estudio en otra pestaña, la nueva toma el control (Web Locks + BroadcastChannel) y la anterior guarda, se detiene y ofrece «Usar aquí»; así dos pestañas no se pisan el historial ni la colección. Si IndexedDB no está disponible o está lleno, el estudio lo dice («Sin guardar» / «Sin espacio») y ofrece guardar la sesión en un archivo.
 - Al abrir una sesión que pasa de 1000 resultados se descartan los más antiguos por fecha, y el aviso dice cuántos antes de hacerlo.
 - Antes de copiar el enlace de una pieza con imagen o video, el estudio avisa de que el archivo no viaja y ofrece exportar el proyecto.
@@ -154,13 +165,49 @@ Lighthouse 12 móvil (4× CPU, red simulada) y web-vitals en Pixel 7 emulado, so
 
 Tercera pasada (Lighthouse 12, Chromium con SwiftShader, mediana de 3 intercaladas, máquina compartida: el TBT varía mucho): portada móvil LCP 2.62 → 2.72 s, CLS 0 → 0, TBT 3.67 → 2.98 s; escritorio LCP 0.61 → 0.66 s, TBT 1.91 → 1.13 s; JS inicial de la portada 33.7 → 20.7 KB gzip (el HTML crece de 5.8 a 12.5 KB porque la hoja de contactos y los destinos están en la página). El h1 sigue siendo el LCP.
 
+Fase 4 (estudio de foto y video; `vite preview`, Chromium con SwiftShader, 3 cargas por página): la portada carga lo mismo (83 KB de JS transferidos, CLS 0); la primera vista del laboratorio pasa de 253 a 267 KB de JS transferidos (con «ahorro de datos»: el dock, la hoja con alturas, el modo inmersivo, la cámara y el interruptor; del estudio de foto sólo trae 1 KB), con LCP y CLS iguales (CLS 0.001). Ni la portada ni el laboratorio descargan nada del estudio de foto (recorte, ONNX Runtime, animación, compositor).
+
 Qué se hizo: motor básico, hoja de exportación, colección, componentes y codificadores de video se cargan bajo demanda (`tests/e2e/perf.spec.ts` lo vigila); fuentes de respaldo con métricas ajustadas; miniaturas del historial perezosas. El INP en laboratorio lo domina el dibujo por software: no se afirma que se cumplan las Core Web Vitals sin datos reales.
 
 ### Privacidad y accesibilidad
 
-- Nada se sube: imágenes, video, cámara y micrófono se procesan en el navegador; cámara y micrófono sólo al pulsar. CSP estricta y `Permissions-Policy` limitan todo al propio sitio.
+- Nada se sube: imágenes, video, cámara y micrófono se procesan en el navegador; cámara y micrófono sólo al pulsar. CSP estricta y `Permissions-Policy` limitan todo al propio sitio; la única excepción son las descargas de los modelos de recorte desde Hugging Face (`connect-src`), que sólo ocurren cuando aceptas una y nunca llevan tus archivos.
 - `prefers-reduced-motion`: el estudio arranca en pausa, sin apertura tejida, sin cortinas de glifos ni transiciones; la portada empieza en pausa y los componentes quedan quietos. La cabecera de la portada tiene «Pausar» para toda la página.
 - Revisión con axe (sin incidencias graves ni críticas), foco visible y atrapado en los diálogos, teclado completo (atajos con `?`), objetivos táctiles de 44 px en teléfonos, hoja de ajustes con asa sobre el dado.
+
+## Estudio de foto y video
+
+`/studio/foto/` es un editor no destructivo: tu foto o tu video quedan intactos y todo lo demás son capas que se pueden cambiar, ocultar o quitar.
+
+- **Capas**: foto, ASCII (el motor del laboratorio dibuja los caracteres como luz: una imagen, no texto), **caracteres reales** (texto de verdad: se copia y se exporta como TXT, ANSI, HTML o SVG), texto y formas (marcos, líneas, miras, llamadas con etiqueta). Cada capa tiene opacidad, fusión, posición, acabados y máscara. Los estilos del laboratorio se usan en una capa ASCII («Usar estilo del laboratorio») y una capa vuelve al laboratorio («Abrir estilo en el laboratorio»); en el laboratorio, «Llevar al estudio de foto» convierte la pieza en un proyecto con su foto.
+- **Zonas**: rectángulo, elipse, polígono, lazo, contorno preciso, color, objeto (puntos que se ajustan solos, con «no es esto»), degradado entre foto y caracteres, y pinceles para pasar a ASCII, borrar el efecto o restaurar el original. Cada zona suma, resta o interseca y tiene borde suave o duro; la máscara lista sus partes y se ve en tinte o en grises.
+- **Quitar fondo** en el navegador: recorte automático del sujeto o de una persona, afinado del borde (suavizar, desplazar, descontaminar el color del fondo viejo, pasada de detalle), pinceles de conservar y quitar, selección por color y vistas sobre cuadros, claro, oscuro y contraste. El recorte se usa como capa, como máscara de otra capa (sujeto o fondo) o como PNG transparente. Sin descargar ningún modelo, las demás herramientas siguen funcionando.
+- **Acabados** (22): tramado con 17 métodos, semitono, sombreado cruzado, pixelado, bordes, niveles, umbral, posterizar, invertir, monocromo, duotono, paletas limitadas, aberración cromática, brillo, sombra, viñeta, desenfoque de movimiento, desenfoque, nitidez, grano, ruido y líneas de barrido.
+- **Animación**: 53 plantillas (escritura de terminal y al revés, la imagen formándose desde un carácter, resolución que sube o baja, fragmentos que se dispersan y vuelven, foto ⇄ ASCII, parpadeos, zonas que cambian de estilo…), coreografías de entrada, centro y salida, llaves con curvas y bucles, y una línea de tiempo con reproducir, al revés de verdad, región de bucle y arrastre. Una secuencia de fotos se vuelve animación; el paralaje mueve sujeto y fondo por separado; tus palabras pueden llenar la figura.
+- **Explorar**: el dado cambia la capa elegida o toda la composición (con candados); cada resultado es una versión, con favoritas, variantes enlazadas, comparar dos y volver exacto a cualquiera. Antes y después con divisor.
+- **Carteles**: 10 composiciones editoriales (cartel anotado, parches redondos, página de revista, tríptico, hoja de contactos, retícula suiza…) para A4, A3, Carta y Tabloide a 300 ppp (con sangrado de 3 mm si lo pides) o para redes (4:5, 9:16, 1:1, 16:9). Sus textos siguen siendo capas de texto editables.
+- **Proyectos**: se guardan solos en este navegador (IndexedDB) con sus archivos originales; el archivo `.glyphos.zip` los lleva a otro equipo con capas, máscaras, recortes, animaciones y medios. Los ajustes de una foto se guardan (`.glyphos-ajuste.json`) y se aplican a otra.
+- **Video**: un video entra como fuente y sus cuadros pasan por las mismas capas; al exportarlo a video, el sonido original va copiado o recodificado cuando el navegador puede hacerlo.
+- **Teléfono**: modo inmersivo (la pieza y cuatro acciones al alcance del pulgar) y una hoja con herramientas, capas, ajustes, tiempo y explorar; un dedo dibuja, dos mueven y acercan.
+
+**Vista previa = exportación**: la vista y el archivo salen de la misma llamada (`evaluate` + `Compositor.render`), a otra escala; las pruebas comparan el PNG a 1× con la vista al 100 % píxel a píxel.
+
+| Formato | Qué obtienes | Límites |
+| --- | --- | --- |
+| PNG | la composición, con transparencia real; a la medida del proyecto, un múltiplo o un destino | el más pesado |
+| JPEG / WebP | archivos ligeros | sólo si el navegador los codifica; JPEG sin transparencia (va sobre el fondo del proyecto) |
+| Por separado | una capa sola, su máscara (grises o alfa), el original sin tocar, el recorte y su mate | — |
+| TXT / ANSI / HTML / SVG con texto | los caracteres tal como se dibujan | sólo de capas de **caracteres reales**; el SVG con texto depende de la fuente de quien lo abre |
+| SVG vectorial | caracteres, textos y formas como vectores con sus fuentes | sólo cuando la composición es de caracteres reales, textos y formas; si no, se ofrece «SVG con imagen», que no gana nitidez |
+| Terminal y web | `.cast` de asciinema, reproductores Node y Python, HTML animado, código para tu web, saludo de la terminal, paquete README | los animados necesitan una capa de caracteres que cambie con el tiempo |
+| MP4 / WebM | cuadro a cuadro con WebCodecs (mediabunny), con el sonido del video cuando se puede | el códec depende del navegador (MP4: H.264, AV1 o VP9; WebM: VP9, VP8 o AV1) y la hoja dice cuál usará; transparencia sólo si el navegador la escribe y se lee de vuelta; hasta 4K |
+| GIF | la animación, con paleta común o por cuadro, con o sin tramado | 256 colores, transparencia de 1 bit, sin sonido, hasta 1080 px |
+| Cuadros PNG (.zip) | un PNG por cuadro, idéntico a la vista | sin sonido; pesa mucho |
+| Proyecto `.glyphos.zip` | todo para reabrirlo | — |
+
+**Modelos de recorte**: «Sujeto» (BiRefNet_lite a 512 px, pesos MIT; 192 MB en WASM o 99 MB con WebGPU), «Sujeto (alta definición)» (1024 px, sólo con WebGPU, 115 MB), «Retrato» (MODNet, Apache-2.0, unos 7 MB en WASM o 13 MB con WebGPU) y «Seleccionar objeto» (EdgeTAM, Apache-2.0, 21 MB con WebGPU o 41 MB en WASM). Sólo modelos cuyo código **y** cuyos pesos tienen licencia permisiva (por eso no los RMBG de BRIA, de uso no comercial). Autores, enlaces y la nota sobre los datos de entrenamiento: [`/licencia/`](licencia/index.html#modelos-de-recorte); el registro, fijado por versión y huella: `src/cutout/models.ts`.
+
+**Consentimiento y privacidad**: ningún modelo viene con el sitio. Antes de descargar uno, el estudio dice cuál es, cuánto pesa, de dónde viene y su licencia, y no descarga nada sin tu «sí». Se descarga una vez desde Hugging Face (o desde una copia del propio sitio si existe `/models/manifest.json`), se comprueba su SHA-256 y queda guardado en este navegador; se borra desde «Ajustes del estudio». **Tus fotos y videos no salen del equipo**: el recorte corre en un worker con ONNX Runtime Web (WebGPU o WASM), y para los hilos de WASM la página va aislada (COOP/COEP sólo en `/studio/foto/`). Tiempos medidos aquí (laboratorio: WASM con 2 hilos, CPU compartida, no datos de campo): «Retrato» 1–3 s por foto; «Sujeto» 9–19 s y unos 3 GB de memoria; «Seleccionar objeto» analiza la foto en 1–4 s y responde a cada punto en menos de medio segundo.
 
 ## Licencias
 
@@ -168,7 +215,7 @@ Qué se hizo: motor básico, hoja de exportación, colección, componentes y cod
 - **Código que exporta el estudio** (runtime, snippets, componentes, scripts de terminal): **MIT-0** (`LICENSES/MIT-0.txt`): úsalo, modifícalo y véndelo sin atribución, en proyectos personales o comerciales. Cada archivo exportado lo dice en su cabecera.
 - **Lo que creas** (imágenes, video, texto, recetas) es tuyo. Eres responsable de los derechos de las imágenes o videos que cargas.
 - **Marcas**: los nombres y logos de GLYPHOS y de Morphiq no se licencian (`TRADEMARKS.md`).
-- **Terceros**: `THIRD_PARTY_NOTICES.md` (React, zustand, idb-keyval, mediabunny —MPL-2.0, sin modificar, sólo en el editor—, gifenc, opentype.js y tipografías SIL OFL). Resumen en `/licencia/`.
+- **Terceros**: `THIRD_PARTY_NOTICES.md` (React, zustand, idb-keyval, mediabunny —MPL-2.0, sin modificar, sólo en el editor—, gifenc, opentype.js, ONNX Runtime Web y sus dependencias, y tipografías SIL OFL). Los modelos de recorte no vienen con el sitio: se descargan con permiso y tienen sus propias licencias (MIT y Apache-2.0). Resumen en `/licencia/`.
 
 ## Despliegue
 

@@ -6,6 +6,7 @@ import { IGuide } from './guide/Welcome';
 import { openWelcome, useGuide } from './guide/state';
 import { Picker } from './ui/Picker';
 import { QualityReadout } from './Quality';
+import { FotoSwitch } from './FotoSwitch';
 
 export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
@@ -21,6 +22,8 @@ export function toggleFullscreen() {
  * The studio's top bar: the brand, the six spaces (icon and name; a picker where they do not fit), and
  * on the right three groups: the preview's instruments (readout and quality, play, full screen, keys),
  * the places you go (Guías, Colección, the settings panel) and the one primary action, Exportar.
+ * Another place to go (e.g. a switch to another studio) fits as a sibling of `.tb-go`, before Exportar;
+ * on phones the bar keeps room for it, since Exportar moves to the dock.
  */
 export function TopBar() {
   const space = useStudio(s => s.space);
@@ -32,6 +35,7 @@ export function TopBar() {
   return (
     <header className="topbar">
       <a className="brand" href="/" aria-label="GLYPHOS, volver a la portada" dangerouslySetInnerHTML={{ __html: logoMark(24) + wordmark(14, { className: 'brand-word' }) + '<span class="brand-sub">estudio</span>' }} />
+      <FotoSwitch />
       <nav className="spaces" aria-label="Espacios del estudio">
         {SPACES.map((s, i) => {
           const Ic = SPACE_ICON[s.id];
@@ -75,8 +79,9 @@ export function TopBar() {
             </button>
           )}
         </div>
+        {/* phones: Exportar lives in the dock at the bottom, within reach of the thumb (Deck.tsx) */}
         {stage && (
-          <button type="button" className="ib primary" onClick={() => setUI({ sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">
+          <button type="button" className="ib primary tb-export" onClick={() => setUI({ sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">
             <IDownload /><span className="lbl">Exportar</span>
           </button>
         )}

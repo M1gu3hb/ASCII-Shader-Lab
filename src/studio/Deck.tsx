@@ -1,7 +1,11 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { create } from 'zustand';
 import { archById } from '../random/archetypes';
 import { LOCK_GROUPS, LOCK_NAMES, spaceById } from '../random/spaces';
-import { IDice, IExplore, ILock, INext, IPrev, IRedo, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH } from './icons';
+import {
+  IDice, IDownload, IExplore, IGrid, ILink, ILock, IMore, INext, IPrev, IRedo, ISeed, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH,
+} from './icons';
+import { usePhone } from './ui/useMatch';
 import {
   back, canRedo, canUndo, forward, go, redo, restoreOrigin, rollDice, saveFavorite, setAmount, setArch, setUI, toggleLock, undo,
   useStudio, vary, whenSaved, type Entry,
@@ -51,7 +55,33 @@ export async function copyLink() {
   await shareLink(e.recipe, e.space);
 }
 
+/**
+ * The dice and the history. Wide screens: a deck under the piece (history strip, variations, the dice)
+ * with the seed line hanging from it. Phones: a dock at the bottom within reach of the thumb (PhoneDeck).
+ */
 export function Deck() {
+  const phone = usePhone();
+  useEffect(() => startThumbs(), []);
+  useMoveAnnounce();
+  return phone ? <PhoneDeck /> : <DeskDeck />;
+}
+
+/** Moving through the history (arrows, thumbnails, ← →) or a new roll of the dice: say where you are. */
+function useMoveAnnounce() {
+  const cursor = useStudio(s => s.cursor);
+  const moved = useStudio(s => (s.change.kind === 'nav' || s.change.kind === 'roll' ? s.change.n : 0));
+  const was = useRef(cursor);
+  useEffect(() => {
+    const s = useStudio.getState();
+    const e = s.entries[cursor];
+    if (!moved || was.current === cursor || !e) { was.current = cursor; return; }
+    was.current = cursor;
+    const arch = e.kind === 'azar' ? archById(e.arch)?.name : undefined;
+    announce(`Resultado ${cursor + 1} de ${s.entries.length}: ${e.label ?? e.seed?.replace(/-/g, ' ') ?? spaceById(e.space).name}${arch ? `, estilo ${arch}` : ''}${e.edited ? ', editado' : ''}`);
+  }, [moved]); // only when the history moves (entries and e are read at that moment)
+}
+
+function DeskDeck() {
   const entries = useStudio(s => s.entries);
   const cursor = useStudio(s => s.cursor);
   const e = entries[cursor];
@@ -60,22 +90,11 @@ export function Deck() {
   const fav = !!e?.favId && favIds.has(e.favId);
   const [pop, setPop] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
-  const panel = useStudio(s => s.ui.panel);
   const limit = useStudio(s => s.histLimit);
   const counter = historyLabel(entries.length, limit);
 
   // the current item comes into view by itself (ScrollRow reveals what is current)
-  useEffect(() => startThumbs(), []);
   useStripRange(strip, entries.length);
-  // moving through the history (arrows, thumbnails, ← →) or a new roll of the dice: say where you are
-  const moved = useStudio(s => (s.change.kind === 'nav' || s.change.kind === 'roll' ? s.change.n : 0));
-  const was = useRef(cursor);
-  useEffect(() => {
-    if (!moved || was.current === cursor || !e) { was.current = cursor; return; }
-    was.current = cursor;
-    const arch = e.kind === 'azar' ? archById(e.arch)?.name : undefined;
-    announce(`Resultado ${cursor + 1} de ${entries.length}: ${e.label ?? e.seed?.replace(/-/g, ' ') ?? spaceById(e.space).name}${arch ? `, estilo ${arch}` : ''}${e.edited ? ', editado' : ''}`);
-  }, [moved]); // only when the history moves (entries and e are read at that moment)
 
   return (
     <>
@@ -98,10 +117,128 @@ export function Deck() {
             <button type="button" className="act ghost" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
             {pop && <DicePop onClose={() => setPop(false)} />}
           </div>
-          <button type="button" className="act ghost mobile-only" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza"><ISlidersH /></button>
         </div>
       </div>
     </>
+  );
+}
+
+/** Phones: whether the history strip shows above the dock (off by default: the arrows step through it). */
+export const usePhoneDock = create<{ strip: boolean }>(() => ({ strip: false }));
+
+/**
+ * Phones: a dock at the bottom, within reach of the thumb. A line with what is on stage (and undo, redo,
+ * «ver original», «Más»), then the actions: previous, next, keep, the dice, export and the settings.
+ * The settings open as a sheet above it (Panel.tsx), so the dice and the history stay in reach.
+ */
+function PhoneDeck() {
+  const entries = useStudio(s => s.entries);
+  const cursor = useStudio(s => s.cursor);
+  const e = entries[cursor];
+  const favs = useStudio(s => s.favorites);
+  const favIds = useMemo(() => new Set(favs.map(f => f.id)), [favs]);
+  const fav = !!e?.favId && favIds.has(e.favId);
+  const panel = useStudio(s => s.ui.panel);
+  const strip = usePhoneDock(s => s.strip);
+  const limit = useStudio(s => s.histLimit);
+  const counter = historyLabel(entries.length, limit);
+  const [pop, setPop] = useState<'none' | 'more' | 'dice'>('none');
+  const stripRef = useRef<HTMLDivElement>(null);
+  useStripRange(stripRef, strip ? entries.length : 0);
+  const last = cursor >= entries.length - 1;
+  return (
+    <>
+      <PhoneSeed e={e} n={cursor + 1} total={entries.length} more={pop === 'more'} onMore={() => setPop(pop === 'more' ? 'none' : 'more')} />
+      {strip && (
+        <div className="ph-strip" id="ph-strip">
+          <ScrollRow role="list" className="strip" boxClassName="strip-box" listRef={stripRef} aria-label={counter} title={counter} more="">
+            {entries.map((x, i) => <Thumb key={x.id} e={x} i={i} current={i === cursor} fav={!!x.favId && favIds.has(x.favId)} />)}
+          </ScrollRow>
+        </div>
+      )}
+      <div className="deck ph-dock" role="region" aria-label="Azar e historial">
+        <div className="nav">
+          <button type="button" onClick={back} disabled={cursor <= 0} aria-label="Resultado anterior (←)" title={cursor <= 0 ? 'Estás en el primer resultado' : 'Anterior (←)'}>
+            <IPrev /><span className="ph-lbl">Anterior</span>
+          </button>
+          <button type="button" onClick={forward} aria-label={last ? 'Nuevo resultado al azar (→)' : 'Resultado siguiente (→)'} title={last ? 'Nuevo al azar (→)' : 'Siguiente (→)'}>
+            <INext /><span className="ph-lbl">{last ? 'Nuevo' : 'Siguiente'}</span>
+          </button>
+        </div>
+        <button type="button" className="act ghost fav" aria-pressed={fav} onClick={() => void favorite()}
+          title={fav ? 'En tu colección: guarda los cambios (S)' : 'Guardar en la colección (S)'} aria-label={fav ? 'Guardada: actualizar en la colección' : 'Guardar en la colección'}>
+          <IStar filled={fav} /><span className="ph-lbl">{fav ? 'Guardada' : 'Guardar'}</span>
+        </button>
+        <button type="button" className="act dice" onClick={dice} title="Nueva combinación al azar (R)"><IDice /><span className="lbl">Azar</span></button>
+        <button type="button" className="act ghost ph-export" onClick={() => setUI({ panel: false, sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">
+          <IDownload /><span className="ph-lbl">Exportar</span>
+        </button>
+        <button type="button" className="act ghost ph-tools" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza" title="Ajustes de la pieza: forma, color, glifos…">
+          <ISlidersH /><span className="ph-lbl">Ajustes</span>
+        </button>
+      </div>
+      {pop === 'more' && <MorePop e={e} onClose={() => setPop('none')} onDice={() => setPop('dice')} />}
+      {pop === 'dice' && <DicePop onClose={() => setPop('none')} focusIn />}
+    </>
+  );
+}
+
+/** Phones: what is on stage, in one line, with undo, redo, «ver original» (while edited) and «Más». */
+function PhoneSeed({ e, n, total, more, onMore }: { e?: Entry; n: number; total: number; more: boolean; onMore: () => void }) {
+  useStudio(s => s.undoTick);
+  const title = !e ? '' : e.seed ? e.seed : e.label ?? spaceById(e.space).name;
+  const name = useScramble<HTMLElement>(e ? e.id + '\u0000' + title : null, { duration: 320 });
+  if (!e) return null;
+  return (
+    <div className="seedline ph-seed" role="status" aria-live="off">
+      {/* two short lines: the name, then where it is in the history (and whether it was edited) */}
+      <span className="seed-info">
+        <b className="ell" ref={name} title={e.kind === 'variación' ? 'Variación de ' + title : title}>{e.kind === 'variación' ? '≈ ' : ''}{title}</b>
+        <span className="ph-sub"><span className="ph-n">N.º <b>{n}</b>/{total}</span>{e.edited && <span className="ph-ed"> · editado</span>}</span>
+      </span>
+      {e.edited && <HoldCompare origin={e.origin} compact />}
+      <span className="seed-hist">
+        <button type="button" onClick={undo} disabled={!canUndo()} aria-label="Deshacer (Ctrl+Z)" title={canUndo() ? 'Deshacer (Ctrl+Z)' : 'Nada que deshacer en este resultado'}><IUndo width={18} height={18} /></button>
+        <button type="button" onClick={redo} disabled={!canRedo()} aria-label="Rehacer (Ctrl+Mayús+Z)" title={canRedo() ? 'Rehacer (Ctrl+Mayús+Z)' : 'Nada que rehacer'}><IRedo width={18} height={18} /></button>
+      </span>
+      <button type="button" className="ph-more-btn" aria-expanded={more} aria-haspopup="dialog" aria-label="Más acciones" title="Más: variar, el dado, el historial, el enlace, la semilla" onClick={onMore}>
+        <IMore width={20} height={20} />
+      </button>
+    </div>
+  );
+}
+
+/** Phones: what does not fit in the dock, one tap away. */
+function MorePop({ e, onClose, onDice }: { e?: Entry; onClose: () => void; onDice: () => void }) {
+  const strip = usePhoneDock(s => s.strip);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { ref.current?.querySelector<HTMLElement>('button')?.focus(); }, []);
+  useEffect(() => {
+    const out = (ev: PointerEvent) => {
+      const t = ev.target as HTMLElement;
+      if (ref.current && !ref.current.contains(t) && !t.closest('.ph-more-btn')) onClose();
+    };
+    const key = (ev: KeyboardEvent) => {
+      if (ev.key !== 'Escape') return;
+      ev.stopPropagation();
+      onClose();
+      document.querySelector<HTMLElement>('.ph-more-btn')?.focus();
+    };
+    document.addEventListener('pointerdown', out);
+    document.addEventListener('keydown', key, true);
+    return () => { document.removeEventListener('pointerdown', out); document.removeEventListener('keydown', key, true); };
+  }, [onClose]);
+  const run = (fn: () => void) => () => { onClose(); fn(); };
+  return (
+    <div className="pop ph-more" role="dialog" aria-label="Más acciones" ref={ref}>
+      <button type="button" onClick={run(() => vary())}><ISpark /><span>Variar<small>otra versión de esta pieza</small></span></button>
+      <button type="button" onClick={run(() => setUI({ sheet: 'explore' }))}><IExplore /><span>Explorar ocho variaciones</span></button>
+      <button type="button" onClick={onDice}><ISliders /><span>Ajustes del azar<small>bloqueos, estilo, transición</small></span></button>
+      <button type="button" aria-pressed={strip} onClick={() => usePhoneDock.setState({ strip: !strip })}><IGrid /><span>Historial en miniaturas<small>{strip ? 'visible sobre el dado' : 'oculto: las flechas lo recorren'}</small></span></button>
+      <button type="button" onClick={run(() => void copyLink())}><ILink /><span>Copiar enlace</span></button>
+      <button type="button" onClick={run(() => setUI({ sheet: 'seed' }))}><ISeed /><span>Escribir una semilla</span></button>
+      {e?.edited && <button type="button" onClick={run(restoreOrigin)}><IUndo /><span>Restaurar el original<small>se puede deshacer</small></span></button>}
+    </div>
   );
 }
 
@@ -219,7 +356,7 @@ function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
   );
 }
 
-function DicePop({ onClose }: { onClose: () => void }) {
+function DicePop({ onClose, focusIn }: { onClose: () => void; focusIn?: boolean }) {
   const locks = useStudio(s => s.locks);
   const arch = useStudio(s => s.arch);
   const amount = useStudio(s => s.amount);
@@ -228,11 +365,14 @@ function DicePop({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (ev: MouseEvent) => { if (ref.current && !ref.current.contains(ev.target as Node) && !(ev.target as HTMLElement).closest('[aria-label="Ajustes del azar"]')) onClose(); };
-    const k = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onClose(); };
+    // Escape closes this, and only this (not the settings sheet under it on a phone)
+    const k = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { ev.stopPropagation(); onClose(); } };
     document.addEventListener('pointerdown', h);
     document.addEventListener('keydown', k);
     return () => { document.removeEventListener('pointerdown', h); document.removeEventListener('keydown', k); };
   }, [onClose]);
+  // opened from «Más» (phones), the button that opened it is gone: the focus comes in
+  useEffect(() => { if (focusIn) ref.current?.querySelector<HTMLElement>('button')?.focus(); }, [focusIn]);
   const pool = Object.keys(spaceById(space).archs);
   return (
     <div className="pop" ref={ref} role="dialog" aria-label="Ajustes del azar">

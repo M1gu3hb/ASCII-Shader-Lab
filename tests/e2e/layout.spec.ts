@@ -60,6 +60,38 @@ test.describe('en pantallas de escritorio', () => {
     expect(made).toBeLessThanOrEqual(7);
   });
 
+  test('inmersivo en escritorio: la pieza a toda la ventana, cuatro controles, y todo vuelve como estaba', async ({ page }) => {
+    await openStudio(page);
+    await expect(page.locator('.app')).not.toHaveClass(/panel-off/);
+    await page.getByRole('button', { name: 'Modo inmersivo' }).click();
+    const bar = page.getByRole('group', { name: 'Modo inmersivo' });
+    await expect(bar).toBeVisible();
+    for (const sel of ['.topbar', '.deck', '.seedline', '.vbar']) await expect(page.locator(sel).first()).toBeHidden();
+    // the settings step aside; the piece takes the window
+    await expect(page.locator('.app')).toHaveClass(/panel-off/);
+    await expect.poll(async () => {
+      const c = (await page.locator('.stage canvas').boundingBox())!;
+      return Math.round(c.width) === 1366 && Math.round(c.height) === 860;
+    }).toBe(true);
+    // «Ajustes» brings the column back beside the piece, still immersive
+    await bar.getByRole('button', { name: 'Ajustes' }).click();
+    await expect(page.locator('aside.panel')).toBeInViewport();
+    await expect(page.locator('.topbar')).toBeHidden();
+    await bar.getByRole('button', { name: 'Ajustes' }).click();
+    // Escape leaves, and the settings are as they were before
+    await page.keyboard.press('Escape');
+    await expect(bar).toBeHidden();
+    await expect(page.locator('.topbar')).toBeVisible();
+    await expect(page.locator('.app')).not.toHaveClass(/panel-off/);
+    await expect(page.getByRole('button', { name: 'Modo inmersivo' })).toBeFocused();
+    // the I key does the same
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('i');
+    await expect(bar).toBeVisible();
+    await page.keyboard.press('i');
+    await expect(bar).toBeHidden();
+  });
+
   test('en una ventana baja, la vista Historia / Reel 9:16 se achica sin cortarse', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await openStudio(page, '#space=fondos');

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QA · proyectos de foto</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#0c0b0a;color:#ede6da;font:13px/1.45 system-ui,sans-serif}
+header{padding:12px 16px;border-bottom:1px solid #2a2723;display:flex;flex-wrap:wrap;gap:14px;align-items:baseline}
+header b{font-size:15px}
+#status{color:#a39b8f}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,560px),1fr));gap:14px;padding:14px 16px}
+figure{margin:0;background:#151412;border:1px solid #2a2723;border-radius:8px;padding:8px}
+figure canvas{display:block;width:100%;height:auto;background:repeating-conic-gradient(#1e1c19 0 25%,#171614 0 50%) 0 0/16px 16px;border-radius:4px}
+figcaption{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 2px 0}
+figcaption span{color:#a39b8f;font-family:ui-monospace,monospace;font-size:12px}
+.warn{color:#ff9f6b}
+#scrub{padding:0 16px 24px;display:grid;gap:10px}
+#scrub .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+#scrub input[type=range]{width:min(520px,100%);min-height:44px}
+#scrub select,#scrub button{font:inherit;min-height:44px;background:#1e1c19;color:inherit;border:1px solid #2a2723;border-radius:8px;padding:0 12px}
+#scrubCanvas{max-width:min(100%,960px)}
+pre{margin:0;background:#151412;border:1px solid #2a2723;border-radius:8px;padding:10px;max-height:340px;overflow:auto;font-size:12px}
+</style></head>
+<body>
+<header><b>Proyectos de foto · evaluate + compositor</b><span id="status">preparando…</span></header>
+<div class="grid" id="samples"></div>
+<section id="scrub" aria-label="Tiempo">
+  <div class="bar">
+    <label>Muestra <select id="pick"></select></label>
+    <label>Tiempo <input id="time" type="range" min="0" max="4" step="0.02" value="0"></label>
+    <output id="tval">0.00 s</output>
+    <button id="play" type="button">Reproducir</button>
+  </div>
+  <canvas id="scrubCanvas"></canvas>
+  <pre id="state"></pre>
+</section>
+<script type="module" src="./project.ts"></script>
+</body></html>

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
-import { crc32, unzip } from '../../src/shared/zip';
+import { crc32, unzip, zip } from '../../src/shared/zip';
 import { download, openStudio } from './helpers';
 
 /** A small real PNG (gradient in one colour), made here so the tests need no fixtures. */
@@ -124,6 +124,45 @@ test.describe('historial y medios locales', () => {
     await pb.reload();
     await expect((await sourceFile(pb)).getByText('foto-a.png')).toBeVisible();
     await b.close();
+  });
+
+  test('un proyecto o un ajuste del estudio de foto (también .glyphos) se reconoce y lleva allí, sin tocar el historial', async ({ page }) => {
+    await openStudio(page);
+    const before = await page.locator('.seedline').textContent();
+    // what the photo studio writes (src/project/file.ts, src/project/presets.ts): same ending as a lab project
+    const doc = { glyphos: 'project', version: 1, exported: '2026-09-29T10:00:00.000Z', project: { id: 'p1', name: 'Cartel', w: 1080, h: 1350, layers: [] }, media: [] };
+    const zipped = Buffer.from(await (await zip([{ name: 'proyecto.glyphos.json', data: JSON.stringify(doc) }, { name: 'LEEME.txt', data: 'GLYPHOS' }])).arrayBuffer());
+    await drop(page, 'cartel.glyphos.zip', 'application/zip', zipped);
+    const note = page.locator('.toast').filter({ hasText: 'proyecto del estudio de foto y video' });
+    await expect(note).toBeVisible();
+    await expect(page.locator('.toast').filter({ hasText: 'no es un proyecto' })).toHaveCount(0);
+    await expect(note.getByRole('button', { name: 'Ir al estudio de foto' })).toBeVisible();
+    // its JSON alone, and a saved setting, say the same kind of thing
+    await drop(page, 'ajuste.glyphos-ajuste.json', 'application/json', Buffer.from(JSON.stringify({ glyphos: 'ajuste', version: 1, preset: { name: 'Mío', layers: [] } })));
+    await expect(page.locator('.toast').filter({ hasText: 'ajuste del estudio de foto y video' })).toBeVisible();
+    await expect(page.locator('.toast').filter({ hasText: 'no parece una receta' })).toHaveCount(0);
+    await expect(page.locator('.seedline')).toHaveText(before ?? '');
+    await note.getByRole('button', { name: 'Ir al estudio de foto' }).click();
+    await expect(page).toHaveURL(/\/studio\/foto\/$/);
+  });
+
+  test('«Llevar al estudio de foto» con una foto que el navegador no guardó lo dice, en lugar de abrir un proyecto sin ella', async ({ page }) => {
+    await openStudio(page);
+    await page.keyboard.press('3'); // Imagen
+    await drop(page, 'foto-a.png', 'image/png', A);
+    await expect((await sourceFile(page)).getByText('foto-a.png')).toBeVisible();
+    // as with a file over the size limit, or a full disk: it shows in this tab, but the store does not have it
+    await page.waitForTimeout(800);
+    await page.evaluate(() => new Promise<void>(res => {
+      const rq = indexedDB.open('mt-media');
+      rq.onsuccess = () => { const tx = rq.result.transaction('blobs', 'readwrite'); tx.objectStore('blobs').clear(); tx.oncomplete = () => { rq.result.close(); res(); }; };
+    }));
+    await page.getByRole('button', { name: 'Foto y video' }).click();
+    await page.getByRole('menuitem', { name: /Llevar al estudio de foto/ }).click();
+    await expect(page.locator('.toast').filter({ hasText: 'no está guardada en el navegador' })).toBeVisible();
+    await page.waitForTimeout(1500);
+    expect(new URL(page.url()).pathname).toBe('/studio/');
+    await expect((await sourceFile(page)).getByText('foto-a.png')).toBeVisible();
   });
 
   test('copiar el enlace de una pieza con imagen pide confirmación y el enlace no lleva la imagen', async ({ browser }) => {

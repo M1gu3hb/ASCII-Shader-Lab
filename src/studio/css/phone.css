@@ -1,0 +1,281 @@
+/* The lab on phones (lane: lab). Imported last (App.tsx): it refines what studio.css and loom.css set
+   for narrow screens. The piece takes the screen between the top bar and a dock at the bottom; the
+   dock is where the thumb is (previous, next, keep, the dice, export, the settings); the settings are a
+   sheet above it with three rests (Panel.tsx, ui/sheetSnap.ts). On its side a phone keeps the dock in
+   one row and the settings become a column beside the piece. «Inmersivo» leaves only the piece and a
+   small bar (ui/Immersive.tsx, css/immersive.css). */
+
+/* ---------- the view bar's own buttons (camera, immersive), every size ---------- */
+.app .vbar-sel .imm-toggle, .app .vbar-cam {
+  width: 32px; height: 32px; min-width: 32px; padding: 0; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 7px; background: none; box-shadow: none; color: var(--muted);
+}
+.app .vbar-sel .imm-toggle:hover, .app .vbar-cam:hover { color: var(--text); background: var(--field); border-color: var(--line); }
+.app .vbar-sel .imm-toggle svg, .app .vbar-cam svg { width: 18px; height: 18px; }
+.app .vbar-sel .imm-toggle { margin-left: 2px; }
+
+/* ---------- export: what was saved, at the sheet's foot (with «Compartir» where the system shares) ---------- */
+.app .ex-saved {
+  flex: none; display: flex; align-items: center; gap: 12px; padding: 10px 16px 10px 18px;
+  border-top: 1px solid var(--line); background: var(--panel-2);
+}
+.app .ex-saved p { margin: 0; flex: 1; min-width: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.app .ex-saved p b { color: var(--text); font-weight: 600; }
+.app .ex-saved .btn { width: auto; flex: none; margin: 0; min-height: 44px; padding: 0 18px; }
+
+/* ---------- immersive: only the piece (and the bar), on every size ---------- */
+.app.imm-on { --top-h: 0px; }
+.app.imm-on .topbar, .app.imm-on .deck, .app.imm-on .seedline, .app.imm-on .ph-strip,
+.app.imm-on .stage-top .vbar, .app.imm-on .stage-marks { display: none !important; }
+.app.imm-on .stage-wrap { top: 0; bottom: 0; }
+.app.imm-on.panel-off .stage-wrap { inset: 0; }
+
+/* ---------- phones ---------- */
+@media (max-width: 900px) {
+  .app {
+    --ph-act: 60px;
+    --ph-seed: 48px;
+    --ph-strip: 0px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --dock-h: calc(var(--ph-act) + var(--ph-seed) + var(--ph-strip) + var(--safe-b));
+  }
+  .app.ph-strip-on { --ph-strip: 56px; }
+  /* nothing at the bottom: a guide's own sheet, the interface hidden, or immersive (its bar floats) */
+  .app.guide-on:not(.panel-off), .app.ui-off { --dock-h: 0px; }
+  .app.imm-on { --dock-h: calc(74px + var(--safe-b)); }
+
+  /* the piece: everything between the top bar and the dock (nothing of it hides behind the dock) */
+  .app .stage-wrap, .app.panel-off .stage-wrap { top: var(--top-h); right: 0; bottom: var(--dock-h); left: 0; }
+  .app.ui-off .stage-wrap { inset: 0; }
+  .app.imm-on .stage-wrap, .app.imm-on.panel-off .stage-wrap { top: 0; bottom: 0; }
+
+  /* Exportar moves to the dock */
+  .app .topbar .tb-export { display: none; }
+  .app .vbar-sel .imm-toggle, .app .vbar-cam { width: 44px; height: 44px; min-width: 44px; border-radius: 10px; }
+  .app .vbar-sel .imm-toggle svg, .app .vbar-cam svg { width: 20px; height: 20px; }
+
+  /* ---------- the dock: the actions ---------- */
+  .app .deck.ph-dock {
+    position: absolute; z-index: 24; left: 0; right: 0; bottom: 0; width: auto; height: calc(var(--ph-act) + var(--safe-b)); margin: 0 auto;
+    max-width: 760px; transform: none; opacity: 1; pointer-events: auto;
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; gap: 2px;
+    padding: 4px max(6px, env(safe-area-inset-right, 0px)) calc(4px + var(--safe-b)) max(6px, env(safe-area-inset-left, 0px));
+    border: 0; border-radius: 0; background: var(--bg); box-shadow: none; flex-wrap: nowrap;
+  }
+  .app .ph-dock .nav { display: contents; }
+  .app .ph-dock .nav button, .app .ph-dock .act {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: auto; min-width: 0; height: 52px;
+    margin: 0; padding: 0 2px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--muted);
+    font: 500 12px/1 var(--font-ui); letter-spacing: 0;
+  }
+  .app .ph-dock button svg { width: 21px; height: 21px; flex: none; }
+  .app .ph-dock button .ph-lbl, .app .ph-dock button .lbl { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; }
+  .app .ph-dock .nav button:hover:not(:disabled), .app .ph-dock .act.ghost:hover { color: var(--text); background: var(--field); border-color: var(--line); }
+  .app .ph-dock .nav button:disabled { opacity: .32; }
+  /* the dice: the key control of the dock, bone as everywhere in the lab */
+  .app .ph-dock .act.dice { background: var(--bone); color: var(--ink); font-weight: 700; font-size: 13px; }
+  .app .ph-dock .act.dice:hover { background: #fff; }
+  /* Exportar: the one primary action, marked in vermilion (not a second filled button beside the dice) */
+  .app .ph-dock .ph-export { color: var(--text); }
+  .app .ph-dock .ph-export svg { color: var(--accent); }
+  .app .ph-dock .act.fav[aria-pressed="true"] { color: var(--accent); background: var(--signal-soft); border-color: rgba(255, 91, 31, .3); }
+  .app .ph-dock .ph-tools[aria-pressed="true"] { color: var(--text); background: var(--field-2); border-color: var(--line-2); }
+  .app .ph-dock .ph-tools[aria-pressed="true"] svg { color: var(--accent); }
+
+  /* ---------- the dock: what is on stage ---------- */
+  .app .seedline.ph-seed {
+    position: absolute; z-index: 24; left: 0; right: 0; bottom: calc(var(--ph-act) + var(--safe-b)); width: auto; max-width: 760px; margin: 0 auto;
+    height: var(--ph-seed); transform: none; opacity: 1; pointer-events: auto;
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 0; white-space: nowrap;
+    padding: 2px max(8px, env(safe-area-inset-right, 0px)) 2px max(14px, env(safe-area-inset-left, 0px));
+    border: 0; border-top: 1px solid var(--line); border-radius: 0; background: var(--bg); color: var(--muted);
+    font: 500 12.5px/1 var(--font-mono);
+  }
+  /* the name and, under it, where it is: each one line (a long name ends in «…» without widening anything) */
+  .app .ph-seed .seed-info {
+    display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 3px; flex: 1 1 auto; min-width: 0;
+    overflow: visible; white-space: normal; text-align: left;
+  }
+  .app .ph-seed .ell, .app .ph-seed .ph-sub {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; overflow-wrap: anywhere; min-width: 0;
+  }
+  .app .ph-seed .ell { font: 600 14px/1.15 var(--font-ui); color: var(--text); letter-spacing: -.005em; }
+  .app .ph-seed .ph-sub { font: 500 13px/1.1 var(--font-mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+  .app .ph-seed .ph-n b { color: var(--muted); font-weight: 600; }
+  .app .ph-seed .ph-ed { color: var(--muted); }
+  .app .ph-seed .seed-hist { display: flex; gap: 0; flex: none; }
+  .app .ph-seed button, .app .ph-seed .hold {
+    min-width: 44px; width: 44px; min-height: 44px; height: 44px; padding: 0; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid transparent; border-radius: 9px; background: none; color: var(--muted);
+  }
+  .app .ph-seed button:hover:not(:disabled) { color: var(--text); background: var(--field); border-color: var(--line); }
+  .app .ph-seed button:disabled { opacity: .3; }
+  .app .ph-seed .hold[aria-pressed="true"], .app .ph-seed .ph-more-btn[aria-expanded="true"] { color: var(--text); background: var(--field-2); border-color: var(--line-2); }
+
+  /* ---------- the dock: the history strip, when asked for (Más) ---------- */
+  .app .ph-strip {
+    position: absolute; z-index: 24; left: 0; right: 0; bottom: calc(var(--ph-act) + var(--ph-seed) + var(--safe-b)); max-width: 760px; margin: 0 auto;
+    height: var(--ph-strip); padding: 5px 6px 4px; border-top: 1px solid var(--line); background: var(--bg);
+  }
+  .app .ph-strip .strip-box { flex: none; }
+  .app .ph-strip .strip { padding: 1px; gap: 4px; }
+  .app .ph-strip .thumb { width: 66px; height: 44px; }
+
+  /* ---------- «Más» and the dice settings: above the dock, never past the screen ---------- */
+  .app .pop:not(.q-pop), .app .pop.ph-more {
+    position: fixed; left: 8px; right: 8px; width: auto; max-width: 560px; margin: 0 auto; bottom: calc(var(--dock-h) + 8px); top: auto;
+    max-height: calc(100dvh - var(--top-h) - var(--dock-h) - 20px); overflow-y: auto; overscroll-behavior: contain; z-index: 40;
+  }
+  .app .pop.ph-more { padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .app .ph-more > button {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 6px 12px; border: 1px solid transparent; border-radius: 9px;
+    background: none; color: var(--text); text-align: left; font: 500 15px/1.25 var(--font-ui);
+  }
+  .app .ph-more > button:hover { background: var(--field); border-color: var(--line); }
+  .app .ph-more > button svg { width: 20px; height: 20px; flex: none; color: var(--muted); }
+  .app .ph-more > button > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .app .ph-more small { font-size: 13px; color: var(--muted); font-weight: 400; }
+  .app .ph-more > button[aria-pressed="true"] svg { color: var(--accent); }
+
+  /* ---------- the settings sheet ---------- */
+  .app .panel.ph-sheet {
+    top: auto; left: 0; right: 0; bottom: var(--dock-h); width: auto; max-width: 760px; margin: 0 auto; height: min(52dvh, 460px);
+    padding: 0; border: 0; border-top: 1px solid var(--line-2); border-radius: 16px 16px 0 0; z-index: 23; opacity: 1; visibility: visible;
+    background: var(--panel); box-shadow: 0 -18px 48px rgba(0, 0, 0, .42);
+    transition: transform .28s var(--ease-out), height .22s var(--ease-out), visibility 0s;
+  }
+  .app.panel-off .panel.ph-sheet {
+    transform: translateY(calc(100% + var(--dock-h) + 12px)); opacity: 1; visibility: hidden; pointer-events: none;
+    transition: transform .24s var(--ease-out), height .22s var(--ease-out), visibility 0s .24s;
+  }
+  .ph-head { flex: none; border-bottom: 1px solid var(--line); }
+  .ph-grab-row { display: flex; align-items: center; height: 44px; padding: 0 4px 0 52px; }
+  .app .ph-sheet .sheet-grab {
+    flex: 1; display: grid; place-items: center; height: 44px; min-width: 44px; padding: 0; border: 0; border-radius: 10px; background: none;
+    cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .app .ph-sheet .sheet-grab i { display: block; width: 44px; height: 4px; border-radius: 4px; background: var(--line-2); transition: background .15s, width .15s; }
+  .app .ph-sheet .sheet-grab:hover i, .app .ph-sheet .sheet-grab:focus-visible i { background: var(--muted); width: 56px; }
+  .app .ph-sheet .sheet-grab:active { cursor: grabbing; }
+  .app .ph-close { width: 44px; height: 44px; border: 0; border-radius: 10px; }
+
+  /* every section in view: a grid of two rows, icon over name */
+  .app .ph-sheet .ptabs-box { border: 0; }
+  .app .ph-sheet .ptabs.ph-tabs {
+    display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 2px; padding: 0 6px 6px; margin: 0;
+    overflow: visible; border: 0; -webkit-mask-image: none; mask-image: none;
+  }
+  .app .ph-sheet .ph-tabs .tab {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 50px; padding: 6px 2px 5px;
+    border: 0; border-radius: 8px; box-shadow: none; background: none; color: var(--muted); font: 500 13px/1.1 var(--font-ui); letter-spacing: -.005em;
+  }
+  .app .ph-sheet .ph-tabs .tab + .tab { box-shadow: none; }
+  .app .ph-sheet .ph-tabs .tab-ic { width: 19px; height: 19px; }
+  .app .ph-sheet .ph-tabs .tab-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app .ph-sheet .ph-tabs .tab:hover { color: var(--text); background: var(--field); }
+  .app .ph-sheet .ph-tabs .tab[aria-selected="true"] { color: var(--text); background: var(--field-2); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+  .app .ph-sheet .ph-tabs .tab[aria-selected="true"] .tab-ic { color: var(--accent); }
+  /* at the peek, the sections are the sheet: a light line tells more waits under them */
+  .app .ph-sheet[data-snap="peek"] .ph-head { border-bottom-color: transparent; }
+
+  .app .ph-sheet .pane { flex: 1 1 auto; min-height: 0; padding: 14px 14px 28px; }
+  .app .ph-sheet .pane .sub { margin-left: -14px; margin-right: -14px; }
+  .ph-recipes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .app .ph-recipes .chip {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; height: auto; padding: 0 14px 0 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--field); color: var(--text); font: 500 14px/1.2 var(--font-ui);
+  }
+  .app .ph-recipes .chip[aria-pressed="true"] { border-color: var(--accent); background: var(--signal-soft); font-weight: 600; }
+  .app .ph-recipes .chip .chip-sw { width: 12px; height: 12px; }
+
+  /* the piece above the sheet (Views.tsx): edge to edge, as with the sheet closed */
+  .app .vw-area.vw-above { left: 0; right: 0; }
+
+  /* immersive with the settings open: the sheet over the bar, the piece above it */
+  .app.imm-on .panel.ph-sheet { z-index: 29; }
+
+  /* the interface hidden (H): the dock too */
+  .app.ui-off .deck.ph-dock, .app.ui-off .seedline.ph-seed, .app.ui-off .ph-strip { opacity: 0; pointer-events: none; }
+
+  /* a guide keeps its own sheet and navigation: the dock steps aside while it is open */
+  .app.guide-on:not(.panel-off) .deck.ph-dock, .app.guide-on:not(.panel-off) .ph-seed, .app.guide-on:not(.panel-off) .ph-strip { display: none; }
+
+  /* ---------- export: every format in view, a clear bar of progress ---------- */
+  .app .ex-tabs.sheet-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 4px 8px; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+  .app .ex-tabs .tab { min-width: 0; min-height: 44px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 8px; }
+  .app .ex-tabs .tab[aria-selected="true"] { background: var(--field-2); }
+  .app dialog.sheet .progress { height: 8px; border-radius: 6px; }
+}
+
+/* narrow phones: the section names a little smaller, so five fit in a row */
+@media (max-width: 380px) {
+  .app .ph-sheet .ph-tabs .tab { font-size: 12px; letter-spacing: -.01em; }
+  .app .ph-dock .nav button, .app .ph-dock .act { font-size: 11.5px; }
+}
+
+/* ---------- phones on their side ---------- */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .app { --top-h: 50px; --ph-act: 56px; --ph-seed: 0px; --ph-w: min(380px, 46vw); }
+  .app .topbar { height: var(--top-h); }
+  /* one row: what is on stage on the left, the actions on the right */
+  .app .deck.ph-dock { left: auto; right: 0; width: min(430px, 56vw); max-width: none; margin: 0; height: calc(var(--ph-act) + var(--safe-b)); border-top: 1px solid var(--line); }
+  .app .ph-dock .nav button, .app .ph-dock .act { height: 48px; }
+  .app .seedline.ph-seed { right: min(430px, 56vw); bottom: 0; max-width: none; margin: 0; height: calc(var(--ph-act) + var(--safe-b)); padding-bottom: var(--safe-b); }
+  .app .ph-strip { bottom: calc(var(--ph-act) + var(--safe-b)); max-width: none; }
+  /* the settings: a column beside the piece */
+  .app .panel.ph-sheet {
+    top: var(--top-h); bottom: var(--dock-h); left: auto; right: 0; width: var(--ph-w); max-width: none; height: auto !important; margin: 0;
+    border-top: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none;
+  }
+  .app.panel-off .panel.ph-sheet { transform: translateX(calc(100% + 12px)); }
+  .app:not(.panel-off) .stage-wrap { right: var(--ph-w); }
+  /* a notch on either side stays clear of the controls */
+  .app .ph-sheet .pane { padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+  .app .stage-top { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); }
+  /* no rests beside the piece: the close button sits beside the sections, which keep the room for the controls */
+  .app .ph-sheet .sheet-grab { display: none; }
+  .app .ph-sheet .ph-head { position: relative; padding: 6px 52px 0 0; }
+  .ph-grab-row { position: absolute; top: 6px; right: 4px; height: 44px; padding: 0; }
+  .app .ph-sheet .ptabs.ph-tabs { grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); padding: 0 0 6px 6px; }
+  .app .ph-sheet .ph-tabs .tab { min-height: 44px; gap: 3px; padding: 4px 2px; font-size: 12px; }
+  .app .ph-sheet .ph-tabs .tab-ic { width: 17px; height: 17px; }
+  .app.imm-on:not(.panel-off) .stage-wrap { right: var(--ph-w); }
+  .app.imm-on .panel.ph-sheet { top: 0; bottom: var(--dock-h); }
+}
+
+/* tablets held upright: the dock, the line and the sheet keep a readable width, centred */
+@media (min-width: 600px) and (max-width: 900px) {
+  .app .ph-dock .nav button, .app .ph-dock .act { font-size: 13px; }
+}
+
+/* ---------- «Libre» on phones: the view picker is an icon ----------
+   With the piece alone on stage the picker's pill (238 px with the immersive toggle) covered a band of the
+   art at its top; as an icon beside the immersive toggle it takes 100 px. Its name and value stay for
+   assistive tech; the other views keep the wide picker (their options and «Exportar» come with them). */
+@media (max-width: 900px) {
+  .app .vbar:not(.more) .vbar-sel { padding: 3px; }
+  .app .vbar:not(.more) .vsel-pk { flex: none; width: 44px; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; border-radius: 10px; }
+  .app .vbar:not(.more) .vsel-pk .pk-val { flex: none; }
+  .app .vbar:not(.more) .vsel-pk .pk-ic { display: inline-flex; }
+  .app .vbar:not(.more) .vsel-pk .pk-ic svg { width: 20px; height: 20px; }
+  .app .vbar:not(.more) .vsel-pk .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .app .vbar:not(.more) .vsel-pk .pk-caret { display: none; }
+}
+
+/* ---------- the narrowest phones (under 360 px): the switch keeps «Foto» ----------
+   With both segments the bar ran past the right edge and Colección (collection, sessions, projects: on a
+   phone only here) was cut to a sliver, 12 px of it at 320. The lab is the page you are on; «Foto» opens
+   the menu that goes to the photo studio or takes the piece there. */
+@media (max-width: 359px) {
+  .app .topbar .sw > .sw-seg[aria-current="page"] { display: none; }
+}
+
+/* ---------- narrow phones: the space picker is its icon ----------
+   With the «Laboratorio ⇄ Foto y video» switch at 44 px per segment, a phone up to 420 px has no room
+   for the space's name beside it (it was cut to a few pixels at 390): the picker shows the space's icon
+   and its caret, and keeps the name for assistive tech (the list names every space when it opens). */
+@media (max-width: 420px) {
+  .app .topbar .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
+  .app .topbar .pk.space-select .pk-val { flex: none; }
+  .app .topbar .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}

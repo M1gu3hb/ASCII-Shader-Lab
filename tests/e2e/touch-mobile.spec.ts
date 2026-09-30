@@ -50,6 +50,9 @@ const CONTROLS = 'button, a[href], select, input[type=checkbox], input[type=colo
 for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
   test.describe(name, () => {
     test('estudio: sin desbordes, controles de 44 px y hojas a pantalla completa', async ({ browser }) => {
+      // a walk through the whole studio (every section, export tab and view, the collection, the components):
+      // ~50 s alone on this machine's software GL, past the default 120 s when another suite shares the CPUs
+      test.setTimeout(300_000);
       const { ctx, page, errors } = await phone(browser, name);
       await expect(page.locator('dialog.welcome[open]')).toBeVisible();
       await noOverflow(page, 'bienvenida');
@@ -64,10 +67,11 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       expect(t!.y + t!.height).toBeLessThanOrEqual(deck!.y);
 
       await noOverflow(page, 'estudio');
-      // the top bar keeps to the screen (the page clips it, so its own width is what tells): Exportar whole
+      // the top bar keeps to the screen (the page clips it, so its own width is what tells); on phones
+      // Exportar is in the dock at the bottom, with the dice (within reach of the thumb), and whole
       expect(await page.evaluate(() => {
-        const bar = document.querySelector('.topbar')!, exp = bar.querySelector('.ib.primary')!.getBoundingClientRect();
-        return { bar: bar.scrollWidth <= innerWidth, exportar: exp.left >= 0 && exp.right <= innerWidth };
+        const bar = document.querySelector('.topbar')!, exp = document.querySelector('.deck .ph-export')!.getBoundingClientRect();
+        return { bar: bar.scrollWidth <= innerWidth, exportar: exp.left >= 0 && exp.right <= innerWidth && exp.bottom <= innerHeight };
       })).toEqual({ bar: true, exportar: true });
       expect(await smallTargets(page, '.topbar button, .topbar select, .deck button, .seedline button, .vbar button')).toEqual([]);
 
@@ -88,18 +92,23 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       }
       await page.locator('.panel .tab', { hasText: 'Color' }).tap();
       await page.locator('.palettes .pal').nth(3).tap();
-      // the sheet's handle: a short drag springs back, a long one closes it
+      // the sheet's handle: a short drag springs back; a long one rests at the peek (only the sections,
+      // the piece above), and from there a drag down closes it
       const grab = (await page.locator('.sheet-grab').boundingBox())!;
       const drag = async (dy: number) => {
-        await page.mouse.move(grab.x + grab.width / 2, grab.y + grab.height / 2);
+        const g = (await page.locator('.sheet-grab').boundingBox())!;
+        await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
         await page.mouse.down();
-        await page.mouse.move(grab.x + grab.width / 2, grab.y + grab.height / 2 + dy, { steps: 6 });
+        await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + dy, { steps: 6 });
         await page.mouse.up();
       };
       await drag(20);
       await expect(page.locator('.app')).not.toHaveClass(/panel-off/);
       // it springs back to where it was
       await expect.poll(async () => Math.round((await page.locator('.sheet-grab').boundingBox())!.y)).toBe(Math.round(grab.y));
+      await drag(160);
+      await expect(page.locator('.panel')).toHaveAttribute('data-snap', 'peek');
+      await expect(page.locator('.app')).not.toHaveClass(/panel-off/);
       await drag(160);
       await expect(page.locator('.app')).toHaveClass(/panel-off/);
       await expect(page.locator('.panel')).not.toBeInViewport();
@@ -108,19 +117,27 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       const seed = (await page.locator('.seedline').boundingBox())!;
       expect(seed.y + seed.height).toBeLessThanOrEqual((await page.locator('.deck').boundingBox())!.y);
 
-      // dice settings: a popover that fits the screen
-      await page.getByRole('button', { name: 'Ajustes del azar' }).tap();
-      const pop = (await page.locator('.pop').boundingBox())!;
+      // «Más» (what does not fit in the dock) and the dice settings: popovers that fit the screen
       const vp = page.viewportSize()!;
-      expect(pop.x).toBeGreaterThanOrEqual(0);
-      expect(pop.y).toBeGreaterThanOrEqual(0);
-      expect(pop.x + pop.width).toBeLessThanOrEqual(vp.width);
-      expect(pop.y + pop.height).toBeLessThanOrEqual(vp.height);
-      expect(await smallTargets(page, '.pop button, .pop select')).toEqual([]);
+      const fits = async () => {
+        const pop = (await page.locator('.pop').boundingBox())!;
+        expect(pop.x).toBeGreaterThanOrEqual(0);
+        expect(pop.y).toBeGreaterThanOrEqual(0);
+        expect(pop.x + pop.width).toBeLessThanOrEqual(vp.width);
+        expect(pop.y + pop.height).toBeLessThanOrEqual(vp.height);
+        expect(await smallTargets(page, '.pop button, .pop select')).toEqual([]);
+      };
+      await page.getByRole('button', { name: 'Más acciones' }).tap();
+      await expect(page.getByRole('dialog', { name: 'Más acciones' })).toBeVisible();
+      await fits();
       await page.getByRole('button', { name: 'Ajustes del azar' }).tap();
+      await expect(page.getByRole('dialog', { name: 'Ajustes del azar' })).toBeVisible();
+      await fits();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.pop')).toHaveCount(0);
 
       // the export sheet fills the screen; every tab fits and its close button is in reach
-      await page.locator('.topbar .ib.primary').tap();
+      await page.locator('.deck .ph-export').tap();
       const sheet = page.getByRole('dialog', { name: 'Llevar la pieza fuera' });
       await expect(sheet).toBeVisible();
       const sb = (await sheet.boundingBox())!;

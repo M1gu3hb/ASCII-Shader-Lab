@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QA · video: exportar, reproducir, seguir</title>
+<style>
+:root{color-scheme:dark;--ink:#0c0b0a;--bone:#ede6da;--muted:#a39b8f;--line:#2a2723;--panel:#151412;--verm:#ff5b1f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--bone);font:13px/1.45 system-ui,sans-serif}
+header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+header b{font-size:15px}
+#status{color:var(--muted)}
+main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;padding:14px 16px}
+@media (max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+h2{font-size:13px;font-weight:600;margin:2px 0 8px;color:var(--bone)}
+.stage{position:relative;background:repeating-conic-gradient(#1e1c19 0 25%,#171614 0 50%) 0 0/16px 16px;border-radius:6px;overflow:hidden}
+.stage canvas{display:block;width:100%;height:auto}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+button,select,input[type=number]{font:inherit;min-height:44px;background:#1e1c19;color:inherit;border:1px solid var(--line);border-radius:8px;padding:0 12px}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--verm);outline-offset:2px}
+button.primary{background:var(--verm);border-color:var(--verm);color:#140803;font-weight:600}
+button[aria-pressed=true]{border-color:var(--verm);color:#ffd9c7}
+button:disabled{opacity:.45;cursor:default}
+input[type=range]{flex:1;min-width:140px;min-height:44px;accent-color:var(--verm)}
+label{display:inline-flex;gap:6px;align-items:center}
+output,.mono{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted)}
+progress{width:100%;height:8px;accent-color:var(--verm)}
+ul.results{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}
+ul.results li{border:1px solid var(--line);border-radius:6px;padding:8px}
+ul.results a{color:#ffb38f}
+.notes{margin:4px 0 0;padding-left:16px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:12px}
+td,th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:500}
+.warn{color:#ff9f6b}
+.ok{color:#9fd8a8}
+#trackView{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:4px;margin-top:8px}
+#trackView canvas{width:100%;height:auto;border-radius:3px;background:#000}
+</style></head>
+<body>
+<header><b>Video · exportar, reproducir, seguir un objeto</b><span id="status">preparando…</span></header>
+<main>
+  <section aria-labelledby="h-play">
+    <h2 id="h-play">Vista previa (reloj de reproducción)</h2>
+    <div class="stage"><canvas id="view" width="640" height="360" aria-label="Vista previa del proyecto"></canvas></div>
+    <div class="row">
+      <button id="play" class="primary" type="button">Reproducir</button>
+      <button id="rev" type="button" aria-pressed="false">Reversa</button>
+      <label>Velocidad <select id="rate"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
+      <button id="loop" type="button" aria-pressed="false">Bucle 0,5–2,5 s</button>
+      <label>Calidad <select id="quality"><option value="0.5">Vista ligera</option><option value="1">Render final</option></select></label>
+    </div>
+    <div class="row">
+      <input id="scrub" type="range" min="0" max="3" step="0.001" value="0" aria-label="Tiempo">
+      <output id="time">0,00 s</output>
+    </div>
+    <div class="row"><label>Clip <select id="clip"><option value="synth">Sintético (cuadrado + tono)</option></select></label>
+      <button id="rebuild" type="button">Rehacer proyecto</button></div>
+    <p id="pstats" class="mono">—</p>
+  </section>
+  <section aria-labelledby="h-exp">
+    <h2 id="h-exp">Exportar</h2>
+    <div class="row">
+      <label>Formato <select id="fmt"></select></label>
+      <label>Sonido <select id="aud"><option value="keep">Mantener</option><option value="none">Sin sonido</option></select></label>
+    </div>
+    <div class="row" id="gifopts">
+      <label>Paleta <select id="gpal"><option value="global">Común</option><option value="frame">Por cuadro</option></select></label>
+      <label>Tramado <select id="gdit"><option value="none">Ninguno</option><option value="bayer">Bayer</option><option value="floyd">Floyd–Steinberg</option></select></label>
+    </div>
+    <p id="fmtInfo" class="mono"></p>
+    <div class="row"><button id="go" class="primary" type="button">Exportar</button><button id="cancel" type="button" disabled>Cancelar</button></div>
+    <progress id="prog" max="1" value="0" aria-label="Progreso de la exportación"></progress>
+    <p id="plabel" class="mono" aria-live="polite"></p>
+    <ul class="results" id="results"></ul>
+  </section>
+  <section aria-labelledby="h-track">
+    <h2 id="h-track">Seguir el cuadrado</h2>
+    <div class="row">
+      <label>Modelo <select id="seg"><option value="oracle">Oráculo de color (prueba)</option><option value="model">Selección de objeto (EdgeTAM)</option></select></label>
+      <label>Clave cada <input id="keyEvery" type="number" min="0.1" max="3" step="0.1" value="0.5" style="width:80px"> s</label>
+    </div>
+    <div class="row"><button id="track" class="primary" type="button">Seguir</button><button id="correct" type="button" disabled>Corregir en 1,5 s</button><button id="tcancel" type="button" disabled>Cancelar</button></div>
+    <progress id="tprog" max="1" value="0" aria-label="Progreso del seguimiento"></progress>
+    <p id="tlabel" class="mono" aria-live="polite"></p>
+    <div id="trackView" aria-label="Máscaras por cuadro"></div>
+  </section>
+  <section aria-labelledby="h-time">
+    <h2 id="h-time">Tiempos (este equipo)</h2>
+    <table><thead><tr><th>Qué</th><th>Resultado</th></tr></thead><tbody id="timings"></tbody></table>
+  </section>
+</main>
+<script type="module" src="./video.ts"></script>
+</body></html>

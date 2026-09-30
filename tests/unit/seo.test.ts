@@ -53,8 +53,8 @@ describe('sitemap and robots', () => {
   it('lists absolute canonical URLs with a trailing slash, landing first', () => {
     const xml = sitemapXml('2026-09-27');
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-    expect(locs).toEqual(['/', '/studio/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'].map(p => SITE_URL + p));
-    expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(8);
+    expect(locs).toEqual(['/', '/studio/', '/studio/foto/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'].map(p => SITE_URL + p));
+    expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(9);
     expect(xml).not.toContain('404');
   });
 

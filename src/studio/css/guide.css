@@ -179,7 +179,8 @@ dialog.welcome::backdrop { background: rgba(5, 4, 3, .72); }
 .topbar .guides-btn[data-on] { border-color: var(--accent); }
 
 @media (max-width: 900px) {
-  .panel.guide-panel { height: min(62vh, 560px); }
+  /* (the sheet's height is studio.css's «.panel, .panel.guide-panel» rule: a second one here made the
+     result depend on the order the stylesheets load in, which differs between builds) */
   .guide-head { padding: 10px 12px 10px; }
   .guide-head h2 { margin: 6px 0 10px; }
   .guide-step { font-size: 15.5px; }
