@@ -1,4 +1,5 @@
 import { contrastRatio, hexToOklch, oklchHex } from '../engine/color';
+import { pickGallery } from './palette-gallery';
 import type { Rng } from './prng';
 
 export interface Palette {
@@ -36,12 +37,16 @@ export const CURATED: Palette[] = [
   { name: 'Terracota', stops: ['#f0d9c8', '#c4613a', '#3d1a10'], bg: '#f7ebe1', light: true },
 ];
 
+/**
+ * Where a palette the dice make comes from. `galeria` (the 40 palettes of palette-gallery.ts) is not in the
+ * weights of generator versions 1–4, so their seeds keep their colours; the next version can weigh it.
+ */
 export type PaletteStyle =
-  | 'curado' | 'fosforo' | 'neon' | 'duotono' | 'analogo' | 'mono' | 'papel' | 'riso' | 'pastel'
+  | 'curado' | 'galeria' | 'fosforo' | 'neon' | 'duotono' | 'analogo' | 'mono' | 'papel' | 'riso' | 'pastel'
   | 'fuego' | 'hielo' | 'gris' | 'cosmico' | 'tierra';
 
 export const PALETTE_STYLE_NAMES: Record<PaletteStyle, string> = {
-  curado: 'Curada', fosforo: 'Fósforo', neon: 'Neón', duotono: 'Duotono', analogo: 'Análoga', mono: 'Monocroma',
+  curado: 'Curada', galeria: 'Galería', fosforo: 'Fósforo', neon: 'Neón', duotono: 'Duotono', analogo: 'Análoga', mono: 'Monocroma',
   papel: 'Papel y tinta', riso: 'Risografía', pastel: 'Pastel', fuego: 'Fuego', hielo: 'Hielo', gris: 'Grises',
   cosmico: 'Cósmica', tierra: 'Tierra',
 };
@@ -51,6 +56,7 @@ const H = (rng: Rng) => rng.range(0, 360);
 export function makePalette(style: PaletteStyle, rng: Rng): Palette {
   switch (style) {
     case 'curado': return { ...rng.pick(CURATED) };
+    case 'galeria': return pickGallery(rng);
     case 'fosforo': {
       const h = rng.pick([145, 150, 75, 60, 190, 200, 0]);
       const c = h === 0 ? 0 : 0.17;
