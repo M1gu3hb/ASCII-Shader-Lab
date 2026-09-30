@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { HOLD_MS, SCROLL_QUIET_MS, dragValue, fineGain, intentOf, pickIntentOf } from '../slideMath';
 import { C_MAX, describe, formats, gamutChroma, hexToLch, lchToHex, parseColor, type Lch } from './color-math';
 import './color.css';
 
@@ -7,8 +8,16 @@ import './color.css';
  * a square of light (up) and intensity (right) for the current hue, a strip of hues, and exact fields (a code
  * in hex, rgb(), hsl() or oklch(), or tone, light and intensity as numbers). It works in OKLCH, a space where
  * the same step looks like the same change to the eye, and never leaves what the screen can show (the hatched
- * part of the square is out of reach). Touch, pen and mouse drag; the keyboard moves with the arrows. Every
- * change reaches the piece at once (onChange); the studio groups quick changes into one undo step.
+ * part of the square is out of reach). The keyboard moves with the arrows. Every change reaches the piece at
+ * once (onChange); the studio groups quick changes into one undo step.
+ *
+ * A mouse presses and drags directly. Where fingers and pens are used (any coarse pointer), scrolling the
+ * settings over the editor never changes the colour, and a change is deliberate (ui/slideMath.ts):
+ *  - the hue strip, as every slider (ui/Range.tsx): a clear sideways movement takes it, then the hue follows the
+ *    finger from where it was (no jump), finer away from the strip; up or down scrolls; a tap changes nothing;
+ *  - the square: a tap places the knob; resting still a moment takes it (the knob comes under the finger and
+ *    follows it, up and down too), and so does a sideways start (the knob follows from where it was); a quick
+ *    movement up or down scrolls.
  */
 export interface ColorPickerProps {
   value: string;
@@ -21,6 +30,28 @@ export interface ColorPickerProps {
 
 const AREA_W = 96, AREA_H = 64;
 const round = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const HUE_MAX = 359.9;
+
+/** Devices with fingers or pens (the same test as the sliders'). */
+const coarse = () => typeof matchMedia === 'function' && matchMedia('(any-pointer: coarse)').matches;
+/** When the page (any scrolling part of it) last scrolled: a tap that only stopped a scroll places nothing. */
+let lastScroll = -1e9;
+if (typeof document !== 'undefined') document.addEventListener('scroll', () => { lastScroll = performance.now(); }, { capture: true, passive: true });
+
+/** A finger or pen on the square or the strip, until it shows what it wants and while it adjusts. */
+interface Finger {
+  id: number;
+  which: 'area' | 'hue';
+  mode: 'pending' | 'drag';
+  x0: number; y0: number; t0: number;
+  x: number; y: number;
+  /** strip: the hue (unrounded) and the row the drag was taken on (finer away from it) */
+  acc: number; ey: number;
+  /** square: from the finger to the knob (CSS px), kept while it drags */
+  ox: number; oy: number;
+  hold: number;
+}
 
 /** Paints the square of light × intensity for one hue; beyond the screen's gamut, a neutral hatch. */
 function paintArea(c: HTMLCanvasElement, h: number) {
@@ -66,7 +97,13 @@ export function ColorPicker({ value, onChange, label, swatches }: ColorPickerPro
   const lastOut = useRef(value);
   const area = useRef<HTMLCanvasElement>(null);
   const hue = useRef<HTMLCanvasElement>(null);
+  const areaBox = useRef<HTMLDivElement>(null);
+  const hueBox = useRef<HTMLDivElement>(null);
   const drag = useRef<'area' | 'hue' | null>(null);
+  const finger = useRef<Finger | null>(null);
+  const [taken, setTaken] = useState<'area' | 'hue' | null>(null);
+  const [tip, setTip] = useState(false);
+  const tipT = useRef(0);
   const raf = useRef(0);
   const pending = useRef<string | null>(null);
 
@@ -83,7 +120,14 @@ export function ColorPicker({ value, onChange, label, swatches }: ColorPickerPro
 
   useEffect(() => { if (area.current) paintArea(area.current, lch.h); }, [lch.h]);
   useEffect(() => { if (hue.current) paintHue(hue.current); }, []);
-  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  useEffect(() => () => { cancelAnimationFrame(raf.current); clearTimeout(tipT.current); clearTimeout(finger.current?.hold); }, []);
+  // once a finger has taken the square or the strip, the page must not scroll under it (they allow vertical panning)
+  useEffect(() => {
+    const els = [areaBox.current, hueBox.current].filter((x): x is HTMLDivElement => !!x);
+    const block = (e: TouchEvent) => { if (finger.current?.mode === 'drag' && e.cancelable) e.preventDefault(); };
+    for (const el of els) el.addEventListener('touchmove', block, { passive: false });
+    return () => { for (const el of els) el.removeEventListener('touchmove', block); };
+  }, []);
 
   const emit = useCallback((next: Lch) => {
     const C = Math.min(next.C, gamutChroma(next.L, next.h));
@@ -98,28 +142,106 @@ export function ColorPicker({ value, onChange, label, swatches }: ColorPickerPro
     if (!raf.current) raf.current = requestAnimationFrame(() => { raf.current = 0; if (pending.current) onChange(pending.current); pending.current = null; });
   }, [onChange]);
 
-  const fromArea = (ev: PointerEvent<HTMLElement>) => {
-    const r = ev.currentTarget.getBoundingClientRect();
-    const L = Math.max(0, Math.min(1, 1 - (ev.clientY - r.top) / r.height));
-    const C = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * C_MAX;
-    emit({ L, C, h: lch.h });
+  // (the latest colour, for a finger's hold that fires between renders)
+  const lchNow = useRef(lch);
+  lchNow.current = lch;
+  const areaAt = (x: number, y: number) => {
+    const r = areaBox.current!.getBoundingClientRect();
+    emit({ L: clamp01(1 - (y - r.top) / r.height), C: clamp01((x - r.left) / r.width) * C_MAX, h: lchNow.current.h });
   };
+  const fromArea = (ev: PointerEvent<HTMLElement>) => areaAt(ev.clientX, ev.clientY);
   const fromHue = (ev: PointerEvent<HTMLElement>) => {
     const r = ev.currentTarget.getBoundingClientRect();
-    emit({ ...lch, h: Math.max(0, Math.min(359.9, ((ev.clientX - r.left) / r.width) * 360)) });
+    emit({ ...lch, h: Math.max(0, Math.min(HUE_MAX, ((ev.clientX - r.left) / r.width) * 360)) });
   };
+
+  /* a finger or a pen (ui/slideMath.ts): nothing until it shows what it wants */
+  const take = (f: Finger, how: 'hold' | 'slide') => {
+    f.mode = 'drag';
+    clearTimeout(f.hold);
+    const box = (f.which === 'area' ? areaBox : hueBox).current;
+    try { box?.setPointerCapture(f.id); } catch { /* the pointer is gone */ }
+    box?.focus({ preventScroll: true });
+    setTaken(f.which);
+    setTip(false);
+    if (f.which === 'hue') { f.acc = lchNow.current.h; f.ey = f.y; return; }
+    // the square: held still, the knob comes under the finger; slid sideways, it follows from where it was
+    const r = areaBox.current!.getBoundingClientRect(), c = lchNow.current;
+    if (how === 'hold') { f.ox = 0; f.oy = 0; areaAt(f.x, f.y); }
+    else { f.ox = r.left + (c.C / C_MAX) * r.width - f.x; f.oy = r.top + (1 - c.L) * r.height - f.y; }
+  };
+  const release = () => {
+    const f = finger.current;
+    if (f) clearTimeout(f.hold);
+    finger.current = null;
+    setTaken(null);
+  };
+  const fingerDown = (which: 'area' | 'hue', ev: PointerEvent<HTMLElement>) => {
+    if (finger.current) return;
+    const f: Finger = { id: ev.pointerId, which, mode: 'pending', x0: ev.clientX, y0: ev.clientY, t0: performance.now(), x: ev.clientX, y: ev.clientY, acc: 0, ey: ev.clientY, ox: 0, oy: 0, hold: 0 };
+    finger.current = f;
+    if (which === 'area') {
+      f.hold = window.setTimeout(() => {
+        if (finger.current !== f || f.mode !== 'pending') return;
+        // confirmed with the next frame: a movement already on its way (a busy page hands it over with that
+        // frame, before this) decides first, so a quick swipe never becomes a hold
+        requestAnimationFrame(() => {
+          if (finger.current !== f || f.mode !== 'pending') return;
+          if (pickIntentOf(f.x - f.x0, f.y - f.y0, performance.now() - f.t0) === 'hold') take(f, 'hold');
+        });
+      }, HOLD_MS);
+    }
+  };
+  const fingerMove = (ev: PointerEvent<HTMLElement>) => {
+    const f = finger.current;
+    if (!f || ev.pointerId !== f.id) return;
+    const dx = ev.clientX - f.x;
+    f.x = ev.clientX; f.y = ev.clientY;
+    if (f.mode === 'pending') {
+      const it = f.which === 'area' ? pickIntentOf(f.x - f.x0, f.y - f.y0, performance.now() - f.t0) : intentOf(f.x - f.x0, f.y - f.y0);
+      if (it === 'scroll') { release(); return; }
+      // (the movement up to the threshold does not count: the colour starts where it was)
+      if (it === 'drag' || it === 'hold') take(f, it === 'hold' ? 'hold' : 'slide');
+      return;
+    }
+    if (f.which === 'area') { areaAt(f.x + f.ox, f.y + f.oy); return; }
+    const w = hueBox.current!.getBoundingClientRect().width;
+    f.acc = dragValue(f.acc, dx, w, 0, HUE_MAX, fineGain(f.y - f.ey));
+    emit({ ...lchNow.current, h: f.acc });
+  };
+  const fingerUp = (ev: PointerEvent<HTMLElement>) => {
+    const f = finger.current;
+    if (!f || ev.pointerId !== f.id) return;
+    const tap = f.mode === 'pending';
+    release();
+    if (!tap) return;
+    if (f.which === 'area') {
+      // a tap places the knob (unless it only stopped the page scrolling)
+      if (performance.now() - lastScroll > SCROLL_QUIET_MS) { areaBox.current?.focus({ preventScroll: true }); areaAt(ev.clientX, ev.clientY); }
+    } else {
+      // a tap on the strip changes nothing: say how it works, for a moment
+      setTip(true);
+      clearTimeout(tipT.current);
+      tipT.current = window.setTimeout(() => setTip(false), 2200);
+    }
+  };
+
+  const direct = (ev: PointerEvent<HTMLElement>) => ev.pointerType === 'mouse' || !coarse();
   const down = (which: 'area' | 'hue') => (ev: PointerEvent<HTMLElement>) => {
     if (ev.button !== 0) return;
+    if (!direct(ev)) { fingerDown(which, ev); return; }
     try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch { /* a pointer the browser no longer tracks */ }
     ev.currentTarget.focus({ preventScroll: true });
     drag.current = which;
     (which === 'area' ? fromArea : fromHue)(ev);
   };
   const move = (which: 'area' | 'hue') => (ev: PointerEvent<HTMLElement>) => {
+    if (finger.current) { fingerMove(ev); return; }
     if (drag.current !== which) return;
     (which === 'area' ? fromArea : fromHue)(ev);
   };
-  const up = () => { drag.current = null; };
+  const up = (ev: PointerEvent<HTMLElement>) => { if (finger.current) fingerUp(ev); drag.current = null; };
+  const cancel = (ev: PointerEvent<HTMLElement>) => { if (finger.current?.id === ev.pointerId) release(); drag.current = null; };
 
   const areaKey = (ev: KeyboardEvent) => {
     const big = ev.shiftKey;
@@ -184,11 +306,11 @@ export function ColorPicker({ value, onChange, label, swatches }: ColorPickerPro
       <span id={id + 't'} className="sr-only">Editor de color: {label}</span>
       <div className="cp-top">
         <div
-          className="cp-area" role="slider" tabIndex={0}
+          ref={areaBox} className={'cp-area' + (taken === 'area' ? ' cp-on' : '')} role="slider" tabIndex={0}
           aria-label={`Luz e intensidad de ${label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={L100}
           aria-valuetext={`Luz ${L100} %, intensidad ${Cr.toFixed(2)}: ${what}`}
           aria-describedby={id + 'k'}
-          onPointerDown={down('area')} onPointerMove={move('area')} onPointerUp={up} onPointerCancel={up} onKeyDown={areaKey}
+          onPointerDown={down('area')} onPointerMove={move('area')} onPointerUp={up} onPointerCancel={cancel} onKeyDown={areaKey}
         >
           <canvas ref={area} width={AREA_W} height={AREA_H} aria-hidden="true" />
           <span className="cp-knob" style={{ left: `${(lch.C / C_MAX) * 100}%`, top: `${(1 - lch.L) * 100}%`, background: hex }} aria-hidden="true" />
@@ -201,9 +323,9 @@ export function ColorPicker({ value, onChange, label, swatches }: ColorPickerPro
       </div>
       <span id={id + 'k'} className="sr-only">Flechas arriba y abajo: más o menos luz. Derecha e izquierda: más o menos intensidad. Con Mayúsculas, pasos grandes.</span>
       <div
-        className="cp-hue" role="slider" tabIndex={0} aria-label={`Tono de ${label}`}
+        ref={hueBox} className={'cp-hue' + (taken === 'hue' ? ' cp-on' : '') + (tip ? ' cp-tip' : '')} role="slider" tabIndex={0} aria-label={`Tono de ${label}`}
         aria-valuemin={0} aria-valuemax={360} aria-valuenow={H} aria-valuetext={`${H}°, ${what}`}
-        onPointerDown={down('hue')} onPointerMove={move('hue')} onPointerUp={up} onPointerCancel={up} onKeyDown={hueKey}
+        onPointerDown={down('hue')} onPointerMove={move('hue')} onPointerUp={up} onPointerCancel={cancel} onKeyDown={hueKey}
       >
         <canvas ref={hue} width={180} height={1} aria-hidden="true" />
         <span className="cp-knob" style={{ left: `${(lch.h / 360) * 100}%`, background: lchToHex(0.72, 0.16, lch.h) }} aria-hidden="true" />

@@ -46,6 +46,15 @@ test('la línea nombra la receta de la pieza; abierta, las recetas ocupan el lug
   await expect(line).toBeFocused();
   await expect(page.locator('.panel [role=tab]')).toHaveCount(7);
   await expect(page.locator('.panel')).toBeVisible();
+  // opened with a click (the focus stays on the line), Escape closes it too
+  await line.click();
+  await expect(box).toBeVisible();
+  await expect(line).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(line).toHaveAttribute('aria-expanded', 'false');
+  await expect(box).toHaveCount(0);
+  await expect(line).toBeFocused();
+  await expect(page.locator('.panel')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

@@ -12,13 +12,15 @@ import { Rng, round } from './prng';
 import { sceneSeedsFor, type SceneSeed } from './scenes5';
 import type { SpaceId } from './spaces';
 import { drawXforms, MSG_ANIM_W, TEXT_ANIM_W } from './xforms';
+import { isStudioWord, TIPO_WORDS_5 } from './words';
 
 /*
  * Generator version 5. Same shape as versions 2–4 (one stream per group of decisions, so a lock changes only
  * its group), with its own styles (v5.ts), palettes (palettes5.ts), the pattern library (fields, solids,
  * particle motions, character sets, letter animations) and pieces that start from a composed scene (scenes5.ts).
- * Words: the brand word is GLYPHOS (no «MONOTRAMA» nor «SEÑAL»), and a word the dice chose for Texto changes
- * with the next roll while a word the person wrote stays.
+ * Words: the brand word is GLYPHOS (no «MONOTRAMA» nor «SEÑAL»), and a word the studio wrote for Texto (the
+ * dice's of any version, a recipe's, the brand's names) changes with the next roll while a word the person
+ * wrote stays (words.ts, GenInput.ownText).
  */
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -36,7 +38,7 @@ const THIN_CS = new Set(['minimo', 'sismografo', 'tejido_fino', 'lineas', 'media
 /** Character sets a terminal can print (ASCII only), and how often the dice use each there. */
 const ASCII_CS: Record<string, number> = { clasico: 1.4, detallado: 1.4, simbolos: 1, binario: 0.8, letras: 0.8, hex: 0.8, barras_ascii: 1, terminal_densa: 1, puntuacion: 0.9, numeros: 0.7 };
 
-export const TIPO_WORDS_5 = ['GLYPHOS', 'TRAMA', 'ECO', 'LUZ', 'RUIDO', 'HOLA', 'ONDA', 'PULSO', 'GLIFO', 'TINTA', 'NOCHE', 'VIBRA', 'MAREA', 'FARO', 'ÓRBITA', 'CHISPA', 'BRUMA', 'ASCII', 'NUBE', 'FUEGO'];
+export { TIPO_WORDS_5 };
 export const WORD_FILLS_5 = ['TEJE LUZ CON CARACTERES · ', 'GLYPHOS · ', '0101 GLYPHOS 1010 · ', 'EL RUIDO TAMBIÉN ES UN MENSAJE · ', 'HOLA MUNDO ', 'ASCII ASCII ASCII ', '* * * ', 'LUZ · SOMBRA · ', 'ONDA ONDA ', 'LOREM IPSUM DOLOR SIT AMET · '];
 export const TERMINAL_LINES_5 = ['> hola, terminal', '$ ./tejer --luz', 'CONECTANDO...', '> sistema listo', 'MENSAJE RECIBIDO', 'ERROR 404: sueño no encontrado', '$ sudo apt install calma', '> compilando estrellas', '$ glyphos --tirar', '> buscando constelaciones...'];
 const TIPO_MESSAGES_5 = ['teje luz con caracteres', 'hola, mundo', 'escribe aquí tu mensaje', 'algo está a punto de aparecer', 'una postal de movimiento'];
@@ -64,7 +66,7 @@ export function generate5(inp: GenInput, T: Tables, gen: number): Recipe {
   glifos5(r, root.fork('glifos'), A, inp.space, light, scene);
   movimiento5(r, root.fork('movimiento'), A, inp.space, scene);
   efectos5(r, root.fork('efectos'), A, inp.space, light, scene);
-  fuente5(r, root.fork('fuente'), inp.space, inp.base, inp.seed);
+  fuente5(r, root.fork('fuente'), inp.space, inp.base, inp.seed, inp.ownText);
   creative5(r, root.fork('creativo'), A, inp.space);
   for (const g of inp.locks ?? []) copyGroup(r, inp.base, g);
   // exposed for the lead that stays (after the locks: a locked «Forma» brings the base's), unless the tone is locked
@@ -271,7 +273,7 @@ function efectos5(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, light: bool
   if (space === 'fondos') { fx.chroma = 0; fx.flicker = 0; fx.curve = 0; fx.scan *= 0.5; fx.bloom *= 0.6; }
 }
 
-function fuente5(r: Recipe, rng: Rng, space: SpaceId, base: Recipe, seed: string) {
+function fuente5(r: Recipe, rng: Rng, space: SpaceId, base: Recipe, seed: string, ownText?: boolean) {
   r.source = 'pattern';
   r.msg = { ...r.msg, on: false };
   if (space === 'media') {
@@ -283,10 +285,9 @@ function fuente5(r: Recipe, rng: Rng, space: SpaceId, base: Recipe, seed: string
     if (r.glyph.cell > 12) r.glyph.cell = Math.round(rng.range(6, 11));
   } else if (space === 'tipo') {
     r.source = 'text';
-    // the person's words stay; a word the dice chose (for its seed) changes with the next roll
-    const content = base.text.content.trim();
-    const own = base.source === 'text' && content && base.text.content !== defaultRecipe().text.content
-      && !(base.meta.seed && (base.meta.gen ?? 0) >= 5 && base.text.content === diceWord5(base.meta.seed));
+    // the person's words stay; a word nobody typed (the dice's of any version, a recipe's, the brand's names)
+    // changes with the next roll. The studio says which they are; without it, the word itself does
+    const own = base.source === 'text' && !!base.text.content.trim() && (ownText ?? !isStudioWord(base.text.content));
     r.text.content = own ? base.text.content : diceWord5(seed);
     const f = rng.weighted({ martian: 2, serif: 1.5, sans: 1.5, pixel: 0.7, vt: 0.7, space: 1, jetbrains: 0.8, silk: 0.5 });
     r.text.font = f;

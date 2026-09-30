@@ -36,9 +36,10 @@ export interface CodeOptions {
    */
   scrim?: Scrim | null;
   /**
-   * The glyph order the studio measured for this piece (studio/ramp.ts). The code then keeps that order
-   * («Ordenar» off, the characters in it), so a page whose web font does not arrive draws the same picture
-   * with the fallback font instead of sorting the glyphs by that font's ink.
+   * The glyph order the studio measured for this piece (studio/ramp.ts), with the piece's font. The code then
+   * keeps that order («Ordenar» off, the characters in it), so a page whose web font does not arrive draws the
+   * same picture with the fallback font instead of sorting the glyphs by that font's ink. Only when the code
+   * draws with that font: with «Sin dependencias externas» it draws with the system's mono, and sorts by its ink.
    */
   ramp?: string[];
 }
@@ -86,7 +87,8 @@ export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes
   } else if (x.glyph.font !== 'system' && x.glyph.font !== 'courier') {
     notes.push('La tipografía se carga desde Google Fonts. Activa «Sin dependencias externas» si prefieres la mono del sistema.');
   }
-  if (o.ramp && o.ramp.length > 1 && x.glyph.sort) { x.glyph.charset = o.ramp.join(''); x.glyph.sort = false; }
+  // (an order measured with another font than the one the code draws with would scramble the density)
+  if (o.ramp && o.ramp.length > 1 && x.glyph.sort && x.glyph.font === r.glyph.font) { x.glyph.charset = o.ramp.join(''); x.glyph.sort = false; }
   if (x.source === 'camera') { x.source = 'pattern'; notes.push('La cámara no se exporta: el código usa el patrón. Pide permiso de cámara en tu propia web si lo necesitas.'); }
   if ((x.source === 'image' || x.source === 'video') && !o.mediaUrl) notes.push(`Indica la URL de tu ${x.source === 'image' ? 'imagen' : 'video'} (mismo dominio o servida con CORS).`);
   if (x.source === 'text' && x.text.font !== 'sans' && o.systemFont) x.text.font = 'sans';

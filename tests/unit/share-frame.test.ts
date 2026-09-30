@@ -110,6 +110,41 @@ describe('frame text in a link', () => {
     }
   });
 
+  it('every frame a real stage makes reads back exactly, with the smallest cells and on the largest screens', () => {
+    // CSS size of the stage and the pixel ratio the studio frames it at (ShareSheet: 1 to 2)
+    const stages: Array<[number, number, number]> = [
+      ...SCREENS,
+      [4096, 2560, 2], // 8192 px wide at pixel ratio 2 (16:10)
+      [4096, 2304, 2], [3840, 2160, 2], [2160, 3840, 2], [3008, 1692, 2], // 8K, 8K upright, 6K
+      [7680, 2160, 1], [5120, 2880, 1], [3840, 2160, 1], [2560, 1440, 1.5], [1920, 1080, 1], // at 1×: an ultrawide, 5K, 4K
+      [320, 200, 1], [16, 16, 1], [1366, 768, 1.25],
+    ];
+    const cells = [3, 4, 5, 6, 8, 10, 12, 16, 24, 32, 48, 64, 96];
+    const aspects = [0.5, 0.6, 0.75, 0.84, 1, 1.4, 2, 2.4, 3];
+    let n = 0, most = 0;
+    for (const [w, h, pr] of stages) for (const cell of cells) for (const aspect of aspects) {
+      const f = frameFor(w, h, pr, cell, aspect);
+      expect(parseFrame(encodeFrame(f)), `${w}×${h} @${pr}, ${cell} × ${aspect}`).toEqual(f);
+      const g = gridOf(f);
+      most = Math.max(most, g.cols * g.rows);
+      n++;
+    }
+    expect(n).toBeGreaterThan(2500);
+    // the largest of them is close to the limit: a lower one would turn real links away
+    expect(most).toBeGreaterThan(2_700_000);
+  });
+
+  it('turns away frames no stage makes, which would hang the viewer (the piece opens in the default frame)', async () => {
+    for (const bad of ['8191x8191-2x2', '8191x8191-3x2', '8192x8192-3x3', '8192x5000-3x2', '8192x8192-6x3', '1280x720-2x2', '1280x720-3x1', '1280x720-2x14']) {
+      expect(parseFrame(bad), bad).toBeNull();
+    }
+    const code = await encodeRecipe(textPiece());
+    expect(readPieceHash(`#r=${code}&f=8191x8191-2x2&t=3&p=1`)).toEqual({ code, view: { frame: null, t: 3, paused: true } });
+    // just under the limit, and the 1× screens' smallest cells (2 px tall), still read
+    expect(parseFrame('8192x5120-6x3')).toEqual({ w: 8192, h: 5120, cw: 6, ch: 3 });
+    expect(parseFrame('1920x1080-3x2')).toEqual({ w: 1920, h: 1080, cw: 3, ch: 2 });
+  });
+
   it('describes its shape in words people use', () => {
     expect(describeFrame({ w: 1920, h: 1080 })).toBe('horizontal, 16:9');
     expect(describeFrame({ w: 1080, h: 1920 })).toBe('vertical, 9:16');

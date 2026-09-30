@@ -160,15 +160,26 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   root.dataset.state = 'piece';
 
   /* ---------------- fit: the frame, scaled whole, centred ---------------- */
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const dpr = () => Math.max(1, window.devicePixelRatio || 1);
   const vw0 = stage.clientWidth || innerWidth, vh0 = stage.clientHeight || innerHeight;
   // the same composition with fewer pixels when it shows much smaller than it is (exact divisors only)
-  const shown = fitFrame(frame, vw0, vh0).width * dpr;
-  const { frame: drawn, divisor } = reduceFrame(frame, shown);
+  let { frame: drawn, divisor } = reduceFrame(frame, fitFrame(frame, vw0, vh0).width * dpr());
   stage.dataset.divisor = String(divisor);
   let cv = canvas;
+  let renderer: Renderer | null = null;
   const place = () => {
     const vw = stage.clientWidth || innerWidth, vh = stage.clientHeight || innerHeight;
+    // shown larger than it is drawn (the phone turned on its side, a bigger window): more of the frame's own
+    // pixels, the same composition (the cells grow with the canvas), never a small picture scaled up
+    const shown = fitFrame(frame, vw, vh).width * dpr();
+    if (divisor > 1 && shown > drawn.w + 0.5) {
+      const next = reduceFrame(frame, shown);
+      if (next.divisor < divisor) {
+        ({ frame: drawn, divisor } = next);
+        stage.dataset.divisor = String(divisor);
+        renderer?.set(frameRecipe(recipe, drawn), { transition: false });
+      }
+    }
     const fit = fitFrame(drawn, vw, vh);
     cv.style.width = drawn.w + 'px';
     cv.style.height = drawn.h + 'px';
@@ -202,7 +213,6 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   }
 
   /* ---------------- controls: play, full screen, auto-hide ---------------- */
-  let renderer: Renderer | null = null;
   let playing = !view.paused && !reduced;
   const setPlay = (on: boolean, say = true) => {
     playing = on;
@@ -291,8 +301,8 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
     setNote('engine', 'No se pudo descargar el motor que dibuja la pieza (quizá se cortó la conexión). Recarga la página para intentarlo de nuevo.');
     return;
   }
-  const r = frameRecipe(recipe, drawn);
-  const got = await mod.mountPiece(cv, r, { playing, reduced, onError: () => undefined });
+  const mounted = drawn;
+  const got = await mod.mountPiece(cv, frameRecipe(recipe, mounted), { playing, reduced, onError: () => undefined });
   if (!got) {
     stage.dataset.state = 'error';
     setNote('engine', 'Este navegador no puede dibujar la pieza (ni con WebGL ni con Canvas 2D). Ábrela en otro navegador, o en el estudio.');
@@ -300,6 +310,8 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   }
   renderer = got.renderer;
   cv = renderer.canvas;
+  // (turned while the engine was starting)
+  if (drawn !== mounted) renderer.set(frameRecipe(recipe, drawn), { transition: false });
   stage.dataset.renderer = renderer.kind;
   place();
   if (view.t) renderer.time = view.t;
