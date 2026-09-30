@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useId, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { CHARSETS, GLYPH_MODE_NAMES, PATTERNS, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
 import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type InteractMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
 import { CURATED } from '../random/palettes';
+import { PALETTE_GALLERY, PALETTE_MOODS, type PaletteMood } from '../random/palette-gallery';
 import { Rng } from '../random/prng';
 import type { SpaceId } from '../random/spaces';
 import { Color, F, Note, Seg, SegGroup, Select, Slider, Sub, Text, Toggle, useField } from './controls';
 import { ICamera, IDice, IDown, IEye, IEyeOff, IImage, IPlus, ITrash, IUp } from './icons';
 import { toggleMute, toggleVideo, useMedia, setVideoRate, startCamera, stopCamera } from './media';
-import { edit, setUI, useRecipe, useStudio } from './store';
+import { edit, setUI, toggleLock, useRecipe, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
 import { BasicFxHint } from './BasicMode';
 import { pickFile } from './files';
@@ -24,6 +25,7 @@ import {
 } from './ui/options';
 import { XformTab } from './ui/Xforms';
 import { RampEditor } from './ui/RampEditor';
+import { CharsetExplorer } from './ui/CharsetExplorer';
 import { useRamps } from './ui/ramps';
 import { LETTER_ANIMS } from '../engine/catalog';
 import { MSG_ANIMS, TEXT_ANIMS, type LetterAnim, type LetterAnimKind } from '../engine/recipe';
@@ -162,6 +164,8 @@ function LayerCard({ i, n }: { i: number; n: number }) {
 /* ------------------------------------------------------------------ */
 
 function ColorTab() {
+  const [mood, setMood] = useState<PaletteMood | 'todas'>('todas');
+  const locked = useStudio(s => s.locks.includes('color'));
   const stops = useField(F<string[]>('color.stops')) ?? [];
   const source = useField(F<SourceKind>('source'));
   const mode = useField(F<string>('color.mode'));
@@ -174,8 +178,12 @@ function ColorTab() {
     <>
       <Sub>Paletas</Sub>
       <Note>Colorean de las celdas vacías a las llenas, sobre su fondo. Mucho contraste con el fondo llama la atención; poco se lee mejor bajo texto.</Note>
+      <div className="palette-filters" role="group" aria-label="Ambiente de color">
+        <button type="button" aria-pressed={mood === 'todas'} onClick={() => setMood('todas')}>Todas</button>
+        {(Object.keys(PALETTE_MOODS) as PaletteMood[]).map(id => <button type="button" key={id} aria-pressed={mood === id} onClick={() => setMood(id)}>{PALETTE_MOODS[id]}</button>)}
+      </div>
       <div className="palettes">
-        {CURATED.map(p => (
+        {(mood === 'todas' ? [...CURATED, ...PALETTE_GALLERY] : PALETTE_GALLERY.filter(p => p.mood === mood)).map(p => (
           <button key={p.name} type="button" className="pal" title={p.name} onClick={() => edit(r => { r.color.stops = p.stops.slice(); r.color.bg = p.bg; if (r.color.mode === 'source' && !isMedia) r.color.mode = 'ramp'; }, 'pal' + Date.now())}>
             <span className="bar" aria-hidden="true">
               <i style={{ background: p.bg, flex: '0 0 24%' }} />
@@ -185,6 +193,9 @@ function ColorTab() {
           </button>
         ))}
       </div>
+      <button type="button" className="palette-lock" aria-pressed={locked} onClick={() => toggleLock('color')}>
+        {locked ? '✓ Paleta fija al usar Azar' : 'Fijar la paleta al usar Azar'}
+      </button>
       <Sub>Colores</Sub>
       <Note>De las celdas más vacías (izquierda) a las más llenas (derecha).</Note>
       <div className="colors" style={{ marginBottom: 14 }}>
@@ -254,6 +265,7 @@ function GlifosTab({ space }: { space: SpaceId }) {
         <HintText h={csHelp} />
         <HelpMore h={csHelp}><CharsetSwatches asciiOnly={ascii} /></HelpMore>
       </div>
+      <CharsetExplorer asciiOnly={ascii} />
       <RampEditor ascii={ascii} />
       <Select f={F('glyph.font')} label="Tipografía de los caracteres" opts={fonts} minWidth={290}
         onPick={id => edit(r => { r.glyph.weight = nearestWeight(fontById(id), r.glyph.weight); }, 'glyph.font')} />

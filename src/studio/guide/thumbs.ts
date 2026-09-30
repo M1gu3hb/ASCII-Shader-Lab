@@ -40,7 +40,7 @@ export function renderCrops(recipes: Recipe[], o: CropSpec, onEach: (i: number, 
   const todo: number[] = [];
   recipes.forEach((r, i) => {
     // the camera changes every frame: never cached
-    const hit = r.source !== 'camera' ? cache.get(keyOf(r, o, stage)) : undefined;
+    const hit = r.source !== 'camera' && r.source !== 'video' ? cache.get(keyOf(r, o, stage)) : undefined;
     if (hit) onEach(i, hit); else todo.push(i);
   });
   if (!todo.length) return;
@@ -74,7 +74,7 @@ async function run(recipes: Recipe[], todo: number[], o: CropSpec, onEach: (i: n
       url = null;
     }
     if (signal.cancelled) break;
-    if (url && recipes[i].source !== 'camera') remember(keyOf(recipes[i], o, stage), url);
+    if (url && recipes[i].source !== 'camera' && recipes[i].source !== 'video') remember(keyOf(recipes[i], o, stage), url);
     onEach(i, url);
     await nextFrame();
   }

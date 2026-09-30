@@ -1,0 +1,22 @@
+.palette-filters { display:flex; flex-wrap:wrap; gap:5px; margin:10px 0 12px; }
+.palette-filters button, .palette-lock, .charset-explorer-toggle, .charset-explorer-tools button,
+.charset-explorer-pages button { border:1px solid var(--line, #4a4350); border-radius:6px; background:transparent; color:inherit; padding:7px 10px; cursor:pointer; }
+.palette-filters button[aria-pressed="true"], .palette-lock[aria-pressed="true"] { border-color:#fa6b42; background:#fa6b4222; }
+.palette-lock { margin:8px 0 14px; width:100%; text-align:left; }
+.charset-explorer { margin:12px 0 22px; }
+.charset-explorer-toggle { width:100%; text-align:left; font-weight:700; }
+.charset-explorer-tools { display:flex; gap:6px; margin:12px 0; flex-wrap:wrap; }
+.charset-explorer-tools input, .charset-explorer-tools select { min-width:0; flex:1 1 130px; border:1px solid var(--line, #4a4350); border-radius:6px; background:#1c1b24; color:inherit; padding:8px; }
+.charset-explorer-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.charset-explorer-grid button { min-width:0; background:#23222a; color:inherit; border:1px solid #514a52; border-radius:8px; padding:5px; text-align:left; cursor:pointer; }
+.charset-explorer-grid button[aria-pressed="true"] { border-color:#fa6b42; box-shadow:inset 0 0 0 1px #fa6b42; }
+.charset-explorer-grid button:hover, .charset-explorer-grid button:focus-visible { border-color:#efad85; }
+.charset-explorer-image { aspect-ratio:10/7; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:5px; }
+.charset-explorer-image img { width:100%; height:100%; object-fit:cover; }
+.charset-explorer-fallback { font-family:monospace; font-size:.88rem; overflow:hidden; white-space:nowrap; letter-spacing:2px; padding:5px; }
+.charset-explorer-grid strong, .charset-explorer-grid small { display:block; padding:5px 3px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.charset-explorer-grid small { opacity:.72; padding-top:2px; padding-bottom:4px; }
+.charset-explorer-pages { display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:12px; }
+.charset-explorer-pages button:disabled { opacity:.4; cursor:default; }
+.charset-explorer-current { display:block; margin-top:10px; opacity:.72; }
+@media (max-width:420px) { .charset-explorer-grid { gap:5px; } .charset-explorer-grid button { padding:4px; } }

@@ -1,6 +1,7 @@
 /** CPU twins of patterns-next.ts for Canvas preview and standalone exports. */
 import { TAU, clamp, fbm, hash12, rotXY, sat, smoothstep } from './core';
 import type { BasicPattern, PatternFn } from './patterns';
+import { particlePattern } from './particles';
 
 const P = (f: PatternFn): BasicPattern => ({ f });
 const len = Math.hypot;
@@ -221,6 +222,12 @@ const esferas_orbita: Sdf = (x, y, z, t, a, b) => {
 };
 
 export const NEXT_BASIC: Record<string, BasicPattern> = {
+  enjambre_vivo: particlePattern(0), estela_cometas: particlePattern(1),
+  lluvia_ascendente: particlePattern(2), orbitas_gemelas: particlePattern(3),
+  corazon_particulas: particlePattern(4), cardumen_luz: particlePattern(5),
+  vortice_polvo: particlePattern(6), ondas_estelares: particlePattern(7),
+  mariposa_puntos: particlePattern(8), nieve_orbital: particlePattern(9),
+  floracion_luz: particlePattern(10), constelacion_dinamica: particlePattern(11),
   mareas_lentas: P(mareas_lentas), jardin_zen: P(jardin_zen), bruma_lejana: P(bruma_lejana),
   luciernagas: P(luciernagas), lluvia_mansa: P(lluvia_mansa), bambu: P(bambu),
   respiracion: P(respiracion), estuario: P(estuario), lemniscata: P(lemniscata),

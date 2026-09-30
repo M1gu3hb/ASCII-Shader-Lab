@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, type CSSPr
 import { spaceById } from '../random/spaces';
 import { TABS, TabContent } from './panels';
 import { presetsFor } from './presets';
+import { SceneExplorer } from './ui/SceneExplorer';
 import { applyRecipe, currentRecipe, setUI, useStudio } from './store';
 import { IClose, TAB_ICON } from './icons';
 import { exitGuide, useGuide } from './guide/state';
@@ -73,6 +74,7 @@ export function Panel() {
           <span className="panel-count" aria-hidden="true">{String(presets.length).padStart(2, '0')}</span>
           <button type="button" className="icon-btn mobile-only" aria-label="Cerrar ajustes" onClick={() => setUI({ panel: false })}><IClose /></button>
         </div>
+        <SceneExplorer space={space} />
         {/* wide screens: the recipes wrap and the sections form a grid; phones: rows that scroll and say so */}
         <ScrollRow className="recipes" aria-label="Recetas listas" more="más">
           {presets.map((p, i) => (

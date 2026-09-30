@@ -1,3 +1,5 @@
+import { PARTICLE_GLSL } from './particles';
+
 /** More independent fields. Each chunk is compiled only when the pattern is used. */
 export const NEXT_GLSL: Record<string, string> = {
   mareas_lentas: `
@@ -216,3 +218,4 @@ Object.assign(NEXT_GLSL, {
     return min(s,ring);`, '.5+.5*cos(q.x*9.+q.z*8.)'),
   },
 );
+Object.assign(NEXT_GLSL, PARTICLE_GLSL);

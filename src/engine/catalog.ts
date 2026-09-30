@@ -1,6 +1,6 @@
 import type { BlendMode, ColorMap, GlyphMode, InteractMode, LetterAnimKind, MsgMode, SourceKind, XformKind } from './recipe';
 
-export type PatternFamily = 'organico' | 'geometrico' | 'ondas' | 'espacio' | 'solidos' | 'matematico' | 'formas' | 'señal';
+export type PatternFamily = 'organico' | 'geometrico' | 'ondas' | 'espacio' | 'solidos' | 'matematico' | 'formas' | 'señal' | 'particulas';
 
 export interface PatternInfo {
   id: string;
@@ -21,9 +21,22 @@ export const FAMILY_NAMES: Record<PatternFamily, string> = {
   matematico: 'Matemático',
   formas: 'Formas',
   señal: 'Señal',
+  particulas: 'Partículas vivas',
 };
 
 export const PATTERNS: PatternInfo[] = [
+  { id: 'enjambre_vivo', name: 'Enjambre vivo', family: 'particulas', a: 'Reunión', b: 'Tamaño', cost: 3 },
+  { id: 'estela_cometas', name: 'Estela de cometas', family: 'particulas', a: 'Estela', b: 'Tamaño', cost: 3 },
+  { id: 'lluvia_ascendente', name: 'Lluvia ascendente', family: 'particulas', a: 'Impulso', b: 'Tamaño', cost: 3 },
+  { id: 'orbitas_gemelas', name: 'Órbitas gemelas', family: 'particulas', a: 'Radio', b: 'Tamaño', cost: 3 },
+  { id: 'corazon_particulas', name: 'Corazón de puntos', family: 'particulas', a: 'Pulso', b: 'Tamaño', cost: 3 },
+  { id: 'cardumen_luz', name: 'Cardumen de luz', family: 'particulas', a: 'Corriente', b: 'Tamaño', cost: 3 },
+  { id: 'vortice_polvo', name: 'Vórtice de polvo', family: 'particulas', a: 'Estela', b: 'Tamaño', cost: 3 },
+  { id: 'ondas_estelares', name: 'Ondas estelares', family: 'particulas', a: 'Separación', b: 'Tamaño', cost: 3 },
+  { id: 'mariposa_puntos', name: 'Mariposa de puntos', family: 'particulas', a: 'Apertura', b: 'Tamaño', cost: 3 },
+  { id: 'nieve_orbital', name: 'Nieve orbital', family: 'particulas', a: 'Deriva', b: 'Tamaño', cost: 3 },
+  { id: 'floracion_luz', name: 'Floración de luz', family: 'particulas', a: 'Pétalos', b: 'Tamaño', cost: 3 },
+  { id: 'constelacion_dinamica', name: 'Constelación dinámica', family: 'particulas', a: 'Vínculos', b: 'Tamaño', cost: 3 },
   { id: 'nube', name: 'Nubes', family: 'organico', a: 'Detalle', b: 'Deriva', cost: 2 },
   { id: 'marmol', name: 'Mármol', family: 'organico', a: 'Torsión', b: 'Frecuencia', cost: 3 },
   { id: 'crestas', name: 'Crestas', family: 'organico', a: 'Filo', b: 'Frecuencia', cost: 2 },

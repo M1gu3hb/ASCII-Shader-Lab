@@ -18,6 +18,7 @@ const ENTRY_BASIC = resolve(ROOT, 'src/runtime/entry-basic.ts');
 const PATTERNS = resolve(ROOT, 'src/engine/basic/patterns.ts');
 const PATTERNS_EXTRA = resolve(ROOT, 'src/engine/basic/patterns-extra.ts');
 const PATTERNS_NEXT = resolve(ROOT, 'src/engine/basic/patterns-next.ts');
+const BASIC_PARTICLES = resolve(ROOT, 'src/engine/basic/particles.ts');
 const CORE = resolve(ROOT, 'src/engine/basic/core.ts');
 const SHIM = resolve(ROOT, 'src/runtime/basic-patterns.ts');
 
@@ -141,7 +142,7 @@ export function runtimePlugin(): Plugin {
       if (source !== ids['virtual:mt-runtime'] && source !== ids['virtual:mt-runtime-basic']) return null;
       built ??= buildRuntimes();
       const b = await built;
-      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, PATTERNS_EXTRA, PATTERNS_NEXT, SHIM]) this.addWatchFile(f);
+      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, PATTERNS_EXTRA, PATTERNS_NEXT, BASIC_PARTICLES, SHIM]) this.addWatchFile(f);
       return source === ids['virtual:mt-runtime']
         ? `export default ${JSON.stringify(b.runtime)};`
         : `export const runtime = ${JSON.stringify(b.basic)};\nexport const patterns = ${JSON.stringify(b.patterns)};`;

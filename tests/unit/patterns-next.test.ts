@@ -11,13 +11,13 @@ const SOLIDS = ['simbiosis', 'pendulos', 'cinta_ola', 'jade_vivo', 'caliz', 'med
 
 describe('segunda ampliación de patrones', () => {
   it('keeps each field wired into both engines and the visible catalog', () => {
-    expect(IDS).toHaveLength(23);
+    expect(IDS).toHaveLength(35);
     expect(Object.keys(NEXT_BASIC).sort()).toEqual([...IDS].sort());
     for (const id of IDS) {
       expect(PATTERN_IDS.has(id), id).toBe(true);
       expect(NEXT_GLSL[id], id).toContain(`P_${id}`);
     }
-    expect(GEN_VERSION).toBe(6);
+    expect(GEN_VERSION).toBe(7);
   });
 
   it('keeps signals finite and gives each shape a usable silhouette', () => {

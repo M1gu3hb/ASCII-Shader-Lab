@@ -8,6 +8,7 @@ import { SPACES, type LockGroup, type SpaceId } from './spaces';
 import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
 import { ARCHETYPES_V5, SPACE_ARCHS_V5 } from './v5';
 import { ARCHETYPES_V6, SPACE_ARCHS_V6 } from './v6';
+import { ARCHETYPES_V7, SPACE_ARCHS_V7 } from './v7';
 
 /**
  * Bump when the generator changes: stored recipes stay exact, only seeds re-roll differently. The previous
@@ -20,10 +21,12 @@ import { ARCHETYPES_V6, SPACE_ARCHS_V6 } from './v6';
  *   4 — the same pieces as 3; only the brand word a «words» fill may pick is the new name (GLYPHOS),
  *       so a seed noted with version 3 still gives «MONOTRAMA ·» there.
  *   5 — additional patterns and solids; old explicit seed versions remain reproducible.
+ *   6 — second pattern/solid/charset expansion with letter motion.
+ *   7 — 12 particle fields and a new curated palette gallery, without changing 1–6.
  */
-export const GEN_VERSION = 6;
+export const GEN_VERSION = 7;
 /** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6];
+export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
 /** A version asked for by a link or a person: a known one, else the current one. */
 export const genOf = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -50,6 +53,7 @@ const TABLES: Record<number, Tables> = {
   4: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
   5: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
   6: { archs: ARCHETYPES_V6, spaces: SPACE_ARCHS_V6 },
+  7: { archs: ARCHETYPES_V7, spaces: SPACE_ARCHS_V7 },
 };
 
 const TIPO_WORDS = ['TRAMA', 'ECO', 'SEÑAL', 'LUZ', 'RUIDO', 'HOLA', 'ONDA', 'PULSO', 'GLIFO', 'TINTA', 'NOCHE', 'VIBRA', 'MAREA', 'FARO'];
