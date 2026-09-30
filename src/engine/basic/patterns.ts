@@ -12,6 +12,7 @@ import {
   voro,
 } from './core';
 import { EXTRA_BASIC, setExtraPX } from './patterns-extra';
+import { NEXT_BASIC, setNextPX } from './patterns-next';
 
 export type PatternFn = (x: number, y: number, t: number, a: number, b: number) => number;
 export interface BasicPattern {
@@ -21,7 +22,7 @@ export interface BasicPattern {
 
 let PX = 0.02;
 /** Size of one cell in pattern units for the layer being evaluated (GLSL: PX = uCellP * scale). */
-export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); }
+export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); setNextPX(v); }
 
 const len = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const f32 = Math.fround;
@@ -1242,6 +1243,7 @@ export const BASIC_PATTERNS: Record<string, BasicPattern> = {
   lluvia: P(lluvia), glitch: P(glitch), ruido: P(ruido),
 };
 Object.assign(BASIC_PATTERNS, EXTRA_BASIC);
+Object.assign(BASIC_PATTERNS, NEXT_BASIC);
 
 /**
  * Patterns the basic engine draws with a stand-in instead of a faithful port (id → stand-in id).

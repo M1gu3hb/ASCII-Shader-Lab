@@ -7,6 +7,7 @@ import { Rng, hash53, round } from './prng';
 import { SPACES, type LockGroup, type SpaceId } from './spaces';
 import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
 import { ARCHETYPES_V5, SPACE_ARCHS_V5 } from './v5';
+import { ARCHETYPES_V6, SPACE_ARCHS_V6 } from './v6';
 
 /**
  * Bump when the generator changes: stored recipes stay exact, only seeds re-roll differently. The previous
@@ -20,9 +21,9 @@ import { ARCHETYPES_V5, SPACE_ARCHS_V5 } from './v5';
  *       so a seed noted with version 3 still gives «MONOTRAMA ·» there.
  *   5 — additional patterns and solids; old explicit seed versions remain reproducible.
  */
-export const GEN_VERSION = 5;
+export const GEN_VERSION = 6;
 /** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5];
+export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6];
 /** A version asked for by a link or a person: a known one, else the current one. */
 export const genOf = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -48,6 +49,7 @@ const TABLES: Record<number, Tables> = {
   3: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
   4: { archs: ARCHETYPES, spaces: Object.fromEntries(SPACES.map(s => [s.id, s.archs])) },
   5: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
+  6: { archs: ARCHETYPES_V6, spaces: SPACE_ARCHS_V6 },
 };
 
 const TIPO_WORDS = ['TRAMA', 'ECO', 'SEÑAL', 'LUZ', 'RUIDO', 'HOLA', 'ONDA', 'PULSO', 'GLIFO', 'TINTA', 'NOCHE', 'VIBRA', 'MAREA', 'FARO'];

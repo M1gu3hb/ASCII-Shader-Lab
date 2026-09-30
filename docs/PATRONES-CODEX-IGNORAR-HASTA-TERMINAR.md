@@ -6,10 +6,10 @@ Al recibir esa indicación, revisa el diff y adapta los archivos al estado más 
 
 ## Contenido
 
-- 12 patrones nuevos, de los cuales 3 son sólidos 3D, con motor WebGL y motor básico Canvas.
-- 15 recetas listas en Fondos, Arte y Terminal.
-- Catálogo con nombres y controles `a`/`b`, y nuevos pesos en el generador de Azar versión 5.
-- Las tablas de versiones 1–4 y los archivos de recetas existentes se mantienen; las semillas viejas con versión explícita siguen funcionando.
+- 35 patrones originales en dos entregas, de los cuales 10 son sólidos 3D. Los nuevos sólidos incluyen fusión y separación de volúmenes, péndulos, cinta en movimiento, jade deformable, cáliz, medusa y órbitas. Todos tienen motor WebGL y motor básico Canvas.
+- 38 recetas listas en Fondos, Arte y Terminal; 23 pertenecen a la segunda entrega.
+- Catálogo con nombres y controles `a`/`b`, pesos del generador de Azar en versiones 5 y 6.
+- Las tablas de versiones 1–5 y los archivos de recetas existentes se mantienen; las semillas viejas con versión explícita siguen funcionando.
 
 ## Integración
 
@@ -18,4 +18,4 @@ Al recibir esa indicación, revisa el diff y adapta los archivos al estado más 
 3. Ejecuta la comprobación de tipos, pruebas de patrones y versiones, compilación y una galería de render con `dev/patterns.html` para verificar shaders, siluetas y rendimiento.
 4. Confirma que las recetas nuevas aparecen en los espacios correspondientes, que Azar puede obtenerlas sin alterar las semillas antiguas, y que exportar usa el mismo resultado.
 
-Investigación usada como punto de partida: *The Book of Shaders* (fBM y composición procedural), MathWorld (filotaxis y curvas hipotrocoides), y las primitivas de distancia del propio proyecto. Código nuevo escrito para GLYPHOS; no se importaron fragmentos externos.
+Investigación usada como punto de partida: *The Book of Shaders* (fBM y composición procedural), MathWorld (filotaxis, hipotrocoides, lemniscata, curvas de Lissajous y superfórmula), y las primitivas de distancia del propio proyecto. Código nuevo escrito para GLYPHOS; no se importaron fragmentos externos.

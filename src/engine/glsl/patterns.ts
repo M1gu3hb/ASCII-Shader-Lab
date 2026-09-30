@@ -1,4 +1,5 @@
 import { EXTRA_GLSL } from './patterns-extra';
+import { NEXT_GLSL } from './patterns-next';
 
 /**
  * Pattern library. Each entry is a self-contained GLSL chunk defining
@@ -953,6 +954,7 @@ float P_ruido(vec2 p, float t, float a, float b){
   return pow(v, .6 + a * 2.5) * (.7 + .3 * roll);
 }`,
   ...EXTRA_GLSL,
+  ...NEXT_GLSL,
 };
 
 export type PatternLibrary = Record<string, string>;
