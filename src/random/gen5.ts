@@ -31,6 +31,8 @@ const PARTICLES = PATTERNS.filter(p => p.family === 'particulas').map(p => p.id)
  * a long, thin ramp is a few hairlines in the dark.
  */
 const BOLD_CS: Record<string, number> = { clasico: 1.2, puntos: 1, bloques: 0.8, medios: 0.8, simbolos: 0.8, barras_ascii: 0.8, estrellas: 0.6, geometria: 0.6, marcos: 0.6, cajas: 0.5 };
+/** Character sets with little ink even in their densest glyph. */
+const THIN_CS = new Set(['minimo', 'sismografo', 'tejido_fino', 'lineas', 'media_luna', 'puntuacion']);
 /** Character sets a terminal can print (ASCII only), and how often the dice use each there. */
 const ASCII_CS: Record<string, number> = { clasico: 1.4, detallado: 1.4, simbolos: 1, binario: 0.8, letras: 0.8, hex: 0.8, barras_ascii: 1, terminal_densa: 1, puntuacion: 0.9, numeros: 0.7 };
 
@@ -66,7 +68,9 @@ export function generate5(inp: GenInput, T: Tables, gen: number): Recipe {
   creative5(r, root.fork('creativo'), A, inp.space);
   for (const g of inp.locks ?? []) copyGroup(r, inp.base, g);
   // exposed for the lead that stays (after the locks: a locked «Forma» brings the base's), unless the tone is locked
-  if (inp.space !== 'media' && !inp.locks?.includes('glifos')) expose5(r, inp.space === 'fondos');
+  // (Texto: only when the pattern fills the letters; lifting a pattern around them would drown the word)
+  const aroundWord = r.source === 'text' && r.media.mix > 0 && r.media.blend === 'screen';
+  if (inp.space !== 'media' && !aroundWord && !inp.locks?.includes('glifos')) expose5(r, inp.space === 'fondos');
   r.meta = { seed: inp.seed, arch: A.id, space: inp.space, gen };
   return r;
 }
@@ -185,6 +189,8 @@ function forma5(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, scene?: Scene
       if (cost + c > 5) break;
       cost += c;
       const l = layer5(lr, id, A, false);
+      // a mostly empty pattern multiplied over the lead would black it out: it goes on top as light instead
+      if ((l.blend === 'multiply' || l.blend === 'darken' || l.blend === 'mask' || l.blend === 'cutout') && sparse5(id) && !l.invert) l.blend = lr.chance(0.6) ? 'screen' : 'lighten';
       // over loose particles, a field is a faint backdrop (it would bury them)
       if (isParticles(first)) { l.mix = round(lr.range(0.2, 0.45)); l.blend = lr.chance(0.7) ? 'screen' : 'lighten'; l.invert = false; }
       layers.push(l);
@@ -200,7 +206,9 @@ function glifos5(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, light: boole
   const g = r.glyph;
   let csId = scene && rng.chance(0.6) ? scene.charset : rng.weighted(A.charsets);
   const sparse = sparse5(r.layers[0]?.pattern ?? '');
-  if (sparse && rng.fork('tinta').chance(0.65)) {
+  // a thin set (hairlines, dots) on a dark ground is half as bright as the palette promises: bolder, more often than not
+  const thin = THIN_CS.has(csId) && !light && space !== 'fondos';
+  if ((sparse || thin) && rng.fork('tinta').chance(0.65)) {
     const own = Object.fromEntries(Object.entries(BOLD_CS).filter(([id]) => id in A.charsets));
     csId = rng.fork('tinta').weighted(Object.keys(own).length >= 2 ? own : BOLD_CS);
   }
@@ -289,8 +297,12 @@ function fuente5(r: Recipe, rng: Rng, space: SpaceId, base: Recipe, seed: string
     r.text.leading = 1;
     r.text.align = 'center';
     r.text.morph = rng.chance(0.2) ? Math.round(rng.range(6, 14)) : 0;
-    r.media.mix = rng.chance(0.75) ? round(rng.range(0.5, 1)) : 0;
-    r.media.blend = rng.weighted({ multiply: 3, overlay: 1, screen: 1.2, mask: 1 });
+    // the word must read: a mostly empty pattern (particles, curves) goes around whole letters (screen) or only
+    // dims them a little; a full one fills them, and over the background it stays light
+    const sparse = sparse5(r.layers[0]?.pattern ?? '');
+    r.media.blend = sparse ? rng.weighted({ screen: 2.5, multiply: 1 }) : rng.weighted({ multiply: 3, overlay: 1, screen: 0.6, mask: 1 });
+    const hi = r.media.blend === 'screen' ? (sparse ? 0.6 : 0.4) : sparse ? 0.45 : 1;
+    r.media.mix = rng.chance(0.8) ? round(rng.range(r.media.blend === 'screen' ? 0.3 : 0.5, hi)) : 0;
     if (r.glyph.cell > 14) r.glyph.cell = Math.round(rng.range(7, 12));
     if (rng.chance(0.25)) r.msg = { ...r.msg, on: true, text: rng.pick(TIPO_MESSAGES_5), mode: rng.pick(['type', 'decode']), y: 0.85, box: 0.8 };
   } else if (space === 'terminal') {

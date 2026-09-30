@@ -17,7 +17,7 @@ type W = Record<string, number>;
 const PALETTES5: Record<string, W> = {
   minimal: { acento: 1.4, mono5: 1, 'g-calma': 1.6, pastel5: 1, papel5: 1, noche: 0.9, duo: 0.5 },
   neon: { neon: 1.5, vivo: 1.4, 'g-energia': 1.4, noche: 1, triada: 0.8, duo: 0.8, curado5: 0.6 },
-  organico: { vivo: 1.2, 'g-naturaleza': 1, noche: 1, 'g-calma': 0.8, pastel5: 0.8, mono5: 0.8, curado5: 0.8, triada: 0.5 },
+  organico: { vivo: 1.5, noche: 1.2, triada: 0.9, 'g-naturaleza': 0.8, 'g-energia': 0.6, pastel5: 0.8, mono5: 0.8, curado5: 0.8, 'g-calma': 0.4 },
   geometrico: { duo: 1.4, cartel: 1.2, triada: 1, acento: 1, papel5: 0.8, riso: 0.8, vivo: 0.8 },
   glitch: { neon: 1.4, duo: 1.2, acento: 1, fosforo: 0.6, triada: 0.8, 'g-energia': 1, cartel: 0.5 },
   retro: { fosforo: 3.5, acento: 0.6, noche: 0.6, curado5: 0.5 },
@@ -40,7 +40,8 @@ const TWEAKS: Record<string, Partial<Archetype>> = {
   vapor: { particleOverlay: 0.15 },
   fractal: { particleOverlay: 0.12 },
   tinta: { shade: [0, 0.2] },
-  grabado: { shade: [0, 0.15] },
+  // engraving outlines on paper read thin: the lines fill less often than in versions 2–4
+  grabado: { shade: [0, 0.15], glyphModes: { density: 4, lines: 0.6 } },
 };
 
 /** The five styles version 5 adds. */

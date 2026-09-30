@@ -43,13 +43,21 @@ const EXPOSURE5: Record<string, [number, number, number]> = {
  * median. Fondos is exposed a little lower (it sits under a web page).
  */
 export function expose5(r: Recipe, quiet: boolean) {
-  const e = EXPOSURE5[r.layers.find(l => l.on)?.pattern ?? ''];
+  const on = r.layers.filter(l => l.on);
+  const e = EXPOSURE5[on[0]?.pattern ?? ''];
   if (!e) return;
   const [p50, p95, p99] = e;
+  // a layer multiplied (or darkened) over the lead takes light away: about its mix times what its median lacks
+  let dim = 1;
+  for (const l of on.slice(1)) {
+    if (l.blend !== 'multiply' && l.blend !== 'darken') continue;
+    const m = EXPOSURE5[l.pattern]?.[0] ?? 0.5;
+    dim *= 1 - l.mix * (1 - (l.invert ? 1 - m : m)) * 0.8;
+  }
   // sparse fields (half the frame empty): their usual marks (95th percentile) to .85; the others: their peaks to .97
   const sparse = p50 < 0.1;
-  const want = sparse ? (quiet ? 0.72 : 0.85) / Math.max(p95, 0.05) : (quiet ? 0.85 : 0.97) / Math.max(p99, 0.05);
-  const k = Math.max(1, Math.min(1.8, want));
+  const want = (sparse ? (quiet ? 0.72 : 0.85) / Math.max(p95, 0.05) : (quiet ? 0.85 : 0.97) / Math.max(p99, 0.05)) / Math.max(dim, 0.4);
+  const k = Math.max(1, Math.min(2, want));
   const cs = r.tone.contrast;
   const m = Math.max(0.1, Math.min(0.6, k * p50));
   // l' = cs · (k·l − m) + m, written as the studio's tone: (l − .5)·c + .5 + b

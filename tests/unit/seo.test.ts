@@ -27,7 +27,7 @@ describe('site pages', () => {
 
   it('the landing counts the dice\'s art styles right', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
-    const words: Record<number, string> = { 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis' };
+    const words: Record<number, string> = { 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve', 20: 'veinte' };
     expect(html).toContain(`con ${words[ARCHETYPES.length]} estilos de arte`);
   });
 
