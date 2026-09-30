@@ -123,12 +123,16 @@ test.describe('exportaciones largas', () => {
     await page.getByLabel('Duración (s)').fill('1');
     await page.getByRole('radiogroup', { name: 'Fotogramas por segundo' }).getByRole('radio', { name: '24', exact: true }).click();
     await page.getByRole('radio', { name: '320 px' }).click();
-    // watch the video while the GIF is made: it is paused and moved to each frame's time, within the clip's second
+    // watch the video while the GIF is made: it is paused and moved to each frame's time, within the clip's second.
+    // Every seek from the moment the export pauses it: before that the clip is still playing, and on a slow
+    // machine (the export's engine takes seconds to start) it can reach its end and loop, a seek of its own
     await page.evaluate(() => {
       const v = [...document.querySelectorAll('video')].find(x => x.duration > 5)!;
       const log: Array<{ paused: boolean; t: number }> = [];
       (window as unknown as { seeks: typeof log }).seeks = log;
-      v.addEventListener('seeked', () => log.push({ paused: v.paused, t: v.currentTime }));
+      let held = false;
+      v.addEventListener('pause', () => { held = true; }, { once: true });
+      v.addEventListener('seeked', () => { if (held) log.push({ paused: v.paused, t: v.currentTime }); });
     });
     const [d] = await Promise.all([page.waitForEvent('download', { timeout: 120_000 }), page.getByRole('button', { name: 'Descargar GIF' }).click()]);
     expect(d.suggestedFilename()).toMatch(/\.gif$/);

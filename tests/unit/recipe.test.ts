@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultRecipe, migrateV1, normalizeRecipe, isV1Settings } from '../../src/engine';
 import { encodeRecipe, decodeRecipe, parseRecipe, recipeFile } from '../../src/shared/share';
-import { generate } from '../../src/random';
+import { GEN_VERSION, generate } from '../../src/random';
 
 describe('recipes', () => {
   it('normalises garbage into a valid default recipe', () => {
@@ -35,6 +35,11 @@ describe('recipes', () => {
     expect(back?.layers).toEqual(r.layers);
     expect(back?.color).toEqual(r.color);
     expect(back?.meta.seed).toBe('eco-azul-123');
+    // and the generator version that wove the seed (opened from a link, the seed says which version repeats it)
+    expect(r.meta.gen).toBe(GEN_VERSION);
+    expect(back?.meta.gen).toBe(GEN_VERSION);
+    const old = await decodeRecipe(await encodeRecipe(generate({ seed: 'eco-azul-123', space: 'arte', base: defaultRecipe(), gen: 2 })));
+    expect(old?.meta.gen).toBe(2);
   });
 
   it('round-trips through recipe files and rejects junk', () => {

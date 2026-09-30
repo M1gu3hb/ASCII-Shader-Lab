@@ -38,10 +38,13 @@ export function publicRecipe(r: Recipe): Recipe {
   return { ...r, media: { ...r.media, ref: normMediaRef({ kind: ref.kind, type: ref.type, w: ref.w, h: ref.h }) } };
 }
 
-/** Compact, URL-safe encoding of a recipe ("z" = deflate, "j" = plain JSON fallback). */
+/**
+ * Compact, URL-safe encoding of a recipe ("z" = deflate, "j" = plain JSON fallback). The seed travels with the
+ * version of the generator that wove it: opened elsewhere, the seed says which version repeats it.
+ */
 export async function encodeRecipe(r: Recipe): Promise<string> {
   const { meta, ...rest } = publicRecipe(r);
-  const json = JSON.stringify({ ...rest, meta: { seed: meta.seed, arch: meta.arch, space: meta.space, name: meta.name } });
+  const json = JSON.stringify({ ...rest, meta: { seed: meta.seed, arch: meta.arch, space: meta.space, name: meta.name, gen: meta.gen } });
   const bytes = new TextEncoder().encode(json);
   if (typeof CompressionStream !== 'undefined') {
     try { return 'z' + b64url(await pipe(bytes, new CompressionStream('deflate-raw'))); } catch { /* fall through */ }
