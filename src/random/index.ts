@@ -12,6 +12,7 @@ export * from './seeds';
 export * from './diversity';
 export { PALETTE5_NAMES, makePalette5, tune5, type Palette5Style } from './palettes5';
 export { SCENE_SEEDS } from './scenes5';
+export { STUDIO_WORDS, isStudioWord } from './words';
 export { Rng, hash53 } from './prng';
 
 export interface RollInput {
@@ -25,6 +26,8 @@ export interface RollInput {
   seed?: string;
   /** generator version (default: the current one); an explicit seed with its version reproduces its piece */
   gen?: number;
+  /** Texto: whether the base's text is the person's own words (GenInput.ownText) */
+  ownText?: boolean;
   /**
    * The latest results of this space, oldest first (about ten). A draw that repeats their lead pattern, their
    * style or their look is less likely to be kept (never impossible). Ignored with an explicit seed.
@@ -107,7 +110,7 @@ export function keepChance(r: Recipe, recent: readonly Look[], o: RecencyOpts): 
 export function roll(inp: RollInput): RollResult {
   const gen = inp.gen;
   if (inp.seed) {
-    const recipe = generate({ seed: inp.seed, space: inp.space, arch: inp.arch, base: inp.base, locks: inp.locks, gen });
+    const recipe = generate({ seed: inp.seed, space: inp.space, arch: inp.arch, base: inp.base, locks: inp.locks, gen, ownText: inp.ownText });
     const fp = fingerprint(recipe);
     return { recipe, seed: inp.seed, fp, tries: 1, repeated: inp.seen.has(fp) };
   }
@@ -123,7 +126,7 @@ export function roll(inp: RollInput): RollResult {
   let best: RollResult | null = null, bestW = -1;
   for (let i = 0; i < max; i++) {
     const seed = fresh();
-    const recipe = generate({ seed, space: inp.space, arch: inp.arch, base: inp.base, locks, gen });
+    const recipe = generate({ seed, space: inp.space, arch: inp.arch, base: inp.base, locks, gen, ownText: inp.ownText });
     const fp = fingerprint(recipe);
     const res: RollResult = { recipe, seed, fp, tries: i + 1, repeated: inp.seen.has(fp) };
     if (res.repeated) { if (!best) best = res; continue; }

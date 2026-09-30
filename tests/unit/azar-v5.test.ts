@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, defaultRecipe, hexToOklch, normalizeRecipe, PATTERN_IDS, PATTERNS, charsetById, fontById, type Recipe } from '../../src/engine';
 import {
-  ARCHETYPES, colourFamily, generate, GEN_VERSION, lookDistance, lookOf, makePalette5, PALETTE5_NAMES, randomSeed, roll, Rng, SCENE_SEEDS, SPACES, tune5,
+  ARCHETYPES, colourFamily, generate, GEN_VERSION, isStudioWord, lookDistance, lookOf, makePalette5, PALETTE5_NAMES, randomSeed, roll, Rng, SCENE_SEEDS, SPACES, tune5,
   type LockGroup, type Palette5Style, type SpaceId,
 } from '../../src/random';
 import { diceWord5, TERMINAL_LINES_5, TIPO_WORDS_5, WORD_FILLS_5 } from '../../src/random/gen5';
@@ -83,9 +83,43 @@ describe('generator version 5', () => {
     const mine = structuredClone(first);
     mine.text.content = 'MI PALABRA';
     for (let i = 0; i < 10; i++) expect(generate({ seed: `sigue-${i}`, space: 'tipo', base: mine }).text.content).toBe('MI PALABRA');
-    // a piece of an earlier version keeps its word, as it did then
+    // an earlier version's piece: its version keeps its word, as it did then; this one changes a word of its dice
     const old = generate({ seed: 'eco-feliz-001', space: 'tipo', base: defaultRecipe(), gen: 4 });
-    expect(generate({ seed: 'otra', space: 'tipo', base: old }).text.content).toBe(old.text.content);
+    expect(generate({ seed: 'otra', space: 'tipo', base: old, gen: 4 }).text.content).toBe(old.text.content);
+    expect(generate({ seed: 'otra', space: 'tipo', base: old }).text.content).toBe(diceWord5('otra'));
+  });
+
+  it('Texto: a word nobody typed never stays (the dice\'s of any version, SEÑAL, MONOTRAMA); one the person typed does', () => {
+    // an older version's piece whose word is SEÑAL (what a returning person may have on screen)
+    const senal = Array.from({ length: 400 }, (_, i) => generate({ seed: 'x' + i, space: 'tipo', base: defaultRecipe(), gen: 4 })).find(r => r.text.content === 'SEÑAL')!;
+    expect(senal).toBeDefined();
+    // a Monotrama-era Texto piece (its default word), opened from an old link or session
+    const mono = defaultRecipe(); mono.source = 'text'; mono.text.content = 'MONOTRAMA';
+    // the Texto space's starting recipe («Trama»)
+    const trama = defaultRecipe(); trama.source = 'text'; trama.text.content = 'TRAMA';
+    for (const base of [senal, mono, trama]) {
+      const words = new Set<string>();
+      for (let i = 0; i < 20; i++) {
+        const res = roll({ space: 'tipo', base, seen: new Set(), fresh: () => 'fresh-' + i });
+        // the dice's own word for each new seed (TRAMA too, when a seed draws it)
+        expect(res.recipe.text.content, base.text.content).toBe(diceWord5(res.seed));
+        words.add(res.recipe.text.content);
+      }
+      expect(words.size, base.text.content).toBeGreaterThan(8);
+      for (const w of words) expect(w).not.toMatch(/MONOTRAMA|SEÑAL/);
+    }
+    for (const w of ['TRAMA', 'SEÑAL', 'MONOTRAMA', 'GLYPHOS', ' LUZ ', 'FARO']) expect(isStudioWord(w), w).toBe(true);
+    for (const w of ['MI PALABRA', 'luz', 'Hola, mundo', 'GLYPHOS 2']) expect(isStudioWord(w), w).toBe(false);
+    // the studio says the person typed it: it stays, whatever the word
+    for (const base of [senal, trama]) expect(roll({ space: 'tipo', base, seen: new Set(), fresh: () => 'otra', ownText: true }).recipe.text.content).toBe(base.text.content);
+    // and says a word is not theirs (a recipe's): it changes
+    const receta = defaultRecipe(); receta.source = 'text'; receta.text.content = 'EN VIVO';
+    expect(generate({ seed: 'otra', space: 'tipo', base: receta }).text.content).toBe('EN VIVO');
+    expect(generate({ seed: 'otra', space: 'tipo', base: receta, ownText: false }).text.content).toBe(diceWord5('otra'));
+    // with a seed too (a link to a seed reproduces it the same from any studio word on screen)
+    const fromTrama = roll({ space: 'tipo', base: trama, seen: new Set(), seed: 'faro-1', gen: 5 }).recipe;
+    expect(fromTrama.text.content).toBe(diceWord5('faro-1'));
+    expect(roll({ space: 'tipo', base: mono, seen: new Set(), seed: 'faro-1', gen: 5 }).recipe).toEqual(fromTrama);
   });
 
   it('locks keep their group exactly, «fijar color» included, and change nothing else', () => {

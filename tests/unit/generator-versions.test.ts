@@ -69,7 +69,9 @@ describe('generator versions', () => {
     expect(fixture5.cases.length).toBeGreaterThan(70);
     for (const c of fixture5.cases) {
       const base = c.base ? (JSON.parse(JSON.stringify(c.base)) as Recipe) : defaultRecipe();
-      const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: 5 });
+      // its Texto bases stand for a word the person wrote («HOLA»): the studio says so (GenInput.ownText)
+      const ownText = base.source === 'text' ? true : undefined;
+      const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: 5, ownText });
       expect(json(r), `v5 ${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r), `v5 ${c.space}/${c.seed}`).toBe(c.fp);
     }
