@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 import { decodeRecipe, readPieceHash } from '../../src/shared/share';
 import { encodeFrame, frameFor, gridOf } from '../../src/shared/frame';
@@ -382,10 +383,16 @@ test.describe('el visor', () => {
 
 test.describe('la página del visor', () => {
   test('se sirve fuera de los buscadores, con su dirección canónica y la imagen de la marca para las apps', async ({ page, request }) => {
-    // /ver goes to /ver/, as every page of the site does
+    // /ver goes to /ver/, as every page of the site does: on the host that is vercel.json (clean URLs, a
+    // trailing slash, a permanent 308); `vite preview` does the same (scripts/seo-plugin.ts), wherever the
+    // build it serves lives. The Location may be relative (the preview) or absolute: it must lead to /ver/.
+    const host = JSON.parse(readFileSync('vercel.json', 'utf8')) as { cleanUrls?: boolean; trailingSlash?: boolean };
+    expect(host).toMatchObject({ cleanUrls: true, trailingSlash: true });
     const r = await request.get('/ver', { maxRedirects: 0, headers: { accept: 'text/html' } });
     expect(r.status()).toBe(308);
-    expect(r.headers().location).toBe('/ver/');
+    const to = new URL(r.headers().location, r.url());
+    expect(to.pathname + to.search).toBe('/ver/');
+    expect(to.origin).toBe(new URL(r.url()).origin);
     await page.goto('/ver/');
     const meta = (sel: string, attr = 'content') => page.locator(sel).getAttribute(attr);
     expect(await meta('meta[name="robots"]')).toBe('noindex');

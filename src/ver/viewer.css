@@ -10,6 +10,8 @@ body { font: 15px/1.45 var(--font-ui); -webkit-font-smoothing: antialiased; -web
 /* the frame, laid out at its own size and scaled whole (main.ts): nothing reflows to this screen */
 .ver-stage { position: absolute; inset: 0; overflow: hidden; touch-action: manipulation; }
 .ver-stage canvas { position: absolute; left: 0; top: 0; display: block; transform-origin: 0 0; }
+/* a piece that answers to the finger takes it (main.ts): drags reach it, a pinch zooms the piece, not the page */
+.ver-stage[data-touch="piece"] canvas { touch-action: none; }
 .ver[data-ui="off"] .ver-stage { cursor: none; }
 
 /* ---------- the layer of controls ---------- */
