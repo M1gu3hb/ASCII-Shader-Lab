@@ -140,7 +140,16 @@ async function openViewer(browser: Browser, d: Device, path: string, extra: Brow
   return { ctx, page, errors };
 }
 
-interface Piece { name: string; sender: keyof typeof DEVICES; hash: string; edit?: boolean; space: string }
+/** A recipe as a link of its own (#r=j…: plain JSON, as links from before the compressed form). */
+const enc = (r: object) => '#r=j' + Buffer.from(JSON.stringify(r)).toString('base64url');
+/** A background that answers to the finger: each tap or click opens rings of characters (they last). */
+const TAP_PIECE = {
+  v: 2, source: 'pattern', layers: [{ pattern: 'nube', scale: 1.3, speed: 0.4 }], glyph: { cell: 12 },
+  color: { stops: ['#0f1720', '#2b6b86', '#9fd0d8', '#f3e6c4'], bg: '#0a0d11' },
+  interact: { mode: 'rings', strength: 0.9, radius: 0.25, decay: 1 }, meta: { name: 'Anillos al tocar', space: 'fondos' },
+};
+
+interface Piece { name: string; sender: keyof typeof DEVICES; hash: string; edit?: boolean; space: string; gesture?: boolean }
 const PIECES: Piece[] = [
   // an edited result of the dice in Arte, on a desktop
   { name: 'Arte, editada', sender: 'desk', hash: '#seed=telar-arte-4&space=arte&gen=4', edit: true, space: 'arte' },
@@ -150,7 +159,52 @@ const PIECES: Piece[] = [
   { name: 'Fondos', sender: 'tabP', hash: '#seed=telar-fondos-3&space=fondos&gen=4', space: 'fondos' },
   // an edited terminal piece in its Terminal view, on a phone (pixel ratio 2)
   { name: 'Terminal, editada', sender: 'phone', hash: '#seed=telar-terminal-237&space=terminal&gen=4', edit: true, space: 'terminal' },
+  // a piece of the generator's current version (5: the pattern library, its styles and palettes), on a small phone
+  { name: 'Arte, generador 5', sender: 'small', hash: '#seed=telar-arte-5&space=arte&gen=5', space: 'arte' },
+  // a piece that answers to the finger (Anillos), on a touch tablet on its side
+  { name: 'Fondos que responden al toque', sender: 'tabL', hash: enc(TAP_PIECE), space: 'fondos', gesture: true },
 ];
+
+/** Mean difference (0–255) of two frames of `pixels()` inside a box given in fractions of the frame. */
+function madIn(a: { w: number; h: number; rgb: number[] }, b: { rgb: number[] }, [x0, y0, x1, y1]: [number, number, number, number]) {
+  let s = 0, n = 0;
+  for (let y = Math.floor(y0 * a.h); y < Math.ceil(y1 * a.h); y++) {
+    for (let x = Math.floor(x0 * a.w); x < Math.ceil(x1 * a.w); x++) {
+      const i = (y * a.w + x) * 3;
+      s += Math.abs(a.rgb[i] - b.rgb[i]) + Math.abs(a.rgb[i + 1] - b.rgb[i + 1]) + Math.abs(a.rgb[i + 2] - b.rgb[i + 2]);
+      n += 3;
+    }
+  }
+  return s / Math.max(1, n);
+}
+
+/**
+ * A piece that answers to the finger, in the viewer: a click (mouse) or a tap (finger) opens rings where it
+ * lands and nowhere far from it, and its canvas takes the finger (touch-action: none: a drag or a pinch
+ * reaches the piece, not the page).
+ */
+async function answersInViewer(browser: Browser, d: Device, path: string) {
+  const v = await openViewer(browser, d, path);
+  const cv = v.page.locator('.ver-stage canvas');
+  expect(await cv.evaluate(c => getComputedStyle(c).touchAction), d.id).toBe('none');
+  await viewerBare(v.page);
+  const b = (await cv.boundingBox())!;
+  const before = await pixels(v.page, '.ver-stage canvas', 96);
+  const at = { x: b.x + b.width * 0.28, y: b.y + b.height * 0.55 };
+  if (d.hasTouch) await v.page.touchscreen.tap(at.x, at.y);
+  else await v.page.mouse.click(at.x, at.y);
+  // the rings grow from where it landed (the piece is paused: nothing else changes)
+  let near = 0, far = 0;
+  await expect.poll(async () => {
+    const after = await pixels(v.page, '.ver-stage canvas', 96);
+    near = madIn(after, before, [0.12, 0.35, 0.44, 0.75]);
+    far = madIn(after, before, [0.8, 0, 1, 0.25]);
+    return near;
+  }, { message: `${d.id}: anillos donde se toca` }).toBeGreaterThan(2);
+  expect(far, `${d.id}: cerca ${near.toFixed(1)}, lejos ${far.toFixed(1)}`).toBeLessThan(near / 3);
+  expect(v.errors, d.id).toEqual([]);
+  await v.ctx.close();
+}
 
 /** Changes the first slider of the settings with the keyboard: an edit the history marks as such. */
 async function editPiece(page: Page, d: Device) {
@@ -188,6 +242,8 @@ test.describe('una pieza compartida se ve igual en cualquier pantalla', () => {
       const labCanvas = await lab.page.locator('.cv-host canvas').evaluate(c => ({ W: (c as HTMLCanvasElement).width, H: (c as HTMLCanvasElement).height, cssW: c.clientWidth, cssH: c.clientHeight }));
       expect({ w: labCanvas.W, h: labCanvas.H }).toEqual({ w: frame.w, h: frame.h });
       expect(frame).toEqual(frameFor(labCanvas.cssW, labCanvas.cssH, sd.deviceScaleFactor, recipe.glyph.cell, recipe.glyph.aspect));
+      if (piece.hash.includes('gen=5')) expect(recipe.meta.gen).toBe(5);
+      if (piece.gesture) expect(recipe.interact.mode).toBe('rings');
       await labBare(lab.page);
       // fine enough to see each cell (about four pixels per cell): a reflowed grid cannot hide in the blur
       const tw = Math.min(frame.w, Math.max(160, gridOf(frame).cols * 4));
@@ -240,6 +296,12 @@ test.describe('una pieza compartida se ve igual en cualquier pantalla', () => {
         expect(control, row).toBeGreaterThan(Math.max(1.2, diff * 2.5));
       }
       await info.attach('comparación', { body: rows.join('\n'), contentType: 'text/plain' });
+
+      // a piece that answers to the finger keeps answering in the viewer, with the mouse and with a finger
+      if (piece.gesture) {
+        await answersInViewer(browser, DEVICES.desk, link.pathname + link.hash);
+        await answersInViewer(browser, DEVICES.phone, link.pathname + link.hash);
+      }
 
       // the viewer's «Abrir en el estudio» opens the same piece in the lab, as a new entry, with its frame
       if (piece.sender === 'desk') {
@@ -310,6 +372,42 @@ test.describe('el visor', () => {
     await expect(page.getByRole('link', { name: 'Abrir en el estudio' })).toHaveAttribute('href', /^\/studio\/#r=z[\w-]+&f=\d+x\d+-\d+x\d+$/);
     expect(await page.title()).toMatch(/· GLYPHOS$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(/pieza de arte ASCII hecha con GLYPHOS/);
+    expect(v.errors).toEqual([]);
+    await v.ctx.close();
+  });
+
+  test('una pieza que responde al dedo lo recibe: pellizcar la acerca (no la página), arrastrar no esconde los controles y un toque sí', async ({ browser }) => {
+    const ZOOM = { ...TAP_PIECE, interact: { mode: 'zoom', strength: 0.9, radius: 0.25, decay: 1 }, meta: { name: 'Zoom con los dedos', space: 'fondos' } };
+    const v = await openViewer(browser, DEVICES.phone, '/ver/' + enc(ZOOM) + '&p=1');
+    const page = v.page;
+    const cv = page.locator('.ver-stage canvas');
+    expect(await cv.evaluate(c => getComputedStyle(c).touchAction)).toBe('none');
+    // a piece that does not answer leaves the page its own gestures
+    expect(await page.locator('.ver-stage').evaluate(el => getComputedStyle(el).touchAction)).toBe('manipulation');
+    const client = await page.context().newCDPSession(page);
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', pts: Array<{ x: number; y: number }>) =>
+      client.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i + 1, radiusX: 4, radiusY: 4, force: 0.5 })) });
+    const b = (await cv.boundingBox())!;
+    const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+    // paused, the controls stay; a one-finger drag across the piece is not a tap: they stay
+    const wrap = page.locator('.ver');
+    await expect(wrap).toHaveAttribute('data-ui', 'on');
+    await touch('touchStart', [{ x: cx - 100, y: cy }]);
+    for (let i = 1; i <= 8; i++) { await touch('touchMove', [{ x: cx - 100 + i * 25, y: cy }]); await page.waitForTimeout(16); }
+    await touch('touchEnd', []);
+    await page.waitForTimeout(300);
+    await expect(wrap).toHaveAttribute('data-ui', 'on');
+    // two fingers apart: the piece comes closer under them, and the page itself does not zoom
+    await viewerBare(page);
+    const before = await pixels(page, '.ver-stage canvas', 96);
+    await touch('touchStart', [{ x: cx - 30, y: cy }, { x: cx + 30, y: cy }]);
+    for (let i = 1; i <= 10; i++) { await touch('touchMove', [{ x: cx - 30 - i * 12, y: cy }, { x: cx + 30 + i * 12, y: cy }]); await page.waitForTimeout(16); }
+    await touch('touchEnd', []);
+    await expect.poll(async () => mad(before.rgb, (await pixels(page, '.ver-stage canvas', 96)).rgb), { message: 'la pieza se acerca' }).toBeGreaterThan(4);
+    expect(await page.evaluate(() => [window.visualViewport?.scale ?? 1, scrollX, scrollY])).toEqual([1, 0, 0]);
+    // a tap (short, in place) shows the controls
+    await page.touchscreen.tap(b.x + b.width * 0.8, b.y + b.height * 0.3);
+    await expect(wrap).toHaveAttribute('data-ui', 'on');
     expect(v.errors).toEqual([]);
     await v.ctx.close();
   });

@@ -778,10 +778,10 @@ function RecipeTab() {
           )}
         </div>
         <div className="ex-card">
-          <h3>Enlace</h3>
-          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve esta pieza y puede seguir editándola{media ? `, pero con ${video ? 'un video suyo' : 'una imagen suya'}` : ''}.</p>
+          <h3>Enlace público</h3>
+          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve esta pieza a pantalla completa, tal como la ves, y puede llevarla al estudio para seguir editándola{media ? `, pero con ${video ? 'un video suyo' : 'una imagen suya'}` : ''}.</p>
           {media && <p className="warn">El enlace no lleva {word} ni su nombre: quien lo abra verá el patrón de fondo hasta que elija {video ? 'un video suyo' : 'una imagen suya'}. Para enviarla completa, exporta el proyecto.</p>}
-          <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace" />
+          <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace público" />
           <button type="button" className="btn primary" style={{ marginTop: 10 }} onClick={() => void shareLink(r, e.space)}>Copiar enlace</button>
         </div>
         <div className="ex-card">

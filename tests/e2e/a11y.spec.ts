@@ -393,7 +393,8 @@ test.describe('accesibilidad', () => {
       await page.evaluate(i => document.getElementById(i)!.scrollIntoView({ block: 'start' }), id);
       await page.waitForTimeout(400);
     }
-    await expect(page.getByRole('list', { name: 'Hoja de contactos del dado' }).getByRole('button')).toHaveCount(14);
+    // one contact per style of the generator's current version (nineteen since version 5)
+    await expect(page.getByRole('list', { name: 'Hoja de contactos del dado' }).getByRole('button')).toHaveCount(19);
     await page.getByRole('tablist', { name: 'Espacios del estudio' }).getByRole('tab', { name: /Piezas/ }).click();
     await page.getByRole('button', { name: 'Tirar', exact: true }).click();
     await page.getByRole('tablist', { name: 'Destinos' }).getByRole('tab', { name: 'Web' }).click();
