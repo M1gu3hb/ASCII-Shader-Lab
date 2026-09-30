@@ -1,0 +1,35 @@
+/* «Comparar alfabetos» (CharsetExplorer.tsx) — uses the panel's tokens (studio.css), vermilion only for the chosen one */
+.cx-explorer { margin: 12px 0 18px; }
+.cx-explorer button { font: inherit; color: inherit; cursor: pointer; }
+.cx-explorer-toggle, .cx-explorer-tools button, .cx-explorer-pages button {
+  min-height: 44px; border: 1px solid var(--line-2, rgba(237, 230, 218, .18)); border-radius: var(--r-ctl, 7px);
+  background: var(--field, rgba(237, 230, 218, .055)); padding: 8px 12px;
+}
+.cx-explorer-toggle { width: 100%; text-align: left; font-weight: 600; }
+.cx-explorer-toggle:hover, .cx-explorer-tools button:hover, .cx-explorer-pages button:hover:not(:disabled) { background: var(--field-2, rgba(237, 230, 218, .09)); }
+.cx-explorer :focus-visible { outline: 2px solid var(--focus, #ffb08a); outline-offset: 2px; }
+.cx-explorer-note { margin: 10px 2px; font-size: .84rem; color: var(--muted, #a39c90); }
+.cx-explorer-tools { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+.cx-explorer-tools input, .cx-explorer-tools select {
+  min-width: 0; min-height: 44px; flex: 1 1 130px; font: inherit; color: var(--text, #ede6da);
+  border: 1px solid var(--line-2, rgba(237, 230, 218, .18)); border-radius: var(--r-ctl, 7px); background: var(--panel-2, #1b1917); padding: 8px;
+}
+.cx-explorer-tools button { flex: 0 0 44px; padding: 0; }
+.cx-explorer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cx-explorer-grid button {
+  min-width: 0; text-align: left; padding: 5px; border-radius: 8px;
+  background: var(--panel-2, #1b1917); border: 1px solid var(--line, rgba(237, 230, 218, .1));
+}
+.cx-explorer-grid button:hover { border-color: var(--line-2, rgba(237, 230, 218, .18)); }
+.cx-explorer-grid button[aria-pressed="true"] { border-color: var(--accent, #ff5b1f); box-shadow: inset 0 0 0 1px var(--accent, #ff5b1f); }
+.cx-explorer-image { aspect-ratio: 10 / 7; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 5px; }
+.cx-explorer-image img { width: 100%; height: 100%; object-fit: cover; }
+.cx-explorer-fallback { font-family: var(--mono, ui-monospace, monospace); font-size: .95rem; overflow: hidden; white-space: nowrap; letter-spacing: 2px; padding: 5px; }
+.cx-explorer-grid strong, .cx-explorer-grid small { display: block; padding: 5px 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cx-explorer-grid small { padding: 2px 3px 4px; color: var(--muted, #a39c90); }
+.cx-explorer-kind { font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; }
+.cx-explorer-chars { font-family: var(--mono, ui-monospace, monospace); color: var(--text, #ede6da); letter-spacing: 1px; }
+.cx-explorer-pages { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 12px; }
+.cx-explorer-pages button:disabled { opacity: .4; cursor: default; }
+.cx-explorer-current { display: block; margin-top: 10px; color: var(--muted, #a39c90); }
+@media (max-width: 420px) { .cx-explorer-grid { gap: 5px; } .cx-explorer-grid button { padding: 4px; } }

@@ -19,6 +19,9 @@ export interface Signal { cancelled: boolean }
 const cache = new Map<string, string>();
 const CACHE_MAX = 120;
 
+/** A source whose picture changes over time (its renders are never reused). */
+const live = (r: Recipe) => r.source === 'camera' || r.source === 'video';
+
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
 
 function keyOf(r: Recipe, o: CropSpec, stage: { cssW: number; cssH: number }) {
@@ -39,8 +42,8 @@ export function renderCrops(recipes: Recipe[], o: CropSpec, onEach: (i: number, 
   const stage = stageSize();
   const todo: number[] = [];
   recipes.forEach((r, i) => {
-    // the camera changes every frame: never cached
-    const hit = r.source !== 'camera' ? cache.get(keyOf(r, o, stage)) : undefined;
+    // the camera and a playing video change every frame: never cached
+    const hit = live(r) ? undefined : cache.get(keyOf(r, o, stage));
     if (hit) onEach(i, hit); else todo.push(i);
   });
   if (!todo.length) return;
@@ -74,7 +77,7 @@ async function run(recipes: Recipe[], todo: number[], o: CropSpec, onEach: (i: n
       url = null;
     }
     if (signal.cancelled) break;
-    if (url && recipes[i].source !== 'camera') remember(keyOf(recipes[i], o, stage), url);
+    if (url && !live(recipes[i])) remember(keyOf(recipes[i], o, stage), url);
     onEach(i, url);
     await nextFrame();
   }
