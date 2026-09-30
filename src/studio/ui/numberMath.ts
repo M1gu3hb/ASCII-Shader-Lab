@@ -82,3 +82,13 @@ export function rangeHint(kind: Settled['kind'], min: number, max: number, value
   if (kind === 'empty') return `Escribe un número de ${a} a ${b}.`;
   return '';
 }
+
+/**
+ * The keypad a phone shows for a field. Its number keypads have no minus key on iPhones («numeric» and
+ * «decimal»), so a range that goes below zero (Velocidad, Brillo, Mover…) gets the full keyboard, where the
+ * minus is one key away; whole numbers from zero up get the digits, the rest digits and a decimal mark.
+ */
+export function keypadFor(min: number, step = 0): 'text' | 'numeric' | 'decimal' {
+  if (min < 0) return 'text';
+  return Number.isInteger(step) && Number.isInteger(min) ? 'numeric' : 'decimal';
+}
