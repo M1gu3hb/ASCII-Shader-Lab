@@ -380,6 +380,28 @@ test.describe('el visor', () => {
   });
 });
 
+test.describe('la página del visor', () => {
+  test('se sirve fuera de los buscadores, con su dirección canónica y la imagen de la marca para las apps', async ({ page, request }) => {
+    // /ver goes to /ver/, as every page of the site does
+    const r = await request.get('/ver', { maxRedirects: 0, headers: { accept: 'text/html' } });
+    expect(r.status()).toBe(308);
+    expect(r.headers().location).toBe('/ver/');
+    await page.goto('/ver/');
+    const meta = (sel: string, attr = 'content') => page.locator(sel).getAttribute(attr);
+    expect(await meta('meta[name="robots"]')).toBe('noindex');
+    expect(await meta('link[rel="canonical"]', 'href')).toBe('https://glyphos-ascii.vercel.app/ver/');
+    expect(await meta('meta[property="og:image"]')).toBe('https://glyphos-ascii.vercel.app/og.jpg');
+    expect(await meta('meta[property="og:image:alt"]')).toContain('«Haz arte ASCII»');
+    expect(await meta('meta[name="twitter:image:alt"]')).toBe(await meta('meta[property="og:image:alt"]'));
+    // the share image is there, and it is a picture
+    const img = await request.get('/og.jpg');
+    expect(img.status()).toBe(200);
+    expect(img.headers()['content-type']).toContain('image/jpeg');
+    // and the page is not in the sitemap
+    expect(await (await request.get('/sitemap.xml')).text()).not.toContain('/ver/');
+  });
+});
+
 test.describe('los enlaces de antes', () => {
   test('#r= y #seed= siguen abriendo el estudio como siempre', async ({ browser }) => {
     const lab = await openLab(browser, DEVICES.desk, '#seed=telar-arte-4&space=arte&gen=4');
@@ -393,7 +415,9 @@ test.describe('los enlaces de antes', () => {
     expect(new URL(old.page.url()).hash).toBe('');
     await old.page.locator('.topbar .share-btn').click();
     // shared again, it is the same recipe (framed by this stage)
-    expect(readPieceHash(new URL(await old.page.getByRole('textbox', { name: 'Enlace público a esta pieza' }).inputValue()).hash).code).toBe(code);
+    const again = old.page.getByRole('textbox', { name: 'Enlace público a esta pieza' });
+    await expect(again).toHaveValue(/\/ver\/#r=z/);
+    expect(readPieceHash(new URL(await again.inputValue()).hash).code).toBe(code);
     expect(old.errors).toEqual([]);
     await old.ctx.close();
     const seed = await openLab(browser, DEVICES.phone, '#seed=faro-lunar-417&space=arte&gen=2');
