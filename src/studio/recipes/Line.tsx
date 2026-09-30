@@ -49,7 +49,7 @@ export function RecipesLine({ compact }: { compact?: boolean }) {
         {/* (a phone on its side shows the cell's name instead: the recipe is named in the line at the bottom) */}
         <span className="rx-k rx-k2">Recetas</span>
         <span className="rx-cur">
-          {item ? <span className="rx-cur-name">{item.name}</span> : <span className="rx-cur-name rx-none">Ninguna: elige una</span>}
+          {item ? <span className="rx-cur-name">{item.name}</span> : <span className="rx-cur-name rx-none">{compact ? 'Elige una' : 'Ninguna: elige una'}</span>}
           {edited && <em className="rx-ed">editada</em>}
         </span>
       </span>

@@ -247,5 +247,5 @@ html[data-motion="low"] .app .pane-head .tab-ic { animation: none; }
 }
 
 /* a layer's pattern: its whole name, on two lines if the head is narrow (it was cut: «Lluvia digital» on a
-   tablet, beside the layer's 44 px buttons) */
-.app .layer-head .pk .pk-txt { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
+   tablet, beside the layer's 44 px buttons); a long word breaks at a Spanish hyphenation point, not anywhere */
+.app .layer-head .pk .pk-txt { white-space: normal; overflow-wrap: break-word; hyphens: auto; line-height: 1.15; }
