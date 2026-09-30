@@ -298,6 +298,9 @@ export const simbiosis: BasicPattern = /* @__PURE__ */ solid((x, y, z, t, a, b) 
 }, (_x, y, _z, t) => 0.4 + 0.4 * Math.sin(y * 11 + t * 0.7));
 
 export const pendulos: BasicPattern = /* @__PURE__ */ solid((x, y, z, t, a, b) => {
+  const bx = Math.abs(x) - 0.8, by = Math.abs(y - 0.1) - 0.47, bz = Math.abs(z) - 0.56;
+  const box = len3(Math.max(bx, 0), Math.max(by, 0), Math.max(bz, 0)) + Math.min(Math.max(bx, Math.max(by, bz)), 0);
+  if (box > 0.05) return box;
   let s = Math.max(len(y - 0.5, z) - 0.018, Math.abs(x) - 0.74);
   for (let i = 0; i < 9; i++) {
     const px = -0.64 + i * 0.16;
@@ -312,10 +315,10 @@ export const pendulos: BasicPattern = /* @__PURE__ */ solid((x, y, z, t, a, b) =
 }, () => 0.2, { rot: t => [0.3, 0.35 + 0.22 * Math.sin(t * 0.13)], bound: 1.05 });
 
 export const cinta_ola: BasicPattern = /* @__PURE__ */ solid((x, y, z, t, a, b) => {
-  const ph = x * 4 + t * 0.9, c = Math.cos(ph), s = Math.sin(ph);
-  const ox = y - 0.2 * s, oy = z - 0.14 * c;
+  const ph = x * 3.5 + t * 0.9, c = Math.cos(ph), s = Math.sin(ph);
+  const ox = y - 0.24 * s, oy = z - 0.18 * c;
   const u = c * ox - s * oy, v = s * ox + c * oy;
-  return Math.max(Math.max(Math.abs(u) - (0.012 + b * 0.02), Math.abs(v) - (0.06 + a * 0.07)), Math.abs(x) - 0.8) * 0.45;
+  return Math.max(Math.max(Math.abs(u) - (0.008 + b * 0.014), Math.abs(v) - (0.05 + a * 0.06)), Math.abs(x) - 0.85) * 0.45;
 }, (x, _y, _z, t) => 0.5 + 0.5 * Math.sin(x * 22 - t * 1.2), { steps: 96 });
 
 export const jade_vivo: BasicPattern = /* @__PURE__ */ solid((x, y, z, t, a, b) => {
@@ -336,12 +339,12 @@ export const caliz: BasicPattern = /* @__PURE__ */ solid((x, y, z, _t, a, b) => 
 export const medusa: BasicPattern = /* @__PURE__ */ solid((x, y, z, t, a, b) => {
   const bell = (0.33 + a * 0.12) * (1 + 0.06 * Math.sin(t * 1.3));
   const dome = Math.max(len3(x, Math.max(y - 0.05, 0) * 0.75, z) - bell, -y + 0.04);
-  let tent = 10;
-  for (let i = 0; i < 7; i++) {
+  let tent = Math.max(len(x, z) - 0.3, Math.max(-0.64 - y, y + 0.03));
+  if (tent < 0.05) for (let i = 0; i < 7; i++) {
     const ph = i * TAU / 7;
     const cx = 0.19 * Math.cos(ph) + 0.05 * Math.sin(t * 0.5 + y * 7 + ph);
     const cz = 0.19 * Math.sin(ph) + 0.05 * Math.cos(t * 0.5 + y * 7 + ph);
-    tent = Math.min(tent, Math.max(len(x - cx, z - cz) - (0.012 + b * 0.013), Math.max(-0.6 - y, y + 0.07)));
+    tent = Math.min(i === 0 ? 10 : tent, Math.max(len(x - cx, z - cz) - (0.012 + b * 0.013), Math.max(-0.6 - y, y + 0.07)));
   }
   return Math.min(dome, tent);
 }, (_x, y) => 0.4 + 0.5 * Math.exp(-Math.abs(y - 0.05) * 6));

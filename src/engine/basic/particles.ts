@@ -123,7 +123,8 @@ export function particlePattern(mode: number): BasicPattern {
       for (let i = 0; i < N; i++) {
         const rad = rad0 * D[i], r2 = rad * rad;
         const qx = x - X[i], qy = y - Y[i], d2 = qx * qx + qy * qy;
-        v = Math.max(v, Math.exp(-d2 / r2) * (0.6 + 0.4 * H[i]) + 0.18 * Math.exp(-d2 / (r2 * 9)));
+        // beyond 8 radii the glow is under 0.0002 (the GPU still adds it: no visible difference)
+        if (d2 < r2 * 64) v = Math.max(v, Math.exp(-d2 / r2) * (0.6 + 0.4 * H[i]) + 0.18 * Math.exp(-d2 / (r2 * 9)));
         if (trails) {
           const tx = TX[i], ty = TY[i];
           const along = clamp((qx * tx + qy * ty) / (tx * tx + ty * ty), 0, 1), w = Math.max(rad * 0.5, PX * 0.7);

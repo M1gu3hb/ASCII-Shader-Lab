@@ -235,6 +235,9 @@ Object.assign(NEXT_GLSL, {
   return s;`, '.4 + .4 * sin(q.y * 11. + t * .7)'),
   // a pendulum wave: nine bobs on one beam, each at its own rhythm
   pendulos: solid('pendulos', `
+  vec3 bq = abs(q - vec3(0., .1, 0.)) - vec3(.8, .47, .56);
+  float box = length(max(bq, 0.)) + min(max(bq.x, max(bq.y, bq.z)), 0.);
+  if (box > .05) return box;
   float s = length(vec2(q.y - .5, q.z)) - .018;
   s = max(s, abs(q.x) - .74);
   for (int i = 0; i < 9; i++){
@@ -249,10 +252,10 @@ Object.assign(NEXT_GLSL, {
   return s;`, '.2', { rot: ['.3', '.35 + .22 * sin(t * .13)'], bound: 1.05 }),
   // a ribbon that waves and twists as it flows
   cinta_ola: solid('cinta_ola', `
-  float ph = q.x * 4. + t * .9, c = cos(ph), s = sin(ph);
-  vec2 o = vec2(q.y - .2 * s, q.z - .14 * c);
+  float ph = q.x * 3.5 + t * .9, c = cos(ph), s = sin(ph);
+  vec2 o = vec2(q.y - .24 * s, q.z - .18 * c);
   vec2 uv = vec2(c * o.x - s * o.y, s * o.x + c * o.y);
-  return max(max(abs(uv.x) - (.012 + b * .02), abs(uv.y) - (.06 + a * .07)), abs(q.x) - .8) * .45;`,
+  return max(max(abs(uv.x) - (.008 + b * .014), abs(uv.y) - (.05 + a * .06)), abs(q.x) - .85) * .45;`,
   '.5 + .5 * sin(q.x * 22. - t * 1.2)', { steps: 96 }),
   jade_vivo: solid('jade_vivo', `
   float r = length(q), th = atan(q.z, q.x), phi = atan(q.y, length(q.xz));
@@ -269,11 +272,11 @@ Object.assign(NEXT_GLSL, {
   medusa: solid('medusa', `
   float bell = (.33 + a * .12) * (1. + .06 * sin(t * 1.3));
   float dome = max(length(vec3(q.x, max(q.y - .05, 0.) * .75, q.z)) - bell, -q.y + .04);
-  float tent = 10.;
-  for (int i = 0; i < 7; i++){
+  float tent = max(length(q.xz) - .3, max(-.64 - q.y, q.y + .03));
+  if (tent < .05) for (int i = 0; i < 7; i++){
     float ph = float(i) * TAU / 7.;
     vec2 c = vec2(.19 * cos(ph) + .05 * sin(t * .5 + q.y * 7. + ph), .19 * sin(ph) + .05 * cos(t * .5 + q.y * 7. + ph));
-    tent = min(tent, max(length(q.xz - c) - (.012 + b * .013), max(-.6 - q.y, q.y + .07)));
+    tent = min(i == 0 ? 10. : tent, max(length(q.xz - c) - (.012 + b * .013), max(-.6 - q.y, q.y + .07)));
   }
   return min(dome, tent);`, '.4 + .5 * exp(-abs(q.y - .05) * 6.)'),
   esferas_orbita: solid('esferas_orbita', `

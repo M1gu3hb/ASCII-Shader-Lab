@@ -7,7 +7,8 @@
  *             (DIR/full/<section>/<id>.<engine>.<w>x<h>.jpg)
  *   --parity  both engines compared per item (r of cell luminance, same glyphs, pixel difference) → DIR/parity.json
  *   --quick   with --snaps: only WebGL at 1440×900 (while iterating)
- *   --bench   basic engine, each pattern alone at 1920×1080, cell 12 (lab numbers) → DIR/bench.json
+ *   --bench   basic engine, each pattern alone at 1920×1080, cell 12 (lab numbers) → DIR/bench.json;
+ *             --bench-ids nube,dona measures those patterns instead (to compare)
  * Starts a Vite dev server on QA_PORT (default 4312). Not part of the build or the test suites.
  */
 import { createServer } from 'vite';
@@ -82,7 +83,8 @@ try {
   }
   if (has('--bench')) {
     const rows = [];
-    const pats = info.items.filter(i => i.section === 'patrones' || i.section === 'particulas');
+    // --bench-ids nube,dona: other patterns of the catalog, to compare with (same size and cell)
+    const pats = opt('--bench-ids') ? opt('--bench-ids').split(',').map(id => ({ id })) : info.items.filter(i => i.section === 'patrones' || i.section === 'particulas');
     for (const it of pats) {
       const b = await page.evaluate(id => window.__lib.benchPattern(id, { w: 1920, h: 1080, cell: 12, frames: 10 }), it.id);
       rows.push({ id: it.id, ...b });
