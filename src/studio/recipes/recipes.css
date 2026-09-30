@@ -62,11 +62,11 @@ html[data-motion="low"] .rx-pic img { transition: none; }
 .app .rx-search input::-webkit-search-cancel-button { display: none; }
 .app .rx-clear { flex: none; display: grid; place-items: center; width: 34px; height: 34px; margin-right: 2px; border: 0; border-radius: 7px; background: none; color: var(--muted); }
 .app .rx-clear:hover { color: var(--text); background: var(--field-2); }
-.app .rx-done, .app .rx-btn {
+.app .rx-btn {
   flex: none; height: 38px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line-2); background: none; color: var(--text);
   font: 600 12.5px/1 var(--font-ui);
 }
-.app .rx-done:hover, .app .rx-btn:hover { background: var(--field-2); }
+.app .rx-btn:hover { background: var(--field-2); }
 
 /* phones: the search is a button at the start of the filters' row until it is used */
 .app .rx-tools-c { padding-bottom: 6px; }
@@ -136,7 +136,7 @@ html[data-motion="low"] .rx-pic img { transition: none; }
   .app .rx-search { height: 44px; }
   .app .rx-search input { font-size: 16px; }
   .app .rx-clear { width: 40px; height: 40px; }
-  .app .rx-done, .app .rx-btn { height: 44px; min-width: 44px; }
+  .app .rx-btn { height: 44px; min-width: 44px; }
   .app .rx-chip { height: 44px; padding: 0 13px; font-size: 13.5px; }
   .app .rx-cats-box { padding-bottom: 6px; }
 }

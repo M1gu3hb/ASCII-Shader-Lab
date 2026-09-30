@@ -91,7 +91,7 @@ const MOOD_SPACES: SceneSpace[] = ['fondos', 'arte', 'terminal'];
 const SECTION_OF: Record<string, string> = {
   'fondos/orbita': 'espacio',
   'fondos/relieve': 'geometricas',
-  'arte/optica': 'optica', 'arte/cinco-ejes': 'optica', 'arte/hiperespacio': 'optica', 'arte/vapor': 'optica', 'arte/corrupto': 'optica',
+  'arte/optica': 'optica', 'arte/cinco-ejes': 'optica', 'arte/hiperespacio': 'optica', 'arte/vapor': 'optica',
   'terminal/consola': 'consola', 'terminal/radar': 'consola', 'terminal/ecualizador': 'consola', 'terminal/ambar': 'consola',
 };
 
