@@ -50,6 +50,8 @@ export function Panel() {
   const tabs = TABS[space];
   const tab = tabs.find(t => t[0] === tabSel)?.[0] ?? tabs[0]?.[0];
   const guiding = useGuide(s => s.path !== null);
+  // a guided path takes the column: the recipes it showed close (the settings come back after it)
+  useEffect(() => { if (guiding) setBrowserOpen(false); }, [guiding]);
   const aside = useRef<HTMLElement>(null);
   const pane = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
