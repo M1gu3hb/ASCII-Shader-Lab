@@ -1,5 +1,5 @@
 import { buildAtlas, uniqueChars, type Atlas } from './atlas';
-import { BLENDS, cloneRecipe, type Recipe } from './recipe';
+import { BLENDS, INTERACT, cloneRecipe, type Recipe } from './recipe';
 import { fontById } from './catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from './color';
 import { createFontLoader, type FontLoader } from './fonts';
@@ -16,6 +16,8 @@ import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } f
 import { fold, morphPeriod, loopTime, ondularTimes, pieceTime, wordsRate } from './loop';
 import type { PreviewQuality, Renderer } from './renderer';
 import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
+import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
+import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
 
 export type MediaKind = 'image' | 'video' | 'camera';
 type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
@@ -33,6 +35,11 @@ export interface EngineOptions {
   fixedSize?: { width: number; height: number; pixelRatio: number };
   interactive?: boolean;
   pointerTarget?: 'canvas' | 'window';
+  /**
+   * «Zoom con los dedos»: a plain wheel over the canvas zooms too (the studio's stage, which never scrolls).
+   * Without it only Ctrl + wheel (a trackpad pinch) does, and a page with the piece in it keeps scrolling.
+   */
+  wheelZoom?: boolean;
   autoplay?: boolean;
   reducedMotion?: boolean;
   preserveDrawingBuffer?: boolean;
@@ -46,6 +53,19 @@ export interface EngineOptions {
 }
 
 export interface EngineStats { cols: number; rows: number; fps: number; pixelRatio: number; width: number; height: number; ms: number }
+
+/** A pointer event given by code (see Renderer.gesture). */
+export interface GestureInput {
+  kind: 'down' | 'move' | 'up' | 'cancel' | 'leave';
+  x: number;
+  y: number;
+  /** Seconds on the gesture clock (absent: now). */
+  t?: number;
+  /** Pointer id (1: the primary pointer, which the older modes follow too). */
+  id?: number;
+  type?: 'mouse' | 'pen' | 'touch';
+  pressure?: number;
+}
 
 export interface GridSnapshot {
   cols: number;
@@ -175,7 +195,17 @@ export class AsciiEngine implements Renderer {
   private frames = 0; private fps = 0; private fpsT = 0; private ema = 16; private slow = 0; private fast = 0;
   private fontGen = 0;
 
-  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0 };
+  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1 };
+  /** The gesture modes' field (engine/touch.ts), shared code with the basic engine. */
+  private touch = new TouchField();
+  private tTouch!: Tex;
+  private touchVer = -1;
+  /** Pointer events → the legacy pointer and the touch field (engine/pointer.ts). */
+  private hub: PointerHub | null = null;
+  /** realT of the last frame the pointer simulation (Ondas, Borrador, Pincel) had something to do. */
+  private simLast = -1e9;
+  /** Fixed-size engines: realT of the last renderAt (the ghost plays when frames follow each other). */
+  private demoT = NaN;
   private ro: ResizeObserver | null = null;
   private io: IntersectionObserver | null = null;
   private cleanup: Array<() => void> = [];
@@ -280,7 +310,8 @@ export class AsciiEngine implements Renderer {
   private applyRecipe(next: Recipe) {
     const prev = this.r;
     this.r = next;
-    if (this.o.fixedSize) this.trail.have = false;
+    // (a shared thumbnail engine renders many recipes: no trail, no gesture passes from one to the next)
+    if (this.o.fixedSize) { this.trail.have = false; this.touch.reset(); this.demoT = NaN; }
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
       || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
@@ -471,8 +502,33 @@ export class AsciiEngine implements Renderer {
   renderAt(t: number, realT = t) {
     this.applyPending();
     this.t = t;
+    const dt = realT - this.demoT;
     this.realT = realT;
-    this.render(0);
+    this.demoT = realT;
+    this.render(this.demo(dt));
+  }
+
+  /**
+   * Fixed-size engines (exports) with «Cursor automático»: frames that follow each other (at most half a
+   * second apart) play the ghost, as the stage shows it when nobody touches it; a first frame, or a jump,
+   * starts it again from nothing. Returns the frame's dt.
+   */
+  private demo(dt: number): number {
+    const it = this.r.interact;
+    if (!this.o.fixedSize || it.mode === 'none') return 0;
+    this.touch.demo = it.auto;
+    if (!(dt > 0 && dt <= 0.5)) {
+      if (it.auto) {
+        this.touch.reset(); this.resetSim();
+        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false });
+        this.stepPointer(0, true);
+        this.ptr.on = 1;
+      }
+      return 0;
+    }
+    this.stepPointer(dt, it.auto);
+    this.stepTouch(dt);
+    return dt;
   }
 
   renderNow() { this.applyPending(); this.render(0); }
@@ -516,7 +572,28 @@ export class AsciiEngine implements Renderer {
   }
 
   setPointer(x: number, y: number, on: boolean) {
-    this.ptr.tx = x * this.W; this.ptr.ty = y * this.H; this.ptr.targetOn = on ? 1 : 0; this.ptr.lastReal = performance.now();
+    this.ptr.tx = x * this.W; this.ptr.ty = y * this.H; this.ptr.targetOn = on ? 1 : 0; this.ptr.lastReal = this.realT;
+  }
+
+  /**
+   * A pointer event given by code (x, y: fractions of the canvas; t: seconds on the gesture clock, now when
+   * absent): the gesture modes take it like a real one. Replays and tests: the same events give the same
+   * frames, in this engine and in the basic one.
+   */
+  gesture(e: GestureInput) {
+    const t = e.t ?? this.touch.now;
+    const x = e.x * this.W, y = e.y * this.H;
+    if ((e.id ?? 1) === 1) {
+      const P = this.ptr;
+      if (e.kind === 'down') { P.down = true; P.impulse = 1; }
+      if (e.kind === 'up' || e.kind === 'cancel') P.down = false;
+      if (e.kind === 'leave' || e.kind === 'cancel') P.targetOn = 0;
+      else { if (P.targetOn === 0) { P.x = P.px = x; P.y = P.py = y; } P.tx = x; P.ty = y; P.targetOn = 1; }
+      P.lastReal = this.realT;
+      P.pressure = e.type === 'pen' ? e.pressure ?? 0.5 : -1;
+    }
+    this.touch.input({ kind: e.kind, id: e.id ?? 1, x, y, t, pressure: e.pressure, type: e.type ?? 'touch' });
+    this.needsRender = true;
   }
 
   destroy() {
@@ -579,6 +656,8 @@ export class AsciiEngine implements Renderer {
     this.tWords = createTex(gl, 1, 1);
     this.tWarm = createTex(gl, 1, 1);
     this.fbWarm = fboFor(gl, this.tWarm);
+    this.tTouch = createTex(gl, 1, 1, { data: new Uint8Array([0, 0, 128, 128]) });
+    this.touchVer = -1;
     this.prevT = [null, null]; this.prevFb = [null, null]; this.prevIdx = 0;
     this.trans = -1;
     // (a restored context lost them all: made again when a piece needs them)
@@ -590,6 +669,7 @@ export class AsciiEngine implements Renderer {
     this.atlasKey = this.textKey = this.msgKey = this.wordsKey = this.gradKey = '';
     this.mediaUploaded = null;
     this.simMode = '';
+    this.touchVer = -1;
     this.needsRender = true;
   }
 
@@ -621,48 +701,17 @@ export class AsciiEngine implements Renderer {
   }
 
   private bindPointer() {
-    const target = this.o.pointerTarget ?? 'canvas';
-    const pos = (e: PointerEvent) => {
-      const rc = this.canvas.getBoundingClientRect();
-      if (!rc.width || !rc.height) return null;
-      const x = ((e.clientX - rc.left) * this.W) / rc.width, y = ((e.clientY - rc.top) * this.H) / rc.height;
-      return { x, y, inside: x >= 0 && y >= 0 && x <= this.W && y <= this.H };
-    };
-    const move = (e: PointerEvent) => {
-      const p = pos(e); if (!p) return;
-      const P = this.ptr;
-      if (P.targetOn === 0 && p.inside) { P.x = P.px = p.x; P.y = P.py = p.y; }
-      P.tx = p.x; P.ty = p.y; P.targetOn = p.inside ? 1 : 0; P.lastReal = performance.now();
-      if (this.r.interact.mode !== 'none') this.needsRender = true;
-    };
-    const down = (e: PointerEvent) => { move(e); this.ptr.down = true; this.ptr.impulse = 1; };
-    const up = () => { this.ptr.down = false; };
-    const leave = (e: PointerEvent) => { if (e.pointerType !== 'mouse') this.ptr.down = false; this.ptr.targetOn = 0; };
-    const opts: AddEventListenerOptions = { passive: true };
-    if (target === 'canvas') {
-      const c = this.canvas;
-      c.addEventListener('pointermove', move, opts);
-      c.addEventListener('pointerdown', down, opts);
-      c.addEventListener('pointerup', up, opts);
-      c.addEventListener('pointercancel', leave, opts);
-      c.addEventListener('pointerleave', leave, opts);
-      this.cleanup.push(() => {
-        c.removeEventListener('pointermove', move); c.removeEventListener('pointerdown', down);
-        c.removeEventListener('pointerup', up); c.removeEventListener('pointercancel', leave); c.removeEventListener('pointerleave', leave);
-      });
-    } else {
-      const out = (e: MouseEvent) => { if (!e.relatedTarget) this.ptr.targetOn = 0; };
-      const blur = () => { this.ptr.targetOn = 0; };
-      window.addEventListener('pointermove', move, opts);
-      window.addEventListener('pointerdown', down, opts);
-      window.addEventListener('pointerup', up, opts);
-      document.addEventListener('mouseout', out);
-      window.addEventListener('blur', blur);
-      this.cleanup.push(() => {
-        window.removeEventListener('pointermove', move); window.removeEventListener('pointerdown', down);
-        window.removeEventListener('pointerup', up); document.removeEventListener('mouseout', out); window.removeEventListener('blur', blur);
-      });
-    }
+    this.hub = new PointerHub(this.canvas, {
+      target: this.o.pointerTarget ?? 'canvas',
+      wheelZoom: !!this.o.wheelZoom,
+      size: () => [this.W, this.H],
+      mode: () => this.r.interact.mode,
+      ptr: this.ptr,
+      touch: this.touch,
+      realT: () => this.realT,
+      wake: () => { this.needsRender = true; },
+    });
+    this.cleanup.push(() => this.hub?.destroy());
   }
 
   /* ---------------------------------------------------------------- */
@@ -683,10 +732,12 @@ export class AsciiEngine implements Renderer {
     this.realT += dt;
     if (this.playing) this.t += dt * this.r.motion.speed;
     if (this.trans >= 0 && !Number.isNaN(this.transStart)) this.transElapsed += Math.min(0.2, raw);
-    const interactive = this.stepPointer(dt, now);
+    const interactive = this.stepPointer(dt);
+    const touching = this.stepTouch(dt);
     const video = this.r.source === 'video' || this.r.source === 'camera';
-    const sim = ['ripple', 'erase', 'paint'].includes(this.r.interact.mode);
-    if (this.playing || this.needsRender || interactive || video || sim || this.trans >= 0) {
+    // Ondas, Borrador and Pincel draw until what the pointer left has settled (then an idle piece costs nothing)
+    const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
+    if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {
       this.needsRender = false;
       this.lastDraw = now;
       const t0 = performance.now();
@@ -713,15 +764,16 @@ export class AsciiEngine implements Renderer {
     if (this.fast > 300 && this.pr < this.prCap) { this.pr = Math.min(this.prCap, this.pr * 1.15); this.fast = 0; this.sizeDirty = true; }
   }
 
-  private stepPointer(dt: number, now: number): boolean {
+  /** The older pointer modes' pointer: eased toward where it is, the ghost when nobody moves it. */
+  private stepPointer(dt: number, demo = false): boolean {
     const P = this.ptr, it = this.r.interact;
-    if (it.mode === 'none') return false;
-    if (it.auto && now - P.lastReal > 2500) {
-      const s = this.realT * 0.35;
-      P.tx = this.W * (0.5 + 0.32 * Math.sin(s * 1.3)); P.ty = this.H * (0.5 + 0.28 * Math.sin(s * 1.7 + 1.2));
+    if (it.mode === 'none' || isTouchMode(it.mode)) return false;
+    if (it.auto && (demo || this.realT - P.lastReal > 2.5)) {
+      const [gx, gy] = legacyGhost(this.realT);
+      P.tx = this.W * gx; P.ty = this.H * gy;
       P.targetOn = 1;
     }
-    const sim = it.mode === 'ripple' || it.mode === 'erase' || it.mode === 'paint';
+    const sim = SIM_MODES.includes(it.mode);
     P.px = P.x; P.py = P.y;
     if (sim || P.on < 0.01) { P.x = P.tx; P.y = P.ty; }
     else { const k = Math.min(1, dt * 12); P.x += (P.tx - P.x) * k; P.y += (P.ty - P.y) * k; }
@@ -729,6 +781,16 @@ export class AsciiEngine implements Renderer {
     const prevOn = P.on;
     P.on += (P.targetOn - P.on) * Math.min(1, dt * 7);
     return Math.abs(P.on - prevOn) > 0.001 || P.moved > 0.05 || P.impulse > 0;
+  }
+
+  /** The gesture modes' field, one frame on (engine/touch.ts). True while it has something to show. */
+  private stepTouch(dt: number): boolean {
+    const it = this.r.interact;
+    if (!isTouchMode(it.mode)) return false;
+    this.touch.configure(touchSettings(it), this.cols, this.rows, this.cw, this.ch, this.W, this.H);
+    const busy = this.touch.step(dt);
+    this.hub?.stepped();
+    return busy || this.touch.version !== this.touchVer;
   }
 
   /* ---------------------------------------------------------------- */
@@ -989,6 +1051,17 @@ export class AsciiEngine implements Renderer {
     const gl = this.gl;
     gl.bindVertexArray(this.vao);
     this.runSim(dt);
+    const im = this.r.interact.mode;
+    if (this.touch.version !== this.touchVer) {
+      this.touchVer = this.touch.version;
+      if (GRID_MODES.includes(im) && this.touch.data.length === this.cols * this.rows * 4) {
+        const T = this.tTouch;
+        if (T.w === this.cols && T.h === this.rows) {
+          gl.bindTexture(gl.TEXTURE_2D, T.tex);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, this.cols, this.rows, gl.RGBA, gl.UNSIGNED_BYTE, this.touch.data);
+        } else resizeTex(gl, T, this.cols, this.rows, this.touch.data);
+      }
+    }
     const src = SRC_OF(this.r, this.mediaOK);
     const fp = this.fieldProgram(src);
     const stages = fp && !this.xfBroken ? xformStages(activeXforms(this.r, src), this.cols, this.rows, this.ch / this.cw) : [];
@@ -1017,30 +1090,41 @@ export class AsciiEngine implements Renderer {
   private runSim(dt: number) {
     const mode = this.r.interact.mode;
     const gl = this.gl;
-    const simulate = mode === 'ripple' || mode === 'erase' || mode === 'paint';
+    const simulate = SIM_MODES.includes(mode);
     if (mode !== this.simMode) { this.simMode = mode; this.resetSim(); }
     if (!simulate) return;
     const P = this.ptr, it = this.r.interact, p = this.pSim;
-    const src = this.tSim[this.simIdx], dst = this.simIdx ^ 1;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbSim[dst]);
+    const auto = it.auto && this.realT - P.lastReal > 2.5;
+    // a pen presses harder or softer (engine/pointer.ts); mouse and fingers as always
+    const active = P.on > 0.2 ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0;
+    const impulse = P.impulse * (P.on > 0.2 ? 1 : 0);
+    if (active > 0 || impulse > 0) this.simLast = this.realT;
+    // one step per 1/60 s, as the basic engine does (the same waves at 30 fps, in exports and on 120 Hz screens)
+    const steps = dt > 0 ? Math.max(1, Math.min(4, Math.round(dt * 60))) : 1;
+    const sdt = (dt || 1 / 60) / steps;
+    const d = it.decay ?? 0.5;
     gl.viewport(0, 0, this.cols, this.rows);
     gl.useProgram(p.prog);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex);
-    gl.uniform1i(loc(gl, p, 'uPrev'), 0);
     gl.uniform2f(loc(gl, p, 'uGrid'), this.cols, this.rows);
     gl.uniform2f(loc(gl, p, 'uCell'), this.cw, this.ch);
     gl.uniform4f(loc(gl, p, 'uSeg'), P.px, P.py, P.x, P.y);
-    gl.uniform1f(loc(gl, p, 'uBrushR'), Math.max(4, it.radius * this.H * 0.5));
+    gl.uniform1f(loc(gl, p, 'uBrushR'), Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure));
     gl.uniform1f(loc(gl, p, 'uStr'), it.strength);
-    const auto = it.auto && performance.now() - P.lastReal > 2500;
-    const active = P.on > 0.2 ? Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0) : 0;
-    gl.uniform1f(loc(gl, p, 'uActive'), Math.min(1.2, active));
-    gl.uniform1f(loc(gl, p, 'uImpulse'), P.impulse * (P.on > 0.2 ? 1 : 0));
     gl.uniform1f(loc(gl, p, 'uEnc'), this.halfFloat ? 0 : 1);
-    gl.uniform1f(loc(gl, p, 'uDt'), dt || 1 / 60);
-    gl.uniform1i(loc(gl, p, 'uMode'), ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'].indexOf(mode));
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    this.simIdx = dst;
+    gl.uniform1f(loc(gl, p, 'uDt'), sdt);
+    gl.uniform1f(loc(gl, p, 'uEraseRate'), eraseRate(d));
+    gl.uniform1f(loc(gl, p, 'uPaintRate'), paintRate(d));
+    gl.uniform1i(loc(gl, p, 'uMode'), INTERACT.indexOf(mode));
+    for (let k = 0; k < steps; k++) {
+      const src = this.tSim[this.simIdx], dst = this.simIdx ^ 1;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbSim[dst]);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+      gl.uniform1i(loc(gl, p, 'uPrev'), 0);
+      gl.uniform1f(loc(gl, p, 'uActive'), k === 0 ? Math.min(1.2, active) : 0);
+      gl.uniform1f(loc(gl, p, 'uImpulse'), k === 0 ? impulse : 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      this.simIdx = dst;
+    }
   }
 
   /**
@@ -1198,11 +1282,17 @@ export class AsciiEngine implements Renderer {
 
   private bindPointerUniforms(p: Program) {
     const gl = this.gl, it = this.r.interact, P = this.ptr;
-    gl.uniform1i(loc(gl, p, 'uIMode'), ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'].indexOf(it.mode));
+    gl.uniform1i(loc(gl, p, 'uIMode'), INTERACT.indexOf(it.mode));
     gl.uniform2f(loc(gl, p, 'uPtr'), P.x, P.y);
     gl.uniform1f(loc(gl, p, 'uPtrOn'), P.on);
     gl.uniform1f(loc(gl, p, 'uIStr'), it.strength);
     gl.uniform1f(loc(gl, p, 'uIRad'), it.radius);
+    gl.uniform1f(loc(gl, p, 'uPtrDown'), P.down ? 1 : 0);
+    const v = VIEW_MODES.includes(it.mode) ? this.touch.view : [1, 0, 0];
+    gl.uniform3f(loc(gl, p, 'uView'), v[0], v[1], v[2]);
+    gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, this.tTouch.tex);
+    gl.uniform1i(loc(gl, p, 'uTouch'), 6);
+    gl.uniform1i(loc(gl, p, 'uTouchDisp'), it.mode === 'stretch' ? 1 : 0);
   }
 
   private runSelect(src: FieldSource) {
@@ -1277,11 +1367,16 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uCursorOn'), cursorOn);
     gl.uniform1f(loc(gl, p, 'uBlockIdx'), a.blockIdx);
     const it = r.interact, P = this.ptr;
-    gl.uniform1i(loc(gl, p, 'uIMode'), ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'].indexOf(it.mode));
+    gl.uniform1i(loc(gl, p, 'uIMode'), INTERACT.indexOf(it.mode));
     gl.uniform2f(loc(gl, p, 'uPtrCell'), P.x / this.cw, P.y / this.ch);
     gl.uniform1f(loc(gl, p, 'uPtrOn'), P.on);
     gl.uniform1f(loc(gl, p, 'uIStr'), it.strength);
     gl.uniform1f(loc(gl, p, 'uIRadCells'), (it.radius * this.H) / this.cw);
+    const ts = touchSettings(it);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.tTouch.tex);
+    gl.uniform1i(loc(gl, p, 'uTouch'), 4);
+    gl.uniform1i(loc(gl, p, 'uTouchMark'), isMarkMode(it.mode) ? (ts.glyphs === 'piece' ? 2 : 1) : 0);
+    gl.uniform1f(loc(gl, p, 'uTouchInk'), ts.ink);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
@@ -1346,7 +1441,13 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uFlicker'), fx.flicker);
     gl.uniform1f(loc(gl, p, 'uGridAmt'), fx.grid);
     gl.uniform1f(loc(gl, p, 'uTime'), this.realT);
-    gl.uniform1f(loc(gl, p, 'uFxTime'), r.motion.loop > 0 ? fold(this.t, r.motion.loop) : this.realT);
+    // grain and flicker follow the piece's clock (with a loop, its time in the loop): a paused moment, a
+    // link to it and an export of it are the very same picture
+    gl.uniform1f(loc(gl, p, 'uFxTime'), r.motion.loop > 0 ? fold(this.t, r.motion.loop) : this.t);
+    gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, this.tTouch.tex);
+    gl.uniform1i(loc(gl, p, 'uTouch'), 7);
+    gl.uniform1f(loc(gl, p, 'uTouchReveal'), r.interact.mode === 'reveal' ? 1 : 0);
+    gl.uniform1f(loc(gl, p, 'uTouchTile'), isMarkMode(r.interact.mode) ? TOUCH_TILE : 0);
     gl.uniform1f(loc(gl, p, 'uMsgBox'), r.msg.on ? r.msg.box : 0);
     gl.uniform1f(loc(gl, p, 'uTrans'), trans);
     const ts = this.transSpec;

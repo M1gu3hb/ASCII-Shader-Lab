@@ -70,7 +70,10 @@ export const HELP: Record<string, HelpText> = {
   'interact.mode': { hint: 'Qué le pasa a la pieza bajo el cursor o el dedo.' },
   'interact.strength': { hint: 'Cuánto se nota el efecto del cursor.' },
   'interact.radius': { hint: 'Tamaño de la zona que toca el cursor.' },
-  'interact.auto': { hint: 'Si nadie mueve el ratón, un cursor invisible recorre la pieza.' },
+  'interact.auto': { hint: 'Si nadie la toca, un cursor invisible hace el gesto por ti.', more: 'Empieza a los dos segundos y medio sin tocar la pieza. También es lo que se ve en un video o un GIF de la pieza, si lo pides al exportar.' },
+  'interact.decay': { hint: 'Cuánto dura lo que deja el toque antes de apagarse.' },
+  'interact.ink': { hint: 'Cuánto toma lo que tocas el color más claro de la paleta.' },
+  'interact.glyphs': { hint: 'Qué caracteres deja el toque: densos, al azar o los de la propia pieza.' },
 
   /* effects */
   'fx.glow': { hint: 'Cada carácter brilla un poco más allá de su contorno.' },
@@ -173,9 +176,19 @@ export const INTERACT_DESC: Record<InteractMode, string> = {
   erase: 'Borra caracteres; con una foto, deja ver el original.',
   paint: 'Pinta con el cursor; el trazo se desvanece.',
   scramble: 'Revuelve los caracteres bajo el cursor.',
+  trail: 'El dedo o el cursor deja una estela de caracteres que se apaga.',
+  blossom: 'Mantén pulsado: una flor de caracteres crece bajo el dedo.',
+  rings: 'Cada toque abre anillos de caracteres, como una gota en el agua.',
+  sparks: 'Desliza rápido y suelta: el gesto lanza chispas de caracteres.',
+  stretch: 'Arrastra para estirar la pieza como gelatina; vuelve sola a su sitio.',
+  reveal: 'Descubre lo que hay debajo: la foto original, o el color de cada celda.',
+  zoom: 'Pellizca con dos dedos (o Ctrl + rueda) para acercar; arrastra para mover.',
+  magnet: 'Atrae los caracteres hacia el cursor; al pulsar, con más fuerza.',
+  follow: 'Toda la pieza se inclina con calma hacia el cursor. Ideal para fondos.',
 };
 export const INTERACT_ICON: Record<InteractMode, string> = {
   none: '·', light: '◌', ripple: '≈', lens: '◎', repel: '↔', swirl: '@', erase: '░', paint: '▞', scramble: '?!',
+  trail: '~#', blossom: '✿', rings: '◯', sparks: '*·', stretch: '⇝', reveal: '▚', zoom: '⊕', magnet: '→•', follow: '⇢',
 };
 
 export const SOURCE_DESC: Record<SourceKind, string> = {

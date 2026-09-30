@@ -28,6 +28,8 @@ import type { Fallback } from '../exporters/code';
 import './css/export-code.css';
 import { useSwap } from './motion/hooks';
 import { getEngine } from './engineBridge';
+import { InteractNote, withDemo } from './ui/Touch';
+import { studioRamp } from './ramp';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -253,6 +255,7 @@ function ImageTab({ req }: { req: ExportRequest | null }) {
         {images && missing.map(f => <Unavailable key={f} what={`${FORMAT_NAME[f]}: no disponible.`}>{formatGap(f, images)}</Unavailable>)}
         <label className="toggle"><span>Fondo transparente {format === 'jpeg' && '(no en JPEG)'}</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} disabled={format === 'jpeg'} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
         {transparent && <p className="note">Sólo quedan los caracteres (y el relleno de celda), sobre transparencia real: para componerlos encima de otra imagen o video.</p>}
+        <InteractNote r={e.recipe} kind="still" />
         <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Generando…' : 'Descargar imagen'}</button>
       </div>
       <div className="ex-card">
@@ -292,6 +295,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const [busy, setBusy] = useState<{ kind: 'video' | 'gif'; p: number; label?: string } | null>(null);
   const cancel = useRef<Cancel>({ cancelled: false });
   const [gifW, setGifW] = useState(() => (req?.gifW && [320, 480, 640, 800].includes(req.gifW) ? req.gifW : 640));
+  /** The clip records the ghost's gesture (it starts as the piece has it). */
+  const [demo, setDemo] = useState(() => !!e?.recipe.interact.auto);
   const rec = useRecording(s => s.rec);
   const since = useRecording(s => s.since);
   const [recT, setRecT] = useState(0);
@@ -329,9 +334,10 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     const where = kind === 'gif' ? 'gif' : 'video';
     setBusy({ kind: where, p: 0 });
     try {
+      const r = withDemo(e.recipe, demo);
       const blob = kind === 'gif'
-        ? await exportGif(e.recipe, gifW, { fps: Math.min(fps, 25), seconds: secs, start, colors: 128 }, (p, label) => setBusy({ kind: where, p, label }), cancel.current)
-        : await exportVideo(e.recipe, spec, { fps, seconds: secs, format: kind, start }, (p, label) => setBusy({ kind: where, p, label }), cancel.current);
+        ? await exportGif(r, gifW, { fps: Math.min(fps, 25), seconds: secs, start, colors: 128 }, (p, label) => setBusy({ kind: where, p, label }), cancel.current)
+        : await exportVideo(r, spec, { fps, seconds: secs, format: kind, start }, (p, label) => setBusy({ kind: where, p, label }), cancel.current);
       downloadBlob(`${baseName(e.recipe)}.${kind}`, blob);
     } catch (err) {
       if ((err as Error).message !== 'cancelado') toast('La exportación falló: ' + (err as Error).message);
@@ -381,6 +387,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
           <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={60} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(60, +ev.target.value || 1)))} /></label>
           <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
           <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}{warm > 0 ? ` Con Estela, antes del primer fotograma se preparan ${warm.toFixed(1).replace('.', ',')} s sin grabar, para que el clip empiece con su estela${loop > 0 ? ' y enlace' : ''}: tarda algo más.` : ''}</p>
+          <InteractNote r={e.recipe} kind="clip" demo={demo} onDemo={setDemo} />
         </div>
       )}
       <div className="ex-grid">
@@ -497,6 +504,7 @@ function VectorTab() {
             <button type="button" aria-pressed={mode === 'text'} onClick={() => setMode('text')}>Texto editable</button>
           </div></div>
         <label className="toggle"><span>Sin fondo</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
+        <InteractNote r={e.recipe} kind="still" />
         <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Trazando…' : used.length ? 'Descargar SVG (sin efectos de píxel)' : 'Descargar SVG'}</button>
         {notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       </div>
@@ -601,6 +609,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
             </>
           )}
           <p className="note">Ejecuta con <code>node pieza.mjs</code> o <code>python3 pieza.py</code>. El .cast se reproduce con <code>asciinema play</code> o se incrusta en la web.</p>
+          <InteractNote r={e.recipe} kind="text" />
         </div>
       </div>
     </>
@@ -667,13 +676,15 @@ function CodeTab() {
   const [withZone, setWithZone] = useState(true);
   useEffect(() => { void import('../exporters/code').then(setMod); }, []);
   const scrim = withZone ? zone : null;
-  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim, fallback };
+  // the studio's glyph order travels with the code (a page without its web font keeps the picture)
+  const ramp = useMemo(() => (e ? studioRamp(e.recipe) : undefined), [e?.recipe]);
+  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim, fallback, ramp };
   const out = useMemo(() => {
     if (!mod || !e) return null;
     if (kind === 'html') { const r = mod.htmlSnippet(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'glyphos.html', extra: null as string | null }; }
     if (kind === 'wc') { const r = mod.webComponent(e.recipe, opts); return { code: r.usage, notes: r.notes, file: 'glyphos-field.js', extra: r.file }; }
     const r = mod.reactComponent(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'GlyphosBackground.jsx', extra: null };
-  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim, fallback]);
+  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim, fallback, ramp]);
   // what a visitor downloads: the snippet, glyphos-field.js, or the component
   const weight = out ? (out.extra ?? out.code) : null;
   const gz = useGzipSize(weight);
@@ -712,6 +723,7 @@ function CodeTab() {
         </div>
       )}
       <ScrimCodeNote zone={zone} on={withZone} />
+      {interactive && <InteractNote r={e.recipe} kind="code" />}
       {out?.notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       <textarea ref={codeRef} className="code" readOnly value={out?.code ?? 'Preparando…'} aria-label="Código" onFocus={ev => ev.currentTarget.select()} />
       <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>

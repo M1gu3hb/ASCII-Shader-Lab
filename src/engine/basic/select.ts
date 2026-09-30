@@ -33,6 +33,11 @@ export interface SelectFrame {
     anim?: { speed: number; amount: number; time?: number } | null;
   };
   imode: number; ptrCellX: number; ptrCellY: number; ptrOn: number; istr: number; iradCells: number;
+  /**
+   * The marks a gesture leaves (../touch.ts): its bytes (R how strong, G which glyph), 1 to choose the glyph
+   * or 2 to keep the piece's own, and how much the brightest colour tints them. Null: none.
+   */
+  touch?: { data: Uint8Array; mark: number; ink: number } | null;
   /** Cell height / width. */
   aspect: number;
 }
@@ -111,6 +116,8 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
   const doEdge = edge > 0 || gmode === 1;
   const M = s.msg;
   const top = gradAt(s.grad, 1);
+  const acR = top[0], acG = top[1], acB = top[2];
+  const TT = s.touch ?? null;
   const msgCol: [number, number, number] = M.color ?? [top[0], top[1], top[2]];
   const scrambleI = s.imode === 8;
   const tt18 = Math.floor(T * 18), tt24 = Math.floor(T * 24);
@@ -121,6 +128,8 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
       const i = row * cols + col;
       let l = TN[i];
       if (levels > 1.5) l = Math.floor(l * levels * 0.9999) / (levels - 1);
+      let ta = 0, tg = 0;
+      if (TT) { ta = TT.data[i * 4] / 255; tg = TT.data[i * 4 + 1] / 255; const k = Math.min(1, ta * 3); l = l * (1 - k) + ta * k; }
       const dth = bayer ? bayer8(col, row) : hash12(col * 1.37 + 11, row * 1.37 + 11);
       let lq = l + (dth - 0.5) * ditherK;
       lq = lq < 0 ? 0 : lq > 1 ? 1 : lq;
@@ -162,6 +171,7 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
           l = Math.max(l, 0.7); inten = Math.max(inten, 0.9); alpha = 1;
         }
       }
+      if (TT && TT.mark === 1 && tg > 0 && ta > 0.02) { idx = Math.max(1, Math.floor(tg * (0.35 + 0.65 * ta) * (N - 1) + 0.5)); alpha = 1; }
 
       let g = l;
       const ux = (col + 0.5) / cols, uy = (row + 0.5) / rows;
@@ -195,6 +205,11 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
       const gr = br * 0.299 + bg * 0.587 + bb * 0.114;
       br = gr + (br - gr) * sat; bg = gr + (bg - gr) * sat; bb = gr + (bb - gr) * sat;
       br = br < 0 ? 0 : br > 1 ? 1 : br; bg = bg < 0 ? 0 : bg > 1 ? 1 : bg; bb = bb < 0 ? 0 : bb > 1 ? 1 : bb;
+      if (ta > 0) {
+        const k = ta * TT!.ink;
+        br += (acR - br) * k; bg += (acG - bg) * k; bb += (acB - bb) * k;
+        if (ta > inten) inten = ta;
+      }
 
       if (M.on) {
         const mcx = Math.floor((col + M.shift) - M.width * Math.floor((col + M.shift) / M.width));

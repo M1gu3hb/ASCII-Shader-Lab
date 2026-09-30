@@ -10,6 +10,7 @@ import { PI, TAU, blendf, clamp, fbm, hash12 } from './core';
 
 const fr = Math.fround;
 import { basicPattern, setPX, type BasicPattern } from './patterns';
+import { DISP_MAX } from '../touch';
 import { XformState, runStage, updateTrail, type StageEnv } from './xform';
 import type { XformStage } from '../xform';
 
@@ -40,7 +41,13 @@ export interface FieldFrame {
   text: TextBuffer | null;
   /** Index in INTERACT_MODES; pointer in device px from the top-left. */
   imode: number; ptrX: number; ptrY: number; ptrOn: number; istr: number; irad: number;
+  /** 1 while the pointer is pressed (Imán pulls harder). */
+  ptrDown?: number;
   sim: { h: Float32Array; tr: Float32Array } | null;
+  /** «Zoom con los dedos» and «Seguir»: the view p → p·k + (ox, oy) (null: none). See ../touch.ts. */
+  view?: [number, number, number] | null;
+  /** «Estirar»: the touch field's bytes (B and A: displacement per cell), null otherwise. */
+  disp?: Uint8Array | null;
   /**
    * Transformations of the picture or the text (../xform.ts), their grids and Estela's state, and how much
    * the trail keeps this frame. Null: none.
@@ -48,7 +55,7 @@ export interface FieldFrame {
   xform?: { stages: XformStage[]; state: XformState; decay: number; times?: [number, number] } | null;
 }
 
-export const INTERACT_MODES = ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'] as const;
+export { INTERACT as INTERACT_MODES } from '../recipe';
 
 /** Per-cell outputs plus scratch space, sized for cols × rows. */
 export class FieldBuffers {
@@ -204,6 +211,7 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const mx = (f.ptrX - 0.5 * W) / H, my = (0.5 * H - f.ptrY) / H;
   const rad2 = Math.max(f.irad * f.irad, 1e-5), str = f.istr, on = f.ptrOn;
   const pulseK = 1 - f.pulse * 0.06;
+  const V = f.view, disp = f.disp, down = f.ptrDown ?? 0;
 
   // 1. warped sample positions (pointer distortion, pulse zoom, domain warp)
   for (let row = 0; row < rows; row++) {
@@ -211,7 +219,8 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
       const i = row * cols + col;
       const px = fr(((col + 0.5) * cw - 0.5 * W) / H), py = fr((0.5 * H - (row + 0.5) * ch) / H);
       let ppx = px, ppy = py;
-      if (im >= 2 && im <= 5 && on > 0) {
+      if (V) { ppx = fr(fr(px * V[0]) + V[1]); ppy = fr(fr(py * V[0]) + V[2]); }
+      if (((im >= 2 && im <= 5) || im === 16) && on > 0) {
         const dmx = px - mx, dmy = py - my;
         const fall = on * Math.exp(-(dmx * dmx + dmy * dmy) / rad2);
         if (im === 3) { const k = 1 - 0.62 * str * fall; ppx = mx + dmx * k; ppy = my + dmy * k; }
@@ -221,6 +230,10 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
         } else if (im === 5) {
           const an = str * 3.2 * fall, c = Math.cos(an), s = Math.sin(an);
           ppx = mx + c * dmx + s * dmy; ppy = my - s * dmx + c * dmy;
+        } else if (im === 16) {
+          // Imán: the pattern is drawn in toward the pointer, more while pressed
+          const nx = dmx + 1e-5, ny = dmy + 1e-5, nl = Math.sqrt(nx * nx + ny * ny), k = str * f.irad * 0.8 * fall * (1 + 0.8 * down);
+          ppx = px + (nx / nl) * k; ppy = py + (ny / nl) * k;
         }
       }
       if (im === 2 && sim) {
@@ -228,6 +241,11 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
         const gx = simAt(h, cols, rows, col + 1, row) - simAt(h, cols, rows, col - 1, row);
         const gy = simAt(h, cols, rows, col, row - 1) - simAt(h, cols, rows, col, row + 1);
         ppx += gx * 0.05 * str; ppy += gy * 0.05 * str;
+      }
+      if (disp) {
+        // Estirar: the grid shows the pattern from where the finger took it
+        const o = i * 4;
+        ppx -= ((disp[o + 2] - 128) / 127) * DISP_MAX; ppy -= ((disp[o + 3] - 128) / 127) * DISP_MAX;
       }
       if (pulseK !== 1) { ppx = fr(ppx * pulseK); ppy = fr(ppy * pulseK); }
       let qx = ppx, qy = ppy;

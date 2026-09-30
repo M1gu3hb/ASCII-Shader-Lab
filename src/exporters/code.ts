@@ -35,6 +35,12 @@ export interface CodeOptions {
    * background; 'block' is a CSS class (glyphos-zona) for the blocks of text that go on top.
    */
   scrim?: Scrim | null;
+  /**
+   * The glyph order the studio measured for this piece (studio/ramp.ts). The code then keeps that order
+   * («Ordenar» off, the characters in it), so a page whose web font does not arrive draws the same picture
+   * with the fallback font instead of sorting the glyphs by that font's ink.
+   */
+  ramp?: string[];
 }
 
 export const DEFAULT_CODE: CodeOptions = { placement: 'fixed', interactive: true, systemFont: false, height: 420, mediaUrl: '', poster: '', fallback: 'basic' };
@@ -80,6 +86,7 @@ export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes
   } else if (x.glyph.font !== 'system' && x.glyph.font !== 'courier') {
     notes.push('La tipografía se carga desde Google Fonts. Activa «Sin dependencias externas» si prefieres la mono del sistema.');
   }
+  if (o.ramp && o.ramp.length > 1 && x.glyph.sort) { x.glyph.charset = o.ramp.join(''); x.glyph.sort = false; }
   if (x.source === 'camera') { x.source = 'pattern'; notes.push('La cámara no se exporta: el código usa el patrón. Pide permiso de cámara en tu propia web si lo necesitas.'); }
   if ((x.source === 'image' || x.source === 'video') && !o.mediaUrl) notes.push(`Indica la URL de tu ${x.source === 'image' ? 'imagen' : 'video'} (mismo dominio o servida con CORS).`);
   if (x.source === 'text' && x.text.font !== 'sans' && o.systemFont) x.text.font = 'sans';

@@ -1,9 +1,11 @@
 import { buildAtlas, uniqueChars, type Atlas } from '../atlas';
-import { BLENDS, cloneRecipe, type Recipe } from '../recipe';
+import { BLENDS, INTERACT, cloneRecipe, type Recipe } from '../recipe';
 import { fontById } from '../catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
-import type { EngineOptions, EngineStats, GridSnapshot, MediaKind } from '../engine';
+import type { EngineOptions, EngineStats, GestureInput, GridSnapshot, MediaKind } from '../engine';
+import { TOUCH_TILE, VIEW_MODES, TouchField, isMarkMode, isTouchMode, touchSettings } from '../touch';
+import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
 import type { PatternLibrary } from '../glsl/patterns';
 import type { MediaEl, PreviewQuality, Renderer } from '../renderer';
 import { DEFAULT_TRANSITION, transitionOf, type TransitionSpec } from '../transitions';
@@ -15,7 +17,7 @@ import { XformState } from './xform';
 import { blurGrid, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
 import { drawOverlays, hasOverlays, type OverlayCache } from './overlays';
 import {
-  FieldBuffers, INTERACT_MODES, MediaMap, fieldLayers, pulseAt, runField,
+  FieldBuffers, MediaMap, fieldLayers, pulseAt, runField,
   type FieldSource, type MediaBuffer, type TextBuffer,
 } from './field';
 import { SelectBuffers, runSelect } from './select';
@@ -156,7 +158,14 @@ export class BasicEngine implements Renderer {
   /** Cost of the last frame in ms, per pass (dev tools). */
   timings: BasicTimings = { field: 0, select: 0, compose: 0, total: 0 };
 
-  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0 };
+  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1 };
+  /** The gesture modes' field (../touch.ts): the same code, and the same bytes, as the WebGL engine. */
+  private touch = new TouchField();
+  private hub: PointerHub | null = null;
+  /** realT of the last frame the pointer simulation had something to do (see AsciiEngine.simLast). */
+  private simLast = -1e9;
+  /** Fixed-size engines: realT of the last renderAt (see AsciiEngine.demo). */
+  private demoT = NaN;
   private ro: ResizeObserver | null = null;
   private io: IntersectionObserver | null = null;
   private cleanup: Array<() => void> = [];
@@ -233,7 +242,7 @@ export class BasicEngine implements Renderer {
     const prev = this.r;
     this.r = next;
     // (a shared thumbnail engine renders many recipes: a trail never passes from one to the next)
-    if (this.o.fixedSize) this.xf.have = false;
+    if (this.o.fixedSize) { this.xf.have = false; this.touch.reset(); this.demoT = NaN; }
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
       || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
@@ -300,8 +309,46 @@ export class BasicEngine implements Renderer {
   renderAt(t: number, realT = t) {
     this.applyPending();
     this.t = t;
+    const dt = realT - this.demoT;
     this.realT = realT;
-    this.render(0);
+    this.demoT = realT;
+    this.render(this.demo(dt));
+  }
+
+  /** Fixed-size engines with «Cursor automático»: the ghost plays over frames that follow each other (see AsciiEngine.demo). */
+  private demo(dt: number): number {
+    const it = this.r.interact;
+    if (!this.o.fixedSize || it.mode === 'none') return 0;
+    this.touch.demo = it.auto;
+    if (!(dt > 0 && dt <= 0.5)) {
+      if (it.auto) {
+        this.touch.reset(); this.sim.reset();
+        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false });
+        this.stepPointer(0, true);
+        this.ptr.on = 1;
+      }
+      return 0;
+    }
+    this.stepPointer(dt, it.auto);
+    this.stepTouch(dt);
+    return dt;
+  }
+
+  /** A pointer event given by code (see AsciiEngine.gesture). */
+  gesture(e: GestureInput) {
+    const t = e.t ?? this.touch.now;
+    const x = e.x * this.W, y = e.y * this.H;
+    if ((e.id ?? 1) === 1) {
+      const P = this.ptr;
+      if (e.kind === 'down') { P.down = true; P.impulse = 1; }
+      if (e.kind === 'up' || e.kind === 'cancel') P.down = false;
+      if (e.kind === 'leave' || e.kind === 'cancel') P.targetOn = 0;
+      else { if (P.targetOn === 0) { P.x = P.px = x; P.y = P.py = y; } P.tx = x; P.ty = y; P.targetOn = 1; }
+      P.lastReal = this.realT;
+      P.pressure = e.type === 'pen' ? e.pressure ?? 0.5 : -1;
+    }
+    this.touch.input({ kind: e.kind, id: e.id ?? 1, x, y, t, pressure: e.pressure, type: e.type ?? 'touch' });
+    this.needsRender = true;
   }
 
   renderNow() { this.applyPending(); this.render(0); }
@@ -336,7 +383,7 @@ export class BasicEngine implements Renderer {
   }
 
   setPointer(x: number, y: number, on: boolean) {
-    this.ptr.tx = x * this.W; this.ptr.ty = y * this.H; this.ptr.targetOn = on ? 1 : 0; this.ptr.lastReal = performance.now();
+    this.ptr.tx = x * this.W; this.ptr.ty = y * this.H; this.ptr.targetOn = on ? 1 : 0; this.ptr.lastReal = this.realT;
   }
 
   destroy() {
@@ -378,48 +425,17 @@ export class BasicEngine implements Renderer {
   }
 
   private bindPointer() {
-    const target = this.o.pointerTarget ?? 'canvas';
-    const pos = (e: PointerEvent) => {
-      const rc = this.canvas.getBoundingClientRect();
-      if (!rc.width || !rc.height) return null;
-      const x = ((e.clientX - rc.left) * this.W) / rc.width, y = ((e.clientY - rc.top) * this.H) / rc.height;
-      return { x, y, inside: x >= 0 && y >= 0 && x <= this.W && y <= this.H };
-    };
-    const move = (e: PointerEvent) => {
-      const p = pos(e); if (!p) return;
-      const P = this.ptr;
-      if (P.targetOn === 0 && p.inside) { P.x = P.px = p.x; P.y = P.py = p.y; }
-      P.tx = p.x; P.ty = p.y; P.targetOn = p.inside ? 1 : 0; P.lastReal = performance.now();
-      if (this.r.interact.mode !== 'none') this.needsRender = true;
-    };
-    const down = (e: PointerEvent) => { move(e); this.ptr.down = true; this.ptr.impulse = 1; };
-    const up = () => { this.ptr.down = false; };
-    const leave = (e: PointerEvent) => { if (e.pointerType !== 'mouse') this.ptr.down = false; this.ptr.targetOn = 0; };
-    const opts: AddEventListenerOptions = { passive: true };
-    if (target === 'canvas') {
-      const c = this.canvas;
-      c.addEventListener('pointermove', move, opts);
-      c.addEventListener('pointerdown', down, opts);
-      c.addEventListener('pointerup', up, opts);
-      c.addEventListener('pointercancel', leave, opts);
-      c.addEventListener('pointerleave', leave, opts);
-      this.cleanup.push(() => {
-        c.removeEventListener('pointermove', move); c.removeEventListener('pointerdown', down);
-        c.removeEventListener('pointerup', up); c.removeEventListener('pointercancel', leave); c.removeEventListener('pointerleave', leave);
-      });
-    } else {
-      const out = (e: MouseEvent) => { if (!e.relatedTarget) this.ptr.targetOn = 0; };
-      const blur = () => { this.ptr.targetOn = 0; };
-      window.addEventListener('pointermove', move, opts);
-      window.addEventListener('pointerdown', down, opts);
-      window.addEventListener('pointerup', up, opts);
-      document.addEventListener('mouseout', out);
-      window.addEventListener('blur', blur);
-      this.cleanup.push(() => {
-        window.removeEventListener('pointermove', move); window.removeEventListener('pointerdown', down);
-        window.removeEventListener('pointerup', up); document.removeEventListener('mouseout', out); window.removeEventListener('blur', blur);
-      });
-    }
+    this.hub = new PointerHub(this.canvas, {
+      target: this.o.pointerTarget ?? 'canvas',
+      wheelZoom: !!this.o.wheelZoom,
+      size: () => [this.W, this.H],
+      mode: () => this.r.interact.mode,
+      ptr: this.ptr,
+      touch: this.touch,
+      realT: () => this.realT,
+      wake: () => { this.needsRender = true; },
+    });
+    this.cleanup.push(() => this.hub?.destroy());
   }
 
   /* ---------------------------------------------------------------- */
@@ -439,10 +455,11 @@ export class BasicEngine implements Renderer {
     this.realT += dt;
     if (this.trans >= 0 && !Number.isNaN(this.transStart)) this.transElapsed += Math.min(0.2, raw);
     if (this.playing) this.t += dt * this.r.motion.speed;
-    const interactive = this.stepPointer(dt, now);
+    const interactive = this.stepPointer(dt);
+    const touching = this.stepTouch(dt);
     const video = this.r.source === 'video' || this.r.source === 'camera';
-    const sim = ['ripple', 'erase', 'paint'].includes(this.r.interact.mode);
-    if (this.playing || this.needsRender || interactive || video || sim || this.trans >= 0) {
+    const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
+    if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {
       this.needsRender = false;
       const t0 = performance.now();
       const inTrans = this.trans >= 0;
@@ -474,15 +491,16 @@ export class BasicEngine implements Renderer {
     if (this.fast > 90 && this.fpsCap !== top) { this.fpsCap = top; this.fast = 0; }
   }
 
-  private stepPointer(dt: number, now: number): boolean {
+  /** The older pointer modes' pointer (see AsciiEngine.stepPointer). */
+  private stepPointer(dt: number, demo = false): boolean {
     const P = this.ptr, it = this.r.interact;
-    if (it.mode === 'none') return false;
-    if (it.auto && now - P.lastReal > 2500) {
-      const s = this.realT * 0.35;
-      P.tx = this.W * (0.5 + 0.32 * Math.sin(s * 1.3)); P.ty = this.H * (0.5 + 0.28 * Math.sin(s * 1.7 + 1.2));
+    if (it.mode === 'none' || isTouchMode(it.mode)) return false;
+    if (it.auto && (demo || this.realT - P.lastReal > 2.5)) {
+      const [gx, gy] = legacyGhost(this.realT);
+      P.tx = this.W * gx; P.ty = this.H * gy;
       P.targetOn = 1;
     }
-    const sim = it.mode === 'ripple' || it.mode === 'erase' || it.mode === 'paint';
+    const sim = SIM_MODES.includes(it.mode);
     P.px = P.x; P.py = P.y;
     if (sim || P.on < 0.01) { P.x = P.tx; P.y = P.ty; }
     else { const k = Math.min(1, dt * 12); P.x += (P.tx - P.x) * k; P.y += (P.ty - P.y) * k; }
@@ -491,6 +509,18 @@ export class BasicEngine implements Renderer {
     P.on += (P.targetOn - P.on) * Math.min(1, dt * 7);
     return Math.abs(P.on - prevOn) > 0.001 || P.moved > 0.05 || P.impulse > 0;
   }
+
+  /** The gesture modes' field, one frame on (see AsciiEngine.stepTouch). */
+  private stepTouch(dt: number): boolean {
+    const it = this.r.interact;
+    if (!isTouchMode(it.mode)) return false;
+    this.touch.configure(touchSettings(it), this.cols, this.rows, this.cw, this.ch, this.W, this.H);
+    const busy = this.touch.step(dt);
+    this.hub?.stepped();
+    return busy || this.touch.version !== this.touchDrawn;
+  }
+  /** The touch field's version the last frame drew. */
+  private touchDrawn = -1;
 
   /* ---------------------------------------------------------------- */
   /* Resource updates                                                  */
@@ -672,7 +702,7 @@ export class BasicEngine implements Renderer {
   private updateReveal(): Uint32Array | null {
     const r = this.r;
     const want = this.mediaOK && !this.transparent && ['image', 'video', 'camera'].includes(r.source)
-      && (r.media.reveal > 0 || r.interact.mode === 'erase');
+      && (r.media.reveal > 0 || r.interact.mode === 'erase' || r.interact.mode === 'reveal');
     if (!want || !this.mediaBuf) { this.mediaPx = null; return null; }
     const el = this.mediaEl!, m = r.media;
     const key = [this.mediaKey, this.mediaTime, this.W, this.H, m.fit, m.zoom, m.panX, m.panY, m.mirror].join('|');
@@ -727,19 +757,20 @@ export class BasicEngine implements Renderer {
   private runSim(dt: number) {
     const mode = this.r.interact.mode;
     if (mode !== this.simMode) { this.simMode = mode; this.sim.reset(); }
-    const simulate = mode === 'ripple' || mode === 'erase' || mode === 'paint';
-    if (!simulate) return;
+    if (!SIM_MODES.includes(mode)) return;
     const P = this.ptr, it = this.r.interact;
-    const m = INTERACT_MODES.indexOf(mode);
-    const auto = it.auto && performance.now() - P.lastReal > 2500;
-    const active = Math.min(1.2, P.on > 0.2 ? Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0) : 0);
+    const m = INTERACT.indexOf(mode);
+    const auto = it.auto && this.realT - P.lastReal > 2.5;
+    const active = Math.min(1.2, P.on > 0.2 ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0);
     const impulse = P.impulse * (P.on > 0.2 ? 1 : 0);
-    const brushR = Math.max(4, it.radius * this.H * 0.5);
-    // the GPU steps once per displayed frame (~60 Hz); keep the same wave speed at 30 or 15 fps
+    if (active > 0 || impulse > 0) this.simLast = this.realT;
+    const brushR = Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure);
+    // the GPU steps once per 1/60 s too (see AsciiEngine.runSim)
     const steps = dt > 0 ? Math.max(1, Math.min(4, Math.round(dt * 60))) : 1;
     const sdt = (dt || 1 / 60) / steps;
+    const d = it.decay ?? 0.5;
     for (let s = 0; s < steps; s++) {
-      this.sim.step(m, this.cw, this.ch, [P.px, P.py, P.x, P.y], brushR, it.strength, s === 0 ? active : 0, s === 0 ? impulse : 0, sdt);
+      this.sim.step(m, this.cw, this.ch, [P.px, P.py, P.x, P.y], brushR, it.strength, s === 0 ? active : 0, s === 0 ? impulse : 0, sdt, d);
     }
   }
 
@@ -764,7 +795,10 @@ export class BasicEngine implements Renderer {
     const src = SRC_OF(r, this.mediaOK);
     // the piece's time (stop motion, and with «Bucle perfecto» the loop's time: see loop.ts)
     const tq = pieceTime(this.t, r.motion), loop = r.motion.loop;
-    const imode = INTERACT_MODES.indexOf(it.mode);
+    const imode = INTERACT.indexOf(it.mode);
+    const td = this.touch.data.length === this.cols * this.rows * 4 && isTouchMode(it.mode) ? this.touch.data : null;
+    this.touchDrawn = this.touch.version;
+    const ts = touchSettings(it);
     const pulse = pulseAt(r.motion, tq, this.externalPulse);
     const simOn = imode === 2 || imode === 6 || imode === 7;
     // transformations of the source (../xform.ts), with Estela's clock as the WebGL engine keeps it
@@ -786,8 +820,10 @@ export class BasicEngine implements Renderer {
       media: this.mediaBuf, fit: r.media.fit === 'cover' ? 0 : r.media.fit === 'contain' ? 1 : 2,
       zoom: r.media.zoom, panX: r.media.panX, panY: r.media.panY, mirror: r.media.mirror,
       text: this.textBuf,
-      imode, ptrX: P.x, ptrY: P.y, ptrOn: P.on, istr: it.strength, irad: it.radius,
+      imode, ptrX: P.x, ptrY: P.y, ptrOn: P.on, istr: it.strength, irad: it.radius, ptrDown: P.down ? 1 : 0,
       sim: simOn ? { h: this.sim.h, tr: this.sim.tr } : null,
+      view: VIEW_MODES.includes(it.mode) ? this.touch.view : null,
+      disp: it.mode === 'stretch' ? td : null,
       xform: stages.length ? { stages, state: this.xf, decay, times: ondularTimes(tq, loop) } : null,
     }, this.field);
     const T1 = performance.now();
@@ -816,6 +852,7 @@ export class BasicEngine implements Renderer {
         anim: ca ? { speed: ca.speed, amount: ca.amount, time: msgColorTime(m, tq, loop) } : null,
       },
       imode, ptrCellX: P.x / this.cw, ptrCellY: P.y / this.ch, ptrOn: P.on, istr: it.strength, iradCells: (it.radius * this.H) / this.cw,
+      touch: isMarkMode(it.mode) && td ? { data: td, mark: ts.glyphs === 'piece' ? 2 : 1, ink: ts.ink } : null,
       aspect: this.ch / this.cw,
     }, this.sel);
     const T2 = performance.now();
@@ -832,9 +869,11 @@ export class BasicEngine implements Renderer {
       sel: this.sel, atlas: this.glyphs, bg: hexToRgb(r.color.bg), accent: ac, fx,
       msgBox: m.on ? m.box : 0, transparent: this.transparent,
       reveal: hasMedia ? r.media.reveal : 0, eraseReveal: hasMedia && it.mode === 'erase', simTr: this.sim.tr,
+      touchReveal: it.mode === 'reveal' && td ? td : null, hasMedia,
+      touchTile: isMarkMode(it.mode) && td ? { data: td, k: TOUCH_TILE } : null,
       mediaPx: hasMedia ? mediaPx : null, bloom: bloom ? this.bloomBuf : null,
-      // (flicker and grain: the real time, or with a loop the loop's time, as COMPOSE_FS's uFxTime)
-      realT: loop > 0 ? fold(this.t, loop) : this.realT,
+      // (flicker and grain: the piece's time, or with a loop the loop's time, as COMPOSE_FS's uFxTime)
+      realT: loop > 0 ? fold(this.t, loop) : this.t,
     };
     const pixelPost = needsPixelPost(frame);
     if (pixelPost) {
