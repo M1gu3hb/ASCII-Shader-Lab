@@ -179,7 +179,7 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
             <button type="button" className="rx-btn" onClick={() => { setQuery(''); input.current?.focus(); }}>Ver todas las recetas de {spaceName}</button>
           </div>
         )}
-        <p className="rx-foot">Una receta cambia la pieza entera. La anterior se queda en el historial: vuelve a ella con ← o con su miniatura.</p>
+        <p className="rx-foot">Una receta cambia la pieza entera. La anterior se queda en el historial: vuelve a ella con ‹ Anterior o con su miniatura.</p>
       </div>
     </section>
   );
