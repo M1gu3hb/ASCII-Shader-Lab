@@ -206,7 +206,7 @@ test('pausar: el botón de la cabecera detiene los lienzos y el video; con «red
   await expect(toggle).toHaveAccessibleName('Animar la página');
   // the state changes still apply at once: tabs switch and the dice rolls
   await toSection(page, 'espacios');
-  await page.getByRole('tab', { name: /Tipo/ }).click();
+  await page.getByRole('tab', { name: /Texto/ }).click();
   await expect(page.locator('#telar-panel')).toHaveAttribute('aria-labelledby', 't-tipo');
   await toSection(page, 'azar');
   await page.getByRole('button', { name: 'Tirar', exact: true }).click();
@@ -254,4 +254,153 @@ test('pausar también detiene la página de ejemplo del destino Web, y «Animar�
   await expect.poll(playing, { timeout: 20_000 }).toBe(false);
   await toggle.click();
   await expect.poll(playing, { timeout: 20_000 }).toBe(true);
+});
+
+/* ---------- «Haz arte ASCII», woven (src/landing/titulo.ts) ---------- */
+
+const glyph = (page: Page) => page.locator('#hero-title').evaluate(h => (h as HTMLElement).dataset.glyph ?? '');
+const WOVEN = /^(palabras|letras|azar)$/;
+
+test('titular: «Haz arte ASCII» se teje en caracteres y vuelve a leerse, con el texto real y sin mover nada', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.addInitScript(() => {
+    const w = window as unknown as { __shift: number };
+    w.__shift = 0;
+    new PerformanceObserver(l => {
+      for (const e of l.getEntries() as unknown as Array<{ value: number; hadRecentInput: boolean }>) if (!e.hadRecentInput) w.__shift += e.value;
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
+  await page.goto('/');
+  const h1 = page.getByRole('heading', { level: 1 });
+  await expect(h1).toHaveText('Haz arte ASCII');
+  const box = await h1.boundingBox();
+  // the first woven moment comes a few seconds after the load
+  await expect.poll(() => glyph(page), { timeout: 30_000, message: 'the headline weaves' }).toMatch(WOVEN);
+  const canvas = page.locator('#hero-title canvas');
+  await expect(canvas).toHaveAttribute('aria-hidden', 'true');
+  // what is read (and indexed, and copied) is still the real text
+  await expect(h1).toHaveAccessibleName('Haz arte ASCII');
+  expect(await page.locator('#hero-title').evaluate(h => h.textContent)).toBe('Haz arte ASCII');
+  // while woven, the glyphs are drawn over the (transparent) real text
+  await expect.poll(async () => {
+    if (!WOVEN.test(await glyph(page))) return -1;
+    return canvas.evaluate((c: HTMLCanvasElement) => {
+      const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+      let ink = 0;
+      for (let i = 3; i < d.length; i += 16) if (d[i] > 40) ink++;
+      return ink;
+    });
+  }, { timeout: 30_000, message: 'the glyphs are drawn' }).toBeGreaterThan(200);
+  expect(await h1.boundingBox(), 'the heading keeps its box').toEqual(box);
+  // and the legible headline comes back, drawn by the page itself
+  await expect.poll(() => glyph(page), { timeout: 15_000 }).toBe('legible');
+  await expect(page.locator('#hero-title')).not.toHaveClass(/ht-on/);
+  expect(await page.evaluate(() => (window as unknown as { __shift: number }).__shift), 'no layout shift').toBeLessThan(0.001);
+  expect(errors).toEqual([]);
+});
+
+test('titular: fuera de la pantalla y en pausa se queda legible y quieto', async ({ page }) => {
+  await page.goto('/');
+  await expect.poll(() => glyph(page), { timeout: 30_000 }).toMatch(WOVEN);
+  // scrolled away mid-weave: the real text is back at once, and nothing is drawn while away
+  await page.evaluate(() => document.getElementById('oficio')!.scrollIntoView({ behavior: 'instant' }));
+  await expect(page.locator('#hero-title')).not.toHaveClass(/ht-on/);
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(500);
+    expect(await glyph(page)).toBe('legible');
+  }
+  // back on screen it weaves again; «Pausar» stops it, legible
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect.poll(() => glyph(page), { timeout: 30_000 }).toMatch(WOVEN);
+  await page.locator('[data-motion-toggle]').click();
+  await expect(page.locator('#hero-title')).not.toHaveClass(/ht-on/);
+  await expect.poll(() => glyph(page)).toBe('legible');
+  await page.waitForTimeout(4000);
+  expect(await glyph(page)).toBe('legible');
+});
+
+test('titular con «reducir movimiento»: el texto real, quieto, sin lienzo', async ({ browser }) => {
+  const ctx = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Haz arte ASCII');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(6000);
+  await expect(page.locator('#hero-title canvas')).toHaveCount(0);
+  expect(await glyph(page)).toBe('');
+  await ctx.close();
+});
+
+/* ---------- «Qué puedes hacer»: each guide's example (src/landing/guias.ts) ---------- */
+
+test('qué puedes hacer: el ejemplo de cada guía se ve con el cursor y con el teclado, y Enter abre la guía', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/');
+  await toSection(page, 'guias');
+  const cards = page.locator('#guias a.guide-card');
+  await expect(cards).toHaveCount(5);
+  // every card describes its example; the picture exists
+  for (const img of await cards.locator('.gc-media img').all()) {
+    expect((await img.getAttribute('alt'))?.length ?? 0).toBeGreaterThan(30);
+    const src = (await img.getAttribute('src'))!;
+    expect((await page.request.get(src)).status(), src).toBe(200);
+  }
+  const texto = page.locator('#guias a.guide-card[href="/texto-animado-ascii/"]');
+  await expect(texto.locator('img')).toHaveAttribute('alt', /GLYPHOS/);
+  // mouse: the example shows and its loop plays; leaving stops it
+  await texto.hover();
+  await expect(texto.locator('.gc-media')).toHaveCSS('opacity', '1');
+  await expect(texto.locator('video')).toHaveClass(/on/, { timeout: 15_000 });
+  expect(await texto.locator('video').evaluate((v: HTMLVideoElement) => !v.paused)).toBe(true);
+  await page.mouse.move(2, 2);
+  await expect.poll(() => texto.locator('video').evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+  // keyboard: the focused card shows its example, Enter follows the link
+  const fondos = page.locator('#guias a.guide-card[href="/fondos-ascii/"]');
+  await page.locator('#guias a.guide-card[href="/video-a-ascii/"]').focus();
+  await page.keyboard.press('Tab');
+  await expect(fondos).toBeFocused();
+  await expect(fondos.locator('.gc-media')).toHaveCSS('opacity', '1');
+  await expect(fondos.locator('video')).toHaveClass(/on/, { timeout: 15_000 });
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/fondos-ascii\/$/);
+  expect(errors).toEqual([]);
+});
+
+test('qué puedes hacer en una pantalla táctil: el primer toque muestra el ejemplo, el segundo abre la guía', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  const page = await ctx.newPage();
+  await page.goto('/');
+  await toSection(page, 'guias');
+  const card = page.locator('#guias a.guide-card[href="/texto-animado-ascii/"]');
+  await card.scrollIntoViewIfNeeded();
+  await card.tap();
+  await expect(card).toHaveAttribute('data-open', '');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(card.locator('.gc-hint')).toHaveText(/Toca otra vez/);
+  await expect(page.locator('#guias [aria-live="polite"]')).toContainText('Toca otra vez para abrir la guía');
+  await expect(card.locator('video')).toHaveClass(/on/, { timeout: 15_000 });
+  // another card: the first one closes
+  const video = page.locator('#guias a.guide-card[href="/video-a-ascii/"]');
+  await video.scrollIntoViewIfNeeded();
+  await video.tap();
+  await expect(video).toHaveAttribute('data-open', '');
+  await expect(card).not.toHaveAttribute('data-open', '');
+  await video.tap();
+  await expect(page).toHaveURL(/\/video-a-ascii\/$/);
+  await ctx.close();
+});
+
+test('qué puedes hacer con «reducir movimiento»: la imagen del ejemplo, sin video', async ({ browser }) => {
+  const ctx = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  await page.goto('/');
+  await toSection(page, 'guias');
+  const card = page.locator('#guias a.guide-card[href="/texto-animado-ascii/"]');
+  await card.hover();
+  await expect(card.locator('.gc-media')).toHaveCSS('opacity', '1');
+  await page.waitForTimeout(1500);
+  await expect(card.locator('video')).toHaveCount(0);
+  await ctx.close();
 });

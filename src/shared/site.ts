@@ -72,7 +72,7 @@ export const GUIDES: Guide[] = [
     id: 'texto', path: '/texto-animado-ascii/', short: 'Texto', name: 'Texto animado en ASCII',
     blurb: 'Palabras rellenas de patrón y mensajes que se escriben solos.',
     cta: { href: '/studio/?camino=palabra', label: 'Animar una palabra' },
-    poster: '/ex/texto-animado-ascii', posterAlt: 'La palabra SEÑAL rellena de un patrón de plasma en caracteres rosas y cian',
+    poster: '/ex/texto-animado-ascii', posterAlt: 'La palabra GLYPHOS hecha de caracteres que van del rosa al cian, con las letras en ola',
   },
   {
     id: 'terminal', path: '/arte-ascii-terminal/', short: 'Terminal', name: 'Arte ASCII para terminal',

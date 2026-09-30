@@ -6,6 +6,7 @@ import { GUIDES, MORPHIQ, PAGES, SITE_URL } from '../../src/shared/site';
 import { cleanVerification, contactSheet, fmtBytes, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, salida, shortUsage, sitemapXml } from '../../scripts/seo';
 import { PATTERNS } from '../../src/engine/catalog';
 import { CONTACTS, contactSrc } from '../../src/landing/contacts';
+import { GUIDE_MEDIA, GUIDE_MEDIA_PX, guideLoop, guidePoster } from '../../src/landing/guias-data';
 import { PRESETS } from '../../src/studio/presets';
 
 const root = join(import.meta.dirname, '../..');
@@ -135,6 +136,31 @@ describe('directives', () => {
     const html = renderPage('<!-- @guides others -->', page('video'), opts);
     expect(html).not.toContain('href="/video-a-ascii/"');
     expect(html.match(/class="guide-card"/g)).toHaveLength(4);
+  });
+
+  it('each guide card carries its example: the picture, the loop in MP4 and WebM, a real description, light files', () => {
+    const html = renderPage('<!-- @guides -->', page('main'), opts);
+    for (const g of GUIDES) {
+      expect(html).toContain(`data-loop="${guideLoop(g.id)}"`);
+      expect(html).toContain(`src="${guidePoster(g.id)}" width="${GUIDE_MEDIA_PX.width}" height="${GUIDE_MEDIA_PX.height}" alt="${GUIDE_MEDIA[g.id].alt}"`);
+      expect(GUIDE_MEDIA[g.id].alt.length, g.id).toBeGreaterThan(30);
+      // what a card may weigh: the picture loads with the page (lazily), a loop only when someone asks for it
+      const limit = { webp: 110, mp4: 200, webm: 200 } as const;
+      for (const ext of ['webp', 'mp4', 'webm'] as const) {
+        const f = join(root, 'public', `${guideLoop(g.id)}.${ext}`);
+        expect(existsSync(f), f).toBe(true);
+        expect(statSync(f).size / 1024, f).toBeLessThan(limit[ext]);
+      }
+    }
+    expect(html).not.toContain('alt=""');
+  });
+
+  it('the public pages show GLYPHOS in their examples: no «SEÑAL», no «MONOTRAMA», and the headline without «que se mueve»', () => {
+    const files = ['index.html', '404.html', ...GUIDES.map(g => `${g.path.slice(1)}index.html`)];
+    for (const f of files) expect(readFileSync(join(root, f), 'utf8'), f).not.toMatch(/SEÑAL|MONOTRAMA/);
+    for (const g of GUIDES) expect(`${g.posterAlt} ${GUIDE_MEDIA[g.id].alt}`).not.toMatch(/SEÑAL|MONOTRAMA/);
+    expect(readFileSync(join(root, 'index.html'), 'utf8')).toMatch(/<h1 id="hero-title" class="hero-title">Haz arte ASCII<\/h1>/);
+    for (const p of PAGES) expect(`${p.title} ${p.description}`).not.toContain('que se mueve');
   });
 
   it('includes text files escaped and keeps a leading blank row inside <pre>', () => {

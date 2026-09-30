@@ -20,7 +20,7 @@ import { tabset } from './tabs';
 type Space = 'fondos' | 'arte' | 'media' | 'tipo' | 'terminal' | 'componentes';
 interface Example { name: string; make: () => Recipe }
 
-const SPACE_NAME: Record<Space, string> = { fondos: 'Fondos', arte: 'Arte', media: 'Imagen', tipo: 'Tipo', terminal: 'Terminal', componentes: 'Piezas' };
+const SPACE_NAME: Record<Space, string> = { fondos: 'Fondos', arte: 'Arte', media: 'Imagen', tipo: 'Texto', terminal: 'Terminal', componentes: 'Piezas' };
 
 function ex(space: keyof typeof PRESETS, id: string, tweak?: (r: Recipe) => void): Example {
   const p = PRESETS[space].find(x => x.id === id)!;
@@ -31,7 +31,8 @@ const EXAMPLES: Record<Space, Example[]> = {
   fondos: [ex('fondos', 'marea'), ex('fondos', 'orbita'), ex('fondos', 'papel-vivo')],
   arte: [ex('arte', 'nudo'), ex('arte', 'geoda'), ex('arte', 'saturno')],
   media: [ex('media', 'retrato', r => { r.glyph.cell = 7; }), ex('media', 'fosforo'), ex('media', 'bloques')],
-  tipo: [ex('tipo', 'neon'), ex('tipo', 'disolver'), ex('tipo', 'trama')],
+  // the visible word of «Neón» is GLYPHOS here (the preset's own word stays as it is in the studio)
+  tipo: [ex('tipo', 'neon', r => { r.text.content = 'GLYPHOS'; }), ex('tipo', 'disolver'), ex('tipo', 'trama')],
   terminal: [ex('terminal', 'donut'), ex('terminal', 'radar'), ex('terminal', 'consola')],
   // the interface pieces sit on a quiet background, as they would on a page
   componentes: [ex('fondos', 'bruma', r => { r.color.stops = ['#16181c', '#4a505a']; })],

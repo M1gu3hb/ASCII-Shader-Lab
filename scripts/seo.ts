@@ -7,7 +7,7 @@
  *   <!-- @head -->              title, description, canonical, Open Graph, Twitter, JSON-LD
  *   <!-- @header -->            top bar of the guide pages
  *   <!-- @footer -->            footer with the guides, links and the Morphiq credit (`@footer paper` on light pages)
- *   <!-- @guides -->            cards for the five guides (`@guides others` leaves out the current one)
+ *   <!-- @guides -->            cards for the five guides and their examples (`@guides others` leaves out the current one)
  *   <!-- @guide-links -->       plain list of links to the guides
  *   <!-- @mark -->              the GLYPHOS symbol (inline SVG)
  *   <!-- @word -->              the GLYPHOS wordmark (inline SVG, in the text colour)
@@ -18,6 +18,7 @@
  */
 import { logoMark, wordmark } from '../src/shared/brand.ts';
 import { CONTACTS, CONTACT_PX, contactSrc } from '../src/landing/contacts.ts';
+import { GUIDE_MEDIA, GUIDE_MEDIA_PX, guideLoop, guidePoster } from '../src/landing/guias-data.ts';
 import {
   GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
 } from '../src/shared/site.ts';
@@ -197,11 +198,16 @@ export function siteFooter(tone: 'ink' | 'paper' = 'ink'): string {
 </footer>`;
 }
 
-/** The guides as an editorial index: a large row per guide, its poster revealed on hover and focus. */
+/**
+ * The guides as an editorial index: a large row per guide and its example (src/landing/guias-data.ts), a
+ * picture that turns into a short loop on hover, on keyboard focus and on a first tap (src/landing/guias.ts;
+ * a second tap, or Enter, opens the guide).
+ */
 export function guideCards(exceptPath?: string): string {
-  const items = GUIDES.filter(g => g.path !== exceptPath).map(g => `<li><a class="guide-card" href="${g.path}">
+  const { width, height } = GUIDE_MEDIA_PX;
+  const items = GUIDES.filter(g => g.path !== exceptPath).map(g => `<li><a class="guide-card" href="${g.path}" data-loop="${guideLoop(g.id)}">
       <span class="gc-txt"><b>${g.name}</b><span>${g.blurb}</span></span><span class="gc-go" aria-hidden="true">→</span>
-      <img src="${g.poster}-640.webp" width="640" height="400" alt="" loading="lazy" decoding="async"></a></li>`);
+      <span class="gc-media"><img src="${guidePoster(g.id)}" width="${width}" height="${height}" alt="${escapeHtml(GUIDE_MEDIA[g.id].alt)}" loading="lazy" decoding="async"></span></a></li>`);
   return `<ul class="guides" role="list">\n    ${items.join('\n    ')}\n  </ul>`;
 }
 
