@@ -7,6 +7,8 @@ import { fingerprint, generate, genOf, GEN_VERSION, GEN_VERSIONS, roll, SPACES, 
 interface Case { seed: string; space: SpaceId; arch?: string; locks?: LockGroup[]; base?: 'prev' | 'media' | 'text'; fp: string; recipe: Recipe }
 const fixture = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v1.json'), 'utf8')) as { gen: number; cases: Case[] };
 const fixture2 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v2.json'), 'utf8')) as { gen: number; cases: Case[] };
+/** Versions 3 and 4 as captured before version 5 existed (each case carries its version, and its base when it is not the default). */
+const fixture34 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v3v4.json'), 'utf8')) as { gens: number[]; cases: Array<Omit<Case, 'base'> & { gen: number; base?: Recipe }> };
 /** Recipes live as JSON (history, favourites, links): compare that form (it also folds -0 into 0). */
 const json = (r: Recipe) => JSON.parse(JSON.stringify(r)) as Recipe;
 
@@ -46,6 +48,17 @@ describe('generator versions', () => {
       const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base: base2(c), gen: 2 });
       expect(json(r), `${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r)).toBe(c.fp);
+    }
+  });
+
+  it('versions 3 and 4 still weave exactly what they wove before version 5 (and the same fingerprints)', () => {
+    expect(fixture34.gens).toEqual([3, 4]);
+    expect(fixture34.cases.length).toBeGreaterThan(100);
+    for (const c of fixture34.cases) {
+      const base = c.base ? (JSON.parse(JSON.stringify(c.base)) as Recipe) : defaultRecipe();
+      const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: c.gen });
+      expect(json(r), `v${c.gen} ${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r), `v${c.gen} ${c.space}/${c.seed}`).toBe(c.fp);
     }
   });
 
