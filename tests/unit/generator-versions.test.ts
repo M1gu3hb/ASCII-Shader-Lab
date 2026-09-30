@@ -129,10 +129,11 @@ describe('generator versions', () => {
     expect(generate({ seed: 'x', space: 'arte', base: defaultRecipe(), gen: 99 })).toEqual(generate({ seed: 'x', space: 'arte', base: defaultRecipe() }));
   });
 
-  it('version 2: a 3D object is only ever the lead layer, and never under a photo or inside letters', () => {
-    for (const s of SPACES) for (let i = 0; i < 150; i++) {
-      const r = generate({ seed: `v2-${i}`, space: s.id, base: defaultRecipe() });
-      r.layers.slice(1).forEach(l => expect(patternById(l.pattern).family, `${s.id} v2-${i}`).not.toBe('solidos'));
+  it('versions 2 and later: a 3D object is only ever the lead layer, and never under a photo or inside letters', () => {
+    for (const gen of [2, 5]) for (const s of SPACES) for (let i = 0; i < 150; i++) {
+      const r = generate({ seed: `v2-${i}`, space: s.id, base: defaultRecipe(), gen });
+      // (a composed scene of the studio may keep an object turning behind its particles, as it was designed)
+      if (r.meta.arch !== 'escena') r.layers.slice(1).forEach(l => expect(patternById(l.pattern).family, `${s.id} v2-${i}`).not.toBe('solidos'));
       if (s.id === 'media' || s.id === 'tipo') expect(patternById(r.layers[0].pattern).family).not.toBe('solidos');
       const n = normalizeRecipe(r, PATTERN_IDS);
       expect(n.layers).toEqual(r.layers);

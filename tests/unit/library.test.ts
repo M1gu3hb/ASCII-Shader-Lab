@@ -6,7 +6,8 @@ import { PARTICLE_IDS } from '../../src/engine/glsl/particles';
 import { animateMessage, letterPose, movedCell, msgAnimPeriod, textAnimPeriod } from '../../src/engine/letters';
 import { MSG_ANIMS, TEXT_ANIMS, defaultRecipe, normalizeRecipe, type LetterAnim, type Recipe } from '../../src/engine/recipe';
 import { layoutMessage } from '../../src/engine/text';
-import { ARCHETYPES } from '../../src/random/archetypes';
+import { ARCHETYPES_V2 as ARCHETYPES } from '../../src/random/v2';
+import { ARCHETYPES_V5 } from '../../src/random/v5';
 import { GEN_VERSION, GEN_VERSIONS, generate } from '../../src/random/generator';
 import { LIBRARY_CHARSETS, LIBRARY_MSG_ANIMS, LIBRARY_PALETTES, LIBRARY_PATTERNS, LIBRARY_TEXT_ANIMS, libraryArchetypes } from '../../src/random/library';
 import { PALETTE_GALLERY, PALETTE_MOODS, galleryPalette, pickGallery } from '../../src/random/palette-gallery';
@@ -254,9 +255,9 @@ describe('library: recipes and scenes', () => {
 });
 
 describe('library: the generator', () => {
-  it('stays at version 4: the library is data for the next version', () => {
-    expect(GEN_VERSION).toBe(4);
-    expect(GEN_VERSIONS).toEqual([1, 2, 3, 4]);
+  it('versions 1–4 never weave with the library; version 5 does', () => {
+    expect(GEN_VERSION).toBe(5);
+    expect(GEN_VERSIONS).toEqual([1, 2, 3, 4, 5]);
     const lib = new Set<string>([...NEW_IDS]);
     const libCharsets = new Set(CHARSET_LIB.map(id => charsetById(id)!.chars));
     const galleryNames = new Set(PALETTE_GALLERY.map(p => p.name));
@@ -267,6 +268,18 @@ describe('library: the generator', () => {
       expect(ANIMS.some(k => r.text.anim?.kind === k || r.msg.anim?.kind === k)).toBe(false);
       expect(galleryNames.has(r.meta.name ?? '')).toBe(false);
     }
+    let withLib = 0, withCs = 0, anims = 0;
+    for (const s of SPACES) for (let i = 0; i < 60; i++) {
+      const r = generate({ seed: `biblioteca-${i}`, space: s.id, base: defaultRecipe(), gen: 5 });
+      if (r.layers.some(l => lib.has(l.pattern))) withLib++;
+      if (libCharsets.has(r.glyph.charset)) withCs++;
+      if (ANIMS.some(k => r.text.anim?.kind === k || r.msg.anim?.kind === k)) anims++;
+    }
+    expect(withLib).toBeGreaterThan(120);
+    expect(withCs).toBeGreaterThan(40);
+    expect(anims).toBeGreaterThan(3);
+    // every pattern of the catalog is in some style of version 5
+    for (const p of PATTERNS) expect(ARCHETYPES_V5.some(a => p.id in a.patterns || p.id in (a.overlays ?? {})), p.id).toBe(true);
   });
 
   it('keeps the branch\'s weights as tables whose every id exists', () => {
