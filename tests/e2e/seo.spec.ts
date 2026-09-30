@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { FOTO_STUDIO } from './foto-helpers';
 
 /** Public site: crawl files, canonical URLs, share tags, structured data, guides and the brand credit. */
 const SITE = 'https://glyphos-ascii.vercel.app';
-const PATHS = ['/', '/studio/', '/studio/foto/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
+/** The photo and video studio is listed only when the build makes it public (VITE_FOTO_STUDIO=1). */
+const PATHS = ['/', '/studio/', ...(FOTO_STUDIO ? ['/studio/foto/'] : []), '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
 const GUIDES: Array<[string, string]> = [
   ['/imagen-a-ascii/', '/studio/?camino=foto'],
   ['/video-a-ascii/', '/studio/#space=media&source=video'],
@@ -206,4 +208,32 @@ test('the studio shell summarises the studio for crawlers and gives way to the a
   await page.goto('/studio/');
   await expect(page.locator('.stage canvas').first()).toBeVisible();
   await expect(page.locator('.boot')).toHaveCount(0);
+});
+
+test('con el estudio de foto en pausa ninguna página pública lo enlaza, y el sitemap no lo lista', async ({ page, request }) => {
+  test.skip(FOTO_STUDIO, 'Con VITE_FOTO_STUDIO=1 el estudio de foto y video es público y se enlaza.');
+  expect(await (await request.get('/sitemap.xml')).text()).not.toContain('/studio/foto');
+  const toFoto = (hrefs: string[]) => hrefs.filter(h => new URL(h, SITE).pathname.startsWith('/studio/foto'));
+  const hrefs = (p: Page) => p.locator('a[href], area[href]').evaluateAll(els => els.map(e => e.getAttribute('href') ?? ''));
+  for (const path of ['/', '/studio/', ...GUIDES.map(g => g[0]), '/licencia/', '/esta-pagina-no-existe/']) {
+    // the HTML as served (what a crawler reads first)…
+    const html = await (await request.get(path)).text();
+    expect(html, path).not.toContain('/studio/foto');
+    // …and the page once its scripts ran: the lab's bar and its welcome, the landing's islands (brought into view)
+    await page.goto(path);
+    if (path === '/studio/') {
+      await expect(page.locator('.stage canvas').first()).toBeVisible({ timeout: 45_000 });
+      await expect(page.locator('.seedline')).toBeVisible({ timeout: 45_000 });
+      expect(toFoto(await hrefs(page)), path + ' (con la bienvenida)').toEqual([]);
+      await page.keyboard.press('Escape');
+    } else {
+      await page.waitForLoadState('load');
+      for (let y = 0; y < 12; y++) {
+        await page.mouse.wheel(0, 900);
+        await page.waitForTimeout(150);
+      }
+    }
+    await page.waitForTimeout(600);
+    expect(toFoto(await hrefs(page)), path).toEqual([]);
+  }
 });

@@ -26,9 +26,32 @@ html,body{background:#0c0b0a;margin:0}
 .boot a:focus-visible{outline:2px solid #ffb08a;outline-offset:3px;border-radius:4px}
 @media (prefers-reduced-motion:reduce){.boot-bar::after{animation:none;width:100%;opacity:.5}}
 </style>
+<!-- @foto-on -->
 <noscript><style>.boot-load{display:none!important}</style></noscript>
+<!-- @foto-end -->
+<!-- @foto-off -->
+<style>
+/* The «en revisión» page (the studio is paused: src/shared/site.ts, FOTO_STUDIO). Static: no script, nothing stored is read. */
+.review{position:static;min-height:100vh;min-height:100dvh;align-content:center;padding:max(40px,env(safe-area-inset-top)) 16px max(40px,env(safe-area-inset-bottom))}
+.review .boot-in{width:100%;max-width:560px}
+.review .ramp{margin:0 0 20px;font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.32em;color:#4d4841;white-space:pre;overflow:hidden}
+.review h1{font-size:clamp(26px,5.4vw,38px);text-wrap:balance}
+.review .lead{font-size:17px;color:#ede6da;margin:0 0 28px}
+.review-go{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 14px}
+.review-go a{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border-radius:8px;box-sizing:border-box;font:600 15px/1.2 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-decoration:none}
+.review-go .primary{background:#ff5b1f;color:#0c0b0a}
+.review-go .primary:hover{background:#ff7a47}
+.review-go .line{border:1px solid rgba(237,230,218,.28);color:#ede6da}
+.review-go .line:hover{border-color:rgba(237,230,218,.55);background:rgba(237,230,218,.04)}
+.review .note{font-size:14px;color:#a39c90;margin:0 0 6px}
+.review .fine{margin-top:28px;padding-top:16px;border-top:1px solid rgba(237,230,218,.12);font-size:13.5px;color:#8c857a}
+.review .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:420px){.review-go a{flex:1 1 100%}}
+</style>
+<!-- @foto-end -->
 </head>
 <body>
+<!-- @foto-on -->
 <div id="root">
   <main class="boot">
     <div class="boot-in">
@@ -44,5 +67,22 @@ html,body{background:#0c0b0a;margin:0}
   </main>
 </div>
 <script type="module" src="/src/foto/main.tsx"></script>
+<!-- @foto-end -->
+<!-- @foto-off -->
+<main class="boot review" data-foto-review>
+  <div class="boot-in">
+    <p class="boot-brand"><span class="sr">GLYPHOS</span><!-- @mark --><!-- @word --><small>foto y video</small></p>
+    <p class="ramp" aria-hidden="true">.:-=+*#%@</p>
+    <h1>El estudio de foto y video está en revisión</h1>
+    <p class="lead">Lo estamos afinando y todavía no está disponible.</p>
+    <p class="review-go">
+      <a class="primary" href="/studio/">Ir al laboratorio <span aria-hidden="true">→</span></a>
+      <a class="line" href="/">Ir a GLYPHOS</a>
+    </p>
+    <p class="note">En el laboratorio sigues convirtiendo tu imagen, tu video o tu cámara en ASCII.</p>
+    <p class="fine">Si guardaste proyectos de foto en este navegador, siguen ahí: esta página no los abre ni los cambia.</p>
+  </div>
+</main>
+<!-- @foto-end -->
 </body>
 </html>

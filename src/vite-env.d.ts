@@ -1,4 +1,11 @@
 /// <reference types="vite/client" />
+interface ImportMetaEnv {
+  /** '1' makes the photo and video studio public (src/shared/site.ts, FOTO_STUDIO); unset, it is paused. */
+  readonly VITE_FOTO_STUDIO?: string;
+}
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
 declare module 'virtual:mt-runtime' {
   const code: string;
   export default code;

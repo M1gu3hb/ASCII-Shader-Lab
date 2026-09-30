@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { unzip } from '../../src/shared/zip';
 import { download } from './helpers';
-import { finalRender, openFoto, project } from './foto-helpers';
+import { needsFotoStudio, finalRender, openFoto, project } from './foto-helpers';
 
 /**
  * The photo studio's export sheet. Preview = export: the PNG at 1× is, pixel for pixel, the viewport's final
@@ -11,6 +11,7 @@ import { finalRender, openFoto, project } from './foto-helpers';
  * (its characters, drawn again with the studio's glyph drawing, give the compositor's pixels); an animated glyph
  * layer's .cast holds those frames; the README bundle; the sheet says each format's limits; cancel stops.
  */
+needsFotoStudio();
 
 type W = Window & { __foto: Record<string, any>; __fotoExport: Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
 

@@ -4,6 +4,18 @@
  * robots.txt, the shared header and footer, and the Vite inputs.
  */
 
+/**
+ * Whether the photo and video studio (/studio/foto/) is public: `VITE_FOTO_STUDIO=1` at build time (or in
+ * `npm run dev`). Unset, it is paused: nothing public links to it, it is out of the sitemap and the structured
+ * data, and /studio/foto/ answers with an «en revisión» page that does not load the studio (the person's saved
+ * photo projects stay untouched in their browser for when it returns). The lab keeps image, video and camera.
+ * The app reads Vite's `import.meta.env`; the build scripts that import this file (vite.config.ts,
+ * scripts/seo.ts) and the e2e tests run in plain Node, where it does not exist, and read the environment.
+ */
+export const FOTO_STUDIO: boolean = (import.meta.env
+  ? import.meta.env.VITE_FOTO_STUDIO
+  : (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.VITE_FOTO_STUDIO) === '1';
+
 /** Canonical origin. Other hosts (e.g. ascii-shader-lab.vercel.app) redirect here (vercel.json). */
 export const SITE_URL = 'https://glyphos-ascii.vercel.app';
 export const SITE_NAME = 'GLYPHOS';
@@ -12,7 +24,8 @@ export const REPO_URL = 'https://github.com/M1gu3hb/ASCII-Shader-Lab';
 
 export interface ShareImage { path: string; width: number; height: number; alt: string }
 
-export type PageKind = 'home' | 'app' | 'guide' | 'doc' | 'error';
+/** 'paused': a page kept so old links do not break, out of the index (noindex, no canonical, no JSON-LD). */
+export type PageKind = 'home' | 'app' | 'guide' | 'doc' | 'error' | 'paused';
 
 export interface SitePage {
   /** Vite input name. */
@@ -89,7 +102,25 @@ const guidePage = (id: Guide['id'], file: string, title: string, description: st
   return { id, file, path: g.path, kind: 'guide', title, description, image: og(g.path.slice(1, -1), g.posterAlt), crumb: g.name, sitemap: true };
 };
 
-export const PAGES: SitePage[] = [
+/** The photo and video studio's page: the studio itself when it is public, the «en revisión» page when paused. */
+export function fotoPage(foto: boolean): SitePage {
+  const base = { id: 'foto', file: 'studio/foto/index.html', path: '/studio/foto/', crumb: 'Estudio de foto y video' };
+  return foto
+    ? {
+      ...base, kind: 'app', sitemap: true,
+      image: og('imagen-a-ascii', 'Paisaje al atardecer convertido en caracteres de colores con el estilo Retrato'),
+      title: 'Estudio de foto y video GLYPHOS — tu foto en capas de ASCII',
+      description: 'Sólo las partes que elijas de tu foto o video, en ASCII: capas, máscaras, recorte en tu navegador y animación. Exporta PNG transparente, texto, GIF o video.',
+    }
+    : {
+      ...base, kind: 'paused', sitemap: false, image: SITE_IMAGE,
+      title: 'Estudio de foto y video en revisión · GLYPHOS',
+      description: 'El estudio de foto y video de GLYPHOS se está afinando y todavía no está disponible. El laboratorio sigue convirtiendo imagen, video y cámara en ASCII.',
+    };
+}
+
+/** Every page of the site, with the photo studio public (`foto`) or paused. The build uses PAGES. */
+export const sitePages = (foto: boolean): SitePage[] => [
   {
     id: 'main', file: 'index.html', path: '/', kind: 'home', crumb: 'GLYPHOS', sitemap: true, image: SITE_IMAGE,
     title: 'GLYPHOS — Generador de arte ASCII online y animado',
@@ -100,12 +131,7 @@ export const PAGES: SitePage[] = [
     title: 'Estudio GLYPHOS — Generador ASCII en tu navegador',
     description: 'Genera arte ASCII en tiempo real: tira el dado, ajusta patrón, color y glifos, usa tu foto, video o cámara y exporta a PNG, SVG, MP4, GIF, ANSI o código.',
   },
-  {
-    id: 'foto', file: 'studio/foto/index.html', path: '/studio/foto/', kind: 'app', crumb: 'Estudio de foto y video', sitemap: true,
-    image: og('imagen-a-ascii', 'Paisaje al atardecer convertido en caracteres de colores con el estilo Retrato'),
-    title: 'Estudio de foto y video GLYPHOS — tu foto en capas de ASCII',
-    description: 'Sólo las partes que elijas de tu foto o video, en ASCII: capas, máscaras, recorte en tu navegador y animación. Exporta PNG transparente, texto, GIF o video.',
-  },
+  fotoPage(foto),
   guidePage('imagen', 'imagen-a-ascii/index.html',
     'Imagen a ASCII: convierte tu foto en arte ASCII · GLYPHOS',
     'Convierte una foto en arte ASCII en tu navegador, sin subirla a ningún servidor. Ajusta glifos y color, y descarga PNG, SVG, texto o video.'),
@@ -132,6 +158,8 @@ export const PAGES: SitePage[] = [
     description: 'Esta dirección no existe en GLYPHOS. Vuelve al inicio, abre el estudio o elige una guía.',
   },
 ];
+
+export const PAGES: SitePage[] = sitePages(FOTO_STUDIO);
 
 export const pageByFile = (file: string) => PAGES.find(p => p.file === file.replace(/\\/g, '/').replace(/^\/+/, ''));
 export const absUrl = (path: string) => SITE_URL + path;

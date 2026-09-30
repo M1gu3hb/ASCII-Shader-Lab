@@ -15,11 +15,16 @@
  *   <!-- @contacts -->          the landing's «Azar» contact sheet (src/landing/contacts.ts)
  *   <!-- @salida:key -->        a fact about the landing's exported files, read from public/ex/salidas/manifest.json
  *                               (sizes, duration, link…), so the page never quotes a stale number
+ *
+ * and two blocks that depend on whether the photo and video studio is public (FOTO_STUDIO, src/shared/site.ts):
+ *   <!-- @foto-on -->…<!-- @foto-end -->    kept only when it is public (links to it, its app script)
+ *   <!-- @foto-off -->…<!-- @foto-end -->   kept only while it is paused (the «en revisión» wording)
+ * They are resolved before anything else (a dropped block's scripts never reach the bundle) and do not nest.
  */
 import { logoMark, wordmark } from '../src/shared/brand.ts';
 import { CONTACTS, CONTACT_PX, contactSrc } from '../src/landing/contacts.ts';
 import {
-  GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
+  FOTO_STUDIO, GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
 } from '../src/shared/site.ts';
 
 export const escapeHtml = (s: string) =>
@@ -44,14 +49,16 @@ export function headTags(p: SitePage, o: { verification?: string | null } = {}):
     `<title>${e(p.title)}</title>`,
     `<meta name="description" content="${e(p.description)}">`,
   ];
-  if (p.kind === 'error') tags.push('<meta name="robots" content="noindex">');
+  // the 404 and a paused page (kept so old links do not break) stay out of the index, with no canonical or share tags
+  const indexed = p.kind !== 'error' && p.kind !== 'paused';
+  if (!indexed) tags.push('<meta name="robots" content="noindex">');
   else tags.push(`<link rel="canonical" href="${url}">`);
   tags.push(
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
     '<meta name="theme-color" content="#0c0b0a">',
   );
-  if (p.kind !== 'error') {
+  if (indexed) {
     tags.push(
       `<meta property="og:type" content="website">`,
       `<meta property="og:site_name" content="${SITE_NAME}">`,
@@ -131,7 +138,7 @@ function webPage(p: SitePage) {
   ];
 }
 
-/** Structured data per page kind. Describes what is on the page; it does not ask for any rich result. */
+/** Structured data per page kind. Describes what is on the page; it does not ask for any rich result (none for the 404 or a paused page). */
 export function jsonLd(p: SitePage): object | null {
   const graph = (nodes: object[]) => ({ '@context': 'https://schema.org', '@graph': nodes });
   switch (p.kind) {
@@ -145,8 +152,8 @@ export function jsonLd(p: SitePage): object | null {
 
 /* ---------------------------------------------------------------- sitemap & robots */
 
-export function sitemapXml(date: string): string {
-  const urls = PAGES.filter(p => p.sitemap).map(p => `  <url><loc>${absUrl(p.path)}</loc><lastmod>${date}</lastmod></url>`);
+export function sitemapXml(date: string, pages: SitePage[] = PAGES): string {
+  const urls = pages.filter(p => p.sitemap).map(p => `  <url><loc>${absUrl(p.path)}</loc><lastmod>${date}</lastmod></url>`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
 }
 
@@ -254,10 +261,22 @@ export function guideLinks(): string {
 /* ---------------------------------------------------------------- directives */
 
 const DIRECTIVE = /<!--\s*@([a-z-]+)(?::([\w./-]+))?(?:\s+(\w+))?\s*-->/g;
+const FOTO_BLOCK = /<!--\s*@foto-(on|off)\s*-->([\s\S]*?)<!--\s*@foto-end\s*-->/g;
 
-/** Expands the directives of one page. `readPublic` returns a file from public/ (for @include). */
-export function renderPage(html: string, p: SitePage, o: { verification?: string | null; readPublic: (path: string) => string }): string {
-  return html.replace(DIRECTIVE, (_m, name: string, arg: string | undefined, opt: string | undefined) => {
+/** Keeps the @foto-on blocks when the photo studio is public (`foto`), the @foto-off ones while it is paused. */
+export function fotoBlocks(html: string, foto: boolean): string {
+  return html.replace(FOTO_BLOCK, (_m, when: string, body: string) => {
+    if (/<!--\s*@foto-(on|off)\s*-->/.test(body)) throw new Error('[mt-seo] los bloques @foto-on/@foto-off no se anidan');
+    return (when === 'on') === foto ? body : '';
+  });
+}
+
+/**
+ * Expands the directives of one page. `readPublic` returns a file from public/ (for @include); `foto` says whether
+ * the photo studio is public (FOTO_STUDIO by default).
+ */
+export function renderPage(html: string, p: SitePage, o: { verification?: string | null; readPublic: (path: string) => string; foto?: boolean }): string {
+  return fotoBlocks(html, o.foto ?? FOTO_STUDIO).replace(DIRECTIVE, (_m, name: string, arg: string | undefined, opt: string | undefined) => {
     switch (name) {
       case 'head': return headTags(p, o);
       case 'header': return siteHeader(p);

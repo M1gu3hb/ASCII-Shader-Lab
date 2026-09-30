@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { fileUrl, MODELS, variantFiles } from '../../src/cutout/models';
 import { download } from './helpers';
-import { PHOTO, PHOTO2, finalRender, framePoint, openFoto, project, settle, startFromPhoto } from './foto-helpers';
+import { needsFotoStudio, PHOTO, PHOTO2, finalRender, framePoint, openFoto, project, settle, startFromPhoto } from './foto-helpers';
 
 /**
  * The integrated photo studio (/studio/foto/, production build): the real tools from the palette
@@ -17,6 +17,7 @@ import { PHOTO, PHOTO2, finalRender, framePoint, openFoto, project, settle, star
  * pinned URLs are routed to a local file server, as in tools.spec.ts); without it those tests are skipped
  * with the command that makes the copy.
  */
+needsFotoStudio();
 
 const time = (page: Page) => page.evaluate(() => (window as unknown as { __foto: { store(): { time: number } } }).__foto.store().time);
 const parts = async (page: Page, i = -1) => { const p = await project(page); const l = i < 0 ? p.layers[p.layers.length + i] : p.layers[i]; return l.mask?.parts ?? []; };

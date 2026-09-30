@@ -1,7 +1,18 @@
 import { join } from 'node:path';
-import { expect, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { FOTO_STUDIO } from '../../src/shared/site';
 
 /** Helpers of the photo studio's specs (tests/e2e/foto-*.spec.ts). The page runs with ?qa: window.__foto. */
+
+/**
+ * The photo and video studio is paused unless the build has VITE_FOTO_STUDIO=1 (src/shared/site.ts). The same
+ * variable in this run says which build is served: the web server of playwright.config.ts builds with it.
+ */
+export { FOTO_STUDIO };
+export const FOTO_PAUSED = 'El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): '
+  + 'estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-';
+/** At the top of a spec that needs the photo studio: while it is paused, every test in the file skips and says why. */
+export const needsFotoStudio = () => test.skip(!FOTO_STUDIO, FOTO_PAUSED);
 
 export const PHOTO = join(import.meta.dirname, '../fixtures/photos/retrato-pelo.jpg');
 export const PHOTO2 = join(import.meta.dirname, '../fixtures/photos/guitarra-mantas.jpg');
@@ -13,8 +24,14 @@ export async function openFoto(page: Page, hash = '') {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  // any test that opens the studio skips while it is paused (e.g. the scenarios of escenarios.spec.ts)
+  test.skip(!FOTO_STUDIO, FOTO_PAUSED);
   await page.goto('/studio/foto/?qa' + hash);
-  await expect(page.locator('.fstart, .fedit').first()).toBeVisible({ timeout: 45_000 });
+  // a server reused from a build without the studio (same port) answers with the «en revisión» page: say so
+  await expect(page.locator('.fstart, .fedit, [data-foto-review]').first()).toBeVisible({ timeout: 45_000 });
+  if (await page.locator('[data-foto-review]').count()) {
+    throw new Error('VITE_FOTO_STUDIO=1, pero el servidor sirve la compilación con el estudio en pausa: detén el servidor de este puerto (o usa otro PW_PORT) para que se compile con el estudio.');
+  }
   return errors;
 }
 
