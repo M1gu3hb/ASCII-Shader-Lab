@@ -13,12 +13,12 @@ export interface Look {
 }
 
 export const SPACE_LOOK: Record<SpaceId, Look> = {
-  fondos: { accent: '#8fc4b1', line: 'Fondos animados para poner detrás de tu web' },
-  arte: { accent: '#e8ad78', line: 'Capas, objetos en 3D, fractales y efectos' },
-  media: { accent: '#9db4e6', line: 'Tu foto, video o cámara, en caracteres' },
-  tipo: { accent: '#eba5b9', line: 'Palabras grandes y mensajes que se escriben' },
-  terminal: { accent: '#afd98a', line: 'Piezas para la consola: ASCII y ANSI' },
-  componentes: { accent: '#c4aae8', line: 'Piezas de interfaz listas para copiar' },
+  fondos: { accent: '#8fc4b1', line: 'Fondos animados para tu web' },
+  arte: { accent: '#e8ad78', line: 'Capas, 3D, fractales y efectos' },
+  media: { accent: '#9db4e6', line: 'Foto, video o cámara en caracteres' },
+  tipo: { accent: '#eba5b9', line: 'Palabras grandes y mensajes' },
+  terminal: { accent: '#afd98a', line: 'Piezas para la consola' },
+  componentes: { accent: '#c4aae8', line: 'Piezas de interfaz para copiar' },
 };
 
 const G = {

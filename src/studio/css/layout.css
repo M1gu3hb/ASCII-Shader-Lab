@@ -15,10 +15,11 @@
 .app .topbar .pk.space-select .pk-ic { color: var(--sp-acc, var(--accent)); }
 
 /* ---------- the column's head: the space, and a way to put the column away ---------- */
-.app .panel-title { display: flex; align-items: center; gap: 9px; margin: 0 0 10px; min-height: 32px; }
+.app .panel-head { padding: 10px 14px 10px; }
+.app .panel-title { display: flex; align-items: center; gap: 9px; margin: 0 0 8px; min-height: 32px; }
 .app .panel-title .pt-ic { width: 18px; height: 18px; flex: none; color: var(--sp-acc, var(--accent)); stroke-width: 1.7; }
 .app .panel-title .eyebrow {
-  margin: 0; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  margin: 0; flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 1px;
   white-space: normal; overflow: visible; text-transform: none; letter-spacing: 0;
 }
 .app .panel-title .pt-name { font: 600 14px/1.15 var(--font-ui); color: var(--text); letter-spacing: -.005em; }
@@ -28,7 +29,7 @@
 
 /* ---------- «Recetas»: one line that folds the recipes away ---------- */
 .app .rz-head {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; margin: 0; padding: 4px 8px 4px 8px;
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; margin: 0; padding: 3px 8px;
   border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--muted); text-align: left;
   font: 500 12.5px/1.2 var(--font-ui);
 }
@@ -48,7 +49,7 @@
 .rz-caret { width: 15px; height: 15px; flex: none; color: var(--muted); transition: transform .18s var(--ease-out); }
 .rz-head[aria-expanded="true"] .rz-caret { transform: rotate(180deg); }
 .app .recipes.rz-list {
-  display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; padding: 2px 1px 3px; max-height: min(34vh, 280px);
+  display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 0; padding: 2px 1px 3px; max-height: min(34vh, 280px);
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
 }
 
@@ -253,21 +254,26 @@ html[data-motion="low"] .app .pane-head .tab-ic { animation: none; }
 }
 
 /* ---------- phones on their side: every pixel of height counts. The groups keep their two rows; the
-   close button and the recipe line stand beside them, in a narrow column of their own, so the column's
-   head is no taller than the groups (the controls keep their room) ---------- */
+   close button and «Recetas» (a cell like the groups': the recipe of the piece is named by the line at
+   the bottom, and by the button itself for assistive tech) stand beside them, so the column's head is no
+   taller than the groups and the controls keep their room ---------- */
 @media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
-  .app .ph-sheet .ph-head { display: grid; grid-template-columns: minmax(0, 1fr) 88px; align-items: start; padding: 4px 2px 0 0; }
+  .app .ph-sheet .ph-head { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: start; padding: 4px 2px 0 0; }
   .app .ph-sheet .ph-head > .ptabs-box { grid-column: 1; grid-row: 1; }
   .app .ph-grab-row {
-    position: static; grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: stretch; gap: 2px;
-    height: auto; padding: 0 2px 6px 4px;
+    position: static; grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: stretch; gap: 0;
+    height: auto; padding: 0 2px 0 4px;
   }
-  .app .ph-grab-row .ph-close { order: -1; align-self: flex-end; }
-  .app .rz-head.rz-compact { width: 100%; padding: 4px 6px; align-items: flex-start; }
-  .app .rz-compact .rz-ic { display: none; }
-  .app .rz-compact .rz-cur { font-size: 13px; }
-  .app .rz-compact .rz-name { -webkit-line-clamp: 2; line-clamp: 2; }
-  .app .rz-compact .rz-caret { margin-top: 2px; }
+  .app .ph-grab-row .ph-close { order: -1; align-self: center; }
+  .app .rz-head.rz-compact {
+    width: 100%; min-height: 48px; padding: 4px 2px; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border-radius: 8px; color: var(--muted);
+  }
+  .app .rz-compact .rz-ic { display: block; width: 18px; height: 18px; }
+  .app .rz-compact .rz-txt { flex: none; align-items: center; }
+  .app .rz-compact .rz-k { font: 500 11.5px/1.1 var(--font-ui); letter-spacing: -.01em; text-transform: none; color: inherit; }
+  .app .rz-compact .rz-cur, .app .rz-compact .rz-caret { display: none; }
+  .app .rz-head.rz-compact[aria-expanded="true"] { color: var(--text); }
   .app .ph-sheet .ptabs.ph-tabs { padding: 0 2px 6px 6px; }
   /* the group's line: its name is in the tab just above, and the room is for the controls */
   .app .ph-sheet .pane-head { display: none; }
