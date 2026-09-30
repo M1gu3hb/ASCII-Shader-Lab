@@ -521,6 +521,9 @@ function VectorTab() {
 
 /* ------------------------------------------------------------------ */
 
+/** One text frame of the piece at a size, with what it was drawn for. */
+type TextFrame = { text: string; html: string; page: string; ansi: string; key: string; recipe: Recipe };
+
 function TerminalTab({ req }: { req: ExportRequest | null }) {
   const e = useCurrent();
   const term = useStudio(s => s.ui.terminal);
@@ -529,7 +532,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   const [rows, setRows] = useState(req?.term?.rows ?? term.rows);
   const [depth, setDepth] = useState<ColorDepth>('256');
   const [withBg, setWithBg] = useState(true);
-  const [preview, setPreview] = useState<{ text: string; html: string; page: string; ansi: string } | null>(null);
+  const [preview, setPreview] = useState<TextFrame | null>(null);
   const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 4);
   const [fps, setFps] = useState(12);
@@ -539,18 +542,27 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   useStopOnLeave(cancel);
   const { copy, manual } = useCopy();
   useEffect(() => { if (space === 'terminal') { setCols(term.cols); setRows(term.rows); } }, [space, term.cols, term.rows]);
+  const frameKey = `${cols}x${rows}:${depth}:${withBg ? 1 : 0}`;
+  const textFrame = async (recipe: Recipe): Promise<TextFrame> => {
+    const g = await captureGrid(recipe, cols, rows);
+    const ansi = gridToAnsi(g, depth, withBg);
+    return { text: gridToText(g), html: gridToHtml(g), page: gridToHtmlPage(g, recipe.meta.name ?? recipe.meta.seed ?? 'GLYPHOS'), ansi, key: frameKey, recipe };
+  };
   useEffect(() => {
     if (!e) return;
     let alive = true;
-    void captureGrid(e.recipe, cols, rows).then(g => {
+    void textFrame(e.recipe).then(f => {
       if (!alive) return;
-      const ansi = gridToAnsi(g, depth, withBg);
-      setPreview({ text: gridToText(g), html: gridToHtml(g), page: gridToHtmlPage(g, e.recipe.meta.name ?? e.recipe.meta.seed ?? 'GLYPHOS'), ansi });
-      setEst(byteSize(ansi));
+      setPreview(f);
+      setEst(byteSize(f.ansi));
     });
     return () => { alive = false; };
   }, [e?.recipe, cols, rows, depth, withBg]);
   if (!e) return null;
+  /** The frame for what the sheet says now: the preview when it is up to date, else drawn on the spot
+   *  (a size typed and committed on the way to a button must not export the previous size). */
+  const current = (): Promise<TextFrame> =>
+    preview && preview.key === frameKey && preview.recipe === e.recipe ? Promise.resolve(preview) : textFrame(e.recipe);
   const name = baseName(e.recipe);
   const title = e.recipe.meta.name ?? e.recipe.meta.seed ?? 'GLYPHOS';
   const anim = async (kind: 'cast' | 'node' | 'python') => {
@@ -580,16 +592,16 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
           <h3>Fotograma</h3>
           <p>{cols}×{rows} caracteres · ANSI {est}. «256» es el más compatible; «Color real» es el más fiel, en terminales que lo admiten (truecolor).</p>
           <div className="row2">
-            <button type="button" className="btn primary" onClick={() => preview && void copy(preview.text, 'Texto copiado')}>Copiar texto</button>
-            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.txt', preview.text)}>.txt</button>
+            <button type="button" className="btn primary" onClick={() => void current().then(f => copy(f.text, 'Texto copiado'))}>Copiar texto</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => downloadText(name + '.txt', f.text))}>.txt</button>
           </div>
           <div className="row2">
-            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.ans', preview.ansi)}>.ans (ANSI)</button>
-            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.html', preview.page, 'text/html')}>HTML</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => downloadText(name + '.ans', f.ansi))}>.ans (ANSI)</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => downloadText(name + '.html', f.page, 'text/html'))}>HTML</button>
           </div>
           <div className="row2">
-            <button type="button" className="btn" onClick={() => preview && void copy(toShellBanner(preview.text), 'Saludo para tu shell copiado')}>Saludo de shell</button>
-            <button type="button" className="btn" onClick={() => preview && void copy(toJsString(preview.ansi), 'Código para tu CLI copiado')}>Para tu CLI (JS)</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => copy(toShellBanner(f.text), 'Saludo para tu shell copiado'))}>Saludo de shell</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => copy(toJsString(f.ansi), 'Código para tu CLI copiado'))}>Para tu CLI (JS)</button>
           </div>
           <CopyFallback manual={manual} />
         </div>
