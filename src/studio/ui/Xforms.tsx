@@ -69,7 +69,7 @@ export function XformTab({ space }: { space: SpaceId }) {
   return (
     <>
       <Note>Cambian {isText ? 'el texto' : 'la imagen'} antes de volverl{isText ? 'o' : 'a'} caracteres. Se aplican en orden, de arriba abajo: combina hasta {XFORM_MAX} y cambia su orden para cambiar el resultado.</Note>
-      {!loaded && <Note>Cuando cargues {source === 'camera' ? 'la cámara' : source === 'video' ? 'un video' : 'una imagen'} en «Fuente» verás aquí cada transformación sobre ella.</Note>}
+      {!loaded && <Note>Cuando cargues {source === 'camera' ? 'la cámara' : source === 'video' ? 'un video' : 'una imagen'} en «Origen» verás aquí cada transformación sobre ella.</Note>}
       {list.map((x, i) => <XformCard key={x.kind} i={i} n={list.length} x={x} used={used} moving={moving} isText={isText} onOpen={onOpen} keepFocus={keepFocus} />)}
       <Sub>{list.length ? 'Añadir otra' : 'Añadir una transformación'}</Sub>
       <div className="xf-add" ref={addBox}>

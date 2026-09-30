@@ -92,7 +92,7 @@ function FormaTab({ space }: { space: SpaceId }) {
           {preview ? <IEyeOff width={16} /> : <IEye width={16} />} {preview ? 'Ocultar contenido de prueba' : 'Probar con contenido encima'}
         </button>
       )}
-      {source !== 'pattern' && <Note>Estas capas se mezclan con la fuente según «Cantidad de patrón» en la pestaña de fuente.</Note>}
+      {source !== 'pattern' && <Note>Estas capas se mezclan con lo que se convierte en caracteres según «Cantidad de patrón», en {space === 'tipo' ? '«Tu texto»' : '«Origen»'}.</Note>}
       {Array.from({ length: n }, (_, i) => <LayerCard key={i} i={i} n={n} />)}
       <button type="button" className="btn" disabled={n >= 4} title={n >= 4 ? 'Una pieza tiene hasta cuatro capas' : undefined} onClick={() => edit(r => {
         const rng = new Rng('add' + Date.now());

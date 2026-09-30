@@ -107,7 +107,7 @@ function useKeptPieceSwap(veil: React.RefObject<HTMLDivElement | null>, view: st
 function describe(r: ReturnType<typeof useRecipe>): string {
   if (!r) return 'Lienzo ASCII';
   const pats = r.layers.filter(l => l.on).map(l => l.pattern).join(' + ');
-  return `Pieza ASCII animada. Fuente: ${SOURCE_NAMES[r.source]}. Patrones: ${pats}. Colores: ${r.color.stops.join(', ')} sobre ${r.color.bg}.`;
+  return `Pieza ASCII animada. Origen: ${SOURCE_NAMES[r.source]}. Patrones: ${pats}. Colores: ${r.color.stops.join(', ')} sobre ${r.color.bg}.`;
 }
 
 function MediaPrompt({ ins }: { ins: Insets }) {
