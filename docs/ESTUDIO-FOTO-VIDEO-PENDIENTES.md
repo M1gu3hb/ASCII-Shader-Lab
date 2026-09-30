@@ -1,6 +1,6 @@
 # Estudio de foto y video: pendientes para su próxima fase
 
-Estado desde la fase 5: **en revisión**. El código completo sigue en el repositorio (`src/foto`, `src/project`, `src/anim`, `src/video`, `src/cutout`, `src/fx`, `src/glyphs`) y funciona igual que antes, pero la compilación pública no lo muestra. Este documento reúne lo que hay que resolver antes de volver a publicarlo: la opinión de la dueña del producto convertida en tareas concretas, y lo que se encontró al investigar «dibujé un rectángulo y el resto de la imagen desapareció».
+Estado desde la fase 5: **en revisión**. El código completo sigue en el repositorio (`src/foto`, `src/project`, `src/anim`, `src/video`, `src/cutout`, `src/fx`, `src/glyphs`) y funciona igual que antes, pero la compilación pública no lo muestra. Este documento reúne lo que hay que resolver antes de volver a publicarlo: las observaciones de quien lo probó, convertidas en tareas concretas, y lo que se encontró al investigar «dibujé un rectángulo y el resto de la imagen desapareció».
 
 ## Cómo está en pausa
 
