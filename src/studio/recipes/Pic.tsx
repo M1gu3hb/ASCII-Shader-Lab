@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { Recipe } from '../../engine/recipe';
 import type { Look } from './catalog';
-import { peekPreview, previewKey, requestPreview } from './previews';
+import { ZOOM, peekPreview, previewKey, requestPreview } from './previews';
 
 /**
  * A recipe's picture: its colours at once, its render when it comes (previews.ts). The render is asked for
  * only while the picture is in view (or near it) inside `root`, and withdrawn when it leaves, so a long
  * list only draws what is looked at; a hidden panel draws nothing.
  */
-export function RecipePic({ recipe, look, prio = 0, root, className, thumb }: {
+export function RecipePic({ recipe, look, prio = 0, root, className, thumb, zoom = ZOOM }: {
   recipe: Recipe | null;
   /** Shown until the render arrives (and where there is none). */
   look: Look;
@@ -19,20 +19,22 @@ export function RecipePic({ recipe, look, prio = 0, root, className, thumb }: {
   className?: string;
   /** A picture that already exists (a saved piece's thumbnail): no render needed. */
   thumb?: string;
+  /** Share of the composition shown (previews.ts). */
+  zoom?: number;
 }) {
   const el = useRef<HTMLSpanElement>(null);
-  const key = useMemo(() => (recipe && !thumb ? previewKey(recipe) : ''), [recipe, thumb]);
+  const key = useMemo(() => (recipe && !thumb ? previewKey(recipe, zoom) : ''), [recipe, thumb, zoom]);
   const [got, setGot] = useState<{ key: string; url: string } | null>(null);
   useEffect(() => {
     if (!key || !recipe) return;
-    const hit = peekPreview(recipe);
+    const hit = peekPreview(recipe, zoom);
     if (hit) { setGot({ key, url: hit }); return; }
     const node = el.current;
     if (!node || typeof IntersectionObserver !== 'function') return;
     let cancel: (() => void) | null = null;
     const io = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) {
-        cancel ??= requestPreview(recipe, prio, url => { cancel = null; if (url) setGot({ key, url }); });
+        cancel ??= requestPreview(recipe, prio, url => { cancel = null; if (url) setGot({ key, url }); }, zoom);
       } else if (cancel) { cancel(); cancel = null; }
     }, { root: root?.current ?? null, rootMargin: '160px 0px' });
     io.observe(node);

@@ -68,6 +68,15 @@ html[data-motion="low"] .rx-pic img { transition: none; }
 }
 .app .rx-done:hover, .app .rx-btn:hover { background: var(--field-2); }
 
+/* phones: the search is a button at the start of the filters' row until it is used */
+.app .rx-tools-c { padding-bottom: 6px; }
+.app .rx-find {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--line-2);
+  background: var(--field); color: var(--text);
+}
+.rx-find-ic { width: 18px; height: 18px; }
+.app .rx-tools-c .rx-cats-box { flex: 1; min-width: 0; padding: 0; }
+
 /* the filters: one row that says when more wait (ScrollRow) */
 .app .rx-cats-box { flex: none; padding: 0 14px 8px; }
 .app .rx-cats { display: flex; gap: 5px; padding: 1px; }
@@ -108,7 +117,7 @@ html[data-motion="low"] .rx-pic img { transition: none; }
 .app .rx-card.rx-from .rx-pic { box-shadow: 0 0 0 1px var(--accent); }
 .rx-name { font: 500 12.5px/1.25 var(--font-ui); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .app .rx-card[aria-pressed="true"] .rx-name { font-weight: 600; }
-.rx-meta { margin-top: -3px; font-size: 11px; line-height: 1.3; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rx-meta { margin-top: -3px; font-size: 11px; line-height: 1.3; color: var(--dim); overflow-wrap: anywhere; }
 .rx-now {
   position: absolute; top: 5px; left: 5px; padding: 2px 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink, #0c0b0a);
   font: 700 10px/1.3 var(--font-ui); letter-spacing: .02em;

@@ -20,14 +20,14 @@ export const PREVIEW_W = 288, PREVIEW_H = 180;
 const CW = 480, CH = 300;
 /** Moment of the animation shown (seconds of the piece's own clock), the same as the history thumbnails. */
 const T = 4;
-/** Share of the composition the picture shows: its middle, where a figure is (a field fills it anyway). */
-const ZOOM = 0.8;
+/** Share of the composition a picture shows by default: its middle, where a figure is (a field fills it anyway). */
+export const ZOOM = 0.8;
 const MEM_MAX = 400;
 /** A key or pointer press: renders wait this long after one, so what the person does comes first. */
 const INPUT_QUIET_MS = 250;
 
 export type PreviewCb = (url: string | null) => void;
-interface Job { key: string; recipe: Recipe; prio: number; seq: number; cbs: Set<PreviewCb> }
+interface Job { key: string; recipe: Recipe; zoom: number; prio: number; seq: number; cbs: Set<PreviewCb> }
 
 const mem = new Map<string, string>();
 const jobs = new Map<string, Job>();
@@ -40,24 +40,25 @@ let listening = false;
 const live = (r: Recipe) => r.source === 'camera' || r.source === 'video';
 const kind = () => getEngine()?.kind ?? useCaps.getState().renderer ?? 'webgl';
 
-export const previewKey = (r: Recipe) => `${kind()}|${JSON.stringify(r)}`;
+/** `zoom`: the share of the composition shown (less shows the glyphs larger: the character sets' comparison). */
+export const previewKey = (r: Recipe, zoom = ZOOM) => `${kind()}|${zoom}|${JSON.stringify(r)}`;
 
 /** A picture already made for this recipe (never for a camera or a video). */
-export function peekPreview(r: Recipe): string | undefined {
-  return live(r) ? undefined : mem.get(previewKey(r));
+export function peekPreview(r: Recipe, zoom = ZOOM): string | undefined {
+  return live(r) ? undefined : mem.get(previewKey(r, zoom));
 }
 
 /**
  * Asks for the picture of a recipe. `prio`: lower comes first (a card's position in the list). Returns a
  * function that withdraws the request (a render already under way still finishes and is kept).
  */
-export function requestPreview(r: Recipe, prio: number, cb: PreviewCb): () => void {
+export function requestPreview(r: Recipe, prio: number, cb: PreviewCb, zoom = ZOOM): () => void {
   listen();
-  const key = previewKey(r);
+  const key = previewKey(r, zoom);
   const hit = live(r) ? undefined : mem.get(key);
   if (hit) { cb(hit); return () => undefined; }
   let job = jobs.get(key);
-  if (!job) { job = { key, recipe: r, prio, seq: ++seq, cbs: new Set() }; jobs.set(key, job); }
+  if (!job) { job = { key, recipe: r, zoom, prio, seq: ++seq, cbs: new Set() }; jobs.set(key, job); }
   else job.prio = Math.min(job.prio, prio);
   job.cbs.add(cb);
   schedule(0);
@@ -105,7 +106,7 @@ async function pump() {
   current = job;
   let url: string | null = null;
   try {
-    url = await render(job.recipe);
+    url = await render(job.recipe, job.zoom);
   } catch {
     url = null;
   }
@@ -122,14 +123,14 @@ function remember(key: string, url: string) {
   if (mem.size > MEM_MAX) mem.delete(mem.keys().next().value!);
 }
 
-async function render(r: Recipe): Promise<string | null> {
+async function render(r: Recipe, zoom: number): Promise<string | null> {
   // rendered a little larger than the picture, then scaled down smoothly (the glyphs stay crisp)
-  const pr = Math.min(1, (PREVIEW_W * 1.6) / (CW * ZOOM));
+  const pr = Math.min(2, (PREVIEW_W * 1.6) / (CW * zoom));
   const c = await withOffscreen({ cssW: CW, cssH: CH, pixelRatio: pr }, r, async eng => {
     eng.set(r);
     await eng.ready();
     eng.renderAt(T, T);
-    const W = eng.canvas.width, H = eng.canvas.height, sw = W * ZOOM, sh = H * ZOOM;
+    const W = eng.canvas.width, H = eng.canvas.height, sw = W * zoom, sh = H * zoom;
     return snapshotCanvas(eng, (W - sw) / 2, (H - sh) / 2, sw, sh, PREVIEW_W, PREVIEW_H);
   });
   return c ? canvasUrl(c, 0.8) : null;

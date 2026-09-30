@@ -1,119 +1,92 @@
-import { useEffect, useMemo, useState } from 'react';
-import { CHARSETS, charsetIdOf } from '../../engine/catalog';
-import { cloneRecipe } from '../../engine/recipe';
-import { renderCrops } from '../guide/thumbs';
+import { useMemo, useState } from 'react';
+import { CHARSETS, fontById } from '../../engine/catalog';
+import { cloneRecipe, type Recipe } from '../../engine/recipe';
+import { RecipePic } from '../recipes/Pic';
 import { edit, useRecipe } from '../store';
+import { readableGlyphColours } from './options';
 import { useRamps } from './ramps';
 import './charset-explorer.css';
 
 /**
- * «Comparar alfabetos» (from the pattern-library branch): the piece on screen drawn with other character sets, side by
- * side, in pages of eight; choosing one is an ordinary edit (it can be undone). Not mounted yet: the lab's
- * panel decides where it goes (e.g. in Glifos, under the character set picker).
- *   <CharsetExplorer asciiOnly={space === 'terminal'} />
- * `asciiOnly` shows only the sets of plain ASCII (Terminal); `defaultOpen` starts it open.
+ * «Caracteres» on the piece: the piece drawn with each character set, side by side, so the choice is made
+ * by looking at the result. It is the comparison of the Glifos section's set picker (it opens with its «?»,
+ * as every setting's comparison does): the same sets, names and order as the picker, each with a few of
+ * its characters as real text; choosing one is the same edit as choosing it in the picker (it can be
+ * undone), and the set in use is marked in both.
+ *
+ * The pictures come from the studio's shared hidden renderer (recipes/previews.ts), zoomed into the
+ * middle of the piece so the glyphs can be told apart, one at a time and only those in view.
  */
-export interface CharsetExplorerProps { asciiOnly?: boolean; defaultOpen?: boolean }
+export interface CharsetExplorerProps { asciiOnly?: boolean }
 
-const PAGE = 8;
-type Filter = 'todos' | 'ascii' | 'unicode' | 'mios';
+type Kind = 'todos' | 'ascii' | 'unicode' | 'mios';
+const KIND_NAME: Record<Kind, string> = { todos: 'Todos', ascii: 'ASCII', unicode: 'Unicode', mios: 'Tus rampas' };
 const isAscii = (s: string) => /^[\x20-\x7e]*$/.test(s);
-/** A few characters of a set as real text: the densest ones say most about it. */
-export const charsetSample = (chars: string, n = 12) => [...chars].filter(c => c !== ' ').slice(-n).join('');
+/** A few characters of a set as real text: from its middle to its densest (the ones that say most about it). */
+export const charsetSample = (chars: string, n = 12) => {
+  const solid = [...new Set([...chars])].filter(c => c.trim());
+  if (solid.length <= n) return solid.join('');
+  return Array.from({ length: n }, (_, i) => solid[Math.round((i / (n - 1)) * (solid.length - 1))]).join('');
+};
+/** How much of the piece a picture shows: its middle, large enough to tell the glyphs apart. */
+const ZOOM = 0.42;
 
 interface Option { id: string; name: string; chars: string; ascii: boolean; own: boolean }
 
-export function CharsetExplorer({ asciiOnly = false, defaultOpen = false }: CharsetExplorerProps) {
-  const [open, setOpen] = useState(defaultOpen);
-  const [filter, setFilter] = useState<Filter>('todos');
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(0);
-  const [refresh, setRefresh] = useState(0);
-  const [images, setImages] = useState<Record<string, string | null>>({});
+export function CharsetExplorer({ asciiOnly = false }: CharsetExplorerProps) {
   const recipe = useRecipe();
   const mine = useRamps(s => s.list);
+  const [kind, setKind] = useState<Kind>('todos');
   const options = useMemo<Option[]>(() => [
-    ...CHARSETS.map(c => ({ id: c.id, name: c.name, chars: c.chars, ascii: c.ascii, own: false })),
-    ...mine.map(c => ({ id: 'rampa:' + c.id, name: c.name, chars: c.chars, ascii: isAscii(c.chars), own: true })),
-  ], [mine]);
-  const shown = useMemo(() => {
-    const q = query.toLowerCase().trim();
-    return options.filter(c => (!asciiOnly || c.ascii)
-      && (filter !== 'ascii' || c.ascii) && (filter !== 'unicode' || !c.ascii) && (filter !== 'mios' || c.own)
-      && (c.name + ' ' + c.chars).toLowerCase().includes(q));
-  }, [options, asciiOnly, filter, query]);
-  const last = Math.max(0, Math.ceil(shown.length / PAGE) - 1);
-  const at = Math.min(page, last);
-  const visible = shown.slice(at * PAGE, (at + 1) * PAGE);
-  const visibleKey = visible.map(c => c.id).join('|');
-  // the piece without its character set: choosing another set does not invalidate the others' images
-  const baseKey = useMemo(() => {
+    ...CHARSETS.filter(c => !asciiOnly || c.ascii).map(c => ({ id: c.id, name: c.name, chars: c.chars, ascii: c.ascii, own: false })),
+    ...mine.filter(r => !asciiOnly || isAscii(r.chars)).map(r => ({ id: 'rampa:' + r.id, name: r.name, chars: r.chars, ascii: isAscii(r.chars), own: true })),
+  ], [mine, asciiOnly]);
+  const kinds = (['todos', 'ascii', 'unicode', 'mios'] as Kind[]).filter(k => k === 'todos' || options.some(o => pass(o, k)) && options.some(o => !pass(o, k)));
+  const on = kinds.includes(kind) ? kind : 'todos';
+  const shown = options.filter(o => pass(o, on));
+  // the piece without its characters: choosing a set changes none of the other pictures
+  const base = useMemo(() => {
     if (!recipe) return '';
     const b = cloneRecipe(recipe);
     b.glyph.charset = '';
     return JSON.stringify(b);
   }, [recipe]);
-
-  useEffect(() => {
-    if (!open || !baseKey || !visible.length) return;
-    const sig = { cancelled: false };
-    const list = visible;
-    setImages({});
-    const timer = window.setTimeout(() => renderCrops(list.map(c => {
-      const r = JSON.parse(baseKey);
-      r.glyph.charset = c.chars;
-      return r;
-    }), { w: 160, h: 112, zoom: 0.75 }, (i, url) => {
-      if (!sig.cancelled) setImages(cur => ({ ...cur, [list[i].id]: url }));
-    }, sig), 100);
-    return () => { sig.cancelled = true; clearTimeout(timer); };
-    // the visible sets and the piece decide every image; `refresh` takes a new frame of a video or camera
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, baseKey, visibleKey, refresh]);
-
-  const cur = recipe?.glyph.charset;
-  const curName = options.find(c => c.chars === cur)?.name ?? (cur && charsetIdOf(cur) === 'custom' ? 'Personalizado' : '—');
+  const recipes = useMemo(() => shown.map(o => {
+    const r = JSON.parse(base || 'null') as Recipe | null;
+    if (r) r.glyph.charset = o.chars;
+    return r;
+  }), [base, shown]);
+  if (!recipe) return null;
+  const cur = recipe.glyph.charset;
+  const font = fontById(recipe.glyph.font);
+  const { ink } = readableGlyphColours(recipe);
   return (
-    <section className="cx-explorer" aria-label="Comparar alfabetos sobre la pieza">
-      <button type="button" className="cx-explorer-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? 'Cerrar el comparador' : 'Comparar alfabetos sobre mi pieza'}
-      </button>
-      {open && <>
-        <p className="cx-explorer-note">Tu pieza con otros caracteres. Toca una variante para usarla; puedes deshacer el cambio.</p>
-        <div className="cx-explorer-tools">
-          <input type="search" aria-label="Buscar un alfabeto por nombre o carácter" value={query} placeholder="Buscar…" onChange={e => { setQuery(e.target.value); setPage(0); }} />
-          <select aria-label="Qué alfabetos mostrar" value={filter} onChange={e => { setFilter(e.target.value as Filter); setPage(0); }}>
-            <option value="todos">Todos</option>
-            <option value="ascii">ASCII puro</option>
-            {!asciiOnly && <option value="unicode">Símbolos Unicode</option>}
-            <option value="mios">Mis rampas</option>
-          </select>
-          <button type="button" aria-label="Volver a dibujar las variantes (útil con video o cámara)" title="Volver a dibujar" onClick={() => setRefresh(n => n + 1)}>↻</button>
-        </div>
-        <div className="cx-explorer-grid" role="group" aria-label="Variantes de la pieza">
-          {visible.map(c => (
-            <button type="button" key={c.id} aria-pressed={cur === c.chars} aria-label={`${c.name}: ${charsetSample(c.chars, 8)}`}
-              onClick={() => edit(r => { r.glyph.charset = c.chars; }, 'glyph.charset:explorar:' + Date.now())}>
-              <span className="cx-explorer-image" style={{ background: recipe?.color.bg }}>
-                {images[c.id]
-                  ? <img alt="" src={images[c.id]!} />
-                  : <span aria-hidden="true" className="cx-explorer-fallback" style={{ color: recipe?.color.stops.at(-1) }}>{charsetSample(c.chars, 14)}</span>}
-              </span>
-              <strong>{c.name}</strong>
-              <small><span className="cx-explorer-kind">{c.ascii ? 'ASCII' : 'Unicode'}</span> <span className="cx-explorer-chars">{charsetSample(c.chars)}</span></small>
-            </button>
+    <div className="csx">
+      <p className="csx-note">Tu pieza con cada juego de caracteres. Toca uno para usarlo; se puede deshacer.</p>
+      {kinds.length > 1 && (
+        <div className="csx-kinds" role="radiogroup" aria-label="Qué juegos mostrar">
+          {kinds.map(k => (
+            <button key={k} type="button" role="radio" aria-checked={on === k} className="csx-kind" onClick={() => setKind(k)}>{KIND_NAME[k]}</button>
           ))}
         </div>
-        {!shown.length && <p className="cx-explorer-note">No hay alfabetos con esa búsqueda.</p>}
-        {shown.length > PAGE && (
-          <div className="cx-explorer-pages">
-            <button type="button" disabled={at === 0} onClick={() => setPage(at - 1)}>Anterior</button>
-            <span aria-live="polite">{at + 1} de {last + 1}</span>
-            <button type="button" disabled={at >= last} onClick={() => setPage(at + 1)}>Siguiente</button>
-          </div>
-        )}
-        <small className="cx-explorer-current">Ahora: {curName}</small>
-      </>}
-    </section>
+      )}
+      <div className="csx-grid" role="group" aria-label="Juegos de caracteres">
+        {shown.map((o, i) => {
+          const sample = charsetSample(o.chars, 8);
+          return (
+            <button key={o.id} type="button" className="csx-card" aria-pressed={cur === o.chars} aria-label={`${o.name}: ${sample}`}
+              onClick={() => edit(r => { r.glyph.charset = o.chars; }, 'glyph.charset:cmp:' + Date.now())}>
+              <RecipePic recipe={recipes[i]} zoom={ZOOM} prio={i} look={{ bg: recipe.color.bg, ink, chars: charsetSample(o.chars, 3) }} />
+              <span className="csx-name">{o.name}<small>{o.own ? 'tuya' : o.ascii ? 'ASCII' : 'Unicode'}</small></span>
+              <span className="csx-chars" aria-hidden="true" style={{ fontFamily: font.stack }}>{sample}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
+}
+
+function pass(o: Option, k: Kind) {
+  return k === 'todos' || (k === 'ascii' && o.ascii && !o.own) || (k === 'unicode' && !o.ascii && !o.own) || (k === 'mios' && o.own);
 }

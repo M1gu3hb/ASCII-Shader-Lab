@@ -5,6 +5,7 @@ import { IClose, IImage, IStar } from '../icons';
 import { useStudio, type Favorite } from '../store';
 import { recipeFor, useBase } from './base';
 import { ScrollRow } from '../ui/ScrollRow';
+import { useMatch } from '../ui/useMatch';
 import { CATEGORIES, allItems, filtersOf, itemsOf, lookOf, sectionsOf, type RecipeItem } from './catalog';
 import { RecipePic } from './Pic';
 import { search } from './search';
@@ -23,6 +24,8 @@ import './recipes.css';
  */
 
 export const BROWSER_ID = 'rx-browser';
+/** Phones (upright or on their side): too little height for a search field above the filters. */
+const NARROW_Q = '(max-width: 599px), (max-width: 900px) and (max-height: 500px)';
 
 const ISearch = (p: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true" {...p}>
@@ -42,6 +45,10 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
   const query = useRecipesUI(s => s.query);
   const chosen = useRecipesUI(s => s.cat[space]) ?? 'todas';
   const base = useBase(space);
+  // phones: the search is a button beside the filters until it is used (the pictures keep the room)
+  const narrow = useMatch(NARROW_Q) && where === 'sheet';
+  const [finding, setFinding] = useState(false);
+  const searching = !narrow || finding || !!query;
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const uid = useId();
@@ -75,6 +82,8 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
 
   // the list starts from the top when what it shows changes
   useEffect(() => { scroller.current?.scrollTo(0, 0); }, [space, filter, query]);
+  // the search asked for on a phone: its field, ready to type in
+  useEffect(() => { if (finding) input.current?.focus(); }, [finding]);
 
   // the one picture in the Tab order: the piece's own recipe, else the first
   const [active, setActive] = useState<string | null>(null);
@@ -92,6 +101,7 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
       e.preventDefault();
       e.stopPropagation();
       if (query && e.target === input.current) { setQuery(''); return; }
+      if (finding && e.target === input.current) { setFinding(false); return; }
       close();
       return;
     }
@@ -115,20 +125,32 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
 
   return (
     <section id={BROWSER_ID} className={'rx rx-' + where} aria-label={`Recetas de ${spaceName}`} inert={away || undefined} onKeyDown={onKey}>
-      <div className="rx-tools">
-        <label className="rx-search">
-          <ISearch className="rx-search-ic" />
-          <input ref={input} type="search" value={query} enterKeyHint="search" autoComplete="off" spellCheck={false}
-            placeholder="Buscar: 3D, olas, neón, calma…" aria-label="Buscar recetas y escenas (en todos los espacios)"
-            aria-describedby={uid + 'n'} onChange={e => setQuery(e.target.value)} />
-          {query && (
-            <button type="button" className="rx-clear" aria-label="Borrar la búsqueda" onClick={() => { setQuery(''); input.current?.focus(); }}>
-              <IClose width={16} height={16} />
+      <div className={'rx-tools' + (searching ? '' : ' rx-tools-c')}>
+        {searching ? (
+          <>
+            <label className="rx-search">
+              <ISearch className="rx-search-ic" />
+              <input ref={input} type="search" value={query} enterKeyHint="search" autoComplete="off" spellCheck={false}
+                placeholder="Buscar: 3D, olas, neón, calma…" aria-label="Buscar recetas y escenas (en todos los espacios)"
+                aria-describedby={uid + 'n'} onChange={e => setQuery(e.target.value)} />
+              {query && (
+                <button type="button" className="rx-clear" aria-label="Borrar la búsqueda" onClick={() => { setQuery(''); input.current?.focus(); }}>
+                  <IClose width={16} height={16} />
+                </button>
+              )}
+            </label>
+            {narrow && <button type="button" className="rx-btn" onClick={() => { setQuery(''); setFinding(false); }}>Listo</button>}
+          </>
+        ) : (
+          <>
+            <button type="button" className="rx-find" aria-label="Buscar recetas y escenas" title="Buscar" onClick={() => setFinding(true)}>
+              <ISearch className="rx-find-ic" />
             </button>
-          )}
-        </label>
+            {filterRow}
+          </>
+        )}
       </div>
-      {!query.trim() && filterRow}
+      {searching && !query.trim() && filterRow}
       <p className="sr-only" id={uid + 'n'} aria-live="polite">
         {query.trim() ? (view.count ? `${view.count} ${view.count === 1 ? 'resultado' : 'resultados'}` : 'Ningún resultado') : ''}
       </p>
