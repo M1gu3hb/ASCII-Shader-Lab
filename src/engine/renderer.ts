@@ -1,4 +1,4 @@
-import type { EngineStats, GridSnapshot, MediaKind } from './engine';
+import type { EngineStats, GestureInput, GridSnapshot, MediaKind } from './engine';
 import type { Recipe } from './recipe';
 import type { TransitionSpec } from './transitions';
 
@@ -73,5 +73,11 @@ export interface Renderer {
   readGrid(): GridSnapshot;
   accent(): string;
   setPointer(x: number, y: number, on: boolean): void;
+  /**
+   * A pointer event given by code (fractions of the canvas, a time on the gesture clock): the pointer modes
+   * take it like a real one, so a gesture can be replayed (engine/touch.ts). Fixed-size engines play it over
+   * the frames renderAt draws one after another.
+   */
+  gesture(e: GestureInput): void;
   destroy(): void;
 }

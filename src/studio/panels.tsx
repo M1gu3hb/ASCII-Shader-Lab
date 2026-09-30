@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, type ReactNode } from 'react';
 import { CHARSETS, GLYPH_MODE_NAMES, PATTERNS, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
-import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type InteractMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
+import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
 import { Rng } from '../random/prng';
 import type { SpaceId } from '../random/spaces';
 import { Color, F, Note, Seg, SegGroup, Select, Slider, Sub, Text, Toggle, useField } from './controls';
@@ -21,10 +21,11 @@ import { NumberField } from './ui/NumberField';
 import { HelpMore, HelpToggle, HintText, useHelp } from './ui/Help';
 import { DITHER_DESC, DITHER_ICON, FIT_DESC, GLYPH_MODE_DESC, GLYPH_MODE_ICON, SOURCE_DESC } from './ui/copy';
 import {
-  CharsetOption, CharsetPreview, CharsetRamp, PatternThumb, blendOptions, charsetOptions, closeThumbSession, colorMapOptions, fontOptions, interactOptions,
+  CharsetOption, CharsetPreview, CharsetRamp, PatternThumb, blendOptions, charsetOptions, closeThumbSession, colorMapOptions, fontOptions,
   letterAnimOptions, msgModeOptions, openThumbSession, patternOptions,
 } from './ui/options';
 import { XformTab } from './ui/Xforms';
+import { TouchControls } from './ui/Touch';
 import { RampEditor } from './ui/RampEditor';
 import { PaletteEditor } from './ui/color/PaletteEditor';
 import { useRamps } from './ui/ramps';
@@ -47,7 +48,6 @@ export const TABS: Record<SpaceId, Array<[string, string]>> = {
 
 const PATTERN_OPTS = patternOptions();
 const BLEND_OPTS = blendOptions();
-const INTERACT_OPTS = interactOptions();
 const MSG_OPTS = msgModeOptions();
 const DISPLAY_FONTS = fontOptions(true);
 /** Values the comparison strips offer beside the cell size and contrast ones. */
@@ -268,7 +268,6 @@ function GlifosTab({ space }: { space: SpaceId }) {
 /* ------------------------------------------------------------------ */
 
 function MovTab({ space }: { space: SpaceId }) {
-  const mode = useField(F<InteractMode>('interact.mode'));
   return (
     <>
       {space !== 'media' && (
@@ -282,16 +281,7 @@ function MovTab({ space }: { space: SpaceId }) {
           <SoundControl />
         </>
       )}
-      <Sub>Cursor y tacto</Sub>
-      <Select f={F<InteractMode>('interact.mode')} label="Qué hace el cursor" opts={INTERACT_OPTS} minWidth={280} />
-      {mode !== 'none' && (
-        <>
-          <Slider f={F('interact.strength')} label="Fuerza" min={0} max={1} />
-          <Slider f={F('interact.radius')} label="Radio" min={0.03} max={0.6} />
-          <Toggle f={F('interact.auto')} label="Cursor automático si nadie lo mueve" />
-        </>
-      )}
-      {mode === 'erase' && <Note>Con una imagen, el borrador revela la foto original bajo los caracteres.</Note>}
+      <TouchControls />
     </>
   );
 }

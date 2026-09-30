@@ -1,0 +1,8 @@
+/* «Cursor y tacto»: the small live example of the chosen mode (ui/Touch.tsx) */
+.tx-demo { margin: 4px 0 14px; }
+.tx-stage { position: relative; height: 136px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+/* a vertical swipe on the example still scrolls the panel; taps, drags sideways and pinches reach it */
+.tx-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: crosshair; }
+.tx-demo figcaption { display: flex; gap: 10px; align-items: baseline; margin-top: 7px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.tx-icon { flex: none; min-width: 2.2ch; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text); letter-spacing: -.02em; }
+@media (prefers-reduced-motion: reduce) { .tx-stage canvas { cursor: default; } }

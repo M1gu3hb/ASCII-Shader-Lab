@@ -56,6 +56,8 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
       fonts: studioFonts,
       interactive: true,
       pointerTarget: 'canvas',
+      // «Zoom con los dedos»: the stage never scrolls, so the wheel alone zooms there
+      wheelZoom: true,
       adaptive: true,
       maxPixelRatio: 2,
       autoplay: s.playing,

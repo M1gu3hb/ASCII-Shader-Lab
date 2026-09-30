@@ -39,6 +39,12 @@ export interface ComposeFrame {
   simTr: Float32Array | null;
   /** Media under the grid at canvas resolution (RGBA), for reveal. */
   mediaPx: Uint32Array | null;
+  /** «Revelar»: the touch field's bytes (R: how much shows, ../touch.ts), null otherwise. */
+  touchReveal?: Uint8Array | null;
+  /** A picture is loaded (Revelar shows it; without one it shows each cell's colour as a tile). */
+  hasMedia?: boolean;
+  /** Marks of a gesture (Rastro, Florecer, Anillos, Chispas): the touch field's bytes, and how much they glow behind their glyphs. */
+  touchTile?: { data: Uint8Array; k: number } | null;
   /** Blurred grid for bloom (cols × rows × 3, 0..1). */
   bloom: Float32Array | null;
   realT: number;
@@ -122,6 +128,7 @@ export function shadePass(f: ComposeFrame, dst: Uint32Array) {
   const media = f.mediaPx;
   const tr = f.eraseReveal ? f.simTr : null;
   const transparent = f.transparent;
+  const trv = f.touchReveal ?? null, tiles = !f.hasMedia, tile = f.touchTile ?? null;
 
   for (let row = 0; row < rows; row++) {
     const y0 = row * ch;
@@ -134,7 +141,10 @@ export function shadePass(f: ComposeFrame, dst: Uint32Array) {
       const i = row * cols + col;
       const iR = sel.rgb[i * 3], iG = sel.rgb[i * 3 + 1], iB = sel.rgb[i * 3 + 2];
       const Lc = sel.lum[i] / 255;
-      const fillA = cellBg * Lc;
+      let fillA = cellBg * Lc;
+      const tv = trv ? trv[i * 4] / 255 : 0;
+      if (tv > 0 && tiles && tv * 0.9 > fillA) fillA = tv * 0.9;
+      if (tile) { const k = (tile.data[i * 4] / 255) * tile.k; if (k > fillA) fillA = k; }
       const ga = sel.alpha[i] / 255;
       const plate = sel.flags[i] > 0 ? box : 0;
       const g = sel.idx[i];
@@ -143,6 +153,7 @@ export function shadePass(f: ComposeFrame, dst: Uint32Array) {
       const covK = hasGlyph ? ga / 255 : 0;
       let rv = media && !transparent ? f.reveal : 0;
       if (media && tr && !transparent) rv = Math.max(rv, tr[i]);
+      if (media && tv > 0 && !transparent) rv = Math.max(rv, tv);
       const glowK = glow * Lc;
       // background of the cell before glow: mix(bg, ink, fillA)
       const fr = bgR + (iR - bgR) * fillA, fg = bgG + (iG - bgG) * fillA, fb = bgB + (iB - bgB) * fillA;

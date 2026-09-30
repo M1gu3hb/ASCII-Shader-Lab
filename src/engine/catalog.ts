@@ -176,6 +176,8 @@ export const COLOR_MAP_NAMES: Record<ColorMap, string> = {
 export const INTERACT_NAMES: Record<InteractMode, string> = {
   none: 'Ninguna', light: 'Linterna', ripple: 'Ondas', lens: 'Lupa', repel: 'Empuje', swirl: 'Remolino',
   erase: 'Borrador', paint: 'Pincel', scramble: 'Caos',
+  trail: 'Rastro', blossom: 'Florecer', rings: 'Anillos', sparks: 'Chispas', stretch: 'Estirar', reveal: 'Revelar',
+  zoom: 'Zoom con los dedos', magnet: 'Imán', follow: 'Seguir',
 };
 
 export const MSG_MODE_NAMES: Record<MsgMode, string> = {
