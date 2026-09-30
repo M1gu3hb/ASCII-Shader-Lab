@@ -5,7 +5,7 @@ import type { SpaceId } from '../random/spaces';
 import { keepMedia, keepText, type Preset } from './presets';
 
 /**
- * Composed scenes (from the Codex branch): two layers moving at their own speeds, a palette of the gallery,
+ * Composed scenes (from the pattern-library branch): two layers moving at their own speeds, a palette of the gallery,
  * a character set and a motion, written as data. A scene becomes an ordinary recipe (makeScene), so every
  * layer, colour, glyph and speed stays editable, and Imagen scenes keep the person's photo, video or camera.
  * Browsing them (SceneExplorer) is not mounted in the panel yet: the recipe browser decides where it goes.

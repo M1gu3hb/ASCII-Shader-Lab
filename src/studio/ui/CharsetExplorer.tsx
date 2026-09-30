@@ -7,7 +7,7 @@ import { useRamps } from './ramps';
 import './charset-explorer.css';
 
 /**
- * «Comparar alfabetos» (from the Codex branch): the piece on screen drawn with other character sets, side by
+ * «Comparar alfabetos» (from the pattern-library branch): the piece on screen drawn with other character sets, side by
  * side, in pages of eight; choosing one is an ordinary edit (it can be undone). Not mounted yet: the lab's
  * panel decides where it goes (e.g. in Glifos, under the character set picker).
  *   <CharsetExplorer asciiOnly={space === 'terminal'} />

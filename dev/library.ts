@@ -1,5 +1,5 @@
 /**
- * QA page of the library ported from the Codex branch: every new pattern, particle motion, recipe, scene,
+ * QA page of the library ported from the pattern-library branch: every new pattern, particle motion, recipe, scene,
  * palette, character set and letter animation, drawn by both engines side by side at the same size and time.
  * Not part of the production build (like dev/patterns.html and dev/basic.html).
  *   ?motor=basico | ?motor=webgl   only one engine;  ?solo=patrones,escenas   only those sections

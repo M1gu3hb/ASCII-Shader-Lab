@@ -7,7 +7,7 @@ import { applyRecipe, currentRecipe } from '../store';
 import './scene-explorer.css';
 
 /**
- * «Escenas» (from the Codex branch): the composed scenes of a space in pages of six, filtered by mood, with
+ * «Escenas» (from the pattern-library branch): the composed scenes of a space in pages of six, filtered by mood, with
  * small renders; choosing one applies it as a recipe (history entry «receta», editable, Imagen keeps the
  * person's photo). Not mounted yet: the recipe browser of the lab decides where it goes.
  *   <SceneExplorer space={space} onApplied={() => …} />

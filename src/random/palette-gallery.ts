@@ -2,7 +2,7 @@ import type { Palette } from './palettes';
 import type { Rng } from './prng';
 
 /**
- * Forty hand-curated palettes in five moods (from the Codex branch). Like CURATED, stops go from the
+ * Forty hand-curated palettes in five moods (from the pattern-library branch). Like CURATED, stops go from the
  * faintest glyphs to the densest ones, over `bg`; light palettes are ink on paper. They are data for the
  * colour editor, the composed scenes (src/studio/scenes.ts) and the next generator version: the
  * `curado` selection of versions 1–4 does not include them, so older seeds keep their colours.

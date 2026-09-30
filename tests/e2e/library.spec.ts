@@ -3,7 +3,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import { download, openStudio } from './helpers';
 
 /**
- * The library ported from the Codex branch in the real studio: its recipes open in their space and draw,
+ * The library ported from the pattern-library branch in the real studio: its recipes open in their space and draw,
  * and a sample of its pieces (a solid, a particle motion, a curve, a field) exports what the stage shows —
  * PNG, a GIF frame and the pasted code, with WebGL 2 and with the basic engine. The layers' speed is 0 so
  * every renderer shows the very same moment; pictures are compared as grids of luminance (r: correlation).

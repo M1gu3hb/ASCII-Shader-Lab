@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Drives dev/library.html (the library ported from the Codex branch) in Chromium with SwiftShader:
+ * Drives dev/library.html (the library ported from the pattern-library branch) in Chromium with SwiftShader:
  *   node dev/library.qa.mjs --out DIR [--page] [--snaps] [--parity] [--bench] [--solo patrones,escenas] [--ids a,b]
  *   --page    screenshots of the QA page, one per section (DIR/library-<section>.png)
  *   --snaps   every pattern, particle motion, recipe and scene by both engines at 1440×900 and 390×844

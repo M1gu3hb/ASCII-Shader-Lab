@@ -18,7 +18,7 @@ import { PRESETS } from '../../src/studio/presets';
 import { SCENES, SCENE_PRESETS, makeScene, scenesFor } from '../../src/studio/scenes';
 
 /**
- * The library ported from the Codex branch (patterns, particle motions, charsets, letter animations,
+ * The library ported from the pattern-library branch (patterns, particle motions, charsets, letter animations,
  * palettes, recipes and scenes): every id is unique and known to both engines, the content opens as valid
  * recipes in its space, and none of it reaches generator versions 1–4 (their fixtures are in
  * generator-versions.test.ts).
@@ -269,7 +269,7 @@ describe('library: the generator', () => {
     }
   });
 
-  it('keeps Codex\'s weights as tables whose every id exists', () => {
+  it('keeps the branch\'s weights as tables whose every id exists', () => {
     const archs = ARCHETYPES.map(a => a.id);
     expect(Object.keys(LIBRARY_PATTERNS).sort()).toEqual([...archs].sort());
     for (const [arch, w] of Object.entries(LIBRARY_PATTERNS)) for (const [id, v] of Object.entries(w)) {

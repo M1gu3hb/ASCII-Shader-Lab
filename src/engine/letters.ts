@@ -23,7 +23,7 @@ const posMod = (x: number, m: number) => x - m * Math.floor(x / m);
 /** Explosion envelope over its cycle: together (a while), out, a breath, back. */
 function burst(u: number) { return smooth(1.6, 2.4, u) - smooth(3.0, 4.2, u); }
 const BURST = 4.6;
-/** Órbita, Enjambre and Cascada (from the Codex branch): their cycles in seconds at speed 1. */
+/** Órbita, Enjambre and Cascada (from the pattern-library branch): their cycles in seconds at speed 1. */
 const ORBIT = (2 * Math.PI) / 1.1, SWARM = (2 * Math.PI) / 0.9, CASCADE = 5.2;
 /** Cascada over its cycle: letter at fraction f of the text comes in from above, stays, and falls out. */
 const cascadeIn = (v: number, f: number) => smooth(0.15 + f * 1.25, 0.55 + f * 1.25, v);

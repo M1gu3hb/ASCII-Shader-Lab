@@ -1,7 +1,7 @@
 import { solidChunk } from './solid';
 
 /**
- * Library, first batch (ported from the Codex branch): mathematical fields and three solids. Every chunk
+ * Library, first batch (ported from the pattern-library branch): mathematical fields and three solids. Every chunk
  * is self-contained, like those of patterns.ts, and has a line-by-line CPU twin in ../basic/patterns-extra.ts.
  * p uses screen-height coordinates. Ideas: Mandelbrot, Sierpinski's carpet, Vogel's phyllotaxis,
  * hypotrochoids and quasiperiodic waves; the code is written for GLYPHOS.

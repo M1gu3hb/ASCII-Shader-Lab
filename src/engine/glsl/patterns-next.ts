@@ -1,7 +1,7 @@
 import { solidChunk, type SolidChunk } from './solid';
 
 /**
- * Library, second batch (from the Codex branch, redrawn for GLYPHOS): calm fields, curves and seven animated
+ * Library, second batch (from the pattern-library branch, redrawn for GLYPHOS): calm fields, curves and seven animated
  * solids. CPU twins in ../basic/patterns-next.ts, step by step. Lines are never thinner than a cell (PX), so
  * curves do not break into dots; every pattern moves at speed 1.
  */

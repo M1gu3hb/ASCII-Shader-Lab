@@ -140,7 +140,7 @@ export const PATTERNS: PatternInfo[] = [
 export const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
 
 /**
- * What the library ported from the Codex branch added (ids), for QA pages, tests and the next generator
+ * What the library ported from the pattern-library branch added (ids), for QA pages, tests and the next generator
  * version: 35 patterns (10 of them solids), 12 particle motions, 10 character sets, 3 letter animations.
  */
 export const LIBRARY = {

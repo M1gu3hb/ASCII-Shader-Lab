@@ -1,5 +1,5 @@
 /**
- * Particle choreographies (from the Codex branch, redrawn for GLYPHOS): points on analytic trajectories,
+ * Particle choreographies (from the pattern-library branch, redrawn for GLYPHOS): points on analytic trajectories,
  * drawn as a field at any time t, so they loop, export and scrub like any other pattern. One chunk per
  * motion, each with its own number of points; CPU twin: ../basic/particles.ts (same order of operations).
  *   a: the motion's own setting (its label in the catalog), b: the size of the points.
