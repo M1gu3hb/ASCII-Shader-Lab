@@ -9,7 +9,7 @@ import { useMatch } from '../ui/useMatch';
 import { CATEGORIES, allItems, filtersOf, itemsOf, lookOf, sectionsOf, type RecipeItem } from './catalog';
 import { RecipePic } from './Pic';
 import { search } from './search';
-import { applyItem, applySaved, isShown, itemOfEntry, recentItems, savedIn, setBrowserOpen, setFilter, setQuery, useRecipesUI } from './state';
+import { applyItem, applySaved, itemOfEntry, recentItems, savedIn, setBrowserOpen, setFilter, setQuery, useRecipesUI } from './state';
 import './recipes.css';
 
 /**
@@ -168,7 +168,7 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
               {g.items.map((it, i) => (
                 <li key={it.key}>
                   <Card item={it} prio={i} space={space} base={base} root={scroller} other={it.space !== (space === 'componentes' ? 'fondos' : space)} meta={g.id !== it.section}
-                    shown={isShown(it, entry)} from={!!entry?.edited && shownItem?.key === it.key} tab={it.key === activeKey} onFocusKey={setActive} />
+                    shown={!entry?.edited && shownItem?.key === it.key} from={!!entry?.edited && shownItem?.key === it.key} tab={it.key === activeKey} onFocusKey={setActive} />
                 </li>
               ))}
             </ul>
