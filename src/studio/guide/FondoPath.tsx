@@ -8,6 +8,7 @@ import { LegibilityReport, ScrimFine, ScrimSeg } from '../views/PageMock';
 import { currentView, setView, useView } from '../views/state';
 import { FONDO_SPEEDS, applyPresence, nearestChoice, presence, presenceWord } from './paths';
 import { CodeBox, StyleGrid, type StyleItem } from './parts';
+import { Range } from '../ui/Range';
 
 /* 1 · Elige un estilo ------------------------------------------------ */
 
@@ -60,8 +61,7 @@ export function FondoPresence() {
       <div className="ctl guide-presence">
         <label className="lbl" htmlFor={id}>Presencia</label>
         <output htmlFor={id}>{presenceWord(p)}</output>
-        <input id={id} type="range" min={0} max={1} step={0.01} value={p} aria-valuetext={presenceWord(p)}
-          style={{ '--p': p * 100 + '%' } as React.CSSProperties} onChange={e => move(parseFloat(e.target.value))} />
+        <Range id={id} min={0} max={1} step={0.01} value={p} aria-valuetext={presenceWord(p)} onValue={move} />
         <span className="guide-ends" aria-hidden="true"><span>sutil</span><span>protagonista</span></span>
       </div>
       <label className="toggle">

@@ -521,7 +521,7 @@ export class BasicEngine implements Renderer {
       this.out32 = new Uint32Array(this.img.data.buffer);
       this.flat = null;
       this.revealKey = '';
-      this.trans = -1;
+      // (a transition under way goes on: its old frame is drawn at the new size, transition.ts)
     }
     this.cw = Math.max(2, Math.round(g.cell * pr));
     this.ch = Math.max(2, Math.round(g.cell * g.aspect * pr));

@@ -378,6 +378,8 @@ uniform float uTrans, uTransparent, uReveal, uEraseReveal, uHasMedia, uN;
 uniform int uTransKind;
 uniform vec2 uTransOrigin;
 uniform float uTransDir, uTransSeed;
+// the old frame's size over the canvas's: the stage may change size during a transition (a new view, a new window)
+uniform vec2 uPrevScale;
 uniform float uFxTime;
 ${GLSL_MEDIA}
 out vec4 o;
@@ -532,7 +534,7 @@ void main(){
       col = mix(uTransparent > .5 ? vec3(0.) : uBg, uAccent, cv);
       alpha = uTransparent > .5 ? cv : 1.;
     } else if (st.x > .5){
-      vec4 pv = texelFetch(uPrev, ivec2(fc), 0);
+      vec4 pv = texelFetch(uPrev, min(ivec2(fc * uPrevScale), textureSize(uPrev, 0) - 1), 0);
       col = pv.rgb; alpha = pv.a;
     }
   }

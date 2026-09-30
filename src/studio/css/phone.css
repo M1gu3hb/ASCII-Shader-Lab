@@ -273,9 +273,10 @@
 /* ---------- narrow phones: the space picker is its icon ----------
    With the «Laboratorio ⇄ Foto y video» switch at 44 px per segment, a phone up to 420 px has no room
    for the space's name beside it (it was cut to a few pixels at 390): the picker shows the space's icon
-   and its caret, and keeps the name for assistive tech (the list names every space when it opens). */
+   and its caret, and keeps the name for assistive tech (the list names every space when it opens). Without
+   the switch (the photo studio paused, FotoSwitch.tsx) the name fits from 360 px (layout.css: 340 px down). */
 @media (max-width: 420px) {
-  .app .topbar .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
-  .app .topbar .pk.space-select .pk-val { flex: none; }
-  .app .topbar .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .app .topbar:has(.sw) .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
+  .app .topbar:has(.sw) .pk.space-select .pk-val { flex: none; }
+  .app .topbar:has(.sw) .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }

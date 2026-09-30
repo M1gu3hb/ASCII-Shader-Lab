@@ -39,16 +39,63 @@ export function charsetOptions(asciiOnly: boolean): PickOpt<string>[] {
   ];
 }
 
+/** Relative luminance of a #rrggbb colour (WCAG). */
+function lum(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 0;
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+const contrast = (a: string, b: string) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+/**
+ * The colours glyphs are shown with in a list: the piece's densest colour on its background when they
+ * read (4.5:1 at least), else the studio's bone on ink, so a dark palette never gives unreadable samples.
+ */
+export function readableGlyphColours(recipe?: Recipe): { ink: string; bg: string } {
+  const stops = recipe?.color.stops ?? [];
+  const bg = recipe?.color.bg ?? '#0b0a09';
+  const best = [...stops].sort((a, b) => contrast(b, bg) - contrast(a, bg))[0];
+  return best && contrast(best, bg) >= 4.5 ? { ink: best, bg } : { ink: '#ede6da', bg: '#0b0a09' };
+}
+
 /** A character set's ramp on the piece's colours, in the piece's font (decoration: hidden from assistive tech). */
 export function CharsetRamp({ id, chars, recipe, n = 12 }: { id: string; chars?: string; recipe?: Recipe; n?: number }) {
   const c = chars !== undefined ? { chars } : CHARSETS.find(x => x.id === id);
   if (!c) return null;
   const font = fontById(recipe?.glyph.font ?? 'jetbrains');
-  const stops = recipe?.color.stops ?? ['#ede6da'];
+  const { ink, bg } = readableGlyphColours(recipe);
   return (
-    <span className="pk-ramp-box" aria-hidden="true" style={{ background: recipe?.color.bg ?? '#0b0a09' }}>
-      <span className="pk-ramp" style={{ fontFamily: font.stack, fontWeight: recipe?.glyph.weight, color: stops[stops.length - 1] }}>{ramp(c.chars, n)}</span>
+    <span className="pk-ramp-box" aria-hidden="true" style={{ background: bg }}>
+      <span className="pk-ramp" style={{ fontFamily: font.stack, fontWeight: recipe?.glyph.weight, color: ink }}>{ramp(c.chars, n)}</span>
     </span>
+  );
+}
+
+/**
+ * The highlighted character set as text (above the list): a few of its characters large, in the piece's
+ * font, and every symbol it has, from the emptiest to the fullest, in order. Real text, crisp at any
+ * size and density (it used to be a small render of the piece, blurry on phones).
+ */
+export function CharsetPreview({ id, chars, recipe }: { id: string; chars?: string; recipe?: Recipe }) {
+  const c = chars ?? CHARSETS.find(x => x.id === id)?.chars;
+  if (!c) return null;
+  const list = [...new Set([...c])];
+  const font = fontById(recipe?.glyph.font ?? 'jetbrains');
+  const { ink, bg } = readableGlyphColours(recipe);
+  const solid = list.filter(ch => ch.trim());
+  const n = Math.min(7, solid.length);
+  const big = Array.from({ length: n }, (_, i) => solid[Math.round((i / Math.max(1, n - 1)) * (solid.length - 1))]);
+  const face = { fontFamily: font.stack, fontWeight: recipe?.glyph.weight };
+  return (
+    <div className="cs-prev">
+      <div className="cs-big" style={{ ...face, color: ink, background: bg }}>{big.map((ch, i) => <span key={i}>{ch}</span>)}</div>
+      <p className="cs-all-h">{list.length} {list.length === 1 ? 'símbolo' : 'símbolos'}, del vacío al lleno</p>
+      <p className="cs-all" style={face}>
+        {list.map((ch, i) => (ch.trim() ? <span key={i}>{ch}</span> : <span key={i} className="cs-sp" title="espacio">␣</span>))}
+      </p>
+    </div>
   );
 }
 

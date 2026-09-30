@@ -26,7 +26,7 @@ export const SPACES: SpaceInfo[] = [
     archs: { minimal: 1, neon: 1, retro: 1, tinta: 1.2, glitch: 0.8, brutal: 1, organico: 0.7, op: 0.5, geometrico: 0.6, cosmico: 0.4 },
   },
   {
-    id: 'tipo', name: 'Tipo', short: 'Tipo',
+    id: 'tipo', name: 'Texto', short: 'Texto',
     blurb: 'Palabras como materia: tipografía rellena de patrón, mensajes que se escriben, se borran y se descifran.',
     archs: { tinta: 1.2, brutal: 1.1, neon: 1, retro: 0.9, glitch: 1, vapor: 0.7, minimal: 0.8, op: 0.6, geometrico: 0.6, organico: 0.5, cosmico: 0.4, fractal: 0.4 },
   },
@@ -47,6 +47,6 @@ export const spaceById = (id: string) => SPACES.find(s => s.id === id) ?? SPACES
 export type LockGroup = 'forma' | 'color' | 'glifos' | 'movimiento' | 'efectos' | 'fuente';
 
 export const LOCK_NAMES: Record<LockGroup, string> = {
-  forma: 'Forma', color: 'Color', glifos: 'Glifos', movimiento: 'Movimiento', efectos: 'Efectos', fuente: 'Fuente',
+  forma: 'Forma', color: 'Color', glifos: 'Glifos', movimiento: 'Movimiento', efectos: 'Efectos', fuente: 'Origen',
 };
 export const LOCK_GROUPS = Object.keys(LOCK_NAMES) as LockGroup[];

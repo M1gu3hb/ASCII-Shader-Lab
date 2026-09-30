@@ -64,12 +64,12 @@ export function XformTab({ space }: { space: SpaceId }) {
     (card?.querySelector<HTMLElement>('[role="combobox"]') ?? box.querySelector<HTMLElement>('[role="combobox"]'))?.focus();
   }, [list]);
   if (source === 'pattern') {
-    return <Note>Las transformaciones cambian una imagen, un video, la cámara o el texto grande antes de volverlos caracteres. Elige una fuente en «{space === 'tipo' ? 'Texto' : 'Fuente'}».</Note>;
+    return <Note>Las transformaciones cambian una imagen, un video, la cámara o el texto grande antes de volverlos caracteres. Elige qué se convierte en caracteres en «{space === 'tipo' ? 'Tu texto' : 'Origen'}».</Note>;
   }
   return (
     <>
       <Note>Cambian {isText ? 'el texto' : 'la imagen'} antes de volverl{isText ? 'o' : 'a'} caracteres. Se aplican en orden, de arriba abajo: combina hasta {XFORM_MAX} y cambia su orden para cambiar el resultado.</Note>
-      {!loaded && <Note>Cuando cargues {source === 'camera' ? 'la cámara' : source === 'video' ? 'un video' : 'una imagen'} en «Fuente» verás aquí cada transformación sobre ella.</Note>}
+      {!loaded && <Note>Cuando cargues {source === 'camera' ? 'la cámara' : source === 'video' ? 'un video' : 'una imagen'} en «Origen» verás aquí cada transformación sobre ella.</Note>}
       {list.map((x, i) => <XformCard key={x.kind} i={i} n={list.length} x={x} used={used} moving={moving} isText={isText} onOpen={onOpen} keepFocus={keepFocus} />)}
       <Sub>{list.length ? 'Añadir otra' : 'Añadir una transformación'}</Sub>
       <div className="xf-add" ref={addBox}>

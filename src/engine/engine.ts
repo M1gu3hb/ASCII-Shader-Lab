@@ -768,8 +768,8 @@ export class AsciiEngine implements Renderer {
       this.resetSim();
       this.msgKey = '';
     }
-    const prev = this.prevT[this.prevIdx];
-    if (prev && (prev.w !== this.W || prev.h !== this.H)) this.trans = -1;
+    // (a transition under way goes on: the old frame is drawn at the new size, see uPrevScale. Dropping it
+    // here was why a change that also resized the stage, a new view or terminal window, often showed none)
     this.textKey = '';
   }
 
@@ -954,7 +954,7 @@ export class AsciiEngine implements Renderer {
       this.prevFb[i] = fboFor(gl, t);
     }
     const cur = this.prevT[this.prevIdx];
-    this.compose(this.prevFb[i], cur && cur.w === this.W && cur.h === this.H ? this.trans : -1);
+    this.compose(this.prevFb[i], cur ? this.trans : -1);
     this.prevIdx = i;
     this.trans = 0;
     this.transStart = NaN;
@@ -1354,6 +1354,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform2f(loc(gl, p, 'uTransOrigin'), ts.origin?.[0] ?? 0.5, ts.origin?.[1] ?? 0.5);
     gl.uniform1f(loc(gl, p, 'uTransDir'), ts.dir ?? 1);
     gl.uniform1f(loc(gl, p, 'uTransSeed'), ts.seed ?? 0);
+    gl.uniform2f(loc(gl, p, 'uPrevScale'), pt && pt.w ? pt.w / this.W : 1, pt && pt.h ? pt.h / this.H : 1);
     gl.uniform1f(loc(gl, p, 'uTransparent'), this.transparent ? 1 : 0);
     const hasMedia = this.mediaOK && ['image', 'video', 'camera'].includes(r.source);
     gl.uniform1f(loc(gl, p, 'uHasMedia'), hasMedia ? 1 : 0);

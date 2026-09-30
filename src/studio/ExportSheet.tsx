@@ -23,6 +23,7 @@ import { takeExportRequest, type ExportRequest } from './exportTab';
 import { SegGroup } from './controls';
 import { Picker, type PickOpt } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { NumberField } from './ui/NumberField';
 import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
 import type { Fallback } from '../exporters/code';
 import './css/export-code.css';
@@ -378,7 +379,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     <>
       {!camera && (
         <div className="ex-clip">
-          <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={60} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(60, +ev.target.value || 1)))} /></label>
+          <div className="ctl"><label className="lbl" htmlFor="v-secs">Duración (s)</label><NumberField id="v-secs" min={1} max={60} step={0.5} value={secs} onValue={setSecs} /></div>
           <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
           <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}{warm > 0 ? ` Con Estela, antes del primer fotograma se preparan ${warm.toFixed(1).replace('.', ',')} s sin grabar, para que el clip empiece con su estela${loop > 0 ? ' y enlace' : ''}: tarda algo más.` : ''}</p>
         </div>
@@ -559,8 +560,8 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   return (
     <>
       <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-        <label className="ctl" style={{ margin: 0 }}><span className="lbl">Columnas</span><input type="number" min={10} max={300} value={cols} onChange={ev => setCols(Math.max(10, Math.min(300, +ev.target.value || 80)))} style={{ width: 90 }} /></label>
-        <label className="ctl" style={{ margin: 0 }}><span className="lbl">Filas</span><input type="number" min={4} max={150} value={rows} onChange={ev => setRows(Math.max(4, Math.min(150, +ev.target.value || 24)))} style={{ width: 90 }} /></label>
+        <div className="ctl ctl-num" style={{ margin: 0 }}><label className="lbl" htmlFor="t-cols">Columnas</label><NumberField id="t-cols" min={10} max={300} value={cols} onValue={setCols} style={{ width: 90 }} /></div>
+        <div className="ctl ctl-num" style={{ margin: 0 }}><label className="lbl" htmlFor="t-rows">Filas</label><NumberField id="t-rows" min={4} max={150} value={rows} onValue={setRows} style={{ width: 90 }} /></div>
         <div className="ctl" style={{ margin: 0, flex: 1, minWidth: 260 }}><span className="lbl">Color</span>
           <div className="seg">{([['none', 'Sin color'], ['16', '16'], ['256', '256'], ['truecolor', 'Color real']] as Array<[ColorDepth, string]>).map(([d, n]) => <button key={d} type="button" aria-pressed={depth === d} onClick={() => setDepth(d)}>{n}</button>)}</div></div>
         <label className="toggle" style={{ margin: 0 }}><span>Pintar fondo</span><span className="switch"><input type="checkbox" role="switch" checked={withBg} onChange={ev => setWithBg(ev.target.checked)} /><span /></span></label>
@@ -588,7 +589,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
           <h3>Animación para la consola</h3>
           <p>Scripts autónomos: no necesitan instalar nada. Se detienen con Ctrl+C y restauran la terminal.</p>
           <div className="ex-anim">
-            <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={30} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(30, +ev.target.value || 1)))} /></label>
+            <div className="ctl"><label className="lbl" htmlFor="t-secs">Duración (s)</label><NumberField id="t-secs" min={1} max={30} step={0.5} value={secs} onValue={setSecs} /></div>
             <Numbers id="t-fps" label="Fotogramas por segundo" value={fps} list={[8, 10, 12, 15, 20, 24]} onPick={setFps} />
           </div>
           {busy !== null ? <Busy p={busy} onCancel={() => { cancel.current.cancelled = true; }} /> : (
