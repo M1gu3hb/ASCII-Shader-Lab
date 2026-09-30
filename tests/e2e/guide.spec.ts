@@ -217,7 +217,7 @@ test.describe('caminos', () => {
     await expect(page.getByRole('button', { name: 'Fondos', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
     // 1 · a style, or another one from the dice
-    await guide(page).getByRole('button', { name: 'Marea' }).click();
+    await guide(page).getByRole('button', { name: 'Marea', exact: true }).click();
     await expect(page.locator('.seedline .ell')).toHaveText('Marea');
     const n = await page.locator('.thumb').count();
     await guide(page).getByRole('button', { name: 'Otro al azar' }).click();
