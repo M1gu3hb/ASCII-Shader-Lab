@@ -296,6 +296,25 @@ describe('the landing\'s exported files (@salida)', () => {
     expect(() => salida('nada', readPublic)).toThrow();
   });
 
+  it('says what a shared link carries as it is now: the public viewer (/ver/), the recipe\'s length measured, then the frame', async () => {
+    const { decodeRecipe, viewerUrl } = await import('../../src/shared/share');
+    const { frameFor } = await import('../../src/shared/frame');
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const dd = /<dt>Enlace<\/dt><dd><!-- @salida:linklen -->([^<]*)<\/dd>/.exec(html);
+    expect(dd, 'the «Enlace» line of «Salidas»').not.toBeNull();
+    expect(dd![1]).toBe(' caracteres tras /ver/#r=, más el encuadre');
+    // the link «Compartir» gives for «Saturno» today: that many characters of recipe after /ver/#r=, then its frame
+    const r = (await decodeRecipe(/#r=([\w-]+)/.exec(manifest.link)![1]))!;
+    const shared = await viewerUrl(r, { frame: frameFor(1096, 848, 1, r.glyph.cell, r.glyph.aspect) }, '');
+    const n = Number(salida('linklen', readPublic));
+    expect(shared.startsWith('/ver/#r=')).toBe(true);
+    expect(shared.slice('/ver/#r='.length).indexOf('&f=')).toBe(n);
+    // what someone who opens it sees without the sender's picture (src/ver/main.ts says the same)
+    expect(html).not.toContain('hasta cargar uno suyo');
+    expect(html).toContain('verá el estilo de la pieza con su patrón de fondo en su lugar');
+    expect(readFileSync(join(root, 'src/ver/main.ts'), 'utf8')).toContain('aquí ves su estilo con el patrón de fondo');
+  });
+
   it('every @salida directive of the landing renders', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
     const out = renderPage(html, page('main'), { readPublic });
