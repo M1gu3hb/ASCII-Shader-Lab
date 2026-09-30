@@ -1,0 +1,27 @@
+/* «Escenas compuestas» (SceneExplorer.tsx) — the panel's tokens (studio.css) */
+.sx-explorer { padding: 8px 0 10px; }
+.sx-explorer button { font: inherit; color: inherit; cursor: pointer; }
+.sx-explorer :focus-visible { outline: 2px solid var(--focus, #ffb08a); outline-offset: 2px; }
+.sx-explorer-toggle, .sx-explorer-filters button, .sx-explorer-pages button {
+  min-height: 44px; border: 1px solid var(--line-2, rgba(237, 230, 218, .18)); border-radius: var(--r-ctl, 7px);
+  background: var(--field, rgba(237, 230, 218, .055)); padding: 8px 12px;
+}
+.sx-explorer-toggle { width: 100%; text-align: left; font-weight: 600; }
+.sx-explorer-toggle:hover, .sx-explorer-filters button:hover, .sx-explorer-pages button:hover:not(:disabled) { background: var(--field-2, rgba(237, 230, 218, .09)); }
+.sx-explorer-note { margin: 10px 2px; font-size: .84rem; color: var(--muted, #a39c90); }
+.sx-explorer-filters { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.sx-explorer-filters button { padding: 6px 10px; }
+.sx-explorer-filters button[aria-pressed="true"] { background: var(--text, #ede6da); color: var(--bg, #0c0b0a); border-color: var(--text, #ede6da); }
+.sx-explorer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.sx-explorer-grid button {
+  min-width: 0; text-align: left; padding: 5px; border-radius: 8px;
+  background: var(--panel-2, #1b1917); border: 1px solid var(--line, rgba(237, 230, 218, .1));
+}
+.sx-explorer-grid button:hover { border-color: var(--line-2, rgba(237, 230, 218, .18)); }
+.sx-explorer-image { display: block; aspect-ratio: 8 / 5; overflow: hidden; border-radius: 5px; background: var(--panel, #141311); }
+.sx-explorer-image img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sx-explorer-grid strong, .sx-explorer-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 5px; font-size: .8rem; }
+.sx-explorer-grid small { margin-top: 1px; color: var(--muted, #a39c90); font-size: .72rem; }
+.sx-explorer-pages { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.sx-explorer-pages button:disabled { opacity: .4; cursor: default; }
+@media (max-width: 600px) { .sx-explorer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

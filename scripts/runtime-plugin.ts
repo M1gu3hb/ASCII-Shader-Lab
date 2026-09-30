@@ -16,6 +16,13 @@ const ROOT = resolve(import.meta.dirname, '..');
 const ENTRY = resolve(ROOT, 'src/runtime/entry.ts');
 const ENTRY_BASIC = resolve(ROOT, 'src/runtime/entry-basic.ts');
 const PATTERNS = resolve(ROOT, 'src/engine/basic/patterns.ts');
+/**
+ * Modules the BASIC_PATTERNS table takes the library's patterns from (listed there by name). Their
+ * exports are pure, so a pattern script keeps only what its one pattern uses, and they take the
+ * runtime's helpers instead of core.ts, like patterns.ts.
+ */
+const LIBRARY = ['patterns-extra.ts', 'patterns-next.ts', 'particles.ts', 'solid.ts'].map(f => resolve(ROOT, 'src/engine/basic', f));
+const PATTERN_MODULES = new Set([PATTERNS, ...LIBRARY]);
 const CORE = resolve(ROOT, 'src/engine/basic/core.ts');
 const SHIM = resolve(ROOT, 'src/runtime/basic-patterns.ts');
 
@@ -55,23 +62,28 @@ function coreNames(): string[] {
   return [...readFileSync(CORE, 'utf8').matchAll(/^export (?:const|function|let) (\w+)/gm)].map(m => m[1]);
 }
 
+/** Marks the module-level allocations and IIFEs of a pattern module pure, so esbuild can drop them with their patterns. */
+const pureTables = (src: string) => src
+  .replace(/\bnew (Float64Array|Float32Array|Int32Array|Uint32Array|Uint16Array|Uint8Array)\(/g, '/* @__PURE__ */ new $1(')
+  .replace(/= \(\(\) => \{/g, '= /* @__PURE__ */ (() => {');
+
 /**
  * One pattern as a script that registers itself in the runtime (see src/runtime/basic-patterns.ts):
- * patterns.ts with a table of only that pattern (esbuild drops the others) and core.ts replaced by the
- * runtime's own helpers (__C), wrapped so it does nothing on a page without the basic engine.
+ * patterns.ts with a table of only that pattern (esbuild drops the others, and the library modules'
+ * exports it does not name) and core.ts replaced by the runtime's own helpers (__C), wrapped so it does
+ * nothing on a page without the basic engine.
  */
 async function patternScript(id: string, src: string, table: Array<[string, string]>, names: string[]): Promise<string> {
   const m = TABLE.exec(src)!;
   const expr = table.find(([k]) => k === id)![1];
   // the other patterns' tables and constants are marked pure, so esbuild drops them with their patterns
-  const only = (src.slice(0, m.index) + `export const BASIC_PATTERNS: Record<string, BasicPattern> = { ${JSON.stringify(id)}: ${expr} };` + src.slice(m.index + m[0].length))
-    .replace(/\bnew (Float64Array|Float32Array|Int32Array|Uint32Array|Uint16Array|Uint8Array)\(/g, '/* @__PURE__ */ new $1(')
-    .replace(/= \(\(\) => \{/g, '= /* @__PURE__ */ (() => {');
+  const only = pureTables(src.slice(0, m.index) + `export const BASIC_PATTERNS: Record<string, BasicPattern> = { ${JSON.stringify(id)}: ${expr} };` + src.slice(m.index + m[0].length));
   const subset: EsbuildPlugin = {
     name: 'mt-pattern-subset',
     setup(b) {
       b.onLoad({ filter: /[\\/]engine[\\/]basic[\\/]patterns\.ts$/ }, () => ({ contents: only, loader: 'ts' }));
-      b.onResolve({ filter: /^\.\/core$/ }, a => (a.importer === PATTERNS ? { path: 'mt-core', namespace: 'mt' } : undefined));
+      b.onLoad({ filter: /[\\/]engine[\\/]basic[\\/](patterns-extra|patterns-next|particles|solid)\.ts$/ }, a => (LIBRARY.includes(a.path) ? { contents: pureTables(readFileSync(a.path, 'utf8')), loader: 'ts' } : undefined));
+      b.onResolve({ filter: /^\.\/core$/ }, a => (PATTERN_MODULES.has(a.importer) ? { path: 'mt-core', namespace: 'mt' } : undefined));
       // a call marked pure per helper: esbuild drops the ones this pattern does not use
       b.onLoad({ filter: /^mt-core$/, namespace: 'mt' }, () => ({ contents: names.map(n => `export const ${n} = /* @__PURE__ */ __G(${JSON.stringify(n)});`).join('\n'), loader: 'js' }));
     },
@@ -117,7 +129,7 @@ export function runtimePlugin(): Plugin {
       if (source !== ids['virtual:mt-runtime'] && source !== ids['virtual:mt-runtime-basic']) return null;
       built ??= buildRuntimes();
       const b = await built;
-      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, SHIM]) this.addWatchFile(f);
+      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, ...LIBRARY, SHIM]) this.addWatchFile(f);
       return source === ids['virtual:mt-runtime']
         ? `export default ${JSON.stringify(b.runtime)};`
         : `export const runtime = ${JSON.stringify(b.basic)};\nexport const patterns = ${JSON.stringify(b.patterns)};`;

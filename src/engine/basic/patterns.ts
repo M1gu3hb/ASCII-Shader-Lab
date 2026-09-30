@@ -11,6 +11,19 @@ import {
   PI, TAU, V2, clamp, fbm, fbm3, fract, gnoise, gpow, hard, hash11, hash12, hash13, hash22, mix, mod, rotXY, sat, smoothstep, step, vnoise,
   voro,
 } from './core';
+import {
+  circuitos, dunas, entrelazado, espirografo, filotaxis, mandelbrot, obelisco, prisma, quasicristal, reloj_arena, setExtraPX, sierpinski,
+  topografia,
+} from './patterns-extra';
+import {
+  apolonio, armonografo, bambu, bruma_lejana, caliz, campo_flujo, catenaria, cinta_ola, esferas_orbita, estrella_mar, estuario,
+  flor_armonica, jade_vivo, jardin_zen, lemniscata, lluvia_mansa, luciernagas, mareas_lentas, medusa, pendulos, respiracion, simbiosis,
+  setNextPX, superformula,
+} from './patterns-next';
+import {
+  cardumen_luz, constelacion_dinamica, corazon_particulas, enjambre_vivo, estela_cometas, floracion_luz, lluvia_ascendente,
+  mariposa_puntos, nieve_orbital, ondas_estelares, orbitas_gemelas, setParticlePX, vortice_polvo,
+} from './particles';
 
 export type PatternFn = (x: number, y: number, t: number, a: number, b: number) => number;
 export interface BasicPattern {
@@ -20,7 +33,7 @@ export interface BasicPattern {
 
 let PX = 0.02;
 /** Size of one cell in pattern units for the layer being evaluated (GLSL: PX = uCellP * scale). */
-export function setPX(v: number) { PX = Math.fround(v); }
+export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); setNextPX(v); setParticlePX(v); }
 
 const len = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const f32 = Math.fround;
@@ -1226,7 +1239,11 @@ const ruido: PatternFn = (x, y, t, a, b) => {
 
 const P = (f: PatternFn): BasicPattern => ({ f });
 
-/** Every pattern of the GLSL library, ported. Keys match PATTERN_GLSL / PATTERNS ids. */
+/**
+ * Every pattern of the GLSL library, ported. Keys match PATTERN_GLSL / PATTERNS ids. The library's
+ * (patterns-extra.ts, patterns-next.ts, particles.ts) come last, one name per entry, so the exported
+ * code's pattern scripts can cut out any of them (scripts/runtime-plugin.ts). No comments inside.
+ */
 export const BASIC_PATTERNS: Record<string, BasicPattern> = {
   nube: P(nube), marmol: P(marmol), crestas: P(crestas), fuego: P(fuego), aurora: P(aurora), causticas: P(causticas),
   lava, celulas: P(celulas), grietas: P(grietas),
@@ -1239,6 +1256,12 @@ export const BASIC_PATTERNS: Record<string, BasicPattern> = {
   julia, rosa: P(rosa), degradado: P(degradado),
   forma: P(forma), estrella: P(estrella), latido: P(latido),
   lluvia: P(lluvia), glitch: P(glitch), ruido: P(ruido),
+  mandelbrot, sierpinski, filotaxis, quasicristal, topografia, espirografo, circuitos, dunas, entrelazado, obelisco, prisma, reloj_arena,
+  mareas_lentas, jardin_zen, bruma_lejana, luciernagas, lluvia_mansa, bambu, respiracion, estuario, lemniscata, superformula,
+  armonografo, catenaria, apolonio, campo_flujo, flor_armonica, estrella_mar,
+  simbiosis, pendulos, cinta_ola, jade_vivo, caliz, medusa, esferas_orbita,
+  enjambre_vivo, estela_cometas, lluvia_ascendente, orbitas_gemelas, corazon_particulas, cardumen_luz, vortice_polvo, ondas_estelares,
+  mariposa_puntos, nieve_orbital, floracion_luz, constelacion_dinamica,
 };
 
 /**

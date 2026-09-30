@@ -1,6 +1,6 @@
 import type { BlendMode, ColorMap, GlyphMode, InteractMode, LetterAnimKind, MsgMode, SourceKind, XformKind } from './recipe';
 
-export type PatternFamily = 'organico' | 'geometrico' | 'ondas' | 'espacio' | 'solidos' | 'matematico' | 'formas' | 'señal';
+export type PatternFamily = 'organico' | 'geometrico' | 'ondas' | 'espacio' | 'solidos' | 'matematico' | 'formas' | 'señal' | 'particulas';
 
 export interface PatternInfo {
   id: string;
@@ -21,6 +21,7 @@ export const FAMILY_NAMES: Record<PatternFamily, string> = {
   matematico: 'Matemático',
   formas: 'Formas',
   señal: 'Señal',
+  particulas: 'Partículas',
 };
 
 export const PATTERNS: PatternInfo[] = [
@@ -33,6 +34,11 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'lava', name: 'Lava', family: 'organico', a: 'Tamaño', b: 'Suavidad', cost: 1 },
   { id: 'celulas', name: 'Células', family: 'organico', a: 'Densidad', b: 'Relieve', cost: 2 },
   { id: 'grietas', name: 'Grietas', family: 'organico', a: 'Densidad', b: 'Grosor', cost: 2 },
+  { id: 'dunas', name: 'Dunas', family: 'organico', a: 'Líneas', b: 'Ondulación', cost: 2 },
+  { id: 'bruma_lejana', name: 'Bruma lejana', family: 'organico', a: 'Relieve', b: 'Difuminado', cost: 2 },
+  { id: 'luciernagas', name: 'Luciérnagas', family: 'organico', a: 'Cantidad', b: 'Nitidez', cost: 1 },
+  { id: 'bambu', name: 'Jardín de bambú', family: 'organico', a: 'Tallos', b: 'Grosor', cost: 1 },
+  { id: 'estrella_mar', name: 'Estrella de mar', family: 'organico', a: 'Brazos', b: 'Finura', cost: 1 },
 
   { id: 'anillos', name: 'Anillos', family: 'geometrico', a: 'Frecuencia', b: 'Dureza', cost: 1 },
   { id: 'cuadros', name: 'Cuadros', family: 'geometrico', a: 'Frecuencia', b: 'Dureza', cost: 1 },
@@ -45,6 +51,9 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'rombos', name: 'Rombos', family: 'geometrico', a: 'Densidad', b: 'Anillos', cost: 1 },
   { id: 'franjas', name: 'Franjas', family: 'geometrico', a: 'Cantidad', b: 'Inclinación', cost: 1 },
   { id: 'caleido', name: 'Caleidoscopio', family: 'geometrico', a: 'Espejos', b: 'Detalle', cost: 2 },
+  { id: 'circuitos', name: 'Circuitos', family: 'geometrico', a: 'Densidad', b: 'Brillo', cost: 1 },
+  { id: 'entrelazado', name: 'Entrelazado', family: 'geometrico', a: 'Densidad', b: 'Brillo', cost: 1 },
+  { id: 'quasicristal', name: 'Cuasicristal', family: 'geometrico', a: 'Frecuencia', b: 'Contraste', cost: 1 },
 
   { id: 'ondas', name: 'Ondas', family: 'ondas', a: 'Frecuencia', b: 'Oleaje', cost: 1 },
   { id: 'interferencia', name: 'Interferencia', family: 'ondas', a: 'Frecuencia', b: 'Separación', cost: 1 },
@@ -52,6 +61,13 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'lissajous', name: 'Lissajous', family: 'ondas', a: 'Ritmo X', b: 'Ritmo Y', cost: 3 },
   { id: 'ecualizador', name: 'Ecualizador', family: 'ondas', a: 'Bandas', b: 'Separación', cost: 1 },
   { id: 'horizonte', name: 'Horizonte', family: 'ondas', a: 'Líneas', b: 'Pico', cost: 3 },
+  { id: 'topografia', name: 'Topografía', family: 'ondas', a: 'Detalle', b: 'Curvas', cost: 2 },
+  { id: 'mareas_lentas', name: 'Mareas lentas', family: 'ondas', a: 'Frecuencia', b: 'Finura', cost: 1 },
+  { id: 'jardin_zen', name: 'Arena rastrillada', family: 'ondas', a: 'Surcos', b: 'Filo', cost: 2 },
+  { id: 'lluvia_mansa', name: 'Ondas de lluvia', family: 'ondas', a: 'Alcance', b: 'Grosor', cost: 1 },
+  { id: 'respiracion', name: 'Respiración', family: 'ondas', a: 'Nitidez', b: 'Núcleo', cost: 1 },
+  { id: 'estuario', name: 'Estuario', family: 'ondas', a: 'Curva', b: 'Líneas', cost: 2 },
+  { id: 'campo_flujo', name: 'Campo de flujo', family: 'ondas', a: 'Ondulación', b: 'Líneas', cost: 1 },
   { id: 'radar', name: 'Radar', family: 'señal', a: 'Estela', b: 'Anillos', cost: 1 },
 
   { id: 'tunel', name: 'Túnel', family: 'espacio', a: 'Paredes', b: 'Avance', cost: 1 },
@@ -74,10 +90,30 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'metabolas', name: 'Metal líquido', family: 'solidos', a: 'Tamaño', b: 'Fusión', cost: 3 },
   { id: 'engranajes', name: 'Engranajes', family: 'solidos', a: 'Dientes', b: 'Radios', cost: 3 },
   { id: 'cristales', name: 'Cristales', family: 'solidos', a: 'Cantidad', b: 'Largo', cost: 3 },
+  { id: 'obelisco', name: 'Obelisco', family: 'solidos', a: 'Anchura', b: 'Grabado', cost: 3 },
+  { id: 'prisma', name: 'Prisma hexagonal', family: 'solidos', a: 'Anchura', b: 'Bandas', cost: 3 },
+  { id: 'reloj_arena', name: 'Reloj de arena', family: 'solidos', a: 'Anchura', b: 'Arena', cost: 3 },
+  { id: 'simbiosis', name: 'Simbiosis', family: 'solidos', a: 'Volumen', b: 'Fusión', cost: 3 },
+  { id: 'pendulos', name: 'Péndulos', family: 'solidos', a: 'Balanceo', b: 'Tamaño', cost: 3 },
+  { id: 'cinta_ola', name: 'Cinta ondulante', family: 'solidos', a: 'Anchura', b: 'Grosor', cost: 3 },
+  { id: 'jade_vivo', name: 'Jade vivo', family: 'solidos', a: 'Tamaño', b: 'Relieve', cost: 3 },
+  { id: 'caliz', name: 'Cáliz', family: 'solidos', a: 'Apertura', b: 'Grosor', cost: 3 },
+  { id: 'medusa', name: 'Medusa', family: 'solidos', a: 'Cúpula', b: 'Tentáculos', cost: 3 },
+  { id: 'esferas_orbita', name: 'Esferas en órbita', family: 'solidos', a: 'Velocidad', b: 'Tamaño', cost: 3 },
 
   { id: 'julia', name: 'Julia', family: 'matematico', a: 'Zoom', b: 'Deriva', cost: 3 },
   { id: 'rosa', name: 'Rosa polar', family: 'matematico', a: 'Pétalos', b: 'Trazo', cost: 1 },
   { id: 'degradado', name: 'Degradado', family: 'matematico', a: 'Ángulo', b: 'Ondulación', cost: 1 },
+  { id: 'mandelbrot', name: 'Mandelbrot', family: 'matematico', a: 'Zoom', b: 'Bandas', cost: 3 },
+  { id: 'sierpinski', name: 'Tapiz fractal', family: 'matematico', a: 'Repetición', b: 'Relleno', cost: 1 },
+  { id: 'filotaxis', name: 'Semillas de girasol', family: 'matematico', a: 'Separación', b: 'Tamaño', cost: 3 },
+  { id: 'espirografo', name: 'Espirógrafo', family: 'matematico', a: 'Lóbulos', b: 'Brazo', cost: 3 },
+  { id: 'lemniscata', name: 'Lemniscata', family: 'matematico', a: 'Apertura', b: 'Trazo', cost: 1 },
+  { id: 'superformula', name: 'Superfórmula', family: 'matematico', a: 'Simetría', b: 'Forma', cost: 1 },
+  { id: 'armonografo', name: 'Armonógrafo', family: 'matematico', a: 'Desfase', b: 'Decaimiento', cost: 3 },
+  { id: 'catenaria', name: 'Catenarias', family: 'matematico', a: 'Caída', b: 'Trazo', cost: 1 },
+  { id: 'apolonio', name: 'Círculos anidados', family: 'matematico', a: 'Separación', b: 'Trazo', cost: 1 },
+  { id: 'flor_armonica', name: 'Flor armónica', family: 'matematico', a: 'Pétalos', b: 'Trazo', cost: 1 },
 
   { id: 'forma', name: 'Polígono', family: 'formas', a: 'Lados', b: 'Contorno', cost: 1 },
   { id: 'estrella', name: 'Estrella', family: 'formas', a: 'Puntas', b: 'Contorno', cost: 1 },
@@ -86,9 +122,37 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'lluvia', name: 'Lluvia digital', family: 'señal', a: 'Columnas', b: 'Caída', cost: 1 },
   { id: 'glitch', name: 'Glitch', family: 'señal', a: 'Bandas', b: 'Frecuencia', cost: 2 },
   { id: 'ruido', name: 'Estática', family: 'señal', a: 'Contraste', b: 'Frecuencia', cost: 1 },
+
+  { id: 'enjambre_vivo', name: 'Enjambre', family: 'particulas', a: 'Radio', b: 'Tamaño', cost: 3 },
+  { id: 'estela_cometas', name: 'Cometas', family: 'particulas', a: 'Estela', b: 'Tamaño', cost: 3 },
+  { id: 'lluvia_ascendente', name: 'Lluvia ascendente', family: 'particulas', a: 'Estela', b: 'Tamaño', cost: 3 },
+  { id: 'orbitas_gemelas', name: 'Órbitas gemelas', family: 'particulas', a: 'Separación', b: 'Tamaño', cost: 3 },
+  { id: 'corazon_particulas', name: 'Corazón de puntos', family: 'particulas', a: 'Latido', b: 'Tamaño', cost: 3 },
+  { id: 'cardumen_luz', name: 'Cardumen', family: 'particulas', a: 'Ondulación', b: 'Tamaño', cost: 3 },
+  { id: 'vortice_polvo', name: 'Vórtice de polvo', family: 'particulas', a: 'Estela', b: 'Tamaño', cost: 3 },
+  { id: 'ondas_estelares', name: 'Anillos de puntos', family: 'particulas', a: 'Separación', b: 'Tamaño', cost: 3 },
+  { id: 'mariposa_puntos', name: 'Mariposa de puntos', family: 'particulas', a: 'Aleteo', b: 'Tamaño', cost: 3 },
+  { id: 'nieve_orbital', name: 'Nieve', family: 'particulas', a: 'Vaivén', b: 'Tamaño', cost: 3 },
+  { id: 'floracion_luz', name: 'Floración', family: 'particulas', a: 'Pétalos', b: 'Tamaño', cost: 3 },
+  { id: 'constelacion_dinamica', name: 'Constelación', family: 'particulas', a: 'Vínculos', b: 'Tamaño', cost: 3 },
 ];
 
 export const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
+
+/**
+ * What the library ported from the pattern-library branch added (ids), for QA pages, tests and the next generator
+ * version: 35 patterns (10 of them solids), 12 particle motions, 10 character sets, 3 letter animations.
+ */
+export const LIBRARY = {
+  fields: ['dunas', 'bruma_lejana', 'luciernagas', 'bambu', 'estrella_mar', 'circuitos', 'entrelazado', 'quasicristal', 'topografia',
+    'mareas_lentas', 'jardin_zen', 'lluvia_mansa', 'respiracion', 'estuario', 'campo_flujo', 'mandelbrot', 'sierpinski', 'filotaxis',
+    'espirografo', 'lemniscata', 'superformula', 'armonografo', 'catenaria', 'apolonio', 'flor_armonica'],
+  solids: ['obelisco', 'prisma', 'reloj_arena', 'simbiosis', 'pendulos', 'cinta_ola', 'jade_vivo', 'caliz', 'medusa', 'esferas_orbita'],
+  particles: ['enjambre_vivo', 'estela_cometas', 'lluvia_ascendente', 'orbitas_gemelas', 'corazon_particulas', 'cardumen_luz', 'vortice_polvo',
+    'ondas_estelares', 'mariposa_puntos', 'nieve_orbital', 'floracion_luz', 'constelacion_dinamica'],
+  charsets: ['barras_ascii', 'terminal_densa', 'puntuacion', 'numeros', 'tejido_fino', 'diagonales', 'media_luna', 'marcos', 'sismografo', 'pincel'],
+  letterAnims: ['orbita', 'enjambre', 'cascada'] as LetterAnimKind[],
+} as const;
 export const patternById = (id: string) => PATTERNS.find(p => p.id === id) ?? PATTERNS[0];
 
 export const BLEND_NAMES: Record<BlendMode, string> = {
@@ -182,6 +246,9 @@ export const LETTER_ANIMS: Record<LetterAnimKind, AnimInfo> = {
   explosion: { id: 'explosion', name: 'Explosión', desc: 'Las letras salen volando, giran y se recomponen.', amount: 'Alcance', icon: '<*>' },
   brillo: { id: 'brillo', name: 'Luz que recorre', desc: 'Un brillo pasa letra a letra; con la paleta por brillo, cambia su color.', amount: 'Contraste', icon: '░▓' },
   color: { id: 'color', name: 'Color por letra', desc: 'Cada letra toma otro color de la paleta y los colores avanzan.', amount: 'Mezcla', icon: '▚▞' },
+  orbita: { id: 'orbita', name: 'Órbita', desc: 'Cada letra describe una pequeña elipse y vuelve a su sitio sin perder el orden.', amount: 'Radio', icon: '◌↻' },
+  enjambre: { id: 'enjambre', name: 'Enjambre', desc: 'Las letras se dispersan despacio, flotan y vuelven a formar el texto.', amount: 'Dispersión', icon: '✦·' },
+  cascada: { id: 'cascada', name: 'Cascada', desc: 'Las letras caen una tras otra desde arriba, se quedan un momento y siguen cayendo.', amount: 'Caída', icon: '↓·' },
 };
 
 /* ------------------------------------------------------------------ */
@@ -211,6 +278,16 @@ export const CHARSETS: CharsetInfo[] = [
   { id: 'tipografico', name: 'Tipográfico', chars: ' ,;!?¿¡()[]{}&§¶@', ascii: false },
   { id: 'flechas', name: 'Flechas', chars: ' ·←↖↑↗→↘↓↙', ascii: false },
   { id: 'musica', name: 'Música', chars: ' ·♩♪♫♬', ascii: false },
+  { id: 'barras_ascii', name: 'Barras ASCII', chars: ' /|\\X#%@', ascii: true },
+  { id: 'terminal_densa', name: 'Teletipo', chars: ' .,:;i1I0O8#@', ascii: true },
+  { id: 'puntuacion', name: 'Puntuación', chars: ' .,:;!?()[]{}%&@', ascii: true },
+  { id: 'numeros', name: 'Cifras', chars: ' 1234567890#@', ascii: true },
+  { id: 'tejido_fino', name: 'Tejido fino', chars: ' .┄╴╶┈─╋█', ascii: false },
+  { id: 'diagonales', name: 'Diagonales', chars: ' .╱╲╳▒▓█', ascii: false },
+  { id: 'media_luna', name: 'Fases lunares', chars: ' ·◔◑◕●', ascii: false },
+  { id: 'marcos', name: 'Marcos', chars: ' .─┐┘┼╬█', ascii: false },
+  { id: 'sismografo', name: 'Sismógrafo', chars: ' ._~∿≈≋≡', ascii: false },
+  { id: 'pincel', name: 'Pincel', chars: ' .‚’/╱╳█', ascii: false },
 ];
 export const charsetById = (id: string) => CHARSETS.find(c => c.id === id);
 export const charsetIdOf = (chars: string) => CHARSETS.find(c => c.chars === chars)?.id ?? 'custom';
