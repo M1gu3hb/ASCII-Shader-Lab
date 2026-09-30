@@ -13,7 +13,7 @@ import { gridToText } from '../src/exporters/text';
 import { EXAMPLES, gridSize } from '../src/pages/examples';
 import { lockup } from '../src/shared/brand';
 import { paintLandscape, syntheticPhoto } from '../src/shared/sample';
-import { GUIDES, SITE_URL, guideById, type Guide } from '../src/shared/site';
+import { GUIDES, guideById, type Guide } from '../src/shared/site';
 
 type Id = Guide['id'];
 const fonts = createFontLoader({ google: false });
@@ -53,7 +53,7 @@ function wrap(x: CanvasRenderingContext2D, text: string, max: number): string[] 
   return lines;
 }
 
-/** 1200×630 share image: the brand, the guide name and its URL on the left; the real render on the right. */
+/** 1200×630 share image: the brand and the guide name on the left (no address: the link itself shows it); the real render on the right. */
 async function og(id: Id): Promise<string> {
   const g = guideById(id);
   await Promise.all([
@@ -86,9 +86,6 @@ async function og(id: Id): Promise<string> {
   x.letterSpacing = '0px';
   x.fillStyle = 'rgba(237,230,218,.86)';
   wrap(x, g.blurb, 480).forEach((l, i) => x.fillText(l, 64, top + title.length * 62 + 16 + i * 36));
-  x.font = '500 20px "JetBrains Mono"';
-  x.fillStyle = '#ff5b1f';
-  x.fillText(SITE_URL.replace('https://', '') + g.path.replace(/\/$/, ''), 64, 566);
   return c.toDataURL('image/jpeg', 0.86);
 }
 
