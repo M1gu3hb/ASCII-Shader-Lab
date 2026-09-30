@@ -5,6 +5,7 @@ import { HelpMore, HelpToggle, HintText, useHelp, type Help } from './ui/Help';
 import type { HelpText } from './ui/copy';
 import { Picker, type PickOpt, type PickerProps } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { ColorField } from './ui/color/ColorField';
 import { useScramble } from './motion/hooks';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -204,19 +205,15 @@ export function Text({ f, label, area, mono, rows = 3, placeholder, help, helpKe
   );
 }
 
+/** A colour of the recipe, edited with the studio's own colour editor (ui/color): the same on every device. */
 export function Color({ f, label, help }: Framed & { f: Field<string> }) {
   const id = useId();
   const h = useHelp(f.key, help);
   const v = useField(f) ?? '#000000';
+  const stops = useStudio(s => s.entries[s.cursor]?.recipe.color.stops);
   return (
-    <Frame id={id} label={label} h={h} className="ctl-color"
-      value={(
-        <span className="row">
-          <span className="val">{v.toUpperCase()}</span>
-          <span className="swatch" style={{ background: v }}><input id={id} type="color" value={v} aria-describedby={h?.hintId} {...h?.focus} onChange={e => edit(r => f.set(r, e.target.value), f.key)} /></span>
-        </span>
-      )}
-      field={null} />
+    <Frame id={id} label={label} h={h} className="ctl-color" labelTag="span"
+      field={<ColorField value={v} label={label} labelId={id + 'l'} describedBy={h?.hintId} swatches={stops} onChange={hex => edit(r => f.set(r, hex), f.key)} />} />
   );
 }
 
