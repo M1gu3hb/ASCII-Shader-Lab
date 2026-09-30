@@ -282,3 +282,9 @@ html[data-motion="low"] .app .pane-head .tab-ic { animation: none; }
   /* the groups' names whole in four columns of a narrow column */
   .app .ph-sheet .ph-tabs .tab { font-size: 11.5px; letter-spacing: -.02em; padding: 4px 1px; }
 }
+
+/* the deck's «Ajustes»: only on touch screens, while the column is put away (the bar's button is far up) */
+.app .deck-tools { display: none; }
+@media (min-width: 901px) and (pointer: coarse) {
+  .app.panel-off .deck-tools { display: inline-flex; }
+}

@@ -90,6 +90,7 @@ function DeskDeck() {
   const favIds = useMemo(() => new Set(favs.map(f => f.id)), [favs]);
   const fav = !!e?.favId && favIds.has(e.favId);
   const [pop, setPop] = useState(false);
+  const panel = useStudio(s => s.ui.panel);
   const strip = useRef<HTMLDivElement>(null);
   const limit = useStudio(s => s.histLimit);
   const counter = historyLabel(entries.length, limit);
@@ -118,6 +119,12 @@ function DeskDeck() {
             <button type="button" className="act ghost" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
             {pop && <DicePop onClose={() => setPop(false)} />}
           </div>
+          {/* touch screens with the column put away: the settings come back from here, within reach (css/layout.css) */}
+          {!panel && (
+            <button type="button" className="act ghost deck-tools" onClick={() => setUI({ panel: true })} title="Ajustes de la pieza: forma, color, glifos…">
+              <ISlidersH /><span className="lbl">Ajustes</span>
+            </button>
+          )}
         </div>
       </div>
     </>
