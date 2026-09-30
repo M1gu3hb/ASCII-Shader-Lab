@@ -252,9 +252,18 @@ html[data-motion="low"] .app .pane-head .tab-ic { animation: none; }
   .app .vbar.more .vbar-go-sm span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .app .vbar.more .vbar-sel { max-width: 100%; min-width: 0; }
 }
-/* phones up to 500 px (430 and 414 px ones too): the space picker is its icon and caret, as on narrower
-   ones (phone.css), instead of a name squeezed to a letter with the caret over the icon */
-@media (max-width: 500px) {
+/* the top bar with the «Lab ⇄ Foto» switch in it: the brand is its symbol up to 700 px, as it is up to
+   420 px (loom.css), so the spaces' names are not cut by a few pixels up to 650 px */
+@media (max-width: 700px) { .app .topbar:has(.sw) .brand-word { display: none; } }
+/* and up to 540 px (430 and 414 px phones too) the space picker is its icon and caret, as on narrower ones
+   (phone.css), instead of a name squeezed to a letter with the caret over the icon. Without the switch (the
+   photo studio paused) the name fits down to 360 px; below that, the icon in any case. */
+@media (max-width: 540px) {
+  .app .topbar:has(.sw) .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
+  .app .topbar:has(.sw) .pk.space-select .pk-val { flex: none; }
+  .app .topbar:has(.sw) .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-width: 340px) {
   .app .topbar .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
   .app .topbar .pk.space-select .pk-val { flex: none; }
   .app .topbar .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
