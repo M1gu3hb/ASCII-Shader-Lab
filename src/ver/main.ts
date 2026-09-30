@@ -17,6 +17,7 @@ import { logoMark, wordmark } from '../shared/brand';
 import { decodeRecipe, pieceHash, readPieceHash, type ShareView } from '../shared/share';
 import { defaultFrame, describeFrame, encodeFrame, fitFrame, frameRecipe, gridOf, reduceFrame, type Frame } from '../shared/frame';
 import { patternById } from '../engine/catalog';
+import { isTouchMode } from '../engine/touch';
 import type { Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 
@@ -115,6 +116,8 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   // reaches it and, in «Zoom con los dedos», a pinch zooms the piece instead of the page. One that does not
   // leaves the page its own gestures (touch-action: manipulation).
   const answers = recipe.interact.mode !== 'none';
+  // a gesture mode (Anillos, Rastro, Zoom con los dedos…): a tap on the piece is the gesture's, not the controls'
+  const gestures = isTouchMode(recipe.interact.mode);
   stage.dataset.touch = answers ? 'piece' : 'page';
   const canvas = el('canvas');
   canvas.setAttribute('aria-hidden', 'true');
@@ -254,7 +257,8 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   function wake() {
     wrap.dataset.ui = 'on';
     clearTimeout(hideT);
-    if (playing) hideT = window.setTimeout(() => { if (playing && !over && !bar.contains(document.activeElement) && !top.contains(document.activeElement)) wrap.dataset.ui = 'off'; }, 3200);
+    // (on a touch screen a piece with gestures keeps them: a tap on it is the gesture's, it cannot bring them back)
+    if (playing && !(gestures && coarse)) hideT = window.setTimeout(() => { if (playing && !over && !bar.contains(document.activeElement) && !top.contains(document.activeElement)) wrap.dataset.ui = 'off'; }, 3200);
   }
   // whether the mouse is on the controls, from where each of its events lands. Not from pointerenter /
   // pointerleave on the bar: a click on play swaps the icon under the pointer, and a busy browser (a slow
@@ -280,6 +284,7 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
     const d = downs.get(e.pointerId);
     downs.delete(e.pointerId);
     if (!tap || !d || gesture || downs.size) return;
+    if (gestures && e.target instanceof HTMLCanvasElement) return;
     if (answers && (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12 || e.timeStamp - d.t > 600)) return;
     if (wrap.dataset.ui === 'off') wake(); else { clearTimeout(hideT); wrap.dataset.ui = 'off'; }
   };

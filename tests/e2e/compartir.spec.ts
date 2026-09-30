@@ -376,7 +376,7 @@ test.describe('el visor', () => {
     await v.ctx.close();
   });
 
-  test('una pieza que responde al dedo lo recibe: pellizcar la acerca (no la página), arrastrar no esconde los controles y un toque sí', async ({ browser }) => {
+  test('una pieza con gestos recibe el dedo: pellizcar la acerca (no la página); ni arrastrar ni tocarla esconde los controles, tocar fuera sí, y en movimiento se quedan', async ({ browser }) => {
     const ZOOM = { ...TAP_PIECE, interact: { mode: 'zoom', strength: 0.9, radius: 0.25, decay: 1 }, meta: { name: 'Zoom con los dedos', space: 'fondos' } };
     const v = await openViewer(browser, DEVICES.phone, '/ver/' + enc(ZOOM) + '&p=1');
     const page = v.page;
@@ -405,11 +405,23 @@ test.describe('el visor', () => {
     await touch('touchEnd', []);
     await expect.poll(async () => mad(before.rgb, (await pixels(page, '.ver-stage canvas', 96)).rgb), { message: 'la pieza se acerca' }).toBeGreaterThan(4);
     expect(await page.evaluate(() => [window.visualViewport?.scale ?? 1, scrollX, scrollY])).toEqual([1, 0, 0]);
-    // a tap (short, in place) shows the controls
+    // a tap on the piece is the gesture's (Anillos, Chispas…): the controls stay as they are
     await page.touchscreen.tap(b.x + b.width * 0.8, b.y + b.height * 0.3);
+    await page.waitForTimeout(300);
+    await expect(wrap).toHaveAttribute('data-ui', 'off');
+    // a tap beside the piece (the band around it) shows them
+    expect(b.y).toBeGreaterThan(40);
+    await page.touchscreen.tap(b.x + b.width / 2, b.y / 2);
     await expect(wrap).toHaveAttribute('data-ui', 'on');
     expect(v.errors).toEqual([]);
     await v.ctx.close();
+    // moving, on a touch screen, they do not step aside (no tap on the piece could bring them back)
+    const m = await openViewer(browser, DEVICES.phone, '/ver/' + enc(ZOOM));
+    await expect(m.page.locator('.ver-bar button').first()).toHaveAttribute('aria-label', 'Pausar (espacio)');
+    await m.page.waitForTimeout(4500);
+    await expect(m.page.locator('.ver')).toHaveAttribute('data-ui', 'on');
+    expect(m.errors).toEqual([]);
+    await m.ctx.close();
   });
 
   test('con «reducir movimiento» abre en pausa y lo dice', async ({ browser }) => {
