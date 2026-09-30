@@ -25,6 +25,18 @@ export interface Frame {
 /** Limits a frame read from a link must respect (the engines clamp canvases to 8192 px). */
 export const FRAME_MAX = 8192;
 const CELL_MAX = 1024;
+/**
+ * The smallest cell a stage makes: 3 px wide (a cell is at least 3 CSS px, drawn at a pixel ratio of 1 or
+ * more) and 2 px tall (the engines' own minimum, which a 3 px cell with a flat shape reaches on a 1× screen).
+ */
+const CELL_MIN_W = 3, CELL_MIN_H = 2;
+/**
+ * The most cells a link's frame may have. Every cell costs the basic engine (Canvas 2D) about a microsecond a
+ * frame: a crafted 8191 × 8191 frame of 2 × 2 cells (16.8 M cells) took the viewer 16 s a frame. Real stages
+ * stay under it with the smallest cells there are: an 8192 px wide stage at pixel ratio 2 (16:10, 6 × 3 cells:
+ * 2.3 M), a 7680 × 2160 ultrawide or a 5K screen at pixel ratio 1 (3 × 2 cells: 2.8 M and 2.5 M).
+ */
+export const GRID_MAX = 3_000_000;
 /** What a link without a frame shows (older viewer links, or a piece shared with no stage on screen). */
 export const DEFAULT_FRAME_CSS = { w: 1280, h: 720 };
 
@@ -58,13 +70,19 @@ export function encodeFrame(f: Frame): string {
   return `${f.w}x${f.h}-${f.cw}x${f.ch}`;
 }
 
-/** A frame read from a link, or null when it is missing, malformed or out of range. */
+/**
+ * A frame read from a link, or null when it is missing, malformed or out of range: a canvas the engines do
+ * not draw, cells smaller than a stage makes, or more cells than any real stage has (GRID_MAX). The viewer
+ * then shows the piece in the default frame.
+ */
 export function parseFrame(s: string | null | undefined): Frame | null {
   const m = /^(\d{1,5})x(\d{1,5})-(\d{1,4})x(\d{1,4})$/.exec((s ?? '').trim());
   if (!m) return null;
   const [w, h, cw, ch] = m.slice(1).map(Number);
   if (w < 16 || h < 16 || w > FRAME_MAX || h > FRAME_MAX) return null;
-  if (cw < 2 || ch < 2 || cw > CELL_MAX || ch > CELL_MAX) return null;
+  if (cw < CELL_MIN_W || ch < CELL_MIN_H || cw > CELL_MAX || ch > CELL_MAX) return null;
+  const g = gridOf({ w, h, cw, ch });
+  if (g.cols * g.rows > GRID_MAX) return null;
   return { w, h, cw, ch };
 }
 
