@@ -6,6 +6,7 @@ import { FieldBuffers, fieldLayers, heldTime, pulseAt, runField } from '../../sr
 import { SelectBuffers, runSelect } from '../../src/engine/basic/select';
 import { shadePass, type ComposeFrame } from '../../src/engine/basic/compose';
 import { BASIC_PATTERNS } from '../../src/engine/basic/patterns';
+import { FIGURES, PATTERN_IDS, figureFit } from '../../src/engine/catalog';
 
 const COLS = 40, ROWS = 20, CW = 10, CH = 14, N = 10, EDGE = 10, BLOCK = 14;
 
@@ -15,7 +16,7 @@ function frame(r: Recipe, t: number, msg?: { text: string }) {
   const F = new FieldBuffers(n), S = new SelectBuffers(n);
   const tq = heldTime(t, r.motion.hold);
   runField({
-    W, H, cw: CW, ch: CH, cols: COLS, rows: ROWS, time: tq, loop: r.motion.loop, layers: fieldLayers(r),
+    W, H, cw: CW, ch: CH, cols: COLS, rows: ROWS, time: tq, loop: r.motion.loop, layers: fieldLayers(r, W, H),
     warp: r.motion.warp, warpScale: r.motion.warpScale, pulse: pulseAt(r.motion, tq, 0),
     src: 'pattern', mediaMix: 0, mediaBlend: 0, morph: 0, media: null, fit: 0, zoom: 1, panX: 0, panY: 0, mirror: false,
     text: null, imode: 0, ptrX: -1e4, ptrY: -1e4, ptrOn: 0, istr: 0, irad: 0.2, sim: null,
@@ -72,10 +73,27 @@ describe('basic engine pipeline (no DOM)', () => {
   it('falls back to nube with layer 0 parameters when every layer is off', () => {
     const r = defaultRecipe();
     r.layers = [{ ...DEFAULT_LAYER, pattern: 'plasma', on: false, scale: 2 }];
-    const ls = fieldLayers(r);
+    const ls = fieldLayers(r, 400, 280);
     expect(ls).toHaveLength(1);
     expect(ls[0].pat).toBe(BASIC_PATTERNS.nube);
     expect(ls[0].scale).toBe(2);
+  });
+
+  it('sizes a centred figure to the width of a canvas taller than wide, and leaves fields and wide canvases alone', () => {
+    const r = defaultRecipe();
+    r.layers = [{ ...DEFAULT_LAYER, pattern: 'dona', scale: 1.5 }, { ...DEFAULT_LAYER, pattern: 'nube', scale: 1.5 }];
+    // wide, square: nothing changes (desktop, tablets and phones on their side draw as before)
+    for (const [W, H] of [[1440, 900], [844, 390], [600, 600]]) expect(fieldLayers(r, W, H).map(l => l.scale)).toEqual([1.5, 1.5]);
+    // upright: the figure is sized to the width (its scale grows by H/W), the field keeps its scale
+    const [fig, field] = fieldLayers(r, 390, 780);
+    expect(fig.scale).toBeCloseTo(3, 10);
+    expect(field.scale).toBe(1.5);
+    // the same rule the WebGL engine binds (engine.ts runField)
+    expect(figureFit('dona', 390, 780)).toBe(2);
+    expect(figureFit('nube', 390, 780)).toBe(1);
+    for (const id of ['esfera', 'medusa', 'forma', 'lemniscata', 'corazon_particulas']) expect(FIGURES.has(id), id).toBe(true);
+    for (const id of ['nube', 'mandelbrot', 'julia', 'tunel', 'lluvia_ascendente', 'nieve_orbital']) expect(FIGURES.has(id), id).toBe(false);
+    for (const id of FIGURES) expect(PATTERN_IDS.has(id), id).toBe(true);
   });
 
   it('inverts the tone', () => {

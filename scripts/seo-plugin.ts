@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
 import { FOTO_STUDIO, pageByFile } from '../src/shared/site.ts';
 import { cleanVerification, renderPage, robotsTxt, sitemapXml } from './seo.ts';
@@ -70,7 +70,8 @@ export function seoPlugin(): Plugin {
       });
     },
     configurePreviewServer(server) {
-      const dist = join(root, outDir);
+      // resolve, not join: an --outDir outside the project (an absolute path) is served from there too
+      const dist = resolve(root, outDir);
       return () => {
         server.middlewares.use((req, res, next) => {
           const [raw, query] = (req.url ?? '/').split('?');

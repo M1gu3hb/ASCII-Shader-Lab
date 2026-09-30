@@ -1,0 +1,197 @@
+/* The recipe line and the recipe browser (lane: recetas). Class names of their own (rx-…), so the generic
+   .chip rules (the colour editor's shelves use them) never reach them. The piece stays the protagonist: pictures are quiet until
+   hovered or focused, vermilion only marks the piece's own recipe and the filter chosen. */
+
+/* ---------- a recipe's picture ---------- */
+.rx-pic {
+  position: relative; display: block; overflow: hidden; border-radius: 7px; aspect-ratio: 16 / 10;
+  box-shadow: inset 0 0 0 1px rgba(237, 230, 218, .08);
+}
+.rx-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s var(--ease-out, ease-out); }
+.rx-pic-on img { opacity: 1; }
+/* before the render: a few of the recipe's characters in its ink, quietly */
+.rx-stand {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 400 17px/1 var(--font-mono);
+  letter-spacing: .35em; text-indent: .35em; opacity: .5; white-space: pre; font-variant-ligatures: none;
+}
+.rx-mini .rx-stand { font-size: 10px; letter-spacing: .2em; text-indent: .2em; }
+@media (prefers-reduced-motion: reduce) { .rx-pic img { transition: none; } }
+html[data-motion="low"] .rx-pic img { transition: none; }
+
+/* ---------- the line: the recipe of the piece, the way into all of them ---------- */
+.app .rx-line {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; margin: 0; padding: 5px 10px 5px 5px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--field); color: var(--text); text-align: left;
+  font: 500 13px/1.2 var(--font-ui); cursor: pointer;
+}
+.app .rx-line:hover { border-color: var(--line-2); background: var(--field-2); }
+.app .rx-line:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.app .rx-line[aria-expanded="true"] { border-color: var(--line-2); background: var(--field-2); }
+.rx-mini { flex: none; width: 58px; aspect-ratio: 16 / 10; border-radius: 6px; }
+.rx-lt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rx-k { font: 600 10px/1.2 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.app .rx-k2 { display: none; }
+.rx-cur { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 6px; min-width: 0; font-weight: 600; font-size: 13.5px; }
+.rx-cur-name { min-width: 0; overflow-wrap: anywhere; }
+.rx-none { color: var(--muted); font-weight: 500; }
+.rx-ed { font-style: normal; font-weight: 400; font-size: 12px; color: var(--muted); }
+.rx-ed::before { content: '· '; }
+.rx-all {
+  flex: none; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--text);
+  font: 600 12px/1 var(--font-ui); white-space: nowrap;
+}
+.app .rx-line:hover .rx-all { border-color: var(--muted); }
+.rx-caret { flex: none; width: 15px; height: 15px; color: var(--muted); transition: transform .18s var(--ease-out, ease-out); }
+.rx-line[aria-expanded="true"] .rx-caret { transform: rotate(180deg); }
+.rx-line[aria-expanded="true"] .rx-all { background: var(--bone); color: var(--ink); border-color: transparent; }
+
+/* ---------- the browser ---------- */
+.app .rx { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.app .rx-tools { display: flex; align-items: center; gap: 8px; padding: 10px 14px 8px; flex: none; }
+.app .rx-search {
+  position: relative; flex: 1; min-width: 0; display: flex; align-items: center; height: 38px; border-radius: 9px;
+  border: 1px solid var(--line); background: var(--field);
+}
+.app .rx-search:focus-within { border-color: var(--bone); box-shadow: 0 0 0 3px rgba(255, 176, 138, .3); }
+.rx-search-ic { position: absolute; left: 10px; width: 16px; height: 16px; color: var(--muted); pointer-events: none; }
+.app .rx-search input {
+  flex: 1; min-width: 0; height: 100%; padding: 0 8px 0 33px; border: 0; background: none; color: var(--text); outline: none;
+  font: 400 13.5px/1 var(--font-ui);
+}
+.app .rx-search input::placeholder { color: var(--dim); }
+.app .rx-search input::-webkit-search-cancel-button { display: none; }
+.app .rx-clear { flex: none; display: grid; place-items: center; width: 34px; height: 34px; margin-right: 2px; border: 0; border-radius: 7px; background: none; color: var(--muted); }
+.app .rx-clear:hover { color: var(--text); background: var(--field-2); }
+.app .rx-btn {
+  flex: none; height: 38px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line-2); background: none; color: var(--text);
+  font: 600 12.5px/1 var(--font-ui);
+}
+.app .rx-btn:hover { background: var(--field-2); }
+
+/* phones: the search is a button at the start of the filters' row until it is used */
+.app .rx-tools-c { padding-bottom: 6px; }
+.app .rx-find {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--line-2);
+  background: var(--field); color: var(--text);
+}
+.rx-find-ic { width: 18px; height: 18px; }
+.app .rx-tools-c .rx-cats-box { flex: 1; min-width: 0; padding: 0; }
+
+/* the filters: one row that says when more wait (ScrollRow) */
+.app .rx-cats-box { flex: none; padding: 0 14px 8px; }
+.app .rx-cats { display: flex; gap: 5px; padding: 1px; }
+.app .rx-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: none; color: var(--muted); font: 500 12.5px/1 var(--font-ui); white-space: nowrap;
+}
+.app .rx-chip:hover { color: var(--text); border-color: var(--line-2); }
+.app .rx-chip[aria-checked="true"] { color: var(--text); border-color: var(--accent); background: var(--signal-soft); font-weight: 600; }
+.app .rx-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.rx-chip-n { font: 500 11px/1 var(--font-mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+.app .rx-chip[aria-checked="true"] .rx-chip-n { color: var(--muted); }
+.rx-chip-star { color: var(--muted); }
+
+/* the pictures */
+.app .rx-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 4px 14px 18px;
+  border-top: 1px solid var(--line); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
+}
+.rx-group + .rx-group { margin-top: 14px; }
+.app .rx-sec {
+  display: flex; align-items: baseline; gap: 8px; margin: 10px 0 8px; font: 600 10.5px/1.2 var(--font-display);
+  letter-spacing: .13em; text-transform: uppercase; color: var(--muted);
+}
+.rx-sec-n { font: 500 10.5px/1 var(--font-mono); color: var(--dim); letter-spacing: 0; }
+.app .rx-sec-hint { margin: -4px 0 9px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.app .rx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px 8px; margin: 0; padding: 0; list-style: none; }
+.app .rx-grid > li { min-width: 0; }
+.app .rx-card {
+  position: relative; display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 44px; margin: 0; padding: 0; border: 0;
+  background: none; color: var(--text); text-align: left; font: inherit; cursor: pointer; border-radius: 9px;
+}
+.app .rx-card .rx-pic { transition: box-shadow .15s, filter .15s; filter: saturate(.92) brightness(.94); }
+.app .rx-card:hover .rx-pic { box-shadow: inset 0 0 0 1px var(--line-2), 0 0 0 1px var(--line-2); filter: none; }
+.app .rx-card:focus-visible { outline: none; }
+.app .rx-card:focus-visible .rx-pic { box-shadow: 0 0 0 2px var(--focus); filter: none; }
+.app .rx-card[aria-pressed="true"] .rx-pic { box-shadow: 0 0 0 2px var(--accent); filter: none; }
+.app .rx-card.rx-from .rx-pic { box-shadow: 0 0 0 1px var(--accent); }
+.rx-name { font: 500 12.5px/1.25 var(--font-ui); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.app .rx-card[aria-pressed="true"] .rx-name { font-weight: 600; }
+.rx-meta { margin-top: -3px; font-size: 11px; line-height: 1.3; color: var(--dim); overflow-wrap: anywhere; }
+.rx-now {
+  position: absolute; top: 5px; left: 5px; padding: 2px 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink, #0c0b0a);
+  font: 700 10px/1.3 var(--font-ui); letter-spacing: .02em;
+}
+.rx-photo {
+  position: absolute; top: 0; left: 0; right: 0; aspect-ratio: 16 / 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: rgba(237, 230, 218, .82); font-size: 11px; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); pointer-events: none;
+}
+.app .rx-empty { padding: 18px 2px 8px; }
+.app .rx-empty p { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.app .rx-foot { margin: 18px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--dim); }
+
+/* ---------- where fingers are used: 44 px targets ---------- */
+@media (pointer: coarse) {
+  .app .rx-line { min-height: 52px; }
+  .app .rx-search { height: 44px; }
+  .app .rx-search input { font-size: 16px; }
+  .app .rx-clear { width: 40px; height: 40px; }
+  .app .rx-btn { height: 44px; min-width: 44px; }
+  .app .rx-chip { height: 44px; padding: 0 13px; font-size: 13.5px; }
+  .app .rx-cats-box { padding-bottom: 6px; }
+}
+
+/* ---------- phones and tablets held upright: the sheet ---------- */
+@media (max-width: 900px) {
+  /* the handle row: the recipe line on the left, the handle in the middle (narrower, still a 44 px target), close on the right */
+  .app .ph-sheet .ph-grab-row { grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr); column-gap: 0; }
+  .app .ph-sheet .ph-grab-row .sheet-grab { width: 64px; }
+  .app .rx-line.rx-line-c {
+    grid-column: 1; justify-self: start; width: auto; max-width: 100%; min-height: 44px; padding: 3px 6px 3px 3px; gap: 7px;
+    border-color: transparent; background: none;
+  }
+  .app .rx-line.rx-line-c[aria-expanded="true"] { background: var(--field-2); border-color: var(--line-2); }
+  .app .rx-line-c .rx-mini { width: 36px; border-radius: 4px; }
+  .app .rx-line-c .rx-k { font-size: 9.5px; letter-spacing: .12em; }
+  .app .rx-line-c .rx-cur { font-size: 13.5px; flex-wrap: nowrap; }
+  .app .rx-line-c .rx-cur-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; }
+  .app .rx-line-c .rx-ed { display: none; }
+  .app .rx-line-c .rx-caret { width: 13px; height: 13px; }
+  .app .rx-sheet .rx-tools { padding: 8px 12px 6px; }
+  .app .rx-sheet .rx-cats-box { padding: 0 12px 6px; }
+  .app .rx-sheet .rx-scroll { padding: 2px 12px 16px; }
+  .app .rx-sheet .rx-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px 8px; }
+}
+@media (max-width: 380px) {
+  .app .rx-line-c .rx-mini { width: 30px; }
+  .app .rx-line.rx-line-c { gap: 6px; }
+}
+/* tablets held upright: a wider sheet, bigger pictures */
+@media (min-width: 600px) and (max-width: 900px) and (min-height: 501px) {
+  .app .rx-sheet .rx-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+}
+
+/* ---------- phones on their side: the line is a cell beside the groups (its picture over «Recetas») ---------- */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .app .rx-line.rx-line-c {
+    width: 100%; min-height: 48px; padding: 4px 2px; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border-radius: 8px; color: var(--muted);
+  }
+  .app .rx-line-c .rx-mini { width: 38px; }
+  .app .rx-line-c .rx-lt { flex: none; align-items: center; }
+  .app .rx-line-c .rx-k { font: 500 11.5px/1.1 var(--font-ui); letter-spacing: -.01em; text-transform: none; color: inherit; }
+  .app .rx-line-c .rx-cur, .app .rx-line-c .rx-caret, .app .rx-line-c .rx-k:not(.rx-k2) { display: none; }
+  .app .rx-line-c .rx-k2 { display: block; }
+  .app .rx-line.rx-line-c[aria-expanded="true"] { color: var(--text); }
+  .app .rx-sheet .rx-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px 6px; }
+  .app .rx-sheet .rx-tools { padding: 6px 8px 4px 8px; }
+  .app .rx-sheet .rx-cats-box { padding: 0 8px 4px; }
+  /* with the recipes open, the close button and the «Recetas» cell stand beside the search and the filters
+     (the groups they stood beside are away): the pictures get the column's height */
+  .app .ph-sheet.rx-open .ph-head { position: absolute; top: 0; right: 0; z-index: 2; width: 56px; padding: 6px 0 0; border: 0; background: var(--panel); }
+  .app .ph-sheet.rx-open .ph-grab-row { position: static; width: 54px; }
+  .app .ph-sheet.rx-open .rx-tools, .app .ph-sheet.rx-open .rx-cats-box { margin-right: 54px; }
+  .app .ph-sheet.rx-open .rx-tools { padding-top: 8px; }
+  .app .rx-sheet .rx-scroll { padding: 2px max(10px, env(safe-area-inset-right, 0px)) 12px 8px; }
+  .app .rx-sheet .rx-foot { display: none; }
+}

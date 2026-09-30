@@ -23,7 +23,7 @@ async function openPanel(page: Page) {
 async function walk(page: Page, w: number, full: boolean) {
   const found: string[] = [];
   const look = async (where: string) => { for (const c of await clipped(page)) found.push(`${w} px · ${where}: ${c}`); };
-  const spaces = ['Fondos', 'Arte', 'Imagen', 'Tipo', 'Terminal', 'Componentes'];
+  const spaces = ['Fondos', 'Arte', 'Imagen', 'Texto', 'Terminal', 'Componentes'];
   for (const [i, sp] of spaces.entries()) {
     if (!full && sp !== 'Arte') continue;
     await blur(page);
@@ -105,7 +105,8 @@ test.describe('acceso horizontal', () => {
   // every space, tab, view and sheet at 1366 and 768 px; at the other widths one space, its tabs, the views and the export sheet
   for (const [label, widths] of [['1920 a 1280 px', WIDTHS.slice(0, 4)], ['1024 a 768 px', WIDTHS.slice(4)]] as const) {
     test(`de ${label}, ninguna fila recorta opciones sin avisar`, async ({ page }) => {
-      test.setTimeout(300_000);
+      // (four widths × every space, section, view and sheet: about five minutes under the software GPU)
+      test.setTimeout(600_000);
       await openStudio(page);
       const found: string[] = [];
       for (const [w, h] of widths) {
@@ -124,7 +125,11 @@ test.describe('acceso horizontal', () => {
     for (const [w, h] of [[1920, 1080], [1366, 768], [1024, 768]] as const) {
       await page.setViewportSize({ width: w, height: h });
       await page.waitForTimeout(200);
-      for (const sel of ['.panel .recipes', '.panel .ptabs']) {
+      // the recipe line: whole, inside the column
+      const line = (await page.locator('.panel .rx-line').boundingBox())!, col = (await page.locator('.panel').boundingBox())!;
+      expect(line.x, `línea de recetas a ${w} px`).toBeGreaterThanOrEqual(col.x);
+      expect(line.x + line.width, `línea de recetas a ${w} px`).toBeLessThanOrEqual(col.x + col.width);
+      for (const sel of ['.panel .ptabs']) {
         const row = page.locator(sel);
         expect(await row.evaluate(el => el.scrollWidth - el.clientWidth), `${sel} a ${w} px`).toBeLessThanOrEqual(1);
         // every item inside the panel, none cut at its edge
@@ -195,9 +200,9 @@ test.describe('teclado', () => {
       // sections: one Tab stop; ← → move and choose; Home and End jump; each one comes into view
       const tabs = page.locator('.panel [role=tab]');
       const n = await tabs.count();
-      // (phones: the recipes are a section too, the first)
+      // (the recipes are not a section: they fold in a zone of their own, the same on phones)
       const phone = w <= 900;
-      expect(n).toBe(phone ? 8 : 7);
+      expect(n).toBe(7);
       await page.getByRole('tab', { name: 'Capas' }).click();
       await expect(page.locator('.panel [role=tab][tabindex="0"]')).toHaveCount(1);
       const seen = new Set<string>();
@@ -216,21 +221,32 @@ test.describe('teclado', () => {
       await expect(page.getByRole('tab', { name: 'Mensaje' })).toHaveAttribute('aria-selected', 'true');
       await expect(page.getByRole('tab', { name: 'Mensaje' })).toBeInViewport({ ratio: 1 });
       await page.keyboard.press('Home');
-      await expect(page.getByRole('tab', { name: phone ? 'Recetas' : 'Capas' })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: 'Capas' })).toHaveAttribute('aria-selected', 'true');
       // ← → inside the row never move the history
       await expect(page.locator('.seedline')).toContainText('1/1');
 
-      // recipes: each one takes focus with Tab, in view (in their row; on phones, in their section)
-      const chips = page.locator('.panel .recipes .chip');
-      await chips.first().focus();
-      for (let i = 0; i < await chips.count(); i++) {
-        await expect(chips.nth(i)).toBeFocused();
-        await expect.poll(() => chips.nth(i).evaluate(el => {
-          const row = el.closest('.srow-list, .pane')!.getBoundingClientRect(), b = el.getBoundingClientRect();
+      // recipes: the line opens them in the settings' place (the column, or the sheet); the pictures are one
+      // Tab stop and the arrows walk every one of them, each in view in its list
+      const zone = page.locator('.panel .rx-line');
+      await zone.click();
+      await expect(zone).toHaveAttribute('aria-expanded', 'true');
+      const cards = page.locator('#rx-browser .rx-card');
+      await page.locator('#rx-browser .rx-card[tabindex="0"]').focus();
+      await page.keyboard.press('Home');
+      const count = await cards.count();
+      expect(count).toBeGreaterThan(40);
+      for (let i = 0; i < count; i++) {
+        await expect(cards.nth(i)).toBeFocused();
+        await expect.poll(() => cards.nth(i).evaluate(el => {
+          const row = el.closest('.rx-scroll')!.getBoundingClientRect(), b = el.getBoundingClientRect();
           return b.left >= row.left - 1 && b.right <= row.right + 1 && b.top >= row.top - 1 && b.bottom <= row.bottom + 1;
         })).toBe(true);
-        await page.keyboard.press('Tab');
+        await page.keyboard.press('ArrowRight');
       }
+      // (the arrows walked the pictures, never the history)
+      await expect(page.locator('.seedline')).toContainText('1/1');
+      await page.keyboard.press('Escape');
+      await expect(zone).toHaveAttribute('aria-expanded', 'false');
     }
 
     // views (desktop): a radio group; arrows move and choose
@@ -378,14 +394,18 @@ test.describe('controles que se explican', () => {
       await vista(page).getByRole('radio', { name: v }).hover();
       await check('vista ' + v);
     }
-    for (const t of ['Color', 'Glifos', 'Movimiento', 'Fuente']) {
+    for (const t of ['Color', 'Glifos', 'Movimiento', 'Origen']) {
       await page.getByRole('tab', { name: t }).click();
       await page.getByRole('tab', { name: t }).hover();
       await check('pestaña ' + t);
     }
-    await page.locator('.panel .recipes .chip').first().click();
-    await page.locator('.panel .recipes .chip[aria-pressed=true]').hover();
+    await page.locator('.panel .rx-line').click();
+    await page.locator('#rx-browser .rx-card').first().click();
+    await page.locator('#rx-browser .rx-card[aria-pressed=true]').hover();
     await check('receta elegida');
+    await page.locator('#rx-browser .rx-chip').nth(1).click();
+    await check('filtro de recetas elegido');
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Ajustes del azar' }).click();
     await check('ajustes del azar');
     expect(bad, bad.join('\n')).toEqual([]);

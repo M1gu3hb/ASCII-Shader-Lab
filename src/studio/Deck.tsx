@@ -14,10 +14,11 @@ import { saveSession } from './packages';
 import { announce, toast } from './toast';
 import { setAuto, useLive } from './live';
 import { historyLabel, thumbBg } from './history';
-import { shareLink } from './ShareSheet';
+import { ShareDockButton, shareLink } from './ShareSheet';
 import { HoldCompare } from './guide/HoldCompare';
 import { Picker } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { Range } from './ui/Range';
 import { useScramble } from './motion/hooks';
 import { archetypeOptions } from './ui/options';
 import { setStripRange, startThumbs, useThumbs } from './thumbs';
@@ -89,6 +90,7 @@ function DeskDeck() {
   const favIds = useMemo(() => new Set(favs.map(f => f.id)), [favs]);
   const fav = !!e?.favId && favIds.has(e.favId);
   const [pop, setPop] = useState(false);
+  const panel = useStudio(s => s.ui.panel);
   const strip = useRef<HTMLDivElement>(null);
   const limit = useStudio(s => s.histLimit);
   const counter = historyLabel(entries.length, limit);
@@ -117,6 +119,12 @@ function DeskDeck() {
             <button type="button" className="act ghost" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
             {pop && <DicePop onClose={() => setPop(false)} />}
           </div>
+          {/* touch screens with the column put away: the settings come back from here, within reach (css/layout.css) */}
+          {!panel && (
+            <button type="button" className="act ghost deck-tools" onClick={() => setUI({ panel: true })} title="Ajustes de la pieza: forma, color, glifos…">
+              <ISlidersH /><span className="lbl">Ajustes</span>
+            </button>
+          )}
         </div>
       </div>
     </>
@@ -173,6 +181,8 @@ function PhoneDeck() {
         <button type="button" className="act ghost ph-export" onClick={() => setUI({ panel: false, sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">
           <IDownload /><span className="ph-lbl">Exportar</span>
         </button>
+        {/* «Compartir» on phones (lane compartir's one mount point in the dock) */}
+        <ShareDockButton />
         <button type="button" className="act ghost ph-tools" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza" title="Ajustes de la pieza: forma, color, glifos…">
           <ISlidersH /><span className="ph-lbl">Ajustes</span>
         </button>
@@ -349,7 +359,6 @@ function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
       <span className="seed-acts">
         {e.edited && <HoldCompare origin={e.origin} />}
         {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió (se puede deshacer)">restaurar</button>}
-        <button type="button" onClick={() => void copyLink()} title="Copiar un enlace a esta pieza">enlace</button>
         <button type="button" onClick={() => setUI({ sheet: 'seed' })} title="Escribir una semilla">semilla</button>
       </span>
     </div>
@@ -392,7 +401,8 @@ function DicePop({ onClose, focusIn }: { onClose: () => void; focusIn?: boolean 
       <div className="ctl">
         <span className="lbl">Intensidad de la variación</span>
         <output>{amount < 0.25 ? 'sutil' : amount < 0.6 ? 'media' : 'salvaje'}</output>
-        <input type="range" min={0.05} max={1} step={0.01} value={amount} onChange={e => setAmount(parseFloat(e.target.value))} style={{ '--p': ((amount - 0.05) / 0.95) * 100 + '%' } as React.CSSProperties} aria-label="Intensidad de la variación" />
+        <Range min={0.05} max={1} step={0.01} value={amount} onValue={setAmount} aria-label="Intensidad de la variación"
+          aria-valuetext={amount < 0.25 ? 'sutil' : amount < 0.6 ? 'media' : 'salvaje'} />
       </div>
       <button type="button" className="btn" onClick={() => { onClose(); setUI({ sheet: 'explore' }); }}><IExplore width={16} /> Explorar ocho variaciones</button>
       <TransitionPick />

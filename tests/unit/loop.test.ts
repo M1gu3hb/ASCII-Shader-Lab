@@ -23,7 +23,7 @@ function frame(r: Recipe, t: number) {
   const F = new FieldBuffers(n), S = new SelectBuffers(n);
   const tq = pieceTime(t, r.motion);
   runField({
-    W, H, cw: CW, ch: CH, cols: COLS, rows: ROWS, time: tq, loop, layers: fieldLayers(r),
+    W, H, cw: CW, ch: CH, cols: COLS, rows: ROWS, time: tq, loop, layers: fieldLayers(r, W, H),
     warp: r.motion.warp, warpScale: r.motion.warpScale, pulse: pulseAt(r.motion, tq, 0),
     src: 'pattern', mediaMix: 0, mediaBlend: 0, morph: morphPeriod(r.text.morph, loop), media: null, fit: 0, zoom: 1, panX: 0, panY: 0, mirror: false,
     text: null, imode: 0, ptrX: -1e4, ptrY: -1e4, ptrOn: 0, istr: 0, irad: 0.2, sim: null,

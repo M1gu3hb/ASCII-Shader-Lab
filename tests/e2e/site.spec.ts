@@ -4,7 +4,7 @@ test('la portada carga, muestra el motor y lleva al estudio', async ({ page }) =
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Haz arte ASCII que se mueve.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Haz arte ASCII');
   await expect(page.locator('.kicker')).toContainText('Teje luz con caracteres');
   await expect(page.locator('.hero-canvas')).toBeVisible();
   const before = await page.locator('[data-hero-seed]').textContent();

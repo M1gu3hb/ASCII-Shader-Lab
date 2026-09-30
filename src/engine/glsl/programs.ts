@@ -1,4 +1,5 @@
 import { GLSL_BLEND, GLSL_CORE } from './core';
+import { DISP_MAX } from '../touch';
 import type { PatternLibrary } from './patterns';
 
 export const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
@@ -77,7 +78,10 @@ uniform sampler2D uSim;
 uniform float uSimEnc;
 uniform int uIMode;
 uniform vec2 uPtr;
-uniform float uPtrOn, uIStr, uIRad;
+uniform float uPtrOn, uIStr, uIRad, uPtrDown;
+uniform vec3 uView;
+uniform sampler2D uTouch;
+uniform int uTouchDisp;
 out vec4 o;
 float PX;
 ${GLSL_CORE}
@@ -102,14 +106,18 @@ void main(){
   float dist = length(dm);
   float fall = uPtrOn * exp(-dist * dist / max(uIRad * uIRad, 1e-5));
   vec4 sim = texture(uSim, (cell + .5) / uGrid);
-  vec2 pp = p;
+  // «Zoom con los dedos» and «Seguir» move the view (1, 0, 0 otherwise: see engine/touch.ts)
+  vec2 pp = p * uView.x + uView.yz;
   if (uIMode == 3) pp = m + dm * (1. - .62 * uIStr * fall);
   else if (uIMode == 4) pp = p - normalize(dm + 1e-5) * uIStr * uIRad * .7 * fall;
+  else if (uIMode == 16) pp = p + normalize(dm + 1e-5) * uIStr * uIRad * .8 * fall * (1. + .8 * uPtrDown);
   else if (uIMode == 5) pp = m + rot2(dm, uIStr * 3.2 * fall);
   else if (uIMode == 2){
     vec2 g = vec2(simH(cell + vec2(1., 0.)) - simH(cell - vec2(1., 0.)), simH(cell - vec2(0., 1.)) - simH(cell + vec2(0., 1.)));
     pp += g * .05 * uIStr;
   }
+  // «Estirar»: where the grid was dragged, it shows the pattern from where the finger took it
+  if (uTouchDisp == 1) pp -= (floor(texelFetch(uTouch, ivec2(cell), 0).ba * 255. + .5) - 128.) / 127. * ${DISP_MAX.toFixed(2)};
   pp *= 1. - uPulse * .06;
   vec2 q = pp;
   if (uWarp > 0.){
@@ -173,7 +181,7 @@ uniform sampler2D uPrev;
 uniform vec2 uGrid;
 uniform vec2 uCell;
 uniform vec4 uSeg;
-uniform float uBrushR, uStr, uActive, uImpulse, uEnc, uDt;
+uniform float uBrushR, uStr, uActive, uImpulse, uEnc, uDt, uEraseRate, uPaintRate;
 uniform int uMode;
 out vec4 o;
 float sdSeg(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0., 1.); return length(pa - ba * h); }
@@ -193,8 +201,8 @@ void main(){
   float brush = exp(-dd * dd * 2.5);
   float tr = s.b;
   if (uMode == 2) nh += brush * uStr * (uActive * .35 + uImpulse * 1.6);
-  if (uMode == 6) tr = max(tr - uDt * .22, brush * uActive);
-  else if (uMode == 7) tr = max(tr * exp(-uDt * .9), brush * uActive * (.4 + uStr * .8));
+  if (uMode == 6) tr = max(tr - uDt * uEraseRate, brush * uActive);
+  else if (uMode == 7) tr = max(tr * exp(-uDt * uPaintRate), brush * uActive * (.4 + uStr * .8));
   else tr = 0.;
   if (uMode != 2) nh = 0.;
   o = vec4(enc(clamp(nh, -1.9, 1.9)), enc(clamp(h, -1.9, 1.9)), clamp(tr, 0., 1.), 1.);
@@ -226,6 +234,9 @@ uniform float uCursorOn, uBlockIdx;
 uniform int uIMode;
 uniform vec2 uPtrCell;
 uniform float uPtrOn, uIStr, uIRadCells;
+uniform sampler2D uTouch;
+uniform int uTouchMark;
+uniform float uTouchInk;
 layout(location = 0) out vec4 oC;
 layout(location = 1) out vec4 oG;
 ${GLSL_CORE}
@@ -254,6 +265,10 @@ void main(){
   vec4 f = texelFetch(uField, c, 0);
   float l = tone(f.a);
   if (uLevels > 1.5) l = floor(l * uLevels * .9999) / (uLevels - 1.);
+  // the marks a gesture leaves (Rastro, Florecer, Anillos, Chispas; engine/touch.ts): R how strong, G which glyph
+  float ta = 0., tg = 0.;
+  // (where a mark is, it draws its own shape: its intensity takes the cell over)
+  if (uTouchMark > 0){ vec4 tv = texelFetch(uTouch, c, 0); ta = tv.r; tg = tv.g; l = mix(l, ta, min(1., ta * 3.)); }
   float dth = uDitherKind == 0 ? bayer8(cf) : hash12(cf * 1.37 + 11.);
   float lq = clamp(l + (dth - .5) * uDither / max(uN - 1., 1.), 0., 1.);
   float idx = floor(lq * (uN - 1.) + .5);
@@ -297,6 +312,8 @@ void main(){
       l = max(l, .7); inten = max(inten, .9); alpha = 1.;
     }
   }
+  // (uTouchMark 2: the piece's own glyphs, only brighter)
+  if (uTouchMark == 1 && tg > 0. && ta > .02){ idx = max(1., floor(tg * (.35 + .65 * ta) * (uN - 1.) + .5)); alpha = 1.; }
 
   vec2 uv = (cf + .5) / uGrid;
   vec3 base = texture(uGrad, vec2(gradPos(uv, l, uTime), .5)).rgb;
@@ -311,6 +328,7 @@ void main(){
   if (uHue > 0.) base = hueShift(base, uHue * TAU);
   float gr = dot(base, vec3(.299, .587, .114));
   base = clamp(mix(vec3(gr), base, uSat), 0., 1.);
+  if (ta > 0.){ base = mix(base, texture(uGrad, vec2(1., .5)).rgb, ta * uTouchInk); inten = max(inten, ta); }
 
   if (uMsgOn == 1){
     ivec2 mc = ivec2(int(mod(cf.x + uMsgShift, uMsgW)), c.y);
@@ -378,7 +396,11 @@ uniform float uTrans, uTransparent, uReveal, uEraseReveal, uHasMedia, uN;
 uniform int uTransKind;
 uniform vec2 uTransOrigin;
 uniform float uTransDir, uTransSeed;
+// the old frame's size over the canvas's: the stage may change size during a transition (a new view, a new window)
+uniform vec2 uPrevScale;
 uniform float uFxTime;
+uniform sampler2D uTouch;
+uniform float uTouchReveal, uTouchTile;
 ${GLSL_MEDIA}
 out vec4 o;
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -461,8 +483,13 @@ vec4 shade(vec2 pt){
   float fillA = uCellBg * c.a;
   float glowA = uGlow * c.a * exp(-dot(lc, lc) * 7.) * .55;
   vec3 ink = c.rgb;
-  if (uReveal > 0. || uEraseReveal > 0.){
-    float r = uReveal;
+  // «Revelar» (engine/touch.ts): the picture under the finger, or without one each cell's colour as a tile
+  float tr = uTouchReveal > 0. ? texelFetch(uTouch, cell, 0).r : 0.;
+  if (uHasMedia < .5) fillA = max(fillA, tr * .9);
+  // a gesture's marks glow a little behind their glyphs
+  if (uTouchTile > 0.) fillA = max(fillA, texelFetch(uTouch, cell, 0).r * uTouchTile);
+  if (uReveal > 0. || uEraseReveal > 0. || tr > 0.){
+    float r = max(uReveal, tr * uHasMedia);
     if (uEraseReveal > 0.) r = max(r, texture(uSimT, (vec2(cell) + .5) / uGrid).b * uEraseReveal);
     if (r > 0. && uHasMedia > .5){
       vec3 mcol = media(pt / uRes).rgb;
@@ -532,7 +559,7 @@ void main(){
       col = mix(uTransparent > .5 ? vec3(0.) : uBg, uAccent, cv);
       alpha = uTransparent > .5 ? cv : 1.;
     } else if (st.x > .5){
-      vec4 pv = texelFetch(uPrev, ivec2(fc), 0);
+      vec4 pv = texelFetch(uPrev, min(ivec2(fc * uPrevScale), textureSize(uPrev, 0) - 1), 0);
       col = pv.rgb; alpha = pv.a;
     }
   }

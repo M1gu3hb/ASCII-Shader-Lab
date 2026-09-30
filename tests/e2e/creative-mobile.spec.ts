@@ -81,7 +81,7 @@ test('en un teléfono: Transformar, las letras que se mueven y la rampa caben y 
   await expect(page.locator('.seedline')).toBeVisible({ timeout: 45_000 });
   await dismissWelcome(page);
   await openPanel(page);
-  await page.getByRole('tab', { name: 'Texto', exact: true }).tap();
+  await page.getByRole('tab', { name: 'Tu texto', exact: true }).tap();
   const move = page.getByRole('combobox', { name: 'Cómo se mueven las letras' });
   await move.scrollIntoViewIfNeeded();
   await move.tap();

@@ -29,7 +29,12 @@
   font: 800 clamp(44px, 7.3vw, 126px)/.9 var(--font-display); letter-spacing: -.06em; margin: 0 0 clamp(22px, 2.4vw, 34px);
   text-wrap: balance;
 }
-.hero-title em { font: italic 400 1.12em/.8 var(--font-serif); letter-spacing: -.015em; color: var(--signal); padding-right: .04em; }
+/* «Haz arte ASCII», woven (src/landing/titulo.ts): the real text stays; while the glyphs are drawn over it, it is
+   only made transparent (same box, same selection), and the canvas sits inside the heading's own box */
+.hero-title { position: relative; }
+.hero-title.ht-on { -webkit-text-fill-color: transparent; }
+.ht-glyphs { position: absolute; pointer-events: none; }
+.ht-glyphs.ht-fade { opacity: 0; transition: opacity .2s; }
 .hero-sub { font-size: clamp(17px, 1.45vw, 22px); line-height: 1.5; max-width: 44ch; margin: 0 0 clamp(26px, 2.8vw, 38px); opacity: .94; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
@@ -68,6 +73,8 @@
     linear-gradient(to bottom, color-mix(in srgb, var(--hero-bg, #0b0708) 80%, transparent), color-mix(in srgb, var(--hero-bg, #0b0708) 68%, transparent) 60%, var(--ink)); }
   .hero-spec .wrap { font-size: 9.5px; gap: 4px 12px; }
   .kicker .tag { font-size: 15px; }
+  /* «Haz arte / ASCII»: two lines as large as the width allows, so the woven letters keep their detail */
+  .hero-title { font-size: clamp(44px, 15.5vw, 64px); }
 }
 
 /* ---------- 01 · espacios: one stage, six workshops ---------- */

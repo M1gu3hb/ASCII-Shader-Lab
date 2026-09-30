@@ -6,6 +6,7 @@ import { FOTO_STUDIO, GUIDES, MORPHIQ, PAGES, SITE_URL, fotoPage, sitePages } fr
 import { cleanVerification, contactSheet, fmtBytes, fotoBlocks, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, salida, shortUsage, sitemapXml } from '../../scripts/seo';
 import { PATTERNS } from '../../src/engine/catalog';
 import { CONTACTS, contactSrc } from '../../src/landing/contacts';
+import { GUIDE_MEDIA, GUIDE_MEDIA_PX, guideLoop, guidePoster } from '../../src/landing/guias-data';
 import { PRESETS } from '../../src/studio/presets';
 
 const root = join(import.meta.dirname, '../..');
@@ -26,7 +27,7 @@ describe('site pages', () => {
 
   it('the landing counts the dice\'s art styles right', () => {
     const html = readFileSync(join(root, 'index.html'), 'utf8');
-    const words: Record<number, string> = { 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis' };
+    const words: Record<number, string> = { 12: 'doce', 13: 'trece', 14: 'catorce', 15: 'quince', 16: 'dieciséis', 17: 'diecisiete', 18: 'dieciocho', 19: 'diecinueve', 20: 'veinte' };
     expect(html).toContain(`con ${words[ARCHETYPES.length]} estilos de arte`);
   });
 
@@ -35,7 +36,7 @@ describe('site pages', () => {
     const solids = PATTERNS.filter(p => p.family === 'solidos').length;
     expect(html).toContain(`${PATTERNS.length} patrones`);
     expect(html).toContain(`${solids} objetos en 3D`);
-    const word: Record<number, string> = { 5: 'Cinco', 6: 'Seis', 7: 'Siete', 8: 'Ocho', 9: 'Nueve', 10: 'Diez', 11: 'Once', 12: 'Doce' };
+    const word: Record<number, string> = { 5: 'Cinco', 6: 'Seis', 7: 'Siete', 8: 'Ocho', 9: 'Nueve', 10: 'Diez', 11: 'Once', 12: 'Doce', 13: 'Trece', 23: 'Veintitrés' };
     expect(readFileSync(join(root, 'fondos-ascii/index.html'), 'utf8')).toContain(`${word[PRESETS.fondos.length]} puntos de partida`);
     expect(readFileSync(join(root, 'arte-ascii-terminal/index.html'), 'utf8')).toContain(`${word[PRESETS.terminal.length]} puntos de partida`);
     expect(readFileSync(join(root, 'imagen-a-ascii/index.html'), 'utf8')).toContain(`${word[PRESETS.media.length]} estilos de partida`);
@@ -169,6 +170,31 @@ describe('directives', () => {
     expect(html.match(/class="guide-card"/g)).toHaveLength(4);
   });
 
+  it('each guide card carries its example: the picture, the loop in MP4 and WebM, a real description, light files', () => {
+    const html = renderPage('<!-- @guides -->', page('main'), opts);
+    for (const g of GUIDES) {
+      expect(html).toContain(`data-loop="${guideLoop(g.id)}"`);
+      expect(html).toContain(`src="${guidePoster(g.id)}" width="${GUIDE_MEDIA_PX.width}" height="${GUIDE_MEDIA_PX.height}" alt="${GUIDE_MEDIA[g.id].alt}"`);
+      expect(GUIDE_MEDIA[g.id].alt.length, g.id).toBeGreaterThan(30);
+      // what a card may weigh: the picture loads with the page (lazily), a loop only when someone asks for it
+      const limit = { webp: 110, mp4: 200, webm: 200 } as const;
+      for (const ext of ['webp', 'mp4', 'webm'] as const) {
+        const f = join(root, 'public', `${guideLoop(g.id)}.${ext}`);
+        expect(existsSync(f), f).toBe(true);
+        expect(statSync(f).size / 1024, f).toBeLessThan(limit[ext]);
+      }
+    }
+    expect(html).not.toContain('alt=""');
+  });
+
+  it('the public pages show GLYPHOS in their examples: no «SEÑAL», no «MONOTRAMA», and the headline without «que se mueve»', () => {
+    const files = ['index.html', '404.html', ...GUIDES.map(g => `${g.path.slice(1)}index.html`)];
+    for (const f of files) expect(readFileSync(join(root, f), 'utf8'), f).not.toMatch(/SEÑAL|MONOTRAMA/);
+    for (const g of GUIDES) expect(`${g.posterAlt} ${GUIDE_MEDIA[g.id].alt}`).not.toMatch(/SEÑAL|MONOTRAMA/);
+    expect(readFileSync(join(root, 'index.html'), 'utf8')).toMatch(/<h1 id="hero-title" class="hero-title">Haz arte ASCII<\/h1>/);
+    for (const p of PAGES) expect(`${p.title} ${p.description}`).not.toContain('que se mueve');
+  });
+
   it('includes text files escaped and keeps a leading blank row inside <pre>', () => {
     expect(renderPage('<pre><!-- @include:ex/x.txt --></pre>', page('terminal'), opts)).toBe('<pre>\n\n  &lt;a&gt; &amp; b</pre>');
     expect(() => renderPage('<!-- @include:../secret.txt -->', page('terminal'), opts)).toThrow();
@@ -268,6 +294,25 @@ describe('the landing\'s exported files (@salida)', () => {
     expect(salida('usage', readPublic)).toContain('&lt;script src=&quot;glyphos-field.js&quot; defer&gt;');
     expect(salida('frames', readPublic)).toBe(String(manifest.frames));
     expect(() => salida('nada', readPublic)).toThrow();
+  });
+
+  it('says what a shared link carries as it is now: the public viewer (/ver/), the recipe\'s length measured, then the frame', async () => {
+    const { decodeRecipe, viewerUrl } = await import('../../src/shared/share');
+    const { frameFor } = await import('../../src/shared/frame');
+    const html = readFileSync(join(root, 'index.html'), 'utf8');
+    const dd = /<dt>Enlace<\/dt><dd><!-- @salida:linklen -->([^<]*)<\/dd>/.exec(html);
+    expect(dd, 'the «Enlace» line of «Salidas»').not.toBeNull();
+    expect(dd![1]).toBe(' caracteres tras /ver/#r=, más el encuadre');
+    // the link «Compartir» gives for «Saturno» today: that many characters of recipe after /ver/#r=, then its frame
+    const r = (await decodeRecipe(/#r=([\w-]+)/.exec(manifest.link)![1]))!;
+    const shared = await viewerUrl(r, { frame: frameFor(1096, 848, 1, r.glyph.cell, r.glyph.aspect) }, '');
+    const n = Number(salida('linklen', readPublic));
+    expect(shared.startsWith('/ver/#r=')).toBe(true);
+    expect(shared.slice('/ver/#r='.length).indexOf('&f=')).toBe(n);
+    // what someone who opens it sees without the sender's picture (src/ver/main.ts says the same)
+    expect(html).not.toContain('hasta cargar uno suyo');
+    expect(html).toContain('verá el estilo de la pieza con su patrón de fondo en su lugar');
+    expect(readFileSync(join(root, 'src/ver/main.ts'), 'utf8')).toContain('aquí ves su estilo con el patrón de fondo');
   });
 
   it('every @salida directive of the landing renders', () => {

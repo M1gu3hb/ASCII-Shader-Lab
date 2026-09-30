@@ -8,6 +8,7 @@ import '../shared/fonts.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';
 import '@fontsource/jetbrains-mono/latin-400.css';
 import './pages.css';
+import { mountGuides } from '../landing/guias';
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
@@ -33,3 +34,6 @@ if (demo && !saveData) {
     import('./demo').then(m => m.mountDemo(demo, reduced)).catch(() => { demo.dataset.state = 'poster'; });
   });
 }
+
+// «Otras guías» (and the 404's list): each guide's example on hover, focus or a first tap
+mountGuides();

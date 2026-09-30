@@ -26,6 +26,36 @@ test.describe('peso de la primera vista', () => {
     expect(preloads.filter(u => HEAVY.test(u))).toEqual([]);
   });
 
+  test('portada: el titular tejido llega después de la carga, sin cambiar el LCP ni mover nada', async ({ page }) => {
+    await page.addInitScript(() => {
+      const v = { lcp: 0, lcpEl: '', cls: 0 };
+      (window as unknown as { __v: typeof v }).__v = v;
+      new PerformanceObserver(l => {
+        for (const e of l.getEntries() as unknown as Array<{ startTime: number; element?: Element }>) { v.lcp = e.startTime; v.lcpEl = e.element?.id ?? ''; }
+      }).observe({ type: 'largest-contentful-paint', buffered: true });
+      new PerformanceObserver(l => {
+        for (const e of l.getEntries() as unknown as Array<{ value: number; hadRecentInput: boolean }>) if (!e.hadRecentInput) v.cls += e.value;
+      }).observe({ type: 'layout-shift', buffered: true });
+    });
+    await page.goto('/');
+    await expect.poll(async () => (await scripts(page)).some(u => /\/assets\/titulo-/.test(u)), { timeout: 30_000 }).toBe(true);
+    // the woven headline is its own chunk, asked for once the page has loaded: never part of the first paint
+    const timing = await page.evaluate(() => ({
+      chunk: performance.getEntriesByType('resource').find(r => /\/assets\/titulo-/.test(r.name))!.startTime,
+      load: (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).loadEventStart,
+    }));
+    expect(timing.chunk).toBeGreaterThanOrEqual(timing.load);
+    // (the page's HTML does not preload it either; Vite adds its own preload link only when it is imported)
+    expect(await (await page.request.get('/')).text()).not.toMatch(/assets\/titulo-/);
+    await expect.poll(() => page.locator('#hero-title').evaluate(h => (h as HTMLElement).dataset.glyph ?? ''), { timeout: 30_000 }).toMatch(/^(palabras|letras|azar)$/);
+    await page.waitForTimeout(1500);
+    const v = await page.evaluate(() => (window as unknown as { __v: { lcp: number; lcpEl: string; cls: number } }).__v);
+    // the largest paint is still the real headline (a lab number, logged for the record), and nothing moved
+    expect(v.lcpEl).toBe('hero-title');
+    expect(v.cls).toBeLessThan(0.01);
+    test.info().annotations.push({ type: 'LCP de laboratorio (SwiftShader, sin limitar)', description: `${Math.round(v.lcp)} ms · CLS ${v.cls.toFixed(4)}` });
+  });
+
   test('estudio: arranca sin el motor básico ni la hoja de exportar, que llega al abrirla', async ({ page }) => {
     // «ahorro de datos»: no idle prefetch, so what loads is exactly what the first view and the clicks ask for
     await page.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true }));

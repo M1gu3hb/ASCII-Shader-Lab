@@ -11,6 +11,9 @@
  * controller that does nothing.
  * options.scrim (attributes scrim, scrim-color, scrim-opacity, scrim-blur) adds the «zona protegida»: a
  * layer over the whole background ('full') or fading from where text usually sits ('gradient').
+ * Touch: a piece that listens on its own canvas gets touch-action: pan-y (unless the page set another), so
+ * a vertical swipe still scrolls the page while taps, sideways drags, pinches and pens reach the piece
+ * (engine/pointer.ts). The wheel is never taken: only Ctrl + wheel over the canvas zooms «Zoom con los dedos».
  */
 import { AsciiEngine } from '../engine/engine';
 import { normalizeRecipe, type Recipe } from '../engine/recipe';
@@ -61,7 +64,7 @@ interface Api {
   __basic?: BasicSupport;
 }
 
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 const registry: PatternLibrary = {};
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const win = () => window as unknown as { Glyphos?: Api; Monotrama?: Api };
@@ -128,6 +131,8 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
   let canvas = found.canvas;
   const still = reduced() || !!o.paused;
   const calm = (x: Recipe) => { if (still) x.interact.auto = false; return x; }; // no wandering ghost pointer when motion is reduced
+  // a vertical swipe scrolls the page; every other gesture on the canvas reaches the piece
+  if ((o.interactive ?? true) && (o.pointer ?? 'window') === 'canvas' && !canvas.style.touchAction) canvas.style.touchAction = 'pan-y';
   const unscrim = addScrim(canvas, o.scrim);
   const remove = () => { unscrim(); if (created) canvas.remove(); };
   const common = {
@@ -209,7 +214,7 @@ class GlyphosField extends HTMLElement {
   }
   private start() {
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
-    root.innerHTML = '<style>:host{display:block;position:relative;min-height:120px}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}</style>';
+    root.innerHTML = '<style>:host{display:block;position:relative;min-height:120px}canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}</style>';
     const cv = document.createElement('canvas');
     cv.setAttribute('aria-hidden', 'true');
     root.appendChild(cv);

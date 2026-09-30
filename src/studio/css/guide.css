@@ -161,12 +161,6 @@ dialog.welcome::backdrop { background: rgba(5, 4, 3, .72); }
 .cmp-toggle:hover, .cmp-toggle[aria-expanded="true"] { color: var(--text); border-color: var(--line-2); }
 .hint-cmp { margin: -4px 0 14px; }
 
-.cs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 260px; overflow-y: auto; padding: 2px; }
-.cs-grid button { border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px 6px; text-align: left; display: flex; flex-direction: column; gap: 3px; min-height: 44px; }
-.cs-grid button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.cs-sample { font-size: 13px; line-height: 1; white-space: pre; overflow: hidden; letter-spacing: .04em; }
-.cs-name { font: 500 11px/1.2 var(--font-ui); opacity: .75; }
-
 .pal .grad { display: block; height: 18px; }
 
 /* ---------- hold to compare (seed line) ---------- */

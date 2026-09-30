@@ -10,6 +10,7 @@ import { pickFile } from './files';
 import { Glossary } from './Glossary';
 import { HISTORY_WARN, historyLabel, thumbBg } from './history';
 import { IDice } from './icons';
+import { Range } from './ui/Range';
 import { mediaUsage } from './mediaStore';
 import { renderThumbs } from './offscreen';
 import { collectionMediaSize, exportProject, fmtSize, saveCollection, saveSession, sessionMediaSize, slug } from './packages';
@@ -233,7 +234,7 @@ export function ExploreSheet() {
           <label className="ctl" style={{ flex: 1, minWidth: 220, margin: 0 }}>
             <span className="lbl">Distancia</span>
             <output>{amount < 0.25 ? 'sutil' : amount < 0.6 ? 'media' : 'salvaje'}</output>
-            <input type="range" min={0.05} max={1} step={0.01} value={amount} onChange={e => setAmount(parseFloat(e.target.value))} style={{ '--p': ((amount - 0.05) / 0.95) * 100 + '%' } as React.CSSProperties} />
+            <Range min={0.05} max={1} step={0.01} value={amount} onValue={setAmount} aria-valuetext={amount < 0.25 ? 'sutil' : amount < 0.6 ? 'media' : 'salvaje'} />
           </label>
           <button type="button" className="mini" onClick={() => setGen(g => g + 1)}><IDice width={14} /> Otras ocho</button>
         </div>
@@ -277,8 +278,9 @@ export function ShortcutsSheet() {
 
 /** What each generator version is, for the person choosing one (newest first). */
 const GEN_INFO: Record<number, { label: string; desc: string }> = {
-  4: { label: 'Versión 4', desc: 'La actual: las mismas piezas que la versión 3, con el nombre nuevo (GLYPHOS) cuando el azar rellena con palabras.' },
-  3: { label: 'Versión 3', desc: 'Las piezas de la versión 2 y, en Imagen, Tipo y Terminal, transformaciones y letras que se mueven.' },
+  5: { label: 'Versión 5', desc: 'La actual: la biblioteca de patrones, partículas y escenas, 19 estilos y paletas mucho más variadas (vivas, duotonos, carteles, pasteles…).' },
+  4: { label: 'Versión 4', desc: 'Las mismas piezas que la versión 3, con el nombre nuevo (GLYPHOS) cuando el azar rellena con palabras.' },
+  3: { label: 'Versión 3', desc: 'Las piezas de la versión 2 y, en Imagen, Texto y Terminal, transformaciones y letras que se mueven.' },
   2: { label: 'Versión 2', desc: 'Trece objetos 3D y un azar que rara vez repite lo que acabas de ver.' },
   1: { label: 'Versión 1', desc: 'La primera: repite las semillas que anotaste con ella.' },
 };

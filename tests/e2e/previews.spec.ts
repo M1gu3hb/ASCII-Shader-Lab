@@ -37,6 +37,12 @@ function correlation(a: number[], b: number[]) {
   return ab / Math.sqrt(aa * bb || 1);
 }
 
+/** Pauses the piece from the top bar and waits until it is paused. */
+async function pause(page: Page) {
+  await page.getByRole('button', { name: 'Pausar animación' }).click();
+  await expect(page.getByRole('button', { name: 'Reproducir animación' })).toBeVisible();
+}
+
 test.describe('vistas de destino', () => {
   test('cada vista dimensiona el lienzo real como su destino y lleva a su exportación', async ({ page }) => {
     const errors = await openStudio(page);
@@ -137,7 +143,9 @@ test.describe('vistas de destino', () => {
   test('README: el bloque de texto es el TXT exportado del mismo fotograma, y se copia como Markdown', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await openStudio(page);
-    await page.keyboard.press(' '); // paused: the frame stays the same
+    // paused: the frame stays the same (the bar's button, not Space: a key pressed as the studio appears can come
+    // before its shortcuts, and then the piece moves between the block and the export)
+    await pause(page);
     await pick(page, 'README');
     const code = page.locator('.gh-pre code');
     await expect(code).not.toHaveText(/Tejiendo/, { timeout: 30_000 });
@@ -175,7 +183,7 @@ test.describe('vistas de destino', () => {
 
   test('Historia / Reel 9:16: el marco es exactamente lo que compone la exportación 1080×1920', async ({ page }) => {
     await openStudio(page);
-    await page.keyboard.press(' ');
+    await pause(page);
     await pick(page, 'Historia / Reel 9:16');
     await expect.poll(async () => { const [w, h] = await canvasSize(page); return w / h; }).toBeCloseTo(9 / 16, 6);
     await page.waitForTimeout(800);

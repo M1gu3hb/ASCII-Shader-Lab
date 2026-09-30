@@ -180,13 +180,6 @@
 
   .app .ph-sheet .pane { flex: 1 1 auto; min-height: 0; padding: 14px 14px 28px; }
   .app .ph-sheet .pane .sub { margin-left: -14px; margin-right: -14px; }
-  .ph-recipes { display: flex; flex-wrap: wrap; gap: 6px; }
-  .app .ph-recipes .chip {
-    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; height: auto; padding: 0 14px 0 10px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--field); color: var(--text); font: 500 14px/1.2 var(--font-ui);
-  }
-  .app .ph-recipes .chip[aria-pressed="true"] { border-color: var(--accent); background: var(--signal-soft); font-weight: 600; }
-  .app .ph-recipes .chip .chip-sw { width: 12px; height: 12px; }
 
   /* the piece above the sheet (Views.tsx): edge to edge, as with the sheet closed */
   .app .vw-area.vw-above { left: 0; right: 0; }
@@ -273,9 +266,10 @@
 /* ---------- narrow phones: the space picker is its icon ----------
    With the «Laboratorio ⇄ Foto y video» switch at 44 px per segment, a phone up to 420 px has no room
    for the space's name beside it (it was cut to a few pixels at 390): the picker shows the space's icon
-   and its caret, and keeps the name for assistive tech (the list names every space when it opens). */
+   and its caret, and keeps the name for assistive tech (the list names every space when it opens). Without
+   the switch (the photo studio paused, FotoSwitch.tsx) the name fits from 360 px (layout.css: 340 px down). */
 @media (max-width: 420px) {
-  .app .topbar .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
-  .app .topbar .pk.space-select .pk-val { flex: none; }
-  .app .topbar .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .app .topbar:has(.sw) .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
+  .app .topbar:has(.sw) .pk.space-select .pk-val { flex: none; }
+  .app .topbar:has(.sw) .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, type ReactNode } from 'react';
 import { CHARSETS, GLYPH_MODE_NAMES, PATTERNS, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
-import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type InteractMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
-import { CURATED } from '../random/palettes';
+import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
 import { Rng } from '../random/prng';
 import type { SpaceId } from '../random/spaces';
 import { Color, F, Note, Seg, SegGroup, Select, Slider, Sub, Text, Toggle, useField } from './controls';
@@ -12,35 +11,44 @@ import { edit, setUI, useRecipe, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
 import { BasicFxHint } from './BasicMode';
 import { pickFile } from './files';
-import { CharsetSwatches, CompareStrip } from './guide/CompareStrip';
+import { CompareStrip } from './guide/CompareStrip';
+import { CharsetExplorer } from './ui/CharsetExplorer';
 import { CONTRAST, DETAIL, type Choice } from './guide/paths';
 import { setView, useView } from './views/state';
 import { TERM_SIZES } from './views/views';
 import { Picker } from './ui/Picker';
+import { Range } from './ui/Range';
+import { NumberField } from './ui/NumberField';
 import { HelpMore, HelpToggle, HintText, useHelp } from './ui/Help';
 import { DITHER_DESC, DITHER_ICON, FIT_DESC, GLYPH_MODE_DESC, GLYPH_MODE_ICON, SOURCE_DESC } from './ui/copy';
 import {
-  CharsetOption, CharsetRamp, PatternThumb, PiecePreview, blendOptions, charsetOptions, closeThumbSession, colorMapOptions, fontOptions, interactOptions,
-  letterAnimOptions, msgModeOptions, openThumbSession, patternOptions, withCharset,
+  CharsetOption, CharsetPreview, CharsetRamp, PatternThumb, blendOptions, charsetOptions, closeThumbSession, colorMapOptions, fontOptions,
+  letterAnimOptions, msgModeOptions, openThumbSession, patternOptions,
 } from './ui/options';
 import { XformTab } from './ui/Xforms';
+import { TouchControls } from './ui/Touch';
 import { RampEditor } from './ui/RampEditor';
+import { PaletteEditor } from './ui/color/PaletteEditor';
 import { useRamps } from './ui/ramps';
 import { LETTER_ANIMS } from '../engine/catalog';
 import { MSG_ANIMS, TEXT_ANIMS, type LetterAnim, type LetterAnimKind } from '../engine/recipe';
 
+/**
+ * The groups of settings of each space: [id, visible name]. The ids are internal (the same group has a
+ * different name where it means something else: «Capas» in Arte is «Relleno» in Texto). «Origen» is
+ * what becomes characters (a pattern, a text, a photo…): «Fuente» read as a font.
+ */
 export const TABS: Record<SpaceId, Array<[string, string]>> = {
   fondos: [['forma', 'Forma'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
-  arte: [['forma', 'Capas'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos'], ['fuente', 'Fuente'], ['msg', 'Mensaje']],
-  media: [['fuente', 'Fuente'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Patrón'], ['mov', 'Interacción'], ['fx', 'Efectos']],
-  tipo: [['fuente', 'Texto'], ['msg', 'Mensaje'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Relleno'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
+  arte: [['forma', 'Capas'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos'], ['fuente', 'Origen'], ['msg', 'Mensaje']],
+  media: [['fuente', 'Origen'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Patrón'], ['mov', 'Interacción'], ['fx', 'Efectos']],
+  tipo: [['fuente', 'Tu texto'], ['msg', 'Mensaje'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Relleno'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
   terminal: [['term', 'Terminal'], ['msg', 'Mensaje'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Forma'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
   componentes: [],
 };
 
 const PATTERN_OPTS = patternOptions();
 const BLEND_OPTS = blendOptions();
-const INTERACT_OPTS = interactOptions();
 const MSG_OPTS = msgModeOptions();
 const DISPLAY_FONTS = fontOptions(true);
 /** Values the comparison strips offer beside the cell size and contrast ones. */
@@ -85,7 +93,7 @@ function FormaTab({ space }: { space: SpaceId }) {
           {preview ? <IEyeOff width={16} /> : <IEye width={16} />} {preview ? 'Ocultar contenido de prueba' : 'Probar con contenido encima'}
         </button>
       )}
-      {source !== 'pattern' && <Note>Estas capas se mezclan con la fuente según «Cantidad de patrón» en la pestaña de fuente.</Note>}
+      {source !== 'pattern' && <Note>Estas capas se mezclan con lo que se convierte en caracteres según «Cantidad de patrón», en {space === 'tipo' ? '«Tu texto»' : '«Origen»'}.</Note>}
       {Array.from({ length: n }, (_, i) => <LayerCard key={i} i={i} n={n} />)}
       <button type="button" className="btn" disabled={n >= 4} title={n >= 4 ? 'Una pieza tiene hasta cuatro capas' : undefined} onClick={() => edit(r => {
         const rng = new Rng('add' + Date.now());
@@ -163,7 +171,6 @@ function LayerCard({ i, n }: { i: number; n: number }) {
 /* ------------------------------------------------------------------ */
 
 function ColorTab() {
-  const stops = useField(F<string[]>('color.stops')) ?? [];
   const source = useField(F<SourceKind>('source'));
   const mode = useField(F<string>('color.mode'));
   const recipe = useRecipe();
@@ -173,32 +180,8 @@ function ColorTab() {
   const isMedia = source === 'image' || source === 'video' || source === 'camera';
   return (
     <>
-      <Sub>Paletas</Sub>
-      <Note>Colorean de las celdas vacías a las llenas, sobre su fondo. Mucho contraste con el fondo llama la atención; poco se lee mejor bajo texto.</Note>
-      <div className="palettes">
-        {CURATED.map(p => (
-          <button key={p.name} type="button" className="pal" title={p.name} onClick={() => edit(r => { r.color.stops = p.stops.slice(); r.color.bg = p.bg; if (r.color.mode === 'source' && !isMedia) r.color.mode = 'ramp'; }, 'pal' + Date.now())}>
-            <span className="bar" aria-hidden="true">
-              <i style={{ background: p.bg, flex: '0 0 24%' }} />
-              <i style={{ background: p.stops.length > 1 ? `linear-gradient(90deg, ${p.stops.join(', ')})` : p.stops[0] }} />
-            </span>
-            <span>{p.name}</span>
-          </button>
-        ))}
-      </div>
-      <Sub>Colores</Sub>
-      <Note>De las celdas más vacías (izquierda) a las más llenas (derecha).</Note>
-      <div className="colors" style={{ marginBottom: 14 }}>
-        {stops.map((c, i) => (
-          <span key={i} className="swatch" style={{ background: c }}>
-            <input type="color" aria-label={`Color ${i + 1}`} value={c} onChange={e => { const v = e.target.value; edit(r => { r.color.stops[i] = v; }, 'stop' + i); }} />
-            {stops.length > 1 && <button type="button" className="x" aria-label={`Quitar color ${i + 1}`} onClick={() => edit(r => { r.color.stops.splice(i, 1); }, 'rmstop' + Date.now())}>×</button>}
-          </span>
-        ))}
-        <button type="button" className="mini" disabled={stops.length >= 6} title={stops.length >= 6 ? 'Hasta seis colores' : 'Añadir un color'} onClick={() => edit(r => { r.color.stops.push(r.color.stops[r.color.stops.length - 1] ?? '#ffffff'); }, 'addstop' + Date.now())} aria-label="Añadir color">+</button>
-        <button type="button" className="mini" onClick={() => edit(r => { r.color.stops.reverse(); }, 'rev' + Date.now())} title="Invertir orden">⇄</button>
-      </div>
-      <Color f={F('color.bg')} label="Fondo" />
+      <Sub>Paleta</Sub>
+      <PaletteEditor isMedia={isMedia} />
       {isMedia && <Seg f={F('color.mode')} label="Colores de" opts={[['ramp', 'Tu paleta'], ['source', 'La imagen']]} />}
       {mode === 'source' && isMedia && <Slider f={F('color.vivid')} label="Viveza" min={0} max={1} />}
       <Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} />
@@ -206,7 +189,7 @@ function ColorTab() {
       <Sub>Ajustes</Sub>
       <Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
       <Slider f={F('color.cycle')} label="Colores en movimiento" min={-0.3} max={0.3} step={0.005} fmt={v => (v === 0 ? 'quietos' : v.toFixed(3))} />
-      <Slider f={F('color.hue')} label="Rotar tono" min={0} max={1} step={0.005} fmt={v => Math.round(v * 360) + '°'} />
+      <Slider f={F('color.hue')} label="Rotar tono" min={0} max={1} step={0.005} fmt={v => Math.round(v * 360) + '°'} scale={360} />
       <Slider f={F('color.sat')} label="Saturación" min={0} max={2} />
     </>
   );
@@ -249,11 +232,11 @@ function GlifosTab({ space }: { space: SpaceId }) {
           renderValue={o => (o && o.value !== 'custom'
             ? <><span className="pk-txt">{o.label}</span><CharsetRamp id={o.value} chars={rampChars(o.value)} recipe={recipe} n={10} /></>
             : <span className="pk-txt">Personalizado</span>)}
-          preview={o => (o.value !== 'custom' && recipe ? <PiecePreview recipe={withCharset(recipe, o.value, rampChars(o.value))} label={o.label} /> : null)}
+          preview={o => (o.value !== 'custom' ? <CharsetPreview id={o.value} chars={rampChars(o.value)} recipe={recipe} /> : null)}
           onChange={id => { const c = rampChars(id) ?? CHARSETS.find(x => x.id === id)?.chars; if (c) edit(r => { r.glyph.charset = c; }, 'glyph.charset'); }} />
         {csHelp && <HelpToggle h={csHelp} name="Caracteres" />}
         <HintText h={csHelp} />
-        <HelpMore h={csHelp}><CharsetSwatches asciiOnly={ascii} /></HelpMore>
+        <HelpMore h={csHelp}><CharsetExplorer asciiOnly={ascii} /></HelpMore>
       </div>
       <RampEditor ascii={ascii} />
       <Select f={F('glyph.font')} label="Tipografía de los caracteres" opts={fonts} minWidth={290}
@@ -286,7 +269,6 @@ function GlifosTab({ space }: { space: SpaceId }) {
 /* ------------------------------------------------------------------ */
 
 function MovTab({ space }: { space: SpaceId }) {
-  const mode = useField(F<InteractMode>('interact.mode'));
   return (
     <>
       {space !== 'media' && (
@@ -300,16 +282,7 @@ function MovTab({ space }: { space: SpaceId }) {
           <SoundControl />
         </>
       )}
-      <Sub>Cursor y tacto</Sub>
-      <Select f={F<InteractMode>('interact.mode')} label="Qué hace el cursor" opts={INTERACT_OPTS} minWidth={280} />
-      {mode !== 'none' && (
-        <>
-          <Slider f={F('interact.strength')} label="Fuerza" min={0} max={1} />
-          <Slider f={F('interact.radius')} label="Radio" min={0.03} max={0.6} />
-          <Toggle f={F('interact.auto')} label="Cursor automático si nadie lo mueve" />
-        </>
-      )}
-      {mode === 'erase' && <Note>Con una imagen, el borrador revela la foto original bajo los caracteres.</Note>}
+      <TouchControls />
     </>
   );
 }
@@ -328,7 +301,7 @@ function SoundControl() {
           <div className="progress" aria-hidden="true"><i style={{ '--v': Math.round(level * 100) + '%', transition: 'none' } as React.CSSProperties} /></div>
           <div className="ctl">
             <label className="lbl" htmlFor="mic-gain">Sensibilidad</label><output>{gain.toFixed(1)}</output>
-            <input id="mic-gain" type="range" min={0.3} max={4} step={0.1} value={gain} style={{ '--p': ((gain - 0.3) / 3.7) * 100 + '%' } as React.CSSProperties} onChange={e => useLive.setState({ gain: parseFloat(e.target.value) })} />
+            <Range id="mic-gain" min={0.3} max={4} step={0.1} value={gain} onValue={g => useLive.setState({ gain: g })} />
           </div>
         </>
       )}
@@ -500,6 +473,7 @@ function TextSource() {
 const ANIM_START: Record<LetterAnimKind, Omit<LetterAnim, 'kind'>> = {
   ola: { amount: 0.6, speed: 1 }, rebote: { amount: 0.6, speed: 1 }, latido: { amount: 0.6, speed: 1 }, revolver: { amount: 0.8, speed: 1 },
   palabras: { amount: 0.5, speed: 1 }, explosion: { amount: 0.6, speed: 1 }, brillo: { amount: 0.7, speed: 1 }, color: { amount: 1, speed: 1 },
+  orbita: { amount: 0.6, speed: 0.8 }, enjambre: { amount: 0.55, speed: 0.8 }, cascada: { amount: 0.65, speed: 0.9 },
 };
 
 /** Per-letter animation of the big text (`text`) or of the message (`msg`): which one, how much, how fast. */
@@ -516,7 +490,7 @@ function LetterAnimCtl({ target }: { target: 'text' | 'msg' }) {
         help={{ hint: target === 'text' ? 'Cada letra del texto grande se mueve por su cuenta, en bucle.' : 'Cada letra del mensaje se mueve o cambia de color por su cuenta.', more: 'Se repite siempre igual: el video, el GIF y las exportaciones lo capturan tal cual. Con «reducir movimiento» el estudio arranca en pausa.' }} />
       {info && anim && (
         <>
-          <Slider f={F(`${target}.anim.amount`)} label={info.amount} min={0} max={1} fmt={v => Math.round(v * 100) + ' %'} help={{ hint: `${info.amount} de «${info.name}».` }} />
+          <Slider f={F(`${target}.anim.amount`)} label={info.amount} min={0} max={1} fmt={v => Math.round(v * 100) + ' %'} scale={100} help={{ hint: `${info.amount} de «${info.name}».` }} />
           <Slider f={F(`${target}.anim.speed`)} label="Velocidad" min={0.2} max={2.5} fmt={v => v.toFixed(2) + '×'} help={{ hint: `Qué tan rápido va «${info.name}».` }} />
         </>
       )}
@@ -579,8 +553,14 @@ function TermTab() {
           onPick={v => { const [cols, rows] = v.split('x').map(Number); setUI({ terminal: { cols, rows } }); }} />
       </div>
       <div className="row2">
-        <label className="ctl"><span className="lbl">Columnas</span><input type="number" min={10} max={300} value={t.cols} onChange={e => setUI({ terminal: { ...t, cols: clampInt(e.target.value, 10, 300) } })} /></label>
-        <label className="ctl"><span className="lbl">Filas</span><input type="number" min={4} max={120} value={t.rows} onChange={e => setUI({ terminal: { ...t, rows: clampInt(e.target.value, 4, 120) } })} /></label>
+        <div className="ctl">
+          <label className="lbl" htmlFor="term-cols">Columnas</label>
+          <NumberField id="term-cols" min={10} max={300} value={t.cols} onValue={cols => setUI({ terminal: { ...useStudio.getState().ui.terminal, cols } })} />
+        </div>
+        <div className="ctl">
+          <label className="lbl" htmlFor="term-rows">Filas</label>
+          <NumberField id="term-rows" min={4} max={120} value={t.rows} onValue={rows => setUI({ terminal: { ...useStudio.getState().ui.terminal, rows } })} />
+        </div>
       </div>
       <Sub>Consejos</Sub>
       <Note>Las celdas de una terminal miden cerca de 1:2 (el doble de altas que anchas); por eso, en Glifos, la forma de la celda está en 2. Los caracteres ASCII son los más compatibles con las terminales.</Note>
@@ -588,7 +568,5 @@ function TermTab() {
     </>
   );
 }
-
-const clampInt = (v: string, a: number, b: number) => Math.max(a, Math.min(b, Math.round(Number(v) || a)));
 
 export type { Recipe };

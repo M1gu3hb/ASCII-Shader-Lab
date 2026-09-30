@@ -9,7 +9,7 @@ export { CONTACTS, CONTACT_CSS, CONTACT_PX, contactSrc, type Contact } from './c
  * a future version of the dice never makes a pre-rendered image and its live piece disagree (the studio
  * keeps every version reachable, see GEN_VERSIONS).
  */
-export const AZAR_GEN = 2;
+export const AZAR_GEN = 5;
 export const AZAR_SPACE = 'arte' as const;
 
 /** The piece a draw weaves (same function for the pre-rendered image and the live stage). */

@@ -13,7 +13,7 @@ import { gridToText } from '../src/exporters/text';
 import { EXAMPLES, gridSize } from '../src/pages/examples';
 import { lockup } from '../src/shared/brand';
 import { paintLandscape, syntheticPhoto } from '../src/shared/sample';
-import { GUIDES, SITE_URL, guideById, type Guide } from '../src/shared/site';
+import { GUIDES, guideById, type Guide } from '../src/shared/site';
 
 type Id = Guide['id'];
 const fonts = createFontLoader({ google: false });
@@ -53,7 +53,7 @@ function wrap(x: CanvasRenderingContext2D, text: string, max: number): string[] 
   return lines;
 }
 
-/** 1200×630 share image: the brand, the guide name and its URL on the left; the real render on the right. */
+/** 1200×630 share image: the brand and the guide name on the left (no address: the link itself shows it); the real render on the right. */
 async function og(id: Id): Promise<string> {
   const g = guideById(id);
   await Promise.all([
@@ -86,9 +86,6 @@ async function og(id: Id): Promise<string> {
   x.letterSpacing = '0px';
   x.fillStyle = 'rgba(237,230,218,.86)';
   wrap(x, g.blurb, 480).forEach((l, i) => x.fillText(l, 64, top + title.length * 62 + 16 + i * 36));
-  x.font = '500 20px "JetBrains Mono"';
-  x.fillStyle = '#ff5b1f';
-  x.fillText(SITE_URL.replace('https://', '') + g.path.replace(/\/$/, ''), 64, 566);
   return c.toDataURL('image/jpeg', 0.86);
 }
 
@@ -116,10 +113,13 @@ async function poster(id: Id, pixelRatio: number, type = 'image/webp', quality =
   return url;
 }
 
-/** 1200×630 share image of the site: the GLYPHOS lockup, the promise and the address over a real render. */
+/**
+ * 1200×630 share image of the site (public/og.jpg, also the viewer's): the GLYPHOS lockup and the promise over
+ * a real render. No address in the picture: the apps that show it print the link beside it.
+ */
 async function siteOg(): Promise<string> {
-  const line = 'Haz arte ASCII que se mueve.';
-  await Promise.all([document.fonts.load('800 50px "Martian Mono Variable"', line), document.fonts.load('500 20px "JetBrains Mono"', SITE_URL)]);
+  const line = 'Haz arte ASCII';
+  await document.fonts.load('800 64px "Martian Mono Variable"', line);
   const c = document.createElement('canvas');
   c.width = 1200; c.height = 630;
   const x = c.getContext('2d')!;
@@ -134,16 +134,14 @@ async function siteOg(): Promise<string> {
   scrim.addColorStop(0, 'rgba(12,11,10,1)'); scrim.addColorStop(1, 'rgba(12,11,10,0)');
   x.fillStyle = scrim; x.fillRect(400, 0, 420, 630);
   const brand = await image('data:image/svg+xml,' + encodeURIComponent(lockup(92, { dot: '#efe9df', ink: '#efe9df' })));
-  x.drawImage(brand, 64, 200, brand.width, brand.height);
+  const top = 630 / 2 - (92 + 34 + 64) / 2;
+  x.drawImage(brand, 64, top, brand.width, brand.height);
   x.fillStyle = '#ede6da';
   x.textBaseline = 'alphabetic';
-  x.font = '800 44px "Martian Mono Variable"';
-  x.letterSpacing = '-2px';
-  wrap(x, line, 620).forEach((l, i) => x.fillText(l, 64, 370 + i * 52));
-  x.font = '500 20px "JetBrains Mono"';
+  x.font = '800 64px "Martian Mono Variable"';
+  x.letterSpacing = '-3px';
+  x.fillText(line, 64, top + 92 + 34 + 52);
   x.letterSpacing = '0px';
-  x.fillStyle = '#ff5b1f';
-  x.fillText(SITE_URL.replace('https://', ''), 64, 566);
   return c.toDataURL('image/jpeg', 0.86);
 }
 

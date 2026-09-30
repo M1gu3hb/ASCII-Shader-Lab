@@ -40,7 +40,7 @@ const PHOTO = png(64, 40, [255, 91, 31]);
 const sheet = (page: Page) => page.getByRole('dialog', { name: 'Colección e historial' });
 const prompt = (page: Page) => page.locator('.prompt .card');
 async function sourceFile(page: Page) {
-  await page.getByRole('tab', { name: 'Fuente' }).click();
+  await page.getByRole('tab', { name: 'Origen' }).click();
   return page.locator('.panel');
 }
 

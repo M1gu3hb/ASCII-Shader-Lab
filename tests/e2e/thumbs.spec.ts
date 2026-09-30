@@ -219,7 +219,7 @@ test.describe('miniaturas del historial', () => {
     const errors = await openStudio(page);
     const A = png(64, 64, x => x < 0.5), B = png(64, 64, (_x, y) => y < 0.5);
     await drop(page, 'mitad-izquierda.png', A);                         // 1: image A (light on the left)
-    await page.getByRole('tab', { name: 'Fuente' }).click();
+    await page.getByRole('tab', { name: 'Origen' }).click();
     await expect(page.locator('.panel').getByText('mitad-izquierda.png')).toBeVisible();
     await page.keyboard.press('r');                                      // 2: a pattern
     await expect(page.locator('.seedline')).toContainText('2/2');

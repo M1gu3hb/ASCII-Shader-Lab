@@ -3,6 +3,7 @@ import { cloneRecipe, normalizeRecipe, sameRecipe, type Recipe } from '../engine
 import { PATTERN_IDS } from '../engine/catalog';
 import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type SpaceId } from '../random';
 import { presetsFor, spaceAccepts, starterFor } from './presets';
+import { ownText } from './ownWords';
 import {
   HISTORY_LIMIT, HISTORY_WARN, allRecipes, entryBody, mediaIdsOf, mergeSession, normalizeEntry, normalizeFavorite, pruneHistory,
   recipeVersion, sameBody, thumbOf, uid, type Entry, type EntryKind, type Favorite,
@@ -309,7 +310,9 @@ function recentIn(s: State, n = 10): Recipe[] {
 export function rollDice(seed?: string, gen?: number) {
   const s = S();
   const base = currentRecipe(s);
-  const res = roll({ space: s.space, arch: s.arch ?? undefined, base, locks: s.locks, seen, seed, gen, recent: recentIn(s) });
+  // Texto: the person's words stay, a word nobody typed changes (ownWords.ts)
+  const own = s.space === 'tipo' ? ownText(s.entries, base) : undefined;
+  const res = roll({ space: s.space, arch: s.arch ?? undefined, base, locks: s.locks, seen, seed, gen, recent: recentIn(s), ownText: own });
   seen.add(res.fp);
   return pushEntry({ recipe: res.recipe, kind: 'azar', seed: res.seed, arch: res.recipe.meta.arch, space: s.space });
 }
@@ -831,6 +834,8 @@ export async function hydrate(): Promise<boolean> {
     ...S().ui, ...ui0, sheet: 'none' as const, hideUI: false, component: null,
     views: normalizeViews(ui0.views, ui0.preview), viewOpts: normalizeViewOpts(ui0.viewOpts),
   };
+  // (the old «Recetas» zone's fold, kept by earlier versions: the recipe line starts closed now)
+  delete (ui as { recipes?: unknown }).recipes;
   if (typeof innerWidth === 'number' && innerWidth < 900) ui.panel = false;
   const space = spaceById(String(prefs.space ?? entries[cursor]?.space ?? 'arte')).id;
   // this tab owns the data now (tabs.ts): its token goes in with the first save, below

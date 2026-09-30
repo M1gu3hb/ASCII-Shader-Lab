@@ -306,6 +306,12 @@ test.describe('de lado (844×390)', () => {
     }).toBe(true);
     for (const t of await sheet(page).getByRole('tab').all()) await expect(t).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+    // no section reaches past the column sideways (its headings did, by 2 px, before the section restyle)
+    for (const t of await sheet(page).getByRole('tab').all()) {
+      await t.tap();
+      await expect(t).toHaveAttribute('aria-selected', 'true');
+      expect(await page.locator('#pane').evaluate(el => el.scrollWidth - el.clientWidth), await t.textContent() ?? '').toBeLessThanOrEqual(0);
+    }
     expect(errors).toEqual([]);
     await ctx.close();
   });

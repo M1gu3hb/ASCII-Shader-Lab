@@ -13,7 +13,10 @@ export type BlendMode =
 export type GlyphMode = 'density' | 'lines' | 'scramble' | 'words';
 export type ColorMode = 'ramp' | 'source';
 export type ColorMap = 'luma' | 'x' | 'y' | 'radial' | 'angle' | 'noise';
-export type InteractMode = 'none' | 'light' | 'ripple' | 'lens' | 'repel' | 'swirl' | 'erase' | 'paint' | 'scramble';
+export type InteractMode = 'none' | 'light' | 'ripple' | 'lens' | 'repel' | 'swirl' | 'erase' | 'paint' | 'scramble'
+  | 'trail' | 'blossom' | 'rings' | 'sparks' | 'stretch' | 'reveal' | 'zoom' | 'magnet' | 'follow';
+/** Which characters a touch leaves (Rastro, Florecer, Anillos, Chispas): dense ones, random ones, or the piece's own. */
+export type TouchGlyphs = 'dense' | 'random' | 'piece';
 export type MsgMode = 'static' | 'type' | 'decode' | 'marquee' | 'words';
 
 /**
@@ -29,7 +32,7 @@ export interface Xform {
 }
 
 /** Per-letter animation of the big text or of the message (see engine/letters.ts). */
-export type LetterAnimKind = 'ola' | 'rebote' | 'latido' | 'revolver' | 'palabras' | 'explosion' | 'brillo' | 'color';
+export type LetterAnimKind = 'ola' | 'rebote' | 'latido' | 'revolver' | 'palabras' | 'explosion' | 'brillo' | 'color' | 'orbita' | 'enjambre' | 'cascada';
 export interface LetterAnim {
   kind: LetterAnimKind;
   amount: number;   // 0..1 how far letters move (or how many take part)
@@ -117,6 +120,16 @@ export interface Recipe {
     strength: number;
     radius: number;    // fraction of screen height
     auto: boolean;     // wandering ghost pointer when nobody interacts
+    /**
+     * How long a touch's trace lasts, 0..1 (see engine/touch.ts; absent: 0.5, which is what Pincel and
+     * Borrador always did). The three optional keys are absent until someone sets them: older recipes
+     * stay as they were.
+     */
+    decay?: number;
+    /** How much of the palette's brightest colour what you touch takes, 0..1 (absent: 0.6). */
+    ink?: number;
+    /** Which characters a touch leaves (absent: 'dense'). */
+    glyphs?: TouchGlyphs;
   };
   glyph: {
     cell: number;      // css px
@@ -231,15 +244,18 @@ export const BLENDS: BlendMode[] = ['normal', 'add', 'multiply', 'screen', 'over
 const GLYPH_MODES: GlyphMode[] = ['density', 'lines', 'scramble', 'words'];
 const COLOR_MODES: ColorMode[] = ['ramp', 'source'];
 const COLOR_MAPS: ColorMap[] = ['luma', 'x', 'y', 'radial', 'angle', 'noise'];
-const INTERACT: InteractMode[] = ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble'];
+/** Every pointer mode, in the order the engines index them (glsl/programs.ts, basic/field.ts). */
+export const INTERACT: InteractMode[] = ['none', 'light', 'ripple', 'lens', 'repel', 'swirl', 'erase', 'paint', 'scramble',
+  'trail', 'blossom', 'rings', 'sparks', 'stretch', 'reveal', 'zoom', 'magnet', 'follow'];
+const TOUCH_GLYPHS: TouchGlyphs[] = ['dense', 'random', 'piece'];
 const MSG_MODES: MsgMode[] = ['static', 'type', 'decode', 'marquee', 'words'];
 /** Every transformation, in the order the engines index them (glsl/xform.ts, basic/xform.ts). */
 export const XFORM_KINDS: XformKind[] = ['semitono', 'contorno', 'bandas', 'arrastre', 'desplazar', 'caleido', 'ondular', 'estela', 'canales', 'bloques'];
 /** A source takes up to this many transformations. */
 export const XFORM_MAX = 4;
 /** Per-letter animations of the big text and of the message. */
-export const TEXT_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'latido', 'revolver', 'palabras', 'explosion', 'brillo'];
-export const MSG_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'revolver', 'explosion', 'color'];
+export const TEXT_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'latido', 'revolver', 'palabras', 'explosion', 'brillo', 'orbita', 'enjambre', 'cascada'];
+export const MSG_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'revolver', 'explosion', 'color', 'orbita', 'enjambre', 'cascada'];
 const FITS: Fit[] = ['cover', 'contain', 'stretch'];
 const ALIGNS: Align[] = ['left', 'center', 'right'];
 
@@ -299,6 +315,25 @@ export function normXforms(v: unknown): Xform[] {
     if (out.length >= XFORM_MAX) break;
   }
   return out;
+}
+
+/**
+ * Validates the pointer settings. The optional keys (decay, ink, glyphs) come out only when given, after
+ * the four that are always there and always in this order: an edited recipe and its normalised copy
+ * compare equal (the studio writes them through this too).
+ */
+export function normInteract(v: unknown): Recipe['interact'] {
+  const it = obj(v), d = defaultRecipe().interact;
+  const given = (x: unknown) => typeof x === 'number' || (typeof x === 'string' && x.trim() !== '');
+  return {
+    mode: oneOf(it.mode, INTERACT, d.mode),
+    strength: num(it.strength, d.strength, 0, 1),
+    radius: num(it.radius, d.radius, 0.02, 0.8),
+    auto: bool(it.auto, false),
+    ...(given(it.decay) ? { decay: num(it.decay, 0.5, 0, 1) } : {}),
+    ...(given(it.ink) ? { ink: num(it.ink, 0.6, 0, 1) } : {}),
+    ...((TOUCH_GLYPHS as string[]).includes(it.glyphs as string) ? { glyphs: it.glyphs as TouchGlyphs } : {}),
+  };
 }
 
 /** Validates a per-letter animation among the kinds its target has (undefined: none). */
@@ -381,12 +416,7 @@ export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Re
       morph: num(tx.morph, 0, 0, 60),
       ...(textAnim ? { anim: textAnim } : {}),
     },
-    interact: {
-      mode: oneOf(it.mode, INTERACT, d.interact.mode),
-      strength: num(it.strength, d.interact.strength, 0, 1),
-      radius: num(it.radius, d.interact.radius, 0.02, 0.8),
-      auto: bool(it.auto, false),
-    },
+    interact: normInteract(it),
     glyph: {
       cell: num(g.cell, d.glyph.cell, 3, 96),
       aspect: num(g.aspect, d.glyph.aspect, 0.5, 3),

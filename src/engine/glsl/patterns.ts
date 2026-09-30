@@ -1,10 +1,15 @@
+import { PARTICLE_GLSL } from './particles';
+import { EXTRA_GLSL } from './patterns-extra';
+import { NEXT_GLSL } from './patterns-next';
+
 /**
  * Pattern library. Each entry is a self-contained GLSL chunk defining
  *   float P_<id>(vec2 p, float t, float a, float b)
  * p: centred coordinates in screen heights (y up), t: layer time in seconds,
  * a/b: shape parameters in 0..1. Returns luminance 0..1.
  * The global PX holds the size of one cell in p units (for crisp lines).
- * Only the chunks used by a recipe are compiled, so this file can grow freely.
+ * Only the chunks used by a recipe are compiled, so this file can grow freely. The library pieces
+ * (patterns-extra.ts, patterns-next.ts, particles.ts) are listed at the end with their own chunks.
  */
 export const PATTERN_GLSL: Record<string, string> = {
   nube: `
@@ -950,6 +955,9 @@ float P_ruido(vec2 p, float t, float a, float b){
   float roll = .5 + .5 * sin(p.y * 3. - t * 2.);
   return pow(v, .6 + a * 2.5) * (.7 + .3 * roll);
 }`,
+  ...EXTRA_GLSL,
+  ...NEXT_GLSL,
+  ...PARTICLE_GLSL,
 };
 
 export type PatternLibrary = Record<string, string>;

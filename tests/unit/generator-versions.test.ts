@@ -7,6 +7,10 @@ import { fingerprint, generate, genOf, GEN_VERSION, GEN_VERSIONS, roll, SPACES, 
 interface Case { seed: string; space: SpaceId; arch?: string; locks?: LockGroup[]; base?: 'prev' | 'media' | 'text'; fp: string; recipe: Recipe }
 const fixture = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v1.json'), 'utf8')) as { gen: number; cases: Case[] };
 const fixture2 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v2.json'), 'utf8')) as { gen: number; cases: Case[] };
+/** Versions 3 and 4 as captured before version 5 existed (each case carries its version, and its base when it is not the default). */
+const fixture34 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v3v4.json'), 'utf8')) as { gens: number[]; cases: Array<Omit<Case, 'base'> & { gen: number; base?: Recipe }> };
+/** Version 5 as published (the studio and the landing's contact sheet, whose 19 draws are in it). */
+const fixture5 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v5.json'), 'utf8')) as typeof fixture34;
 /** Recipes live as JSON (history, favourites, links): compare that form (it also folds -0 into 0). */
 const json = (r: Recipe) => JSON.parse(JSON.stringify(r)) as Recipe;
 
@@ -46,6 +50,30 @@ describe('generator versions', () => {
       const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base: base2(c), gen: 2 });
       expect(json(r), `${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r)).toBe(c.fp);
+    }
+  });
+
+  it('versions 3 and 4 still weave exactly what they wove before version 5 (and the same fingerprints)', () => {
+    expect(fixture34.gens).toEqual([3, 4]);
+    expect(fixture34.cases.length).toBeGreaterThan(100);
+    for (const c of fixture34.cases) {
+      const base = c.base ? (JSON.parse(JSON.stringify(c.base)) as Recipe) : defaultRecipe();
+      const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: c.gen });
+      expect(json(r), `v${c.gen} ${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r), `v${c.gen} ${c.space}/${c.seed}`).toBe(c.fp);
+    }
+  });
+
+  it('version 5 keeps weaving exactly what it wove when it was published (and the landing\'s contact sheet)', () => {
+    expect(fixture5.gens).toEqual([5]);
+    expect(fixture5.cases.length).toBeGreaterThan(70);
+    for (const c of fixture5.cases) {
+      const base = c.base ? (JSON.parse(JSON.stringify(c.base)) as Recipe) : defaultRecipe();
+      // its Texto bases stand for a word the person wrote («HOLA»): the studio says so (GenInput.ownText)
+      const ownText = base.source === 'text' ? true : undefined;
+      const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: 5, ownText });
+      expect(json(r), `v5 ${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r), `v5 ${c.space}/${c.seed}`).toBe(c.fp);
     }
   });
 
@@ -116,10 +144,11 @@ describe('generator versions', () => {
     expect(generate({ seed: 'x', space: 'arte', base: defaultRecipe(), gen: 99 })).toEqual(generate({ seed: 'x', space: 'arte', base: defaultRecipe() }));
   });
 
-  it('version 2: a 3D object is only ever the lead layer, and never under a photo or inside letters', () => {
-    for (const s of SPACES) for (let i = 0; i < 150; i++) {
-      const r = generate({ seed: `v2-${i}`, space: s.id, base: defaultRecipe() });
-      r.layers.slice(1).forEach(l => expect(patternById(l.pattern).family, `${s.id} v2-${i}`).not.toBe('solidos'));
+  it('versions 2 and later: a 3D object is only ever the lead layer, and never under a photo or inside letters', () => {
+    for (const gen of [2, 5]) for (const s of SPACES) for (let i = 0; i < 150; i++) {
+      const r = generate({ seed: `v2-${i}`, space: s.id, base: defaultRecipe(), gen });
+      // (a composed scene of the studio may keep an object turning behind its particles, as it was designed)
+      if (r.meta.arch !== 'escena') r.layers.slice(1).forEach(l => expect(patternById(l.pattern).family, `${s.id} v2-${i}`).not.toBe('solidos'));
       if (s.id === 'media' || s.id === 'tipo') expect(patternById(r.layers[0].pattern).family).not.toBe('solidos');
       const n = normalizeRecipe(r, PATTERN_IDS);
       expect(n.layers).toEqual(r.layers);

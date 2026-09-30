@@ -2,6 +2,7 @@
  * Pointer simulation on the cell grid (ripples, erase and paint trails), a port of SIM_FS in
  * ../glsl/programs.ts. Values stay in floats (like the half-float path of the GPU engine). Pure: no DOM.
  */
+import { eraseRate, paintRate } from '../touch';
 
 export class SimGrid {
   cols = 0; rows = 0;
@@ -23,10 +24,11 @@ export class SimGrid {
 
   /**
    * One step. mode: 2 ripple, 6 erase, 7 paint (INTERACT_MODES index). seg: pointer segment in device px
-   * (previous → current); brushR in device px.
+   * (previous → current); brushR in device px; decay: the trails' «Duración» (0.5: as they always were).
    */
   step(mode: number, cw: number, ch: number, seg: [number, number, number, number], brushR: number,
-    str: number, active: number, impulse: number, dt: number) {
+    str: number, active: number, impulse: number, dt: number, decay = 0.5) {
+    const er = eraseRate(decay), pr = paintRate(decay);
     const { cols, rows, h, hp, tr, nh, ntr } = this;
     const ky = (cw * cw) / (ch * ch);
     const kx = 1 / Math.max(1, ky), kyy = ky / Math.max(1, ky);
@@ -51,8 +53,8 @@ export class SimGrid {
           n = (2 * hh - hp[i] + 0.45 * lap) * 0.985;
           n += brush * str * (active * 0.35 + impulse * 1.6);
           t = 0;
-        } else if (mode === 6) t = Math.max(t - dt * 0.22, brush * active);
-        else if (mode === 7) t = Math.max(t * Math.exp(-dt * 0.9), brush * active * (0.4 + str * 0.8));
+        } else if (mode === 6) t = Math.max(t - dt * er, brush * active);
+        else if (mode === 7) t = Math.max(t * Math.exp(-dt * pr), brush * active * (0.4 + str * 0.8));
         else t = 0;
         nh[i] = n < -1.9 ? -1.9 : n > 1.9 ? 1.9 : n;
         ntr[i] = t < 0 ? 0 : t > 1 ? 1 : t;

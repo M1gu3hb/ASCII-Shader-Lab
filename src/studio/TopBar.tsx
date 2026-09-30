@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { logoMark, wordmark } from '../shared/brand';
 import { SPACES, type SpaceId } from '../random/spaces';
 import { IDownload, IFull, IGrid, IKeys, IPause, IPlay, ISliders, SPACE_ICON } from './icons';
@@ -7,6 +8,8 @@ import { openWelcome, useGuide } from './guide/state';
 import { Picker } from './ui/Picker';
 import { QualityReadout } from './Quality';
 import { FotoSwitch } from './FotoSwitch';
+import { ShareButton } from './ShareSheet';
+import { SPACE_LOOK } from './ui/sections';
 
 export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
@@ -33,21 +36,22 @@ export function TopBar() {
   const guiding = useGuide(s => s.path !== null);
   const stage = space !== 'componentes';
   return (
-    <header className="topbar">
+    <header className="topbar" style={{ '--sp-acc': SPACE_LOOK[space].accent } as CSSProperties}>
       <a className="brand" href="/" aria-label="GLYPHOS, volver a la portada" dangerouslySetInnerHTML={{ __html: logoMark(24) + wordmark(14, { className: 'brand-word' }) + '<span class="brand-sub">estudio</span>' }} />
       <FotoSwitch />
       <nav className="spaces" aria-label="Espacios del estudio">
         {SPACES.map((s, i) => {
           const Ic = SPACE_ICON[s.id];
           return (
-            <button key={s.id} type="button" aria-pressed={space === s.id} title={`${s.blurb} (${i + 1})`} onClick={() => setSpace(s.id)}>
+            <button key={s.id} type="button" aria-pressed={space === s.id} title={`${s.blurb} (${i + 1})`} onClick={() => setSpace(s.id)}
+              style={{ '--acc': SPACE_LOOK[s.id].accent } as CSSProperties}>
               <Ic className="sp-ic" /><span className="sp-name">{s.name}</span>
             </button>
           );
         })}
       </nav>
       <Picker<SpaceId> className="space-select" value={space} label="Espacio" minWidth={280} onChange={setSpace}
-        options={SPACES.map(s => { const Ic = SPACE_ICON[s.id]; return { value: s.id, label: s.name, desc: s.blurb, icon: <Ic width={16} height={16} /> }; })} />
+        options={SPACES.map(s => { const Ic = SPACE_ICON[s.id]; return { value: s.id, label: s.name, desc: s.blurb, icon: <Ic width={16} height={16} style={{ color: SPACE_LOOK[s.id].accent }} /> }; })} />
       <div className="tb-right">
         {stage && (
           <div className="tb-group tb-tools">
@@ -79,6 +83,8 @@ export function TopBar() {
             </button>
           )}
         </div>
+        {/* «Compartir» (lane compartir's one mount point in the bar): every size, the phone's bar included */}
+        {stage && <ShareButton />}
         {/* phones: Exportar lives in the dock at the bottom, within reach of the thumb (Deck.tsx) */}
         {stage && (
           <button type="button" className="ib primary tb-export" onClick={() => setUI({ sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">

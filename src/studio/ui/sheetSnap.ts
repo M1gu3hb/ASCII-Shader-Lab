@@ -23,13 +23,14 @@ export const setSnap = (snap: Snap) => { if (useSheet.getState().snap !== snap) 
 
 /**
  * The height of each rest for a sheet that can grow to `room` px (from the dock up to under the top bar)
- * and whose handle and sections take `peek` px. Half leaves the upper part of the room to the piece.
+ * and whose handle and sections take `peek` px. Half leaves the upper part of the room to the piece:
+ * `half` of the room (a tablet's sheet shows its controls in two columns, so it asks for less).
  */
-export function snapHeights(room: number, peek: number): Record<Snap, number> {
+export function snapHeights(room: number, peek: number, half = 0.54): Record<Snap, number> {
   const full = Math.max(Math.round(room), Math.round(peek));
   const p = Math.min(Math.round(peek), full);
-  const half = Math.min(full, Math.max(p + 96, Math.round(room * 0.54)));
-  return { peek: p, half, full };
+  const h = Math.min(full, Math.max(p + 96, Math.round(room * half)));
+  return { peek: p, half: h, full };
 }
 
 /** A drag shorter than this never counts as a flick (a tap that wobbles, a short correction). */

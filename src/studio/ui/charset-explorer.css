@@ -1,0 +1,31 @@
+/* The character sets on the piece (CharsetExplorer.tsx), under the «?» of «Caracteres»: the panel's tokens,
+   vermilion only for the set in use */
+.app .csx { margin: 10px 0 4px; }
+.app .csx-note { margin: 0 0 8px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.app .csx-kinds { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 10px; }
+.app .csx-kind {
+  height: 30px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted);
+  font: 500 12.5px/1 var(--font-ui);
+}
+.app .csx-kind:hover { color: var(--text); border-color: var(--line-2); }
+.app .csx-kind[aria-checked="true"] { color: var(--text); border-color: var(--accent); background: var(--signal-soft); font-weight: 600; }
+.app .csx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px 8px; }
+.app .csx-card {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; padding: 0; border: 0; background: none; color: var(--text);
+  text-align: left; font: inherit; cursor: pointer; border-radius: 8px;
+}
+.app .csx-card .rx-pic { filter: saturate(.92) brightness(.94); transition: box-shadow .15s, filter .15s; }
+.app .csx-card:hover .rx-pic { box-shadow: 0 0 0 1px var(--line-2); filter: none; }
+.app .csx-card:focus-visible { outline: none; }
+.app .csx-card:focus-visible .rx-pic { box-shadow: 0 0 0 2px var(--focus); filter: none; }
+.app .csx-card[aria-pressed="true"] .rx-pic { box-shadow: 0 0 0 2px var(--accent); filter: none; }
+.app .csx-name { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font: 500 12.5px/1.25 var(--font-ui); }
+.app .csx-card[aria-pressed="true"] .csx-name { font-weight: 600; }
+.app .csx-name small { flex: none; font: 600 9.5px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.app .csx-chars {
+  margin-top: -2px; font-size: 14px; line-height: 1.2; letter-spacing: .12em; color: var(--muted); overflow-wrap: anywhere; word-break: break-all;
+  font-variant-ligatures: none;
+}
+@media (pointer: coarse) {
+  .app .csx-kind { height: 44px; padding: 0 14px; font-size: 13.5px; }
+}

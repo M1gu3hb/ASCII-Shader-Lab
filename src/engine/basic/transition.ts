@@ -191,7 +191,8 @@ export class TransitionLayer {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    if (this.olds === n) ctx.drawImage(this.prev, 0, 0);
+    // (scaled to the frame: the stage may have changed size since the old frame was kept)
+    if (this.olds === n) ctx.drawImage(this.prev, 0, 0, W, H);
     else {
       // through a one-pixel-per-cell mask, scaled up to the cells without smoothing
       const m = (this.mask ??= document.createElement('canvas'));
@@ -208,7 +209,7 @@ export class TransitionLayer {
       sx.imageSmoothingEnabled = false;
       sx.drawImage(m, 0, 0, cols * cw, rows * ch);
       sx.globalCompositeOperation = 'source-in';
-      sx.drawImage(this.prev, 0, 0);
+      sx.drawImage(this.prev, 0, 0, W, H);
       sx.restore();
       ctx.drawImage(s, 0, 0);
     }

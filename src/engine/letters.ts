@@ -23,6 +23,11 @@ const posMod = (x: number, m: number) => x - m * Math.floor(x / m);
 /** Explosion envelope over its cycle: together (a while), out, a breath, back. */
 function burst(u: number) { return smooth(1.6, 2.4, u) - smooth(3.0, 4.2, u); }
 const BURST = 4.6;
+/** Órbita, Enjambre and Cascada (from the pattern-library branch): their cycles in seconds at speed 1. */
+const ORBIT = (2 * Math.PI) / 1.1, SWARM = (2 * Math.PI) / 0.9, CASCADE = 5.2;
+/** Cascada over its cycle: letter at fraction f of the text comes in from above, stays, and falls out. */
+const cascadeIn = (v: number, f: number) => smooth(0.15 + f * 1.25, 0.55 + f * 1.25, v);
+const cascadeOut = (v: number, f: number) => smooth(3.65 + f * 0.55, 4.2 + f * 0.55, v);
 
 /* ------------------------------------------------------------------ */
 /* The big text                                                        */
@@ -56,14 +61,15 @@ export const textAnimated = (t: Recipe['text']) => !!t.anim;
 export function textAnimPeriod(a: LetterAnim, words: number): number {
   const P = a.kind === 'ola' ? (2 * Math.PI) / 3 : a.kind === 'rebote' ? Math.PI / 2.2 : a.kind === 'latido' ? (2 * Math.PI) / 2.4
     : a.kind === 'brillo' ? (2 * Math.PI) / 2.6 : a.kind === 'revolver' ? 4.4 : a.kind === 'palabras' ? words * 0.5 + 3
-    : a.kind === 'explosion' ? BURST : 0;
+    : a.kind === 'explosion' ? BURST : a.kind === 'orbita' ? ORBIT : a.kind === 'enjambre' ? SWARM : a.kind === 'cascada' ? CASCADE : 0;
   return P / a.speed;
 }
 
 /** Seconds a message animation takes to come back to where it was (`count`: its typing positions). */
 export function msgAnimPeriod(a: LetterAnim, count: number): number {
   const P = a.kind === 'ola' ? (2 * Math.PI) / 3 : a.kind === 'rebote' ? Math.PI / 2.2 : a.kind === 'revolver' ? (count + 14) / 9
-    : a.kind === 'explosion' ? BURST : a.kind === 'color' ? 1 / 0.35 : 0;
+    : a.kind === 'explosion' ? BURST : a.kind === 'color' ? 1 / 0.35
+    : a.kind === 'orbita' ? ORBIT : a.kind === 'enjambre' ? SWARM : a.kind === 'cascada' ? CASCADE : 0;
   return P / a.speed;
 }
 
@@ -120,6 +126,30 @@ export function letterPose(a: LetterAnim, T: number, s: LetterSlot, fs: number, 
       pose.dy = Math.sin(ang) * dist * e;
       pose.rot = (hashN(k, 3) - 0.5) * 2 * Math.PI * A * e;
       pose.scale = 1 + (hashN(k, 4) - 0.35) * A * 0.9 * e;
+      break;
+    }
+    case 'orbita': {
+      const ph = u * 1.1 + k * 0.72;
+      pose.dx = Math.cos(ph) * A * fs * 0.28;
+      pose.dy = Math.sin(ph) * A * fs * 0.35;
+      pose.rot = Math.sin(ph) * A * 0.12;
+      break;
+    }
+    case 'enjambre': {
+      // one envelope for all letters: the word is together (and legible) for part of every cycle
+      const v = u * 0.9, e = (1 - Math.cos(v)) * 0.5;
+      const ang = hashN(k, 13) * Math.PI * 2 + 0.3 * Math.sin(v), dist = A * (0.2 + 0.45 * hashN(k, 14)) * reach * e;
+      pose.dx = Math.cos(ang) * dist;
+      pose.dy = Math.sin(ang) * dist;
+      pose.rot = (hashN(k, 15) - 0.5) * A * 0.55 * e;
+      break;
+    }
+    case 'cascada': {
+      const v = posMod(u, CASCADE), f = s.n > 1 ? k / (s.n - 1) : 0;
+      const enter = cascadeIn(v, f), leave = cascadeOut(v, f);
+      pose.grey = enter * (1 - leave);
+      pose.dy = (-1 + enter + leave * 2) * A * fs * 0.9;
+      pose.scale = 0.7 + 0.3 * enter * (1 - leave);
       break;
     }
     default:
@@ -183,6 +213,23 @@ function moveLetter(a: LetterAnim, T: number, col: number, row: number, ord: num
       const ang = Math.atan2((row - box.cy) * 2, col - box.cx + 1e-3) + (hashN(ord, 1) - 0.5) * 1.4;
       const dist = A * (0.3 + 0.7 * hashN(ord, 2)) * box.span * 0.8 * e;
       return [col + Math.round(Math.cos(ang) * dist), row + Math.round(Math.sin(ang) * dist * 0.5), 0];
+    }
+    case 'orbita': {
+      const ph = u * 1.1 + ord * 0.72, r = A * (box.lines > 1 ? 0.8 : 1.6);
+      return [col + Math.round(Math.cos(ph) * r), row + Math.round(Math.sin(ph) * r), 0];
+    }
+    case 'enjambre': {
+      const v = u * 0.9, e = (1 - Math.cos(v)) * 0.5;
+      const ang = hashN(ord, 13) * Math.PI * 2 + 0.3 * Math.sin(v);
+      const dist = A * (0.25 + 0.6 * hashN(ord, 14)) * box.span * 0.24 * e;
+      return [col + Math.round(Math.cos(ang) * dist), row + Math.round(Math.sin(ang) * dist * 0.5), 0];
+    }
+    case 'cascada': {
+      // letters show only while they are in place (or nearly): a message is read on its grid
+      const v = posMod(u, CASCADE), f = n > 1 ? ord / (n - 1) : 0;
+      const enter = cascadeIn(v, f), leave = cascadeOut(v, f);
+      if (enter < 0.45 || leave > 0.55) return [-1, -1, 0];
+      return [col, row - Math.round((1 - enter) * A * 2) + Math.round(leave * A * 2), 0];
     }
     default: return [col, row, 0];
   }

@@ -1,0 +1,132 @@
+/* The studio's colour editor (ColorPicker), colour settings (ColorField) and the palette editor (PaletteEditor).
+   Targets are at least 44 px on touch screens. The square and the hue strip let the page scroll up and down
+   (touch-action: pan-y): a finger takes them only when it means to (ColorPicker.tsx), so scrolling the panel
+   over them never changes the colour. */
+
+.cp { display: grid; gap: 10px; margin: 8px 0 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2, #1b1917); }
+.cp-top { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; align-items: stretch; }
+.cp-area {
+  position: relative; height: 150px; border-radius: 8px; cursor: crosshair;
+  touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; outline-offset: 2px;
+}
+.cp-area canvas, .cp-hue canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: auto; display: block; }
+.cp-area canvas { border-radius: 8px; }
+.cp-knob {
+  position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .5); pointer-events: none;
+}
+.cp-edge { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed rgba(255, 255, 255, .35); pointer-events: none; }
+.cp-area:focus-visible .cp-knob, .cp-hue:focus-visible .cp-knob { box-shadow: 0 0 0 3px var(--focus), 0 2px 6px rgba(0, 0, 0, .5); }
+.cp-now { display: grid; grid-template-rows: 2fr 1fr; border-radius: 8px; overflow: hidden; border: 1px solid var(--line-2); }
+.cp-now span { display: block; }
+.cp-hue {
+  position: relative; height: 28px; border-radius: 14px; overflow: visible; cursor: ew-resize; touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; margin: 4px 11px;
+}
+.cp-hue canvas { border-radius: 14px; }
+.cp-hue .cp-knob { top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; }
+/* taken by a finger or a pen: the knob grows and takes the accent, so it is clear the colour now follows it */
+.cp-area.cp-on .cp-knob, .cp-hue.cp-on .cp-knob { transform: scale(1.3); box-shadow: 0 0 0 2px var(--accent, #ff5b1f), 0 2px 8px rgba(0, 0, 0, .55); }
+@media (prefers-reduced-motion: no-preference) { .cp-knob { transition: transform .12s ease-out; } }
+/* a tap on the strip changes nothing: it says how it works (as the sliders do) */
+.cp-hue.cp-tip::after {
+  content: 'Desliza de lado para cambiar el tono'; position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+  z-index: 3; padding: 3px 8px; border-radius: 999px; background: var(--bone, #ede6da); color: var(--ink, #0c0b0a);
+  font: 600 11.5px/1.2 var(--font-ui, system-ui, sans-serif); white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+.cp-fields { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cp-fields label { display: grid; gap: 3px; font-size: 11px; color: var(--muted); min-width: 0; }
+.cp-fields input {
+  width: 100%; min-width: 0; height: 36px; border: 1px solid var(--line); border-radius: 7px; background: var(--field); padding: 0 8px;
+  font: 500 13px/1 var(--font-mono, ui-monospace, monospace); color: var(--text);
+}
+.cp-fields input[aria-invalid] { border-color: #ff8a65; }
+.cp-numin { position: relative; display: block; }
+.cp-numin input { padding-right: 18px; }
+.cp-unit { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); color: var(--dim); font-size: 11px; pointer-events: none; }
+.cp-desc { margin: 0; font-size: 12px; color: var(--muted); min-height: 1.4em; }
+.cp-desc .mono { font-family: var(--font-mono, ui-monospace, monospace); font-size: 11.5px; }
+.cp-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-q { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--line-2); padding: 0; }
+.cp-help summary { cursor: pointer; font-size: 12.5px; color: var(--muted); padding: 6px 0; min-height: 32px; display: flex; align-items: center; }
+.cp-help summary:hover { color: var(--text); }
+.cp-help dl { margin: 6px 0 8px; display: grid; gap: 10px; }
+.cp-help dl > div { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 2px 10px; }
+.cp-help dt { font-weight: 600; font-size: 12.5px; }
+.cp-help dd { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.cp-ex { grid-column: 1 / -1; height: 12px; border-radius: 6px; }
+.cp-help p { font-size: 12px; color: var(--muted); margin: 4px 0 2px; }
+
+/* a colour setting (Fondo of a message, a component's colour…) */
+.cf { display: grid; gap: 0; grid-column: 1 / -1; }
+.cf-btn {
+  display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px 0 4px; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--field); width: 100%; text-align: left;
+}
+.cf-btn:hover { border-color: var(--line-2); }
+.cf-sw { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--line-2); flex: none; }
+.cf-val { flex: 1; font: 500 12.5px/1 var(--font-mono, ui-monospace, monospace); }
+.cf-chev { color: var(--dim); font-size: 11px; }
+.cf-pop[hidden] { display: none; }
+
+/* the palette editor */
+.pe { display: grid; gap: 0; }
+.pe-bar { height: 26px; border-radius: 7px; border: 1px solid var(--line); margin: 2px 0 10px; }
+.pe-stops { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.pe-sw {
+  position: relative; width: 40px; height: 40px; border-radius: 9px; border: 1px solid var(--line-2); padding: 0;
+  display: grid; place-items: end start;
+}
+.pe-sw span {
+  font: 600 10px/1 var(--font-mono, ui-monospace, monospace); padding: 2px 4px; margin: 3px; border-radius: 4px;
+  background: rgba(12, 11, 10, .72); color: var(--bone, #ede6da);
+}
+.pe-sw[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pe-bg { width: 64px; }
+.pe-sep { width: 1px; height: 28px; background: var(--line-2); margin: 0 2px; }
+.pe-add { width: 40px; height: 40px; border-radius: 9px; border: 1px dashed var(--line-2); background: none; font-size: 18px; color: var(--muted); }
+.pe-add:disabled { opacity: .4; cursor: not-allowed; }
+.pe-edit { display: grid; gap: 0; }
+.pe-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.pe-acts .mini { display: inline-flex; align-items: center; gap: 4px; }
+.pe-add { display: grid; place-items: center; }
+.pe-lock { margin: 4px 0 0; }
+.pe-lockbtn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; border-radius: 9px;
+  border: 1px solid var(--line-2); background: var(--field); font-size: 13px;
+}
+.pe-lockbtn.on { background: var(--bone, #ede6da); color: var(--ink, #0c0b0a); border-color: transparent; }
+.pe-lock .note { margin: 6px 0 4px; }
+.pe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap: 6px; margin-bottom: 12px; }
+.pe-pal { border: 1px solid var(--line); border-radius: 8px; padding: 0; overflow: hidden; background: none; text-align: left; display: grid; min-height: 44px; }
+.pe-pal:hover { border-color: var(--line-2); }
+.pe-pal[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pe-pbar { display: block; height: 20px; }
+.pe-dicebar { display: grid; place-items: center; background: var(--field-2); font-size: 16px; color: var(--muted); }
+/* whole names, on two lines when they need it (a cut name is an option you cannot read) */
+.pe-name { display: block; font-size: 11px; line-height: 1.25; color: var(--muted); padding: 4px 6px; overflow-wrap: anywhere; }
+.pe-shelves { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+@media (pointer: coarse) {
+  .cp-area { height: 180px; }
+  .cp-hue { height: 36px; margin: 6px 14px; }
+  .cp-hue .cp-knob { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
+  .cp-knob { width: 28px; height: 28px; margin: -14px 0 0 -14px; }
+  .cp-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cp-code { grid-column: 1 / -1; }
+  .cp-fields input { height: 44px; font-size: 16px; }
+  .cp-q { width: 44px; height: 44px; }
+  .cp-help summary { min-height: 44px; }
+  .cf-btn { height: 48px; }
+  .cf-sw { width: 38px; height: 38px; }
+  .pe-sw, .pe-add { width: 48px; height: 48px; }
+  .pe-bg { width: 72px; }
+  .pe-lockbtn { min-height: 48px; }
+  .pe-pal { min-height: 52px; }
+  .pe-pbar { height: 26px; }
+}
+@media (max-width: 420px) {
+  .cp-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cp-code { grid-column: 1 / -1; }
+  .pe-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

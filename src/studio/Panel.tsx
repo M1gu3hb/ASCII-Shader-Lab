@@ -1,9 +1,12 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
+import { fontById } from '../engine/catalog';
+import type { Recipe } from '../engine/recipe';
 import { spaceById } from '../random/spaces';
 import { TABS, TabContent } from './panels';
-import { presetsFor } from './presets';
-import { applyRecipe, currentRecipe, setUI, useStudio } from './store';
-import { IClose, TAB_ICON } from './icons';
+import { setUI, useRecipe, useStudio } from './store';
+import { IClose, IPanelOff, SPACE_ICON, TAB_ICON } from './icons';
+import { RecipeBrowser, RecipesLine, setBrowserOpen, useRecipesUI } from './recipes';
+import { SPACE_LOOK, groupLook, lookVars } from './ui/sections';
 import { exitGuide, useGuide } from './guide/state';
 import { LoadBoundary } from './Boundary';
 import { loadGuide } from './lazy';
@@ -18,47 +21,42 @@ import { useImmersive } from './ui/Immersive';
 // the guided paths load when one starts (the welcome itself is in the main bundle)
 const Guide = lazy(() => loadGuide().then(m => ({ default: m.Guide })));
 
-/** Phones: the space's recipes are a section of their own, first in the grid of sections. */
-const RECIPES_TAB: [string, string] = ['recetas', 'Recetas'];
-
 /**
- * The settings panel, an instrument in three parts: the space's recipes (a starting point in one click),
- * the settings groups (icon and name; all in view on wide screens), and the group's controls in modules.
- * A guided path takes its place while it lasts. Content that changes here resolves out of glyphs: a
- * group lightly, a new space more fully (motion/swap.ts).
+ * The settings panel, an instrument in four parts: the space (its name, what it is for, and a way to put
+ * the column away), its recipe (a line that names the recipe of the piece and opens every recipe of the space: recipes/),
+ * the groups of settings (each with its icon, its own colour and name; all in view), and the group's
+ * controls in modules, under a line that says what the group is for. A guided path takes its place while
+ * it lasts. Content that changes here resolves out of glyphs: a group lightly, a new space more fully
+ * (motion/swap.ts).
  *
- * Phones: a sheet above the dock (Deck.tsx) with a handle and three rests (ui/sheetSnap.ts): «peek»
- * shows only the sections, «half» leaves the upper part of the screen to the piece, «full» the controls.
- * Every section is in view at once (one tap), the recipes being one of them. Landscape phones: a column
- * on the right, beside the piece.
+ * Phones and tablets held upright: a sheet above the dock (Deck.tsx) with a handle and three rests
+ * (ui/sheetSnap.ts): «peek» shows the recipe line and the groups, «half» leaves the upper part of the
+ * screen to the piece, «full» the controls. Every group is in view at once (one tap). Phones on their
+ * side: a column on the right, beside the piece.
  */
 export function Panel() {
   const space = useStudio(s => s.space);
   const tabSel = useStudio(s => s.ui.tab[s.space]);
-  const entry = useStudio(s => s.entries[s.cursor]);
   const shown = useStudio(s => s.ui.panel);
+  const recipe = useRecipe();
   const phone = usePhone();
   const land = useMatch(LAND_Q);
-  // the bottom sheet with rests (phones held upright)
+  // the bottom sheet with rests (phones and tablets held upright)
   const sheet = phone && !land;
   const snap = useSheet(s => s.snap);
   const imm = useImmersive(s => s.on);
+  // the recipe browser takes the settings' place while it is open (recipes/Browser.tsx)
+  const recipesView = useRecipesUI(s => s.open);
   const tabs = TABS[space];
-  const phoneTabs = phone && tabs.length ? [RECIPES_TAB, ...tabs] : tabs;
-  const tab = phoneTabs.find(t => t[0] === tabSel)?.[0] ?? tabs[0]?.[0];
-  const presets = presetsFor(space);
-  // each recipe's colours, as a small swatch on its chip (the recipes' own palettes, not the current piece's)
-  const swatches = useMemo(() => presetsFor(space).map(p => {
-    const r = p.make();
-    const stops = r.color.stops;
-    return `linear-gradient(135deg, ${r.color.bg} 0 42%, ${stops[Math.floor(stops.length / 2)] ?? r.color.bg} 42% 70%, ${stops[stops.length - 1] ?? r.color.bg} 70%)`;
-  }), [space]);
+  const tab = tabs.find(t => t[0] === tabSel)?.[0] ?? tabs[0]?.[0];
   const guiding = useGuide(s => s.path !== null);
+  // a guided path takes the column: the recipes it showed close (the settings come back after it)
+  useEffect(() => { if (guiding) setBrowserOpen(false); }, [guiding]);
   const aside = useRef<HTMLElement>(null);
   const pane = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
   const eyebrow = useScramble<HTMLSpanElement>(spaceById(space).name, { duration: 300 });
-  useEffect(() => { document.querySelector('.pane')?.scrollTo(0, 0); }, [tab, space]);
+  useEffect(() => { pane.current?.scrollTo(0, 0); }, [tab, space]);
   // a new group: the pane lightly; a new space: the whole panel
   useSwap(pane, `${space}|${tab}`, (a, b) => (a.split('|')[0] !== b.split('|')[0] ? null : 'tab'));
   useSwap(aside, space, 'space');
@@ -75,10 +73,12 @@ export function Panel() {
     if (!shown && wasShown.current && aside.current?.contains(document.activeElement)) {
       (document.querySelector<HTMLElement>('.imm-bar .imm-act[aria-pressed]') ?? document.querySelector<HTMLElement>('.ph-tools, .panel-btn'))?.focus();
     }
+    // the settings put away: the recipes they showed too (they open again on the settings)
+    if (!shown) setBrowserOpen(false);
     wasShown.current = shown;
   }, [shown]);
   useChoiceSwaps(pane);
-  const heights = useSheetHeights(aside, head, sheet && !guiding, `${space}|${imm}|${tabs.length}`);
+  const heights = useSheetHeights(aside, head, sheet && !guiding, `${space}|${imm}|${tabs.length}|${recipesView}`);
   const drag = useSheetDrag(aside, heights);
   // a guided path takes the place of the settings while it lasts
   if (guiding) {
@@ -92,74 +92,102 @@ export function Panel() {
   if (!tabs.length) return null;
   const setTab = (id: string) => {
     setUI({ tab: { ...useStudio.getState().ui.tab, [space]: id } });
+    setBrowserOpen(false);
     // at the peek, choosing a section opens its controls
     if (sheet && useSheet.getState().snap === 'peek') setSnap('half');
   };
-  const recipeChips = presets.map((p, i) => (
-    <button key={p.id} type="button" className="chip"
-      aria-pressed={!!entry && entry.label === p.name && !entry.edited && ['espacio', 'receta', 'inicio'].includes(entry.kind)}
-      onClick={() => applyRecipe(p.make(currentRecipe()), 'receta', p.name)}>
-      <span className="chip-sw" aria-hidden="true" style={{ background: swatches[i] }} />{p.name}
+  const tabButtons = tabs.map(([id, name]) => (
+    <button key={id} type="button" role="tab" id={'tab-' + id} aria-selected={!recipesView && tab === id} aria-controls="pane" className={'tab tab-' + id}
+      style={lookVars(groupLook(id, space).accent) as CSSProperties} onClick={() => setTab(id)}>
+      <GroupIcon id={id} recipe={recipe} /><span className="tab-name">{name}</span>
     </button>
   ));
-  const tabButtons = phoneTabs.map(([id, name]) => {
-    const Ic = TAB_ICON[id];
-    return (
-      <button key={id} type="button" role="tab" id={'tab-' + id} aria-selected={tab === id} aria-controls="pane" className="tab" onClick={() => setTab(id)}>
-        {Ic && <Ic className="tab-ic" />}<span className="tab-name">{name}</span>
-      </button>
-    );
-  });
   const peek = sheet && snap === 'peek';
+  const look = tab ? groupLook(tab, space) : null;
+  const SpaceIc = SPACE_ICON[space];
+  // phones: the groups in rows of up to four (tablets upright: all in one row, css/layout.css)
+  const cols = phone ? Math.min(4, Math.ceil(tabs.length / 2)) : tabs.length <= 4 ? tabs.length : Math.ceil(tabs.length / 2);
   return (
-    <aside className={'panel' + (phone ? ' ph-sheet' : '')} aria-label="Ajustes de la pieza" ref={aside} data-snap={sheet ? snap : undefined}
-      style={sheet && heights ? { height: heights[snap] } : undefined}>
+    <aside className={'panel' + (phone ? ' ph-sheet' : '') + (recipesView ? ' rx-open' : '')} aria-label="Ajustes de la pieza" ref={aside} data-snap={sheet ? snap : undefined}
+      style={{ ...(sheet && heights ? { height: heights[snap] } : {}), '--sp-acc': SPACE_LOOK[space].accent } as CSSProperties}>
       {phone ? (
         <div className="ph-head" ref={head}>
           <div className="ph-grab-row">
+            <RecipesLine compact />
             <button type="button" className="sheet-grab" {...drag.handlers} onClick={drag.onClick} onKeyDown={drag.onKeyDown}
               aria-label={`Tamaño de los ajustes: ${SNAP_NAME[snap]}`} title="Arrastra para cambiar el tamaño, o pulsa para alternarlo (↑ ↓)">
               <i aria-hidden="true" />
             </button>
             <button type="button" className="icon-btn ph-close" aria-label="Cerrar ajustes" title="Cerrar ajustes (Esc)" onClick={() => setUI({ panel: false })}><IClose /></button>
           </div>
-          {/* every section in view: one tap, never hidden past the edge */}
-          <ScrollRow role="tablist" aria-label="Secciones" className="ptabs ph-tabs" boxClassName="ptabs-box"
-            style={{ '--cols': Math.min(5, Math.ceil(phoneTabs.length / 2)) } as CSSProperties}>
-            {tabButtons}
-          </ScrollRow>
+          {/* every group in view: one tap, never hidden past the edge (the recipes take their place while open) */}
+          {!recipesView && (
+            <ScrollRow role="tablist" aria-label="Secciones" className="ptabs ph-tabs" boxClassName="ptabs-box"
+              style={{ '--cols': cols, '--n': tabs.length } as CSSProperties}>
+              {tabButtons}
+            </ScrollRow>
+          )}
         </div>
       ) : (
         <>
           <div className="panel-head">
             <div className="panel-title">
-              <p className="eyebrow"><span className="eb-k">Recetas</span><span className="eb-sep" aria-hidden="true">·</span><span ref={eyebrow}>{spaceById(space).name}</span></p>
-              <span className="panel-count" aria-hidden="true">{String(presets.length).padStart(2, '0')}</span>
+              <SpaceIc className="pt-ic" />
+              <p className="eyebrow"><span className="pt-name" ref={eyebrow}>{spaceById(space).name}</span><span className="pt-line">{SPACE_LOOK[space].line}</span></p>
+              <button type="button" className="icon-btn panel-hide" aria-label="Ocultar ajustes" title="Ocultar los ajustes: la pieza a lo ancho (vuelven con el botón de ajustes de la barra)"
+                onClick={() => setUI({ panel: false })}><IPanelOff /></button>
             </div>
-            {/* the recipes wrap and the sections form a grid */}
-            <ScrollRow className="recipes" aria-label="Recetas listas" more="más">{recipeChips}</ScrollRow>
+            <RecipesLine />
           </div>
-          <ScrollRow role="tablist" aria-label="Secciones" className="ptabs" boxClassName="ptabs-box"
-            style={{ '--cols': tabs.length <= 4 ? tabs.length : Math.ceil(tabs.length / 2) } as CSSProperties}>
-            {tabButtons}
-          </ScrollRow>
+          {!recipesView && (
+            <ScrollRow role="tablist" aria-label="Secciones" className="ptabs" boxClassName="ptabs-box"
+              style={{ '--cols': cols } as CSSProperties}>
+              {tabButtons}
+            </ScrollRow>
+          )}
         </>
       )}
+      {recipesView && <RecipeBrowser where={phone ? 'sheet' : 'column'} away={peek} />}
       {/* at the peek the controls are out of sight: out of the focus order too */}
-      <div className="pane" id="pane" role="tabpanel" aria-labelledby={'tab-' + tab} ref={pane} inert={peek || undefined}>
-        {tab === RECIPES_TAB[0]
-          ? (
-            <>
-              <p className="note">Puntos de partida de {spaceById(space).name}: cambian la pieza entera (se puede deshacer).</p>
-              <div className="recipes ph-recipes" role="group" aria-label="Recetas listas">{recipeChips}</div>
-            </>
-          )
-          : tab && <TabContent tab={tab} space={space} />}
+      <div className="pane" id="pane" role="tabpanel" aria-labelledby={'tab-' + tab} ref={pane} inert={peek || undefined} hidden={recipesView || undefined}>
+        {tab && look && (
+          <div className="pane-head" style={lookVars(look.accent) as CSSProperties}>
+            <GroupIcon id={tab} recipe={recipe} />
+            <div className="pane-say">
+              <h2 className="pane-t">{tabs.find(t => t[0] === tab)?.[1]}</h2>
+              <p className="pane-line">{look.line}</p>
+            </div>
+          </div>
+        )}
+        {tab && <TabContent tab={tab} space={space} />}
       </div>
       <HintBubble />
     </aside>
   );
 }
+
+/**
+ * A group's picture: its icon, except where the piece itself says it better: Color shows the piece's
+ * palette as a strip, Glifos a few of its characters in its own font (they change with the piece).
+ */
+function GroupIcon({ id, recipe }: { id: string; recipe?: Recipe }) {
+  if (id === 'color' && recipe) {
+    const stops = recipe.color.stops.slice(0, 5);
+    return (
+      <span className="tab-ic tab-sw" aria-hidden="true">
+        {stops.map((c, i) => <i key={i} style={{ background: c }} />)}
+      </span>
+    );
+  }
+  if (id === 'glifos' && recipe) {
+    const solid = [...new Set([...recipe.glyph.charset])].filter(c => c.trim());
+    const pick = solid.length ? [solid[Math.floor((solid.length - 1) * 0.5)], solid[Math.floor((solid.length - 1) * 0.78)], solid[solid.length - 1]] : ['#'];
+    return <span className="tab-ic tab-gl" aria-hidden="true" style={{ fontFamily: fontById(recipe.glyph.font).stack }}>{pick.join('')}</span>;
+  }
+  const Ic = TAB_ICON[id];
+  return Ic ? <Ic className="tab-ic" /> : null;
+}
+
 
 /**
  * Choices that unfold other controls under them (what becomes characters, how glyphs are chosen):
@@ -201,7 +229,9 @@ function useSheetHeights(aside: RefObject<HTMLElement | null>, head: RefObject<H
     if (dock) ro.observe(dock);
     return () => ro.disconnect();
   }, [aside, head, on, key]);
-  return useMemo(() => (on && m ? snapHeights(m.room, m.peek) : null), [on, m]);
+  // tablets upright (a sheet 600 px wide or more): two columns of controls, so the half rest leaves more to the piece
+  const wide = useMatch('(min-width: 600px)');
+  return useMemo(() => (on && m ? snapHeights(m.room, m.peek, wide ? 0.46 : 0.54) : null), [on, m, wide]);
 }
 
 /**

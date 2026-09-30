@@ -1,0 +1,104 @@
+/* The public viewer (/ver/): the piece full screen, a thin layer of controls over it that steps aside. */
+@import '../shared/tokens.css';
+
+html, body { margin: 0; height: 100%; background: var(--ink); color: var(--bone); overscroll-behavior: none; }
+body { font: 15px/1.45 var(--font-ui); -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid #ffb08a; outline-offset: 2px; }
+
+.ver { position: fixed; inset: 0; overflow: hidden; }
+/* the frame, laid out at its own size and scaled whole (main.ts): nothing reflows to this screen */
+.ver-stage { position: absolute; inset: 0; overflow: hidden; touch-action: manipulation; }
+.ver-stage canvas { position: absolute; left: 0; top: 0; display: block; transform-origin: 0 0; }
+/* a piece that answers to the finger takes it (main.ts): drags reach it, a pinch zooms the piece, not the page */
+.ver-stage[data-touch="piece"] canvas { touch-action: none; }
+.ver[data-ui="off"] .ver-stage { cursor: none; }
+
+/* ---------- the layer of controls ---------- */
+.ver-top, .ver-bar, .ver-notes { transition: opacity .28s var(--ease-out), transform .28s var(--ease-out); }
+.ver[data-ui="off"] .ver-top:not(:focus-within), .ver[data-ui="off"] .ver-bar:not(:focus-within), .ver[data-ui="off"] .ver-notes {
+  opacity: 0; pointer-events: none;
+}
+.ver[data-ui="off"] .ver-bar:not(:focus-within) { transform: translateY(8px); }
+.ver[data-ui="off"] .ver-top:not(:focus-within) { transform: translateY(-8px); }
+
+.ver-top {
+  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 12px;
+  padding: max(10px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) 28px max(14px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(rgba(12, 11, 10, .66), rgba(12, 11, 10, 0)); pointer-events: none;
+}
+.ver-top > * { pointer-events: auto; }
+.ver-brand { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 10px 0 6px; margin-left: -6px; border-radius: 10px; color: var(--bone); text-decoration: none; }
+.ver-brand:hover { background: rgba(237, 230, 218, .08); }
+.ver-brand svg { display: block; flex: none; }
+.ver-word { height: 14px; width: auto; }
+
+.ver-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 8px;
+  padding: 36px max(14px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(rgba(12, 11, 10, 0), rgba(12, 11, 10, .78) 55%); pointer-events: none;
+}
+.ver-bar > * { pointer-events: auto; }
+.ver-ib {
+  width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  border: 1px solid rgba(237, 230, 218, .18); border-radius: 12px; background: rgba(12, 11, 10, .55); color: var(--bone); cursor: pointer;
+}
+.ver-ib:hover { background: rgba(237, 230, 218, .12); border-color: rgba(237, 230, 218, .32); }
+.ver-ib svg { width: 20px; height: 20px; }
+.ver-cap { flex: 1 1 0; min-width: 0; margin: 0 4px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.ver-cap b { font: 600 15px/1.2 var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 8px rgba(12, 11, 10, .6); }
+.ver-cap span { font: 500 12px/1.3 var(--font-mono); color: #c9c2b6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 8px rgba(12, 11, 10, .6); }
+.ver-go { display: flex; gap: 8px; flex: none; }
+.ver-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; box-sizing: border-box;
+  border: 1px solid rgba(237, 230, 218, .26); border-radius: 12px; background: rgba(12, 11, 10, .55); color: var(--bone);
+  font: 600 14px/1 var(--font-ui); text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+.ver-btn:hover { background: rgba(237, 230, 218, .12); border-color: rgba(237, 230, 218, .4); }
+.ver-btn svg { width: 18px; height: 18px; flex: none; }
+.ver-btn.primary { background: var(--signal); color: var(--signal-ink); border-color: transparent; }
+.ver-btn.primary:hover { background: #ff6e38; }
+.ver-btn.primary:active { background: #f04f14; }
+
+.ver-notes {
+  position: absolute; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 0 14px; pointer-events: none;
+}
+.ver-note {
+  margin: 0; max-width: 560px; padding: 9px 14px; border: 1px solid rgba(237, 230, 218, .16); border-radius: 12px;
+  background: rgba(12, 11, 10, .82); color: var(--bone); font: 500 13.5px/1.45 var(--font-ui); text-align: center;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+
+/* phones, and anything narrow: the caption and the two ways out each get a row */
+@media (max-width: 640px) {
+  .ver-bar { flex-wrap: wrap; row-gap: 10px; padding-top: 44px; }
+  .ver-go { flex: 1 1 100%; }
+  .ver-go .ver-btn { flex: 1 1 0; padding: 0 10px; }
+  .ver-go .ver-btn.primary { flex-grow: 1.6; }
+  .ver-notes { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
+}
+/* a phone on its side: little height, one row */
+@media (max-height: 460px) and (min-width: 641px) {
+  .ver-bar { padding-top: 24px; }
+  .ver-cap span { display: none; }
+  .ver-notes { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 380px) {
+  .ver-word { display: none; }
+  .ver-cap b { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ver-top, .ver-bar, .ver-notes { transition: none; }
+  .ver[data-ui="off"] .ver-bar:not(:focus-within), .ver[data-ui="off"] .ver-top:not(:focus-within) { transform: none; }
+}
+
+/* ---------- a link that brings no piece ---------- */
+.ver-problem {
+  min-height: 100%; box-sizing: border-box; display: grid; align-content: center; justify-items: start; gap: 0;
+  max-width: 560px; margin: 0 auto; padding: 32px 22px;
+}
+.ver-problem .ver-brand { margin-bottom: 28px; }
+.ver-problem h1 { margin: 0 0 12px; font: 700 clamp(22px, 5vw, 30px)/1.15 var(--font-display); letter-spacing: -.03em; }
+.ver-problem p { margin: 0 0 22px; color: #c9c2b6; }
+.ver-problem-acts { display: flex; flex-wrap: wrap; gap: 10px; }

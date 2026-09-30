@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openStudio, pressUntil, seedText } from './helpers';
+import { needsFotoStudio } from './foto-helpers';
 
 test.describe('azar con memoria', () => {
   test('tirar diez veces, volver a la cuarta, avanzar, guardar y recuperar tras recargar', async ({ page }) => {
@@ -71,6 +72,8 @@ test.describe('azar con memoria', () => {
   });
 
   test('«Laboratorio» en la barra (la página en la que estás) no la recarga: deshacer sigue ahí', async ({ page }) => {
+    // the «Laboratorio ⇄ Foto y video» switch is in the bar only while the photo studio is public
+    needsFotoStudio();
     await openStudio(page);
     await page.getByRole('tab', { name: /Glifos/ }).click();
     const cell = page.getByLabel('Tamaño de celda');
@@ -115,6 +118,9 @@ test.describe('azar con memoria', () => {
     const b = await browser.newContext();
     const pb = await b.newPage();
     await pb.goto(link);
+    // (shared links open the public viewer; its «Abrir en el estudio» brings the piece to the studio, and
+    // shared again from there, unedited, it is the same link: same recipe, same frame)
+    await pb.getByRole('link', { name: 'Abrir en el estudio' }).click();
     await expect(pb.locator('.seedline')).toBeVisible({ timeout: 45_000 });
     await pressUntil(pb, 'e', pb.getByRole('tab', { name: 'Receta' }));
     await pb.getByRole('tab', { name: 'Receta' }).click();

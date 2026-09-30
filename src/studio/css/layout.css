@@ -1,0 +1,251 @@
+/* The lab by size and by input (lane: layout). Imported last (App.tsx): it refines the look (loom.css)
+   and the phone layout (phone.css).
+   - identity: every space and group of settings has its icon and a quiet colour of its own (--acc),
+     a line that says what it is for, and clear selected / hover / focus states; vermilion stays the
+     active thread;
+   - «Recetas»: the line that names the recipe of the piece and the recipe browser have their own
+     stylesheet (recipes/recipes.css);
+   - sliders a finger or pen cannot move by accident, with − + and the value to type (ui/Range.tsx);
+   - tablets: a touch-sized side column on their side, the sheet with its groups in one row and the
+     controls in two columns upright. */
+
+/* ---------- spaces: their own colour on their icon (the active one keeps the vermilion thread) ---------- */
+.app .spaces .sp-ic { color: var(--acc, var(--dim)); opacity: .62; }
+.app .spaces button:hover .sp-ic { color: var(--acc, var(--muted)); opacity: 1; }
+.app .spaces button[aria-pressed="true"] .sp-ic { color: var(--acc, var(--accent)); opacity: 1; }
+.app .topbar .pk.space-select .pk-ic { color: var(--sp-acc, var(--accent)); }
+
+/* ---------- the column's head: the space, and a way to put the column away ---------- */
+.app .panel-head { padding: 10px 14px 10px; }
+.app .panel-title { display: flex; align-items: center; gap: 9px; margin: 0 0 8px; min-height: 32px; }
+.app .panel-title .pt-ic { width: 18px; height: 18px; flex: none; color: var(--sp-acc, var(--accent)); stroke-width: 1.7; }
+.app .panel-title .eyebrow {
+  margin: 0; flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 1px;
+  white-space: normal; overflow: visible; text-transform: none; letter-spacing: 0;
+}
+.app .panel-title .pt-name { font: 600 14px/1.15 var(--font-ui); color: var(--text); letter-spacing: -.005em; }
+.app .panel-title .pt-line { font: 400 12px/1.3 var(--font-ui); color: var(--muted); }
+.app .panel-hide { flex: none; width: 32px; height: 32px; }
+.app .panel-hide svg { width: 17px; height: 17px; }
+
+/* ---------- the groups: each with its colour ---------- */
+.app .ptabs .tab .tab-ic { color: var(--acc, var(--dim)); opacity: .7; }
+.app .ptabs .tab:hover .tab-ic { opacity: 1; }
+.app .ptabs .tab[aria-selected="true"] { background: var(--acc-t, var(--field-2)); }
+.app .ptabs .tab[aria-selected="true"] .tab-ic { color: var(--acc, var(--accent)); opacity: 1; }
+.app .ptabs .tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -3px; }
+/* Color: the piece's own palette; Glifos: a few of its characters, in its font */
+.tab-sw { display: inline-flex; width: 22px !important; height: 12px !important; margin: 2px 0 3px; border-radius: 3px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(237, 230, 218, .28); opacity: 1 !important; }
+.tab-sw i { flex: 1; }
+.tab-gl { display: inline-flex; align-items: center; justify-content: center; width: auto !important; min-width: 17px; font-size: 14px; line-height: 17px; letter-spacing: .04em; white-space: pre; font-variant-ligatures: none; }
+
+/* the group's own head in the pane: its name and what it is for */
+.app .pane-head { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; padding: 0 0 12px; border-bottom: 1px solid var(--line); }
+.app .pane-head .tab-ic { width: 20px; height: 20px; margin-top: 1px; flex: none; color: var(--acc); }
+.app .pane-head .tab-sw { margin-top: 5px; }
+.app .pane-head .tab-gl { color: var(--acc); font-size: 15px; line-height: 20px; }
+.pane-say { min-width: 0; }
+.app .pane-t { margin: 0; font: 600 14px/1.25 var(--font-ui); color: var(--text); letter-spacing: -.005em; }
+.app .pane-line { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+.app .pane .pane-head + .sub { margin-top: 0; padding-top: 0; border-top: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  /* a light cue of where you are: the group's colour settles in (CSS only, nothing runs meanwhile) */
+  .app .pane-head .tab-ic { animation: pane-in .32s var(--ease-out); }
+  @keyframes pane-in { from { opacity: .2; transform: translateY(2px); } }
+}
+html[data-motion="low"] .app .pane-head .tab-ic { animation: none; }
+
+/* ---------- sliders: the value to type, − + where a finger or pen may be used ---------- */
+.app .ctl.cx > .sl-val, .app .ctl.cx > .sl-num { grid-column: 2; grid-row: 1; justify-self: end; }
+.app .sl-val {
+  font: 500 11px/1 var(--font-mono); color: var(--text); padding: 3px 5px; border-radius: 4px; border: 1px solid var(--hair);
+  background: rgba(0, 0, 0, .22); font-variant-numeric: tabular-nums; white-space: nowrap; cursor: text;
+}
+.app .sl-val:hover { border-color: var(--line-2); background: var(--field); }
+.app input.sl-num { width: 92px; min-height: 0; height: 26px; padding: 2px 7px; font: 500 12px/1 var(--font-mono); text-align: right; }
+.sl-step { display: none; }
+.app .ctl.sl > .nf-hint { grid-column: 1 / -1; }
+/* while a finger adjusts it: the track takes the accent, and «fino ½» says how fine */
+.app .ctl.sl.sl-drag > .lbl { color: var(--text); }
+.app .ctl.sl.sl-drag input[type=range]::-webkit-slider-thumb { background: var(--accent); transform: scaleX(1.3); }
+.app .ctl.sl.sl-drag input[type=range]::-moz-range-thumb { background: var(--accent); }
+.app .ctl.sl[data-fine]::after, .app .ctl.sl.sl-tip::after {
+  position: absolute; left: 50%; top: -8px; transform: translateX(-50%); z-index: 3; padding: 3px 8px; border-radius: 999px;
+  background: var(--bone); color: var(--ink); font: 600 11.5px/1.2 var(--font-ui); white-space: nowrap; pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+.app .ctl.sl[data-fine]::after { content: 'ajuste fino ' attr(data-fine); font-family: var(--font-mono); }
+.app .ctl.sl.sl-tip::after { content: 'Desliza de lado para ajustar'; }
+
+@media (any-pointer: coarse) {
+  /* the range lets fingers and pens through to its row, which reads them (ui/Range.tsx) */
+  .app input[type=range].rng { pointer-events: none; }
+  .app .rng-area { touch-action: pan-y pinch-zoom; }
+  .app .ctl.cx.sl { grid-template-columns: 44px minmax(0, 1fr) 44px auto; column-gap: 6px; row-gap: 12px; }
+  .app .ctl.cx.sl > .lbl { grid-column: 1 / 3; grid-row: 1; align-self: center; }
+  .app .ctl.cx.sl > .sl-val, .app .ctl.cx.sl > .sl-num { grid-column: 3 / 5; grid-row: 1; justify-self: end; align-self: center; }
+  .app .ctl.cx.sl > .sl-minus { display: inline-grid; grid-column: 1; grid-row: 2; }
+  .app .ctl.cx.sl > input[type=range] { grid-column: 2; grid-row: 2; }
+  .app .ctl.cx.sl > .sl-plus { display: inline-grid; grid-column: 3; grid-row: 2; }
+  .app .ctl.cx.sl > .help-q { grid-column: 4; grid-row: 2; align-self: center; }
+  .app .ctl.cx.sl > .help-more, .app .ctl.cx.sl > .nf-hint { grid-column: 1 / -1; }
+  /* the value: a 44 px target that keeps the name's row as it was (it reaches into the gaps around it);
+     what shows is the small readout in its middle */
+  .app .sl-val {
+    position: relative; isolation: isolate; min-height: 44px; min-width: 56px; margin: -12px 0; padding: 0 10px; font-size: 13px; border: 0; background: none;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .app .sl-val::before {
+    content: ''; position: absolute; inset: 9px 0; z-index: -1; border-radius: 6px; border: 1px solid var(--line); background: rgba(0, 0, 0, .22);
+  }
+  .app .sl-val:hover { background: none; }
+  .app .sl-val:hover::before { border-color: var(--line-2); }
+  .app input.sl-num { width: 104px; height: 44px; margin: -12px 0; font-size: 16px; }
+  .app .sl-step {
+    width: 44px; height: 44px; place-items: center; padding: 0; border-radius: 10px; border: 1px solid transparent;
+    background: var(--field); color: var(--text); touch-action: manipulation;
+  }
+  .app .sl-step:disabled { opacity: .35; }
+  .app .sl-step svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .app .sl-step:active:not(:disabled) { background: var(--field-2); border-color: var(--line-2); }
+}
+
+/* ---------- number fields (export sizes and durations, terminal size, a slider's exact value) ---------- */
+.app input.nf {
+  width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+  font: 500 13px/1.2 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text);
+}
+.app input.nf:focus { border-color: var(--bone); outline: none; box-shadow: 0 0 0 3px rgba(255, 176, 138, .35); }
+.app .ctl > input.nf, .app .ctl > .nf-hint { grid-column: 1 / -1; }
+.app .nf-hint { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: #ffcf9e; }
+/* empty: out of sight, still in the page (a line that appears there is read out) */
+.app .nf-hint:empty { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.app .ctl-num { grid-template-columns: auto; }
+@media (max-width: 900px), (pointer: coarse) {
+  .app input.nf { min-height: 44px; font-size: 16px; }
+}
+
+/* ---------- character sets: their symbols as text ---------- */
+.cs-prev { padding: 0 0 4px; }
+.cs-big {
+  display: flex; align-items: center; justify-content: space-around; gap: 4px; min-height: 54px; padding: 6px 12px; border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--line); font-size: 30px; line-height: 1.15; font-variant-ligatures: none;
+}
+.cs-big span { flex: 1; text-align: center; }
+.cs-all-h { margin: 8px 2px 3px; font: 600 10.5px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.cs-all {
+  margin: 0 2px; max-height: 4.6em; overflow-y: auto; overflow-x: hidden; font-size: 16px; line-height: 1.45; letter-spacing: .14em;
+  color: var(--text, #ede6da); word-break: break-all; overflow-wrap: anywhere; font-variant-ligatures: none;
+}
+.cs-all .cs-sp { color: var(--dim); font-size: .8em; letter-spacing: 0; margin-right: .3em; }
+.pk-sheet .cs-big { font-size: 34px; min-height: 60px; }
+
+/* ---------- touch screens wide enough for the side column (tablets on their side) ---------- */
+@media (min-width: 901px) and (pointer: coarse) {
+  .app { --top-h: 56px; }
+  .app .ib, .app .topbar .pk.space-select { height: 44px; min-height: 44px; min-width: 44px; }
+  .app .spaces button { min-width: 44px; }
+  .app .vseg button { min-height: 44px; }
+  .app .vbar-sel .imm-toggle, .app .vbar-cam { width: 44px; height: 44px; min-width: 44px; }
+  .app .vbar-more, .app .vbar-go, .vbar-alt { min-height: 44px; }
+  .app .seedline button { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .app .seedline { bottom: calc(16px + 60px - 1px); padding-top: 2px; padding-bottom: 2px; }
+  .app .thumb { width: 66px; height: 44px; }
+  .app .deck { height: 62px; }
+  .app .panel-hide { min-height: 44px; }
+  .app .panel-hide { width: 44px; height: 44px; }
+  .app .ptabs .tab { min-height: 54px; }
+}
+/* immersive with the settings column open (desktop, tablets on their side): the bar is centred on the
+   piece, not on the window (it ran under the column on a 1024 px screen) */
+@media (min-width: 901px) {
+  .app.imm-on:not(.panel-off) .imm-bar { left: calc(50% - var(--panel-w) / 2); max-width: calc(100% - var(--panel-w) - 16px); }
+}
+
+/* the views as a list where their 44 px buttons would not fit in one row beside the column */
+@media (pointer: coarse) {
+  @container stage (max-width: 1000px) {
+    .app .vbar .vseg-box { display: none; }
+    .app .vbar .vsel-pk { display: flex; min-width: 190px; width: auto; min-height: 44px; font-weight: 600; font-size: 14px; }
+  }
+}
+
+/* ---------- tablets held upright: groups in one row, controls in two columns ---------- */
+@media (min-width: 600px) and (max-width: 900px) and (min-height: 501px) {
+  .app .ph-sheet .ptabs.ph-tabs { grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr)); }
+  .app .ph-sheet .pane, .app .ph-sheet .layer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 22px; align-content: start; }
+  .app .ph-sheet .pane > *, .app .ph-sheet .layer > * { grid-column: 1 / -1; }
+  .app .ph-sheet .pane > :is(.ctl, .toggle-row, .toggle), .app .ph-sheet .layer > :is(.ctl, .toggle-row) { grid-column: auto; }
+  .app .ph-sheet .pane > .ctl:has(> .help-more), .app .ph-sheet .layer > .ctl:has(> .help-more) { grid-column: 1 / -1; }
+  .app .ph-sheet .pane > .seg-only { grid-column: 1 / -1; }
+}
+
+/* ---------- phones: the recipe line in the sheet's head row, the handle in its middle ---------- */
+@media (max-width: 900px) {
+  /* the groups keep their colour in the sheet too */
+  .app .ph-sheet .ph-tabs .tab .tab-ic { color: var(--acc, var(--dim)); opacity: .75; }
+  .app .ph-sheet .ph-tabs .tab[aria-selected="true"] { background: var(--acc-t, var(--field-2)); }
+  .app .ph-sheet .ph-tabs .tab[aria-selected="true"] .tab-ic { color: var(--acc, var(--accent)); opacity: 1; }
+  /* the group's head: its line only (the group's name and icon are just above, in the tabs) */
+  .app .ph-sheet .pane-head { margin: -4px 0 12px; padding: 0 0 10px; }
+  .app .ph-sheet .pane-head > .tab-ic, .app .ph-sheet .pane-head .pane-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; padding: 0; }
+  .app .ph-sheet .pane-line { margin: 0; font-size: 13px; }
+  .app .ph-grab-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr); align-items: center; height: 48px; padding: 0 4px 0 8px; }
+  .app .ph-sheet .sheet-grab { grid-column: 2; width: 96px; }
+  .app .ph-grab-row .ph-close { grid-column: 3; justify-self: end; }
+}
+/* narrow phones, a destination view (Terminal, Fondo web…): its bar keeps to the screen, the immersive
+   toggle included (it was pushed past the right edge): «Exportar» is its icon, the list a little narrower */
+@media (max-width: 440px) {
+  .app .vbar.more .vsel-pk { min-width: 132px; }
+  .app .vbar.more .vbar-go-sm { width: 44px; min-width: 44px; padding: 0; justify-content: center; }
+  .app .vbar.more .vbar-go-sm span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .app .vbar.more .vbar-sel { max-width: 100%; min-width: 0; }
+}
+/* the top bar with the «Lab ⇄ Foto» switch in it: the brand is its symbol up to 700 px, as it is up to
+   420 px (loom.css), so the spaces' names are not cut by a few pixels up to 650 px */
+@media (max-width: 700px) { .app .topbar:has(.sw) .brand-word { display: none; } }
+/* and up to 540 px (430 and 414 px phones too) the space picker is its icon and caret, as on narrower ones
+   (phone.css), instead of a name squeezed to a letter with the caret over the icon. Without the switch (the
+   photo studio paused) the name fits down to 360 px; below that, the icon in any case. */
+@media (max-width: 540px) {
+  .app .topbar:has(.sw) .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
+  .app .topbar:has(.sw) .pk.space-select .pk-val { flex: none; }
+  .app .topbar:has(.sw) .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (max-width: 340px) {
+  .app .topbar .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
+  .app .topbar .pk.space-select .pk-val { flex: none; }
+  .app .topbar .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+
+/* ---------- phones on their side: every pixel of height counts. The groups keep their two rows; the
+   close button and «Recetas» (a cell like the groups': the recipe of the piece is named by the line at
+   the bottom, and by the button itself for assistive tech) stand beside them, so the column's head is no
+   taller than the groups and the controls keep their room ---------- */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+  .app .ph-sheet .ph-head { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: start; padding: 4px 2px 0 0; }
+  .app .ph-sheet .ph-head > .ptabs-box { grid-column: 1; grid-row: 1; }
+  .app .ph-grab-row {
+    position: static; grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: stretch; gap: 0;
+    height: auto; padding: 0 2px 0 4px;
+  }
+  .app .ph-grab-row .ph-close { order: -1; align-self: center; }
+  .app .ph-sheet .ptabs.ph-tabs { padding: 0 2px 6px 6px; }
+  /* the group's line: its name is in the tab just above, and the room is for the controls */
+  .app .ph-sheet .pane-head { display: none; }
+  /* the modules' rules reach the pane's edges, which keep clear of a notch (they overflowed it by 2 px) */
+  .app .ph-sheet .pane .sub { margin-right: calc(-1 * max(12px, env(safe-area-inset-right, 0px))); }
+  /* the groups' names whole in four columns of a narrow column */
+  .app .ph-sheet .ph-tabs .tab { font-size: 11.5px; letter-spacing: -.02em; padding: 4px 1px; }
+}
+
+/* the deck's «Ajustes»: only on touch screens, while the column is put away (the bar's button is far up) */
+.app .deck-tools { display: none; }
+@media (min-width: 901px) and (pointer: coarse) {
+  .app.panel-off .deck-tools { display: inline-flex; }
+}
+
+/* a layer's pattern: its whole name, on two lines if the head is narrow (it was cut: «Lluvia digital» on a
+   tablet, beside the layer's 44 px buttons); a long word breaks at a Spanish hyphenation point, not anywhere */
+.app .layer-head .pk .pk-txt { white-space: normal; overflow-wrap: break-word; hyphens: auto; line-height: 1.15; }

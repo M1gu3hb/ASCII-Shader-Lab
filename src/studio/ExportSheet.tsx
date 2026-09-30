@@ -23,11 +23,14 @@ import { takeExportRequest, type ExportRequest } from './exportTab';
 import { SegGroup } from './controls';
 import { Picker, type PickOpt } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { NumberField } from './ui/NumberField';
 import { useExportScrim, ScrimCodeNote } from './views/scrimExport';
 import type { Fallback } from '../exporters/code';
 import './css/export-code.css';
 import { useSwap } from './motion/hooks';
 import { getEngine } from './engineBridge';
+import { InteractNote, withDemo } from './ui/Touch';
+import { studioRamp } from './ramp';
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -253,6 +256,7 @@ function ImageTab({ req }: { req: ExportRequest | null }) {
         {images && missing.map(f => <Unavailable key={f} what={`${FORMAT_NAME[f]}: no disponible.`}>{formatGap(f, images)}</Unavailable>)}
         <label className="toggle"><span>Fondo transparente {format === 'jpeg' && '(no en JPEG)'}</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} disabled={format === 'jpeg'} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
         {transparent && <p className="note">Sólo quedan los caracteres (y el relleno de celda), sobre transparencia real: para componerlos encima de otra imagen o video.</p>}
+        <InteractNote r={e.recipe} kind="still" />
         <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Generando…' : 'Descargar imagen'}</button>
       </div>
       <div className="ex-card">
@@ -292,6 +296,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const [busy, setBusy] = useState<{ kind: 'video' | 'gif'; p: number; label?: string } | null>(null);
   const cancel = useRef<Cancel>({ cancelled: false });
   const [gifW, setGifW] = useState(() => (req?.gifW && [320, 480, 640, 800].includes(req.gifW) ? req.gifW : 640));
+  /** The clip records the ghost's gesture (it starts as the piece has it). */
+  const [demo, setDemo] = useState(() => !!e?.recipe.interact.auto);
   const rec = useRecording(s => s.rec);
   const since = useRecording(s => s.since);
   const [recT, setRecT] = useState(0);
@@ -329,9 +335,10 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     const where = kind === 'gif' ? 'gif' : 'video';
     setBusy({ kind: where, p: 0 });
     try {
+      const r = withDemo(e.recipe, demo);
       const blob = kind === 'gif'
-        ? await exportGif(e.recipe, gifW, { fps: Math.min(fps, 25), seconds: secs, start, colors: 128 }, (p, label) => setBusy({ kind: where, p, label }), cancel.current)
-        : await exportVideo(e.recipe, spec, { fps, seconds: secs, format: kind, start }, (p, label) => setBusy({ kind: where, p, label }), cancel.current);
+        ? await exportGif(r, gifW, { fps: Math.min(fps, 25), seconds: secs, start, colors: 128 }, (p, label) => setBusy({ kind: where, p, label }), cancel.current)
+        : await exportVideo(r, spec, { fps, seconds: secs, format: kind, start }, (p, label) => setBusy({ kind: where, p, label }), cancel.current);
       downloadBlob(`${baseName(e.recipe)}.${kind}`, blob);
     } catch (err) {
       if ((err as Error).message !== 'cancelado') toast('La exportación falló: ' + (err as Error).message);
@@ -378,9 +385,10 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     <>
       {!camera && (
         <div className="ex-clip">
-          <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={60} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(60, +ev.target.value || 1)))} /></label>
+          <div className="ctl"><label className="lbl" htmlFor="v-secs">Duración (s)</label><NumberField id="v-secs" min={1} max={60} step={0.5} value={secs} onValue={setSecs} /></div>
           <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
           <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}{warm > 0 ? ` Con Estela, antes del primer fotograma se preparan ${warm.toFixed(1).replace('.', ',')} s sin grabar, para que el clip empiece con su estela${loop > 0 ? ' y enlace' : ''}: tarda algo más.` : ''}</p>
+          <InteractNote r={e.recipe} kind="clip" demo={demo} onDemo={setDemo} />
         </div>
       )}
       <div className="ex-grid">
@@ -497,6 +505,7 @@ function VectorTab() {
             <button type="button" aria-pressed={mode === 'text'} onClick={() => setMode('text')}>Texto editable</button>
           </div></div>
         <label className="toggle"><span>Sin fondo</span><span className="switch"><input type="checkbox" role="switch" checked={transparent} onChange={ev => setTransparent(ev.target.checked)} /><span /></span></label>
+        <InteractNote r={e.recipe} kind="still" />
         <button type="button" className="btn primary" disabled={busy} onClick={() => void go()}>{busy ? 'Trazando…' : used.length ? 'Descargar SVG (sin efectos de píxel)' : 'Descargar SVG'}</button>
         {notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       </div>
@@ -512,6 +521,9 @@ function VectorTab() {
 
 /* ------------------------------------------------------------------ */
 
+/** One text frame of the piece at a size, with what it was drawn for. */
+type TextFrame = { text: string; html: string; page: string; ansi: string; key: string; recipe: Recipe };
+
 function TerminalTab({ req }: { req: ExportRequest | null }) {
   const e = useCurrent();
   const term = useStudio(s => s.ui.terminal);
@@ -520,7 +532,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   const [rows, setRows] = useState(req?.term?.rows ?? term.rows);
   const [depth, setDepth] = useState<ColorDepth>('256');
   const [withBg, setWithBg] = useState(true);
-  const [preview, setPreview] = useState<{ text: string; html: string; page: string; ansi: string } | null>(null);
+  const [preview, setPreview] = useState<TextFrame | null>(null);
   const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 4);
   const [fps, setFps] = useState(12);
@@ -530,18 +542,27 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   useStopOnLeave(cancel);
   const { copy, manual } = useCopy();
   useEffect(() => { if (space === 'terminal') { setCols(term.cols); setRows(term.rows); } }, [space, term.cols, term.rows]);
+  const frameKey = `${cols}x${rows}:${depth}:${withBg ? 1 : 0}`;
+  const textFrame = async (recipe: Recipe): Promise<TextFrame> => {
+    const g = await captureGrid(recipe, cols, rows);
+    const ansi = gridToAnsi(g, depth, withBg);
+    return { text: gridToText(g), html: gridToHtml(g), page: gridToHtmlPage(g, recipe.meta.name ?? recipe.meta.seed ?? 'GLYPHOS'), ansi, key: frameKey, recipe };
+  };
   useEffect(() => {
     if (!e) return;
     let alive = true;
-    void captureGrid(e.recipe, cols, rows).then(g => {
+    void textFrame(e.recipe).then(f => {
       if (!alive) return;
-      const ansi = gridToAnsi(g, depth, withBg);
-      setPreview({ text: gridToText(g), html: gridToHtml(g), page: gridToHtmlPage(g, e.recipe.meta.name ?? e.recipe.meta.seed ?? 'GLYPHOS'), ansi });
-      setEst(byteSize(ansi));
+      setPreview(f);
+      setEst(byteSize(f.ansi));
     });
     return () => { alive = false; };
   }, [e?.recipe, cols, rows, depth, withBg]);
   if (!e) return null;
+  /** The frame for what the sheet says now: the preview when it is up to date, else drawn on the spot
+   *  (a size typed and committed on the way to a button must not export the previous size). */
+  const current = (): Promise<TextFrame> =>
+    preview && preview.key === frameKey && preview.recipe === e.recipe ? Promise.resolve(preview) : textFrame(e.recipe);
   const name = baseName(e.recipe);
   const title = e.recipe.meta.name ?? e.recipe.meta.seed ?? 'GLYPHOS';
   const anim = async (kind: 'cast' | 'node' | 'python') => {
@@ -559,8 +580,8 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
   return (
     <>
       <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-        <label className="ctl" style={{ margin: 0 }}><span className="lbl">Columnas</span><input type="number" min={10} max={300} value={cols} onChange={ev => setCols(Math.max(10, Math.min(300, +ev.target.value || 80)))} style={{ width: 90 }} /></label>
-        <label className="ctl" style={{ margin: 0 }}><span className="lbl">Filas</span><input type="number" min={4} max={150} value={rows} onChange={ev => setRows(Math.max(4, Math.min(150, +ev.target.value || 24)))} style={{ width: 90 }} /></label>
+        <div className="ctl ctl-num" style={{ margin: 0 }}><label className="lbl" htmlFor="t-cols">Columnas</label><NumberField id="t-cols" min={10} max={300} value={cols} onValue={setCols} style={{ width: 90 }} /></div>
+        <div className="ctl ctl-num" style={{ margin: 0 }}><label className="lbl" htmlFor="t-rows">Filas</label><NumberField id="t-rows" min={4} max={150} value={rows} onValue={setRows} style={{ width: 90 }} /></div>
         <div className="ctl" style={{ margin: 0, flex: 1, minWidth: 260 }}><span className="lbl">Color</span>
           <div className="seg">{([['none', 'Sin color'], ['16', '16'], ['256', '256'], ['truecolor', 'Color real']] as Array<[ColorDepth, string]>).map(([d, n]) => <button key={d} type="button" aria-pressed={depth === d} onClick={() => setDepth(d)}>{n}</button>)}</div></div>
         <label className="toggle" style={{ margin: 0 }}><span>Pintar fondo</span><span className="switch"><input type="checkbox" role="switch" checked={withBg} onChange={ev => setWithBg(ev.target.checked)} /><span /></span></label>
@@ -571,16 +592,16 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
           <h3>Fotograma</h3>
           <p>{cols}×{rows} caracteres · ANSI {est}. «256» es el más compatible; «Color real» es el más fiel, en terminales que lo admiten (truecolor).</p>
           <div className="row2">
-            <button type="button" className="btn primary" onClick={() => preview && void copy(preview.text, 'Texto copiado')}>Copiar texto</button>
-            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.txt', preview.text)}>.txt</button>
+            <button type="button" className="btn primary" onClick={() => void current().then(f => copy(f.text, 'Texto copiado'))}>Copiar texto</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => downloadText(name + '.txt', f.text))}>.txt</button>
           </div>
           <div className="row2">
-            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.ans', preview.ansi)}>.ans (ANSI)</button>
-            <button type="button" className="btn" onClick={() => preview && downloadText(name + '.html', preview.page, 'text/html')}>HTML</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => downloadText(name + '.ans', f.ansi))}>.ans (ANSI)</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => downloadText(name + '.html', f.page, 'text/html'))}>HTML</button>
           </div>
           <div className="row2">
-            <button type="button" className="btn" onClick={() => preview && void copy(toShellBanner(preview.text), 'Saludo para tu shell copiado')}>Saludo de shell</button>
-            <button type="button" className="btn" onClick={() => preview && void copy(toJsString(preview.ansi), 'Código para tu CLI copiado')}>Para tu CLI (JS)</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => copy(toShellBanner(f.text), 'Saludo para tu shell copiado'))}>Saludo de shell</button>
+            <button type="button" className="btn" onClick={() => void current().then(f => copy(toJsString(f.ansi), 'Código para tu CLI copiado'))}>Para tu CLI (JS)</button>
           </div>
           <CopyFallback manual={manual} />
         </div>
@@ -588,7 +609,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
           <h3>Animación para la consola</h3>
           <p>Scripts autónomos: no necesitan instalar nada. Se detienen con Ctrl+C y restauran la terminal.</p>
           <div className="ex-anim">
-            <label className="ctl"><span className="lbl">Duración (s)</span><input type="number" min={1} max={30} step={0.5} value={secs} onChange={ev => setSecs(Math.max(1, Math.min(30, +ev.target.value || 1)))} /></label>
+            <div className="ctl"><label className="lbl" htmlFor="t-secs">Duración (s)</label><NumberField id="t-secs" min={1} max={30} step={0.5} value={secs} onValue={setSecs} /></div>
             <Numbers id="t-fps" label="Fotogramas por segundo" value={fps} list={[8, 10, 12, 15, 20, 24]} onPick={setFps} />
           </div>
           {busy !== null ? <Busy p={busy} onCancel={() => { cancel.current.cancelled = true; }} /> : (
@@ -601,6 +622,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
             </>
           )}
           <p className="note">Ejecuta con <code>node pieza.mjs</code> o <code>python3 pieza.py</code>. El .cast se reproduce con <code>asciinema play</code> o se incrusta en la web.</p>
+          <InteractNote r={e.recipe} kind="text" />
         </div>
       </div>
     </>
@@ -667,13 +689,15 @@ function CodeTab() {
   const [withZone, setWithZone] = useState(true);
   useEffect(() => { void import('../exporters/code').then(setMod); }, []);
   const scrim = withZone ? zone : null;
-  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim, fallback };
+  // the studio's glyph order travels with the code (a page without its web font keeps the picture)
+  const ramp = useMemo(() => (e ? studioRamp(e.recipe) : undefined), [e?.recipe]);
+  const opts = { placement, interactive, systemFont, height: 420, mediaUrl, scrim, fallback, ramp };
   const out = useMemo(() => {
     if (!mod || !e) return null;
     if (kind === 'html') { const r = mod.htmlSnippet(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'glyphos.html', extra: null as string | null }; }
     if (kind === 'wc') { const r = mod.webComponent(e.recipe, opts); return { code: r.usage, notes: r.notes, file: 'glyphos-field.js', extra: r.file }; }
     const r = mod.reactComponent(e.recipe, opts); return { code: r.code, notes: r.notes, file: 'GlyphosBackground.jsx', extra: null };
-  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim, fallback]);
+  }, [mod, e?.recipe, kind, placement, interactive, systemFont, mediaUrl, scrim, fallback, ramp]);
   // what a visitor downloads: the snippet, glyphos-field.js, or the component
   const weight = out ? (out.extra ?? out.code) : null;
   const gz = useGzipSize(weight);
@@ -712,6 +736,7 @@ function CodeTab() {
         </div>
       )}
       <ScrimCodeNote zone={zone} on={withZone} />
+      {interactive && <InteractNote r={e.recipe} kind="code" />}
       {out?.notes.map((n, i) => <p key={i} className="warn">{n}</p>)}
       <textarea ref={codeRef} className="code" readOnly value={out?.code ?? 'Preparando…'} aria-label="Código" onFocus={ev => ev.currentTarget.select()} />
       <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
@@ -765,10 +790,10 @@ function RecipeTab() {
           )}
         </div>
         <div className="ex-card">
-          <h3>Enlace</h3>
-          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve esta pieza y puede seguir editándola{media ? `, pero con ${video ? 'un video suyo' : 'una imagen suya'}` : ''}.</p>
+          <h3>Enlace público</h3>
+          <p>La receta completa viaja dentro del enlace (después del «#», nunca llega a un servidor). Quien lo abra ve esta pieza a pantalla completa, tal como la ves, y puede llevarla al estudio para seguir editándola{media ? `, pero con ${video ? 'un video suyo' : 'una imagen suya'}` : ''}.</p>
           {media && <p className="warn">El enlace no lleva {word} ni su nombre: quien lo abra verá el patrón de fondo hasta que elija {video ? 'un video suyo' : 'una imagen suya'}. Para enviarla completa, exporta el proyecto.</p>}
-          <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace" />
+          <textarea className="code" style={{ height: 90 }} readOnly value={url} onFocus={ev => ev.currentTarget.select()} aria-label="Enlace público" />
           <button type="button" className="btn primary" style={{ marginTop: 10 }} onClick={() => void shareLink(r, e.space)}>Copiar enlace</button>
         </div>
         <div className="ex-card">

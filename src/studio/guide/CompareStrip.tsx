@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CHARSETS, charsetIdOf, fontById } from '../../engine/catalog';
 import { cloneRecipe } from '../../engine/recipe';
 import { F } from '../controls';
 import { edit, useRecipe } from '../store';
@@ -48,34 +47,6 @@ export function CompareStrip({ path, choices, fmt, zoom = 0.5, label }: {
         >
           <span className="cmp-lbl">{c.label}</span>
           <span className="cmp-val">{fmt ? fmt(c.value) : c.value}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Text ramp of a character set: how its glyphs go from empty to full. */
-function ramp(chars: string, n = 14) {
-  const a = [...chars];
-  return Array.from({ length: n }, (_, i) => a[Math.round((i / (n - 1)) * (a.length - 1))]).join('');
-}
-
-/** Character sets shown as text in the piece's own font and colours (cheap: no engine). */
-export function CharsetSwatches({ asciiOnly }: { asciiOnly?: boolean }) {
-  const recipe = useRecipe();
-  if (!recipe) return null;
-  const font = fontById(recipe.glyph.font);
-  const cur = charsetIdOf(recipe.glyph.charset);
-  const list = asciiOnly ? CHARSETS.filter(c => c.ascii) : CHARSETS;
-  const stops = recipe.color.stops;
-  const ink = stops[stops.length - 1] ?? '#ffffff';
-  return (
-    <div className="cs-grid" role="group" aria-label="Juegos de caracteres">
-      {list.map(c => (
-        <button key={c.id} type="button" aria-pressed={c.id === cur} onClick={() => edit(r => { r.glyph.charset = c.chars; }, 'glyph.charset:cmp:' + Date.now())}
-          style={{ background: recipe.color.bg, color: ink }}>
-          <span className="cs-sample" aria-hidden="true" style={{ fontFamily: font.stack, fontWeight: recipe.glyph.weight }}>{ramp(c.chars)}</span>
-          <span className="cs-name">{c.name}</span>
         </button>
       ))}
     </div>

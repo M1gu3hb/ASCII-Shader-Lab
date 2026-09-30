@@ -5,6 +5,8 @@ import { setSpace, setUI, useStudio } from './store';
 import { thumbBg } from './history';
 import { Picker } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { Range } from './ui/Range';
+import { ColorField } from './ui/color/ColorField';
 import { useSwap } from './motion/hooks';
 
 /** Live mount of a component demo. Re-mounts when its values change. */
@@ -145,11 +147,10 @@ function ParamCtl({ p, v, onChange }: { p: CompDef['params'][number]; v: string 
   const id = 'cp-' + p.key;
   if (p.type === 'range') {
     const n = Number(v);
-    const pct = ((n - (p.min ?? 0)) / ((p.max ?? 1) - (p.min ?? 0))) * 100;
     return (
       <div className="ctl">
         <label className="lbl" htmlFor={id}>{p.label}</label><output>{Number.isInteger(p.step) ? n : n.toFixed(2)}</output>
-        <input id={id} type="range" min={p.min} max={p.max} step={p.step} value={n} style={{ '--p': pct + '%' } as React.CSSProperties} onChange={e => onChange(parseFloat(e.target.value))} />
+        <Range id={id} min={p.min ?? 0} max={p.max ?? 1} step={p.step} value={n} onValue={onChange} />
       </div>
     );
   }
@@ -158,8 +159,8 @@ function ParamCtl({ p, v, onChange }: { p: CompDef['params'][number]; v: string 
       <Picker id={id} value={String(v)} label={p.label} labelId={id + '-l'} options={p.opts!.map(([value, label]) => ({ value, label }))} onChange={onChange} /></div>
   );
   if (p.type === 'color') return (
-    <div className="ctl"><label className="lbl" htmlFor={id}>{p.label}</label>
-      <span className="row"><span className="val">{String(v).toUpperCase()}</span><span className="swatch" style={{ background: String(v) }}><input id={id} type="color" value={String(v) || '#ffffff'} onChange={e => onChange(e.target.value)} /></span></span></div>
+    <div className="ctl"><span className="lbl" id={id + '-l'}>{p.label}</span>
+      <ColorField value={String(v) || '#ffffff'} label={p.label} labelId={id + '-l'} onChange={onChange} /></div>
   );
   if (p.type === 'area') return (
     <div className="ctl"><label className="lbl" htmlFor={id}>{p.label}</label><textarea id={id} rows={3} value={String(v)} onChange={e => onChange(e.target.value)} /></div>

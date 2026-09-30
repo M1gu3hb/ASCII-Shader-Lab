@@ -38,21 +38,19 @@ describe('live-wire', () => {
     const W = 1024, H = 768;
     const luma = new Float32Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) luma[y * W + x] = x < 400 ? 0.2 : 0.8;
-    const t0 = performance.now();
     const m = costMapFromLuma(luma, W, H);
-    const build = performance.now() - t0;
     const seed = 300 * W + 400;
     const s = wireSearch(m, seed, 320);
     // a short move along the edge
     const target = 360 * W + 400;
-    const t1 = performance.now();
     expect(s.reach(target)).toBe(true);
-    const move = performance.now() - t1;
     const path = s.path(target);
     for (const i of path) expect(Math.abs((i % W) - 400)).toBeLessThanOrEqual(1);
-    // lab numbers (this machine): the map ≈100–200 ms once per activation, a move well under a frame
-    expect(move).toBeLessThan(40);
-    expect(build).toBeLessThan(2000);
+    // snappy is how much a move settles, not the wall clock of a busy machine: along an edge the search
+    // stops at the target, a few hundred pixels of its 641×641 window (≈900; the same move on a flat picture
+    // settles ≈10 600, the whole window 410 881). Lab numbers (this machine, idle): the map ≈100–200 ms once
+    // per activation, this move 5–15 ms.
+    expect(s.count).toBeLessThan(3000);
   });
 
   it('stays inside its window and reports what it cannot reach', () => {

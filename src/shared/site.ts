@@ -24,8 +24,11 @@ export const REPO_URL = 'https://github.com/M1gu3hb/ASCII-Shader-Lab';
 
 export interface ShareImage { path: string; width: number; height: number; alt: string }
 
-/** 'paused': a page kept so old links do not break, out of the index (noindex, no canonical, no JSON-LD). */
-export type PageKind = 'home' | 'app' | 'guide' | 'doc' | 'error' | 'paused';
+/**
+ * 'paused': a page kept so old links do not break, out of the index (noindex, no canonical, no JSON-LD).
+ * 'viewer': the public page that shows a shared piece (/ver/): its own canonical and share image, never indexed.
+ */
+export type PageKind = 'home' | 'app' | 'guide' | 'doc' | 'error' | 'paused' | 'viewer';
 
 export interface SitePage {
   /** Vite input name. */
@@ -60,7 +63,7 @@ export interface Guide {
 }
 
 const og = (slug: string, alt: string): ShareImage => ({ path: `/ex/${slug}-og.jpg`, width: 1200, height: 630, alt });
-const SITE_IMAGE: ShareImage = { path: '/og.jpg', width: 1200, height: 630, alt: 'GLYPHOS: «Teje luz con caracteres», estudio de arte ASCII en tiempo real' };
+const SITE_IMAGE: ShareImage = { path: '/og.jpg', width: 1200, height: 630, alt: 'GLYPHOS: «Haz arte ASCII», sobre ondas azules hechas de caracteres' };
 
 export const GUIDES: Guide[] = [
   {
@@ -85,7 +88,7 @@ export const GUIDES: Guide[] = [
     id: 'texto', path: '/texto-animado-ascii/', short: 'Texto', name: 'Texto animado en ASCII',
     blurb: 'Palabras rellenas de patrón y mensajes que se escriben solos.',
     cta: { href: '/studio/?camino=palabra', label: 'Animar una palabra' },
-    poster: '/ex/texto-animado-ascii', posterAlt: 'La palabra SEÑAL rellena de un patrón de plasma en caracteres rosas y cian',
+    poster: '/ex/texto-animado-ascii', posterAlt: 'La palabra GLYPHOS hecha de caracteres que van del rosa al cian, con las letras en ola',
   },
   {
     id: 'terminal', path: '/arte-ascii-terminal/', short: 'Terminal', name: 'Arte ASCII para terminal',
@@ -151,6 +154,13 @@ export const sitePages = (foto: boolean): SitePage[] => [
     id: 'licencia', file: 'licencia/index.html', path: '/licencia/', kind: 'doc', crumb: 'Licencia y uso', sitemap: true, image: SITE_IMAGE,
     title: 'Licencia y uso · GLYPHOS',
     description: 'Lo que creas con GLYPHOS es tuyo. El código exportado es MIT-0 y el del editor, MIT. La marca no se licencia. Terceros, tipografías y tus archivos.',
+  },
+  {
+    // a shared piece travels in the address's fragment, which crawlers never see: the page is the same shell
+    // for every piece (brand image, never indexed), and the piece is drawn in the visitor's browser
+    id: 'ver', file: 'ver/index.html', path: '/ver/', kind: 'viewer', crumb: 'Pieza compartida', sitemap: false, image: SITE_IMAGE,
+    title: 'Una pieza de arte ASCII · GLYPHOS',
+    description: 'Una pieza de arte ASCII hecha con GLYPHOS, a pantalla completa y tal como se compartió. Ábrela en el estudio para editarla o crear la tuya.',
   },
   {
     id: 'notfound', file: '404.html', path: '/404.html', kind: 'error', crumb: 'Página no encontrada', sitemap: false, image: SITE_IMAGE,

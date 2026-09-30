@@ -87,6 +87,9 @@ test.describe('bienvenida', () => {
     const ctx = await browser.newContext();
     const other = await ctx.newPage();
     await other.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+    // (shared links open the public viewer; its «Abrir en el estudio» brings the piece here)
+    await other.getByRole('link', { name: 'Abrir en el estudio' }).click();
+    await expect(other.locator('.seedline')).toBeVisible({ timeout: 45_000 });
     await expect(other.locator('.seedline')).toContainText('Desde un enlace');
     await expect(other.locator('dialog.welcome[open]')).toHaveCount(0);
     await ctx.close();
@@ -197,7 +200,7 @@ test.describe('caminos', () => {
     await expect(page.getByRole('tablist', { name: 'Secciones' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Color' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tab', { name: 'Color' })).toBeFocused();
-    await page.getByRole('tab', { name: 'Fuente' }).click();
+    await page.getByRole('tab', { name: 'Origen' }).click();
     await expect(page.locator('.panel').getByText('paisaje-de-ejemplo.png')).toBeVisible();
     await expect(page.locator('.seedline .ell')).toHaveText('Periódico');
     expect(errors).toEqual([]);
@@ -214,7 +217,7 @@ test.describe('caminos', () => {
     await expect(page.getByRole('button', { name: 'Fondos', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
     // 1 · a style, or another one from the dice
-    await guide(page).getByRole('button', { name: 'Marea' }).click();
+    await guide(page).getByRole('button', { name: 'Marea', exact: true }).click();
     await expect(page.locator('.seedline .ell')).toHaveText('Marea');
     const n = await page.locator('.thumb').count();
     await guide(page).getByRole('button', { name: 'Otro al azar' }).click();
@@ -329,7 +332,7 @@ test.describe('caminos', () => {
     await page.getByRole('button', { name: 'Guías' }).click();
     await welcome(page).getByRole('button', { name: 'Animar una palabra' }).click();
     await expect(stepTitle(page)).toContainText('Escribe tu palabra');
-    await expect(page.getByRole('button', { name: 'Tipo', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Texto', exact: true })).toHaveAttribute('aria-pressed', 'true');
     // going to another space lets the guide step aside, with the piece and the panel
     await page.getByRole('button', { name: 'Arte', exact: true }).click();
     await expect(guide(page)).toHaveCount(0);
@@ -345,7 +348,8 @@ test.describe('comparar', () => {
     await page.waitForTimeout(600);
     const dark = await stageLuma(page);
     await page.getByRole('tab', { name: 'Color' }).click();
-    await page.locator('.palettes').getByRole('button', { name: 'Papel' }).click();
+    await page.getByRole('button', { name: 'Clásicas', exact: true }).click();
+    await page.getByRole('button', { name: 'Paleta Papel', exact: true }).click();
     await expect(page.locator('.seedline')).toContainText('editado');
     await page.waitForTimeout(600);
     const light = await stageLuma(page);
