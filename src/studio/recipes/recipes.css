@@ -1,5 +1,5 @@
-/* The recipe line and the recipe browser (lane: recetas). Class names of their own (rx-…), so the older
-   rules for .recipes and .chip never reach them. The piece stays the protagonist: pictures are quiet until
+/* The recipe line and the recipe browser (lane: recetas). Class names of their own (rx-…), so the generic
+   .chip rules (the colour editor's shelves use them) never reach them. The piece stays the protagonist: pictures are quiet until
    hovered or focused, vermilion only marks the piece's own recipe and the filter chosen. */
 
 /* ---------- a recipe's picture ---------- */
