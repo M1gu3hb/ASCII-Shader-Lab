@@ -3,6 +3,7 @@ import { deflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
 import { crc32, unzip, zip } from '../../src/shared/zip';
 import { download, openStudio } from './helpers';
+import { FOTO_PAUSED, FOTO_STUDIO } from './foto-helpers';
 
 /** A small real PNG (gradient in one colour), made here so the tests need no fixtures. */
 function png(w: number, h: number, rgb: [number, number, number]): Buffer {
@@ -126,7 +127,7 @@ test.describe('historial y medios locales', () => {
     await b.close();
   });
 
-  test('un proyecto o un ajuste del estudio de foto (también .glyphos) se reconoce y lleva allí, sin tocar el historial', async ({ page }) => {
+  test('un proyecto o un ajuste del estudio de foto (también .glyphos) se reconoce y lleva allí (o dice que está en revisión), sin tocar el historial', async ({ page }) => {
     await openStudio(page);
     const before = await page.locator('.seedline').textContent();
     // what the photo studio writes (src/project/file.ts, src/project/presets.ts): same ending as a lab project
@@ -136,17 +137,31 @@ test.describe('historial y medios locales', () => {
     const note = page.locator('.toast').filter({ hasText: 'proyecto del estudio de foto y video' });
     await expect(note).toBeVisible();
     await expect(page.locator('.toast').filter({ hasText: 'no es un proyecto' })).toHaveCount(0);
-    await expect(note.getByRole('button', { name: 'Ir al estudio de foto' })).toBeVisible();
+    // while the photo studio is paused: it says so, that the file is intact, and offers no way to a page in review
+    if (!FOTO_STUDIO) {
+      await expect(note).toContainText('en revisión y todavía no está disponible');
+      await expect(note).toContainText('el archivo está intacto');
+      await expect(note.getByRole('button')).toHaveCount(0);
+    } else await expect(note.getByRole('button', { name: 'Ir al estudio de foto' })).toBeVisible();
     // its JSON alone, and a saved setting, say the same kind of thing
     await drop(page, 'ajuste.glyphos-ajuste.json', 'application/json', Buffer.from(JSON.stringify({ glyphos: 'ajuste', version: 1, preset: { name: 'Mío', layers: [] } })));
-    await expect(page.locator('.toast').filter({ hasText: 'ajuste del estudio de foto y video' })).toBeVisible();
+    const setting = page.locator('.toast').filter({ hasText: 'ajuste del estudio de foto y video' });
+    await expect(setting).toBeVisible();
     await expect(page.locator('.toast').filter({ hasText: 'no parece una receta' })).toHaveCount(0);
     await expect(page.locator('.seedline')).toHaveText(before ?? '');
+    if (!FOTO_STUDIO) {
+      await expect(setting).toContainText('en revisión');
+      await expect(setting).toContainText('el archivo está intacto');
+      await expect(setting.getByRole('button')).toHaveCount(0);
+      expect(new URL(page.url()).pathname).toBe('/studio/');
+      return;
+    }
     await note.getByRole('button', { name: 'Ir al estudio de foto' }).click();
     await expect(page).toHaveURL(/\/studio\/foto\/$/);
   });
 
   test('«Llevar al estudio de foto» con una foto que el navegador no guardó lo dice, en lugar de abrir un proyecto sin ella', async ({ page }) => {
+    test.skip(!FOTO_STUDIO, FOTO_PAUSED);
     await openStudio(page);
     await page.keyboard.press('3'); // Imagen
     await drop(page, 'foto-a.png', 'image/png', A);

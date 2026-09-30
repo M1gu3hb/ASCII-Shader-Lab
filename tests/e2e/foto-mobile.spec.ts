@@ -1,11 +1,12 @@
 import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { finalRender, framePoint, installTestTool, openFoto, project } from './foto-helpers';
+import { needsFotoStudio, finalRender, framePoint, installTestTool, openFoto, project } from './foto-helpers';
 
 /**
  * The photo studio on a phone (Pixel 7, touch): immersive by default (the art and four actions), the
  * tools sheet with snap points that keeps the art in view, two fingers pan and zoom (and cancel a tool's
  * gesture), one finger reaches the tool (or pans when no tool draws).
  */
+needsFotoStudio();
 
 type Pt = { x: number; y: number };
 async function touch(client: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', points: Pt[]) {

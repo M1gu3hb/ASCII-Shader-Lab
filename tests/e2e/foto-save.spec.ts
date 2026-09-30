@@ -2,12 +2,13 @@ import { copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { download } from './helpers';
-import { finalRender, openFoto, project, settle, startFromPhoto } from './foto-helpers';
+import { needsFotoStudio, finalRender, openFoto, project, settle, startFromPhoto } from './foto-helpers';
 
 /**
  * Keeping work: autosave (a reload reopens the same project with the same pixels), the project file
  * (.glyphos.zip) round trip, and the recent projects (open, duplicate, rename, delete with undo).
  */
+needsFotoStudio();
 
 test('se guarda solo: al recargar vuelve el mismo proyecto con los mismos píxeles', async ({ page }) => {
   const errors = await openFoto(page);

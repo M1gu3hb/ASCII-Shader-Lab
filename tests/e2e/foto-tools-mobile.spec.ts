@@ -1,5 +1,5 @@
 import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { finalRender, framePoint, openFoto, project } from './foto-helpers';
+import { needsFotoStudio, finalRender, framePoint, openFoto, project } from './foto-helpers';
 
 /**
  * The integrated studio on a phone (Pixel 7, touch) with the real tools: the labelled palette in the sheet,
@@ -7,6 +7,7 @@ import { finalRender, framePoint, openFoto, project } from './foto-helpers';
  * gesture and zooms instead; the compact timeline in the sheet's «Tiempo» tab and the play button over
  * the art; one notice at a time, in one line.
  */
+needsFotoStudio();
 
 type Pt = { x: number; y: number };
 async function touch(client: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', points: Pt[]) {

@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { finalRender, framePoint, openFoto, project, settle } from './foto-helpers';
+import { needsFotoStudio, finalRender, framePoint, openFoto, project, settle } from './foto-helpers';
 
 /**
  * Exploring: the dice (button, space tap, →), locks, versions with thumbnails, previous/next, favourites,
  * linked variants (a roll from an older version is its child), compare two versions and restore exactly.
  */
+needsFotoStudio();
 
 type V = { id: string; kind: string; parent?: string; fav: boolean; thumb?: string; project: unknown };
 const versions = (page: Page) => page.evaluate(() => (window as unknown as { __foto: { store(): { versions: { list: V[]; cursor: number } } } }).__foto.store().versions) as Promise<{ list: V[]; cursor: number }>;

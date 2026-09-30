@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { finalRender, framePoint, installTestTool, meanIn, openFoto, project, renderCount, settle, startFromPhoto } from './foto-helpers';
+import { needsFotoStudio, finalRender, framePoint, installTestTool, meanIn, openFoto, project, renderCount, settle, startFromPhoto } from './foto-helpers';
 
 /**
  * The photo studio's editor: a project from a photo, an ASCII layer masked through the tool routing (a
  * spec-local test tool: pointer events in frame units, live preview, one undo step per gesture, keyboard
  * use), layer order, opacity, blend and visibility, finishes, and undo/redo.
  */
+needsFotoStudio();
 
 test('una foto, una capa ASCII con máscara dibujada por la herramienta, deshacer y rehacer', async ({ page }) => {
   const errors = await openFoto(page);

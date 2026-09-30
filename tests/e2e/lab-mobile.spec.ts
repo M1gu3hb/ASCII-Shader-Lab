@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Browser, type Page } from '@playwright/test';
 import { dismissWelcome } from './helpers';
+import { FOTO_STUDIO } from './foto-helpers';
 
 /**
  * The lab on a phone held upright (360–430 px wide) and on its side: the piece takes the screen between
@@ -271,6 +272,8 @@ for (const width of [320, 344, 360, 390]) {
     await expect(page.locator('dialog.sheet[open]')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('dialog.sheet[open]')).toHaveCount(0);
+    // while the photo studio is paused (VITE_FOTO_STUDIO unset) the bar has no switch and no menu
+    if (!FOTO_STUDIO) { await expect(page.getByRole('button', { name: 'Foto y video' })).toHaveCount(0); expect(errors).toEqual([]); await ctx.close(); return; }
     // the photo studio: its menu opens from the bar, whole on screen (8 px from the edge at least)
     await page.getByRole('button', { name: 'Foto y video' }).tap();
     const menu = page.getByRole('menu');

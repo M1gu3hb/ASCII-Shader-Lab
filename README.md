@@ -4,11 +4,11 @@
 
 GLYPHOS es un estudio de arte ASCII en tiempo real que corre en el navegador: fondos animados para web, composiciones abstractas, imagen, video y cámara convertidos en caracteres, tipografía animada, piezas para terminal y una biblioteca de componentes listos para insertar. Todo se puede guardar, reabrir, compartir y exportar como archivo o como código que funciona.
 
-Son dos experiencias con la misma tecnología: el **laboratorio** (`/studio/`), donde el dado teje piezas completas, y el **estudio de foto y video** (`/studio/foto/`), donde tu foto o tu video se vuelven capas y sólo las partes que eliges pasan a caracteres (ver [«Estudio de foto y video»](#estudio-de-foto-y-video)). El interruptor «Laboratorio ⇄ Foto y video» está en las dos barras superiores.
+El sitio público es el **laboratorio** (`/studio/`), donde el dado teje piezas completas y tu imagen, tu video o tu cámara se vuelven caracteres. El **estudio de foto y video** (`/studio/foto/`), donde tu foto o tu video se vuelven capas y sólo las partes que eliges pasan a caracteres, está **en revisión**: el código sigue aquí, pero la compilación pública no lo enlaza ni lo indexa, y su dirección muestra una página «en revisión» (ver [«Estudio de foto y video»](#estudio-de-foto-y-video)).
 
 - Sitio: https://glyphos-ascii.vercel.app (`monotrama.vercel.app` y `ascii-shader-lab.vercel.app` redirigen aquí, con la misma ruta y el mismo enlace).
 - Antes se llamó **Monotrama**: sus recetas (`.monotrama.json`), proyectos (`.monotrama.zip`), sesiones, colecciones, enlaces y el código exportado (`<monotrama-field>`, `Monotrama.mount`) siguen abriéndose y funcionando. Lo nuevo sale como GLYPHOS (`.glyphos.json`, `.glyphos.zip`, `<glyphos-field>`, `Glyphos.mount`). Marca: `public/brand/glyphos/`.
-- Laboratorio: `/studio/` · Foto y video: `/studio/foto/` · Guías: `/imagen-a-ascii/`, `/video-a-ascii/`, `/fondos-ascii/`, `/texto-animado-ascii/`, `/arte-ascii-terminal/` · Licencia: `/licencia/`.
+- Laboratorio: `/studio/` · Foto y video (en revisión): `/studio/foto/` · Guías: `/imagen-a-ascii/`, `/video-a-ascii/`, `/fondos-ascii/`, `/texto-animado-ascii/`, `/arte-ascii-terminal/` · Licencia: `/licencia/`.
 - El prototipo original de un solo archivo se conserva en [`legacy/ASCII Shader Lab.html`](legacy/ASCII%20Shader%20Lab.html); sus ajustes JSON se abren en el estudio.
 
 Desarrollado por [Morphiq](https://morphiq.com.mx).
@@ -26,6 +26,8 @@ npm test               # pruebas unitarias (Vitest)
 npm run test:e2e       # pruebas de punta a punta (Playwright, contra el build)
 npm run check          # tipos + unitarias + build
 npm run verify:exports # verificador de exportaciones (ver abajo)
+VITE_FOTO_STUDIO=1 npm run dev    # con el estudio de foto y video (en revisión; sin la variable, /studio/foto/ dice «en revisión»)
+VITE_FOTO_STUDIO=1 npm run build  # compilación con el estudio de foto y video, sus enlaces y su entrada en el sitemap
 ```
 
 - Las pruebas e2e usan Chromium de Playwright con WebGL por software (SwiftShader); funcionan sin GPU. `PW_PORT` cambia el puerto (útil con varias copias a la vez) y `BASE_URL=https://glyphos-ascii.vercel.app npm run test:e2e` las corre contra el sitio publicado.
@@ -146,7 +148,7 @@ Verificado sobre la versión final con herramientas reales (identify/compare, rs
 
 ### Sitio público y SEO
 
-- `src/shared/site.ts` es la única fuente de URLs, títulos, descripciones e imágenes sociales; `scripts/seo-plugin.ts` genera en el build las etiquetas `<head>` (canonical, Open Graph, Twitter), el JSON-LD (WebSite, Organization, WebApplication, WebPage, BreadcrumbList), `robots.txt`, `sitemap.xml` y la cabecera y el pie compartidos. Para añadir una página: entrada en `PAGES` + HTML con `<!-- @head -->`.
+- `src/shared/site.ts` es la única fuente de URLs, títulos, descripciones e imágenes sociales, y de `FOTO_STUDIO` (`VITE_FOTO_STUDIO=1` en el entorno de la compilación; sin ella el estudio de foto y video está en pausa: fuera del sitemap, sin JSON-LD, `noindex`, y los bloques `<!-- @foto-on -->…<!-- @foto-end -->` de las páginas desaparecen mientras los `@foto-off` aparecen). La variable va en el entorno, no en un `.env`: el build se detiene si la encuentra sólo ahí; `scripts/seo-plugin.ts` genera en el build las etiquetas `<head>` (canonical, Open Graph, Twitter), el JSON-LD (WebSite, Organization, WebApplication, WebPage, BreadcrumbList), `robots.txt`, `sitemap.xml` y la cabecera y el pie compartidos. Para añadir una página: entrada en `PAGES` + HTML con `<!-- @head -->`.
 - La portada muestra las creaciones del propio estudio: un escenario vivo con los seis espacios (pestañas con teclado), un dado que funciona con su historial y una hoja de contactos de 14 tiradas, y los archivos reales exportados de una misma pieza por destino. Sus islas se cargan cerca de su sección cuando la página está en reposo (un clic anterior se repite al montar), como mucho 3 lienzos WebGL vivos y en pausa fuera de pantalla. Los tamaños de archivo que cita salen de `public/ex/salidas/manifest.json` (`@salida:clave`), así que nunca citan un número viejo.
 - **Search Console**: define la variable `GOOGLE_SITE_VERIFICATION` en Vercel (sólo el valor de `content="…"`) y vuelve a desplegar; la etiqueta aparece en todas las páginas. Luego envía `https://glyphos-ascii.vercel.app/sitemap.xml`.
 
@@ -176,6 +178,8 @@ Qué se hizo: motor básico, hoja de exportación, colección, componentes y cod
 - Revisión con axe (sin incidencias graves ni críticas), foco visible y atrapado en los diálogos, teclado completo (atajos con `?`), objetivos táctiles de 44 px en teléfonos, hoja de ajustes con asa sobre el dado.
 
 ## Estudio de foto y video
+
+> **En revisión.** La compilación pública (sin variables) no lo enlaza ni lo promociona: no hay tarjeta en la portada, ni interruptor «Laboratorio ⇄ Foto y video», ni «Llevar al estudio de foto»; no está en el sitemap ni en los datos estructurados. `/studio/foto/` responde con una página estática «en revisión» (`noindex`, sin scripts: no carga el estudio ni toca los proyectos guardados en el navegador) que lleva al laboratorio y a la portada; el laboratorio conserva imagen, video y cámara, y si recibe un proyecto (`.glyphos.zip` con `proyecto.glyphos.json`) o un ajuste (`.glyphos-ajuste.json`) del estudio dice que el estudio está en revisión y que el archivo está intacto. Con `VITE_FOTO_STUDIO=1` todo vuelve a ser como se describe abajo. Pendientes y hallazgos para su próxima fase: [`docs/ESTUDIO-FOTO-VIDEO-PENDIENTES.md`](docs/ESTUDIO-FOTO-VIDEO-PENDIENTES.md). Sus pruebas (`tests/e2e/foto-*.spec.ts`) se omiten en la compilación normal y corren con `VITE_FOTO_STUDIO=1 PW_PORT=<puerto libre> npx playwright test foto-`.
 
 `/studio/foto/` es un editor no destructivo: tu foto o tu video quedan intactos y todo lo demás son capas que se pueden cambiar, ocultar o quitar.
 
@@ -219,7 +223,7 @@ Qué se hizo: motor básico, hoja de exportación, colección, componentes y cod
 
 ## Despliegue
 
-Proyecto de Vercel **`ascii-shader-lab`** conectado a este repositorio: **cada push a `main` publica producción**; las demás ramas generan vistas previas. `vercel.json` fija cabeceras de seguridad, caché y la redirección de `ascii-shader-lab.vercel.app`.
+Proyecto de Vercel **`ascii-shader-lab`** conectado a este repositorio: **cada push a `main` publica producción**; las demás ramas generan vistas previas. `vercel.json` fija cabeceras de seguridad, caché y la redirección de `ascii-shader-lab.vercel.app`. Producción se compila sin `VITE_FOTO_STUDIO` (estudio de foto y video en revisión); una vista previa con el estudio necesita esa variable en su compilación (ver `docs/ESTUDIO-FOTO-VIDEO-PENDIENTES.md`).
 
 ## Decisiones importantes
 

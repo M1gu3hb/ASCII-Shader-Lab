@@ -1,10 +1,11 @@
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { finalRender, openFoto, project, settle } from './foto-helpers';
+import { needsFotoStudio, finalRender, openFoto, project, settle } from './foto-helpers';
 
 /**
  * Other ways in: a video (opened, shown, stepped through in its timeline with the preview provider) and the camera (front = mirrored by default, the person's choice kept, the photo as previewed).
  */
+needsFotoStudio();
 
 test.use({ launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } });
 

@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { fileUrl, MODELS, variantFiles } from '../../src/cutout/models';
 import { download } from './helpers';
-import { PHOTO, PHOTO2, finalRender, framePoint, meanIn, openFoto, project, settle } from './foto-helpers';
+import { needsFotoStudio, PHOTO, PHOTO2, finalRender, framePoint, meanIn, openFoto, project, settle } from './foto-helpers';
 
 /**
  * Video editing in the photo and video studio (/studio/foto/, production build), with test clips made in the page
@@ -38,6 +38,7 @@ import { PHOTO, PHOTO2, finalRender, framePoint, meanIn, openFoto, project, sett
  * The model tests need the local copy (.cache/modelos; skipped with the command that makes it otherwise); Hugging Face
  * is never contacted (its pinned URLs are routed to a local file server, as in foto-studio.spec.ts).
  */
+needsFotoStudio();
 
 type W = Window & { __foto: Record<string, any>; __fotoVideo: Record<string, any>; __fotoExport: Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
 interface Clip { b64: string; name: string; spec: { w: number; h: number; fps: number; seconds: number; onset: number; freq: number; audio: boolean; size: number }; codec: string }

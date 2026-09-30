@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { finalRender, openFoto } from './foto-helpers';
+import { needsFotoStudio, finalRender, openFoto } from './foto-helpers';
 
 /**
  * A video on the phone (Pixel 7, the «mobile» project): the studio opens it, the play button that rides with the
@@ -7,6 +7,7 @@ import { finalRender, openFoto } from './foto-helpers';
  * sheet's «Tiempo» tab shows it. Regression: the video clock hands out a new state object on each call, and the
  * phone's play button read it through React's store hook, which then looped until React gave up (error #185).
  */
+needsFotoStudio();
 
 type W = Window & { __foto: Record<string, any>; __fotoVideo: Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
 

@@ -2,8 +2,8 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ARCHETYPES } from '../../src/random/archetypes';
-import { GUIDES, MORPHIQ, PAGES, SITE_URL } from '../../src/shared/site';
-import { cleanVerification, contactSheet, fmtBytes, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, salida, shortUsage, sitemapXml } from '../../scripts/seo';
+import { FOTO_STUDIO, GUIDES, MORPHIQ, PAGES, SITE_URL, fotoPage, sitePages } from '../../src/shared/site';
+import { cleanVerification, contactSheet, fmtBytes, fotoBlocks, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, salida, shortUsage, sitemapXml } from '../../scripts/seo';
 import { PATTERNS } from '../../src/engine/catalog';
 import { CONTACTS, contactSrc } from '../../src/landing/contacts';
 import { PRESETS } from '../../src/studio/presets';
@@ -14,7 +14,7 @@ const graphOf = (id: string) => (JSON.parse(jsonForScript(jsonLd(page(id)))) as 
 
 describe('site pages', () => {
   it('every page has an HTML source with the head directive, and an honest-length title and description', () => {
-    for (const p of PAGES) {
+    for (const p of [...sitePages(true), ...sitePages(false)]) {
       const html = readFileSync(join(root, p.file), 'utf8');
       expect(html, p.file).toContain('<!-- @head -->');
       expect(html, p.file).not.toMatch(/<title>/);
@@ -50,12 +50,29 @@ describe('site pages', () => {
 });
 
 describe('sitemap and robots', () => {
+  const PUBLIC = ['/', '/studio/', '/studio/foto/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
+  const locsOf = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+
   it('lists absolute canonical URLs with a trailing slash, landing first', () => {
-    const xml = sitemapXml('2026-09-27');
-    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-    expect(locs).toEqual(['/', '/studio/', '/studio/foto/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'].map(p => SITE_URL + p));
+    const xml = sitemapXml('2026-09-27', sitePages(true));
+    expect(locsOf(xml)).toEqual(PUBLIC.map(p => SITE_URL + p));
     expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(9);
     expect(xml).not.toContain('404');
+  });
+
+  it('leaves the photo studio out while it is paused (VITE_FOTO_STUDIO unset), and the build uses the flag', () => {
+    const xml = sitemapXml('2026-09-27', sitePages(false));
+    expect(locsOf(xml)).toEqual(PUBLIC.filter(p => p !== '/studio/foto/').map(p => SITE_URL + p));
+    expect(xml).not.toContain('/studio/foto/');
+    // the page itself still exists (old links do not 404): same file and path, out of the index
+    const paused = sitePages(false).find(p => p.id === 'foto')!;
+    expect(paused).toMatchObject({ file: 'studio/foto/index.html', path: '/studio/foto/', kind: 'paused', sitemap: false });
+    expect(sitePages(true).find(p => p.id === 'foto')).toMatchObject({ kind: 'app', sitemap: true });
+    expect(sitePages(false).map(p => p.id)).toEqual(sitePages(true).map(p => p.id));
+    // one source of truth: the default build (no variable) pauses it, and PAGES and the sitemap follow the flag
+    expect(FOTO_STUDIO).toBe(process.env.VITE_FOTO_STUDIO === '1');
+    expect(PAGES).toEqual(sitePages(FOTO_STUDIO));
+    expect(sitemapXml('2026-09-27').includes('/studio/foto/')).toBe(FOTO_STUDIO);
   });
 
   it('robots allows everything and points to the absolute sitemap', () => {
@@ -78,6 +95,21 @@ describe('head tags', () => {
     expect(h).toContain('<meta name="robots" content="noindex">');
     expect(h).not.toContain('canonical');
     expect(h).not.toContain('application/ld+json');
+  });
+
+  it('keeps the paused photo studio out of the index: noindex, no canonical, no share tags, no structured data', () => {
+    const paused = fotoPage(false);
+    const h = headTags(paused);
+    expect(h).toContain('<meta name="robots" content="noindex">');
+    expect(h).toContain('<title>Estudio de foto y video en revisión · GLYPHOS</title>');
+    for (const no of ['canonical', 'og:', 'twitter:', 'application/ld+json']) expect(h).not.toContain(no);
+    expect(jsonLd(paused)).toBeNull();
+    // public again, it describes itself as before
+    const on = headTags(fotoPage(true));
+    expect(on).toContain(`<link rel="canonical" href="${SITE_URL}/studio/foto/">`);
+    expect(on).not.toContain('noindex');
+    const app = (jsonLd(fotoPage(true)) as { '@graph': Array<Record<string, unknown>> })['@graph'][0];
+    expect(app).toMatchObject({ '@type': 'WebApplication', '@id': `${SITE_URL}/studio/foto/#app`, url: `${SITE_URL}/studio/foto/` });
   });
 
   it('adds the Search Console tag only for a well-formed token', () => {
@@ -144,6 +176,46 @@ describe('directives', () => {
 
   it('rejects unknown directives instead of shipping them', () => {
     expect(() => renderPage('<!-- @hed -->', page('main'), opts)).toThrow(/@hed/);
+  });
+
+  it('keeps @foto-on blocks only with the photo studio public and @foto-off ones only while it is paused', () => {
+    const html = 'a<!-- @foto-on -->ON<!-- @foto-end -->b<!-- @foto-off -->OFF<!-- @foto-end -->c';
+    expect(fotoBlocks(html, true)).toBe('aONbc');
+    expect(fotoBlocks(html, false)).toBe('abOFFc');
+    expect(renderPage(html, page('main'), { ...opts, foto: false })).toBe('abOFFc');
+    // blocks do not nest, and a block left open (or a stray end) is an error, not shipped
+    expect(() => fotoBlocks('<!-- @foto-on --><!-- @foto-off -->x<!-- @foto-end --><!-- @foto-end -->', true)).toThrow(/anidan/);
+    expect(() => renderPage('<!-- @foto-on -->x', page('main'), { ...opts, foto: true })).toThrow(/@foto-on/);
+    expect(() => renderPage('x<!-- @foto-end -->', page('main'), { ...opts, foto: false })).toThrow(/@foto-end/);
+  });
+
+  it('while paused, no public page links to the photo studio, and its page is the «en revisión» one without the app', () => {
+    const readPublic = (p: string) => readFileSync(join(root, 'public', p), 'utf8');
+    for (const foto of [false, true]) {
+      for (const p of sitePages(foto)) {
+        const out = renderPage(readFileSync(join(root, p.file), 'utf8'), p, { readPublic, foto });
+        expect(out, p.file).not.toMatch(/<!--\s*@/);
+        if (!foto && p.id !== 'foto') expect(out, p.file).not.toContain('/studio/foto');
+      }
+    }
+    const fotoHtml = readFileSync(join(root, 'studio/foto/index.html'), 'utf8');
+    const off = renderPage(fotoHtml, fotoPage(false), { readPublic, foto: false });
+    expect(off).toContain('data-foto-review');
+    expect(off).toContain('<meta name="robots" content="noindex">');
+    expect(off).not.toMatch(/<script(?![^>]*application\/ld\+json)/);
+    expect(off).not.toContain('src/foto');
+    expect(off).toContain('href="/studio/"');
+    expect(off).toContain('href="/"');
+    expect(off.match(/<h1[\s>]/g)).toHaveLength(1);
+    const on = renderPage(fotoHtml, fotoPage(true), { readPublic, foto: true });
+    expect(on).toContain('<script type="module" src="/src/foto/main.tsx"></script>');
+    expect(on).not.toContain('data-foto-review');
+    // the landing's card and the licence's wording follow the flag
+    const landing = readFileSync(join(root, 'index.html'), 'utf8');
+    expect(renderPage(landing, page('main'), { readPublic, foto: true })).toContain('href="/studio/foto/"');
+    const licence = readFileSync(join(root, 'licencia/index.html'), 'utf8');
+    expect(renderPage(licence, page('licencia'), { readPublic, foto: false })).toContain('en revisión y todavía no está disponible');
+    expect(renderPage(licence, page('licencia'), { readPublic, foto: true })).not.toContain('en revisión');
   });
 });
 
