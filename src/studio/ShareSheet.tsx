@@ -196,7 +196,10 @@ export function ShareSheet() {
   const opened = useShare(s => s.opened);
   const close = () => useShare.setState({ target: null });
   return (
-    <Sheet open={!!target} onClose={close} title="Compartir" sub="Un enlace público abre esta pieza a pantalla completa, tal como la ves aquí.">
+    <Sheet open={!!target} onClose={close} title="Compartir"
+      sub={target && ownMedia(target.recipe)
+        ? `Esta pieza usa ${target.recipe.source === 'video' ? 'tu video' : 'tu imagen'}: el enlace abre su estilo a pantalla completa, sin ${target.recipe.source === 'video' ? 'el video' : 'la imagen'}.`
+        : 'Un enlace público abre esta pieza a pantalla completa, tal como la ves aquí.'}>
       {target && <ShareBody key={opened} target={target} onClose={close} />}
     </Sheet>
   );
@@ -260,6 +263,29 @@ function ShareBody({ target, onClose }: { target: Target; onClose: () => void })
 
   return (
     <div className="sheet-body shr-body">
+      {/* what does not travel, said first: before anything is copied or sent */}
+      {media && (
+        <section className="shr-media" aria-labelledby="shr-media-h">
+          <h3 className="shr-h" id="shr-media-h">{video ? 'Tu video no viaja en el enlace' : 'Tu imagen no viaja en el enlace'}</h3>
+          <p>
+            {media.name ? <>«{media.name}» </> : video ? 'Tu video ' : 'Tu imagen '}se queda en tu navegador: nada se sube a ningún servidor.
+            {' '}Quien abra el enlace verá el estilo con el patrón de fondo, como en la vista previa. Para que vea {word}, envíale un archivo:
+          </p>
+          <div className="shr-media-acts">
+            {video
+              ? <button type="button" className="btn" onClick={() => toExport('video')}>Video o GIF…</button>
+              : <button type="button" className="btn" onClick={() => void pngWithMedia()} disabled={busy === 'png'}>{busy === 'png' ? 'Creando la imagen…' : 'Imagen PNG con tu imagen'}</button>}
+            <button type="button" className="btn" onClick={() => void exportProject(r, pieceFileBase(r))}>Proyecto (.zip) con {video ? 'el video' : 'la imagen'}</button>
+          </div>
+          {fresh?.file
+            ? <p className="shr-saved">Guardado: <b>{fresh.name}</b> <button type="button" className="btn primary" onClick={() => { if (fresh.file) void shareFile(fresh.file); }}>Compartir archivo</button></p>
+            : fresh ? <p className="note">Guardado en tus descargas: <b>{fresh.name}</b>. Envíalo desde ahí con la app que quieras.</p>
+              : <p className="note">Donde tu navegador lo permite, después eliges la app con «Compartir archivo»; si no, el archivo queda en tus descargas para enviarlo tú.</p>}
+        </section>
+      )}
+      {r.source === 'camera' && (
+        <p className="note shr-cam">Tu cámara nunca se comparte: quien abra el enlace verá el patrón de fondo, y en el estudio podrá usar su propia cámara.</p>
+      )}
       <div className="shr-main">
         <figure className="shr-prev" style={frame ? { aspectRatio: `${frame.w} / ${frame.h}` } : undefined}>
           {pic ? <img src={pic} alt={`Vista previa de lo que verá quien abra el enlace${media ? `, sin ${word}` : ''}`} /> : <span className="shr-prev-wait mt-spin" role="status">Preparando la vista previa…</span>}
@@ -292,29 +318,6 @@ function ShareBody({ target, onClose }: { target: Target; onClose: () => void })
           <p className="sr-only" role="status" ref={said} />
         </div>
       </div>
-
-      {media && (
-        <section className="shr-media" aria-labelledby="shr-media-h">
-          <h3 className="shr-h" id="shr-media-h">{video ? 'Tu video no viaja en el enlace' : 'Tu imagen no viaja en el enlace'}</h3>
-          <p>
-            {media.name ? <>«{media.name}» </> : video ? 'Tu video ' : 'Tu imagen '}se queda en tu navegador: nada se sube a ningún servidor.
-            {' '}Quien abra el enlace verá el estilo con el patrón de fondo, como en la vista previa. Para que vea {word}, envíale un archivo:
-          </p>
-          <div className="shr-media-acts">
-            {video
-              ? <button type="button" className="btn" onClick={() => toExport('video')}>Video o GIF…</button>
-              : <button type="button" className="btn" onClick={() => void pngWithMedia()} disabled={busy === 'png'}>{busy === 'png' ? 'Creando la imagen…' : 'Imagen PNG con tu imagen'}</button>}
-            <button type="button" className="btn" onClick={() => void exportProject(r, pieceFileBase(r))}>Proyecto (.zip) con {video ? 'el video' : 'la imagen'}</button>
-          </div>
-          {fresh?.file
-            ? <p className="shr-saved">Guardado: <b>{fresh.name}</b> <button type="button" className="btn primary" onClick={() => { if (fresh.file) void shareFile(fresh.file); }}>Compartir archivo</button></p>
-            : fresh ? <p className="note">Guardado en tus descargas: <b>{fresh.name}</b>. Envíalo desde ahí con la app que quieras.</p>
-              : <p className="note">Donde tu navegador lo permite, después eliges la app con «Compartir archivo»; si no, el archivo queda en tus descargas para enviarlo tú.</p>}
-        </section>
-      )}
-      {r.source === 'camera' && (
-        <p className="note shr-cam">Tu cámara nunca se comparte: quien abra el enlace verá el patrón de fondo, y en el estudio podrá usar su propia cámara.</p>
-      )}
 
       <h3 className="shr-h shr-more-h">Otras formas</h3>
       <div className="shr-cards">

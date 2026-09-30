@@ -53,7 +53,7 @@ dialog.sheet:has(.shr-body) { width: min(820px, calc(100vw - 24px)); }
 .shr-facts { margin: 10px 0 0 !important; }
 
 .shr-media {
-  margin: 16px 0 0; padding: 12px 14px; border: 1px solid rgba(255, 91, 31, .34); border-radius: 12px; background: var(--signal-soft);
+  margin: 0 0 16px; padding: 12px 14px; border: 1px solid rgba(255, 91, 31, .34); border-radius: 12px; background: var(--signal-soft);
 }
 .shr-media p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.5; color: var(--text); }
 .shr-media .note { color: var(--muted); margin: 8px 0 0; }
@@ -61,7 +61,7 @@ dialog.sheet:has(.shr-body) { width: min(820px, calc(100vw - 24px)); }
 .shr-media-acts .btn { width: auto; margin: 0; flex: 1 1 200px; min-height: 44px; }
 .shr-saved { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 0 !important; }
 .shr-saved .btn { width: auto; margin: 0; min-height: 44px; padding: 0 16px; }
-.shr-cam { margin: 12px 0 0; }
+.shr-cam { margin: 0 0 14px !important; }
 
 .shr-more-h { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
 .shr-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
