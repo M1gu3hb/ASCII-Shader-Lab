@@ -100,11 +100,16 @@ describe('playback clock without video (rAF time)', () => {
   it('never queues renders: a slow render drops frames instead', async () => {
     let calls = 0;
     pb = createPlayback({ project: photoProject(true), onFrame: () => { calls++; return wait(120); } });
+    const t0 = performance.now();
     await pb.play();
-    await wait(500);
+    // wait for enough frames rather than a fixed time: under a loaded CPU fewer frames arrive in 500 ms
+    for (let i = 0; i < 100 && pb.stats().emitted < 12; i++) await wait(50);
     pb.pause();
+    const elapsed = performance.now() - t0;
     const s = pb.stats();
-    expect(calls).toBeLessThanOrEqual(5);
+    // at most one render per 120 ms of wall time (plus the one in flight): renders never pile up
+    expect(calls).toBeLessThanOrEqual(Math.ceil(elapsed / 120) + 1);
+    expect(s.emitted).toBeGreaterThanOrEqual(12);
     expect(s.dropped).toBeGreaterThan(0);
     expect(s.rendered).toBeLessThanOrEqual(s.emitted);
   });
