@@ -54,36 +54,34 @@ test('cada grupo tiene su color, su icono y una línea que dice para qué es; Co
   await expect(page.locator('.panel-title .pt-line')).not.toBeEmpty();
 });
 
-test('las recetas se pliegan a una línea con la receta de la pieza, y lo recuerdan', async ({ page }) => {
+test('la línea de recetas nombra la receta de la pieza (y si se editó) y abre las recetas en lugar de los ajustes', async ({ page }) => {
   await openStudio(page, '#space=fondos');
-  const zone = page.locator('aside.panel .rz-head');
-  // a wide window with a mouse: unfolded
-  await expect(zone).toHaveAttribute('aria-expanded', 'true');
-  const chips = page.locator('#rz-list .chip');
-  expect(await chips.count()).toBeGreaterThan(3);
-  const second = (await chips.nth(1).textContent())!.trim();
-  await chips.nth(1).click();
-  await expect(zone).toHaveAccessibleName(`Recetas de Fondos: ${second}`);
-  await expect(chips.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  const line = page.locator('aside.panel .rx-line');
+  // closed: the column is the settings'
+  await expect(line).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#pane')).toBeVisible();
+  await line.click();
+  const cards = page.locator('#rx-browser .rx-card');
+  expect(await cards.count()).toBeGreaterThan(3);
+  const second = (await cards.nth(1).locator('.rx-name').textContent())!.trim();
+  await cards.nth(1).click();
+  await expect(line).toHaveAccessibleName(`Recetas de Fondos: ${second}`);
+  await expect(cards.nth(1)).toHaveAttribute('aria-pressed', 'true');
   // the recipe the piece already is: nothing happens (no second copy in the history)
   const n = await page.locator('.seedline').textContent();
-  await chips.nth(1).click();
+  await cards.nth(1).click();
   await expect(page.locator('.seedline')).toHaveText(n!);
-  // folded: the panel's room goes to the controls; the recipe is still named
-  const pane0 = (await page.locator('#pane').boundingBox())!.height;
-  await zone.click();
-  await expect(zone).toHaveAttribute('aria-expanded', 'false');
-  await expect(chips).toHaveCount(0);
-  await expect(zone).toContainText(second);
-  expect((await page.locator('#pane').boundingBox())!.height).toBeGreaterThan(pane0 + 40);
+  // closed again: the controls come back, the recipe is still named
+  await line.click();
+  await expect(line).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#rx-browser')).toHaveCount(0);
+  await expect(line).toContainText(second);
   // an edit: the line says so
-  await page.getByRole('tab', { name: 'Color' }).click();
-  await page.locator('.palettes .pal').nth(2).click();
-  await expect(zone).toHaveAccessibleName(`Recetas de Fondos: ${second}, editada`);
-  // remembered
-  await page.reload();
-  await expect(page.locator('.seedline')).toBeVisible({ timeout: 45_000 });
-  await expect(page.locator('aside.panel .rz-head')).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('tab', { name: 'Glifos' }).click();
+  await page.getByLabel('Tamaño de celda').focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(line).toHaveAccessibleName(`Recetas de Fondos: ${second}, editada`);
+  await expect(line).toContainText('editada');
 });
 
 test('los campos de número se pueden vaciar al escribir; al terminar se ajustan a su rango y lo dicen', async ({ page }) => {

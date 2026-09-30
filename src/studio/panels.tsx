@@ -11,7 +11,8 @@ import { edit, setUI, useRecipe, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
 import { BasicFxHint } from './BasicMode';
 import { pickFile } from './files';
-import { CharsetSwatches, CompareStrip } from './guide/CompareStrip';
+import { CompareStrip } from './guide/CompareStrip';
+import { CharsetExplorer } from './ui/CharsetExplorer';
 import { CONTRAST, DETAIL, type Choice } from './guide/paths';
 import { setView, useView } from './views/state';
 import { TERM_SIZES } from './views/views';
@@ -235,7 +236,7 @@ function GlifosTab({ space }: { space: SpaceId }) {
           onChange={id => { const c = rampChars(id) ?? CHARSETS.find(x => x.id === id)?.chars; if (c) edit(r => { r.glyph.charset = c; }, 'glyph.charset'); }} />
         {csHelp && <HelpToggle h={csHelp} name="Caracteres" />}
         <HintText h={csHelp} />
-        <HelpMore h={csHelp}><CharsetSwatches asciiOnly={ascii} /></HelpMore>
+        <HelpMore h={csHelp}><CharsetExplorer asciiOnly={ascii} /></HelpMore>
       </div>
       <RampEditor ascii={ascii} />
       <Select f={F('glyph.font')} label="Tipografía de los caracteres" opts={fonts} minWidth={290}

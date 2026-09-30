@@ -20,7 +20,7 @@ const PARTS: Array<[string, WeaveTarget['kind']]> = [
   ['.topbar .tb-right button', 'control'],
   ['.stage-top .vbar-sel', 'control'],
   ['.panel', 'panel'],
-  ['.panel .recipes', 'control'],
+  ['.panel .rx-line', 'control'],
   ['.panel .ptabs .tab', 'control'],
   ['.seedline', 'panel'],
   ['.deck', 'panel'],

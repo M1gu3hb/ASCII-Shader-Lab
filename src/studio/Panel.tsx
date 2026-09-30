@@ -5,7 +5,7 @@ import { spaceById } from '../random/spaces';
 import { TABS, TabContent } from './panels';
 import { setUI, useRecipe, useStudio } from './store';
 import { IClose, IPanelOff, SPACE_ICON, TAB_ICON } from './icons';
-import { RecipesList, RecipesToggle } from './Recipes';
+import { RecipeBrowser, RecipesLine, setBrowserOpen, useRecipesUI } from './recipes';
 import { SPACE_LOOK, groupLook, lookVars } from './ui/sections';
 import { exitGuide, useGuide } from './guide/state';
 import { LoadBoundary } from './Boundary';
@@ -23,7 +23,7 @@ const Guide = lazy(() => loadGuide().then(m => ({ default: m.Guide })));
 
 /**
  * The settings panel, an instrument in four parts: the space (its name, what it is for, and a way to put
- * the column away), its recipes (a zone that folds to one line with the recipe of the piece: Recipes.tsx),
+ * the column away), its recipe (a line that names the recipe of the piece and opens every recipe of the space: recipes/),
  * the groups of settings (each with its icon, its own colour and name; all in view), and the group's
  * controls in modules, under a line that says what the group is for. A guided path takes its place while
  * it lasts. Content that changes here resolves out of glyphs: a group lightly, a new space more fully
@@ -45,12 +45,13 @@ export function Panel() {
   const sheet = phone && !land;
   const snap = useSheet(s => s.snap);
   const imm = useImmersive(s => s.on);
-  const recipesOpen = useStudio(s => s.ui.recipes);
-  // the sheet shows the recipes in place of the controls while they are open (Recipes.tsx)
-  const recipesView = useStudio(s => !!s.ui.recipesSheet) && phone;
+  // the recipe browser takes the settings' place while it is open (recipes/Browser.tsx)
+  const recipesView = useRecipesUI(s => s.open);
   const tabs = TABS[space];
   const tab = tabs.find(t => t[0] === tabSel)?.[0] ?? tabs[0]?.[0];
   const guiding = useGuide(s => s.path !== null);
+  // a guided path takes the column: the recipes it showed close (the settings come back after it)
+  useEffect(() => { if (guiding) setBrowserOpen(false); }, [guiding]);
   const aside = useRef<HTMLElement>(null);
   const pane = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
@@ -72,10 +73,12 @@ export function Panel() {
     if (!shown && wasShown.current && aside.current?.contains(document.activeElement)) {
       (document.querySelector<HTMLElement>('.imm-bar .imm-act[aria-pressed]') ?? document.querySelector<HTMLElement>('.ph-tools, .panel-btn'))?.focus();
     }
+    // the settings put away: the recipes they showed too (they open again on the settings)
+    if (!shown) setBrowserOpen(false);
     wasShown.current = shown;
   }, [shown]);
   useChoiceSwaps(pane);
-  const heights = useSheetHeights(aside, head, sheet && !guiding, `${space}|${imm}|${tabs.length}|${recipesOpen}|${recipesView}`);
+  const heights = useSheetHeights(aside, head, sheet && !guiding, `${space}|${imm}|${tabs.length}|${recipesView}`);
   const drag = useSheetDrag(aside, heights);
   // a guided path takes the place of the settings while it lasts
   if (guiding) {
@@ -88,7 +91,8 @@ export function Panel() {
   }
   if (!tabs.length) return null;
   const setTab = (id: string) => {
-    setUI({ tab: { ...useStudio.getState().ui.tab, [space]: id }, recipesSheet: false });
+    setUI({ tab: { ...useStudio.getState().ui.tab, [space]: id } });
+    setBrowserOpen(false);
     // at the peek, choosing a section opens its controls
     if (sheet && useSheet.getState().snap === 'peek') setSnap('half');
   };
@@ -104,23 +108,25 @@ export function Panel() {
   // phones: the groups in rows of up to four (tablets upright: all in one row, css/layout.css)
   const cols = phone ? Math.min(4, Math.ceil(tabs.length / 2)) : tabs.length <= 4 ? tabs.length : Math.ceil(tabs.length / 2);
   return (
-    <aside className={'panel' + (phone ? ' ph-sheet' : '')} aria-label="Ajustes de la pieza" ref={aside} data-snap={sheet ? snap : undefined}
+    <aside className={'panel' + (phone ? ' ph-sheet' : '') + (recipesView ? ' rx-open' : '')} aria-label="Ajustes de la pieza" ref={aside} data-snap={sheet ? snap : undefined}
       style={{ ...(sheet && heights ? { height: heights[snap] } : {}), '--sp-acc': SPACE_LOOK[space].accent } as CSSProperties}>
       {phone ? (
         <div className="ph-head" ref={head}>
           <div className="ph-grab-row">
-            <RecipesToggle sheet />
+            <RecipesLine compact />
             <button type="button" className="sheet-grab" {...drag.handlers} onClick={drag.onClick} onKeyDown={drag.onKeyDown}
               aria-label={`Tamaño de los ajustes: ${SNAP_NAME[snap]}`} title="Arrastra para cambiar el tamaño, o pulsa para alternarlo (↑ ↓)">
               <i aria-hidden="true" />
             </button>
             <button type="button" className="icon-btn ph-close" aria-label="Cerrar ajustes" title="Cerrar ajustes (Esc)" onClick={() => setUI({ panel: false })}><IClose /></button>
           </div>
-          {/* every group in view: one tap, never hidden past the edge */}
-          <ScrollRow role="tablist" aria-label="Secciones" className="ptabs ph-tabs" boxClassName="ptabs-box"
-            style={{ '--cols': cols, '--n': tabs.length } as CSSProperties}>
-            {tabButtons}
-          </ScrollRow>
+          {/* every group in view: one tap, never hidden past the edge (the recipes take their place while open) */}
+          {!recipesView && (
+            <ScrollRow role="tablist" aria-label="Secciones" className="ptabs ph-tabs" boxClassName="ptabs-box"
+              style={{ '--cols': cols, '--n': tabs.length } as CSSProperties}>
+              {tabButtons}
+            </ScrollRow>
+          )}
         </div>
       ) : (
         <>
@@ -131,16 +137,17 @@ export function Panel() {
               <button type="button" className="icon-btn panel-hide" aria-label="Ocultar ajustes" title="Ocultar los ajustes: la pieza a lo ancho (vuelven con el botón de ajustes de la barra)"
                 onClick={() => setUI({ panel: false })}><IPanelOff /></button>
             </div>
-            <RecipesToggle />
-            <RecipesList />
+            <RecipesLine />
           </div>
-          <ScrollRow role="tablist" aria-label="Secciones" className="ptabs" boxClassName="ptabs-box"
-            style={{ '--cols': cols } as CSSProperties}>
-            {tabButtons}
-          </ScrollRow>
+          {!recipesView && (
+            <ScrollRow role="tablist" aria-label="Secciones" className="ptabs" boxClassName="ptabs-box"
+              style={{ '--cols': cols } as CSSProperties}>
+              {tabButtons}
+            </ScrollRow>
+          )}
         </>
       )}
-      {recipesView && <RecipesList sheet away={peek} />}
+      {recipesView && <RecipeBrowser where={phone ? 'sheet' : 'column'} away={peek} />}
       {/* at the peek the controls are out of sight: out of the focus order too */}
       <div className="pane" id="pane" role="tabpanel" aria-labelledby={'tab-' + tab} ref={pane} inert={peek || undefined} hidden={recipesView || undefined}>
         {tab && look && (
