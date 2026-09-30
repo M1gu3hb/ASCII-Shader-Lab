@@ -14,7 +14,8 @@ import { PRESETS } from '../studio/presets';
 import { encodeRecipe } from '../shared/share';
 import { halo } from '../components/lib/halo.js';
 import { engines, isPaused, live, morph, near, onPause, setPaused, still, track, whenBasic } from './live';
-import { resolveHeadings, swapText, weaveIn } from './motion';
+import { mountGuides } from './guias';
+import { moving, resolveHeadings, swapText, weaveIn } from './motion';
 
 const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s);
 const preset = (space: keyof typeof PRESETS, id: string) => PRESETS[space].find(p => p.id === id)!.make();
@@ -130,6 +131,9 @@ $('[data-hero-roll]')!.addEventListener('click', async e => {
   void theme(heroRecipe, arch || seed, `semilla: ${seed}${arch ? ' · ' + arch : ''}`);
 });
 
+/* ---------- «Qué puedes hacer»: each guide's example, on hover, focus or a first tap ---------- */
+mountGuides(document, { isPaused, onPause });
+
 /* ---------- motion: headings resolve, blocks weave in ---------- */
 document.querySelector('#guias .guides')?.setAttribute('data-weave', '');
 resolveHeadings();
@@ -167,6 +171,10 @@ function island(sel: string, load: (el: HTMLElement) => Promise<unknown>) {
     go();
   }, true);
 }
+/* ---------- «Haz arte ASCII», woven: after the load (never in the way of the first paint), never with «reduce motion» ---------- */
+const title = $('#hero-title');
+if (title && moving) afterLoad(() => { void import('./titulo').then(m => m.mountTitle(title, { isPaused, onPause })); });
+
 island('[data-telar]', el => import('./telar').then(m => m.mountTelar(el)));
 island('#azar', el => import('./azar').then(m => m.mountAzar(el)));
 island('[data-salidas]', el => import('./salidas').then(m => m.mountSalidas(el)));
