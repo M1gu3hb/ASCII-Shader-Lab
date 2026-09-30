@@ -9,6 +9,8 @@ const fixture = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/gene
 const fixture2 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v2.json'), 'utf8')) as { gen: number; cases: Case[] };
 /** Versions 3 and 4 as captured before version 5 existed (each case carries its version, and its base when it is not the default). */
 const fixture34 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v3v4.json'), 'utf8')) as { gens: number[]; cases: Array<Omit<Case, 'base'> & { gen: number; base?: Recipe }> };
+/** Version 5 as published (the studio and the landing's contact sheet, whose 19 draws are in it). */
+const fixture5 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v5.json'), 'utf8')) as typeof fixture34;
 /** Recipes live as JSON (history, favourites, links): compare that form (it also folds -0 into 0). */
 const json = (r: Recipe) => JSON.parse(JSON.stringify(r)) as Recipe;
 
@@ -59,6 +61,17 @@ describe('generator versions', () => {
       const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: c.gen });
       expect(json(r), `v${c.gen} ${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r), `v${c.gen} ${c.space}/${c.seed}`).toBe(c.fp);
+    }
+  });
+
+  it('version 5 keeps weaving exactly what it wove when it was published (and the landing\'s contact sheet)', () => {
+    expect(fixture5.gens).toEqual([5]);
+    expect(fixture5.cases.length).toBeGreaterThan(70);
+    for (const c of fixture5.cases) {
+      const base = c.base ? (JSON.parse(JSON.stringify(c.base)) as Recipe) : defaultRecipe();
+      const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: 5 });
+      expect(json(r), `v5 ${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r), `v5 ${c.space}/${c.seed}`).toBe(c.fp);
     }
   });
 

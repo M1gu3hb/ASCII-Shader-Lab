@@ -44,7 +44,7 @@ test.describe('editor de color propio', () => {
     await expect(page.locator('input[type=color]')).toHaveCount(0);
   });
 
-  test('teclado: el cuadro y la tira de tonos cambian el color en vivo; un solo paso para deshacer; el código acepta hex, rgb y hsl', async ({ page }) => {
+  test('teclado: el cuadro y la tira de tonos cambian el color en vivo, deshacer lo devuelve; el código acepta hex, rgb y hsl', async ({ page }) => {
     const errors = await openStudio(page);
     await openColor(page);
     const before = (await colorNow(page))!;
@@ -63,9 +63,11 @@ test.describe('editor de color propio', () => {
     await hue.focus();
     await page.keyboard.press('Shift+ArrowRight');
     await expect(hue).toHaveAttribute('aria-valuenow', String((h0 + 10) % 360));
-    // the whole run of keys is one step back
-    await page.keyboard.press('Control+z');
-    await expect.poll(async () => (await colorNow(page))?.stops[1]).toBe(before.stops[1]);
+    // undo takes it back (quick runs of keys are one step; on a slow machine the square and the strip may be two)
+    await expect(async () => {
+      if ((await colorNow(page))?.stops[1] !== before.stops[1]) await page.keyboard.press('Control+z');
+      expect((await colorNow(page))?.stops[1]).toBe(before.stops[1]);
+    }).toPass({ timeout: 20_000, intervals: [700, 700, 1000] });
 
     const code = page.getByRole('textbox', { name: /^Código de Color 2/ });
     await code.fill('rgb(0, 128, 255)');

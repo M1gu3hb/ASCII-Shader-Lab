@@ -27,7 +27,7 @@ test.describe('semillas y versiones del generador', () => {
     await expect(seedSheet.getByText(/salió de la versión 1 del generador/)).toBeVisible();
     // another seed: the current version, unless one is chosen
     await seedSheet.getByLabel('Semilla', { exact: true }).fill('marea-leve-001');
-    await expect(gen).toContainText('Versión 4 (actual)');
+    await expect(gen).toContainText('Versión 5 (actual)');
     await gen.click();
     await page.getByRole('option', { name: /Versión 1/ }).click();
     await expect(gen).toContainText('Versión 1');
@@ -39,7 +39,7 @@ test.describe('semillas y versiones del generador', () => {
 
   test('la misma semilla sin versión teje con la actual, igual en dos navegadores', async ({ browser }) => {
     const links: string[] = [];
-    for (const hash of ['#seed=faro-lunar-417&space=terminal', '#seed=faro-lunar-417&space=terminal&gen=4', '#seed=faro-lunar-417&space=terminal&gen=1']) {
+    for (const hash of ['#seed=faro-lunar-417&space=terminal', '#seed=faro-lunar-417&space=terminal&gen=5', '#seed=faro-lunar-417&space=terminal&gen=4', '#seed=faro-lunar-417&space=terminal&gen=1']) {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await openStudio(page, hash);
@@ -51,6 +51,9 @@ test.describe('semillas y versiones del generador', () => {
       await ctx.close();
     }
     expect(links[1]).toBe(links[0]);
+    // versions 4 and 1 weave that seed their own way (and differently from each other)
     expect(links[2]).not.toBe(links[0]);
+    expect(links[3]).not.toBe(links[0]);
+    expect(links[3]).not.toBe(links[2]);
   });
 });

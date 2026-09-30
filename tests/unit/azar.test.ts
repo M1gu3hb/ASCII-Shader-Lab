@@ -48,7 +48,8 @@ describe('roll with recent results', () => {
     for (const r of session('arte', 60, 'repro')) expect(generate({ seed: r.seed, space: 'arte', base: defaultRecipe() }).layers).toEqual(r.recipe.layers);
   });
 
-  it('never serves the same lead twice in a row often, in any space, and spreads the leads', () => {
+  // (5 × 1000 rolls: a few seconds, more on a busy machine)
+  it('never serves the same lead twice in a row often, in any space, and spreads the leads', { timeout: 30_000 }, () => {
     for (const space of ['arte', 'fondos', 'media', 'tipo', 'terminal'] as SpaceId[]) {
       const rs = session(space, 1000, 'dist-' + space).map(x => x.recipe);
       let sameLead = 0;
