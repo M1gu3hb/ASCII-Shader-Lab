@@ -5,10 +5,11 @@
 .cp { display: grid; gap: 10px; margin: 8px 0 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2, #1b1917); }
 .cp-top { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; align-items: stretch; }
 .cp-area {
-  position: relative; height: 150px; border-radius: 8px; overflow: hidden; cursor: crosshair;
+  position: relative; height: 150px; border-radius: 8px; cursor: crosshair;
   touch-action: none; -webkit-user-select: none; user-select: none; outline-offset: 2px;
 }
 .cp-area canvas, .cp-hue canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: auto; display: block; }
+.cp-area canvas { border-radius: 8px; }
 .cp-knob {
   position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
   border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .5); pointer-events: none;
@@ -92,7 +93,8 @@
 .pe-pal[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pe-pbar { display: block; height: 20px; }
 .pe-dicebar { display: grid; place-items: center; background: var(--field-2); font-size: 16px; color: var(--muted); }
-.pe-name { display: block; font-size: 11px; color: var(--muted); padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* whole names, on two lines when they need it (a cut name is an option you cannot read) */
+.pe-name { display: block; font-size: 11px; line-height: 1.25; color: var(--muted); padding: 4px 6px; overflow-wrap: anywhere; }
 .pe-shelves { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 
 @media (pointer: coarse) {
