@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
  * Regenerates the site's pre-rendered media from real engine renders and writes them to public/ex/.
- * Commit the results. Usage: node scripts/posters.mjs [--guias] [--portada] [--og]   (--guias and --portada when no flag is given)
+ * Commit the results. Usage: node scripts/posters.mjs [--guias] [--portada] [--og] [--azar]   (--guias and --portada when no flag is given)
  *
  * --guias   the guide posters (dev/posters.ts):
  *             <slug>.webp (1280×800), <slug>-640.webp (640×400), <slug>-og.jpg (1200×630 share image)
  *             terminal-donut.txt (80×24 text frame, exactly what the studio's TXT export gives)
  * --og      only the site's share image, public/og.jpg (--guias writes it too)
+ * --azar    only the landing's «Azar» contact sheet (--portada writes it too)
  * --portada the landing's media (dev/landing.ts):
  *             azar/<seed>.webp: one real draw of the dice per style (the «Azar» contact sheet)
  *             salidas/: one piece exported with the studio's own functions — PNG (+ a WebP copy shown on the
@@ -30,6 +31,7 @@ const flags = process.argv.slice(2);
 const doGuides = !flags.length || flags.includes('--guias');
 const doLanding = !flags.length || flags.includes('--portada');
 const doOg = flags.includes('--og') && !doGuides;
+const doAzar = flags.includes('--azar') && !doLanding;
 
 // node_modules may be a symlink to another checkout: allow its real path so the fonts load.
 const allow = [root, realpathSync(join(root, 'node_modules'))];
@@ -109,12 +111,16 @@ ${usage}
 </html>
 `;
 
-async function landing() {
+async function azarSheet() {
   const page = await open(browser, 'dev/landing.html');
   const contacts = await page.evaluate(() => window.mt.contacts);
   for (const c of contacts) write(`azar/${c.seed}.webp`, fromDataUrl(await page.evaluate(([s, a]) => window.mt.contact(s, a), [c.seed, c.arch])));
   page.checkFailed();
   await page.close();
+}
+
+async function landing() {
+  await azarSheet();
 
   // the exports: Google Chrome when installed (it encodes H.264), else the bundled Chromium (no MP4)
   let chrome = null;
@@ -158,6 +164,7 @@ try {
   if (doGuides) await guides();
   if (doOg) await siteOg();
   if (doLanding) await landing();
+  if (doAzar) await azarSheet();
 } finally {
   await browser.close();
   await server.close();

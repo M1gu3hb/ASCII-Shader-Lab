@@ -176,10 +176,12 @@ function useKeys() {
       if (comps) return;
       switch (k) {
         case 'i': case 'I': toggleImmersive(); break;
-        case 'r': case 'R': dice(); break;
-        case 'ArrowRight': if (t.closest('input[type=range]')) return; e.preventDefault(); forward(); break;
-        case 'ArrowLeft': if (t.closest('input[type=range]')) return; e.preventDefault(); back(); break;
-        case 'v': case 'V': vary(); break;
+        // a new result from a slider that had the focus: the arrows go back to moving through the history
+        // (left on the slider, the next ← would change the new piece and mark it «editado»)
+        case 'r': case 'R': if (t.closest('input[type=range], [role=slider]')) (t as HTMLElement).blur(); dice(); break;
+        case 'ArrowRight': if (t.closest('input[type=range], [role=slider]')) return; e.preventDefault(); forward(); break;
+        case 'ArrowLeft': if (t.closest('input[type=range], [role=slider]')) return; e.preventDefault(); back(); break;
+        case 'v': case 'V': if (t.closest('input[type=range], [role=slider]')) (t as HTMLElement).blur(); vary(); break;
         case 'x': case 'X': setUI({ sheet: 'explore' }); break;
         case 's': case 'S': void favorite(); break;
         case 'e': case 'E': setUI(isPhone() ? { panel: false, sheet: 'export' } : { sheet: 'export' }); break;

@@ -113,13 +113,13 @@ test('azar: empieza con resultados a los que volver, tirar añade más y la hoja
   await expect(count).toHaveText('1 de 6');
   await expect(page.getByRole('button', { name: 'Resultado anterior' })).toBeDisabled();
 
-  // the contact sheet: fourteen styles, each one woven on the stage and added to the strip
+  // the contact sheet: nineteen styles (generator version 5), each one woven on the stage and added to the strip
   const contacts = page.getByRole('list', { name: 'Hoja de contactos del dado' }).getByRole('button');
-  await expect(contacts).toHaveCount(14);
+  await expect(contacts).toHaveCount(19);
   await contacts.nth(4).click();
   await expect(contacts.nth(4)).toHaveAttribute('aria-pressed', 'true');
   await expect(count).toHaveText('7 de 7');
-  await expect(page.locator('[data-azar-seed]')).toContainText('coral-solidos-285');
+  await expect(page.locator('[data-azar-seed]')).toContainText('faro-particulas-100');
   await live(page, '.azar-stage');
   // a style already in the strip is not added twice: it is shown again
   await contacts.first().click();

@@ -91,7 +91,7 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
         expect(await smallTargets(page, `.panel :is(${CONTROLS})`), 'panel ' + (await tab.textContent())).toEqual([]);
       }
       await page.locator('.panel .tab', { hasText: 'Color' }).tap();
-      await page.locator('.palettes .pal').nth(3).tap();
+      await page.locator('.pe-grid .pe-pal').nth(3).tap();
       // the sheet's handle: a short drag springs back; a long one rests at the peek (only the sections,
       // the piece above), and from there a drag down closes it
       const grab = (await page.locator('.sheet-grab').boundingBox())!;

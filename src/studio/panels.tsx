@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, type ReactNode } from 'react';
 import { CHARSETS, GLYPH_MODE_NAMES, PATTERNS, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
 import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type InteractMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
-import { CURATED } from '../random/palettes';
 import { Rng } from '../random/prng';
 import type { SpaceId } from '../random/spaces';
 import { Color, F, Note, Seg, SegGroup, Select, Slider, Sub, Text, Toggle, useField } from './controls';
@@ -27,6 +26,7 @@ import {
 } from './ui/options';
 import { XformTab } from './ui/Xforms';
 import { RampEditor } from './ui/RampEditor';
+import { PaletteEditor } from './ui/color/PaletteEditor';
 import { useRamps } from './ui/ramps';
 import { LETTER_ANIMS } from '../engine/catalog';
 import { MSG_ANIMS, TEXT_ANIMS, type LetterAnim, type LetterAnimKind } from '../engine/recipe';
@@ -170,7 +170,6 @@ function LayerCard({ i, n }: { i: number; n: number }) {
 /* ------------------------------------------------------------------ */
 
 function ColorTab() {
-  const stops = useField(F<string[]>('color.stops')) ?? [];
   const source = useField(F<SourceKind>('source'));
   const mode = useField(F<string>('color.mode'));
   const recipe = useRecipe();
@@ -180,32 +179,8 @@ function ColorTab() {
   const isMedia = source === 'image' || source === 'video' || source === 'camera';
   return (
     <>
-      <Sub>Paletas</Sub>
-      <Note>Colorean de las celdas vacías a las llenas, sobre su fondo. Mucho contraste con el fondo llama la atención; poco se lee mejor bajo texto.</Note>
-      <div className="palettes">
-        {CURATED.map(p => (
-          <button key={p.name} type="button" className="pal" title={p.name} onClick={() => edit(r => { r.color.stops = p.stops.slice(); r.color.bg = p.bg; if (r.color.mode === 'source' && !isMedia) r.color.mode = 'ramp'; }, 'pal' + Date.now())}>
-            <span className="bar" aria-hidden="true">
-              <i style={{ background: p.bg, flex: '0 0 24%' }} />
-              <i style={{ background: p.stops.length > 1 ? `linear-gradient(90deg, ${p.stops.join(', ')})` : p.stops[0] }} />
-            </span>
-            <span>{p.name}</span>
-          </button>
-        ))}
-      </div>
-      <Sub>Colores</Sub>
-      <Note>De las celdas más vacías (izquierda) a las más llenas (derecha).</Note>
-      <div className="colors" style={{ marginBottom: 14 }}>
-        {stops.map((c, i) => (
-          <span key={i} className="swatch" style={{ background: c }}>
-            <input type="color" aria-label={`Color ${i + 1}`} value={c} onChange={e => { const v = e.target.value; edit(r => { r.color.stops[i] = v; }, 'stop' + i); }} />
-            {stops.length > 1 && <button type="button" className="x" aria-label={`Quitar color ${i + 1}`} onClick={() => edit(r => { r.color.stops.splice(i, 1); }, 'rmstop' + Date.now())}>×</button>}
-          </span>
-        ))}
-        <button type="button" className="mini" disabled={stops.length >= 6} title={stops.length >= 6 ? 'Hasta seis colores' : 'Añadir un color'} onClick={() => edit(r => { r.color.stops.push(r.color.stops[r.color.stops.length - 1] ?? '#ffffff'); }, 'addstop' + Date.now())} aria-label="Añadir color">+</button>
-        <button type="button" className="mini" onClick={() => edit(r => { r.color.stops.reverse(); }, 'rev' + Date.now())} title="Invertir orden">⇄</button>
-      </div>
-      <Color f={F('color.bg')} label="Fondo" />
+      <Sub>Paleta</Sub>
+      <PaletteEditor isMedia={isMedia} />
       {isMedia && <Seg f={F('color.mode')} label="Colores de" opts={[['ramp', 'Tu paleta'], ['source', 'La imagen']]} />}
       {mode === 'source' && isMedia && <Slider f={F('color.vivid')} label="Viveza" min={0} max={1} />}
       <Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} />

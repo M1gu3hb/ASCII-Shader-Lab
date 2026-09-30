@@ -1,6 +1,6 @@
 import type { Recipe } from '../engine/recipe';
 import { lookDistance, lookOf, type Look } from './diversity';
-import { fingerprint, generate } from './generator';
+import { fingerprint, generate, genOf, GEN_VERSION } from './generator';
 import { freshSeed } from './seeds';
 import type { LockGroup, SpaceId } from './spaces';
 
@@ -10,6 +10,8 @@ export * from './archetypes';
 export * from './palettes';
 export * from './seeds';
 export * from './diversity';
+export { PALETTE5_NAMES, makePalette5, tune5, type Palette5Style } from './palettes5';
+export { SCENE_SEEDS } from './scenes5';
 export { Rng, hash53 } from './prng';
 
 export interface RollInput {
@@ -44,7 +46,24 @@ const ARCH_KEEP = [0.3, 0.55, 0.75, 0.9];
 /** A draw that looks like one of the last five (lookDistance below .25 or .35) is kept this often. */
 const LOOK_KEEP: Array<[number, number]> = [[0.25, 0.2], [0.35, 0.6]];
 
-export interface RecencyOpts { lead: boolean; arch: boolean; look: boolean }
+/**
+ * Version 5 also holds back, over the last results: the same colour family (hue in 30° steps, or grey) and
+ * paper (light or dark), the same characters, and the same family of shapes right after one another.
+ */
+const HUE_KEEP = [0.3, 0.65];
+const CS_KEEP = [0.4, 0.75];
+const FAMILY_KEEP = 0.55;
+/** Three results in a row on paper (or three on black): the fourth is less likely to be the same. */
+const PAPER_RUN_KEEP = 0.5;
+
+export interface RecencyOpts {
+  lead: boolean; arch: boolean; look: boolean;
+  /** version 5: judge the colours (off while «Color» is locked), the characters («Glifos») and the shape family («Forma») */
+  palette?: boolean; charset?: boolean; family?: boolean;
+}
+
+/** A look's colour family: hue in 30° steps (or 'n', grey) and whether it is on paper. */
+export const colourFamily = (l: Look) => (l.chroma < 0.04 ? 'n' : String(Math.floor(((l.hue + 15) % 360) / 30))) + (l.light ? 'L' : 'D');
 
 /**
  * The chance (0..1] of keeping `r` given the latest results (`recent`, oldest first, as looks). 1 when it
@@ -62,6 +81,15 @@ export function keepChance(r: Recipe, recent: readonly Look[], o: RecencyOpts): 
   if (o.arch) {
     for (let k = 0; k < Math.min(n, ARCH_KEEP.length); k++) if (recent[n - 1 - k].arch === L.arch) { w *= ARCH_KEEP[k]; break; }
   }
+  if (o.palette) {
+    const f = colourFamily(L);
+    for (let k = 0; k < Math.min(n, HUE_KEEP.length); k++) if (colourFamily(recent[n - 1 - k]) === f) { w *= HUE_KEEP[k]; break; }
+    if (n >= 3 && recent.slice(-3).every(x => x.light === L.light)) w *= PAPER_RUN_KEEP;
+  }
+  if (o.charset) {
+    for (let k = 0; k < Math.min(n, CS_KEEP.length); k++) if (recent[n - 1 - k].charset === L.charset) { w *= CS_KEEP[k]; break; }
+  }
+  if (o.family && recent[n - 1].family === L.family && recent[n - 1].lead !== L.lead) w *= FAMILY_KEEP;
   if (o.look) {
     let near = Infinity;
     for (let k = 0; k < Math.min(n, 5); k++) near = Math.min(near, lookDistance(recent[n - 1 - k], L));
@@ -83,11 +111,15 @@ export function roll(inp: RollInput): RollResult {
     const fp = fingerprint(recipe);
     return { recipe, seed: inp.seed, fp, tries: 1, repeated: inp.seen.has(fp) };
   }
-  const max = inp.maxTries ?? 40;
+  const max = inp.maxTries ?? 48;
   const fresh = inp.fresh ?? freshSeed, rand = inp.rand ?? Math.random;
   const locks = inp.locks ?? [];
   const recent = (inp.recent ?? []).slice(-LEAD_KEEP.length).map(lookOf);
-  const opts: RecencyOpts = { lead: !locks.includes('forma'), arch: !inp.arch, look: locks.length === 0 };
+  const v5 = genOf(gen ?? GEN_VERSION) >= 5;
+  const opts: RecencyOpts = {
+    lead: !locks.includes('forma'), arch: !inp.arch, look: locks.length === 0,
+    ...(v5 ? { palette: !locks.includes('color'), charset: !locks.includes('glifos'), family: !locks.includes('forma') } : {}),
+  };
   let best: RollResult | null = null, bestW = -1;
   for (let i = 0; i < max; i++) {
     const seed = fresh();

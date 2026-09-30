@@ -1,14 +1,14 @@
 import type { LetterAnimKind } from '../engine/recipe';
-import { ARCHETYPES, type Archetype } from './archetypes';
+import type { Archetype } from './archetypes';
+import { ARCHETYPES_V2 } from './v2';
 import type { PaletteStyle } from './palettes';
 
 /**
  * What the pattern-library branch meant the dice to do with the library (its unpublished versions 5, 6 and 7,
  * merged): extra weights per style (archetype) for the new patterns, character sets, palettes and
- * letter animations. DATA ONLY: generate() does not read it (GEN_VERSION stays 4 and versions 1–4 stay
- * exact). The next generator version (5) builds its tables from it, for example
- *   TABLES[5] = { archs: libraryArchetypes(), spaces: …the spaces' weights… }
- * and weighs TEXT_ANIM_W / MSG_ANIM_W with LIBRARY_TEXT_ANIMS / LIBRARY_MSG_ANIMS when gen >= 5.
+ * letter animations. Versions 1–4 do not read it (their seeds stay exact); version 5 builds its styles from it
+ * (v5.ts: libraryArchetypes() with its own palettes) and weighs its letter animations with LIBRARY_TEXT_ANIMS /
+ * LIBRARY_MSG_ANIMS (gen5.ts).
  * Every id here is checked by tests/unit/library.test.ts.
  */
 type W = Record<string, number>;
@@ -69,7 +69,7 @@ const PARTICLES: Record<string, W> = {
 
 /** Every style's extra pattern weights (the three tables above; their ids do not overlap). */
 export const LIBRARY_PATTERNS: Readonly<Record<string, W>> = Object.fromEntries(
-  ARCHETYPES.map(a => [a.id, { ...PATTERNS_A[a.id], ...PATTERNS_B[a.id], ...PARTICLES[a.id] }]),
+  ARCHETYPES_V2.map(a => [a.id, { ...PATTERNS_A[a.id], ...PATTERNS_B[a.id], ...PARTICLES[a.id] }]),
 );
 
 /** The new character sets, in the moods of each style (the branch's version 6). */
@@ -92,7 +92,7 @@ export const LIBRARY_CHARSETS: Readonly<Record<string, W>> = {
 
 /** The gallery's palettes, for every style (the branch's version 7 gave them 0.75 everywhere). */
 export const LIBRARY_PALETTES: Readonly<Record<string, Partial<Record<PaletteStyle, number>>>> = Object.fromEntries(
-  ARCHETYPES.map(a => [a.id, { galeria: 0.75 }]),
+  ARCHETYPES_V2.map(a => [a.id, { galeria: 0.75 }]),
 );
 
 /** Weights of the three new letter animations, next to TEXT_ANIM_W / MSG_ANIM_W in generator.ts. */
@@ -100,7 +100,7 @@ export const LIBRARY_TEXT_ANIMS: Readonly<Partial<Record<LetterAnimKind, number>
 export const LIBRARY_MSG_ANIMS: Readonly<Partial<Record<LetterAnimKind, number>>> = { orbita: 0.75, enjambre: 0.55, cascada: 0.8 };
 
 /** The styles with the library's weights added (new objects: ARCHETYPES is not changed). */
-export function libraryArchetypes(base: readonly Archetype[] = ARCHETYPES): Archetype[] {
+export function libraryArchetypes(base: readonly Archetype[] = ARCHETYPES_V2): Archetype[] {
   return base.map(a => ({
     ...a,
     patterns: { ...a.patterns, ...LIBRARY_PATTERNS[a.id] },
