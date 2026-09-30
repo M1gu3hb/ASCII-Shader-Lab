@@ -34,6 +34,13 @@ export function RecipesLine({ compact }: { compact?: boolean }) {
         setBrowserOpen(!open);
         // at the sheet's peek the list would be out of sight: it needs the room of the controls
         if (!open && compact && useSheet.getState().snap === 'peek') setSnap('half');
+      }}
+      // opened with a click, the focus stays here (outside the browser, whose keys close it): Escape too
+      onKeyDown={e => {
+        if (e.key !== 'Escape' || !open || e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setBrowserOpen(false);
       }}>
       {/* the piece's own picture when it comes from no recipe (the dice, a link, a file) */}
       <RecipePic className="rx-mini" recipe={pic} thumb={!item || !pic ? entry?.thumb : undefined} look={item?.look ?? (entry ? lookOf(entry.recipe) : NO_LOOK)} keep={!base} />

@@ -23,6 +23,28 @@ export function intentOf(dx: number, dy: number, slop = INTENT_PX): Intent {
   return 'scroll';
 }
 
+/**
+ * A colour square (ui/color/ColorPicker.tsx) moves in both directions, so a finger cannot say it wants it by
+ * moving sideways alone. It takes the square by resting still on it for a moment (then moving up or down
+ * changes the light, not the page), or by moving sideways first; a quick movement up or down scrolls the
+ * page; a tap places the knob where it lands. A tap right after the page scrolled (a finger stopping the
+ * scroll) changes nothing.
+ */
+export type PickIntent = Intent | 'hold';
+/** How long (ms) a finger rests still on the square before it takes it. */
+export const HOLD_MS = 400;
+/** How far (CSS px) a resting finger may drift and still take it. */
+export const HOLD_SLOP = 7;
+/** A tap this soon (ms) after the page scrolled only stopped the scroll. */
+export const SCROLL_QUIET_MS = 300;
+
+/** What a finger on the square wants: its movement since it landed (dx, dy in CSS px), `ms` after it landed. */
+export function pickIntentOf(dx: number, dy: number, ms: number): PickIntent {
+  const it = intentOf(dx, dy);
+  if (it !== 'pending') return it;
+  return ms >= HOLD_MS && Math.hypot(dx, dy) <= HOLD_SLOP ? 'hold' : 'pending';
+}
+
 /** Distance from the track (px, up or down) within which the adjustment is at full speed. */
 export const FINE_FROM = 36;
 /** Every this many px farther, the adjustment gets one step finer (½, ⅓, ¼…). */

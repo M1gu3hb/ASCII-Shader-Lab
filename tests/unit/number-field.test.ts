@@ -1,5 +1,8 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { decimalsOf, liveValue, parseTyped, rangeHint, settle, showNumber, snapTo } from '../../src/studio/ui/numberMath';
+import { NumberField } from '../../src/studio/ui/NumberField';
+import { decimalsOf, keypadFor, liveValue, parseTyped, rangeHint, settle, showNumber, snapTo } from '../../src/studio/ui/numberMath';
 
 describe('campos de número: lo que se escribe', () => {
   it('lee números con coma o punto, con signo, y con la unidad con que se muestran', () => {
@@ -60,5 +63,25 @@ describe('campos de número: lo que se escribe', () => {
     expect(rangeHint('empty', 1, 60, 4, 0.5)).toBe('Escribe un número de 1 a 60.');
     expect(rangeHint('snapped', 1, 60, 2.5, 0.5)).toBe('Va de 0.5 en 0.5: queda en 2.5.');
     expect(rangeHint('ok', 1, 60, 3)).toBe('');
+  });
+});
+
+describe('campos de número: el teclado del teléfono', () => {
+  it('un rango que baja de cero abre el teclado completo (los numéricos del iPhone no tienen «−»); los demás, el de números', () => {
+    expect(keypadFor(-2, 0.01)).toBe('text');
+    expect(keypadFor(-0.3, 0.005)).toBe('text');
+    expect(keypadFor(-1, 1)).toBe('text');
+    expect(keypadFor(0.6, 0.01)).toBe('decimal');
+    expect(keypadFor(0, 0.5)).toBe('decimal');
+    expect(keypadFor(1, 1)).toBe('numeric');
+    expect(keypadFor(0, 1)).toBe('numeric');
+  });
+
+  it('el campo lo lleva (Velocidad, de −2 a 3; Forma de la celda, de 0,6 a 2,4; columnas, de 20 a 200)', () => {
+    const html = (min: number, max: number, step: number) =>
+      renderToStaticMarkup(createElement(NumberField, { value: Math.max(min, 0), min, max, step, onValue: () => undefined, 'aria-label': 'n' }));
+    expect(html(-2, 3, 0.01)).toMatch(/inputMode="text"/i);
+    expect(html(0.6, 2.4, 0.01)).toMatch(/inputMode="decimal"/i);
+    expect(html(20, 200, 1)).toMatch(/inputMode="numeric"/i);
   });
 });

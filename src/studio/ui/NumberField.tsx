@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type KeyboardEvent } from 'react';
-import { liveValue, rangeHint, settle, showNumber, snapTo } from './numberMath';
+import { keypadFor, liveValue, rangeHint, settle, showNumber, snapTo } from './numberMath';
 
 /**
  * The studio's number field (export sizes and durations, the terminal's columns and rows, a slider's
@@ -8,7 +8,8 @@ import { liveValue, rangeHint, settle, showNumber, snapTo } from './numberMath';
  * is typed; when they are done (Enter, leaving the field) the text is read, kept within its range and on
  * its step, and a short line says so when it had to move («Va de 10 a 300: queda en 300.»). Escape puts
  * back the value it had. ↑ ↓ step it, like a native number field (it is a text field with the spinbutton
- * role, so a decimal comma is welcome and phones show their number keypad).
+ * role, so a decimal comma is welcome and phones show their number keypad; the full keyboard when the range
+ * goes below zero, as iPhones' number keypads have no minus: keypadFor).
  */
 export interface NumberFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type' | 'min' | 'max' | 'step' | 'defaultValue'> {
   value: number;
@@ -82,7 +83,7 @@ export function NumberField({ value, min, max, step = 1, onValue, onDone, select
         {...rest}
         ref={ref}
         type="text"
-        inputMode={Number.isInteger(step) && Number.isInteger(min) ? 'numeric' : 'decimal'}
+        inputMode={keypadFor(min, step)}
         role="spinbutton"
         autoComplete="off"
         spellCheck={false}

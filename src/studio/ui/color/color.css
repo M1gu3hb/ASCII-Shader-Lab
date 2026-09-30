@@ -1,12 +1,13 @@
 /* The studio's colour editor (ColorPicker), colour settings (ColorField) and the palette editor (PaletteEditor).
-   Targets are at least 44 px on touch screens; the square and the hue strip take the finger (touch-action: none)
-   so a drag on them changes the colour, while the rest of the panel scrolls as usual. */
+   Targets are at least 44 px on touch screens. The square and the hue strip let the page scroll up and down
+   (touch-action: pan-y): a finger takes them only when it means to (ColorPicker.tsx), so scrolling the panel
+   over them never changes the colour. */
 
 .cp { display: grid; gap: 10px; margin: 8px 0 14px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2, #1b1917); }
 .cp-top { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; align-items: stretch; }
 .cp-area {
   position: relative; height: 150px; border-radius: 8px; cursor: crosshair;
-  touch-action: none; -webkit-user-select: none; user-select: none; outline-offset: 2px;
+  touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; outline-offset: 2px;
 }
 .cp-area canvas, .cp-hue canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: auto; display: block; }
 .cp-area canvas { border-radius: 8px; }
@@ -19,11 +20,20 @@
 .cp-now { display: grid; grid-template-rows: 2fr 1fr; border-radius: 8px; overflow: hidden; border: 1px solid var(--line-2); }
 .cp-now span { display: block; }
 .cp-hue {
-  position: relative; height: 28px; border-radius: 14px; overflow: visible; cursor: ew-resize; touch-action: none;
-  -webkit-user-select: none; user-select: none; margin: 4px 11px;
+  position: relative; height: 28px; border-radius: 14px; overflow: visible; cursor: ew-resize; touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; margin: 4px 11px;
 }
 .cp-hue canvas { border-radius: 14px; }
 .cp-hue .cp-knob { top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; }
+/* taken by a finger or a pen: the knob grows and takes the accent, so it is clear the colour now follows it */
+.cp-area.cp-on .cp-knob, .cp-hue.cp-on .cp-knob { transform: scale(1.3); box-shadow: 0 0 0 2px var(--accent, #ff5b1f), 0 2px 8px rgba(0, 0, 0, .55); }
+@media (prefers-reduced-motion: no-preference) { .cp-knob { transition: transform .12s ease-out; } }
+/* a tap on the strip changes nothing: it says how it works (as the sliders do) */
+.cp-hue.cp-tip::after {
+  content: 'Desliza de lado para cambiar el tono'; position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+  z-index: 3; padding: 3px 8px; border-radius: 999px; background: var(--bone, #ede6da); color: var(--ink, #0c0b0a);
+  font: 600 11.5px/1.2 var(--font-ui, system-ui, sans-serif); white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
 .cp-fields { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
 .cp-fields label { display: grid; gap: 3px; font-size: 11px; color: var(--muted); min-width: 0; }
 .cp-fields input {

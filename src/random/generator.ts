@@ -11,6 +11,7 @@ import type { LockGroup, SpaceId } from './spaces';
 import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
 import { ARCHETYPES_V2, SPACE_ARCHS_V2 } from './v2';
 import { ARCHETYPES_V5, SPACE_ARCHS_V5 } from './v5';
+import { TIPO_WORDS_1 } from './words';
 
 export { copyGroup } from './locks';
 
@@ -47,6 +48,12 @@ export interface GenInput {
   locks?: LockGroup[];
   /** generator version (default GEN_VERSION); unknown versions weave with the current one */
   gen?: number;
+  /**
+   * Texto, version 5: whether the base's text is the person's own words, which a roll keeps (a word the studio
+   * wrote changes). The studio knows (studio/ownWords.ts: what the person typed, its recipes' words); left out,
+   * any text but the studio's own words (STUDIO_WORDS) counts as theirs. Versions 1–4 ignore it.
+   */
+  ownText?: boolean;
 }
 
 /** What one generator version reads: its styles and each space's weights over them. */
@@ -59,7 +66,6 @@ const TABLES: Record<number, Tables> = {
   5: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
 };
 
-const TIPO_WORDS = ['TRAMA', 'ECO', 'SEÑAL', 'LUZ', 'RUIDO', 'HOLA', 'ONDA', 'PULSO', 'GLIFO', 'TINTA', 'NOCHE', 'VIBRA', 'MAREA', 'FARO'];
 const TERMINAL_LINES = ['> hola, terminal', '$ ./tejer --luz', 'CONECTANDO...', '> sistema listo', 'SEÑAL RECIBIDA', 'ERROR 404: sueño no encontrado', '$ sudo apt install calma', '> compilando estrellas'];
 const WORD_FILLS = ['TEJE LUZ CON CARACTERES · ', 'MONOTRAMA · ', '0101 SEÑAL 1010 · ', 'EL RUIDO TAMBIÉN ES UN MENSAJE · ', 'HOLA MUNDO ', 'ASCII ASCII ASCII ', '* * * ', 'LOREM IPSUM DOLOR SIT AMET · '];
 
@@ -248,7 +254,7 @@ function genFuente(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, base: Reci
   } else if (space === 'tipo') {
     r.source = 'text';
     const keep = base.source === 'text' && base.text.content.trim() && base.text.content !== defaultRecipe().text.content;
-    r.text.content = keep ? base.text.content : rng.pick(TIPO_WORDS);
+    r.text.content = keep ? base.text.content : rng.pick(TIPO_WORDS_1);
     const f = rng.weighted({ martian: 2, serif: 1.5, sans: 1.5, pixel: 0.7, vt: 0.7, space: 1, jetbrains: 0.8 });
     r.text.font = f;
     r.text.weight = f === 'martian' || f === 'sans' ? rng.pick([700, 800, 900]) : nearestWeight(fontById(f), 700);

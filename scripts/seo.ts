@@ -251,7 +251,8 @@ export function salida(key: string, readPublic: (path: string) => string): strin
     case 'secs': return es1(m.loopSeconds);
     case 'frames': return String(m.frames);
     case 'link': return escapeHtml(m.link);
-    case 'linklen': return String(m.link.length - '/studio/#r='.length);
+    // the recipe's part of a link: the same after /studio/#r= and after /ver/#r= (where shared links go)
+    case 'linklen': return String((/#r=([\w-]+)/.exec(m.link)?.[1] ?? '').length);
     case 'usage': return escapeHtml(shortUsage(m.usage));
     case 'json': {
       const lines = readPublic(SALIDA_FILES + 'glyphos-saturno.glyphos.json').split('\n');

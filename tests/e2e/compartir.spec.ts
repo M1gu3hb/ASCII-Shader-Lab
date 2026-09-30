@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
-import { decodeRecipe, readPieceHash } from '../../src/shared/share';
-import { encodeFrame, frameFor, gridOf } from '../../src/shared/frame';
+import { decodeRecipe, encodeRecipe, readPieceHash } from '../../src/shared/share';
+import { defaultFrame, encodeFrame, frameFor, gridOf } from '../../src/shared/frame';
+import { normalizeRecipe } from '../../src/engine/recipe';
 import { dismissWelcome } from './helpers';
 
 /*
@@ -475,6 +476,108 @@ test.describe('el visor', () => {
     await expect(page.getByRole('button', { name: /Pantalla completa/ })).toHaveCount(0);
     expect(errors).toEqual([]);
     await ctx.close();
+  });
+
+  test('girar el teléfono: la pieza se dibuja con todos sus píxeles, con la misma composición', async ({ browser }) => {
+    // a retina desktop's frame (2880 × 1624, cells 20 × 28) on a phone held upright: drawn at half its pixels
+    const recipe = normalizeRecipe({ v: 2, layers: [{ pattern: 'plasma', on: true }], glyph: { cell: 10, aspect: 1.4 }, meta: { name: 'Giro' } });
+    const frame = frameFor(1440, 812, 2, 10, 1.4);
+    expect(encodeFrame(frame)).toBe('2880x1624-20x28');
+    const v = await openViewer(browser, { ...DEVICES.phone, deviceScaleFactor: 3 }, `/ver/#r=${await encodeRecipe(recipe)}&f=${encodeFrame(frame)}&t=3&p=1`);
+    const stage = v.page.locator('.ver-stage');
+    const canvasPx = () => v.page.locator('.ver-stage canvas').evaluate(c => ({ W: (c as HTMLCanvasElement).width, H: (c as HTMLCanvasElement).height }));
+    await expect(stage).toHaveAttribute('data-divisor', '2');
+    expect(await canvasPx()).toEqual({ W: 1440, H: 812 });
+    await expect(v.page.locator('.ver-note')).toContainText('Gira el teléfono');
+    await viewerBare(v.page);
+    const upright = await pixels(v.page, '.ver-stage canvas', 160);
+    // turned: shown 2075 device px wide, more than the 1440 drawn; the whole frame is drawn again
+    await v.page.setViewportSize({ width: 844, height: 390 });
+    await expect(stage).toHaveAttribute('data-divisor', '1');
+    await expect.poll(canvasPx).toEqual({ W: 2880, H: 1624 });
+    await expect(v.page.locator('.ver-note', { hasText: 'Gira el teléfono' })).toHaveCount(0);
+    await expect(stage).toHaveAttribute('data-grid', `${gridOf(frame).cols}x${gridOf(frame).rows}`);
+    const box = (await v.page.locator('.ver-stage canvas').boundingBox())!;
+    expect(box.width * 3, 'never scaled up').toBeLessThanOrEqual(2880 + 1);
+    expect(box.width / box.height).toBeCloseTo(frame.w / frame.h, 2);
+    await viewerBare(v.page);
+    await v.page.waitForTimeout(300);
+    const turned = await pixels(v.page, '.ver-stage canvas', 160);
+    // the very same composition and moment, at twice the pixels (only resampling differs)
+    const diff = mad(upright.rgb, turned.rgb);
+    console.log(`girado: diferencia ${diff.toFixed(2)} (de 255) con la pieza antes de girar`);
+    expect(spread(turned.rgb)).toBeGreaterThan(4);
+    expect(diff).toBeLessThan(3);
+    // back upright: it keeps its pixels (nothing to redraw)
+    await v.page.setViewportSize({ width: 390, height: 844 });
+    await v.page.waitForTimeout(400);
+    await expect(stage).toHaveAttribute('data-divisor', '1');
+    expect(v.errors).toEqual([]);
+    await v.ctx.close();
+  });
+
+  test('en pausa no dibuja nada, tampoco una pieza de video o de cámara, cuyo medio no viaja (los dos motores)', async ({ browser }) => {
+    test.setTimeout(240_000);
+    for (const basic of [false, true]) {
+      for (const source of ['pattern', 'video', 'camera'] as const) {
+        const ctx = await browser.newContext(ctxOf(DEVICES.desk));
+        await ctx.addInitScript(basic => {
+          const w = window as unknown as { __draws: number };
+          w.__draws = 0;
+          const count = <T extends object>(P: T, names: string[]) => {
+            for (const n of names) {
+              const f = (P as Record<string, (...a: unknown[]) => unknown>)[n];
+              (P as Record<string, unknown>)[n] = function (this: unknown, ...a: unknown[]) { w.__draws++; return f.apply(this, a); };
+            }
+          };
+          if (basic) {
+            Object.defineProperty(window, 'WebGL2RenderingContext', { value: undefined, configurable: true });
+            count(CanvasRenderingContext2D.prototype, ['drawImage', 'putImageData']);
+          } else count(WebGL2RenderingContext.prototype, ['drawArrays', 'drawElements']);
+        }, basic);
+        const page = await ctx.newPage();
+        const errors: string[] = [];
+        page.on('pageerror', e => errors.push(e.message));
+        const media = source === 'video' ? { ref: { kind: 'video', type: 'video/mp4', w: 640, h: 480 } } : {};
+        const code = await encodeRecipe(normalizeRecipe({ v: 2, source, media, layers: [{ pattern: 'plasma', on: true }], glyph: { cell: 12 } }));
+        await page.goto(`/ver/#r=${code}&f=800x450-12x17&t=3&p=1`);
+        await expect(page.locator('.ver-stage[data-state="ready"]')).toHaveCount(1, { timeout: 60_000 });
+        await expect(page.locator('.ver-stage')).toHaveAttribute('data-renderer', basic ? 'basic' : 'webgl2');
+        await expect(page.locator('.ver-bar button').first()).toHaveAttribute('aria-label', 'Reproducir (espacio)');
+        await page.waitForTimeout(800);
+        const a = await page.evaluate(() => (window as unknown as { __draws: number }).__draws);
+        await page.waitForTimeout(2000);
+        const b = await page.evaluate(() => (window as unknown as { __draws: number }).__draws);
+        console.log(`${basic ? 'básico' : 'WebGL'} · ${source}: ${b - a} llamadas de dibujo en 2 s de pausa`);
+        expect(b - a, `${basic ? 'basic' : 'webgl'} ${source}`).toBe(0);
+        // it still answers: playing draws
+        await page.locator('.ver-bar button').first().click();
+        await expect.poll(() => page.evaluate(() => (window as unknown as { __draws: number }).__draws)).toBeGreaterThan(b);
+        expect(errors).toEqual([]);
+        await ctx.close();
+      }
+    }
+  });
+
+  test('un encuadre que ningún estudio da (celdas diminutas en un lienzo enorme) abre en el encuadre de siempre, sin colgarse', async ({ browser }) => {
+    const recipe = normalizeRecipe({ v: 2, layers: [{ pattern: 'plasma', on: true }], glyph: { cell: 12 } });
+    const code = await encodeRecipe(recipe);
+    for (const gl of [true, false]) {
+      const ctx = await browser.newContext(ctxOf(DEVICES.phone));
+      if (!gl) await ctx.addInitScript(() => Object.defineProperty(window, 'WebGL2RenderingContext', { value: undefined, configurable: true }));
+      const page = await ctx.newPage();
+      const t0 = Date.now();
+      await page.goto(`/ver/#r=${code}&f=8191x8191-2x2`);
+      const stage = page.locator('.ver-stage');
+      await expect(stage).toHaveAttribute('data-state', 'ready', { timeout: 30_000 });
+      await expect(stage).toHaveAttribute('data-frame', encodeFrame(defaultFrame(recipe)));
+      const ms = Date.now() - t0;
+      // the page answers at once: an animation frame comes in well under a second
+      const raf = await page.evaluate(() => new Promise<number>(res => { const a = performance.now(); requestAnimationFrame(() => requestAnimationFrame(() => res(performance.now() - a))); }));
+      console.log(`${gl ? 'WebGL' : 'básico'}: lista en ${ms} ms, dos cuadros en ${raf.toFixed(0)} ms`);
+      expect(raf).toBeLessThan(1000);
+      await ctx.close();
+    }
   });
 
   test('un enlace roto, uno vacío, y una semilla que llega al visor', async ({ page }) => {

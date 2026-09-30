@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FINE_MIN, INTENT_PX, dragValue, fineGain, intentOf, repeatWait, valueAt } from '../../src/studio/ui/slideMath';
+import { FINE_MIN, HOLD_MS, HOLD_SLOP, INTENT_PX, dragValue, fineGain, intentOf, pickIntentOf, repeatWait, valueAt } from '../../src/studio/ui/slideMath';
 
 describe('deslizadores bajo el dedo', () => {
   it('nada cambia hasta que el dedo muestra su intención', () => {
@@ -49,5 +49,23 @@ describe('deslizadores bajo el dedo', () => {
     expect(repeatWait(2)).toBe(110);
     expect(repeatWait(6)).toBeLessThan(repeatWait(3));
     expect(repeatWait(100)).toBe(35);
+  });
+});
+
+describe('el cuadro de color bajo el dedo', () => {
+  it('un gesto rápido arriba o abajo desplaza la página; de lado lo toma', () => {
+    expect(pickIntentOf(0, 30, 90)).toBe('scroll');
+    expect(pickIntentOf(2, -14, 60)).toBe('scroll');
+    expect(pickIntentOf(16, 2, 80)).toBe('drag');
+    // (a movement that says what it wants decides, however long the finger rested)
+    expect(pickIntentOf(0, 30, 900)).toBe('scroll');
+  });
+
+  it('quieto un momento, lo toma; antes, o moviéndose, todavía no', () => {
+    expect(pickIntentOf(0, 0, HOLD_MS - 1)).toBe('pending');
+    expect(pickIntentOf(0, 0, HOLD_MS)).toBe('hold');
+    expect(pickIntentOf(3, -4, HOLD_MS + 50)).toBe('hold');
+    expect(pickIntentOf(HOLD_SLOP, 3, HOLD_MS + 50)).toBe('pending');
+    expect(pickIntentOf(-6, 7, 2000)).toBe('pending');
   });
 });

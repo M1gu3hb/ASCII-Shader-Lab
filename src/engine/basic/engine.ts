@@ -458,7 +458,9 @@ export class BasicEngine implements Renderer {
     const interactive = this.stepPointer(dt);
     // (gestures keep their real pace on a slow device: up to a quarter of a second per frame)
     const touching = this.stepTouch(Math.min(0.25, raw));
-    const video = this.r.source === 'video' || this.r.source === 'camera';
+    // a live video or camera redraws every frame, but only with its element: a piece whose media never came
+    // (a shared link, a file still loading) is a still picture while paused
+    const video = (this.r.source === 'video' || this.r.source === 'camera') && !!this.media[this.r.source];
     const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
     if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {
       this.needsRender = false;

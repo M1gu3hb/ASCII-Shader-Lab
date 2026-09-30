@@ -36,4 +36,16 @@ describe('exported code', () => {
     const own = normalizeRecipe({ glyph: { charset: '@#. ', sort: false } });
     expect(exportRecipe(own, { ...DEFAULT_CODE, ramp: [' ', '.', '#', '@'] }).recipe.glyph).toMatchObject({ charset: '@#. ', sort: false });
   });
+
+  it('«Sin dependencias externas»: the code sorts by the system mono it draws with, not in the order measured with the studio\'s font', async () => {
+    const { exportRecipe, DEFAULT_CODE } = await import('../../src/exporters/code');
+    const ramp = [' ', '.', '-', ':', '=', '+', '*', '#', '%', '@'];
+    const r = normalizeRecipe({ glyph: { charset: ' .:-=+*#%@', sort: true, font: 'jetbrains' } });
+    const sys = exportRecipe(r, { ...DEFAULT_CODE, systemFont: true, ramp }).recipe.glyph;
+    expect(sys).toMatchObject({ font: 'system', charset: ' .:-=+*#%@', sort: true });
+    // the same font (the piece already uses the system's mono, or its web font is kept): the measured order travels
+    const already = normalizeRecipe({ glyph: { charset: ' .:-=+*#%@', sort: true, font: 'system' } });
+    expect(exportRecipe(already, { ...DEFAULT_CODE, systemFont: true, ramp }).recipe.glyph).toMatchObject({ font: 'system', charset: ' .-:=+*#%@', sort: false });
+    expect(exportRecipe(r, { ...DEFAULT_CODE, systemFont: false, ramp }).recipe.glyph).toMatchObject({ font: 'jetbrains', charset: ' .-:=+*#%@', sort: false });
+  });
 });
