@@ -87,6 +87,9 @@ test.describe('bienvenida', () => {
     const ctx = await browser.newContext();
     const other = await ctx.newPage();
     await other.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+    // (shared links open the public viewer; its «Abrir en el estudio» brings the piece here)
+    await other.getByRole('link', { name: 'Abrir en el estudio' }).click();
+    await expect(other.locator('.seedline')).toBeVisible({ timeout: 45_000 });
     await expect(other.locator('.seedline')).toContainText('Desde un enlace');
     await expect(other.locator('dialog.welcome[open]')).toHaveCount(0);
     await ctx.close();

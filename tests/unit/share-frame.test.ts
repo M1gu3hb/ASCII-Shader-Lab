@@ -151,15 +151,18 @@ function textPiece(): Recipe {
 }
 
 describe('links to a piece', () => {
-  it('carry the frame, the moment and the pause before the recipe, and read back exactly', async () => {
+  it('carry the recipe first, then the frame and, paused, the moment it shows; and read back exactly', async () => {
     const r = textPiece();
     const code = await encodeRecipe(r);
     const frame = frameFor(1096, 848, 1, 11, 15 / 11);
     const hash = pieceHash(code, { frame, t: 12.34567, paused: true });
-    expect(hash).toBe(`f=1096x848-11x15&t=12.346&p=1&r=${code}`);
+    expect(hash).toBe(`r=${code}&f=1096x848-11x15&t=12.346&p=1`);
     const back = readPieceHash('#' + hash);
     expect(back).toEqual({ code, view: { frame, t: 12.346, paused: true } });
     expect(await decodeRecipe(back.code!)).toEqual(await decodeRecipe(code));
+    // a piece that moves starts from its beginning: the same piece seen the same way, the same link
+    expect(pieceHash(code, { frame, t: 12.34567 })).toBe(`r=${code}&f=1096x848-11x15`);
+    expect(pieceHash(code, { frame, t: 99 })).toBe(pieceHash(code, { frame, t: 3 }));
   });
 
   it('old links (#r= alone) still read, with no frame; seeds and spaces carry no recipe', async () => {
@@ -176,8 +179,8 @@ describe('links to a piece', () => {
     const r = textPiece();
     const code = await encodeRecipe(r);
     const frame = frameFor(390, 680, 2, 10, 1.4);
-    expect(await viewerUrl(r, { frame, t: 3 }, ORIGIN)).toBe(`${ORIGIN}/ver/#f=${encodeFrame(frame)}&t=3&r=${code}`);
-    expect(await studioUrl(r, { frame, t: 3, paused: true }, ORIGIN)).toBe(`${ORIGIN}/studio/#f=${encodeFrame(frame)}&r=${code}`);
+    expect(await viewerUrl(r, { frame, t: 3, paused: true }, ORIGIN)).toBe(`${ORIGIN}/ver/#r=${code}&f=${encodeFrame(frame)}&t=3&p=1`);
+    expect(await studioUrl(r, { frame, t: 3, paused: true }, ORIGIN)).toBe(`${ORIGIN}/studio/#r=${code}&f=${encodeFrame(frame)}`);
     expect(await studioUrl(r, null, ORIGIN)).toBe(`${ORIGIN}/studio/#r=${code}`);
   });
 
@@ -185,8 +188,8 @@ describe('links to a piece', () => {
     const r = textPiece();
     const frame = frameFor(704, 716, 1, 10, 1.4);
     try {
-      provideShareView(() => ({ frame, t: 1.5 }));
-      expect(await shareUrl(r, ORIGIN)).toBe(await viewerUrl(r, { frame, t: 1.5 }, ORIGIN));
+      provideShareView(() => ({ frame, t: 1.5, paused: true }));
+      expect(await shareUrl(r, ORIGIN)).toBe(await viewerUrl(r, { frame, t: 1.5, paused: true }, ORIGIN));
       provideShareView(() => { throw new Error('no stage'); });
       expect(await shareUrl(r, ORIGIN)).toBe(await viewerUrl(r, null, ORIGIN));
     } finally { provideShareView(null); }

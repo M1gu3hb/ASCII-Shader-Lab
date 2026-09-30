@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { sameRecipe, type Recipe } from '../engine/recipe';
-import type { Renderer } from '../engine/renderer';
 import { archById } from '../random/archetypes';
 import { spaceById, type SpaceId } from '../random/spaces';
 import { describeFrame, frameFor, frameRecipe, gridOf, reduceFrame, type Frame } from '../shared/frame';
@@ -12,11 +11,9 @@ import { exportImage } from './exporting';
 import { openExport } from './exportTab';
 import { canvasUrl, snapshotCanvas, withOffscreen } from './offscreen';
 import { exportProject, pieceFileBase } from './packages';
-import { qualityFor, usePreview } from './preview';
 import { Sheet } from './Sheet';
-import { setUI, useStudio } from './store';
+import { useStudio } from './store';
 import { toast } from './toast';
-import { isPhone } from './ui/useMatch';
 import './css/data.css';
 import './css/export-notes.css';
 import './css/share.css';
@@ -35,15 +32,12 @@ import './css/share.css';
 /* ------------------------------------------------------------------ */
 
 /**
- * The pixel ratio the stage draws at when nothing slows it down: the one its quality setting asks for, capped
- * by the screen (engine.ts, resize()). A slow moment can lower the WebGL stage's resolution for a while; a
- * link keeps the piece as it is seen at full resolution. The basic engine never lowers it by itself.
+ * The pixel ratio a link's frame is drawn at: the screen's, up to the stage's own limit of 2 (engineBridge.ts),
+ * as the stage draws at full quality. The preview's «Calidad», and the moments a slow device lowers the WebGL
+ * stage's resolution, only change how this screen draws: like an export, a link keeps the piece at full
+ * resolution, and the same piece on the same screen always gives the same link.
  */
-function nominalRatio(e: Renderer): number {
-  if (e.kind === 'basic') return e.stats.pixelRatio || 1;
-  const q = qualityFor(usePreview.getState().quality, e.kind);
-  return Math.min(q.maxPixelRatio ?? 2, 2, Math.max(1, window.devicePixelRatio || 1));
-}
+const fullRatio = () => Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 
 /** Frames of pieces opened from a link in this tab: shared again unedited, they keep the frame they came in. */
 const linkFrames: Array<{ recipe: Recipe; frame: Frame }> = [];
@@ -62,7 +56,7 @@ export function stageView(r: Recipe): (ShareView & { frame: Frame; fromLink: boo
   const c = e?.canvas;
   if (!e || !c || !c.clientWidth || !c.clientHeight) return null;
   const came = linkFrameOf(r);
-  const frame = came ?? frameFor(c.clientWidth, c.clientHeight, nominalRatio(e), r.glyph.cell, r.glyph.aspect);
+  const frame = came ?? frameFor(c.clientWidth, c.clientHeight, fullRatio(), r.glyph.cell, r.glyph.aspect);
   return { frame, t: e.time, paused: !useStudio.getState().playing, fromLink: !!came };
 }
 
@@ -103,7 +97,6 @@ export function openShare(target?: Target) {
     if (!e) return;
     t = { recipe: e.recipe, space: e.space, name: e.kind === 'receta' ? e.label : undefined, seed: e.seed, arch: e.arch, edited: e.edited };
   }
-  if (isPhone()) setUI({ panel: false });
   useShare.setState(s => ({ target: { ...t, recipe: withSpace(t.recipe, t.space, t.name) }, opened: s.opened + 1 }));
 }
 

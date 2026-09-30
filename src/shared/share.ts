@@ -99,16 +99,18 @@ const T_MAX = 1e7;
 const cleanTime = (t: unknown) => (typeof t === 'number' && Number.isFinite(t) && t > 0 && t < T_MAX ? Math.round(t * 1000) / 1000 : 0);
 
 /**
- * What goes after «#» in a link to a piece: the frame (f), the time (t), whether it was paused (p) and the
- * recipe (r) last. Everything travels in the fragment: browsers never send it to a server.
+ * What goes after «#» in a link to a piece: the recipe (r, first, as links always started), the frame (f)
+ * and, for a piece shared paused, the moment it shows (t) and the pause (p). A piece that moves starts from
+ * its beginning: where the studio's clock was is incidental (it runs on across pieces), and the same piece
+ * seen the same way gives the same link. Everything travels in the fragment: browsers never send it to a
+ * server.
  */
 export function pieceHash(code: string, view?: ShareView | null): string {
-  const parts: string[] = [];
+  const parts = ['r=' + code];
   if (view?.frame) parts.push('f=' + encodeFrame(view.frame));
-  const t = cleanTime(view?.t);
+  const t = view?.paused ? cleanTime(view.t) : 0;
   if (t) parts.push('t=' + t);
   if (view?.paused) parts.push('p=1');
-  parts.push('r=' + code);
   return parts.join('&');
 }
 
