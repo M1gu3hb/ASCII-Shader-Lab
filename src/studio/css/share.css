@@ -10,6 +10,11 @@
    first the labels of Colección and Guías (their icons stay, with their names as tooltips), then its own */
 @media (max-width: 1820px) { .app .tb-right .ib.coll-btn .lbl, .app .tb-right .ib.guides-btn .lbl { display: none; } }
 @media (max-width: 1500px) { .app .ib.share-btn .lbl { display: none; } .app .ib.share-btn { padding: 0 8px; } }
+/* and a few pixels more, with a collection counter too: the readout's numbers, the spaces' icons and some of
+   their padding give way about 50 px earlier than they did (loom.css) */
+@media (max-width: 1360px) { .app .q-btn .stats { display: none; } }
+@media (max-width: 1250px) { .app .spaces .sp-ic { display: none; } .app .topbar .spaces button { padding: 0 9px; } }
+@media (max-width: 1200px) { .app .topbar .spaces button { padding: 0 8px; } .app .topbar .tb-right { margin-left: 6px; } }
 /* phones: «Compartir» is in the dock, within reach of the thumb (Deck.tsx), one column more */
 @media (max-width: 900px) {
   .app .topbar .share-btn { display: none; }
