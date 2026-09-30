@@ -18,6 +18,7 @@ import { shareLink } from './ShareSheet';
 import { HoldCompare } from './guide/HoldCompare';
 import { Picker } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { Range } from './ui/Range';
 import { useScramble } from './motion/hooks';
 import { archetypeOptions } from './ui/options';
 import { setStripRange, startThumbs, useThumbs } from './thumbs';
@@ -392,7 +393,8 @@ function DicePop({ onClose, focusIn }: { onClose: () => void; focusIn?: boolean 
       <div className="ctl">
         <span className="lbl">Intensidad de la variación</span>
         <output>{amount < 0.25 ? 'sutil' : amount < 0.6 ? 'media' : 'salvaje'}</output>
-        <input type="range" min={0.05} max={1} step={0.01} value={amount} onChange={e => setAmount(parseFloat(e.target.value))} style={{ '--p': ((amount - 0.05) / 0.95) * 100 + '%' } as React.CSSProperties} aria-label="Intensidad de la variación" />
+        <Range min={0.05} max={1} step={0.01} value={amount} onValue={setAmount} aria-label="Intensidad de la variación"
+          aria-valuetext={amount < 0.25 ? 'sutil' : amount < 0.6 ? 'media' : 'salvaje'} />
       </div>
       <button type="button" className="btn" onClick={() => { onClose(); setUI({ sheet: 'explore' }); }}><IExplore width={16} /> Explorar ocho variaciones</button>
       <TransitionPick />

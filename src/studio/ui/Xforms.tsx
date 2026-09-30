@@ -64,7 +64,7 @@ export function XformTab({ space }: { space: SpaceId }) {
     (card?.querySelector<HTMLElement>('[role="combobox"]') ?? box.querySelector<HTMLElement>('[role="combobox"]'))?.focus();
   }, [list]);
   if (source === 'pattern') {
-    return <Note>Las transformaciones cambian una imagen, un video, la cámara o el texto grande antes de volverlos caracteres. Elige una fuente en «{space === 'tipo' ? 'Texto' : 'Fuente'}».</Note>;
+    return <Note>Las transformaciones cambian una imagen, un video, la cámara o el texto grande antes de volverlos caracteres. Elige qué se convierte en caracteres en «{space === 'tipo' ? 'Tu texto' : 'Origen'}».</Note>;
   }
   return (
     <>

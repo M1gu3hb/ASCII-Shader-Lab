@@ -39,6 +39,8 @@ export const ITune = (p: P) => <svg {...base(p)}><path d="M5 4v16M12 4v16M19 4v1
 export const ISeed = (p: P) => <svg {...base(p)}><path d="M12 20.5c-4.4 0-7-3.3-7-7.2C5 8.4 9 5 12 3.5c3 1.5 7 4.9 7 9.8 0 3.9-2.6 7.2-7 7.2Z" /><path d="M12 9v11.5" /></svg>;
 /** Recipes: starting points, a small stack of cards. */
 export const IRecipes = (p: P) => <svg {...base(p)}><rect x="4" y="7.5" width="13" height="12.5" rx="1.5" /><path d="M7.5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v10.5" /><path d="M7 12h7M7 15.5h4.5" /></svg>;
+/** Hide the settings column: the column steps aside to the right. */
+export const IPanelOff = (p: P) => <svg {...base(p)}><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M14.5 4.5v15M8.5 9.5 11 12l-2.5 2.5" /></svg>;
 /** Switch between the front and the rear camera. */
 export const IFlip = (p: P) => <svg {...base(p)}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><path d="M9.3 12.2a3 3 0 0 1 5.2-1.4M14.7 13.8a3 3 0 0 1-5.2 1.4" /><path d="M14.7 9.4v1.6h-1.6M9.3 16.6V15h1.6" /></svg>;
 

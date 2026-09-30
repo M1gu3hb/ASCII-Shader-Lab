@@ -17,11 +17,13 @@ import { CONTRAST, DETAIL, type Choice } from './guide/paths';
 import { setView, useView } from './views/state';
 import { TERM_SIZES } from './views/views';
 import { Picker } from './ui/Picker';
+import { Range } from './ui/Range';
+import { NumberField } from './ui/NumberField';
 import { HelpMore, HelpToggle, HintText, useHelp } from './ui/Help';
 import { DITHER_DESC, DITHER_ICON, FIT_DESC, GLYPH_MODE_DESC, GLYPH_MODE_ICON, SOURCE_DESC } from './ui/copy';
 import {
-  CharsetOption, CharsetRamp, PatternThumb, PiecePreview, blendOptions, charsetOptions, closeThumbSession, colorMapOptions, fontOptions, interactOptions,
-  letterAnimOptions, msgModeOptions, openThumbSession, patternOptions, withCharset,
+  CharsetOption, CharsetPreview, CharsetRamp, PatternThumb, blendOptions, charsetOptions, closeThumbSession, colorMapOptions, fontOptions, interactOptions,
+  letterAnimOptions, msgModeOptions, openThumbSession, patternOptions,
 } from './ui/options';
 import { XformTab } from './ui/Xforms';
 import { RampEditor } from './ui/RampEditor';
@@ -29,11 +31,16 @@ import { useRamps } from './ui/ramps';
 import { LETTER_ANIMS } from '../engine/catalog';
 import { MSG_ANIMS, TEXT_ANIMS, type LetterAnim, type LetterAnimKind } from '../engine/recipe';
 
+/**
+ * The groups of settings of each space: [id, visible name]. The ids are internal (the same group has a
+ * different name where it means something else: «Capas» in Arte is «Relleno» in Texto). «Origen» is
+ * what becomes characters (a pattern, a text, a photo…): «Fuente» read as a font.
+ */
 export const TABS: Record<SpaceId, Array<[string, string]>> = {
   fondos: [['forma', 'Forma'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
-  arte: [['forma', 'Capas'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos'], ['fuente', 'Fuente'], ['msg', 'Mensaje']],
-  media: [['fuente', 'Fuente'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Patrón'], ['mov', 'Interacción'], ['fx', 'Efectos']],
-  tipo: [['fuente', 'Texto'], ['msg', 'Mensaje'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Relleno'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
+  arte: [['forma', 'Capas'], ['color', 'Color'], ['glifos', 'Glifos'], ['mov', 'Movimiento'], ['fx', 'Efectos'], ['fuente', 'Origen'], ['msg', 'Mensaje']],
+  media: [['fuente', 'Origen'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Patrón'], ['mov', 'Interacción'], ['fx', 'Efectos']],
+  tipo: [['fuente', 'Tu texto'], ['msg', 'Mensaje'], ['xform', 'Transformar'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Relleno'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
   terminal: [['term', 'Terminal'], ['msg', 'Mensaje'], ['glifos', 'Glifos'], ['color', 'Color'], ['forma', 'Forma'], ['mov', 'Movimiento'], ['fx', 'Efectos']],
   componentes: [],
 };
@@ -206,7 +213,7 @@ function ColorTab() {
       <Sub>Ajustes</Sub>
       <Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
       <Slider f={F('color.cycle')} label="Colores en movimiento" min={-0.3} max={0.3} step={0.005} fmt={v => (v === 0 ? 'quietos' : v.toFixed(3))} />
-      <Slider f={F('color.hue')} label="Rotar tono" min={0} max={1} step={0.005} fmt={v => Math.round(v * 360) + '°'} />
+      <Slider f={F('color.hue')} label="Rotar tono" min={0} max={1} step={0.005} fmt={v => Math.round(v * 360) + '°'} scale={360} />
       <Slider f={F('color.sat')} label="Saturación" min={0} max={2} />
     </>
   );
@@ -249,7 +256,7 @@ function GlifosTab({ space }: { space: SpaceId }) {
           renderValue={o => (o && o.value !== 'custom'
             ? <><span className="pk-txt">{o.label}</span><CharsetRamp id={o.value} chars={rampChars(o.value)} recipe={recipe} n={10} /></>
             : <span className="pk-txt">Personalizado</span>)}
-          preview={o => (o.value !== 'custom' && recipe ? <PiecePreview recipe={withCharset(recipe, o.value, rampChars(o.value))} label={o.label} /> : null)}
+          preview={o => (o.value !== 'custom' ? <CharsetPreview id={o.value} chars={rampChars(o.value)} recipe={recipe} /> : null)}
           onChange={id => { const c = rampChars(id) ?? CHARSETS.find(x => x.id === id)?.chars; if (c) edit(r => { r.glyph.charset = c; }, 'glyph.charset'); }} />
         {csHelp && <HelpToggle h={csHelp} name="Caracteres" />}
         <HintText h={csHelp} />
@@ -328,7 +335,7 @@ function SoundControl() {
           <div className="progress" aria-hidden="true"><i style={{ '--v': Math.round(level * 100) + '%', transition: 'none' } as React.CSSProperties} /></div>
           <div className="ctl">
             <label className="lbl" htmlFor="mic-gain">Sensibilidad</label><output>{gain.toFixed(1)}</output>
-            <input id="mic-gain" type="range" min={0.3} max={4} step={0.1} value={gain} style={{ '--p': ((gain - 0.3) / 3.7) * 100 + '%' } as React.CSSProperties} onChange={e => useLive.setState({ gain: parseFloat(e.target.value) })} />
+            <Range id="mic-gain" min={0.3} max={4} step={0.1} value={gain} onValue={g => useLive.setState({ gain: g })} />
           </div>
         </>
       )}
@@ -516,7 +523,7 @@ function LetterAnimCtl({ target }: { target: 'text' | 'msg' }) {
         help={{ hint: target === 'text' ? 'Cada letra del texto grande se mueve por su cuenta, en bucle.' : 'Cada letra del mensaje se mueve o cambia de color por su cuenta.', more: 'Se repite siempre igual: el video, el GIF y las exportaciones lo capturan tal cual. Con «reducir movimiento» el estudio arranca en pausa.' }} />
       {info && anim && (
         <>
-          <Slider f={F(`${target}.anim.amount`)} label={info.amount} min={0} max={1} fmt={v => Math.round(v * 100) + ' %'} help={{ hint: `${info.amount} de «${info.name}».` }} />
+          <Slider f={F(`${target}.anim.amount`)} label={info.amount} min={0} max={1} fmt={v => Math.round(v * 100) + ' %'} scale={100} help={{ hint: `${info.amount} de «${info.name}».` }} />
           <Slider f={F(`${target}.anim.speed`)} label="Velocidad" min={0.2} max={2.5} fmt={v => v.toFixed(2) + '×'} help={{ hint: `Qué tan rápido va «${info.name}».` }} />
         </>
       )}
@@ -579,8 +586,14 @@ function TermTab() {
           onPick={v => { const [cols, rows] = v.split('x').map(Number); setUI({ terminal: { cols, rows } }); }} />
       </div>
       <div className="row2">
-        <label className="ctl"><span className="lbl">Columnas</span><input type="number" min={10} max={300} value={t.cols} onChange={e => setUI({ terminal: { ...t, cols: clampInt(e.target.value, 10, 300) } })} /></label>
-        <label className="ctl"><span className="lbl">Filas</span><input type="number" min={4} max={120} value={t.rows} onChange={e => setUI({ terminal: { ...t, rows: clampInt(e.target.value, 4, 120) } })} /></label>
+        <div className="ctl">
+          <label className="lbl" htmlFor="term-cols">Columnas</label>
+          <NumberField id="term-cols" min={10} max={300} value={t.cols} onValue={cols => setUI({ terminal: { ...useStudio.getState().ui.terminal, cols } })} />
+        </div>
+        <div className="ctl">
+          <label className="lbl" htmlFor="term-rows">Filas</label>
+          <NumberField id="term-rows" min={4} max={120} value={t.rows} onValue={rows => setUI({ terminal: { ...useStudio.getState().ui.terminal, rows } })} />
+        </div>
       </div>
       <Sub>Consejos</Sub>
       <Note>Las celdas de una terminal miden cerca de 1:2 (el doble de altas que anchas); por eso, en Glifos, la forma de la celda está en 2. Los caracteres ASCII son los más compatibles con las terminales.</Note>
@@ -588,7 +601,5 @@ function TermTab() {
     </>
   );
 }
-
-const clampInt = (v: string, a: number, b: number) => Math.max(a, Math.min(b, Math.round(Number(v) || a)));
 
 export type { Recipe };

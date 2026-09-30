@@ -59,7 +59,7 @@ test.describe('apertura', () => {
     await openStudio(page, '#space=arte');
     await page.getByRole('tab', { name: 'Color' }).click();
     await page.keyboard.press('1');
-    await expect(page.locator('.panel-title .eyebrow')).toContainText('Fondos');
+    await expect(page.locator('.panel-title .pt-name')).toHaveText('Fondos');
     await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Fondo web', exact: true }).click();
     await page.waitForTimeout(500);
     expect(await page.evaluate(() => (window as unknown as { fx: number }).fx)).toBe(0);
@@ -97,7 +97,7 @@ test.describe('cambios de contenido', () => {
     before = await fx();
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('1');
-    await expect(page.locator('.panel-title .eyebrow')).toHaveText('Recetas·Fondos');
+    await expect(page.locator('.panel-title .pt-name')).toHaveText('Fondos');
     await expect.poll(async () => { const f = await fx(); return f.scr > before.scr && f.curtain > before.curtain; }).toBe(true);
     await expect(page.locator('.mt-scr')).toHaveCount(0, { timeout: 8000 });
     // a view: the stage's room recomposes

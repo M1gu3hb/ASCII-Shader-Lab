@@ -23,7 +23,7 @@ async function openPanel(page: Page) {
 async function walk(page: Page, w: number, full: boolean) {
   const found: string[] = [];
   const look = async (where: string) => { for (const c of await clipped(page)) found.push(`${w} px · ${where}: ${c}`); };
-  const spaces = ['Fondos', 'Arte', 'Imagen', 'Tipo', 'Terminal', 'Componentes'];
+  const spaces = ['Fondos', 'Arte', 'Imagen', 'Texto', 'Terminal', 'Componentes'];
   for (const [i, sp] of spaces.entries()) {
     if (!full && sp !== 'Arte') continue;
     await blur(page);
@@ -195,9 +195,9 @@ test.describe('teclado', () => {
       // sections: one Tab stop; ← → move and choose; Home and End jump; each one comes into view
       const tabs = page.locator('.panel [role=tab]');
       const n = await tabs.count();
-      // (phones: the recipes are a section too, the first)
+      // (the recipes are not a section: they fold in a zone of their own, the same on phones)
       const phone = w <= 900;
-      expect(n).toBe(phone ? 8 : 7);
+      expect(n).toBe(7);
       await page.getByRole('tab', { name: 'Capas' }).click();
       await expect(page.locator('.panel [role=tab][tabindex="0"]')).toHaveCount(1);
       const seen = new Set<string>();
@@ -216,17 +216,21 @@ test.describe('teclado', () => {
       await expect(page.getByRole('tab', { name: 'Mensaje' })).toHaveAttribute('aria-selected', 'true');
       await expect(page.getByRole('tab', { name: 'Mensaje' })).toBeInViewport({ ratio: 1 });
       await page.keyboard.press('Home');
-      await expect(page.getByRole('tab', { name: phone ? 'Recetas' : 'Capas' })).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: 'Capas' })).toHaveAttribute('aria-selected', 'true');
       // ← → inside the row never move the history
       await expect(page.locator('.seedline')).toContainText('1/1');
 
-      // recipes: each one takes focus with Tab, in view (in their row; on phones, in their section)
+      // recipes: their zone unfolds from its line (folded by default where room is short, and on phones
+      // the recipes take the controls' place); each one takes focus with Tab, in view in its list
+      const zone = page.locator('.panel .rz-head');
+      if (await zone.getAttribute('aria-expanded') !== 'true') await zone.click();
+      await expect(zone).toHaveAttribute('aria-expanded', 'true');
       const chips = page.locator('.panel .recipes .chip');
       await chips.first().focus();
       for (let i = 0; i < await chips.count(); i++) {
         await expect(chips.nth(i)).toBeFocused();
         await expect.poll(() => chips.nth(i).evaluate(el => {
-          const row = el.closest('.srow-list, .pane')!.getBoundingClientRect(), b = el.getBoundingClientRect();
+          const row = el.closest('.rz-list, .pane')!.getBoundingClientRect(), b = el.getBoundingClientRect();
           return b.left >= row.left - 1 && b.right <= row.right + 1 && b.top >= row.top - 1 && b.bottom <= row.bottom + 1;
         })).toBe(true);
         await page.keyboard.press('Tab');
@@ -378,7 +382,7 @@ test.describe('controles que se explican', () => {
       await vista(page).getByRole('radio', { name: v }).hover();
       await check('vista ' + v);
     }
-    for (const t of ['Color', 'Glifos', 'Movimiento', 'Fuente']) {
+    for (const t of ['Color', 'Glifos', 'Movimiento', 'Origen']) {
       await page.getByRole('tab', { name: t }).click();
       await page.getByRole('tab', { name: t }).hover();
       await check('pestaña ' + t);

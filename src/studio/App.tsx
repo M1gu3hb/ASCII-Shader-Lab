@@ -24,6 +24,8 @@ import './css/perf.css';
 import './css/loom.css';
 // phones (and «inmersivo» everywhere): after the look, which it adapts
 import './css/phone.css';
+// the lab by size and input, section identity, touch-safe sliders: last
+import './css/layout.css';
 
 syncMotionAttr();
 

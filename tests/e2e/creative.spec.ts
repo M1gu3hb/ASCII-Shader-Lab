@@ -189,7 +189,7 @@ test.describe('letras que se mueven', () => {
   test('Tipo: el texto grande y el mensaje eligen su movimiento; «Palabra a palabra»', async ({ page }) => {
     const errors = await openStudio(page, '#space=tipo');
     await page.locator('.panel .recipes').getByRole('button', { name: 'Ola', exact: true }).click();
-    await page.getByRole('tab', { name: 'Texto', exact: true }).click();
+    await page.getByRole('tab', { name: 'Tu texto', exact: true }).click();
     const how = page.getByRole('combobox', { name: 'Cómo se mueven las letras' });
     await expect(how).toContainText('Ola');
     await expect(page.getByText('Altura', { exact: true })).toBeVisible();

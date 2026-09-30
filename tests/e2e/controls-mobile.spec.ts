@@ -38,11 +38,11 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       const look = async (where: string) => { for (const c of await clipped(page)) found.push(`${where}: ${c}`); };
       await look('inicio');
       // every section is in view at once (a grid of two rows: one tap, nothing waits past the edge),
-      // each a 44 px target; the recipes are one of them
+      // each a 44 px target (the recipes fold in a line of their own, above them)
       const box = page.locator('.panel .ptabs-box');
       await expect(box.locator('.srow-next')).toBeHidden();
       const tabs = await page.locator('.panel [role=tab]').all();
-      expect(tabs.length).toBeGreaterThanOrEqual(8);
+      expect(tabs.length).toBeGreaterThanOrEqual(7);
       for (const tab of tabs) {
         await expect(tab).toBeInViewport({ ratio: 1 });
         const r = (await tab.boundingBox())!;
@@ -53,9 +53,14 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
         await expect(tab).toHaveAttribute('aria-selected', 'true');
         await look('pestaña ' + (await tab.textContent())?.trim());
       }
-      // the recipes: chips that wrap, 44 px each
-      await page.getByRole('tab', { name: 'Recetas' }).tap();
-      const chips = page.locator('.panel .ph-recipes .chip');
+      // the recipes: their line in the sheet's head names the recipe of the piece; pressed, the recipes take
+      // the controls' place as chips that wrap, 44 px each (a section brings the controls back)
+      const zone = page.getByRole('button', { name: /^Recetas de Arte: / });
+      await expect(zone).toHaveAttribute('aria-expanded', 'false');
+      await zone.tap();
+      await expect(zone).toHaveAttribute('aria-expanded', 'true');
+      await look('recetas');
+      const chips = page.locator('.panel .rz-pane .chip');
       expect(await chips.count()).toBeGreaterThan(3);
       for (const c of (await chips.all()).slice(0, 4)) expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await page.getByRole('button', { name: 'Cerrar ajustes' }).tap();

@@ -7,6 +7,7 @@ import { setViewOpts } from './state';
 import { useGuide } from '../guide/state';
 import '../css/legib.css';
 import { useScramble } from '../motion/hooks';
+import { Range } from '../ui/Range';
 
 /**
  * The test page drawn over the piece in «Fondo web» and «Pantalla de móvil» (and so in the fondo guide),
@@ -126,14 +127,14 @@ export function ScrimFine({ segClass }: { segClass?: string }) {
       <Seg label="Forma" value={s.shape} opts={SHAPES} onPick={shape => setScrim({ shape })} className={segClass} />
       <div className="scrim-range">
         <label htmlFor={op}>Opacidad</label>
-        <input id={op} type="range" min={0} max={0.95} step={0.05} value={s.opacity} aria-valuetext={`${Math.round(s.opacity * 100)} %`}
-          style={{ '--p': (s.opacity / 0.95) * 100 + '%' } as CSSProperties} onChange={e => setScrim({ opacity: +e.target.value, mode: 'custom' })} />
+        <Range id={op} min={0} max={0.95} step={0.05} value={s.opacity} aria-valuetext={`${Math.round(s.opacity * 100)} %`}
+          onValue={v => setScrim({ opacity: v, mode: 'custom' })} />
         <output htmlFor={op}>{Math.round(s.opacity * 100)} %</output>
       </div>
       <div className="scrim-range">
         <label htmlFor={bl}>Desenfoque</label>
-        <input id={bl} type="range" min={0} max={16} step={1} value={s.blur} aria-valuetext={`${s.blur} píxeles`}
-          style={{ '--p': (s.blur / 16) * 100 + '%' } as CSSProperties} onChange={e => setScrim({ blur: +e.target.value, mode: 'custom' })} />
+        <Range id={bl} min={0} max={16} step={1} value={s.blur} aria-valuetext={`${s.blur} píxeles`}
+          onValue={v => setScrim({ blur: v, mode: 'custom' })} />
         <output htmlFor={bl}>{s.blur} px</output>
       </div>
       <p className="note scrim-note">

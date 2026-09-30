@@ -37,7 +37,7 @@ const A = png(64, 40, [255, 91, 31]);
 const B = png(48, 48, [80, 160, 255]);
 
 async function sourceFile(page: Page) {
-  await page.getByRole('tab', { name: 'Fuente' }).click();
+  await page.getByRole('tab', { name: 'Origen' }).click();
   return page.locator('.panel');
 }
 const prompt = (page: Page) => page.locator('.prompt .card');

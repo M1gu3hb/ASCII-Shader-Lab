@@ -1,10 +1,14 @@
-import { useId, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { DEFAULT_LAYER, defaultRecipe, type Recipe } from '../engine/recipe';
 import { edit, useStudio } from './store';
 import { HelpMore, HelpToggle, HintText, useHelp, type Help } from './ui/Help';
 import type { HelpText } from './ui/copy';
 import { Picker, type PickOpt, type PickerProps } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
+import { Range } from './ui/Range';
+import { NumberField } from './ui/NumberField';
+import { snapTo } from './ui/numberMath';
+import { repeatWait } from './ui/slideMath';
 import { useScramble } from './motion/hooks';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -45,13 +49,13 @@ const fmtNum = (v: number, step: number) => (step >= 1 ? String(Math.round(v)) :
  */
 interface Framed { label: string; help?: HelpText | null }
 
-function Frame({ id, label, h, value, field, more, className, labelTag = 'label', onDoubleClick }: {
+function Frame({ id, label, h, value, field, more, className, labelTag = 'label', onDoubleClick, rowRef }: {
   id: string; label: string; h: Help | null; value?: ReactNode; field: ReactNode; more?: ReactNode; className?: string;
-  labelTag?: 'label' | 'span'; onDoubleClick?: () => void;
+  labelTag?: 'label' | 'span'; onDoubleClick?: () => void; rowRef?: RefObject<HTMLDivElement | null>;
 }) {
   const Lbl = labelTag;
   return (
-    <div className={'ctl cx' + (h ? ' has-help' : '') + (value !== undefined ? ' has-val' : '') + (className ? ' ' + className : '')}>
+    <div ref={rowRef} className={'ctl cx' + (h ? ' has-help' : '') + (value !== undefined ? ' has-val' : '') + (className ? ' ' + className : '')}>
       <Lbl className="lbl" {...(labelTag === 'label' ? { htmlFor: id } : { id: id + 'l' })} {...h?.hover}
         onDoubleClick={onDoubleClick} data-reset={onDoubleClick ? '' : undefined}>{label}</Lbl>
       {value}
@@ -64,29 +68,73 @@ function Frame({ id, label, h, value, field, more, className, labelTag = 'label'
   );
 }
 
-export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare }: Framed & {
+/**
+ * A slider with its name, its value and, where a finger or pen may be used, − and + beside the track.
+ * The range is touch-safe (ui/Range.tsx: scrolling the panel over it never moves it, a sideways drag
+ * does, finer as the finger goes farther from the track). The value is a button: pressed, it becomes a
+ * field to type the exact value (Enter on the slider does the same); a double click on the name goes
+ * back to the initial value. `scale` is how the value is shown and typed (100 for a percentage of 0..1,
+ * 360 for degrees of a turn).
+ */
+export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare, scale = 1 }: Framed & {
   f: Field<number>; min: number; max: number; step?: number; fmt?: (v: number) => string;
   /** Visual examples shown with the explanation (e.g. a CompareStrip). */
   compare?: ReactNode;
+  scale?: number;
 }) {
   const id = useId();
   const h = useHelp(f.key, help);
   const v = useField(f) ?? min;
-  const pct = Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
   const d = defaultOf(f);
+  const row = useRef<HTMLDivElement>(null);
+  const valBtn = useRef<HTMLButtonElement>(null);
+  // the exact value being typed: opened from the keyboard (Enter on the slider: the focus comes back to it) or by a press
+  const [typing, setTyping] = useState<false | 'key' | 'press'>(false);
+  // what typing a value out of the range did («Va de 3 a 48: queda en 48.»), for a moment
+  const [said, setSaid] = useState('');
+  const saidT = useRef(0);
+  useEffect(() => () => clearTimeout(saidT.current), []);
+  const set = (x: number) => edit(r => f.set(r, x), f.key);
   const reset = () => { if (typeof d === 'number') edit(r => f.set(r, d), f.key + ':reset'); };
   const show = (x: number) => (fmt ? fmt(x) : fmtNum(x, step));
+  const back = () => row.current?.querySelector<HTMLInputElement>('input[type=range]')?.focus();
+  const typeStep = scale === 1 ? step : Math.min(1, step * scale);
   return (
     <Frame
-      id={id} label={label} h={h} onDoubleClick={reset}
-      value={<output htmlFor={id}>{show(v)}</output>}
+      id={id} label={label} h={h} onDoubleClick={reset} rowRef={row} className={'sl' + (typing ? ' sl-typing' : '')}
+      value={typing
+        ? (
+          <NumberField
+            className="sl-num" autoFocus aria-label={`Valor de «${label}»`}
+            value={Number((v * scale).toFixed(8))} min={min * scale} max={max * scale} step={typeStep}
+            onValue={x => set(scale === 1 ? x : x / scale)}
+            onDone={(how, line) => {
+              setTyping(false);
+              setSaid(line);
+              clearTimeout(saidT.current);
+              if (line) saidT.current = window.setTimeout(() => setSaid(''), 4500);
+              // Enter or Escape: the focus goes back where the typing was opened from
+              if (how !== 'blur') requestAnimationFrame(typing === 'key' ? back : () => valBtn.current?.focus({ preventScroll: true }));
+            }}
+          />
+        )
+        : (
+          <button ref={valBtn} type="button" className="sl-val" tabIndex={-1} title="Escribir un valor exacto"
+            aria-label={`Escribir el valor de «${label}»: ${show(v)}`} onClick={() => setTyping('press')}>{show(v)}</button>
+        )}
       field={(
-        <input
-          id={id} type="range" min={min} max={max} step={step} value={v} aria-describedby={h?.hintId} {...h?.focus}
-          // --d: where the initial value sits (a small mark over the track; double click on the name goes back to it)
-          style={{ '--p': pct + '%', ...(typeof d === 'number' && d >= min && d <= max ? { '--d': (d - min) / (max - min) } : {}) } as CSSProperties}
-          onChange={e => edit(r => f.set(r, parseFloat(e.target.value)), f.key)}
-        />
+        <>
+          <Stepper dir={-1} label={label} value={v} min={min} max={max} step={step} onValue={set} />
+          <Range
+            id={id} min={min} max={max} step={step} value={v} area={row} aria-describedby={h?.hintId} aria-valuetext={show(v)} {...h?.focus}
+            // --d: where the initial value sits (a small mark over the track; double click on the name goes back to it)
+            style={(typeof d === 'number' && d >= min && d <= max ? { '--d': (d - min) / (max - min) } : {}) as CSSProperties}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setTyping('key'); } }}
+            onValue={set}
+          />
+          <Stepper dir={1} label={label} value={v} min={min} max={max} step={step} onValue={set} />
+          <span className="nf-hint" role="status">{typing ? '' : said}</span>
+        </>
       )}
       more={(
         <>
@@ -100,6 +148,49 @@ export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare }: 
         </>
       )}
     />
+  );
+}
+
+/**
+ * − or + beside a slider (shown where a finger or pen may be used): one step per press, repeating
+ * faster while held. Out of the Tab order: the slider's arrow keys do the same.
+ */
+function Stepper({ dir, label, value, min, max, step, onValue }: {
+  dir: 1 | -1; label: string; value: number; min: number; max: number; step: number; onValue: (v: number) => void;
+}) {
+  const cur = useRef(value);
+  cur.current = value;
+  const held = useRef<{ t: number; n: number; pressed: boolean } | null>(null);
+  const once = () => {
+    const n = snapTo(cur.current + dir * step, min, max, step);
+    if (n !== cur.current) { cur.current = n; onValue(n); }
+  };
+  const stop = () => { if (held.current) clearTimeout(held.current.t); };
+  const at = dir < 0 ? value <= min : value >= max;
+  return (
+    <button
+      type="button" tabIndex={-1} className={'sl-step ' + (dir < 0 ? 'sl-minus' : 'sl-plus')} disabled={at}
+      aria-label={`${dir < 0 ? 'Menos' : 'Más'}: «${label}»`}
+      onPointerDown={e => {
+        if (e.button !== 0) return;
+        // the focus stays where it was: a press here is not a trip through the Tab order
+        e.preventDefault();
+        stop();
+        once();
+        const h = { t: 0, n: 0, pressed: true };
+        held.current = h;
+        const again = () => { h.n++; once(); h.t = window.setTimeout(again, repeatWait(h.n + 1)); };
+        h.t = window.setTimeout(again, repeatWait(1));
+      }}
+      onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+      onClick={() => {
+        // the press already stepped; a click from the keyboard or a screen reader steps once
+        if (held.current?.pressed) { held.current.pressed = false; return; }
+        once();
+      }}
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d={dir < 0 ? 'M3.5 8h9' : 'M3.5 8h9M8 3.5v9'} /></svg>
+    </button>
   );
 }
 
