@@ -334,11 +334,14 @@ test('titular con «reducir movimiento»: el texto real, quieto, sin lienzo', as
 
 /* ---------- «Qué puedes hacer»: each guide's example (src/landing/guias.ts) ---------- */
 
+// an instant jump (the page scrolls smoothly): a card must stay under the pointer once it is hovered
+const toGuides = (page: Page) => page.evaluate(() => document.getElementById('guias')!.scrollIntoView({ block: 'start', behavior: 'instant' }));
+
 test('qué puedes hacer: el ejemplo de cada guía se ve con el cursor y con el teclado, y Enter abre la guía', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
-  await toSection(page, 'guias');
+  await toGuides(page);
   const cards = page.locator('#guias a.guide-card');
   await expect(cards).toHaveCount(5);
   // every card describes its example; the picture exists
@@ -349,6 +352,7 @@ test('qué puedes hacer: el ejemplo de cada guía se ve con el cursor y con el t
   }
   const texto = page.locator('#guias a.guide-card[href="/texto-animado-ascii/"]');
   await expect(texto.locator('img')).toHaveAttribute('alt', /GLYPHOS/);
+  await texto.evaluate(a => a.scrollIntoView({ block: 'center', behavior: 'instant' }));
   // mouse: the example shows and its loop plays; leaving stops it
   await texto.hover();
   await expect(texto.locator('.gc-media')).toHaveCSS('opacity', '1');
@@ -372,7 +376,7 @@ test('qué puedes hacer en una pantalla táctil: el primer toque muestra el ejem
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   await page.goto('/');
-  await toSection(page, 'guias');
+  await toGuides(page);
   const card = page.locator('#guias a.guide-card[href="/texto-animado-ascii/"]');
   await card.scrollIntoViewIfNeeded();
   await card.tap();
@@ -396,8 +400,9 @@ test('qué puedes hacer con «reducir movimiento»: la imagen del ejemplo, sin v
   const ctx = await browser.newContext({ reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   await page.goto('/');
-  await toSection(page, 'guias');
+  await toGuides(page);
   const card = page.locator('#guias a.guide-card[href="/texto-animado-ascii/"]');
+  await card.evaluate(a => a.scrollIntoView({ block: 'center', behavior: 'instant' }));
   await card.hover();
   await expect(card.locator('.gc-media')).toHaveCSS('opacity', '1');
   await page.waitForTimeout(1500);
