@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * Regenerates the site's pre-rendered media from real engine renders and writes them to public/ex/.
- * Commit the results. Usage: node scripts/posters.mjs [--guias] [--portada]   (both when no flag is given)
+ * Commit the results. Usage: node scripts/posters.mjs [--guias] [--portada] [--og]   (--guias and --portada when no flag is given)
  *
  * --guias   the guide posters (dev/posters.ts):
  *             <slug>.webp (1280×800), <slug>-640.webp (640×400), <slug>-og.jpg (1200×630 share image)
  *             terminal-donut.txt (80×24 text frame, exactly what the studio's TXT export gives)
+ * --og      only the site's share image, public/og.jpg (--guias writes it too)
  * --portada the landing's media (dev/landing.ts):
  *             azar/<seed>.webp: one real draw of the dice per style (the «Azar» contact sheet)
  *             salidas/: one piece exported with the studio's own functions — PNG (+ a WebP copy shown on the
@@ -28,6 +29,7 @@ mkdirSync(outDir, { recursive: true });
 const flags = process.argv.slice(2);
 const doGuides = !flags.length || flags.includes('--guias');
 const doLanding = !flags.length || flags.includes('--portada');
+const doOg = flags.includes('--og') && !doGuides;
 
 // node_modules may be a symlink to another checkout: allow its real path so the fonts load.
 const allow = [root, realpathSync(join(root, 'node_modules'))];
@@ -144,8 +146,17 @@ async function landing() {
   write('salidas/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
 }
 
+/** Only public/og.jpg (the site's and the viewer's share image). */
+async function siteOg() {
+  const page = await open(browser, 'dev/posters.html');
+  write('../og.jpg', fromDataUrl(await page.evaluate(() => window.mt.siteOg())));
+  page.checkFailed();
+  await page.close();
+}
+
 try {
   if (doGuides) await guides();
+  if (doOg) await siteOg();
   if (doLanding) await landing();
 } finally {
   await browser.close();

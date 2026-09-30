@@ -127,6 +127,8 @@ test.describe('transformaciones de la fuente', () => {
     const other = await browser.newContext();
     const p2 = await other.newPage();
     await p2.goto(url.replace(/^https?:\/\/[^/]+/, ''));
+    // (shared links open the public viewer; its «Abrir en el estudio» brings the piece to the studio)
+    await p2.getByRole('link', { name: 'Abrir en el estudio' }).click();
     await expect(p2.locator('.seedline')).toBeVisible({ timeout: 45_000 });
     if (await p2.locator('dialog.welcome[open]').count()) await p2.keyboard.press('Escape');
     await p2.getByRole('tab', { name: 'Transformar' }).click();

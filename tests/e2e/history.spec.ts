@@ -115,6 +115,9 @@ test.describe('azar con memoria', () => {
     const b = await browser.newContext();
     const pb = await b.newPage();
     await pb.goto(link);
+    // (shared links open the public viewer; its «Abrir en el estudio» brings the piece to the studio, and
+    // shared again from there, unedited, it is the same link: same recipe, same frame)
+    await pb.getByRole('link', { name: 'Abrir en el estudio' }).click();
     await expect(pb.locator('.seedline')).toBeVisible({ timeout: 45_000 });
     await pressUntil(pb, 'e', pb.getByRole('tab', { name: 'Receta' }));
     await pb.getByRole('tab', { name: 'Receta' }).click();

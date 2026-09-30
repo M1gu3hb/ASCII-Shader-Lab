@@ -137,8 +137,9 @@ test.describe('accesibilidad', () => {
     expect(await nestedInteractive(page)).toEqual([]);
     await page.getByRole('button', { name: 'Cerrar la guía' }).click();
     // a piece with a photo asks before sharing its link
-    await page.locator('.seedline').getByRole('button', { name: 'enlace' }).click();
-    await expect(page.getByRole('dialog', { name: 'Compartir: enlace o proyecto' })).toBeVisible();
+    await page.locator('.topbar .share-btn').click();
+    await expect(page.getByRole('dialog', { name: 'Compartir' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tu imagen no viaja en el enlace' })).toBeVisible();
     await serious(page, 'compartir', 'dialog[open]');
   });
 

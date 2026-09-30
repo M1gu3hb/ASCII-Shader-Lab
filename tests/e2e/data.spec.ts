@@ -180,41 +180,54 @@ test.describe('historial y medios locales', () => {
     await expect((await sourceFile(page)).getByText('foto-a.png')).toBeVisible();
   });
 
-  test('copiar el enlace de una pieza con imagen pide confirmación y el enlace no lleva la imagen', async ({ browser }) => {
+  test('una pieza con imagen: el enlace no la lleva, «Compartir» lo dice y ofrece enviar un archivo', async ({ browser }) => {
     const a = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
     const pa = await a.newPage();
     await openStudio(pa);
     // a pattern piece copies directly
     await pa.keyboard.press('l');
     await expect(pa.locator('.toast').filter({ hasText: 'Enlace copiado' })).toBeVisible();
-    await expect(pa.getByRole('dialog', { name: 'Compartir: enlace o proyecto' })).toHaveCount(0);
+    await expect(pa.getByRole('dialog', { name: 'Compartir' })).toHaveCount(0);
 
     await drop(pa, 'foto-a.png', 'image/png', A);
     await expect((await sourceFile(pa)).getByText('foto-a.png')).toBeVisible();
     await pa.keyboard.press('l');
-    const sheet = pa.getByRole('dialog', { name: 'Compartir: enlace o proyecto' });
+    const sheet = pa.getByRole('dialog', { name: 'Compartir' });
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Exportar proyecto (.zip con la imagen)' })).toBeVisible();
-    await sheet.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(sheet.getByRole('heading', { name: 'Tu imagen no viaja en el enlace' })).toBeVisible();
+    await expect(sheet.getByText('«foto-a.png» se queda en tu navegador: nada se sube a ningún servidor.')).toBeVisible();
+    // the preview is what the link shows: the style, without the image
+    await expect(sheet.locator('.shr-prev img')).toHaveAttribute('alt', /sin tu imagen/, { timeout: 60_000 });
+    // a file instead, chosen by the person: the PNG with the image (or the project, with the file inside)
+    await expect(sheet.getByRole('button', { name: 'Proyecto (.zip) con la imagen' })).toBeVisible();
+    const [file] = await Promise.all([pa.waitForEvent('download'), sheet.getByRole('button', { name: 'Imagen PNG con tu imagen' }).click()]);
+    expect(file.suggestedFilename()).toMatch(/\.png$/);
+    // where the system cannot share files (this browser), it says where the file is
+    await expect(sheet.getByText(/Guardado en tus descargas/)).toBeVisible();
+    await sheet.getByRole('button', { name: 'Copiar enlace' }).click();
+    const link = await pa.evaluate(() => navigator.clipboard.readText());
+    expect(link).toMatch(/\/ver\/#r=z[\w-]+&f=/);
+    expect(decodeURIComponent(link)).not.toContain('foto-a');
+    await pa.keyboard.press('Escape');
     await expect(sheet).toBeHidden();
 
-    // same question from the Receta tab
+    // the same sheet from the Receta tab, which says what each way carries, in words
     await pa.keyboard.press('e');
     await pa.getByRole('tab', { name: 'Receta' }).click();
+    await expect(pa.getByText('No lleva la imagen, ni su nombre.')).toBeVisible();
+    await expect(pa.getByText('Lleva la imagen original.')).toBeVisible();
     await pa.getByRole('button', { name: 'Copiar enlace', exact: true }).click();
     await expect(sheet).toBeVisible();
-    // the sheet says what each way carries, in words
-    await expect(sheet.getByText('No lleva la imagen, ni su nombre.')).toBeVisible();
-    await expect(sheet.getByText('Lleva la imagen original.')).toBeVisible();
-    await sheet.getByRole('button', { name: 'Copiar enlace (sin la imagen)' }).click();
-    await expect(pa.locator('.toast').filter({ hasText: 'Enlace copiado: sólo la receta, sin la imagen' })).toBeVisible();
-    const link = await pa.evaluate(() => navigator.clipboard.readText());
-    expect(link).toMatch(/\/studio\/#r=z/);
     await a.close();
 
+    // whoever opens the link sees the style, and is told why the image is not there
     const b = await browser.newContext();
     const pb = await b.newPage();
     await pb.goto(link);
+    await expect(pb.locator('.ver-note')).toContainText('Esta pieza se hizo con una imagen de quien la compartió, que no viaja en los enlaces');
+    await expect(pb.locator('.ver-stage')).toHaveAttribute('data-state', 'ready', { timeout: 60_000 });
+    // and in the studio, the piece asks for an image of their own
+    await pb.getByRole('link', { name: 'Abrir en el estudio' }).click();
     await expect(prompt(pb)).toContainText('Esta pieza se hizo con una imagen propia que no viaja en los enlaces. Elige una tuya para verla; mientras tanto ves el patrón de fondo.');
     await expect(prompt(pb)).toContainText('64×40');
     await expect(prompt(pb)).not.toContainText('foto-a');

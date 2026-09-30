@@ -50,10 +50,11 @@ export function headTags(p: SitePage, o: { verification?: string | null } = {}):
     `<title>${e(p.title)}</title>`,
     `<meta name="description" content="${e(p.description)}">`,
   ];
-  // the 404 and a paused page (kept so old links do not break) stay out of the index, with no canonical or share tags
+  // the 404 and a paused page (kept so old links do not break) stay out of the index, with no canonical or share tags;
+  // the viewer of shared pieces stays out of search results too, but keeps its canonical and share tags
   const indexed = p.kind !== 'error' && p.kind !== 'paused';
-  if (!indexed) tags.push('<meta name="robots" content="noindex">');
-  else tags.push(`<link rel="canonical" href="${url}">`);
+  if (!indexed || p.kind === 'viewer') tags.push('<meta name="robots" content="noindex">');
+  if (indexed) tags.push(`<link rel="canonical" href="${url}">`);
   tags.push(
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',

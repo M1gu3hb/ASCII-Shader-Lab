@@ -14,7 +14,7 @@ import { saveSession } from './packages';
 import { announce, toast } from './toast';
 import { setAuto, useLive } from './live';
 import { historyLabel, thumbBg } from './history';
-import { shareLink } from './ShareSheet';
+import { ShareDockButton, shareLink } from './ShareSheet';
 import { HoldCompare } from './guide/HoldCompare';
 import { Picker } from './ui/Picker';
 import { ScrollRow } from './ui/ScrollRow';
@@ -173,6 +173,8 @@ function PhoneDeck() {
         <button type="button" className="act ghost ph-export" onClick={() => setUI({ panel: false, sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">
           <IDownload /><span className="ph-lbl">Exportar</span>
         </button>
+        {/* «Compartir» on phones (lane compartir's one mount point in the dock) */}
+        <ShareDockButton />
         <button type="button" className="act ghost ph-tools" aria-pressed={panel} onClick={() => setUI({ panel: !panel })} aria-label="Ajustes de la pieza" title="Ajustes de la pieza: forma, color, glifos…">
           <ISlidersH /><span className="ph-lbl">Ajustes</span>
         </button>
@@ -349,7 +351,6 @@ function SeedLine({ e, n, total }: { e?: Entry; n: number; total: number }) {
       <span className="seed-acts">
         {e.edited && <HoldCompare origin={e.origin} />}
         {e.edited && <button type="button" onClick={restoreOrigin} title="Volver al resultado tal como salió (se puede deshacer)">restaurar</button>}
-        <button type="button" onClick={() => void copyLink()} title="Copiar un enlace a esta pieza">enlace</button>
         <button type="button" onClick={() => setUI({ sheet: 'seed' })} title="Escribir una semilla">semilla</button>
       </span>
     </div>
