@@ -135,8 +135,8 @@ export interface GhostPose { x: number; y: number; down: boolean }
 export function ghostPoses(mode: InteractMode, g: number): GhostPose[] {
   switch (mode) {
     case 'trail': case 'reveal': {
-      const [x, y] = wander(g * 0.35 * 1.7);
-      return [{ x, y, down: false }];
+      const [x, y] = wander(g * 0.35 * 1.1);
+      return [{ x, y, down: mode === 'trail' }];
     }
     case 'follow': {
       const [x, y] = wander(g * 0.35 * 0.8);
@@ -146,7 +146,7 @@ export function ghostPoses(mode: InteractMode, g: number): GhostPose[] {
       const P = 2.6, k = Math.floor(g / P), ph = g - k * P;
       const [sx, sy] = spot(k, 0.3, 0.7);
       const a = hashU(k, 5) * Math.PI * 2, u = Math.min(1, ph / 1.1), e = u * u * (3 - 2 * u);
-      return [{ x: sx + Math.cos(a) * 0.18 * e, y: sy + Math.sin(a) * 0.14 * e, down: ph < 1.3 }];
+      return [{ x: sx + Math.cos(a) * 0.24 * e, y: sy + Math.sin(a) * 0.2 * e, down: ph < 1.4 }];
     }
     case 'blossom': {
       const P = 3.6, k = Math.floor(g / P), ph = g - k * P;
@@ -361,7 +361,7 @@ export class TouchField {
     this.driveGhost(tEnd);
     // 3. the mode
     const s = this.s, dt = TOUCH_DT;
-    if (s.mode === 'trail' || s.mode === 'reveal' || s.mode === 'blossom' || s.mode === 'sparks') this.fade(Math.exp(-dt / (s.mode === 'sparks' ? 0.12 + 0.35 * s.decay : traceTau(s.decay))));
+    if (s.mode === 'trail' || s.mode === 'reveal' || s.mode === 'blossom' || s.mode === 'sparks') this.fade(Math.exp(-dt / (s.mode === 'sparks' ? 0.2 + 0.5 * s.decay : traceTau(s.decay))));
     if (s.mode === 'trail' || s.mode === 'reveal') this.strokes(tEnd);
     else if (s.mode === 'blossom') this.blossoms(dt);
     else if (s.mode === 'sparks') this.moveSparks(dt, tEnd);
@@ -441,7 +441,7 @@ export class TouchField {
       const v = burst ? (0.3 + 1.2 * s.radius) * H * (0.6 + 0.5 * hashU(k, 5)) : sp * (0.55 + 0.6 * hashU(k, 5));
       this.sparks.push({
         x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, age: 0,
-        life: (0.4 + 1.8 * s.decay) * (0.55 + 0.45 * hashU(k, 9)), hint: 0.7 + 0.3 * hashU(k, 13),
+        life: (0.4 + 1.8 * s.decay) * (0.55 + 0.45 * hashU(k, 9)), hint: 0.85 + 0.15 * hashU(k, 13),
       });
     }
     if (this.sparks.length > MAX_SPARKS) this.sparks.splice(0, this.sparks.length - MAX_SPARKS);
@@ -528,9 +528,9 @@ export class TouchField {
       if (!p.down && !hover) continue;
       // a resting cursor leaves nothing new (and costs nothing); a finger held still keeps its spot
       if (hover && p.x === p.px && p.y === p.py) continue;
-      const base = s.mode === 'reveal' ? 0.45 + 0.55 * s.strength : 0.5 + 0.5 * s.strength;
-      const amp = base * (p.down ? this.pressureK(p) : s.mode === 'reveal' ? 1 : 0.8);
-      const R = this.brushR(p) * (s.mode === 'reveal' ? 1 : 0.8);
+      const base = s.mode === 'reveal' ? 0.45 + 0.55 * s.strength : 0.55 + 0.45 * s.strength;
+      const amp = base * (p.down ? this.pressureK(p) : 1);
+      const R = this.brushR(p);
       this.deposit(p.px, p.py, p.x, p.y, R, amp, s.mode === 'reveal' ? 0 : -1);
     }
   }
@@ -586,7 +586,7 @@ export class TouchField {
   private moveSparks(dt: number, _t: number) {
     const H = this.H, W = this.W, drag = Math.exp(-dt * 1.6), grav = 0.35 * H;
     const out: Spark[] = [];
-    const R = Math.max(this.cw * 0.7, this.s.radius * H * 0.08);
+    const R = Math.max(this.cw * 1.1, this.s.radius * H * 0.1);
     for (const q of this.sparks) {
       const ax = q.x, ay = q.y;
       q.vx *= drag; q.vy = q.vy * drag + grav * dt;
@@ -594,7 +594,7 @@ export class TouchField {
       q.age += dt;
       const f = 1 - q.age / q.life;
       if (f <= 0 || q.x < -W * 0.2 || q.x > W * 1.2 || q.y > H * 1.2 || q.y < -H * 0.5) continue;
-      this.deposit(ax, ay, q.x, q.y, R, Math.pow(f, 0.7), q.hint * (0.6 + 0.4 * f));
+      this.deposit(ax, ay, q.x, q.y, R, Math.min(1, 1.2 * Math.pow(f, 0.6)), q.hint * (0.7 + 0.3 * f));
       out.push(q);
     }
     this.sparks = out;
