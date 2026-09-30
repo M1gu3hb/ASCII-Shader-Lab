@@ -4,6 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { crc32 } from '../../src/shared/zip';
 import { colours, contextOf, drawn } from './canvas';
 import { openStudio } from './helpers';
+import { chooseRecipe } from './recipes';
 
 /**
  * The creative additions: transformations of the source (Imagen, Tipo), letters that move (Tipo), the
@@ -159,7 +160,7 @@ test.describe('transformaciones de la fuente', () => {
   test('el dado de Transformar propone una combinación, y los recetarios de Imagen la traen', async ({ page }) => {
     const errors = await openStudio(page, '#space=media');
     await dropPhoto(page);
-    await page.locator('.panel .recipes').getByRole('button', { name: 'Serigrafía' }).click();
+    await chooseRecipe(page, 'Serigrafía');
     await page.getByRole('tab', { name: 'Transformar' }).click();
     await expect(page.getByRole('combobox', { name: 'Transformación 1' })).toContainText('Bandas');
     await expect(page.getByRole('combobox', { name: 'Transformación 2' })).toContainText('Semitono');
@@ -179,7 +180,7 @@ test.describe('transformaciones de la fuente', () => {
     const errors = await openStudio(page, '?motor=basico#space=media');
     await dropPhoto(page);
     expect(await contextOf(page, '.stage canvas')).toBe('2d');
-    await page.locator('.panel .recipes').getByRole('button', { name: 'Caleidoscopio' }).click();
+    await chooseRecipe(page, 'Caleidoscopio');
     await drawn(page, '.stage canvas');
     const a = await colours(page, '.stage canvas');
     expect(a).toBeGreaterThan(3);
@@ -190,7 +191,7 @@ test.describe('transformaciones de la fuente', () => {
 test.describe('letras que se mueven', () => {
   test('Tipo: el texto grande y el mensaje eligen su movimiento; «Palabra a palabra»', async ({ page }) => {
     const errors = await openStudio(page, '#space=tipo');
-    await page.locator('.panel .recipes').getByRole('button', { name: 'Ola', exact: true }).click();
+    await chooseRecipe(page, 'Ola');
     await page.getByRole('tab', { name: 'Tu texto', exact: true }).click();
     const how = page.getByRole('combobox', { name: 'Cómo se mueven las letras' });
     await expect(how).toContainText('Ola');

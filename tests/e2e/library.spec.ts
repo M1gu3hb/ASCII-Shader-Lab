@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { download, openStudio } from './helpers';
+import { chooseRecipe } from './recipes';
 
 /**
  * The library ported from the pattern-library branch in the real studio: its recipes open in their space and draw,
@@ -97,9 +98,8 @@ test.describe('biblioteca', () => {
       // a fresh load per space (a new hash alone does not reload the studio)
       await page.goto('about:blank');
       const errors = await openStudio(page, `#space=${space}`);
-      const chip = page.locator('.panel .recipes').getByRole('button', { name, exact: true });
-      await chip.click();
-      await expect(chip).toHaveAttribute('aria-pressed', 'true');
+      // from the recipe browser (the card is marked as the piece's own once applied)
+      await chooseRecipe(page, name);
       await expect(page.locator('.seedline')).toContainText(name);
       await drawn(page);
       expect(errors, `${space}/${name}`).toEqual([]);

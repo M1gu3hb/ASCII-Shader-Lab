@@ -54,15 +54,21 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
         await look('pestaña ' + (await tab.textContent())?.trim());
       }
       // the recipes: their line in the sheet's head names the recipe of the piece; pressed, the recipes take
-      // the controls' place as chips that wrap, 44 px each (a section brings the controls back)
+      // the sheet (pictures, filters in a row that says «más», a search button), 44 px each; the line again
+      // brings the controls back
       const zone = page.getByRole('button', { name: /^Recetas de Arte: / });
       await expect(zone).toHaveAttribute('aria-expanded', 'false');
       await zone.tap();
       await expect(zone).toHaveAttribute('aria-expanded', 'true');
       await look('recetas');
-      const chips = page.locator('.panel .rz-pane .chip');
-      expect(await chips.count()).toBeGreaterThan(3);
-      for (const c of (await chips.all()).slice(0, 4)) expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      const cards = page.locator('#rx-browser .rx-card');
+      expect(await cards.count()).toBeGreaterThan(3);
+      for (const c of [...(await cards.all()).slice(0, 4), ...await page.locator('#rx-browser .rx-chip, #rx-browser .rx-find').all()]) {
+        if (!(await c.isVisible())) continue;
+        expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+      await zone.tap();
+      await expect(page.locator('.panel [role=tab]').first()).toBeVisible();
       await page.getByRole('button', { name: 'Cerrar ajustes' }).tap();
 
       // the export sheet's formats

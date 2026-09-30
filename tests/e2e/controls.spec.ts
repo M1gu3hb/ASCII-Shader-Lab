@@ -125,7 +125,11 @@ test.describe('acceso horizontal', () => {
     for (const [w, h] of [[1920, 1080], [1366, 768], [1024, 768]] as const) {
       await page.setViewportSize({ width: w, height: h });
       await page.waitForTimeout(200);
-      for (const sel of ['.panel .recipes', '.panel .ptabs']) {
+      // the recipe line: whole, inside the column
+      const line = (await page.locator('.panel .rx-line').boundingBox())!, col = (await page.locator('.panel').boundingBox())!;
+      expect(line.x, `línea de recetas a ${w} px`).toBeGreaterThanOrEqual(col.x);
+      expect(line.x + line.width, `línea de recetas a ${w} px`).toBeLessThanOrEqual(col.x + col.width);
+      for (const sel of ['.panel .ptabs']) {
         const row = page.locator(sel);
         expect(await row.evaluate(el => el.scrollWidth - el.clientWidth), `${sel} a ${w} px`).toBeLessThanOrEqual(1);
         // every item inside the panel, none cut at its edge
@@ -221,21 +225,28 @@ test.describe('teclado', () => {
       // ← → inside the row never move the history
       await expect(page.locator('.seedline')).toContainText('1/1');
 
-      // recipes: their zone unfolds from its line (folded by default where room is short, and on phones
-      // the recipes take the controls' place); each one takes focus with Tab, in view in its list
-      const zone = page.locator('.panel .rz-head');
-      if (await zone.getAttribute('aria-expanded') !== 'true') await zone.click();
+      // recipes: the line opens them in the settings' place (the column, or the sheet); the pictures are one
+      // Tab stop and the arrows walk every one of them, each in view in its list
+      const zone = page.locator('.panel .rx-line');
+      await zone.click();
       await expect(zone).toHaveAttribute('aria-expanded', 'true');
-      const chips = page.locator('.panel .recipes .chip');
-      await chips.first().focus();
-      for (let i = 0; i < await chips.count(); i++) {
-        await expect(chips.nth(i)).toBeFocused();
-        await expect.poll(() => chips.nth(i).evaluate(el => {
-          const row = el.closest('.rz-list, .pane')!.getBoundingClientRect(), b = el.getBoundingClientRect();
+      const cards = page.locator('#rx-browser .rx-card');
+      await page.locator('#rx-browser .rx-card[tabindex="0"]').focus();
+      await page.keyboard.press('Home');
+      const count = await cards.count();
+      expect(count).toBeGreaterThan(40);
+      for (let i = 0; i < count; i++) {
+        await expect(cards.nth(i)).toBeFocused();
+        await expect.poll(() => cards.nth(i).evaluate(el => {
+          const row = el.closest('.rx-scroll')!.getBoundingClientRect(), b = el.getBoundingClientRect();
           return b.left >= row.left - 1 && b.right <= row.right + 1 && b.top >= row.top - 1 && b.bottom <= row.bottom + 1;
         })).toBe(true);
-        await page.keyboard.press('Tab');
+        await page.keyboard.press('ArrowRight');
       }
+      // (the arrows walked the pictures, never the history)
+      await expect(page.locator('.seedline')).toContainText('1/1');
+      await page.keyboard.press('Escape');
+      await expect(zone).toHaveAttribute('aria-expanded', 'false');
     }
 
     // views (desktop): a radio group; arrows move and choose
@@ -388,9 +399,13 @@ test.describe('controles que se explican', () => {
       await page.getByRole('tab', { name: t }).hover();
       await check('pestaña ' + t);
     }
-    await page.locator('.panel .recipes .chip').first().click();
-    await page.locator('.panel .recipes .chip[aria-pressed=true]').hover();
+    await page.locator('.panel .rx-line').click();
+    await page.locator('#rx-browser .rx-card').first().click();
+    await page.locator('#rx-browser .rx-card[aria-pressed=true]').hover();
     await check('receta elegida');
+    await page.locator('#rx-browser .rx-chip').nth(1).click();
+    await check('filtro de recetas elegido');
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Ajustes del azar' }).click();
     await check('ajustes del azar');
     expect(bad, bad.join('\n')).toEqual([]);
