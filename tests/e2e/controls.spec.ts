@@ -105,7 +105,8 @@ test.describe('acceso horizontal', () => {
   // every space, tab, view and sheet at 1366 and 768 px; at the other widths one space, its tabs, the views and the export sheet
   for (const [label, widths] of [['1920 a 1280 px', WIDTHS.slice(0, 4)], ['1024 a 768 px', WIDTHS.slice(4)]] as const) {
     test(`de ${label}, ninguna fila recorta opciones sin avisar`, async ({ page }) => {
-      test.setTimeout(300_000);
+      // (four widths × every space, section, view and sheet: about five minutes under the software GPU)
+      test.setTimeout(600_000);
       await openStudio(page);
       const found: string[] = [];
       for (const [w, h] of widths) {
