@@ -99,7 +99,12 @@ export interface ShareView {
 }
 
 const T_MAX = 1e7;
-const cleanTime = (t: unknown) => (typeof t === 'number' && Number.isFinite(t) && t > 0 && t < T_MAX ? Math.round(t * 1000) / 1000 : 0);
+/**
+ * The moment of a paused piece, exactly as its engine holds it (written as the shortest decimal that reads back
+ * to the same number). Not rounded: grain and flicker hash the piece's time, so a moment rounded to the
+ * millisecond showed the receiver other noise than the sender saw. Under half a millisecond is the start.
+ */
+const cleanTime = (t: unknown) => (typeof t === 'number' && Number.isFinite(t) && t >= 0.0005 && t < T_MAX ? t : 0);
 
 /**
  * What goes after «#» in a link to a piece: the recipe (r, first, as links always started), the frame (f)

@@ -155,10 +155,14 @@ describe('links to a piece', () => {
     const r = textPiece();
     const code = await encodeRecipe(r);
     const frame = frameFor(1096, 848, 1, 11, 15 / 11);
+    // the moment exactly (grain and flicker hash it: a rounded moment is other noise)
     const hash = pieceHash(code, { frame, t: 12.34567, paused: true });
-    expect(hash).toBe(`r=${code}&f=1096x848-11x15&t=12.346&p=1`);
+    expect(hash).toBe(`r=${code}&f=1096x848-11x15&t=12.34567&p=1`);
+    const t = 7.123456789012345;
+    expect(readPieceHash('#' + pieceHash(code, { frame, t, paused: true })).view.t).toBe(t);
+    expect(pieceHash(code, { frame, t: 0.0004, paused: true })).toBe(`r=${code}&f=1096x848-11x15&p=1`);
     const back = readPieceHash('#' + hash);
-    expect(back).toEqual({ code, view: { frame, t: 12.346, paused: true } });
+    expect(back).toEqual({ code, view: { frame, t: 12.34567, paused: true } });
     expect(await decodeRecipe(back.code!)).toEqual(await decodeRecipe(code));
     // a piece that moves starts from its beginning: the same piece seen the same way, the same link
     expect(pieceHash(code, { frame, t: 12.34567 })).toBe(`r=${code}&f=1096x848-11x15`);
