@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SOURCE_NAMES } from '../engine/catalog';
 import { EngineNotes, StageFatal } from './BasicMode';
 import { mountStudioEngine, destroyStudioEngine } from './engineBridge';
@@ -16,6 +16,7 @@ import { RecordingChip } from './Recording';
 import { SlowNotice } from './Quality';
 import { useNoticeHost, useNoticesHeight } from './Notices';
 import { useSwap } from './motion/hooks';
+import { swap } from './motion/swap';
 
 export function Stage() {
   // the container of the live canvas: created once, mounted by the bridge (which may swap the canvas
@@ -38,6 +39,7 @@ export function Stage() {
   // a new destination view recomposes out of glyphs, over the room the views use (never over the bars)
   const veil = useRef<HTMLDivElement>(null);
   useSwap(veil, view, 'view');
+  useKeptPieceSwap(veil, view);
 
   useEffect(() => {
     void mountStudioEngine(host);
@@ -83,6 +85,23 @@ export function Stage() {
       </div>
     </div>
   );
+}
+
+/**
+ * A new space that keeps the piece (it fits there) and its view: the engine has nothing to dissolve (the
+ * same piece on both sides), so the stage re-forms out of glyphs as a new view does. Every change of space
+ * shows its formation, the others through the engine's transition (engineBridge.ts).
+ */
+function useKeptPieceSwap(veil: React.RefObject<HTMLDivElement | null>, view: string) {
+  const space = useStudio(s => s.space);
+  const entryId = useStudio(s => s.entries[s.cursor]?.id);
+  const reduced = useStudio(s => s.reducedMotion);
+  const was = useRef({ space, entryId, view });
+  useLayoutEffect(() => {
+    const k = was.current;
+    was.current = { space, entryId, view };
+    if (!reduced && k.space !== space && k.entryId === entryId && k.view === view) swap(veil.current, 'view');
+  }, [space, entryId, view, veil, reduced]);
 }
 
 function describe(r: ReturnType<typeof useRecipe>): string {

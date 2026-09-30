@@ -131,7 +131,10 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   unsub = useStudio.subscribe((st, prev) => {
     if (engine !== e) return;
     if (st.change.n !== prev.change.n || st.cursor !== prev.cursor) {
-      const cause = st.change.kind === 'edit' || st.reducedMotion ? null : causeOf(st, prev);
+      // the same piece on both sides (a new space that keeps it): nothing for a transition to show (the
+      // stage re-forms out of glyphs instead, Stage.tsx)
+      const same = currentRecipe(st) === currentRecipe(prev);
+      const cause = same || st.change.kind === 'edit' || st.reducedMotion ? null : causeOf(st, prev);
       follow(currentRecipe(st), cause ? pickTransition({ cause, renderer: e.kind, pointer: recentPointer() }) : null);
     }
     if (st.playing !== prev.playing) { if (st.playing) e.play(); else e.pause(); }
