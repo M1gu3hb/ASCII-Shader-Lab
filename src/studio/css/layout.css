@@ -252,6 +252,13 @@ html[data-motion="low"] .app .pane-head .tab-ic { animation: none; }
   .app .vbar.more .vbar-go-sm span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .app .vbar.more .vbar-sel { max-width: 100%; min-width: 0; }
 }
+/* phones up to 500 px (430 and 414 px ones too): the space picker is its icon and caret, as on narrower
+   ones (phone.css), instead of a name squeezed to a letter with the caret over the icon */
+@media (max-width: 500px) {
+  .app .topbar .pk.space-select { flex: none; width: 44px; min-width: 44px; padding: 0 3px 0 5px; gap: 2px; justify-content: center; }
+  .app .topbar .pk.space-select .pk-val { flex: none; }
+  .app .topbar .pk.space-select .pk-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 
 /* ---------- phones on their side: every pixel of height counts. The groups keep their two rows; the
    close button and «Recetas» (a cell like the groups': the recipe of the piece is named by the line at

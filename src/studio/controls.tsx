@@ -56,7 +56,7 @@ function Frame({ id, label, h, value, field, more, className, labelTag = 'label'
   const Lbl = labelTag;
   return (
     <div ref={rowRef} className={'ctl cx' + (h ? ' has-help' : '') + (value !== undefined ? ' has-val' : '') + (className ? ' ' + className : '')}>
-      <Lbl className="lbl" {...(labelTag === 'label' ? { htmlFor: id } : { id: id + 'l' })} {...h?.hover}
+      <Lbl className="lbl" id={id + 'l'} {...(labelTag === 'label' ? { htmlFor: id } : {})} {...h?.hover}
         onDoubleClick={onDoubleClick} data-reset={onDoubleClick ? '' : undefined}>{label}</Lbl>
       {value}
       {field}
@@ -105,7 +105,7 @@ export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare, sc
       value={typing
         ? (
           <NumberField
-            className="sl-num" autoFocus aria-label={`Valor de «${label}»`}
+            className="sl-num" autoFocus aria-labelledby={id + 'l'}
             value={Number((v * scale).toFixed(8))} min={min * scale} max={max * scale} step={typeStep}
             onValue={x => set(scale === 1 ? x : x / scale)}
             onDone={(how, line) => {
@@ -120,11 +120,11 @@ export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare, sc
         )
         : (
           <button ref={valBtn} type="button" className="sl-val" tabIndex={-1} title="Escribir un valor exacto"
-            aria-label={`Escribir el valor de «${label}»: ${show(v)}`} onClick={() => setTyping('press')}>{show(v)}</button>
+            aria-label={`Escribir el valor exacto: ${show(v)}`} aria-describedby={id + 'l'} onClick={() => setTyping('press')}>{show(v)}</button>
         )}
       field={(
         <>
-          <Stepper dir={-1} label={label} value={v} min={min} max={max} step={step} onValue={set} />
+          <Stepper dir={-1} labelId={id + 'l'} value={v} min={min} max={max} step={step} onValue={set} />
           <Range
             id={id} min={min} max={max} step={step} value={v} area={row} aria-describedby={h?.hintId} aria-valuetext={show(v)} {...h?.focus}
             // --d: where the initial value sits (a small mark over the track; double click on the name goes back to it)
@@ -132,7 +132,7 @@ export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare, sc
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setTyping('key'); } }}
             onValue={set}
           />
-          <Stepper dir={1} label={label} value={v} min={min} max={max} step={step} onValue={set} />
+          <Stepper dir={1} labelId={id + 'l'} value={v} min={min} max={max} step={step} onValue={set} />
           <span className="nf-hint" role="status">{typing ? '' : said}</span>
         </>
       )}
@@ -155,8 +155,8 @@ export function Slider({ f, label, min, max, step = 0.01, fmt, help, compare, sc
  * − or + beside a slider (shown where a finger or pen may be used): one step per press, repeating
  * faster while held. Out of the Tab order: the slider's arrow keys do the same.
  */
-function Stepper({ dir, label, value, min, max, step, onValue }: {
-  dir: 1 | -1; label: string; value: number; min: number; max: number; step: number; onValue: (v: number) => void;
+function Stepper({ dir, labelId, value, min, max, step, onValue }: {
+  dir: 1 | -1; labelId: string; value: number; min: number; max: number; step: number; onValue: (v: number) => void;
 }) {
   const cur = useRef(value);
   cur.current = value;
@@ -170,7 +170,7 @@ function Stepper({ dir, label, value, min, max, step, onValue }: {
   return (
     <button
       type="button" tabIndex={-1} className={'sl-step ' + (dir < 0 ? 'sl-minus' : 'sl-plus')} disabled={at}
-      aria-label={`${dir < 0 ? 'Menos' : 'Más'}: «${label}»`}
+      aria-label={dir < 0 ? 'Menos' : 'Más'} aria-describedby={labelId}
       onPointerDown={e => {
         if (e.button !== 0) return;
         // the focus stays where it was: a press here is not a trip through the Tab order

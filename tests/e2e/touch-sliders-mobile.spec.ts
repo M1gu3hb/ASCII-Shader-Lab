@@ -142,8 +142,9 @@ test('− y + dan pasos exactos; el valor se escribe, y fuera de su rango se aju
   await openGlifos(page);
   const slider = page.getByRole('slider', { name: NAME });
   const v0 = Number(await slider.inputValue());
-  const plus = page.getByRole('button', { name: `Más: «${NAME}»` });
-  const minus = page.getByRole('button', { name: `Menos: «${NAME}»` });
+  const row = page.locator('.panel .ctl.sl').filter({ has: slider });
+  const plus = row.getByRole('button', { name: 'Más', exact: true });
+  const minus = row.getByRole('button', { name: 'Menos', exact: true });
   for (const b of [plus, minus]) {
     const r = (await b.boundingBox())!;
     expect(r.width >= 44 && r.height >= 44).toBe(true);
@@ -154,10 +155,10 @@ test('− y + dan pasos exactos; el valor se escribe, y fuera de su rango se aju
   await minus.tap();
   await expect(slider).toHaveValue(String(Number((v0 + 0.01).toFixed(2))));
   // the value: a 44 px target that opens a field with the number keypad
-  const val = page.getByRole('button', { name: new RegExp(`^Escribir el valor de «${NAME.replace(/[()÷]/g, '.')}»`) });
+  const val = row.getByRole('button', { name: /^Escribir el valor exacto/ });
   expect((await val.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await val.tap();
-  const field = page.getByRole('spinbutton', { name: `Valor de «${NAME}»` });
+  const field = row.getByRole('spinbutton', { name: NAME, exact: true });
   await expect(field).toBeFocused();
   await expect(field).toHaveAttribute('inputmode', 'decimal');
   await field.fill('2,1');
@@ -167,7 +168,7 @@ test('− y + dan pasos exactos; el valor se escribe, y fuera de su rango se aju
   await field.fill('9');
   await field.press('Enter');
   await expect(slider).toHaveValue('2.4');
-  await expect(page.locator('.ctl.sl').filter({ has: slider }).locator('.nf-hint')).toHaveText('Va de 0.6 a 2.4: queda en 2.4.');
+  await expect(row.locator('.nf-hint')).toHaveText('Va de 0.6 a 2.4: queda en 2.4.');
   // emptied and left: it keeps its value
   await val.tap();
   await field.fill('');

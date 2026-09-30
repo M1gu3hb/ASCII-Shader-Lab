@@ -153,10 +153,13 @@ test('los deslizadores con teclado y ratón: flechas, Enter para escribir el val
   await expect(s).toHaveValue(String(v0 + 1));
   await expect(s).toHaveAttribute('aria-valuetext', `${v0 + 1} px`);
   // − + are for touch screens: not on a desktop with a mouse
-  await expect(page.getByRole('button', { name: 'Más: «Tamaño de celda»' })).toBeHidden();
+  const row = page.locator('.panel .ctl.sl').filter({ has: s });
+  await expect(row.getByRole('button', { name: 'Más', exact: true })).toBeHidden();
+  // (the row's other parts are described by the setting, not named after it: its name finds the slider alone)
+  await expect(page.getByLabel('Tamaño de celda')).toHaveCount(1);
   // Enter: the exact value; Enter again goes back to the slider
   await page.keyboard.press('Enter');
-  const field = page.getByRole('spinbutton', { name: 'Valor de «Tamaño de celda»' });
+  const field = row.getByRole('spinbutton', { name: 'Tamaño de celda', exact: true });
   await expect(field).toBeFocused();
   await field.fill('20');
   await page.keyboard.press('Enter');
@@ -170,7 +173,7 @@ test('los deslizadores con teclado y ratón: flechas, Enter para escribir el val
   await expect(s).toHaveValue('20');
   await expect(s).toBeFocused();
   // the value is a button for the mouse too
-  await page.getByRole('button', { name: /^Escribir el valor de «Tamaño de celda»/ }).click();
+  await row.getByRole('button', { name: /^Escribir el valor exacto/ }).click();
   await expect(field).toBeFocused();
   await page.keyboard.press('Escape');
   // a click on the track: the native, direct behaviour (the value under the pointer)
