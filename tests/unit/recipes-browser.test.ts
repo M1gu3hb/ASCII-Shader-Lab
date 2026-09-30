@@ -6,6 +6,7 @@ import { SCENES } from '../../src/studio/scenes';
 import { CATEGORIES, allItems, filtersOf, itemNamed, itemsOf, moodOf, sectionOf, sectionsOf } from '../../src/studio/recipes/catalog';
 import { fold, search, tokens } from '../../src/studio/recipes/search';
 import { itemOfEntry, isShown, recentItems } from '../../src/studio/recipes/used';
+import { keptKey } from '../../src/studio/recipes/kept';
 
 /**
  * The lab's recipe catalogue (recipes/catalog.ts): every recipe and scene is listed once, in its own space,
@@ -154,5 +155,15 @@ describe('historial', () => {
     expect(recentItems(list, 'arte').map(i => i.name)).toEqual(['Dona', 'Julia']);
     expect(recentItems(list, 'fondos').map(i => i.name)).toEqual(['Marea']);
     expect(recentItems(list, 'arte', 1).map(i => i.name)).toEqual(['Dona']);
+  });
+});
+
+describe('imágenes guardadas', () => {
+  it('una clave corta y estable por imagen; otra receta, otra clave', () => {
+    const a = keptKey('webgl|0.8|{"a":1}');
+    expect(a).toBe(keptKey('webgl|0.8|{"a":1}'));
+    expect(a).not.toBe(keptKey('webgl|0.8|{"a":2}'));
+    expect(a).not.toBe(keptKey('basic|0.8|{"a":1}'));
+    expect(a.length).toBeLessThan(40);
   });
 });

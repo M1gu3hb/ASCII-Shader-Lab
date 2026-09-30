@@ -8,7 +8,7 @@ import { ZOOM, peekPreview, previewKey, requestPreview } from './previews';
  * only while the picture is in view (or near it) inside `root`, and withdrawn when it leaves, so a long
  * list only draws what is looked at; a hidden panel draws nothing.
  */
-export function RecipePic({ recipe, look, prio = 0, root, className, thumb, zoom = ZOOM }: {
+export function RecipePic({ recipe, look, prio = 0, root, className, thumb, zoom = ZOOM, keep = false }: {
   recipe: Recipe | null;
   /** Shown until the render arrives (and where there is none). */
   look: Look;
@@ -21,6 +21,8 @@ export function RecipePic({ recipe, look, prio = 0, root, className, thumb, zoom
   thumb?: string;
   /** Share of the composition shown (previews.ts). */
   zoom?: number;
+  /** Keep the picture between visits (only a catalogue recipe made without the person's photo or words). */
+  keep?: boolean;
 }) {
   const el = useRef<HTMLSpanElement>(null);
   const key = useMemo(() => (recipe && !thumb ? previewKey(recipe, zoom) : ''), [recipe, thumb, zoom]);
@@ -34,7 +36,7 @@ export function RecipePic({ recipe, look, prio = 0, root, className, thumb, zoom
     let cancel: (() => void) | null = null;
     const io = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) {
-        cancel ??= requestPreview(recipe, prio, url => { cancel = null; if (url) setGot({ key, url }); }, zoom);
+        cancel ??= requestPreview(recipe, prio, url => { cancel = null; if (url) setGot({ key, url }); }, zoom, keep);
       } else if (cancel) { cancel(); cancel = null; }
     }, { root: root?.current ?? null, rootMargin: '160px 0px' });
     io.observe(node);

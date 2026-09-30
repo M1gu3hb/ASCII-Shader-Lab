@@ -201,13 +201,15 @@ function Card({ item, prio, space, base, root, shown, from, tab, other, meta, on
   meta: boolean;
 }) {
   const recipe = useMemo(() => recipeFor(item, base, space), [item, base, space]);
+  // the catalogue's own picture (not one with the person's photo or words) is kept between visits
+  const own = item.space === (space === 'componentes' ? 'fondos' : space) && !!base;
   const where = other ? `, de ${spaceById(item.space).name}` : '';
   const state = shown ? ', la pieza actual' : from ? ', tu pieza viene de aquí (editada)' : '';
   return (
     <button type="button" className={'rx-card' + (from ? ' rx-from' : '')} data-key={item.key} aria-pressed={shown} tabIndex={tab ? 0 : -1}
       aria-label={`${item.name}. ${item.line}${where}${state}`}
       onFocus={() => onFocusKey(item.key)} onClick={() => applyItem(item)}>
-      <RecipePic recipe={recipe} look={item.look} prio={prio} root={root} />
+      <RecipePic recipe={recipe} look={item.look} prio={prio} root={root} keep={!own} />
       {!recipe && <span className="rx-photo" aria-hidden="true"><IImage width={18} height={18} /><span>con tu foto</span></span>}
       {shown && <span className="rx-now" aria-hidden="true">Actual</span>}
       <span className="rx-name">{item.name}</span>

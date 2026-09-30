@@ -225,6 +225,17 @@ test('las imágenes se dibujan para lo que se ve y se guardan para volver', asyn
   await closeRecipes(page);
   await openRecipes(page);
   await expect(box.locator('.rx-card').first().locator('.rx-pic img')).toHaveCount(1, { timeout: 1500 });
+  // and between visits: in a database of their own (never the history's)
+  const kept = () => page.evaluate(() => new Promise<number>(res => {
+    const req = indexedDB.open('glyphos-recetas');
+    req.onsuccess = () => { try { const c = req.result.transaction('fotos').objectStore('fotos').count(); c.onsuccess = () => res(c.result); c.onerror = () => res(-1); } catch { res(-1); } };
+    req.onerror = () => res(-1);
+  }));
+  await expect.poll(kept, { timeout: 10_000 }).toBeGreaterThan(1);
+  await page.reload();
+  await expect(page.locator('.seedline')).toBeVisible({ timeout: 45_000 });
+  await openRecipes(page);
+  await expect(box.locator('.rx-card').first().locator('.rx-pic img')).toHaveCount(1, { timeout: 5000 });
 });
 
 test('Glifos: el selector de caracteres y su comparación sobre la pieza son uno', async ({ page }) => {

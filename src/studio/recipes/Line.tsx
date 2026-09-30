@@ -36,7 +36,7 @@ export function RecipesLine({ compact }: { compact?: boolean }) {
         if (!open && compact && useSheet.getState().snap === 'peek') setSnap('half');
       }}>
       {/* the piece's own picture when it comes from no recipe (the dice, a link, a file) */}
-      <RecipePic className="rx-mini" recipe={pic} thumb={!item || !pic ? entry?.thumb : undefined} look={item?.look ?? (entry ? lookOf(entry.recipe) : NO_LOOK)} />
+      <RecipePic className="rx-mini" recipe={pic} thumb={!item || !pic ? entry?.thumb : undefined} look={item?.look ?? (entry ? lookOf(entry.recipe) : NO_LOOK)} keep={!base} />
       <span className="rx-lt">
         <span className="rx-k">Receta</span>
         {/* (a phone on its side shows the cell's name instead: the recipe is named in the line at the bottom) */}
