@@ -21,7 +21,8 @@ const fonts = createFontLoader({ google: false });
 export async function mountPiece(canvas: HTMLCanvasElement, recipe: Recipe, o: { playing: boolean; reduced: boolean; onError: (m: string) => void }): Promise<{ renderer: Renderer } | null> {
   try {
     const { renderer } = await createRenderer(canvas, recipe, {
-      library: PATTERN_GLSL, fonts, interactive: true, pointerTarget: 'canvas', adaptive: false, maxPixelRatio: 1,
+      // the viewer's page never scrolls: the wheel over the piece zooms it in «Zoom con los dedos» (as in the studio)
+      library: PATTERN_GLSL, fonts, interactive: true, pointerTarget: 'canvas', wheelZoom: true, adaptive: false, maxPixelRatio: 1,
       autoplay: o.playing, reducedMotion: o.reduced, onError: o.onError,
     });
     renderer.setQuality({ maxPixelRatio: 1, adaptive: false });

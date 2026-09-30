@@ -48,7 +48,8 @@ test('cada grupo tiene su color, su icono y una línea que dice para qué es; Co
   // they follow the piece: another palette, another strip
   const before = await page.locator('.tab-color .tab-sw').innerHTML();
   await page.getByRole('tab', { name: 'Color' }).click();
-  await page.locator('.palettes .pal').nth(5).click();
+  // (a palette of the colour editor's library, one the piece does not have)
+  await page.getByRole('group', { name: /^Paletas: / }).locator('button[aria-pressed="false"]').nth(5).click();
   await expect.poll(() => page.locator('.tab-color .tab-sw').innerHTML()).not.toBe(before);
   // the space: its icon, name and line head the column
   await expect(page.locator('.panel-title .pt-line')).not.toBeEmpty();

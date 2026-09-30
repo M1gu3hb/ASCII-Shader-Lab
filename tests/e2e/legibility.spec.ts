@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { download, openStudio } from './helpers';
+import { chooseRecipe } from './recipes';
 
 /**
  * Legibility of the page previews: the estimate reads the real text regions over several frames and never
@@ -20,7 +21,8 @@ async function openDetails(page: Page) {
 
 async function bermellonWithLightText(page: Page, view = 'Fondo web') {
   await page.getByRole('navigation', { name: 'Espacios del estudio' }).getByRole('button', { name: 'Arte', exact: true }).click();
-  await page.locator('.panel').getByRole('button', { name: 'Bermellón', exact: true }).first().click();
+  // (the recipes are in the recipe browser now: its line heads the settings)
+  await chooseRecipe(page, 'Bermellón');
   await pick(page, view);
   await page.getByRole('group', { name: 'Texto' }).getByRole('button', { name: 'Claro', exact: true }).click();
   await page.mouse.move(1, 1);

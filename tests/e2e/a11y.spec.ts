@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { openStudio } from './helpers';
+import { openStudio, pressUntil } from './helpers';
 
 /**
  * Accessibility: automated axe scans (no serious or critical violations), no interactive element
@@ -75,7 +75,9 @@ async function looksFocused(page: Page): Promise<boolean> {
 }
 
 test.describe('accesibilidad', () => {
-  test('el estudio: vista inicial, pestañas del panel, vistas de destino y hojas, sin fallos graves', async ({ page }) => {
+  // (three tests, not one: each scans the whole studio a dozen times, and on a busy machine the three together
+  // took three minutes, past a test's time)
+  test('el estudio: vista inicial y pestañas del panel, sin fallos graves', async ({ page }) => {
     await openStudio(page);
     await serious(page, 'estudio');
     expect(await nestedInteractive(page)).toEqual([]);
@@ -91,6 +93,10 @@ test.describe('accesibilidad', () => {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Qué es «Forma de la celda (alto ÷ ancho)»' }).click();
     await serious(page, 'explicación abierta', '.panel');
+  });
+
+  test('el estudio: vistas de destino, sin fallos graves', async ({ page }) => {
+    await openStudio(page);
     for (const v of ['Fondo web', 'Pantalla de móvil', 'Tarjeta', 'Historia / Reel 9:16', 'README', 'Terminal']) {
       await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: v, exact: true }).click();
       await serious(page, 'vista ' + v, '.stage-top');
@@ -100,10 +106,13 @@ test.describe('accesibilidad', () => {
     await page.locator('.vbar-switch').getByText(/Zonas de interfaz/).click();
     await serious(page, 'historia con zonas', '.stage-top');
     await page.getByRole('radiogroup', { name: 'Vista' }).getByRole('radio', { name: 'Libre', exact: true }).click();
+  });
 
-    await page.keyboard.press('e');
+  test('el estudio: hojas de exportar, colección y atajos, sin fallos graves', async ({ page }) => {
+    await openStudio(page);
     const sheet = (name: string) => page.getByRole('dialog', { name });
-    await expect(sheet('Llevar la pieza fuera')).toBeVisible();
+    // (the shortcuts arrive right after the first paint)
+    await pressUntil(page, 'e', sheet('Llevar la pieza fuera'));
     for (const tab of await page.locator('dialog[open] .sheet-tabs .tab').all()) {
       await tab.click();
       await page.waitForTimeout(400);
@@ -393,7 +402,8 @@ test.describe('accesibilidad', () => {
       await page.evaluate(i => document.getElementById(i)!.scrollIntoView({ block: 'start' }), id);
       await page.waitForTimeout(400);
     }
-    await expect(page.getByRole('list', { name: 'Hoja de contactos del dado' }).getByRole('button')).toHaveCount(14);
+    // one contact per style of the generator's current version (nineteen since version 5)
+    await expect(page.getByRole('list', { name: 'Hoja de contactos del dado' }).getByRole('button')).toHaveCount(19);
     await page.getByRole('tablist', { name: 'Espacios del estudio' }).getByRole('tab', { name: /Piezas/ }).click();
     await page.getByRole('button', { name: 'Tirar', exact: true }).click();
     await page.getByRole('tablist', { name: 'Destinos' }).getByRole('tab', { name: 'Web' }).click();

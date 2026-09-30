@@ -17,6 +17,7 @@ import { logoMark, wordmark } from '../shared/brand';
 import { decodeRecipe, pieceHash, readPieceHash, type ShareView } from '../shared/share';
 import { defaultFrame, describeFrame, encodeFrame, fitFrame, frameRecipe, gridOf, reduceFrame, type Frame } from '../shared/frame';
 import { patternById } from '../engine/catalog';
+import { isTouchMode } from '../engine/touch';
 import type { Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 
@@ -111,6 +112,13 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   stage.setAttribute('role', 'img');
   stage.dataset.state = 'loading';
   stage.dataset.frame = encodeFrame(frame);
+  // a piece that answers to the cursor and the finger takes the finger on its canvas (viewer.css): a drag
+  // reaches it and, in «Zoom con los dedos», a pinch zooms the piece instead of the page. One that does not
+  // leaves the page its own gestures (touch-action: manipulation).
+  const answers = recipe.interact.mode !== 'none';
+  // a gesture mode (Anillos, Rastro, Zoom con los dedos…): a tap on the piece is the gesture's, not the controls'
+  const gestures = isTouchMode(recipe.interact.mode);
+  stage.dataset.touch = answers ? 'piece' : 'page';
   const canvas = el('canvas');
   canvas.setAttribute('aria-hidden', 'true');
   stage.append(canvas);
@@ -259,19 +267,39 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   function wake() {
     wrap.dataset.ui = 'on';
     clearTimeout(hideT);
-    if (playing) hideT = window.setTimeout(() => { if (playing && !over && !bar.contains(document.activeElement) && !top.contains(document.activeElement)) wrap.dataset.ui = 'off'; }, 3200);
+    // (on a touch screen a piece with gestures keeps them: a tap on it is the gesture's, it cannot bring them back)
+    if (playing && !(gestures && coarse)) hideT = window.setTimeout(() => { if (playing && !over && !bar.contains(document.activeElement) && !top.contains(document.activeElement)) wrap.dataset.ui = 'off'; }, 3200);
   }
-  for (const b of [bar, top]) {
-    b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { over = true; wake(); } });
-    b.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { over = false; wake(); } });
-  }
+  // whether the mouse is on the controls, from where each of its events lands. Not from pointerenter /
+  // pointerleave on the bar: a click on play swaps the icon under the pointer, and a busy browser (a slow
+  // frame before it looks again) then never says the pointer left the bar, so the controls stayed forever
+  const onControls = (t: EventTarget | null) => t instanceof Node && (bar.contains(t) || top.contains(t));
+  const track = (e: PointerEvent) => { if (e.pointerType === 'mouse') { over = onControls(e.target); wake(); } };
+  wrap.addEventListener('pointerover', track);
+  wrap.addEventListener('pointermove', track, { passive: true });
+  // the mouse left the window
+  document.addEventListener('pointerout', e => { if (e.pointerType === 'mouse' && !e.relatedTarget && over) { over = false; wake(); } });
   wrap.addEventListener('focusin', wake);
-  wrap.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') wake(); }, { passive: true });
-  // a tap on the piece shows the controls, or hides them when they are showing
-  stage.addEventListener('pointerup', e => {
+  // a tap on the piece shows the controls, or hides them when they are showing. A tap, not the end of a
+  // drag or of a pinch: those are for a piece that answers to the finger
+  const downs = new Map<number, { x: number; y: number; t: number }>();
+  let gesture = false;
+  stage.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse') return;
-    if (wrap.dataset.ui === 'off') wake(); else { clearTimeout(hideT); wrap.dataset.ui = 'off'; }
+    if (!downs.size) gesture = false;
+    downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.timeStamp });
+    if (downs.size > 1) gesture = true;
   });
+  const lift = (e: PointerEvent, tap: boolean) => {
+    const d = downs.get(e.pointerId);
+    downs.delete(e.pointerId);
+    if (!tap || !d || gesture || downs.size) return;
+    if (gestures && e.target instanceof HTMLCanvasElement) return;
+    if (answers && (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12 || e.timeStamp - d.t > 600)) return;
+    if (wrap.dataset.ui === 'off') wake(); else { clearTimeout(hideT); wrap.dataset.ui = 'off'; }
+  };
+  stage.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') lift(e, true); });
+  stage.addEventListener('pointercancel', e => lift(e, false));
   addEventListener('keydown', e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target as HTMLElement | null;

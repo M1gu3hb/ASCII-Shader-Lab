@@ -6,6 +6,7 @@
  * Pure: no DOM, so it runs in tests.
  */
 import { BLENDS, type Recipe } from '../recipe';
+import { figureFit } from '../catalog';
 import { PI, TAU, blendf, clamp, fbm, hash12 } from './core';
 
 const fr = Math.fround;
@@ -71,13 +72,16 @@ export class FieldBuffers {
   }
 }
 
-/** Active layers as the GPU engine binds them (max 4; with none on, 'nube' with layer 0's parameters). */
-export function fieldLayers(r: Recipe): FieldLayer[] {
+/**
+ * Active layers as the GPU engine binds them (max 4; with none on, 'nube' with layer 0's parameters), on a
+ * W×H canvas (a figure on a canvas taller than wide is sized to its width: catalog.ts figureFit).
+ */
+export function fieldLayers(r: Recipe, W: number, H: number): FieldLayer[] {
   const on = r.layers.filter(l => l.on).slice(0, 4);
   const list = on.length ? on : [{ ...r.layers[0], on: true, pattern: 'nube' }];
   return list.map(l => ({
     pat: basicPattern(l.pattern),
-    scale: l.scale, rot: (l.rot * Math.PI) / 180, x: l.x, y: l.y, a: l.a, b: l.b,
+    scale: l.scale * figureFit(l.pattern, W, H), rot: (l.rot * Math.PI) / 180, x: l.x, y: l.y, a: l.a, b: l.b,
     mix: l.mix, speed: l.speed, phase: l.phase, invert: l.invert, blend: Math.max(0, BLENDS.indexOf(l.blend)),
   }));
 }

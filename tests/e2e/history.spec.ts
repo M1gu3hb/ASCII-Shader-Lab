@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openStudio, pressUntil, seedText } from './helpers';
+import { needsFotoStudio } from './foto-helpers';
 
 test.describe('azar con memoria', () => {
   test('tirar diez veces, volver a la cuarta, avanzar, guardar y recuperar tras recargar', async ({ page }) => {
@@ -71,6 +72,8 @@ test.describe('azar con memoria', () => {
   });
 
   test('«Laboratorio» en la barra (la página en la que estás) no la recarga: deshacer sigue ahí', async ({ page }) => {
+    // the «Laboratorio ⇄ Foto y video» switch is in the bar only while the photo studio is public
+    needsFotoStudio();
     await openStudio(page);
     await page.getByRole('tab', { name: /Glifos/ }).click();
     const cell = page.getByLabel('Tamaño de celda');

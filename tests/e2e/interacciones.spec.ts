@@ -227,12 +227,14 @@ test('en el estudio, con el ratón: cada gesto cambia la pieza donde ocurre y, q
     if (mode !== 'zoom') expect(f, `${mode}: lejos`).toBeLessThan(n / 3);
     expect(errors, mode).toEqual([]);
   }
-  // quiet: the last piece (a flower that faded) is paused and nobody touches it — nothing is drawn
+  // quiet: the last piece (a flower that fades) is paused and nobody touches it — once the flower is gone,
+  // nothing is drawn. The flower fades on the gestures' clock, which a slow frame moves on by a quarter of a
+  // second at most (engine.ts, stepTouch): on a busy machine it takes longer than its few seconds. So: wait
+  // until the stage stops drawing, then it must stay stopped.
   await page.mouse.move(10, 10);
-  await page.waitForTimeout(11_000);
-  const d0 = await draws();
-  await page.waitForTimeout(1500);
-  expect(await draws() - d0, 'dibujos con la pieza quieta').toBe(0);
+  const drawnIn = async (ms: number) => { const d0 = await draws(); await page.waitForTimeout(ms); return (await draws()) - d0; };
+  await expect.poll(() => drawnIn(1500), { message: 'la pieza deja de dibujar', timeout: 90_000, intervals: [0] }).toBe(0);
+  expect(await drawnIn(3000), 'dibujos con la pieza quieta').toBe(0);
 });
 
 test('«Cursor y tacto»: modos por gesto, cada uno con sus ajustes y su ejemplo', async ({ page }) => {

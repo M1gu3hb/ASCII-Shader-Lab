@@ -27,10 +27,6 @@ export interface UIState {
   terminal: { cols: number; rows: number };
   sheet: 'none' | 'export' | 'collection' | 'shortcuts' | 'explore' | 'seed';
   component: string | null;
-  /** The «Recetas» zone of the settings, unfolded or folded by the person (unset: folded where room is short, Recipes.tsx). */
-  recipes?: 'open' | 'closed';
-  /** The recipes shown in the settings sheet in place of the controls (phones, tablets upright; not kept). */
-  recipesSheet?: boolean;
 }
 
 interface State {
@@ -615,7 +611,7 @@ function persistPrefs() {
   try {
     localStorage.setItem(K_PREFS, JSON.stringify({
       space: s.space, locks: s.locks, arch: s.arch, amount: s.amount,
-      ui: { panel: s.ui.panel, tab: s.ui.tab, views: s.ui.views, viewOpts: s.ui.viewOpts, terminal: s.ui.terminal, recipes: s.ui.recipes },
+      ui: { panel: s.ui.panel, tab: s.ui.tab, views: s.ui.views, viewOpts: s.ui.viewOpts, terminal: s.ui.terminal },
     }));
   } catch { /* storage may be unavailable */ }
 }
@@ -837,8 +833,9 @@ export async function hydrate(): Promise<boolean> {
   const ui = {
     ...S().ui, ...ui0, sheet: 'none' as const, hideUI: false, component: null,
     views: normalizeViews(ui0.views, ui0.preview), viewOpts: normalizeViewOpts(ui0.viewOpts),
-    recipes: ui0.recipes === 'open' || ui0.recipes === 'closed' ? ui0.recipes as UIState['recipes'] : undefined,
   };
+  // (the old «Recetas» zone's fold, kept by earlier versions: the recipe line starts closed now)
+  delete (ui as { recipes?: unknown }).recipes;
   if (typeof innerWidth === 'number' && innerWidth < 900) ui.panel = false;
   const space = spaceById(String(prefs.space ?? entries[cursor]?.space ?? 'arte')).id;
   // this tab owns the data now (tabs.ts): its token goes in with the first save, below

@@ -1,6 +1,6 @@
 import { buildAtlas, uniqueChars, type Atlas } from './atlas';
 import { BLENDS, INTERACT, cloneRecipe, type Recipe } from './recipe';
-import { fontById } from './catalog';
+import { figureFit, fontById } from './catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from './color';
 import { createFontLoader, type FontLoader } from './fonts';
 import {
@@ -1149,7 +1149,7 @@ export class AsciiEngine implements Renderer {
     const layers = r.layers.filter(l => l.on).slice(0, 4);
     const A = new Float32Array(16), B = new Float32Array(16), C = new Float32Array(16);
     (layers.length ? layers : [{ ...r.layers[0], on: true }]).forEach((l, i) => {
-      A.set([l.scale, (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
+      A.set([l.scale * figureFit(l.pattern, this.W, this.H), (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
       B.set([l.a, l.b, l.mix, l.speed], i * 4);
       C.set([l.invert ? 1 : 0, l.phase, Math.max(0, BLENDS.indexOf(l.blend)), 0], i * 4);
     });
