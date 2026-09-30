@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openStudio } from './helpers';
+import { openRecipes, recipeCard } from './recipes';
 
 /**
  * The formation of characters between two pieces on stage, sampled frame by frame. It used to be dropped
@@ -65,28 +66,6 @@ function mixed(fs: Frame[]): Frame[] {
   return fs.slice(1, -1).filter(f => share(f, oldOnly) > 0.02 && share(f, newOnly) > 0.02);
 }
 
-/** The recipe chip whose colours are farthest from the piece on stage (its swatch says its palette). */
-async function farChip(page: Page): Promise<number> {
-  return page.locator('#rz-list .chip').evaluateAll(els => {
-    // the swatch's colours, as the page wrote them (#rrggbb or rgb())
-    const hexes = (el: Element) => {
-      const st = (el.querySelector('.chip-sw') as HTMLElement | null)?.style.background ?? '';
-      return [...st.matchAll(/#([0-9a-f]{6})|rgb\((\d+), (\d+), (\d+)\)/gi)].map(m => (m[1] ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : [+m[2], +m[3], +m[4]]));
-    };
-    const mean = (c: number[][]) => [0, 1, 2].map(k => c.reduce((s, x) => s + x[k], 0) / Math.max(1, c.length));
-    const on = els.findIndex(el => el.getAttribute('aria-pressed') === 'true');
-    const ref = mean(hexes(els[Math.max(0, on)]).slice(1));
-    let best = 0, far = -1;
-    els.forEach((el, i) => {
-      if (i === on) return;
-      const m = mean(hexes(el).slice(1));
-      const d = Math.hypot(m[0] - ref[0], m[1] - ref[1], m[2] - ref[2]);
-      if (d > far) { far = d; best = i; }
-    });
-    return best;
-  });
-}
-
 test.beforeEach(async ({ page }) => {
   // a transition that mixes the two pieces all over the frame, at its normal length
   await page.addInitScript(() => {
@@ -132,13 +111,12 @@ test('también con el motor básico (sin WebGL): Arte → Terminal forma la piez
 test('al cambiar de receta, la transición se ve varios cuadros y termina en la pieza nueva', async ({ page }) => {
   test.setTimeout(180_000);
   await openStudio(page, '#space=arte');
-  const zone = page.locator('aside.panel .rz-head');
-  if (await zone.getAttribute('aria-expanded') !== 'true') await zone.click();
+  await openRecipes(page);
   await page.waitForTimeout(1500);
   await startSampling(page, 120_000);
   await page.waitForTimeout(300);
-  // a recipe with other colours than the one on stage
-  await page.locator('#rz-list .chip').nth(await farChip(page)).click();
+  // a recipe with other colours than the one on stage (paper instead of ink), from the recipe browser
+  await recipeCard(page, 'Mecanismo').click();
   const fs = await frames(page);
   const mid = mixed(fs);
   expect(mid.length, `${fs.length} cuadros (${pattern(fs)}); mezclados: ${mid.length}`).toBeGreaterThanOrEqual(1);
@@ -150,12 +128,11 @@ test('con movimiento reducido no hay transición: la pieza nueva aparece de una 
   const ctx = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 1366, height: 860 } });
   const page = await ctx.newPage();
   await openStudio(page, '#space=arte');
-  const zone = page.locator('aside.panel .rz-head');
-  if (await zone.getAttribute('aria-expanded') !== 'true') await zone.click();
+  await openRecipes(page);
   await page.waitForTimeout(1500);
   await startSampling(page, 6000);
   await page.waitForTimeout(300);
-  await page.locator('#rz-list .chip').nth(await farChip(page)).click();
+  await recipeCard(page, 'Mecanismo').click();
   const fs = await frames(page);
   expect(mixed(fs)).toHaveLength(0);
   // and a change of space that keeps the piece does not cover the stage with glyphs
