@@ -50,7 +50,7 @@ export function TopBar() {
         })}
       </nav>
       <Picker<SpaceId> className="space-select" value={space} label="Espacio" minWidth={280} onChange={setSpace}
-        options={SPACES.map(s => { const Ic = SPACE_ICON[s.id]; return { value: s.id, label: s.name, desc: s.blurb, icon: <Ic width={16} height={16} /> }; })} />
+        options={SPACES.map(s => { const Ic = SPACE_ICON[s.id]; return { value: s.id, label: s.name, desc: s.blurb, icon: <Ic width={16} height={16} style={{ color: SPACE_LOOK[s.id].accent }} /> }; })} />
       <div className="tb-right">
         {stage && (
           <div className="tb-group tb-tools">

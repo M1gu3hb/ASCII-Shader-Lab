@@ -16,6 +16,11 @@ describe('the settings sheet on phones', () => {
     expect(s.full).toBe(200);
     expect(s.half).toBeLessThanOrEqual(200);
     expect(s.peek).toBeLessThanOrEqual(s.half);
+    // a tablet upright (controls in two columns) asks for less of the room at half
+    const t = snapHeights(1000, 150, 0.46);
+    expect(t.half).toBe(460);
+    expect(t.half).toBeLessThan(snapHeights(1000, 150).half);
+    expect(snapHeights(300, 150, 0.46).half).toBe(246);
   });
 
   it('a slow drag lands on the nearest rest (a short one springs back)', () => {

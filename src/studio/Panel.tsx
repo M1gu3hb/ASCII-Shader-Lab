@@ -55,7 +55,7 @@ export function Panel() {
   const pane = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
   const eyebrow = useScramble<HTMLSpanElement>(spaceById(space).name, { duration: 300 });
-  useEffect(() => { document.querySelector('.pane')?.scrollTo(0, 0); }, [tab, space]);
+  useEffect(() => { pane.current?.scrollTo(0, 0); }, [tab, space]);
   // a new group: the pane lightly; a new space: the whole panel
   useSwap(pane, `${space}|${tab}`, (a, b) => (a.split('|')[0] !== b.split('|')[0] ? null : 'tab'));
   useSwap(aside, space, 'space');
@@ -101,7 +101,7 @@ export function Panel() {
   const peek = sheet && snap === 'peek';
   const look = tab ? groupLook(tab, space) : null;
   const SpaceIc = SPACE_ICON[space];
-  // phones: the groups in rows of up to four (tablets upright: all in one row, css/phone.css)
+  // phones: the groups in rows of up to four (tablets upright: all in one row, css/layout.css)
   const cols = phone ? Math.min(4, Math.ceil(tabs.length / 2)) : tabs.length <= 4 ? tabs.length : Math.ceil(tabs.length / 2);
   return (
     <aside className={'panel' + (phone ? ' ph-sheet' : '')} aria-label="Ajustes de la pieza" ref={aside} data-snap={sheet ? snap : undefined}
@@ -222,7 +222,9 @@ function useSheetHeights(aside: RefObject<HTMLElement | null>, head: RefObject<H
     if (dock) ro.observe(dock);
     return () => ro.disconnect();
   }, [aside, head, on, key]);
-  return useMemo(() => (on && m ? snapHeights(m.room, m.peek) : null), [on, m]);
+  // tablets upright (a sheet 600 px wide or more): two columns of controls, so the half rest leaves more to the piece
+  const wide = useMatch('(min-width: 600px)');
+  return useMemo(() => (on && m ? snapHeights(m.room, m.peek, wide ? 0.46 : 0.54) : null), [on, m, wide]);
 }
 
 /**
