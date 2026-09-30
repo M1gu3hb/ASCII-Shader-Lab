@@ -1,12 +1,13 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { finalRender, openFoto, project } from './foto-helpers';
+import { needsFotoStudio, finalRender, openFoto, project } from './foto-helpers';
 
 /**
  * Accessibility of the photo studio: axe (no serious or critical violations) on the start screen, the
  * editor, the export and help sheets; no interactive element inside another one; the keyboard reaches
  * the layers, the inspector and the dice in order, with a visible focus.
  */
+needsFotoStudio();
 
 async function serious(page: Page, what: string) {
   await page.waitForTimeout(400);

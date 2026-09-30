@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cloneRecipe, type MediaRef } from '../engine/recipe';
 import { putHandoff } from '../foto/handoff';
+import { FOTO_STUDIO } from '../shared/site';
 import { mediaElement } from './media';
 import { hasMedia, put } from './mediaStore';
 import { currentEntry, currentRecipe, persistNow } from './store';
@@ -12,8 +13,13 @@ import '../foto/switch.css';
  * video» opens a small menu: go to the photo studio, or take this piece there («Llevar al estudio de foto»:
  * a new project with its picture and one ASCII layer with this recipe). Only a key travels in the address;
  * the recipe goes through IndexedDB (src/foto/handoff.ts) and the picture is already in the media store.
+ * While the photo studio is paused (FOTO_STUDIO, src/shared/site.ts) there is no switch and no menu.
  */
 export function FotoSwitch() {
+  return FOTO_STUDIO ? <FotoSwitchMenu /> : null;
+}
+
+function FotoSwitchMenu() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLDivElement>(null);

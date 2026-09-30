@@ -1,6 +1,7 @@
 import { normMediaRef, type MediaRef, type Recipe } from '../engine/recipe';
 import { spaceById } from '../random/spaces';
 import { buildProject, isProject, readProject } from '../shared/project';
+import { FOTO_STUDIO } from '../shared/site';
 import { buildSession, collectionFileName, isSession, readSession, sessionFileName, type SessionMedia } from '../shared/session';
 import { unzip } from '../shared/zip';
 import { downloadBlob } from './download';
@@ -232,12 +233,18 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
 /**
  * Files of the photo and video studio: its projects end in .glyphos.zip too (with proyecto.glyphos.json,
  * src/project/file.ts) and its saved settings are .glyphos-ajuste.json. They open there: say so, with the
- * way to it, rather than «not a GLYPHOS project».
+ * way to it, rather than «not a GLYPHOS project». While that studio is paused (FOTO_STUDIO) there is no way
+ * to it: say that, and that the file is intact (nothing here reads more of it or changes it).
  */
 const FOTO_PROJECT_JSON = 'proyecto.glyphos.json';
 export const isFotoProject = (files: Array<{ name: string }>) =>
   files.some(f => f.name.slice(f.name.lastIndexOf('/') + 1) === FOTO_PROJECT_JSON && !f.name.startsWith('__MACOSX/'));
 export function fotoFileNote(what: 'proyecto' | 'ajuste') {
+  if (!FOTO_STUDIO) {
+    toast(`Ese archivo es ${what === 'proyecto' ? 'un proyecto' : 'un ajuste'} del estudio de foto y video, que está en revisión y todavía no está disponible. `
+      + 'El laboratorio no lo abre, y el archivo está intacto: consérvalo para usarlo allí cuando el estudio vuelva a estar disponible.', undefined, 12000);
+    return;
+  }
   toast(what === 'proyecto'
     ? 'Ese archivo es un proyecto del estudio de foto y video (capas, máscaras y medios): se abre allí, con «Abrir un proyecto».'
     : 'Ese archivo es un ajuste del estudio de foto y video: se aplica allí, sobre otra foto.',

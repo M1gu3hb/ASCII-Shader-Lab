@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect, test, type Page } from '@playwright/test';
 import { download } from './helpers';
-import { finalRender, openFoto, PHOTO, PHOTO2, project, renderCount, startFromPhoto } from './foto-helpers';
+import { needsFotoStudio, finalRender, openFoto, PHOTO, PHOTO2, project, renderCount, startFromPhoto } from './foto-helpers';
 
 /**
  * The extras of the photo studio, in the real page: every poster applied to the fixture photo exports a PNG
@@ -11,6 +11,7 @@ import { finalRender, openFoto, PHOTO, PHOTO2, project, renderCount, startFromPh
  * applies to another (and travels as a file); three photos become an animation exported as PNG frames; a
  * parallax move plays both ways and becomes keyframes; words fill a figure.
  */
+needsFotoStudio();
 
 type W = { __foto: any; __extras: any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 

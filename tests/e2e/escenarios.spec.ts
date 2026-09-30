@@ -5,7 +5,7 @@ import { devices, expect, test, type Browser, type BrowserContext, type CDPSessi
 import { fileUrl, MODELS, variantFiles } from '../../src/cutout/models';
 import { zip } from '../../src/shared/zip';
 import { download, openStudio, seedText } from './helpers';
-import { PHOTO, PHOTO2, finalRender, framePoint, openFoto, project, settle, startFromPhoto } from './foto-helpers';
+import { FOTO_STUDIO, PHOTO, PHOTO2, finalRender, framePoint, openFoto, project, settle, startFromPhoto } from './foto-helpers';
 
 /**
  * The owner's scenarios, walked through in the real studios (production build), one test each:
@@ -559,7 +559,9 @@ test('8 · recetas anteriores: versiones 1–4 del generador, receta del laborat
   await expect(page.locator('.prompt .card')).toHaveCount(0);
   await page.waitForTimeout(1200);
   await shot(page, '8-proyecto-monotrama');
-  // «Llevar al estudio de foto» with that old project: its photo and an ASCII layer with its recipe
+  // «Llevar al estudio de foto» with that old project: its photo and an ASCII layer with its recipe (while the
+  // photo studio is paused, VITE_FOTO_STUDIO unset, the lab does not offer it: the old files opened, that is all)
+  if (!FOTO_STUDIO) { await expect(page.getByRole('navigation', { name: 'Estudios de GLYPHOS' })).toHaveCount(0); expect(errors).toEqual([]); return; }
   const sw = page.getByRole('navigation', { name: 'Estudios de GLYPHOS' });
   await sw.getByRole('button', { name: /Foto y video|Foto/ }).click();
   await page.getByRole('menuitem', { name: /Llevar al estudio de foto/ }).click();

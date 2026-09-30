@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { download } from './helpers';
-import { finalRender, openFoto, project, settle } from './foto-helpers';
+import { needsFotoStudio, finalRender, openFoto, project, settle } from './foto-helpers';
 
 /**
  * Without WebGL (Chromium with --disable-3d-apis): the photo studio draws its ASCII layers with the basic
  * Canvas 2D engine, says so, and still exports.
  */
+needsFotoStudio();
 test.use({ launchOptions: { args: ['--disable-3d-apis'] } });
 
 test('sin WebGL 2: capas ASCII con el motor básico, exportación incluida', async ({ page }) => {
