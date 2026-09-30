@@ -7,6 +7,7 @@ import { openWelcome, useGuide } from './guide/state';
 import { Picker } from './ui/Picker';
 import { QualityReadout } from './Quality';
 import { FotoSwitch } from './FotoSwitch';
+import { ShareButton } from './ShareSheet';
 
 export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
@@ -79,6 +80,8 @@ export function TopBar() {
             </button>
           )}
         </div>
+        {/* «Compartir» (lane compartir's one mount point in the bar): every size, the phone's bar included */}
+        {stage && <ShareButton />}
         {/* phones: Exportar lives in the dock at the bottom, within reach of the thumb (Deck.tsx) */}
         {stage && (
           <button type="button" className="ib primary tb-export" onClick={() => setUI({ sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">

@@ -1,4 +1,4 @@
-import { decodeRecipe } from '../shared/share';
+import { decodeRecipe, readPieceHash } from '../shared/share';
 import { genOf } from '../random/generator';
 import { spaceById, type SpaceId } from '../random/spaces';
 import { parseCamino, withoutCamino } from './guide/paths';
@@ -6,6 +6,7 @@ import { startPath } from './guide/state';
 import { startMediaSync } from './media';
 import { startHistoryWarnings } from './packages';
 import { spaceAccepts } from './presets';
+import { rememberLinkFrame } from './ShareSheet';
 import { applyRecipe, currentRecipe, edit, rollDice, setSpace, useStudio } from './store';
 import { toast } from './toast';
 
@@ -15,7 +16,9 @@ export type BootOpened = 'link' | 'seed' | 'space' | 'camino' | null;
 /**
  * Runs once the store is hydrated: starts the local-data watchers (the media follows the current
  * piece; warnings near the history limit), then opens shared links:
- * #r=<recipe>, #seed=<seed>&space=<space>&arch=<arch>[&gen=<generator version>] (without gen: the current
+ * #r=<recipe> (with f=<frame>, t and p when it comes from the public viewer's «Abrir en el estudio», see
+ * src/shared/share.ts: the frame is kept, so the piece shared again unedited keeps the frame it came in),
+ * #seed=<seed>&space=<space>&arch=<arch>[&gen=<generator version>] (without gen: the current
  * generator), #space=<space>[&source=image|video|camera],
  * and guided paths: ?camino=foto|fondo|palabra (the public guides link there).
  * Both are removed from the address once handled.
@@ -35,6 +38,8 @@ export async function bootFromUrl(): Promise<BootOpened> {
       if (r) {
         useStudio.setState({ space: spaceById(r.meta.space ?? space ?? 'arte').id });
         applyRecipe(r, 'enlace', r.meta.name ?? 'Desde un enlace');
+        const { frame } = readPieceHash(location.hash).view;
+        if (frame) rememberLinkFrame(r, frame);
         const own = r.media.ref && (r.source === 'image' || r.source === 'video');
         setTimeout(() => toast(own
           ? `Pieza abierta desde un enlace. ${r.source === 'video' ? 'El video' : 'La imagen'} no viaja en los enlaces: elige ${r.source === 'video' ? 'uno tuyo' : 'una tuya'}.`

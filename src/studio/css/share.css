@@ -1,0 +1,80 @@
+/* «Compartir»: the top bar's button and its sheet (ShareSheet.tsx). */
+
+/* ---------- the button: bone on the bar, beside the one vermilion action (Exportar) ---------- */
+.app .ib.share-btn { color: var(--bone); border-color: rgba(237, 230, 218, .5); font-weight: 600; padding: 0 13px 0 11px; }
+.app .ib.share-btn svg { color: var(--bone); }
+.app .ib.share-btn:hover { background: var(--bone); color: var(--ink); border-color: var(--bone); }
+.app .ib.share-btn:hover svg { color: var(--ink); }
+.app .ib.share-btn:active { background: #fff; }
+/* the bar makes room for its label before anything of Exportar goes (the layout e2e checks 901–1500 px):
+   first the labels of Colección and Guías (their icons stay, with their names as tooltips), then its own */
+@media (max-width: 1820px) { .app .tb-right .ib.coll-btn .lbl, .app .tb-right .ib.guides-btn .lbl { display: none; } }
+@media (max-width: 1500px) { .app .ib.share-btn .lbl { display: none; } .app .ib.share-btn { padding: 0 8px; } }
+/* phones: «Compartir» is in the dock, within reach of the thumb (Deck.tsx), one column more */
+@media (max-width: 900px) {
+  .app .topbar .share-btn { display: none; }
+  .app .deck.ph-dock:has(.ph-share) { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .app .ph-dock .ph-share { color: var(--text); }
+}
+@media (max-width: 400px) { .app .ph-dock .nav button, .app .ph-dock .act { font-size: 11px; letter-spacing: -.01em; } }
+
+/* ---------- the sheet ---------- */
+dialog.sheet:has(.shr-body) { width: min(820px, calc(100vw - 24px)); }
+.shr-body { display: flex; flex-direction: column; gap: 0; }
+.shr-h { margin: 0 0 6px; font: 700 13px/1.3 var(--font-display); letter-spacing: -.01em; color: var(--text); }
+.shr-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 18px; align-items: start; }
+
+.shr-prev {
+  position: relative; margin: 0; width: 100%; max-height: 360px; border-radius: 10px; overflow: hidden; background: #050505;
+  border: 1px solid var(--line); display: grid; place-items: center; justify-self: center;
+}
+/* a tall frame (a phone held upright) keeps its shape without taking the whole sheet */
+.shr-prev:has(img) { width: auto; max-width: 100%; }
+.shr-prev img { display: block; width: 100%; height: 100%; max-height: 360px; object-fit: contain; }
+.shr-prev-wait { padding: 24px 12px; font: 500 12px/1.4 var(--font-mono); color: var(--muted); }
+
+.shr-lead { margin: 0 0 10px; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.shr-url {
+  display: block; width: 100%; box-sizing: border-box; height: 40px; padding: 0 10px; margin: 0 0 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--field); color: var(--text); font: 500 12px/1 var(--font-mono); text-overflow: ellipsis;
+}
+.shr-acts { display: flex; gap: 8px; }
+.shr-acts .btn { margin: 0; min-height: 44px; flex: 1 1 0; }
+.shr-apps-h { margin: 12px 0 6px; font: 600 10.5px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.shr-apps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.shr-app {
+  display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 8px; box-sizing: border-box; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--field); color: var(--text); font: 500 13px/1.1 var(--font-ui); text-decoration: none; text-align: center;
+}
+.shr-app:hover { border-color: var(--line-2); background: var(--field-2); }
+.shr-app[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.shr-facts { margin: 10px 0 0 !important; }
+
+.shr-media {
+  margin: 16px 0 0; padding: 12px 14px; border: 1px solid rgba(255, 91, 31, .34); border-radius: 12px; background: var(--signal-soft);
+}
+.shr-media p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.5; color: var(--text); }
+.shr-media .note { color: var(--muted); margin: 8px 0 0; }
+.shr-media-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.shr-media-acts .btn { width: auto; margin: 0; flex: 1 1 200px; min-height: 44px; }
+.shr-saved { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 0 !important; }
+.shr-saved .btn { width: auto; margin: 0; min-height: 44px; padding: 0 16px; }
+.shr-cam { margin: 12px 0 0; }
+
+.shr-more-h { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.shr-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.shr-card { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--field); }
+.shr-card h4 { margin: 0 0 6px; font: 600 13.5px/1.3 var(--font-ui); color: var(--text); }
+.shr-card h4 small { display: block; margin-top: 2px; font: 500 12px/1.3 var(--font-ui); color: var(--muted); }
+.shr-card p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.shr-card .btn { margin: auto 0 0; min-height: 44px; }
+.shr-seed { display: flex; flex-direction: column; gap: 2px; }
+.shr-seed b { font: 600 14px/1.3 var(--font-mono); color: var(--text); overflow-wrap: anywhere; }
+.shr-seed span { font: 500 11.5px/1.3 var(--font-mono); color: var(--dim); }
+
+@media (max-width: 720px) {
+  .shr-main { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .shr-prev, .shr-prev img { max-height: 240px; }
+  .shr-cards { grid-template-columns: minmax(0, 1fr); }
+  .shr-apps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

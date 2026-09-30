@@ -44,8 +44,9 @@ export function headTags(p: SitePage, o: { verification?: string | null } = {}):
     `<title>${e(p.title)}</title>`,
     `<meta name="description" content="${e(p.description)}">`,
   ];
-  if (p.kind === 'error') tags.push('<meta name="robots" content="noindex">');
-  else tags.push(`<link rel="canonical" href="${url}">`);
+  // the 404 and the viewer of shared pieces stay out of search results; the viewer keeps its canonical and share tags
+  if (p.kind === 'error' || p.kind === 'viewer') tags.push('<meta name="robots" content="noindex">');
+  if (p.kind !== 'error') tags.push(`<link rel="canonical" href="${url}">`);
   tags.push(
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
