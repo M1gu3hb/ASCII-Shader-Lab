@@ -140,6 +140,21 @@ export const PATTERNS: PatternInfo[] = [
 export const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
 
 /**
+ * Figures drawn around the centre (the 3D objects, the shapes, the centred curves and the particle figures).
+ * Patterns are sized to the canvas's height, which on a canvas taller than wide (a phone held upright, a 9:16
+ * story, a column on a page) cut these figures at the sides: there they are sized to its width instead
+ * (figureFit). Patterns that fill the canvas (fields, fractals, space) keep their scale. On a canvas as wide as
+ * tall or wider nothing changes.
+ */
+export const FIGURES: ReadonlySet<string> = new Set([
+  ...PATTERNS.filter(p => p.family === 'solidos' || p.family === 'formas').map(p => p.id),
+  'rosa', 'espirografo', 'lemniscata', 'superformula', 'armonografo', 'apolonio', 'flor_armonica', 'filotaxis',
+  'corazon_particulas', 'enjambre_vivo', 'mariposa_puntos', 'orbitas_gemelas', 'vortice_polvo', 'floracion_luz', 'ondas_estelares',
+]);
+/** How much a layer's scale grows so its figure fits a W×H canvas (1 unless it is a figure on a canvas taller than wide). */
+export const figureFit = (id: string, W: number, H: number) => (H > W && W > 0 && FIGURES.has(id) ? H / W : 1);
+
+/**
  * What the library ported from the pattern-library branch added (ids), for QA pages, tests and the next generator
  * version: 35 patterns (10 of them solids), 12 particle motions, 10 character sets, 3 letter animations.
  */

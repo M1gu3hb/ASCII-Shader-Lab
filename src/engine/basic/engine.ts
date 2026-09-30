@@ -815,7 +815,7 @@ export class BasicEngine implements Renderer {
     } else this.xf.have = false;
     runField({
       W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows,
-      time: tq, loop: r.motion.loop, layers: fieldLayers(r),
+      time: tq, loop: r.motion.loop, layers: fieldLayers(r, this.W, this.H),
       warp: r.motion.warp, warpScale: r.motion.warpScale, pulse,
       src, mediaMix: r.media.mix, mediaBlend: Math.max(0, BLENDS.indexOf(r.media.blend)), morph: morphPeriod(r.text.morph, loop),
       media: this.mediaBuf, fit: r.media.fit === 'cover' ? 0 : r.media.fit === 'contain' ? 1 : 2,

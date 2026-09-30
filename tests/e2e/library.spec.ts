@@ -91,6 +91,28 @@ async function pasted(browser: Browser, file: string, size: { w: number; h: numb
   return { shot, errors };
 }
 
+/** Columns of an image (data URL) where something is drawn: the first and last as fractions of its width. */
+const drawnColumns = (page: Page, src: string) => page.evaluate(async src => {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const W = 120, H = Math.max(1, Math.round((120 * img.height) / img.width));
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  x.drawImage(img, 0, 0, W, H);
+  const d = x.getImageData(0, 0, W, H).data;
+  const lum = (i: number) => 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+  const bg = lum(0);
+  const on: number[] = [];
+  for (let col = 0; col < W; col++) {
+    let hit = 0;
+    for (let row = 0; row < H; row++) if (lum((row * W + col) * 4) > bg + 40) hit++;
+    if (hit >= 2) on.push(col);
+  }
+  return on.length ? { first: on[0] / W, last: (on[on.length - 1] + 1) / W } : null;
+}, src);
+
 test.describe('biblioteca', () => {
   test('las recetas nuevas abren en su espacio y dibujan', async ({ page }) => {
     for (const [space, name] of [['fondos', 'Luciérnagas'], ['arte', 'Medusa bioluminiscente'], ['tipo', 'Cascada tipográfica'], ['terminal', 'Prisma ANSI']]) {
@@ -104,6 +126,42 @@ test.describe('biblioteca', () => {
       await drawn(page);
       expect(errors, `${space}/${name}`).toEqual([]);
     }
+  });
+
+  test('en un teléfono de pie una figura cabe a lo ancho, y la imagen exportada y el código pegado la muestran igual', async ({ browser }) => {
+    test.setTimeout(300_000);
+    // a sphere sized to the stage's height was cut at both sides of a phone held upright
+    const { recipe } = piece('Esfera de prueba', 'esfera', 0.5, 0.5, ['#1f3963', '#74c5de', '#e4eeec'], '#061224');
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+    const page = await ctx.newPage();
+    const errors = await openStudio(page, enc(recipe));
+    await drawn(page);
+    const stage = await stageImage(page);
+    const size = await page.evaluate(() => { const c = document.querySelector('.stage canvas')!; return { w: Math.round(c.clientWidth), h: Math.round(c.clientHeight) }; });
+    expect(size.h).toBeGreaterThan(size.w);
+    const cols = (await drawnColumns(page, stage))!;
+    expect(cols, 'la esfera se ve').not.toBeNull();
+    expect(cols.first, `la esfera empieza en ${cols.first.toFixed(2)} del ancho`).toBeGreaterThan(0.03);
+    expect(cols.last, `y acaba en ${cols.last.toFixed(2)}`).toBeLessThan(0.97);
+    expect(cols.last - cols.first, 'y no es un punto').toBeGreaterThan(0.4);
+    // what leaves the studio shows the same (the export and the pasted page fit it the same way)
+    await page.keyboard.press('e');
+    await page.getByRole('tab', { name: 'Imagen' }).click();
+    const png = await download(page, () => page.getByRole('button', { name: 'Descargar imagen' }).click());
+    const still = await compare(page, stage, dataUrl(png.path, 'image/png'), 60, 96);
+    expect(still.r, `PNG r=${still.r.toFixed(3)} Δ=${still.mad.toFixed(1)}`).toBeGreaterThan(0.95);
+    await page.getByRole('tab', { name: 'Código' }).click();
+    const [d] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Descargar página/ }).click()]);
+    const file = test.info().outputPath('esfera.html');
+    await d.saveAs(file);
+    for (const webgl of [true, false]) {
+      const out = await pasted(browser, file, size, webgl);
+      expect(out.errors, webgl ? 'WebGL 2' : 'básico').toEqual([]);
+      const code = await compare(page, stage, out.shot, 60, 96);
+      expect(code.r, `${webgl ? 'WebGL 2' : 'básico'} r=${code.r.toFixed(3)} Δ=${code.mad.toFixed(1)}`).toBeGreaterThan(0.98);
+    }
+    expect(errors).toEqual([]);
+    await ctx.close();
   });
 
   for (const { name, recipe } of PIECES) {
