@@ -33,9 +33,22 @@ export const EXAMPLES: Record<Guide['id'], Example> = {
     media: null, t: 4,
     recipe: () => { const r = preset('fondos', 'marea'); r.interact.auto = true; return r; },
   },
+  // GLYPHOS in the Texto space: letters in a wave, filled with moving ripples, pink to cyan across the word
   texto: {
     media: null, t: 3,
-    recipe: () => { const r = preset('tipo', 'neon'); r.interact.auto = true; return r; },
+    recipe: () => {
+      const r = preset('tipo', 'ola');
+      r.text.content = 'GLYPHOS';
+      r.text.size = 1;
+      if (r.text.anim) r.text.anim = { ...r.text.anim, amount: 0.45 };
+      r.glyph.cell = 6;
+      r.glyph.charset = ' .:-=+*#%@';
+      r.media.mix = 0.3;
+      r.tone.contrast = 1.25;
+      r.color = { ...r.color, stops: ['#ff3d8b', '#ff9bd0', '#9af6ff', '#39f3ff'], bg: '#07010f', map: 'x' };
+      r.interact.auto = true;
+      return r;
+    },
   },
   terminal: {
     media: null, t: 1, grid: { cols: 80, rows: 24 },
