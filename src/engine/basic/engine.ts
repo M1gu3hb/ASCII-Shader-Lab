@@ -456,7 +456,8 @@ export class BasicEngine implements Renderer {
     if (this.trans >= 0 && !Number.isNaN(this.transStart)) this.transElapsed += Math.min(0.2, raw);
     if (this.playing) this.t += dt * this.r.motion.speed;
     const interactive = this.stepPointer(dt);
-    const touching = this.stepTouch(dt);
+    // (gestures keep their real pace on a slow device: up to a quarter of a second per frame)
+    const touching = this.stepTouch(Math.min(0.25, raw));
     const video = this.r.source === 'video' || this.r.source === 'camera';
     const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
     if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {

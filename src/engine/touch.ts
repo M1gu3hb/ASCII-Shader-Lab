@@ -209,6 +209,9 @@ export class TouchField {
   private liveHint = new Float32Array(0);
   private dx = new Float32Array(0); private dy = new Float32Array(0);
   private vx = new Float32Array(0); private vy = new Float32Array(0);
+  /** Estirar: how much a pressed pointer holds each cell this step (its spring waits meanwhile). */
+  private hold = new Float32Array(0);
+  private holding = false;
   private ptrs = new Map<number, Ptr>();
   private queue: TouchInput[] = [];
   private rings: Ring[] = [];
@@ -240,6 +243,7 @@ export class TouchField {
       this.heat = new Float32Array(n); this.hint = new Float32Array(n);
       this.live = new Float32Array(n); this.liveHint = new Float32Array(n);
       this.dx = new Float32Array(n); this.dy = new Float32Array(n); this.vx = new Float32Array(n); this.vy = new Float32Array(n);
+      this.hold = new Float32Array(n);
     }
     this.clear();
   }
@@ -598,7 +602,8 @@ export class TouchField {
 
   /** Estirar: a pressed pointer drags the grid with it; each cell springs back, with a little wobble. */
   private stretch(dt: number) {
-    const s = this.s, { cols, rows, cw, ch, H, dx, dy, vx, vy } = this;
+    const s = this.s, { cols, rows, cw, ch, H, dx, dy, vx, vy, hold } = this;
+    if (this.holding) { hold.fill(0); this.holding = false; }
     for (const p of this.ptrs.values()) {
       if (!p.down) continue;
       const mx = (p.x - p.px) / H, my = -(p.y - p.py) / H;
@@ -617,6 +622,8 @@ export class TouchField {
           dx[i] += mx * w * gain; dy[i] += my * w * gain;
           // held under the finger: the spring waits until it lets go
           vx[i] *= 1 - w; vy[i] *= 1 - w;
+          if (w > hold[i]) hold[i] = w;
+          this.holding = true;
         }
       }
     }
@@ -625,7 +632,8 @@ export class TouchField {
     for (let i = 0; i < dx.length; i++) {
       let x = dx[i], y = dy[i], u = vx[i], w = vy[i];
       if (x === 0 && y === 0 && u === 0 && w === 0) continue;
-      u += (-K * x - C * u) * dt; w += (-K * y - C * w) * dt;
+      const free = 1 - hold[i];
+      u += (-K * x - C * u) * dt * free; w += (-K * y - C * w) * dt * free;
       x += u * dt; y += w * dt;
       const m = Math.abs(x) + Math.abs(y);
       if (m > DISP_MAX) { const k = DISP_MAX / m; x *= k; y *= k; }
