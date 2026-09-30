@@ -348,7 +348,8 @@ test.describe('comparar', () => {
     await page.waitForTimeout(600);
     const dark = await stageLuma(page);
     await page.getByRole('tab', { name: 'Color' }).click();
-    await page.locator('.palettes').getByRole('button', { name: 'Papel' }).click();
+    await page.getByRole('button', { name: 'Clásicas', exact: true }).click();
+    await page.getByRole('button', { name: 'Paleta Papel', exact: true }).click();
     await expect(page.locator('.seedline')).toContainText('editado');
     await page.waitForTimeout(600);
     const light = await stageLuma(page);
