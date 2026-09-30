@@ -29,7 +29,7 @@ export interface Xform {
 }
 
 /** Per-letter animation of the big text or of the message (see engine/letters.ts). */
-export type LetterAnimKind = 'ola' | 'rebote' | 'latido' | 'revolver' | 'palabras' | 'explosion' | 'brillo' | 'color';
+export type LetterAnimKind = 'ola' | 'rebote' | 'latido' | 'revolver' | 'palabras' | 'explosion' | 'brillo' | 'color' | 'orbita' | 'enjambre' | 'cascada';
 export interface LetterAnim {
   kind: LetterAnimKind;
   amount: number;   // 0..1 how far letters move (or how many take part)
@@ -238,8 +238,8 @@ export const XFORM_KINDS: XformKind[] = ['semitono', 'contorno', 'bandas', 'arra
 /** A source takes up to this many transformations. */
 export const XFORM_MAX = 4;
 /** Per-letter animations of the big text and of the message. */
-export const TEXT_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'latido', 'revolver', 'palabras', 'explosion', 'brillo'];
-export const MSG_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'revolver', 'explosion', 'color'];
+export const TEXT_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'latido', 'revolver', 'palabras', 'explosion', 'brillo', 'orbita', 'enjambre', 'cascada'];
+export const MSG_ANIMS: LetterAnimKind[] = ['ola', 'rebote', 'revolver', 'explosion', 'color', 'orbita', 'enjambre', 'cascada'];
 const FITS: Fit[] = ['cover', 'contain', 'stretch'];
 const ALIGNS: Align[] = ['left', 'center', 'right'];
 

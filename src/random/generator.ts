@@ -83,7 +83,7 @@ export function generate(inp: GenInput): Recipe {
   genMovimiento(r, root.fork('movimiento'), A, inp.space);
   genEfectos(r, root.fork('efectos'), A, inp.space, light);
   genFuente(r, root.fork('fuente'), A, inp.space, base);
-  if (gen >= 3) genCreative(r, root.fork('creativo'), A, inp.space, base);
+  if (gen >= 3) genCreative(r, root.fork('creativo'), A, inp.space, base, gen);
   for (const g of inp.locks ?? []) copyGroup(r, base, g);
   r.meta = { seed: inp.seed, arch: A.id, space: inp.space, gen };
   return r;
@@ -287,6 +287,8 @@ const XF_P: Partial<Record<XformKind, [number, number]>> = {
 };
 const TEXT_ANIM_W: Partial<Record<LetterAnimKind, number>> = { ola: 1.2, rebote: 1, latido: 0.8, revolver: 1, palabras: 0.9, explosion: 0.8, brillo: 1 };
 const MSG_ANIM_W: Partial<Record<LetterAnimKind, number>> = { ola: 1, rebote: 0.8, revolver: 1.2, color: 1.2, explosion: 0.4 };
+const TEXT_ANIM_W_V6: Partial<Record<LetterAnimKind, number>> = { ...TEXT_ANIM_W, orbita: .85, enjambre: .7, cascada: .85 };
+const MSG_ANIM_W_V6: Partial<Record<LetterAnimKind, number>> = { ...MSG_ANIM_W, orbita: .75, enjambre: .55, cascada: .8 };
 
 /** A few transformations for a source, in an order that reads well (moves first, then colour, then light). */
 function drawXforms(rng: Rng, A: Archetype, n: number, moving: boolean, pool?: XformKind[]): Xform[] {
@@ -315,14 +317,14 @@ export function randomXforms(seed: string, arch: string | undefined, moving: boo
   return drawXforms(rng, A, Number(rng.weighted({ 1: 3, 2: 4, 3: 1.5 })), moving, pool);
 }
 
-function genCreative(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, base: Recipe) {
+function genCreative(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, base: Recipe, gen: number) {
   if (space === 'media' && rng.chance(0.6)) {
     const moving = r.source === 'video' || r.source === 'camera';
     r.media.xform = drawXforms(rng.fork('xf'), A, rng.chance(0.3) ? 2 : 1, moving);
   } else if (space === 'tipo') {
     const lr = rng.fork('letras');
     if (r.source === 'text' && lr.chance(0.5)) {
-      r.text.anim = { kind: lr.weighted(TEXT_ANIM_W), amount: round(lr.range(0.4, 0.9)), speed: round(lr.range(0.7, 1.3)) };
+      r.text.anim = { kind: lr.weighted(gen >= 6 ? TEXT_ANIM_W_V6 : TEXT_ANIM_W), amount: round(lr.range(0.4, 0.9)), speed: round(lr.range(0.7, 1.3)) };
     }
     if (r.source === 'text' && rng.chance(0.25)) {
       r.media.xform = drawXforms(rng.fork('xf'), A, 1, !!r.text.anim, ['semitono', 'contorno', 'caleido', 'desplazar', 'arrastre', 'ondular', 'bandas', 'canales', 'estela']);
@@ -330,7 +332,7 @@ function genCreative(r: Recipe, rng: Rng, A: Archetype, space: SpaceId, base: Re
   }
   if (r.msg.on && (space === 'tipo' || space === 'terminal')) {
     const mr = rng.fork('mensaje');
-    if (mr.chance(0.4)) r.msg.anim = { kind: mr.weighted(MSG_ANIM_W), amount: round(mr.range(0.5, 1)), speed: round(mr.range(0.7, 1.3)) };
+    if (mr.chance(0.4)) r.msg.anim = { kind: mr.weighted(gen >= 6 ? MSG_ANIM_W_V6 : MSG_ANIM_W), amount: round(mr.range(0.5, 1)), speed: round(mr.range(0.7, 1.3)) };
     if (r.msg.mode === 'type' && mr.chance(0.2)) r.msg.mode = 'words';
   }
   void base;

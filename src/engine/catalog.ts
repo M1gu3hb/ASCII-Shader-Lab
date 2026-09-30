@@ -217,6 +217,9 @@ export const LETTER_ANIMS: Record<LetterAnimKind, AnimInfo> = {
   explosion: { id: 'explosion', name: 'Explosión', desc: 'Las letras salen volando, giran y se recomponen.', amount: 'Alcance', icon: '<*>' },
   brillo: { id: 'brillo', name: 'Luz que recorre', desc: 'Un brillo pasa letra a letra; con la paleta por brillo, cambia su color.', amount: 'Contraste', icon: '░▓' },
   color: { id: 'color', name: 'Color por letra', desc: 'Cada letra toma otro color de la paleta y los colores avanzan.', amount: 'Mezcla', icon: '▚▞' },
+  orbita: { id: 'orbita', name: 'Órbita', desc: 'Cada letra describe una elipse pequeña y vuelve a su sitio sin perder su orden.', amount: 'Radio', icon: '◌↗' },
+  enjambre: { id: 'enjambre', name: 'Enjambre', desc: 'Los caracteres se dispersan suavemente, flotan y vuelven a formar el texto.', amount: 'Dispersión', icon: '✦·' },
+  cascada: { id: 'cascada', name: 'Cascada', desc: 'Las letras entran en secuencia desde arriba, reposan y se van hacia abajo.', amount: 'Caída', icon: '↓·' },
 };
 
 /* ------------------------------------------------------------------ */
@@ -246,6 +249,16 @@ export const CHARSETS: CharsetInfo[] = [
   { id: 'tipografico', name: 'Tipográfico', chars: ' ,;!?¿¡()[]{}&§¶@', ascii: false },
   { id: 'flechas', name: 'Flechas', chars: ' ·←↖↑↗→↘↓↙', ascii: false },
   { id: 'musica', name: 'Música', chars: ' ·♩♪♫♬', ascii: false },
+  { id: 'barras_ascii', name: 'Barras ASCII', chars: ' /|\\X#%@', ascii: true },
+  { id: 'terminal_densa', name: 'Teletipo denso', chars: ' .,:;i1I0O8#@', ascii: true },
+  { id: 'puntuacion', name: 'Puntuación', chars: ' .,:;!?()[]{}%&@', ascii: true },
+  { id: 'numeros', name: 'Cifras', chars: ' 1234567890#@', ascii: true },
+  { id: 'tejido_fino', name: 'Tejido fino', chars: ' .┄╴╶┈─╋█', ascii: false },
+  { id: 'diagonales', name: 'Diagonales', chars: ' .╱╲╳▒▓█', ascii: false },
+  { id: 'media_luna', name: 'Fases lunares', chars: ' ·◔◑◕●', ascii: false },
+  { id: 'marcos', name: 'Marcos', chars: ' .─┐┘┼╬█', ascii: false },
+  { id: 'sismografo', name: 'Sismógrafo', chars: ' ._~∿≈≋≡', ascii: false },
+  { id: 'pincel', name: 'Pincel', chars: ' .‚’/╱╳█', ascii: false },
 ];
 export const charsetById = (id: string) => CHARSETS.find(c => c.id === id);
 export const charsetIdOf = (chars: string) => CHARSETS.find(c => c.chars === chars)?.id ?? 'custom';

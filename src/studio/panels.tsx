@@ -456,6 +456,7 @@ function TextSource() {
 const ANIM_START: Record<LetterAnimKind, Omit<LetterAnim, 'kind'>> = {
   ola: { amount: 0.6, speed: 1 }, rebote: { amount: 0.6, speed: 1 }, latido: { amount: 0.6, speed: 1 }, revolver: { amount: 0.8, speed: 1 },
   palabras: { amount: 0.5, speed: 1 }, explosion: { amount: 0.6, speed: 1 }, brillo: { amount: 0.7, speed: 1 }, color: { amount: 1, speed: 1 },
+  orbita: { amount: 0.6, speed: 0.8 }, enjambre: { amount: 0.55, speed: 0.8 }, cascada: { amount: 0.65, speed: 0.9 },
 };
 
 /** Per-letter animation of the big text (`text`) or of the message (`msg`): which one, how much, how fast. */

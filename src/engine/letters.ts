@@ -56,14 +56,17 @@ export const textAnimated = (t: Recipe['text']) => !!t.anim;
 export function textAnimPeriod(a: LetterAnim, words: number): number {
   const P = a.kind === 'ola' ? (2 * Math.PI) / 3 : a.kind === 'rebote' ? Math.PI / 2.2 : a.kind === 'latido' ? (2 * Math.PI) / 2.4
     : a.kind === 'brillo' ? (2 * Math.PI) / 2.6 : a.kind === 'revolver' ? 4.4 : a.kind === 'palabras' ? words * 0.5 + 3
-    : a.kind === 'explosion' ? BURST : 0;
+    : a.kind === 'explosion' ? BURST : a.kind === 'orbita' ? (2 * Math.PI) / 1.1
+    : a.kind === 'enjambre' ? (2 * Math.PI) / 0.9 : a.kind === 'cascada' ? 5.2 : 0;
   return P / a.speed;
 }
 
 /** Seconds a message animation takes to come back to where it was (`count`: its typing positions). */
 export function msgAnimPeriod(a: LetterAnim, count: number): number {
   const P = a.kind === 'ola' ? (2 * Math.PI) / 3 : a.kind === 'rebote' ? Math.PI / 2.2 : a.kind === 'revolver' ? (count + 14) / 9
-    : a.kind === 'explosion' ? BURST : a.kind === 'color' ? 1 / 0.35 : 0;
+    : a.kind === 'explosion' ? BURST : a.kind === 'color' ? 1 / 0.35
+    : a.kind === 'orbita' ? (2 * Math.PI) / 1.1 : a.kind === 'enjambre' ? (2 * Math.PI) / 0.9
+    : a.kind === 'cascada' ? 5.2 : 0;
   return P / a.speed;
 }
 
@@ -120,6 +123,31 @@ export function letterPose(a: LetterAnim, T: number, s: LetterSlot, fs: number, 
       pose.dy = Math.sin(ang) * dist * e;
       pose.rot = (hashN(k, 3) - 0.5) * 2 * Math.PI * A * e;
       pose.scale = 1 + (hashN(k, 4) - 0.35) * A * 0.9 * e;
+      break;
+    }
+    case 'orbita': {
+      const phase = u * 1.1 + k * 0.72;
+      pose.dx = Math.cos(phase) * A * fs * 0.28;
+      pose.dy = Math.sin(phase) * A * fs * 0.35;
+      pose.rot = Math.sin(phase) * A * 0.12;
+      break;
+    }
+    case 'enjambre': {
+      // A common return envelope makes the word legible for half of each cycle.
+      const v = u * 0.9, e = (1 - Math.cos(v)) * 0.5;
+      const ang = hashN(k, 13) * Math.PI * 2, dist = A * (0.2 + 0.45 * hashN(k, 14)) * reach * e;
+      pose.dx = Math.cos(ang + 0.3 * Math.sin(v)) * dist;
+      pose.dy = Math.sin(ang + 0.3 * Math.sin(v)) * dist;
+      pose.rot = (hashN(k, 15) - 0.5) * A * 0.55 * e;
+      break;
+    }
+    case 'cascada': {
+      const v = posMod(u, 5.2), f = s.n > 1 ? k / (s.n - 1) : 0;
+      const enter = smooth(0.15 + f * 1.25, 0.55 + f * 1.25, v);
+      const leave = smooth(3.65 + f * 0.55, 4.2 + f * 0.55, v);
+      pose.grey = enter * (1 - leave);
+      pose.dy = (-1 + enter + leave * 2) * A * fs * 0.9;
+      pose.scale = 0.7 + 0.3 * enter * (1 - leave);
       break;
     }
     default:
@@ -183,6 +211,25 @@ function moveLetter(a: LetterAnim, T: number, col: number, row: number, ord: num
       const ang = Math.atan2((row - box.cy) * 2, col - box.cx + 1e-3) + (hashN(ord, 1) - 0.5) * 1.4;
       const dist = A * (0.3 + 0.7 * hashN(ord, 2)) * box.span * 0.8 * e;
       return [col + Math.round(Math.cos(ang) * dist), row + Math.round(Math.sin(ang) * dist * 0.5), 0];
+    }
+    case 'orbita': {
+      const phase = u * 1.1 + ord * 0.72;
+      return [col + Math.round(Math.cos(phase) * A * (box.lines > 1 ? 0.8 : 1.6)),
+        row + Math.round(Math.sin(phase) * A * (box.lines > 1 ? 0.8 : 1.6)), 0];
+    }
+    case 'enjambre': {
+      const v = u * 0.9, e = (1 - Math.cos(v)) * 0.5;
+      const ang = hashN(ord, 13) * Math.PI * 2;
+      const dist = A * (0.25 + 0.6 * hashN(ord, 14)) * box.span * 0.24 * e;
+      return [col + Math.round(Math.cos(ang + 0.3 * Math.sin(v)) * dist),
+        row + Math.round(Math.sin(ang + 0.3 * Math.sin(v)) * dist * 0.5), 0];
+    }
+    case 'cascada': {
+      const v = posMod(u, 5.2), f = n > 1 ? ord / (n - 1) : 0;
+      const enter = smooth(0.15 + f * 1.25, 0.55 + f * 1.25, v);
+      const leave = smooth(3.65 + f * 0.55, 4.2 + f * 0.55, v);
+      if (enter < 0.45 || leave > 0.55) return [-1, -1, 0];
+      return [col, row - Math.round((1 - enter) * A * 2) + Math.round(leave * A * 2), 0];
     }
     default: return [col, row, 0];
   }

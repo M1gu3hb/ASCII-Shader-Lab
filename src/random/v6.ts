@@ -19,8 +19,26 @@ const ADD: Record<string, Record<string, number>> = {
   grabado: { bambu: .5, caliz: .7, catenaria: .75, jardin_zen: .7, pendulos: .55 },
 };
 
+/** The new character ramps belong to the same coherent moods as the patterns. */
+const GLYPHS: Record<string, Record<string, number>> = {
+  minimal: { media_luna: 1, tejido_fino: .7, sismografo: .55 },
+  neon: { diagonales: .8, media_luna: .5, barras_ascii: .6 },
+  organico: { pincel: .8, media_luna: .65, sismografo: .5 },
+  geometrico: { marcos: .9, diagonales: .75, tejido_fino: .65 },
+  glitch: { terminal_densa: .8, barras_ascii: .75, puntuacion: .5 },
+  retro: { terminal_densa: 1, barras_ascii: .6, numeros: .5 },
+  cosmico: { media_luna: .8, diagonales: .55, puntuacion: .45 },
+  tinta: { pincel: 1, tejido_fino: .5, puntuacion: .4 },
+  brutal: { marcos: 1, diagonales: .8, barras_ascii: .7 },
+  vapor: { media_luna: .7, sismografo: .65, pincel: .45 },
+  solidos: { terminal_densa: .6, diagonales: .5, marcos: .5 },
+  op: { diagonales: 1, marcos: .75, sismografo: .65 },
+  fractal: { sismografo: .7, tejido_fino: .65, media_luna: .5 },
+  grabado: { pincel: .9, marcos: .7, barras_ascii: .55 },
+};
+
 export const ARCHETYPES_V6: readonly Archetype[] = ARCHETYPES_V5.map(a => ({
-  ...a, patterns: { ...a.patterns, ...ADD[a.id] },
+  ...a, patterns: { ...a.patterns, ...ADD[a.id] }, charsets: { ...a.charsets, ...GLYPHS[a.id] },
 }));
 export const SPACE_ARCHS_V6: Record<string, Record<string, number>> = Object.fromEntries(
   Object.entries(SPACE_ARCHS_V5).map(([id, archs]) => [id, { ...archs }]),
