@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QA · biblioteca</title>
+<style>
+body{margin:0;background:#0c0b0a;color:#ede6da;font:12px/1.4 system-ui}
+header{padding:10px 12px;border-bottom:1px solid #2a2724;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+header b{font-size:14px}
+nav a{color:#ffb08a;margin-right:10px}
+h2{font-size:14px;margin:18px 12px 4px;color:#fff}
+.note{margin:0 12px 6px;color:#a39c90;max-width:900px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile,420px),1fr));gap:10px;padding:6px 12px}
+figure{margin:0;background:#161412;padding:6px;border-radius:6px}
+.row{display:grid;grid-template-columns:repeat(var(--n,2),1fr);gap:4px}
+.row canvas{width:100%;display:block;background:#000;image-rendering:auto}
+.lbl{display:grid;grid-template-columns:repeat(var(--n,2),1fr);gap:4px;color:#7d766c;font-size:10px}
+figcaption{padding:4px 0 0;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+figcaption code{color:#ffb08a}
+.bad{color:#ff8a65}
+.sw{display:flex;height:12px;margin-top:4px}.sw i{flex:1}
+.chars{font:14px/1.2 "JetBrains Mono",ui-monospace,monospace;letter-spacing:2px;color:#ede6da}
+</style></head>
+<body>
+<header><b>Biblioteca de la rama Codex</b><span id="status">cargando…</span>
+<nav><a href="#patrones">patrones</a><a href="#particulas">partículas</a><a href="#recetas">recetas</a><a href="#escenas">escenas</a><a href="#paletas">paletas</a><a href="#alfabetos">alfabetos</a><a href="#letras">letras</a></nav></header>
+<p class="note">Cada pieza con los dos motores, mismo tamaño y mismo tiempo: WebGL 2 (AsciiEngine) y el básico (Canvas 2D). <code>?motor=basico</code> o <code>?motor=webgl</code>: sólo uno. <code>?solo=patrones,escenas</code>: sólo esas secciones. <code>?t=3.3</code>: el tiempo. Partículas y letras: tres momentos seguidos.</p>
+<main id="main"></main>
+<script type="module" src="./library.ts"></script>
+</body></html>
