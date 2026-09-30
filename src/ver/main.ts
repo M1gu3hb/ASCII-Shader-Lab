@@ -41,8 +41,8 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
-/** «faro-lunar-417» → «faro lunar 417»; the piece's own name when it has one. */
-const titleOf = (r: Recipe) => r.meta.name?.trim() || r.meta.seed?.replace(/-/g, ' ') || '';
+/** The piece's own name, or the seed the dice wove it from (as the studio shows it). */
+const titleOf = (r: Recipe) => r.meta.name?.trim() || r.meta.seed?.trim() || '';
 
 /** What the piece is, for screen readers (the canvas itself is only pixels). */
 function describe(r: Recipe, f: Frame, playing: boolean): string {

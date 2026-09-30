@@ -13,10 +13,12 @@
 /* phones: «Compartir» is in the dock, within reach of the thumb (Deck.tsx), one column more */
 @media (max-width: 900px) {
   .app .topbar .share-btn { display: none; }
-  .app .deck.ph-dock:has(.ph-share) { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  /* each column as wide as its label needs (the room left is shared out), never under 44 px */
+  .app .deck.ph-dock:has(.ph-share) { grid-template-columns: repeat(7, minmax(44px, auto)); gap: 1px; }
+  .app .ph-dock:has(.ph-share) .nav button, .app .ph-dock:has(.ph-share) .act { padding: 0 1px; }
   .app .ph-dock .ph-share { color: var(--text); }
 }
-@media (max-width: 400px) { .app .ph-dock .nav button, .app .ph-dock .act { font-size: 11px; letter-spacing: -.01em; } }
+@media (max-width: 400px) { .app .ph-dock:has(.ph-share) .nav button, .app .ph-dock:has(.ph-share) .act:not(.dice) { font-size: 10.5px; letter-spacing: -.015em; } }
 
 /* ---------- the sheet ---------- */
 dialog.sheet:has(.shr-body) { width: min(820px, calc(100vw - 24px)); }
