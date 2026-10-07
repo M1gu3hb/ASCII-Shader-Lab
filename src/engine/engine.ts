@@ -118,6 +118,8 @@ export class AsciiEngine implements Renderer {
   private quad!: WebGLBuffer;
   private vao!: WebGLVertexArrayObject;
   private progs = new Map<string, Program>();
+  /** Compilation failures belong to this GL context: never retry them on every frame. */
+  private failedPrograms = new Set<string>();
   private pSim!: Program; private pSel!: Program; private pBlur!: Program; private pComp!: Program;
   private tField!: Tex; private fbField!: WebGLFramebuffer;
   private tSelC!: Tex; private tSelG!: Tex; private fbSel!: WebGLFramebuffer;
@@ -237,7 +239,7 @@ export class AsciiEngine implements Renderer {
       this.trans = -1;
       if (p) this.applyRecipe(p.r);
     };
-    const onRestored = () => { this.lost = false; this.progs.clear(); this.initGL(); this.invalidate(); };
+    const onRestored = () => { this.lost = false; this.progs.clear(); this.failedPrograms.clear(); this.initGL(); this.invalidate(); };
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
     this.cleanup.push(() => { canvas.removeEventListener('webglcontextlost', onLost); canvas.removeEventListener('webglcontextrestored', onRestored); });
@@ -286,7 +288,7 @@ export class AsciiEngine implements Renderer {
       return;
     }
     const key = this.fieldKeyOf(r);
-    const needProg = !this.progs.has(key);
+    const needProg = !this.progs.has(key) && !this.failedPrograms.has(key);
     let p = this.pending;
     if (!p && !trans && !needProg) { this.applyRecipe(r); return; }
     if (!p) p = this.pending = { r, trans, since: performance.now(), frames: 0, key, prog: null, compiled: null, warm: null, fonts: false };
@@ -300,7 +302,7 @@ export class AsciiEngine implements Renderer {
       try {
         p.prog = startProgram(this.gl, VERT, this.fieldSource(r, key));
         p.compiled = this.fence();
-      } catch { /* an unknown pattern: fieldProgram() reports it when the piece shows */ }
+      } catch (error) { this.failProgram(key, error); }
     }
     const want = p;
     void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
@@ -366,7 +368,7 @@ export class AsciiEngine implements Renderer {
     try {
       this.cacheProgram(p.key, finishProgram(this.gl, pp));
     } catch (e) {
-      this.o.onError?.((e as Error).message);
+      this.failProgram(p.key, e);
     }
   }
 
@@ -392,9 +394,9 @@ export class AsciiEngine implements Renderer {
   private async compileAhead() {
     if (this.lost) return;
     const gl = this.gl, key = this.fieldKeyOf(this.r);
-    if (this.progs.has(key)) return;
+    if (this.progs.has(key) || this.failedPrograms.has(key)) return;
     let pp: PendingProgram;
-    try { pp = startProgram(gl, VERT, this.fieldSource(this.r, key)); } catch { return; }
+    try { pp = startProgram(gl, VERT, this.fieldSource(this.r, key)); } catch (error) { this.failProgram(key, error); return; }
     const compiled = this.fence();
     const t0 = performance.now(), later = () => new Promise(res => setTimeout(res, 16));
     await later();
@@ -403,7 +405,7 @@ export class AsciiEngine implements Renderer {
     if (!this.alive || this.lost) return;
     if (this.progs.has(key)) { dropProgram(gl, pp); return; }
     // (no warm-up draw here: the render that follows is the first draw, and nothing waits on screen for it)
-    try { this.cacheProgram(key, finishProgram(gl, pp)); } catch (e) { this.o.onError?.((e as Error).message); }
+    try { this.cacheProgram(key, finishProgram(gl, pp)); } catch (e) { this.failProgram(key, e); }
   }
 
   /**
@@ -992,17 +994,24 @@ export class AsciiEngine implements Renderer {
 
   private fieldProgram(src: FieldSource): Program | null {
     const key = this.fieldKeyOf(this.r, src);
+    if (this.failedPrograms.has(key)) return null;
     let p = this.progs.get(key);
     if (!p) {
       try {
         p = compileProgram(this.gl, VERT, this.fieldSource(this.r, key));
         this.cacheProgram(key, p);
       } catch (e) {
-        this.o.onError?.((e as Error).message);
+        this.failProgram(key, e);
         return null;
       }
     }
     return p;
+  }
+
+  private failProgram(key: string, error: unknown) {
+    if (this.failedPrograms.has(key)) return;
+    this.failedPrograms.add(key);
+    this.o.onError?.(error instanceof Error ? error.message : String(error));
   }
 
   /**
@@ -1067,6 +1076,7 @@ export class AsciiEngine implements Renderer {
     }
     const src = SRC_OF(this.r, this.mediaOK);
     const fp = this.fieldProgram(src);
+    if (!fp) return; // keep the last frame instead of selecting stale field textures
     const stages = fp && !this.xfBroken ? xformStages(activeXforms(this.r, src), this.cols, this.rows, this.ch / this.cw) : [];
     let grid: Tex | null = null;
     if (stages.length) {

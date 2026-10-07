@@ -43,6 +43,66 @@ async function sourceFile(page: Page) {
 }
 const prompt = (page: Page) => page.locator('.prompt .card');
 
+/** Snapshot every record, including the owner and thumbnails: recovery must change none of them. */
+async function storageSnapshot(page: Page) {
+  return page.evaluate(() => new Promise<unknown[]>((resolve, reject) => {
+    const rq = indexedDB.open('keyval-store');
+    rq.onsuccess = () => {
+      const tx = rq.result.transaction('keyval');
+      const st = tx.objectStore('keyval'), keys = st.getAllKeys(), values = st.getAll();
+      tx.oncomplete = () => { rq.result.close(); resolve([keys.result, values.result]); };
+      tx.onabort = () => reject(tx.error);
+    };
+    rq.onerror = () => reject(rq.error);
+  }));
+}
+
+test.describe('lectura insegura: conservar los datos anteriores', () => {
+  for (const failure of ['versión futura', 'lectura fallida']) test(`${failure}: historial y colección intactos después de editar y esperar 20 s`, async ({ page }) => {
+    await openStudio(page);
+    await page.keyboard.press('s');
+    for (let i = 0; i < 3; i++) await page.keyboard.press('r');
+    await page.keyboard.press('s');
+    await expect(page.locator('.seedline')).toContainText('4/4');
+    await page.waitForTimeout(2500);
+    if (failure === 'versión futura') {
+      await page.evaluate(() => new Promise<void>(resolve => {
+        const rq = indexedDB.open('keyval-store');
+        rq.onsuccess = () => {
+          const tx = rq.result.transaction('keyval', 'readwrite'), st = tx.objectStore('keyval');
+          const get = st.get('mt.v3.history');
+          get.onsuccess = () => st.put({ ...get.result, v: 4 }, 'mt.v3.history');
+          tx.oncomplete = () => { rq.result.close(); resolve(); };
+        };
+      }));
+    } else {
+      await page.addInitScript(() => {
+        const get = IDBObjectStore.prototype.get;
+        IDBObjectStore.prototype.get = function(key) {
+          if (key === 'mt.v3.history') { IDBObjectStore.prototype.get = get; throw new DOMException('Lectura interrumpida', 'UnknownError'); }
+          return get.call(this, key);
+        };
+      });
+    }
+    const before = await storageSnapshot(page);
+    const [keys, values] = before as [string[], unknown[]];
+    expect(values[keys.indexOf('mt.v2.favorites')]).toHaveLength(2);
+    await page.reload();
+    await expect(page.locator('.seedline')).toBeVisible();
+    const note = page.locator('.keep-chip');
+    await expect(note).toContainText('Los datos anteriores se conservan sin cambios');
+    await expect(page.locator('dialog.welcome[open]')).toHaveCount(0);
+    await page.keyboard.press('r'); await page.keyboard.press('s');
+    await page.waitForTimeout(20_000);
+    expect(await storageSnapshot(page)).toEqual(before);
+    const copy = await download(page, () => note.getByRole('button', { name: 'Guardar sesión' }).click());
+    expect((await unzip(new Uint8Array(readFileSync(copy.path)))).map(f => f.name)).toContain('sesion.json');
+    // The warning survives moving to a space without a stage.
+    await page.keyboard.press('6');
+    await expect(page.locator('.storage-global .keep-chip')).toBeVisible();
+  });
+});
+
 test.describe('historial y medios locales', () => {
   test('una imagen cargada vuelve sola al recargar la página', async ({ page }) => {
     const errors = await openStudio(page);

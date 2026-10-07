@@ -11,7 +11,7 @@ import { TopBar, toggleFullscreen } from './TopBar';
 import { SPACES } from '../random/spaces';
 import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary, type UIState } from './store';
 import { Welcome } from './guide/Welcome';
-import { TabAway } from './Keeping';
+import { StorageNote, TabAway } from './Keeping';
 import { openWelcome, useGuide } from './guide/state';
 import { loadComponents, loadExportSheet, loadSheets, warmCodeExporter } from './lazy';
 import { LoadBoundary } from './Boundary';
@@ -85,6 +85,7 @@ export function App() {
       <ShareSheet />
       <Welcome />
       <TabAway />
+      {comps && <div className="storage-global"><StorageNote /></div>}
       <LiveLine />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>

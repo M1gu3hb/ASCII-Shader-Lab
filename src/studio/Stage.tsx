@@ -179,7 +179,7 @@ function MediaPrompt({ ins }: { ins: Insets }) {
               {/* phones and tablets have two cameras: choose before the permission is asked */}
               {touch && <SegGroup label="Qué cámara" className="prompt-cam" value={media.camWant.facing} activate="manual"
                 opts={[['user', 'Cámara frontal'], ['environment', 'Cámara trasera']]} onPick={f => chooseFacing(f)} />}
-              <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>
+              <button type="button" className="btn primary" disabled={media.camera === 'starting'} onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>
             </>
           )
           : (

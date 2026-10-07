@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { stopCamera, pauseVideo } from './media';
 import { saveSession } from './packages';
+import { saveRecoverySession } from './Boundary';
 import { useStudio } from './store';
 import './css/fixes.css';
 
@@ -10,7 +11,8 @@ import './css/fixes.css';
  */
 
 /** One sentence on why nothing is being kept, for the stage, the collection and the star's toast. */
-export function storageProblem(storage: 'ok' | 'unavailable' | 'full'): string {
+export function storageProblem(storage: 'ok' | 'unavailable' | 'full' | 'protected'): string {
+  if (storage === 'protected') return 'El arranque o la lectura del historial no se completaron con seguridad (fallo de lectura o formato desconocido). Los datos anteriores se conservan sin cambios. Lo que hagas en esta visita sólo vive en esta pestaña: guarda la sesión antes de reintentar. La copia lleva las recetas de esta visita, sin las imágenes y videos locales.';
   if (storage === 'full') return 'El navegador no tiene espacio para GLYPHOS: lo último que hiciste no se guardó y se pierde al cerrar la pestaña.';
   if (storage === 'unavailable') return 'Este navegador no deja guardar (datos de sitios bloqueados o almacenamiento no disponible): tu historial y tu colección se pierden al cerrar la pestaña.';
   return '';
@@ -25,7 +27,8 @@ export function StorageNote() {
       <span className="bm-tag"><i aria-hidden="true" />{storage === 'full' ? 'Sin espacio' : 'Sin guardar'}</span>
       <span className="bm-line">{storageProblem(storage)}</span>
       <span className="bm-acts">
-        <button type="button" className="bm-why" onClick={() => void saveSession(true)}>Guardar sesión</button>
+        <button type="button" className="bm-why" onClick={() => void (storage === 'protected' ? saveRecoverySession() : saveSession(true))}>Guardar sesión</button>
+        {storage === 'protected' && <button type="button" className="bm-why" onClick={() => location.reload()}>Reintentar lectura</button>}
       </span>
     </div>
   );

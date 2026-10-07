@@ -17,18 +17,26 @@ export function compileProgram(gl: WebGL2RenderingContext, vs: string, fs: strin
     }
     return s;
   };
-  const v = mk(gl.VERTEX_SHADER, vs), f = mk(gl.FRAGMENT_SHADER, fs);
-  const prog = gl.createProgram()!;
-  gl.attachShader(prog, v);
-  gl.attachShader(prog, f);
-  gl.bindAttribLocation(prog, 0, 'aPos');
-  gl.linkProgram(prog);
-  gl.deleteShader(v);
-  gl.deleteShader(f);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS) && !gl.isContextLost()) {
-    throw new Error(gl.getProgramInfoLog(prog) || 'error de enlazado');
+  let v: WebGLShader | null = null, f: WebGLShader | null = null, prog: WebGLProgram | null = null;
+  try {
+    v = mk(gl.VERTEX_SHADER, vs);
+    f = mk(gl.FRAGMENT_SHADER, fs);
+    prog = gl.createProgram()!;
+    gl.attachShader(prog, v);
+    gl.attachShader(prog, f);
+    gl.bindAttribLocation(prog, 0, 'aPos');
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS) && !gl.isContextLost()) {
+      throw new Error(gl.getProgramInfoLog(prog) || 'error de enlazado');
+    }
+    return { prog, u: new Map() };
+  } catch (error) {
+    if (prog) gl.deleteProgram(prog);
+    throw error;
+  } finally {
+    if (v) gl.deleteShader(v);
+    if (f) gl.deleteShader(f);
   }
-  return { prog, u: new Map() };
 }
 
 /**

@@ -295,7 +295,7 @@ function SoundControl() {
     <>
       {mic === 'on'
         ? <button type="button" className="btn primary" onClick={stopMic}>Dejar de escuchar</button>
-        : <button type="button" className="btn" onClick={() => void startMic()}>{mic === 'starting' ? 'Esperando permiso…' : 'Reaccionar al sonido (micrófono)'}</button>}
+        : <button type="button" className="btn" disabled={mic === 'starting'} onClick={() => void startMic()}>{mic === 'starting' ? 'Esperando permiso…' : 'Reaccionar al sonido (micrófono)'}</button>}
       {mic === 'on' && (
         <>
           <div className="progress" aria-hidden="true"><i style={{ '--v': Math.round(level * 100) + '%', transition: 'none' } as React.CSSProperties} /></div>
@@ -421,7 +421,7 @@ function CameraControls() {
     <>
       {on
         ? <button type="button" className="btn" onClick={stopCamera}>Apagar cámara</button>
-        : <button type="button" className="btn primary" onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>}
+        : <button type="button" className="btn primary" disabled={media.camera === 'starting'} onClick={() => void startCamera()}>{media.camera === 'starting' ? 'Esperando permiso…' : 'Activar cámara'}</button>}
       <div className="ctl cx cam-which">
         <span className="lbl" id={id + 'f'}>Qué cámara</span>
         <SegGroup labelId={id + 'f'} value={facing} opts={FACING_OPTS} onPick={chooseFacing} activate="manual" />

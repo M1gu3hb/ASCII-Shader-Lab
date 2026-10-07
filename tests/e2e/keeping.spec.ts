@@ -163,13 +163,13 @@ test.describe('lo que guarda el navegador', () => {
     const page = await ctx.newPage();
     const errors = await openStudio(page);
     await expect(page.locator('.keep-chip')).toContainText('Sin guardar');
-    await expect(page.locator('.keep-chip')).toContainText('se pierden al cerrar la pestaña');
+    await expect(page.locator('.keep-chip')).toContainText('Los datos anteriores se conservan sin cambios');
     await page.keyboard.press('r');
     await page.keyboard.press('s');
     await expect(page.locator('.toast').filter({ hasText: 'está en tu colección sólo hasta que cierres la pestaña' })).toBeVisible();
     await expect(page.locator('.toast').filter({ hasText: 'Guardado en tu colección' })).toHaveCount(0);
     await page.getByRole('button', { name: /Colección/ }).click();
-    await expect(page.locator('.keep-warn')).toContainText('Este navegador no deja guardar');
+    await expect(page.locator('.keep-warn')).toContainText('sólo vive en esta pestaña');
     await expect(page.locator('dialog.sheet[open]')).toContainText('sólo mientras no cierres la pestaña');
     expect(errors).toEqual([]);
     await ctx.close();

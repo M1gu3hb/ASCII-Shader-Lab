@@ -1,5 +1,10 @@
 import { Component, type ReactNode } from 'react';
-import { persistNow } from './store';
+import { persistNow, useStudio } from './store';
+import { stopCamera, pauseVideo } from './media';
+import { stopMic } from './live';
+import { buildSession, sessionFileName } from '../shared/session';
+import { downloadBlob } from './download';
+import { within } from './deadline';
 import './css/fixes.css';
 
 /**
@@ -38,6 +43,45 @@ export class LoadBoundary extends Component<{ children: ReactNode; onClose?: () 
 }
 
 async function reload() {
-  try { await persistNow(); } catch { /* reload anyway */ }
+  try { await within(persistNow(), 1500); } catch { /* reload anyway */ }
   location.reload();
+}
+
+/** Saving this copy needs neither the renderer nor IndexedDB. Media refs travel, local files do not. */
+export async function saveRecoverySession() {
+  const s = useStudio.getState();
+  downloadBlob(sessionFileName(), await buildSession({ entries: s.entries, favorites: s.favorites, cursor: s.cursor }, []));
+}
+
+export class StudioBoundary extends Component<{ children: ReactNode; startupError?: string | null }, { failed: boolean; asyncError: boolean; saving: boolean; saveError: boolean }> {
+  state = { failed: false, asyncError: false, saving: false, saveError: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: unknown) {
+    stopCamera(); stopMic(); pauseVideo();
+    console.warn('GLYPHOS: error del estudio', error);
+  }
+  private rejected = () => this.setState({ asyncError: true });
+  componentDidMount() { addEventListener('unhandledrejection', this.rejected); }
+  componentWillUnmount() { removeEventListener('unhandledrejection', this.rejected); }
+  private save = async () => {
+    this.setState({ saving: true, saveError: false });
+    try { await saveRecoverySession(); } catch { this.setState({ saveError: true }); }
+    finally { this.setState({ saving: false }); }
+  };
+  render() {
+    const message = this.state.failed ? 'El estudio encontró un error al dibujar la interfaz.'
+      : this.props.startupError ?? (this.state.asyncError ? 'Una operación del estudio no pudo completarse.' : null);
+    return <>
+      {!this.state.failed && this.props.children}
+      {message && <div className="load-fail studio-recovery" role="alert">
+        <p><b>{message}</b> Guarda una copia antes de recargar.</p>
+        <p>La copia incluye las recetas de esta visita y sus referencias; las imágenes y videos locales no se incluyen.</p>
+        <div className="row2">
+          <button type="button" className="btn" disabled={this.state.saving} onClick={() => void this.save()}>Guardar sesión</button>
+          <button type="button" className="btn primary" onClick={() => void reload()}>Recargar</button>
+        </div>
+        {this.state.saveError && <p>No se pudo descargar la copia. Vuelve a intentar antes de recargar.</p>}
+      </div>}
+    </>;
+  }
 }

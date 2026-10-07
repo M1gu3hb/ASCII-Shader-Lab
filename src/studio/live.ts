@@ -15,14 +15,25 @@ export const useLive = create<LiveState>(() => ({ mic: 'off', level: 0, gain: 1.
 let ctx: AudioContext | null = null;
 let stream: MediaStream | null = null;
 let raf = 0;
+let micGen = 0;
+
+// These spaces have no microphone control. Stop even while a permission request is pending.
+useStudio.subscribe((s, prev) => {
+  if (s.away || (s.space !== prev.space && (s.space === 'media' || s.space === 'componentes'))) stopMic();
+});
 
 export async function startMic() {
-  if (useLive.getState().mic === 'on') return;
+  if (useLive.getState().mic === 'on' || useLive.getState().mic === 'starting') return;
   if (!navigator.mediaDevices?.getUserMedia) { useLive.setState({ mic: 'error' }); toast('Este navegador no da acceso al micrófono.'); return; }
   useLive.setState({ mic: 'starting' });
+  const g = ++micGen;
+  let opened: MediaStream | null = null;
+  let audio: AudioContext | null = null;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-    ctx = new AudioContext();
+    opened = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    if (g !== micGen) { opened.getTracks().forEach(t => t.stop()); return; }
+    stream = opened;
+    ctx = audio = new AudioContext();
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.55;
@@ -47,16 +58,22 @@ export async function startMic() {
     useLive.setState({ mic: 'on' });
     toast('El micrófono mueve la pieza. Se analiza en tu navegador; nada se graba.');
   } catch {
+    opened?.getTracks().forEach(t => t.stop());
+    void audio?.close().catch(() => undefined);
+    if (g !== micGen) return;
+    stream = null;
+    ctx = null;
     useLive.setState({ mic: 'error' });
     toast('No se pudo abrir el micrófono. Revisa el permiso del navegador.');
   }
 }
 
 export function stopMic() {
+  micGen++;
   cancelAnimationFrame(raf);
   stream?.getTracks().forEach(t => t.stop());
   stream = null;
-  void ctx?.close();
+  void ctx?.close().catch(() => undefined);
   ctx = null;
   const e = getEngine();
   if (e) e.externalPulse = 0;

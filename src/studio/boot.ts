@@ -9,6 +9,9 @@ import { spaceAccepts } from './presets';
 import { rememberLinkFrame } from './ShareSheet';
 import { applyRecipe, currentRecipe, edit, rollDice, setSpace, useStudio } from './store';
 import { toast } from './toast';
+import { retry } from './lazy';
+
+const loadHandoff = retry(() => import('../foto/handoff'));
 
 /** What the address opened: a shared piece, a seed, a space, a guided path, or nothing. */
 export type BootOpened = 'link' | 'seed' | 'space' | 'camino' | null;
@@ -23,7 +26,7 @@ export type BootOpened = 'link' | 'seed' | 'space' | 'camino' | null;
  * and guided paths: ?camino=foto|fondo|palabra (the public guides link there).
  * Both are removed from the address once handled.
  */
-export async function bootFromUrl(): Promise<BootOpened> {
+export async function bootFromUrl(signal?: AbortSignal): Promise<BootOpened> {
   startMediaSync();
   startHistoryWarnings();
   const camino = parseCamino(location.search);
@@ -35,6 +38,7 @@ export async function bootFromUrl(): Promise<BootOpened> {
     if (h.get('r')) {
       opened = 'link';
       const r = await decodeRecipe(h.get('r')!);
+      if (signal?.aborted) return null;
       if (r) {
         useStudio.setState({ space: spaceById(r.meta.space ?? space ?? 'arte').id });
         applyRecipe(r, 'enlace', r.meta.name ?? 'Desde un enlace');
@@ -48,8 +52,10 @@ export async function bootFromUrl(): Promise<BootOpened> {
     } else if (h.get('foto')) {
       // «Abrir estilo en el laboratorio» from the photo studio (src/foto/bridge.ts): the recipe waits in IndexedDB
       opened = 'link';
-      const { takeHandoff } = await import('../foto/handoff');
+      const { takeHandoff } = await loadHandoff();
+      if (signal?.aborted) return null;
       const got = await takeHandoff(h.get('foto')!);
+      if (signal?.aborted) return null;
       if (got?.kind === 'foto-to-lab') {
         const own = got.recipe.source === 'image' || got.recipe.source === 'video';
         useStudio.setState({ space: own ? 'media' : spaceById(got.recipe.meta.space ?? 'arte').id });
