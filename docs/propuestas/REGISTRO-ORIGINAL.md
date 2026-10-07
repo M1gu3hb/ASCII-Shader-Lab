@@ -215,4 +215,3 @@ Prioridad inicial: conservación de datos y arranque, captura de medios, fidelid
 - VisualPDE, Ginzburg–Landau: https://visualpde.com/nonlinear-physics/nls-cgl/
 
 Alcance: identificación visual del clip y revisión documental de fuentes primarias. No se operaron las demos en vivo ni se comprobaron su rendimiento, sus controles con entrada táctil o sus exportaciones.
-
