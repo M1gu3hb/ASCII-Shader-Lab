@@ -28,7 +28,7 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec/ },
   ],
   webServer: remote ? undefined : {
-    command: `npm run build && npx vite preview --port ${port} --strictPort`,
+    command: `npm run build && npx vite preview --host 127.0.0.1 --port ${port} --strictPort`,
     port,
     reuseExistingServer: true,
     timeout: 180_000,

@@ -26,6 +26,7 @@ export interface ZipEntry {
 
 const LOCAL = 0x04034b50, CENTRAL = 0x02014b50, END = 0x06054b50;
 const UTF8 = 0x0800;
+export const ZIP_LIMITS = { entries: 4096, directory: 16 * 1024 * 1024, total: 512 * 1024 * 1024, entry: 256 * 1024 * 1024, deflated: 32 * 1024 * 1024 } as const;
 const MAX32 = 0xffffffff;
 
 const CRC_TABLE = (() => {
@@ -159,12 +160,13 @@ export async function unzip(input: Blob | Uint8Array): Promise<ZipEntry[]> {
   const cdSize = tv.getUint32(at + 12, true);
   const cdOffset = tv.getUint32(at + 16, true);
   if (count === 0xffff || cdSize === MAX32 || cdOffset === MAX32) throw new Error('Ese .zip usa ZIP64 (más de 4 GB): no se puede abrir aquí.');
+  if (count > ZIP_LIMITS.entries || cdSize > ZIP_LIMITS.directory) throw new Error('Ese .zip tiene demasiadas entradas o un directorio demasiado grande.');
   if (cdOffset + cdSize > blob.size) throw damaged('directorio fuera de rango');
   const cd = await bytesOf(blob, cdOffset, cdOffset + cdSize);
   const v = new DataView(cd.buffer, cd.byteOffset, cd.byteLength);
 
   const out: ZipEntry[] = [];
-  let p = 0;
+  let p = 0, total = 0;
   for (let n = 0; n < count; n++) {
     if (p + 46 > cd.length || v.getUint32(p, true) !== CENTRAL) throw damaged('entrada del directorio');
     const flags = v.getUint16(p + 8, true);
@@ -176,6 +178,8 @@ export async function unzip(input: Blob | Uint8Array): Promise<ZipEntry[]> {
     const lho = v.getUint32(p + 42, true);
     const name = decodeName(cd.subarray(p + 46, p + 46 + nlen), !!(flags & UTF8));
     p += 46 + nlen + xlen + clen;
+    total += usize;
+    if (usize > ZIP_LIMITS.entry || total > ZIP_LIMITS.total || (method === 8 && usize > ZIP_LIMITS.deflated)) throw new Error('Ese .zip supera el límite de importación: 256 MB por archivo, 512 MB en total y 32 MB por archivo comprimido. Guarda los medios sin compresión ZIP.');
     if (name.endsWith('/')) continue;
     if (csize === MAX32 || usize === MAX32 || lho === MAX32) throw new Error('Ese .zip usa ZIP64 (más de 4 GB): no se puede abrir aquí.');
     const read = async () => {

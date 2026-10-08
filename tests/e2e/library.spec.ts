@@ -72,8 +72,8 @@ const drawn = (page: Page) => expect.poll(async () => colours(page, await stageI
 const dataUrl = (path: string, type: string) => `data:${type};base64,${readFileSync(path).toString('base64')}`;
 
 /** The exported page on its own, at the stage's size (the same grid of cells), optionally without WebGL. */
-async function pasted(browser: Browser, file: string, size: { w: number; h: number }, webgl: boolean) {
-  const ctx = await browser.newContext({ viewport: { width: size.w, height: size.h }, reducedMotion: 'reduce' });
+async function pasted(browser: Browser, file: string, size: { w: number; h: number }, webgl: boolean, deviceScaleFactor = 1) {
+  const ctx = await browser.newContext({ viewport: { width: size.w, height: size.h }, deviceScaleFactor, reducedMotion: 'reduce' });
   if (!webgl) await ctx.addInitScript(() => {
     const get = HTMLCanvasElement.prototype.getContext;
     // a browser without WebGL: the runtime falls back to the basic engine it carries
@@ -155,7 +155,8 @@ test.describe('biblioteca', () => {
     const file = test.info().outputPath('esfera.html');
     await d.saveAs(file);
     for (const webgl of [true, false]) {
-      const out = await pasted(browser, file, size, webgl);
+      // Match the phone's DPR too: different glyph rasterisation is not a framing regression.
+      const out = await pasted(browser, file, size, webgl, 2);
       expect(out.errors, webgl ? 'WebGL 2' : 'básico').toEqual([]);
       const code = await compare(page, stage, out.shot, 60, 96);
       expect(code.r, `${webgl ? 'WebGL 2' : 'básico'} r=${code.r.toFixed(3)} Δ=${code.mad.toFixed(1)}`).toBeGreaterThan(0.98);

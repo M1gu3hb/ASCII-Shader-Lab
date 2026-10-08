@@ -78,8 +78,8 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 
 ### Azar con memoria
 
-- **Semillas legibles** (`faro-lunar-417`): misma semilla + mismo espacio + mismo estilo + misma versión del generador → misma pieza. La versión actual es la 4 (`GEN_VERSION`); las versiones 1 a 3 siguen disponibles (`#seed=…&gen=1`), así que los enlaces antiguos dan la misma pieza que antes.
-- 14 **estilos** (arquetipos), **bloqueos** por grupo, **huellas** y una penalización por lo reciente para no repetirte lo que acabas de ver (sin prometer que una combinación no vuelva nunca). En el espacio de imagen, el dado propone también transformaciones.
+- **Semillas legibles** (`faro-lunar-417`): misma semilla + mismo espacio + mismo estilo + misma versión del generador → misma pieza. La versión actual es la 5 (`GEN_VERSION`); las versiones 1 a 4 siguen disponibles (`#seed=…&gen=1`), así que los enlaces antiguos dan la misma pieza que antes.
+- 19 **estilos** (arquetipos), **bloqueos** por grupo, **huellas** y una penalización por lo reciente para no repetirte lo que acabas de ver (sin prometer que una combinación no vuelva nunca). En el espacio de imagen, el dado propone también transformaciones.
 - **Miniaturas**: cada entrada del historial se dibuja desde su propia receta (a t = 4 s) en segundo plano, con una huella de la receta para no mostrar nunca la de otra; mientras tanto se ve «preparando». Aguantan ráfagas de tiradas, recargas, pérdida de WebGL y historiales antiguos sin miniatura.
 - **Transiciones** entre piezas en seis estilos (Tejido, Disolución, Lluvia, Iris, Barrido, Mosaico) y **Calidad de la vista previa** (Auto, Alta, Equilibrada, Ligera; `localStorage['mt.v3.preview']`): el cambio se prepara (shader, fuentes) antes de que empiece la transición; «Ligera» baja resolución, cuadros y movimiento de la interfaz.
 - **Historial**: guarda los **últimos 1000 resultados** en este navegador (IndexedDB, escritura incremental). Al pasar de 1000 se descartan los más antiguos que **no** estén en tu colección ni sean el actual; avisa al 90 % y al primer descarte, con «Guardar sesión». Un contador lo dice siempre. Se guarda también al ocultar la pestaña.
@@ -119,7 +119,7 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 - **Letras que se mueven**: el texto grande (Ola, Rebote, Latido, Revolver, Palabra a palabra, Explosión, Luz que recorre) y el mensaje (Ola, Rebote, Revolver, Explosión, Color por letra y el modo «Palabra a palabra»). Son función del tiempo de la pieza; con «Bucle perfecto» cada efecto ajusta su velocidad para dar un número entero de ciclos, así que el video y el GIF enlazan sin costura (salvo la Estela, cuyo rastro empieza vacío en el primer cuadro del clip). Sin bucle, las piezas se dibujan igual que antes.
 - **Editor de rampas** (Glifos): escribe caracteres o palabras, ve la tinta que deja cada glifo con la fuente de la pieza, ordénalos por densidad y guárdalos en «Tus rampas».
 - Plantillas nuevas: Serigrafía, Neón, Caleidoscopio, Píxel ordenado y Vidrio (Imagen); Ola, Estallido, Palabra a palabra y Cartel (Tipo).
-- **Componentes** (14, cada uno en HTML, módulo ES y React, sin dependencias y con cabecera MIT-0): descifrar, máquina de escribir, imán, estela, halo, spinners, barra de progreso, banner, y los nuevos Revelar (foto ASCII que descubre el original bajo el cursor), Foco (fondo de sección que ilumina el cursor o el foco), Pantalla de carga (`progressbar` real), Separador (ticker con pausa), Letras de bloque (dos fuentes, con acentos y ñ; también como CLI de Node) y Enlaces con interferencia (su nombre accesible nunca cambia).
+- **Componentes** (16 tarjetas, con HTML, módulos ES, React o CLI según su destino, sin dependencias y con cabecera MIT-0): descifrar, máquina de escribir, imán, estela, halo, spinners, barra de progreso, banner, y los nuevos Revelar (foto ASCII que descubre el original bajo el cursor), Foco (fondo de sección que ilumina el cursor o el foco), Pantalla de carga (`progressbar` real), Separador (ticker con pausa), Letras de bloque (dos fuentes, con acentos y ñ; también como CLI de Node) y Enlaces con interferencia (su nombre accesible nunca cambia).
 
 ### Movimiento e interfaz
 
@@ -144,12 +144,12 @@ Sólo se ofrece lo que el navegador puede producir; lo demás aparece como expli
 | Código | HTML para pegar, página, Web Component, React (seguro en StrictMode); motor básico o póster de respaldo | sin WebGL 2 dibuja el motor básico incluido (o, en la versión ligera, el póster); al quitarlo de la página libera su contexto |
 | Receta / Proyecto / Sesión | ver la tabla anterior | — |
 
-Verificado sobre la versión final con herramientas reales (identify/compare, rsvg-convert, Inkscape, gifsicle, ffprobe/ffmpeg, pyte en una pty, Node 18 y 22, Python 3, React 19 con Vite) y abriendo cada archivo o código pegado en el navegador: ejecución completa con el Chromium de Playwright, 690 comprobaciones (680 PASS, 0 FAIL, 10 SKIP); y los grupos que dependen del navegador en Chrome 154 (295 PASS, 0 FAIL), Firefox 142 (293 PASS, 0 FAIL) y WebKit 26 (254 PASS, 2 FAIL: el código de la pieza transformada con WebGL 2, ver «Pendiente»). La tabla función × navegador que separa «la interfaz lo ofrece», «prueba automática pasó» y «abrí el resultado final» está en [`docs/compatibilidad.md`](docs/compatibilidad.md). No verificado: Safari de verdad, teléfonos reales, apps de diseño (Figma, Illustrator…) y terminales de Windows/macOS.
+Verificación histórica registrada antes del cierre de esta auditoría, con herramientas reales (identify/compare, rsvg-convert, Inkscape, gifsicle, ffprobe/ffmpeg, pyte en una pty, Node 18 y 22, Python 3, React 19 con Vite) y abriendo cada archivo o código pegado en el navegador: ejecución completa con el Chromium de Playwright, 690 comprobaciones (680 PASS, 0 FAIL, 10 SKIP); y los grupos que dependen del navegador en Chrome 154 (295 PASS, 0 FAIL), Firefox 142 (293 PASS, 0 FAIL) y WebKit 26 (254 PASS, 2 FAIL: el código de la pieza transformada con WebGL 2, ver «Pendiente»). La tabla función × navegador que separa «la interfaz lo ofrece», «prueba automática pasó» y «abrí el resultado final» está en [`docs/compatibilidad.md`](docs/compatibilidad.md). No verificado: Safari de verdad, teléfonos reales, apps de diseño (Figma, Illustrator…) y terminales de Windows/macOS.
 
 ### Sitio público y SEO
 
 - `src/shared/site.ts` es la única fuente de URLs, títulos, descripciones e imágenes sociales, y de `FOTO_STUDIO` (`VITE_FOTO_STUDIO=1` en el entorno de la compilación; sin ella el estudio de foto y video está en pausa: fuera del sitemap, sin JSON-LD, `noindex`, y los bloques `<!-- @foto-on -->…<!-- @foto-end -->` de las páginas desaparecen mientras los `@foto-off` aparecen). La variable va en el entorno, no en un `.env`: el build se detiene si la encuentra sólo ahí; `scripts/seo-plugin.ts` genera en el build las etiquetas `<head>` (canonical, Open Graph, Twitter), el JSON-LD (WebSite, Organization, WebApplication, WebPage, BreadcrumbList), `robots.txt`, `sitemap.xml` y la cabecera y el pie compartidos. Para añadir una página: entrada en `PAGES` + HTML con `<!-- @head -->`.
-- La portada muestra las creaciones del propio estudio: un escenario vivo con los seis espacios (pestañas con teclado), un dado que funciona con su historial y una hoja de contactos de 14 tiradas, y los archivos reales exportados de una misma pieza por destino. Sus islas se cargan cerca de su sección cuando la página está en reposo (un clic anterior se repite al montar), como mucho 3 lienzos WebGL vivos y en pausa fuera de pantalla. Los tamaños de archivo que cita salen de `public/ex/salidas/manifest.json` (`@salida:clave`), así que nunca citan un número viejo.
+- La portada muestra las creaciones del propio estudio: un escenario vivo con los seis espacios (pestañas con teclado), un dado que funciona con su historial y una hoja de contactos con los estilos del generador actual, y los archivos reales exportados de una misma pieza por destino. Sus islas se cargan cerca de su sección cuando la página está en reposo (un clic anterior se repite al montar), como mucho 3 lienzos WebGL vivos y en pausa fuera de pantalla. Los tamaños de archivo que cita salen de `public/ex/salidas/manifest.json` (`@salida:clave`), así que nunca citan un número viejo.
 - **Search Console**: define la variable `GOOGLE_SITE_VERIFICATION` en Vercel (sólo el valor de `content="…"`) y vuelve a desplegar; la etiqueta aparece en todas las páginas. Luego envía `https://glyphos-ascii.vercel.app/sitemap.xml`.
 
 ### Rendimiento (medido en laboratorio, no son datos de campo)
@@ -227,7 +227,7 @@ Proyecto de Vercel **`ascii-shader-lab`** conectado a este repositorio: **cada p
 
 ## Decisiones importantes
 
-- **Motor básico traducido, no simplificado**: portar los 45 patrones y los efectos permite que un navegador sin WebGL vea la misma pieza (más lenta) en lugar de una aproximación; la paridad se mide, no se supone.
+- **Motor básico traducido, no simplificado**: portar todos los patrones del catálogo y los efectos permite que un navegador sin WebGL vea la misma pieza (más lenta) en lugar de una aproximación; la paridad se mide, no se supone.
 - **Honestidad antes que botones**: el historial dice su límite, los enlaces dicen lo que no llevan y la exportación sólo ofrece lo que se puede producir.
 - **Medios locales por contenido (SHA-256)**: la misma foto no se guarda dos veces y los proyectos son reproducibles en otro equipo sin servidor.
 - **Vistas con el lienzo real**: previsualizar cambiando el tamaño del elemento reproduce exactamente lo que harán el código exportado y los tamaños fijos.
@@ -235,8 +235,15 @@ Proyecto de Vercel **`ascii-shader-lab`** conectado a este repositorio: **cada p
 
 ## Pendiente / ideas siguientes
 
-- Compilación de shaders asíncrona (`KHR_parallel_shader_compile`) y captura de miniaturas sin lectura síncrona de la GPU: son los mayores bloqueos que quedan al tirar el dado.
+- Medir compilación asíncrona (`KHR_parallel_shader_compile`) y miniaturas con vallas/PBO en dispositivos reales: ambos mecanismos ya están implementados; SwiftShader no certifica su rendimiento en una GPU real.
 - Probar en Safari real, en teléfonos reales y en Edge; abrir los SVG en Figma e Illustrator; terminales de Windows y macOS (lo pendiente y por qué, en [`docs/compatibilidad.md`](docs/compatibilidad.md)).
 - WebKit: el código pegado de la «pieza transformada» con WebGL 2 dibuja el texto grande algo más fino que el PNG del estudio (RMSE 0.061 frente a 0.03 del resto); con el motor básico coincide. Causa sin encontrar.
 - Sincronía con el BPM de una canción; simulaciones con estado (reacción-difusión, vida) como capas; fuentes FIGlet para las letras de bloque.
 - Propuestas para decidir aparte (no hechas): un dominio propio en lugar de `glyphos-ascii.vercel.app`; una galería pública de piezas compartidas (necesita servidor, moderación y consentimiento; las piezas locales no se publican ni se indexan); sincronizar la colección entre equipos; buscar y etiquetar en la colección; comparar dos piezas lado a lado.
+
+
+### Protección y límites de importación
+
+Las ediciones y los favoritos se conservan al podar: 1000 resultados es un objetivo, no un límite que borre trabajo protegido. Los archivos de sesión y colección admiten hasta 10 000 piezas o entradas. Los ZIP admiten hasta 4096 entradas, 256 MB por archivo, 512 MB en total y 32 MB por entrada comprimida con deflate; para medios grandes utiliza el ZIP sin compresión que genera GLYPHOS. Los formatos de versiones futuras se rechazan para conservar el original.
+
+Las 16 tarjetas de Componentes ofrecen salidas según su destino; Rótulo ofrece texto y CLI, no HTML ni React. El cierre y las pruebas actuales están en [docs/correcciones/CIERRE-AUDITORIA.md](docs/correcciones/CIERRE-AUDITORIA.md); los informes previos de exportación y compatibilidad conservan sus resultados históricos.

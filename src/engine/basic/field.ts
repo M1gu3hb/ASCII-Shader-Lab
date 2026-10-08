@@ -73,12 +73,12 @@ export class FieldBuffers {
 }
 
 /**
- * Active layers as the GPU engine binds them (max 4; with none on, 'nube' with layer 0's parameters), on a
+ * Active layers as the GPU engine binds them (max 4; with none on, the field is empty), on a
  * W×H canvas (a figure on a canvas taller than wide is sized to its width: catalog.ts figureFit).
  */
 export function fieldLayers(r: Recipe, W: number, H: number): FieldLayer[] {
   const on = r.layers.filter(l => l.on).slice(0, 4);
-  const list = on.length ? on : [{ ...r.layers[0], on: true, pattern: 'nube' }];
+  const list = on;
   return list.map(l => ({
     pat: basicPattern(l.pattern),
     scale: l.scale * figureFit(l.pattern, W, H), rot: (l.rot * Math.PI) / 180, x: l.x, y: l.y, a: l.a, b: l.b,
@@ -173,6 +173,7 @@ function mediaTap(m: MediaBuffer, sx: number, sy: number) {
 
 function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array) {
   const { cols, rows } = f;
+  if (!f.layers.length) out.fill(0);
   const cellP = f.ch / f.H;
   const qxs = B.qx, qys = B.qy;
   for (let li = 0; li < f.layers.length; li++) {

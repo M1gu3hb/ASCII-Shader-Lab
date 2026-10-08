@@ -5,7 +5,6 @@ import { layoutMessage } from '../../src/engine/text';
 import { FieldBuffers, fieldLayers, heldTime, pulseAt, runField } from '../../src/engine/basic/field';
 import { SelectBuffers, runSelect } from '../../src/engine/basic/select';
 import { shadePass, type ComposeFrame } from '../../src/engine/basic/compose';
-import { BASIC_PATTERNS } from '../../src/engine/basic/patterns';
 import { FIGURES, PATTERN_IDS, figureFit } from '../../src/engine/catalog';
 
 const COLS = 40, ROWS = 20, CW = 10, CH = 14, N = 10, EDGE = 10, BLOCK = 14;
@@ -70,13 +69,9 @@ describe('basic engine pipeline (no DOM)', () => {
     expect(pulseAt({ ...m, pulse: 0 }, 0.5, 0)).toBe(0);
   });
 
-  it('falls back to nube with layer 0 parameters when every layer is off', () => {
-    const r = defaultRecipe();
-    r.layers = [{ ...DEFAULT_LAYER, pattern: 'plasma', on: false, scale: 2 }];
-    const ls = fieldLayers(r, 400, 280);
-    expect(ls).toHaveLength(1);
-    expect(ls[0].pat).toBe(BASIC_PATTERNS.nube);
-    expect(ls[0].scale).toBe(2);
+  it('keeps the field empty when every layer is off', () => {
+    const r = defaultRecipe(); r.layers.forEach(l => { l.on = false; });
+    expect(fieldLayers(r, 320, 240)).toEqual([]);
   });
 
   it('sizes a centred figure to the width of a canvas taller than wide, and leaves fields and wide canvases alone', () => {

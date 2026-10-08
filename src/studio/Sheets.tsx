@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Recipe } from '../engine/recipe';
-import { ARCHETYPES } from '../random/archetypes';
-import { GEN_VERSION, GEN_VERSIONS } from '../random/generator';
+import { archesForGen, GEN_VERSION, GEN_VERSIONS } from '../random/generator';
 import { cleanSeed, freshSeed } from '../random/seeds';
 import { spaceById } from '../random/spaces';
 import { recipeFile } from '../shared/share';
@@ -42,7 +41,7 @@ export function CollectionSheet() {
   useEffect(() => { if (!open) return; let alive = true; void collectionMediaSize().then(m => { if (alive) setCm(m); }); return () => { alive = false; }; }, [open, favs]);
   const usage = useStorageEstimate(open);
   const exportAll = () => {
-    const json = JSON.stringify({ glyphos: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
+    const json = JSON.stringify({ glyphos: 'collection', version: 2, exported: new Date().toISOString(), items: favs.map(f => ({ id: f.id, created: f.created, updated: f.updated, name: f.name, space: f.space, recipe: f.recipe, thumb: f.thumb })) }, null, 2);
     downloadText(`glyphos-coleccion-${new Date().toISOString().slice(0, 10)}.json`, json, 'application/json');
     // the .json carries recipes only: say so when some piece needs its own image or video
     const media = favs.filter(f => (f.recipe.source === 'image' || f.recipe.source === 'video') && f.recipe.media.ref).length;
@@ -136,7 +135,7 @@ function HistoryBox() {
         <p className="count-line" role="status">{historyLabel(count, limit)}</p>
         <div className={'data-meter' + (count >= limit * HISTORY_WARN ? ' near' : '')} aria-hidden="true"><i style={{ '--v': pct + '%' } as React.CSSProperties} /></div>
         <p className="note">
-          Guarda tus últimos {limit} resultados; al pasar de ahí se descartan los más antiguos, salvo los que están en tu colección (★) y el actual.
+          Guarda tus últimos {limit} resultados; al pasar de ahí se descartan los más antiguos, salvo tus ediciones, los que están en tu colección (★) y el actual. Si todos están protegidos, el historial puede superar ese número.
           {pruned > 0 && <> En esta visita {pruned === 1 ? 'se descartó 1 resultado' : `se descartaron ${pruned} resultados`}.</>}
           {' '}Un favorito cuyo resultado se descartó sigue en tu colección y se abre igual.
         </p>
@@ -262,9 +261,12 @@ const KEYS: Array<[string, string]> = [
 
 export function ShortcutsSheet() {
   const open = useStudio(s => s.ui.sheet === 'shortcuts');
+  const shortcuts = useStudio(s => s.ui.characterShortcuts);
   return (
     <Sheet open={open} onClose={close} title="Atajos de teclado" sub="Doble clic en el nombre de un ajuste lo devuelve a su valor inicial.">
       <div className="sheet-body">
+        <label className="toggle"><span>Atajos de una sola tecla (letras, números y espacio)</span><input type="checkbox" role="switch" checked={shortcuts} onChange={e => setUI({ characterShortcuts: e.target.checked })} /></label>
+        <p className="note">Puedes desactivarlos al usar entrada por voz o un lector de pantalla. Las flechas, Escape y Deshacer con Ctrl/Cmd siguen disponibles.</p>
         <div className="keys">{KEYS.map(([k, d]) => <div key={k}><span>{d}</span><kbd>{k}</kbd></div>)}</div>
         <p className="note" style={{ margin: '16px 0 0' }}>
           ¿Empiezas? <button type="button" className="mini" onClick={() => { close(); setTimeout(() => openWelcome(), 60); }}>Abrir las guías</button> y convierte una foto, crea un fondo para tu web o anima una palabra, paso a paso.
@@ -298,6 +300,8 @@ export function SeedSheet() {
   const [picked, setPicked] = useState<number | null>(null);
   useEffect(() => { if (open) { setV(cur); setPicked(null); } }, [open, cur]);
   const gen = picked ?? (cleanSeed(v) === cur ? curGen : GEN_VERSION);
+  const compatible = archesForGen(gen);
+  const incompatible = !!arch && !compatible.some(a => a.id === arch);
   const go = () => {
     const s = cleanSeed(v);
     if (!s) return;
@@ -314,8 +318,8 @@ export function SeedSheet() {
         </div>
         <div className="ctl cx">
           <span className="lbl" id="seed-arch-l">Estilo</span>
-          <Picker id="seed-arch" value={arch ?? ''} label="Estilo" labelId="seed-arch-l" minWidth={280} onChange={v => setArch(v || null)}
-            options={[{ value: '', label: 'Cualquiera (según el espacio)', desc: 'El dado elige entre los estilos de este espacio.' }, ...ARCHETYPES.map(a => ({ value: a.id, label: a.name, desc: a.blurb }))]} />
+          <Picker id="seed-arch" value={incompatible ? '' : arch ?? ''} label="Estilo" labelId="seed-arch-l" minWidth={280} onChange={v => setArch(v || null)}
+            options={[{ value: '', label: 'Cualquiera (según el espacio)', desc: 'El dado elige entre los estilos de este espacio.' }, ...compatible.map(a => ({ value: a.id, label: a.name, desc: a.blurb }))]} />
         </div>
         <div className="ctl cx">
           <span className="lbl" id="seed-gen-l">Versión del generador</span>
@@ -323,6 +327,7 @@ export function SeedSheet() {
             options={[...GEN_VERSIONS].reverse().map(g => ({ value: g, label: genLabel(g), desc: GEN_INFO[g]?.desc }))} />
         </div>
         <p className="note" id="seed-gen-note">
+          {incompatible && <b>El estilo elegido no existe en la versión {gen}: el dado elegirá uno compatible. </b>}
           {cur && curGen !== GEN_VERSION
             ? `La pieza en pantalla salió de la versión ${curGen} del generador: con esa versión, su semilla la repite. Con la actual, la misma semilla teje otra.`
             : 'Cada versión del generador teje distinto la misma semilla. Tu historial y tu colección guardan la receta completa: no dependen de la versión.'}

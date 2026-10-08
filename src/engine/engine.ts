@@ -420,25 +420,37 @@ export class AsciiEngine implements Renderer {
     if (gone()) return null;
     sx = Math.max(0, Math.min(this.W - 1, Math.round(sx))); sy = Math.max(0, Math.min(this.H - 1, Math.round(sy)));
     sw = Math.max(1, Math.min(this.W - sx, Math.round(sw))); sh = Math.max(1, Math.min(this.H - sy, Math.round(sh)));
+    // Wait for drawing before issuing the read: some drivers stall even a PBO read otherwise.
+    const wait = async (sync: WebGLSync | null) => {
+      if (!sync) return false;
+      const t0 = performance.now();
+      while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
+      return !gone() && passed(gl, sync);
+    };
+    const drawn = this.fence();
+    try { if (!await wait(drawn)) return null; }
+    finally { if (drawn) gl.deleteSync(drawn); }
     const size = sw * sh * 4;
     const pbo = gl.createBuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-    gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ);
-    gl.readPixels(sx, this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-    const sync = this.fence();
-    // no fence: the context went away between two calls (some browsers return null then)
-    if (!sync || gone()) { if (sync) gl.deleteSync(sync); gl.deleteBuffer(pbo); return null; }
-    const t0 = performance.now();
-    while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
-    if (gone()) return null;
+    if (!pbo) return null;
+    let sync: WebGLSync | null = null;
     const raw = new Uint8Array(size);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-    gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-    gl.deleteBuffer(pbo);
-    gl.deleteSync(sync);
+    try {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+      gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ);
+      gl.readPixels(sx, this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      sync = this.fence();
+      if (!await wait(sync)) return null;
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+      gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
+    } finally {
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      gl.deleteBuffer(pbo);
+      if (sync) gl.deleteSync(sync);
+    }
+    if (gone()) return null;
     // GL rows run bottom to top
     const out = new ImageData(sw, sh), row = sw * 4;
     for (let y = 0; y < sh; y++) out.data.set(raw.subarray((sh - 1 - y) * row, (sh - y) * row), y * row);
@@ -965,7 +977,7 @@ export class AsciiEngine implements Renderer {
 
   private static patternsOf(r: Recipe) {
     const layers = r.layers.filter(l => l.on).slice(0, 4);
-    return layers.length ? layers.map(l => l.pattern) : ['nube'];
+    return layers.map(l => l.pattern);
   }
 
   /**
@@ -1158,7 +1170,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uLoop'), r.motion.loop);
     const layers = r.layers.filter(l => l.on).slice(0, 4);
     const A = new Float32Array(16), B = new Float32Array(16), C = new Float32Array(16);
-    (layers.length ? layers : [{ ...r.layers[0], on: true }]).forEach((l, i) => {
+    layers.forEach((l, i) => {
       A.set([l.scale * figureFit(l.pattern, this.W, this.H), (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
       B.set([l.a, l.b, l.mix, l.speed], i * 4);
       C.set([l.invert ? 1 : 0, l.phase, Math.max(0, BLENDS.indexOf(l.blend)), 0], i * 4);
@@ -1343,6 +1355,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
     gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' ? 1 : 0);
+    gl.uniform1f(loc(gl, p, 'uEmptyField'), r.source === 'pattern' && !r.layers.some(l => l.on) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uShift'), r.color.shift);
     gl.uniform1f(loc(gl, p, 'uCycle'), r.color.cycle);
     gl.uniform1f(loc(gl, p, 'uHue'), r.color.hue);

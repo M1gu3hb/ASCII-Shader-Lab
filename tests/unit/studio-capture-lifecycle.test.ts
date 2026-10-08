@@ -85,3 +85,17 @@ it('si falla el contexto de audio, el micrófono concedido se libera', async () 
   expect(stop).toHaveBeenCalledOnce();
   expect(mic.useLive.getState().mic).toBe('error');
 });
+
+
+it('un video que nunca emite loadeddata termina con error y libera su elemento', async () => {
+  const el = { ...video(), load: vi.fn(), addEventListener: vi.fn(), removeAttribute: vi.fn() };
+  vi.stubGlobal('document', { createElement: () => el, body: { appendChild: vi.fn() } });
+  const media = await import('../../src/studio/media');
+  const file = new File(['x'], 'broken.mp4', { type: 'video/mp4' });
+  const pending = media.loadFile(file);
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(await pending).toBeNull();
+  expect(el.remove).toHaveBeenCalledOnce();
+  expect(el.load).toHaveBeenCalledOnce();
+  expect(media.useMedia.getState().error).toContain('10 segundos');
+});

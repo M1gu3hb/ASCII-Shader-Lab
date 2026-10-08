@@ -48,15 +48,17 @@ export async function handleFile(f: File) {
     try {
       const o = JSON.parse(text);
       if (o && (o.glyphos ?? o.monotrama) === 'collection' && Array.isArray(o.items)) {
+        if (typeof o.version === 'number' && o.version > 2) { toast('Esta colección usa una versión más nueva de GLYPHOS. Conserva el archivo y actualiza el estudio.'); return; }
+        if (o.items.length > 10_000) { toast('La colección supera el límite de 10 000 piezas por archivo.'); return; }
         const n = importFavorites(o.items);
-        toast(n === 1 ? '1 pieza añadida a tu colección' : `${n} piezas añadidas a tu colección`);
+        toast(`Colección: ${n.added} nuevas · ${n.updated} actualizadas · ${n.skipped} ya estaban · ${n.invalid} no válidas.`, undefined, 7000);
         return;
       }
       // the photo and video studio's own files (a project without its media, a saved setting)
       if (o && (o.glyphos === 'project' || o.glyphos === 'ajuste')) { fotoFileNote(o.glyphos === 'project' ? 'proyecto' : 'ajuste'); return; }
     } catch { /* handled below */ }
     const r = parseRecipe(text);
-    if (!r) { toast('Ese archivo no parece una receta de GLYPHOS.'); return; }
+    if (!r) { toast('Ese archivo no contiene una receta válida de esta versión de GLYPHOS. Si viene de una versión más nueva, conserva el original y actualiza el estudio.'); return; }
     useStudio.setState({ space: spaceForOpened(r, useStudio.getState().space) });
     applyRecipe(r, 'importado', f.name.replace(/\.json$/i, '').replace(/\.(glyphos|monotrama)$/i, ''));
     toast('Receta abierta');

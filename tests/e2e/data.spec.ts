@@ -304,7 +304,7 @@ test.describe('historial y medios locales', () => {
     await pa.keyboard.press('s');
     await expect(pa.locator('.act.fav')).toHaveAttribute('aria-pressed', 'true');
     await pa.getByRole('button', { name: /Colección/ }).click();
-    await expect(pa.getByText('Historial: 2 de 1000 · lo guardado con ★ no se descarta')).toBeVisible();
+    await expect(pa.getByText('Historial: 2 de 1000 · lo editado y lo guardado con ★ no se descarta')).toBeVisible();
     await expect(pa.getByText(/Incluir en la sesión las imágenes y videos \(1,/)).toBeVisible();
     const sess = await download(pa, () => pa.getByRole('button', { name: 'Guardar sesión' }).click());
     expect(sess.name).toMatch(/^glyphos-sesion-\d{4}-\d{2}-\d{2}\.zip$/);
@@ -321,7 +321,7 @@ test.describe('historial y medios locales', () => {
     const [chooser] = await Promise.all([pb.waitForEvent('filechooser'), pb.getByRole('button', { name: 'Abrir sesión' }).click()]);
     await chooser.setFiles({ name: sess.name, mimeType: 'application/zip', buffer: sessBytes });
     await expect(pb.locator('.toast').filter({ hasText: 'Sesión abierta: 2 resultados añadidos' })).toBeVisible();
-    await expect(pb.getByText('Historial: 3 de 1000 · lo guardado con ★ no se descarta')).toBeVisible();
+    await expect(pb.getByText('Historial: 3 de 1000 · lo editado y lo guardado con ★ no se descarta')).toBeVisible();
     await expect(pb.locator('.fav-card')).toHaveCount(1);
     await pb.keyboard.press('Escape');
     await expect(pb.locator('.seedline')).toContainText('3/3');
@@ -343,7 +343,7 @@ test.describe('historial y medios locales', () => {
     }
     const near = page.locator('.toast').filter({ hasText: 'Tu historial va por 9 de 10 resultados' });
     await expect(near).toBeVisible();
-    await expect(page.locator('.strip')).toHaveAttribute('aria-label', 'Historial: 9 de 10 · lo guardado con ★ no se descarta');
+    await expect(page.locator('.strip')).toHaveAttribute('aria-label', 'Historial: 9 de 10 · lo editado y lo guardado con ★ no se descarta');
     const sess = await download(page, () => near.getByRole('button', { name: 'Guardar sesión' }).click());
     expect(sess.name).toMatch(/^glyphos-sesion-.*\.zip$/);
 
@@ -355,7 +355,7 @@ test.describe('historial y medios locales', () => {
     await expect(page.locator('.thumb')).toHaveCount(10);
     await expect(page.locator('.thumb').first().locator('.star')).toBeVisible();
     await page.getByRole('button', { name: /Colección/ }).click();
-    await expect(page.getByText('Historial: 10 de 10 · lo guardado con ★ no se descarta')).toBeVisible();
+    await expect(page.getByText('Historial: 10 de 10 · lo editado y lo guardado con ★ no se descarta')).toBeVisible();
     await expect(page.getByText('En esta visita se descartó 1 resultado.')).toBeVisible();
   });
 

@@ -1,3 +1,4 @@
+import { sameRecipe } from '../engine/recipe';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { archById } from '../random/archetypes';
@@ -88,7 +89,9 @@ function DeskDeck() {
   const e = entries[cursor];
   const favs = useStudio(s => s.favorites);
   const favIds = useMemo(() => new Set(favs.map(f => f.id)), [favs]);
-  const fav = !!e?.favId && favIds.has(e.favId);
+  const saved = favs.find(f => f.id === e?.favId);
+  const changed = !!saved && !!e && !sameRecipe(saved.recipe, e.recipe);
+  const fav = !!saved && !changed;
   const [pop, setPop] = useState(false);
   const panel = useStudio(s => s.ui.panel);
   const strip = useRef<HTMLDivElement>(null);
@@ -113,7 +116,7 @@ function DeskDeck() {
         <div className="acts">
           <button type="button" className="act ghost" onClick={() => vary()} title="Variación del resultado actual (V)" aria-label="Variar"><ISpark /><span className="lbl">Variar</span></button>
           <button type="button" className="act ghost hide-md" onClick={() => setUI({ sheet: 'explore' })} title="Explorar ocho variaciones (X)" aria-label="Explorar variaciones"><IExplore /></button>
-          <button type="button" className="act ghost fav" aria-pressed={fav} onClick={() => void favorite()} title={fav ? 'En tu colección: guarda los cambios (S)' : 'Guardar en la colección (S)'} aria-label={fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
+          <button type="button" className={"act ghost fav" + (changed ? " changed" : "")} aria-pressed={fav} onClick={() => void favorite()} title={changed ? 'Guardado antes de tus cambios: actualizar (S)' : fav ? 'En tu colección (S)' : 'Guardar en la colección (S)'} aria-label={changed ? 'Guardado antes de tus cambios: actualizar en la colección' : fav ? 'Actualizar en la colección' : 'Guardar en la colección'}><IStar filled={fav} /></button>
           <button type="button" className="act dice" onClick={dice} title="Nueva combinación al azar (R)"><IDice /><span className="lbl">Azar</span><kbd>R</kbd></button>
           <div className="pop-anchor">
             <button type="button" className="act ghost" aria-expanded={pop} aria-pressed={pop} onClick={() => setPop(!pop)} title="Cómo tira el dado" aria-label="Ajustes del azar"><ISliders /></button>
@@ -145,7 +148,9 @@ function PhoneDeck() {
   const e = entries[cursor];
   const favs = useStudio(s => s.favorites);
   const favIds = useMemo(() => new Set(favs.map(f => f.id)), [favs]);
-  const fav = !!e?.favId && favIds.has(e.favId);
+  const saved = favs.find(f => f.id === e?.favId);
+  const changed = !!saved && !!e && !sameRecipe(saved.recipe, e.recipe);
+  const fav = !!saved && !changed;
   const panel = useStudio(s => s.ui.panel);
   const strip = usePhoneDock(s => s.strip);
   const limit = useStudio(s => s.histLimit);
@@ -173,9 +178,9 @@ function PhoneDeck() {
             <INext /><span className="ph-lbl">{last ? 'Nuevo' : 'Siguiente'}</span>
           </button>
         </div>
-        <button type="button" className="act ghost fav" aria-pressed={fav} onClick={() => void favorite()}
-          title={fav ? 'En tu colección: guarda los cambios (S)' : 'Guardar en la colección (S)'} aria-label={fav ? 'Guardada: actualizar en la colección' : 'Guardar en la colección'}>
-          <IStar filled={fav} /><span className="ph-lbl">{fav ? 'Guardada' : 'Guardar'}</span>
+        <button type="button" className={"act ghost fav" + (changed ? " changed" : "")} aria-pressed={fav} onClick={() => void favorite()}
+          title={changed ? 'Guardado antes de tus cambios: actualizar (S)' : fav ? 'En tu colección (S)' : 'Guardar en la colección (S)'} aria-label={changed ? 'Guardado antes de tus cambios: actualizar en la colección' : fav ? 'Guardada: actualizar en la colección' : 'Guardar en la colección'}>
+          <IStar filled={fav} /><span className="ph-lbl">{changed ? 'Actualizar' : fav ? 'Guardada' : 'Guardar'}</span>
         </button>
         <button type="button" className="act dice" onClick={dice} title="Nueva combinación al azar (R)"><IDice /><span className="lbl">Azar</span></button>
         <button type="button" className="act ghost ph-export" onClick={() => setUI({ panel: false, sheet: 'export' })} title="Exportar: imagen, video, texto, código… (E)">

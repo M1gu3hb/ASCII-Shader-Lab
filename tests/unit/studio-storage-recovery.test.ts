@@ -83,3 +83,28 @@ describe('recuperación del historial: nunca sobrescribir una lectura insegura',
     expect(db.write).toHaveBeenCalledOnce();
   });
 });
+
+
+it('collection backups deduplicate legacy items and skip invalid items individually', async () => {
+  db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
+  const store = await import('../../src/studio/store');
+  await store.hydrate();
+  const recipe = store.currentRecipe();
+  const list = [null, {}, { name: 'A', recipe }];
+  expect(store.importFavorites(list)).toEqual({ added: 1, updated: 0, skipped: 0, invalid: 2 });
+  expect(store.importFavorites(list)).toEqual({ added: 0, updated: 0, skipped: 1, invalid: 2 });
+  const favorite = store.useStudio.getState().favorites[0];
+  expect(store.importFavorites([favorite]).added).toBe(0);
+  expect(store.useStudio.getState().favorites).toHaveLength(1);
+});
+
+it('automatic pruning retains edited entries even when the history is over its target', async () => {
+  db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
+  const store = await import('../../src/studio/store');
+  await store.hydrate();
+  store.useStudio.setState({ histLimit: 1 });
+  store.edit(r => { r.color.bg = '#ff00ff'; });
+  store.rollDice('next');
+  expect(store.useStudio.getState().entries).toHaveLength(2);
+  expect(store.useStudio.getState().entries[0].recipe.color.bg).toBe('#ff00ff');
+});

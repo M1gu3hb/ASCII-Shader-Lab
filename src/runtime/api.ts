@@ -16,6 +16,7 @@
  * (engine/pointer.ts). The wheel is never taken: only Ctrl + wheel over the canvas zooms «Zoom con los dedos».
  */
 import { AsciiEngine } from '../engine/engine';
+import { PATTERN_IDS } from '../engine/catalog';
 import { normalizeRecipe, type Recipe } from '../engine/recipe';
 import type { PatternLibrary } from '../engine/glsl/patterns';
 import type { Renderer } from '../engine/renderer';
@@ -121,7 +122,10 @@ function startBasic(canvas: HTMLCanvasElement, r: Recipe, opts: BasicEngineOptio
 }
 
 function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown, o: MountOptions = {}): Controller | null {
-  const r: Recipe = normalizeRecipe(recipe);
+  const patterns = new Set([...PATTERN_IDS, ...Object.keys(registry), ...Object.keys(o.patterns ?? {})]);
+  let r: Recipe;
+  try { r = normalizeRecipe(recipe, patterns); }
+  catch (error) { console.warn('GLYPHOS:', error instanceof Error ? error.message : 'Receta incompatible'); return null; }
   const found = toCanvas(target);
   if (!found) {
     console.warn('GLYPHOS: no encuentro el elemento', target);
@@ -130,14 +134,14 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
   const { created } = found;
   let canvas = found.canvas;
   const still = reduced() || !!o.paused;
-  const calm = (x: Recipe) => { if (still) x.interact.auto = false; return x; }; // no wandering ghost pointer when motion is reduced
+  const calm = (x: Recipe) => { if (reduced()) x.interact.auto = false; return x; }; // no wandering ghost pointer when motion is reduced
   // a vertical swipe scrolls the page; every other gesture on the canvas reaches the piece
   if ((o.interactive ?? true) && (o.pointer ?? 'window') === 'canvas' && !canvas.style.touchAction) canvas.style.touchAction = 'pan-y';
   const unscrim = addScrim(canvas, o.scrim);
   const remove = () => { unscrim(); if (created) canvas.remove(); };
   const common = {
     googleFonts: true, interactive: o.interactive ?? true, pointerTarget: o.pointer ?? 'window',
-    observeVisibility: true, reducedMotion: still, adaptive: true,
+    observeVisibility: true, autoplay: !still, reducedMotion: reduced(), adaptive: true,
   } as const;
   let engine: Renderer;
   let kind: 'webgl2' | 'basic';
@@ -157,6 +161,8 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
     canvas = b.canvas;
     kind = 'basic';
   }
+  let releaseMedia = () => {};
+  let mediaVideo: HTMLVideoElement | null = null;
   if (o.media && (r.source === 'image' || r.source === 'video')) {
     if (r.source === 'image') {
       const im = new Image();
@@ -164,24 +170,30 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
       im.onload = () => engine.setMedia('image', im);
       im.onerror = () => console.warn('GLYPHOS: no se pudo cargar la imagen (¿ruta o CORS?)', o.media);
       im.src = o.media;
+      releaseMedia = () => { im.onload = null; im.onerror = null; im.removeAttribute('src'); };
     } else {
       const v = document.createElement('video');
       v.crossOrigin = 'anonymous'; v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = !still;
       v.setAttribute('playsinline', '');
       v.src = o.media;
+      mediaVideo = v;
       v.playbackRate = r.media.rate;
       if (!still) void v.play().catch(() => undefined);
       engine.setMedia('video', v);
+      releaseMedia = () => { v.pause(); v.removeAttribute('src'); v.load(); };
     }
   }
   let unwatch = () => {};
   const ctl: Controller = {
     engine,
     kind,
-    play: () => engine.play(),
-    pause: () => engine.pause(),
-    set: (next: unknown) => engine.set(calm(normalizeRecipe(next)), { transition: true }),
-    destroy: () => { unwatch(); engine.destroy(); remove(); },
+    play: () => { engine.play(); if (mediaVideo) void mediaVideo.play().catch(() => undefined); },
+    pause: () => { engine.pause(); mediaVideo?.pause(); },
+    set: (next: unknown) => {
+      try { engine.set(calm(normalizeRecipe(next, patterns)), { transition: true }); }
+      catch { console.warn('GLYPHOS: receta incompatible; se conserva la pieza actual.'); }
+    },
+    destroy: () => { unwatch(); releaseMedia(); engine.destroy(); remove(); },
   };
   // a pasted block that its page takes away (a site that changes views without reloading) has nobody to
   // call destroy(): once its canvas has left the document for a moment, it stops and lets go of the context
@@ -203,6 +215,24 @@ function watchRemoval(canvas: HTMLCanvasElement, done: () => void): () => void {
 }
 
 class GlyphosField extends HTMLElement {
+  static observedAttributes = ['recipe', 'src', 'paused', 'static', 'pointer', 'poster', 'no-basic', 'scrim', 'scrim-color', 'scrim-opacity', 'scrim-blur'];
+  private updateQueued = false;
+  attributeChangedCallback(name: string, old: string | null, value: string | null) {
+    if (old === value || !this.isConnected || !this.ctl) return;
+    if (name === 'paused') { if (value === null) this.ctl.play(); else this.ctl.pause(); return; }
+    if (name === 'recipe') {
+      try { this.ctl.set(JSON.parse(value ?? this.querySelector('script[type="application/json"]')?.textContent ?? '{}')); }
+      catch { console.warn('GLYPHOS: el atributo recipe no contiene una receta compatible.'); }
+      return;
+    }
+    if (this.updateQueued) return;
+    this.updateQueued = true;
+    queueMicrotask(() => {
+      this.updateQueued = false;
+      if (!this.isConnected) return;
+      this.disconnectedCallback(); this.start();
+    });
+  }
   private ctl: Controller | null = null;
   private queued = false;
   connectedCallback() {

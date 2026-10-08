@@ -48,7 +48,7 @@ export const HISTORY_LIMIT = 1000;
 export const HISTORY_WARN = 0.9;
 
 /** The permanent counter shown where the history lives. */
-export const historyLabel = (count: number, limit: number) => `Historial: ${count} de ${limit} · lo guardado con ★ no se descarta`;
+export const historyLabel = (count: number, limit: number) => `Historial: ${count} de ${limit} · lo editado y lo guardado con ★ no se descarta`;
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
@@ -184,7 +184,7 @@ export function mergeSession(
   inc: { entries: Entry[]; cursor: number; favorites: Favorite[] },
 ): {
   entries: Entry[]; cursor: number; favorites: Favorite[];
-  added: number; updated: number; skipped: number; favAdded: number; favUpdated: number; replaced: Entry[];
+  added: number; updated: number; skipped: number; favAdded: number; favUpdated: number; replaced: Entry[]; preserved: number;
 } {
   const at0 = new Map(cur.entries.map((e, i) => [e.id, i]));
   const entries = cur.entries.slice();
@@ -203,6 +203,15 @@ export function mergeSession(
       // a thumbnail kept from the local version is marked with that version's recipe, so it gets made again
       entries[i] = e.thumb ? e : { ...e, thumb: mine.thumb, thumbV: mine.thumb ? mine.thumbV ?? recipeVersion(mine.recipe) : undefined };
     } else skipped++;
+  }
+  const present = new Set([...entries, ...add].map(e => e.id));
+  let preserved = 0;
+  for (const old of replaced) {
+    if (!old.edited) continue;
+    const id = `${old.id.slice(0, 16)}-local-${recipeVersion(old.recipe)}`;
+    if (present.has(id)) continue;
+    entries.push({ ...old, id, label: `${old.label ?? 'Edición'} (copia local)`.slice(0, 80), favId: undefined, edited: true });
+    present.add(id); preserved++;
   }
   entries.push(...add);
   const target = inc.entries[inc.cursor]?.id;
@@ -228,6 +237,7 @@ export function mergeSession(
     favAdded: favNew.length,
     favUpdated,
     replaced,
+    preserved,
   };
 }
 

@@ -71,6 +71,9 @@ const WORD_FILLS = ['TEJE LUZ CON CARACTERES · ', 'MONOTRAMA · ', '0101 SEÑAL
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
+/** Styles a generator can actually repeat; its historical tables stay unchanged. */
+export const archesForGen = (gen: number) => TABLES[genOf(gen)].archs;
+
 export function pickArch(rng: Rng, space: SpaceId, T: Tables, forced?: string): Archetype {
   const byId = (id?: string) => T.archs.find(a => a.id === id);
   const f = byId(forced);

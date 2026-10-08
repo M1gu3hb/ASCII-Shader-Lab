@@ -276,9 +276,18 @@ function openVideo(blob: Blob, info: MediaInfo, g: number): Promise<HTMLVideoEle
     v.loop = true; v.playsInline = true; v.preload = 'auto';
     v.setAttribute('playsinline', '');
     const url = URL.createObjectURL(blob);
+    let settled = false;
+    const fail = () => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      v.pause(); v.removeAttribute('src'); v.load(); v.remove(); URL.revokeObjectURL(url); resolve(null);
+    };
+    const timer = setTimeout(fail, 10_000);
     v.src = url;
     v.addEventListener('loadeddata', () => {
-      if (gen.video !== g) { v.remove(); URL.revokeObjectURL(url); resolve(null); return; }
+      if (settled) return;
+      if (gen.video !== g) { fail(); return; }
+      settled = true; clearTimeout(timer);
       if (video) { video.el.pause(); video.el.remove(); }
       if (videoUrl) URL.revokeObjectURL(videoUrl);
       videoUrl = url;
@@ -294,7 +303,7 @@ function openVideo(blob: Blob, info: MediaInfo, g: number): Promise<HTMLVideoEle
       useMedia.setState({ videoPaused: v.paused, error: null });
       resolve(v);
     }, { once: true });
-    v.addEventListener('error', () => { v.remove(); URL.revokeObjectURL(url); resolve(null); }, { once: true });
+    v.addEventListener('error', fail, { once: true });
     v.addEventListener('play', () => { if (v === video?.el) useMedia.setState({ videoPaused: false }); });
     v.addEventListener('pause', () => { if (v === video?.el) useMedia.setState({ videoPaused: true }); });
     hide(v);
@@ -331,7 +340,7 @@ export async function loadFile(file: File): Promise<Loaded | null> {
   } else {
     vid = await openVideo(file, { name: file.name, w: 0, h: 0, size: file.size }, g);
     if (!vid) {
-      if (gen.video === g) useMedia.setState({ error: 'Este navegador no puede reproducir ese video. Prueba con MP4 (H.264) o WebM.' });
+      if (gen.video === g) useMedia.setState({ error: 'No se pudo decodificar el video en 10 segundos. Comprueba que se reproduce en este navegador; si falla, vuelve a exportarlo con otro perfil o códec.' });
       return null;
     }
     w = vid.videoWidth; h = vid.videoHeight;

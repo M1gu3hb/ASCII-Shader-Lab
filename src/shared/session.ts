@@ -48,7 +48,7 @@ const readme = (n: number, favs: number, media: number) => [
   `Para abrirla: en el estudio (${SITE_URL}/studio/) arrastra este .zip sobre el lienzo,`,
   'o usa «Colección» → «Abrir sesión». Los resultados se añaden a tu historial y las piezas a tu colección.',
   `El historial guarda como mucho ${LIMIT} resultados: si al abrirla los superas, se descartan los más antiguos`,
-  '(lo guardado con ★ se conserva) y el estudio te dice antes cuántos.',
+  '(las ediciones y lo guardado con ★ se conservan, incluso si superan ese límite) y el estudio te dice antes cuántos.',
   '',
   'Todo se procesa en tu navegador: nada se sube a ningún servidor.',
   '',
@@ -95,6 +95,8 @@ export async function readSession(files: ZipEntry[]): Promise<{ data: SessionDat
   let doc: Record<string, unknown>;
   try { doc = JSON.parse(await f.text()); } catch { return null; }
   if (!doc || (doc.glyphos ?? doc.monotrama) !== 'session' || !Array.isArray(doc.entries)) return null;
+  if (typeof doc.version === 'number' && doc.version > 1) throw new Error('Esta sesión usa una versión más nueva de GLYPHOS. Conserva el archivo original y actualiza el estudio.');
+  if (doc.entries.length > 10_000 || (Array.isArray(doc.favorites) && doc.favorites.length > 10_000)) throw new Error('La sesión supera el límite de 10 000 entradas o piezas por archivo.');
   const prefix = f.name.slice(0, f.name.length - SESSION_FILE.length);
   const byName = new Map(files.map(x => [x.name, x]));
   const media: Array<{ meta: SessionMedia; read: () => Promise<Uint8Array> }> = [];

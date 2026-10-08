@@ -1,3 +1,4 @@
+import { PATTERN_IDS } from './catalog';
 /**
  * Recipe: the complete, serialisable description of a creation.
  * Everything the engine draws comes from a Recipe (plus optional media the user loads locally).
@@ -343,7 +344,7 @@ export function normAnim(v: unknown, kinds: readonly LetterAnimKind[]): LetterAn
   return { kind: o.kind as LetterAnimKind, amount: num(o.amount, 0.5, 0, 1), speed: num(o.speed, 1, 0.1, 3) };
 }
 
-export function normLayer(v: unknown, knownPatterns?: Set<string>): Layer {
+export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS): Layer {
   const o = obj(v), d = DEFAULT_LAYER;
   let pattern = str(o.pattern, d.pattern, 40);
   if (knownPatterns && !knownPatterns.has(pattern)) pattern = d.pattern;
@@ -364,10 +365,11 @@ export function normLayer(v: unknown, knownPatterns?: Set<string>): Layer {
   };
 }
 
-/** Sanitises any unknown value into a valid Recipe. Never throws. */
-export function normalizeRecipe(input: unknown, knownPatterns?: Set<string>): Recipe {
+/** Sanitises old/current recipes; refuses future formats rather than discarding their fields. */
+export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PATTERN_IDS): Recipe {
   const d = defaultRecipe();
   const o = obj(input);
+  if (typeof o.v === 'number' && o.v > RECIPE_VERSION) throw new Error('Esta receta usa una versión más nueva de GLYPHOS. Conserva el archivo original y actualiza el estudio.');
   const m = obj(o.motion), me = obj(o.media), tx = obj(o.text), it = obj(o.interact);
   const g = obj(o.glyph), to = obj(o.tone), c = obj(o.color), fx = obj(o.fx), ms = obj(o.msg), meta = obj(o.meta);
   const layersIn = Array.isArray(o.layers) ? o.layers.slice(0, 4) : [];

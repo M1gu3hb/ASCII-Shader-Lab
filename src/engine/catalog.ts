@@ -148,6 +148,7 @@ export const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
  */
 export const FIGURES: ReadonlySet<string> = new Set([
   ...PATTERNS.filter(p => p.family === 'solidos' || p.family === 'formas').map(p => p.id),
+  'lissajous', 'estrella_mar', 'respiracion', 'radar', 'galaxia',
   'rosa', 'espirografo', 'lemniscata', 'superformula', 'armonografo', 'apolonio', 'flor_armonica', 'filotaxis',
   'corazon_particulas', 'enjambre_vivo', 'mariposa_puntos', 'orbitas_gemelas', 'vortice_polvo', 'floracion_luz', 'ondas_estelares',
 ]);

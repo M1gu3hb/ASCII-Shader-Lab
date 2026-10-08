@@ -1,12 +1,11 @@
 import { create } from 'zustand';
-import { cloneRecipe, normalizeRecipe, sameRecipe, type Recipe } from '../engine/recipe';
-import { PATTERN_IDS } from '../engine/catalog';
+import { cloneRecipe, sameRecipe, type Recipe } from '../engine/recipe';
 import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type SpaceId } from '../random';
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import { ownText } from './ownWords';
 import {
   HISTORY_LIMIT, HISTORY_WARN, allRecipes, entryBody, mediaIdsOf, mergeSession, normalizeEntry, normalizeFavorite, pruneHistory,
-  recipeVersion, sameBody, thumbOf, uid, type Entry, type EntryKind, type Favorite,
+  recipeVersion, sameBody, uid, type Entry, type EntryKind, type Favorite,
 } from './history';
 import { idbKeys, idbRead, idbValues, idbWrite, isQuotaError } from './idb';
 import { gcMedia } from './mediaStore';
@@ -20,6 +19,7 @@ export type ChangeKind = 'edit' | 'nav' | 'roll' | 'load';
 
 export interface UIState {
   panel: boolean;
+  characterShortcuts: boolean;
   hideUI: boolean;
   tab: Partial<Record<SpaceId, string>>;
   /** Destination preview chosen in each space (views/views.ts; the default depends on the space). */
@@ -90,7 +90,7 @@ export const useStudio = create<State>(() => ({
   change: { kind: 'load', n: 0 },
   playing: !reduced,
   reducedMotion: reduced,
-  ui: { panel: true, hideUI: false, tab: {}, views: {}, viewOpts: DEFAULT_VIEW_OPTS, terminal: { cols: 80, rows: 24 }, sheet: 'none', component: null },
+  ui: { characterShortcuts: true, panel: true, hideUI: false, tab: {}, views: {}, viewOpts: DEFAULT_VIEW_OPTS, terminal: { cols: 80, rows: 24 }, sheet: 'none', component: null },
   stats: { cols: 0, rows: 0, fps: 0, pr: 0 },
   undoTick: 0,
   histLimit: HISTORY_LIMIT,
@@ -149,7 +149,7 @@ let warnedNear = false, warnedPruned = false;
 /** Keeps the history within the limit: drops the oldest results that are not favourites nor the current one. */
 function limitHistory(entries: Entry[], cursor: number, favorites = S().favorites) {
   const favIds = new Set(favorites.map(f => f.id));
-  const p = pruneHistory(entries, cursor, S().histLimit, e => !!e.favId && favIds.has(e.favId));
+  const p = pruneHistory(entries, cursor, S().histLimit, e => e.edited || (!!e.favId && favIds.has(e.favId)));
   for (const e of p.dropped) stacks.delete(e.id);
   if (p.dropped.length) scheduleGc();
   return p;
@@ -459,10 +459,12 @@ export function clearHistory() {
 type SessionInput = { entries: unknown[]; favorites: unknown[]; cursor: number };
 
 function mergeInput(inc: SessionInput) {
-  const entries = inc.entries.map(normalizeEntry).filter((e): e is Entry => !!e);
-  const favorites = inc.favorites.map(normalizeFavorite).filter((f): f is Favorite => !!f);
+  if (inc.entries.length > 10_000 || inc.favorites.length > 10_000) throw new Error('El archivo supera el límite de 10 000 entradas o piezas.');
+  const safe = <T,>(fn: (x: unknown) => T, x: unknown): T | null => { try { return fn(x); } catch { return null; } };
+  const entries = inc.entries.map(x => safe(normalizeEntry, x)).filter((e): e is Entry => !!e);
+  const favorites = inc.favorites.map(x => safe(normalizeFavorite, x)).filter((f): f is Favorite => !!f);
   const m = mergeSession(S(), { entries, favorites, cursor: Math.max(0, Math.min(entries.length - 1, inc.cursor | 0)) });
-  return { entries, m };
+  return { entries, m, invalid: inc.entries.length - entries.length + inc.favorites.length - favorites.length };
 }
 
 /**
@@ -472,7 +474,7 @@ function mergeInput(inc: SessionInput) {
 export function planSession(inc: SessionInput): { added: number; count: number; dropOwn: number; dropIncoming: number } {
   const { m } = mergeInput(inc);
   const favIds = new Set(m.favorites.map(f => f.id));
-  const p = pruneHistory(m.entries, m.cursor, S().histLimit, e => !!e.favId && favIds.has(e.favId));
+  const p = pruneHistory(m.entries, m.cursor, S().histLimit, e => e.edited || (!!e.favId && favIds.has(e.favId)));
   const own = new Set(S().entries.map(e => e.id));
   const dropOwn = p.dropped.filter(e => own.has(e.id)).length;
   return { added: m.added, count: S().entries.length, dropOwn, dropIncoming: p.dropped.length - dropOwn };
@@ -484,7 +486,7 @@ export function planSession(inc: SessionInput): { added: number; count: number; 
  * session's current entry. A local entry that gave way keeps its version one undo step away.
  */
 export function importSession(inc: SessionInput) {
-  const { entries, m } = mergeInput(inc);
+  const { entries, m, invalid } = mergeInput(inc);
   const s = S();
   for (const old of m.replaced) {
     const st = stackOf(old.id);
@@ -499,7 +501,7 @@ export function importSession(inc: SessionInput) {
   persistSoon();
   if (m.favAdded || m.favUpdated) saveNow();
   if (m.favAdded || p.entries.length > 50) askPersist();
-  return { added: m.added, updated: m.updated, skipped: m.skipped, favAdded: m.favAdded, favUpdated: m.favUpdated, dropped: p.dropped.length };
+  return { preserved: m.preserved, invalid, added: m.added, updated: m.updated, skipped: m.skipped, favAdded: m.favAdded, favUpdated: m.favUpdated, dropped: p.dropped.length };
 }
 
 /* ------------------------------------------------------------------ */
@@ -584,16 +586,29 @@ export function openFavorite(id: string) {
   applyRecipe(f.recipe, 'favorito', f.name, { favId: f.id, thumb: f.thumb, space: f.space });
 }
 
-export function importFavorites(list: Array<{ name?: string; recipe: unknown; thumb?: string; space?: string }>): number {
-  const now = Date.now();
-  const add: Favorite[] = list.map(x => ({
-    id: uid(), name: String(x.name ?? 'Importado').slice(0, 80), recipe: normalizeRecipe(x.recipe, PATTERN_IDS),
-    thumb: thumbOf(x.thumb),
-    created: now, updated: now, space: (spaceById(String(x.space ?? '')).id),
-  }));
-  set({ favorites: [...add, ...S().favorites] });
-  saveNow();
-  return add.length;
+/** Imports bounded, individually validated items, including legacy collections without ids. */
+export function importFavorites(list: unknown[]) {
+  if (list.length > 10_000) throw new Error('La colección supera el límite de 10 000 piezas por archivo.');
+  const valid: Favorite[] = [];
+  let invalid = 0;
+  for (const item of list) {
+    let f: Favorite | null;
+    try { f = normalizeFavorite(item); } catch { invalid++; continue; }
+    if (!f) { invalid++; continue; }
+    const raw = item as Record<string, unknown>;
+    if (typeof raw.id !== 'string' || !raw.id) {
+      f.id = 'legacy-' + recipeVersion(f.recipe);
+      f.created = f.updated = 1;
+      // A legacy backup may already have been imported by an older studio under a generated id.
+      const existing = S().favorites.find(x => sameRecipe(x.recipe, f.recipe));
+      if (existing) f.id = existing.id;
+    }
+    valid.push(f);
+  }
+  const m = mergeSession(S(), { entries: [], cursor: 0, favorites: valid });
+  set({ favorites: m.favorites });
+  if (m.favAdded || m.favUpdated) saveNow();
+  return { added: m.favAdded, updated: m.favUpdated, skipped: valid.length - m.favAdded - m.favUpdated, invalid };
 }
 
 /* ------------------------------------------------------------------ */
@@ -614,7 +629,7 @@ function persistPrefs() {
   try {
     localStorage.setItem(K_PREFS, JSON.stringify({
       space: s.space, locks: s.locks, arch: s.arch, amount: s.amount,
-      ui: { panel: s.ui.panel, tab: s.ui.tab, views: s.ui.views, viewOpts: s.ui.viewOpts, terminal: s.ui.terminal },
+      ui: { characterShortcuts: s.ui.characterShortcuts, panel: s.ui.panel, tab: s.ui.tab, views: s.ui.views, viewOpts: s.ui.viewOpts, terminal: s.ui.terminal },
     }));
   } catch { /* storage may be unavailable */ }
 }
@@ -856,7 +871,7 @@ export async function hydrate(signal?: AbortSignal): Promise<boolean> {
   try { prefs = JSON.parse(localStorage.getItem(K_PREFS) || '{}'); } catch { /* ignore */ }
   const ui0 = (prefs.ui || {}) as Record<string, unknown>;
   const ui = {
-    ...S().ui, ...ui0, sheet: 'none' as const, hideUI: false, component: null,
+    ...S().ui, ...ui0, characterShortcuts: ui0.characterShortcuts !== false, sheet: 'none' as const, hideUI: false, component: null,
     views: normalizeViews(ui0.views, ui0.preview), viewOpts: normalizeViewOpts(ui0.viewOpts),
   };
   // (the old «Recetas» zone's fold, kept by earlier versions: the recipe line starts closed now)
@@ -867,7 +882,7 @@ export async function hydrate(signal?: AbortSignal): Promise<boolean> {
   token = uid() + uid();
   set({
     entries, cursor, favorites, ready: true, ui, histLimit, storage,
-    space: entries[cursor]?.space ?? space,
+    space: space === 'componentes' || !entries[cursor] || spaceAccepts(space, entries[cursor].recipe) ? space : entries[cursor].space,
     locks: Array.isArray(prefs.locks) ? (prefs.locks as LockGroup[]) : [],
     arch: typeof prefs.arch === 'string' ? prefs.arch : null,
     amount: typeof prefs.amount === 'number' ? prefs.amount : 0.35,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, type ReactNode } from 'react';
 import { CHARSETS, GLYPH_MODE_NAMES, PATTERNS, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
-import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
+import { DEFAULT_LAYER, type BlendMode, type ColorMap, type DitherKind, type Fit, type GlyphMode, type InteractMode, type MsgMode, type Recipe, type SourceKind } from '../engine/recipe';
+import { isMarkMode } from '../engine/touch';
 import { Rng } from '../random/prng';
 import type { SpaceId } from '../random/spaces';
 import { Color, F, Note, Seg, SegGroup, Select, Slider, Sub, Text, Toggle, useField } from './controls';
@@ -141,8 +142,8 @@ function LayerCard({ i, n }: { i: number; n: number }) {
           )}
           onChange={v => edit(r => { r.layers[i].pattern = v; }, `layers.${i}.pattern`)} />
         <button type="button" className="icon-btn" title="Otro patrón al azar" aria-label="Otro patrón al azar" onClick={reroll}><IDice /></button>
-        <button type="button" className="icon-btn" aria-pressed={!on} title={n === 1 ? 'La única capa no se oculta' : on ? 'Ocultar capa' : 'Oculta: pulsa para mostrarla'} aria-label={`Ocultar la capa ${i + 1}`}
-          onClick={() => edit(r => { r.layers[i].on = !r.layers[i].on; }, 'toggle' + Date.now())} disabled={n === 1}>{on ? <IEye /> : <IEyeOff />}</button>
+        <button type="button" className="icon-btn" aria-pressed={!on} title={on ? 'Ocultar capa' : 'Oculta: pulsa para mostrarla'} aria-label={`Ocultar la capa ${i + 1}`}
+          onClick={() => edit(r => { r.layers[i].on = !r.layers[i].on; }, 'toggle' + Date.now())}>{on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={`Patrón de la capa ${i + 1}`} />}
       </div>
       <HintText h={h} />
@@ -154,7 +155,10 @@ function LayerCard({ i, n }: { i: number; n: number }) {
       <Slider f={P('b')} label={info.b} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.b.toLowerCase()}.` }} />
       <Slider f={P('scale')} label="Escala" min={0.2} max={4} />
       <Slider f={P('speed')} label="Velocidad" min={-2} max={3} />
-      <Slider f={P('rot')} label="Rotación" min={0} max={360} step={1} fmt={v => Math.round(v) + '°'} />
+      <Slider f={P('rot')} label="Rotación" min={-360} max={360} step={1} fmt={v => Math.round(v) + '°'} />
+      <Slider f={P('x')} label="Posición horizontal" min={-2} max={2} />
+      <Slider f={P('y')} label="Posición vertical" min={-2} max={2} />
+      <Slider f={P('phase')} label="Desfase de la animación (s)" min={0} max={1000} step={0.1} />
       <Toggle f={P('invert')} label="Invertir lleno y vacío" />
       <div className="row" style={{ marginBottom: 10 }}>
         <button type="button" className="icon-btn" disabled={i === 0} onClick={() => move(-1)} aria-label="Subir capa" title={i === 0 ? 'Ya es la primera capa' : 'Subir'}><IUp /></button>
@@ -181,14 +185,15 @@ function ColorTab() {
   return (
     <>
       <Sub>Paleta</Sub>
-      <PaletteEditor isMedia={isMedia} />
+{isMedia && mode === 'source' && <p className="note">Los colores vienen de la imagen. Para cambiar su paleta y reparto, <button type="button" className="mini" onClick={() => edit(r => { r.color.mode = 'ramp'; }, 'color.mode')}>Usar tu paleta</button>.</p>}
+      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><PaletteEditor isMedia={isMedia} /></fieldset>
       {isMedia && <Seg f={F('color.mode')} label="Colores de" opts={[['ramp', 'Tu paleta'], ['source', 'La imagen']]} />}
       {mode === 'source' && isMedia && <Slider f={F('color.vivid')} label="Viveza" min={0} max={1} />}
-      <Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} />
+      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} /></fieldset>
       <Slider f={F('color.shade')} label="Atenuar las zonas oscuras" min={0} max={1} />
       <Sub>Ajustes</Sub>
-      <Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
-      <Slider f={F('color.cycle')} label="Colores en movimiento" min={-0.3} max={0.3} step={0.005} fmt={v => (v === 0 ? 'quietos' : v.toFixed(3))} />
+      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
+      <Slider f={F('color.cycle')} label="Colores en movimiento" min={-0.3} max={0.3} step={0.005} fmt={v => (v === 0 ? 'quietos' : v.toFixed(3))} /></fieldset>
       <Slider f={F('color.hue')} label="Rotar tono" min={0} max={1} step={0.005} fmt={v => Math.round(v * 360) + '°'} scale={360} />
       <Slider f={F('color.sat')} label="Saturación" min={0} max={2} />
     </>
@@ -241,7 +246,7 @@ function GlifosTab({ space }: { space: SpaceId }) {
       <RampEditor ascii={ascii} />
       <Select f={F('glyph.font')} label="Tipografía de los caracteres" opts={fonts} minWidth={290}
         onPick={id => edit(r => { r.glyph.weight = nearestWeight(fontById(id), r.glyph.weight); }, 'glyph.font')} />
-      {font.weights.length > 1 && <Slider f={F('glyph.weight')} label="Grosor" min={font.weights[0]} max={font.weights[font.weights.length - 1]} step={100} />}
+      {font.weights.length > 1 && <Select f={F('glyph.weight')} label="Grosor" opts={font.weights.map(w => ({ value: w, label: String(w) }))} />}
       <Slider f={F('glyph.scale')} label="Tamaño del carácter en su celda" min={0.3} max={1.8} />
       <Sub>Modo</Sub>
       <Seg f={F<GlyphMode>('glyph.mode')} opts={(Object.keys(GLYPH_MODE_NAMES) as GlyphMode[]).map(k => [k, GLYPH_MODE_NAMES[k]])} desc={GLYPH_MODE_DESC} icons={GLYPH_MODE_ICON} />
@@ -456,7 +461,7 @@ function TextSource() {
       <Text f={F('text.content')} label="Texto (Enter para otra línea)" area rows={3} />
       <Select f={F('text.font')} label="Tipografía del texto" opts={DISPLAY_FONTS} minWidth={290}
         onPick={id => edit(r => { r.text.weight = nearestWeight(fontById(id), r.text.weight); }, 'text.font')} />
-      {font.weights.length > 1 && <Slider f={F('text.weight')} label="Grosor" min={font.weights[0]} max={font.weights[font.weights.length - 1]} step={100} />}
+      {font.weights.length > 1 && <Select f={F('text.weight')} label="Grosor" opts={font.weights.map(w => ({ value: w, label: String(w) }))} />}
       <Slider f={F('text.size')} label="Tamaño" min={0.2} max={1.6} />
       <Slider f={F('text.tracking')} label="Espacio entre letras" min={-0.2} max={0.6} />
       <Slider f={F('text.leading')} label="Espacio entre líneas" min={0.7} max={2} />
@@ -506,6 +511,10 @@ function LetterAnimCtl({ target }: { target: 'text' | 'msg' }) {
 function MsgTab() {
   const on = useField(F<boolean>('msg.on'));
   const color = useField(F<string>('msg.color'));
+  const cellFill = useField(F<number>('fx.cellBg')) ?? 0;
+  const glow = useField(F<number>('fx.glow')) ?? 0;
+  const gesture = useField(F<InteractMode>('interact.mode'));
+  const plateActive = cellFill > 0 || glow > 0 || gesture === 'reveal' || isMarkMode(gesture ?? 'none');
   return (
     <>
       <Note>Un texto literal que vive en la rejilla: se escribe, se borra, se descifra o desfila por encima de la pieza.</Note>
@@ -519,7 +528,8 @@ function MsgTab() {
           <Slider f={F('msg.x')} label="Posición horizontal" min={0} max={1} />
           <Slider f={F('msg.y')} label="Posición vertical" min={0} max={1} />
           <Seg f={F('msg.align')} label="Alineación" opts={[['left', 'Izquierda'], ['center', 'Centro'], ['right', 'Derecha']]} />
-          <Slider f={F('msg.box')} label="Placa detrás del texto" min={0} max={1} />
+          <fieldset className="inactive-controls" disabled={!plateActive}><Slider f={F('msg.box')} label="Placa detrás del texto" min={0} max={1} help={{ hint: 'Quita el relleno y resplandor bajo el mensaje para mejorar su lectura.' }} /></fieldset>
+          {!plateActive && <Note>El fondo bajo el mensaje ya es plano. La placa se activa al añadir relleno de celda o resplandor en Efectos, o marcas del cursor.</Note>}
           <Toggle f={F('msg.cursor')} label="Cursor de bloque" />
           <label className="toggle">
             <span>Color propio</span>

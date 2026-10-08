@@ -81,6 +81,7 @@ export function gradAt(grad: Uint8Array, g: number) {
 export function runSelect(s: SelectFrame, out: SelectBuffers) {
   const { cols, rows, r, time: T, n: N } = s;
   const tn = r.tone, gl = r.glyph, co = r.color;
+  const emptyField = r.source === 'pattern' && !r.layers.some(layer => layer.on);
   const contrast = tn.contrast, bright = tn.bright, gamma = tn.gamma, invert = tn.invert ? 1 : 0, levels = tn.levels;
   const tone = (v: number) => {
     let l = (v - 0.5) * contrast + 0.5 + bright;
@@ -211,6 +212,7 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
         if (ta > inten) inten = ta;
       }
 
+      if (emptyField) { alpha = 0; l = 0; inten = 0; }
       if (M.on) {
         const mcx = Math.floor((col + M.shift) - M.width * Math.floor((col + M.shift) / M.width));
         const k = (row * M.width + mcx) * 4;

@@ -6,7 +6,7 @@
  *   <id>.webp   the first frame (720 × 450, twice the largest size it is shown at): what the card shows
  *   <id>.webm   the loop, VP9 · <id>.mp4 the same loop, H.264 (Safari and older browsers)
  */
-import type { Guide } from '../shared/site';
+import type { Guide } from '../shared/site.ts';
 
 export const GUIDE_MEDIA_DIR = '/ex/guias/';
 /** Pixel size of the committed media (16:10). */

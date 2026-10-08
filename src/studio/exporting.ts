@@ -42,6 +42,8 @@ export function resolveSize(spec: SizeSpec, even = false): OffscreenSize & { W: 
 }
 
 export const liveTime = () => getEngine()?.time ?? 0;
+/** Local videos start at their beginning; procedural pieces use the instant of the click. */
+export const exportStart = (r: Recipe) => r.source === 'video' || loopSeconds(r) > 0 ? 0 : liveTime();
 
 /**
  * Engine time runs at motion.speed per real second (that's what the stage shows), so rendered clips step it
@@ -55,13 +57,18 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
 export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: boolean; format: 'png' | 'webp' | 'jpeg' }): Promise<Blob> {
   const size = resolveSize(spec);
   const eng = await offscreenEngine(r, size, { transparent: o.transparent && o.format !== 'jpeg' });
+  const time = liveTime();
+  const realTime = stillSourceTime(r, time);
+  const clip = videoFrames(r);
   try {
-    eng.renderAt(liveTime());
+    await warmTrail(r, eng, clip, time, 30, () => {}, { cancelled: false }, realTime);
+    await clip.seek(realTime);
+    eng.renderAt(time, realTime);
     const blob = await canvasBlob(eng.canvas, 'image/' + o.format, o.format === 'png' ? undefined : 0.92);
     // a browser without that encoder silently returns a PNG: never save it under the wrong name
     if (blob.type && blob.type !== 'image/' + o.format) throw new Error(`este navegador no codifica ${o.format.toUpperCase()}; usa PNG`);
     return blob;
-  } finally { eng.destroy(); }
+  } finally { eng.destroy(); await clip.done(); }
 }
 
 /* ------------------------------------------------------------------ */
@@ -120,14 +127,20 @@ async function seekVideo(v: HTMLVideoElement, t: number) {
  * frame's time before it is drawn (drawn as it played, a clip followed the wall clock: sped up on a
  * slow machine, or frozen if paused). Play resumes afterwards if it was playing.
  */
+function stillSourceTime(r: Recipe, time: number) {
+  const video = r.source === 'video' ? mediaElement('video') as HTMLVideoElement | null : null;
+  return video ? video.currentTime / r.media.rate : time / Math.max(0.001, r.motion.speed);
+}
+
 function videoFrames(r: Recipe) {
   const video = r.source === 'video' ? (mediaElement('video') as HTMLVideoElement | null) : null;
   const wasPaused = video?.paused ?? true;
+  const originalTime = video?.currentTime ?? 0;
   video?.pause();
   return {
     /** Moves the video to clip time `t` (real seconds from the clip's start time). */
     seek: async (t: number) => { if (video) await seekVideo(video, t * r.media.rate); },
-    done: () => { if (video && !wasPaused) void video.play().catch(() => undefined); },
+    done: async () => { if (video) { await seekVideo(video, originalTime); if (!wasPaused) void video.play().catch(() => undefined); } },
   };
 }
 
@@ -145,15 +158,15 @@ export function trailWarmup(r: Recipe): number {
 }
 
 /** Draws the frames before `start` at the clip's own rate (see trailWarmup); nothing to capture. */
-async function warmTrail(r: Recipe, eng: Renderer, clip: ReturnType<typeof videoFrames>, start: number, fps: number, progress: Progress, cancel: Cancel) {
+async function warmTrail(r: Recipe, eng: Renderer, clip: ReturnType<typeof videoFrames>, start: number, fps: number, progress: Progress, cancel: Cancel, realStart = start) {
   const n = Math.round(trailWarmup(r) * fps);
   if (!n) return;
   progress(0, 'Preparando la estela…');
   for (let i = n; i >= 1; i--) {
     if (cancel.cancelled) return;
-    await clip.seek(start - i / fps);
-    eng.renderAt(clipTime(r, start, -i / fps), start - i / fps);
-    if (i % 8 === 0) await nextFrame();
+    await clip.seek(realStart - i / fps);
+    eng.renderAt(clipTime(r, start, -i / fps), realStart - i / fps);
+    await nextFrame();
   }
 }
 
@@ -179,17 +192,22 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
       if (cancel.cancelled) { await output.cancel(); throw new Error('cancelado'); }
       const t = clipTime(r, o.start, i / o.fps);
       await clip.seek(o.start + i / o.fps);
+      if (cancel.cancelled) throw new Error('cancelado');
       eng.renderAt(t, o.start + i / o.fps);
       await src.add(i / o.fps, 1 / o.fps);
       progress((i + 1) / n, `Fotograma ${i + 1} de ${n}`);
       if (i % 4 === 0) await nextFrame();
     }
     await output.finalize();
+    if (cancel.cancelled) throw new Error('cancelado');
     return new Blob([target.buffer!], { type: o.format === 'mp4' ? 'video/mp4' : 'video/webm' });
+  } catch (error) {
+    await output.cancel().catch(() => undefined);
+    throw error;
   } finally {
     restore();
     eng.destroy();
-    clip.done();
+    await clip.done();
   }
 }
 
@@ -303,6 +321,7 @@ export async function exportGif(r: Recipe, width: number, o: { fps: number; seco
       if (cancel.cancelled) throw new Error('cancelado');
       const delay = (cs(i + 1) - cs(i)) * 10;
       await clip.seek(o.start + i / o.fps);
+      if (cancel.cancelled) throw new Error('cancelado');
       eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
       ctx.drawImage(eng.canvas, 0, 0);
       const { data } = ctx.getImageData(0, 0, W, H);
@@ -314,7 +333,7 @@ export async function exportGif(r: Recipe, width: number, o: { fps: number; seco
     }
     gif.finish();
     return new Blob([gif.bytes() as BlobPart], { type: 'image/gif' });
-  } finally { eng.destroy(); clip.done(); }
+  } finally { eng.destroy(); await clip.done(); }
 }
 
 /* ------------------------------------------------------------------ */
@@ -333,7 +352,14 @@ function gridSize(r: Recipe, cols?: number, rows?: number): OffscreenSize {
 /** Grid of the frame at `time`, plus the size of the canvas it was read from (the SVG uses it). */
 export async function captureGrid(r: Recipe, cols?: number, rows?: number, time = liveTime()): Promise<GridSnapshot & { width: number; height: number }> {
   const eng = await offscreenEngine(r, gridSize(r, cols, rows));
-  try { eng.renderAt(time); return { ...eng.readGrid(), width: eng.canvas.width, height: eng.canvas.height }; } finally { eng.destroy(); }
+  const realTime = stillSourceTime(r, time);
+  const clip = videoFrames(r);
+  try {
+    await warmTrail(r, eng, clip, time, 30, () => {}, { cancelled: false }, realTime);
+    await clip.seek(realTime);
+    eng.renderAt(time, realTime);
+    return { ...eng.readGrid(), width: eng.canvas.width, height: eng.canvas.height };
+  } finally { eng.destroy(); await clip.done(); }
 }
 
 export async function captureFrames(
@@ -349,6 +375,7 @@ export async function captureFrames(
     for (let i = 0; i < n; i++) {
       if (cancel.cancelled) throw new Error('cancelado');
       await clip.seek(o.start + i / o.fps);
+      if (cancel.cancelled) throw new Error('cancelado');
       eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
       const g = eng.readGrid();
       const s = o.depth === 'none' ? gridToText(g) : gridToAnsi(g, o.depth, o.withBg);
@@ -357,5 +384,5 @@ export async function captureFrames(
       if (i % 6 === 0) await nextFrame();
     }
     return { cols, rows, fps: o.fps, frames };
-  } finally { eng.destroy(); clip.done(); }
+  } finally { eng.destroy(); await clip.done(); }
 }

@@ -219,6 +219,7 @@ uniform float uN, uEdgeBase, uEdge, uDither;
 uniform int uDitherKind;
 uniform float uBright, uContrast, uGamma, uInvert, uLevels;
 uniform int uGMode;
+uniform float uEmptyField;
 uniform float uJitter, uWordsN;
 uniform int uCMode, uMap, uIsMedia;
 uniform float uShift, uCycle, uHue, uSat, uVivid, uShade, uAspect;
@@ -315,6 +316,7 @@ void main(){
   // (uTouchMark 2: the piece's own glyphs, only brighter)
   if (uTouchMark == 1 && tg > 0. && ta > .02){ idx = max(1., floor(tg * (.35 + .65 * ta) * (uN - 1.) + .5)); alpha = 1.; }
 
+  if (uEmptyField > .5){ alpha = 0.; l = 0.; inten = 0.; }
   vec2 uv = (cf + .5) / uGrid;
   vec3 base = texture(uGrad, vec2(gradPos(uv, l, uTime), .5)).rgb;
   // with a loop, what drifts (the colour cycle, the noise map) fades from its state one loop earlier into its

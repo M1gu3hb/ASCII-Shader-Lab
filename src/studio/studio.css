@@ -606,3 +606,11 @@ dialog.sheet::backdrop { background: rgba(5, 4, 3, .66); }
 }
 /* component demos set their font inline */
 .comp-demo pre, .comp-stage pre { font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }
+
+/* Dead controls and saved-before-edit states are explicit. */
+.inactive-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
+.inactive-controls:disabled { opacity: .5; }
+.act.fav.changed { box-shadow: inset 0 0 0 2px var(--accent); }
+.help-q, .sl-val, .seed-line .mini, .seed-edit { min-width: 24px; min-height: 24px; }
+
+.seed-acts button, .seed-hist button { min-width: 24px; min-height: 24px; }

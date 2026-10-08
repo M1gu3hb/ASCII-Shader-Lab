@@ -1,3 +1,16 @@
+import '@fontsource/jetbrains-mono/latin-100.css';
+import '@fontsource/jetbrains-mono/latin-200.css';
+import '@fontsource/jetbrains-mono/latin-600.css';
+import '@fontsource/ibm-plex-mono/latin-100.css';
+import '@fontsource/ibm-plex-mono/latin-200.css';
+import '@fontsource/ibm-plex-mono/latin-600.css';
+import '@fontsource/martian-mono/latin-100.css';
+import '@fontsource/martian-mono/latin-200.css';
+import '@fontsource/martian-mono/latin-500.css';
+import '@fontsource/martian-mono/latin-600.css';
+import '@fontsource/fira-code/latin-300.css';
+import '@fontsource/fira-code/latin-500.css';
+import '@fontsource/fira-code/latin-700.css';
 import '../shared/fonts.css';
 import '@fontsource/instrument-serif/latin-400.css';
 import '@fontsource/instrument-serif/latin-400-italic.css';

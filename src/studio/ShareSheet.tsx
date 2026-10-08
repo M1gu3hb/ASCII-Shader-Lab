@@ -111,9 +111,10 @@ export async function shareLink(recipe: Recipe, space: SpaceId) {
   const r = withSpace(recipe, space, name);
   if (ownMedia(r)) { openShare({ recipe: r, space, name, seed: r.meta.seed, arch: r.meta.arch }); return; }
   const url = await viewerUrl(r, stageView(r));
-  await copyText(url, r.source === 'camera'
+  const copied = await copyText(url, r.source === 'camera'
     ? 'Enlace copiado: abre la pieza a pantalla completa; la cámara es de quien la mira'
     : 'Enlace copiado: abre la pieza a pantalla completa, tal como la ves');
+  if (!copied) openShare({ recipe: r, space, name, seed: r.meta.seed, arch: r.meta.arch });
 }
 
 /** The top bar's «Compartir». */
@@ -235,17 +236,18 @@ function ShareBody({ target, onClose }: { target: Target; onClose: () => void })
   const say = (text: string) => { if (said.current) said.current.textContent = text; };
 
   const copy = async () => {
-    if (!url) return;
+    if (!url) return false;
     const ok = await copyText(url, 'Enlace copiado');
     if (ok) { setCopied(true); say('Enlace copiado'); setTimeout(() => setCopied(false), 2200); }
+    return ok;
   };
   const nativeShare = async () => {
     try {
       await navigator.share({ title, text: shareTitle, url });
     } catch (e) {
       if ((e as { name?: string } | null)?.name === 'AbortError') return;
-      await copy();
-      toast('Este navegador no pudo abrir su menú de compartir: el enlace quedó copiado.');
+      const copied = await copy();
+      toast(copied ? 'Este navegador no pudo abrir su menú de compartir: el enlace quedó copiado.' : 'No se pudo compartir ni copiar. Selecciona el enlace de esta ventana y cópialo manualmente.');
     }
   };
   const recipeDownload = () => downloadText(pieceFileBase(r) + '.glyphos.json', recipeFile(r), 'application/json');

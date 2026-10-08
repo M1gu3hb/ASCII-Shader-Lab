@@ -178,3 +178,11 @@ describe('message overlay', () => {
     expect(messageState(m, 10, cycle + 0.3).prog).toBeCloseTo(3);
   });
 });
+
+
+it('HTML titles remove terminal controls as well as escaping markup', () => {
+  const html = gridToHtmlPage(grid(['a']), 'A\x1b[31m\x07<title>');
+  const title = /<title>(.*?)<\/title>/.exec(html)![1];
+  expect(title).not.toMatch(/[\x00-\x1f\x7f]/);
+  expect(title).toContain('&lt;title&gt;');
+});

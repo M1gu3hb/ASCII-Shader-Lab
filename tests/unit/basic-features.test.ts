@@ -30,7 +30,7 @@ describe('unsupportedFeatures', () => {
       layers: [
         { pattern: 'futuro' }, { pattern: 'futuro', blend: 'screen' }, { pattern: 'otro', on: false }, { pattern: 'nube' },
       ],
-    });
+    }, new Set(['futuro', 'otro', 'nube']));
     expect(unsupportedFeatures(r)).toEqual([{ id: 'pattern:futuro', label: 'futuro (aproximado)' }]);
   });
 });

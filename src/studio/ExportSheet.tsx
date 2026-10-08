@@ -5,7 +5,7 @@ import { recipeFile, shareUrl } from '../shared/share';
 import { imageFormats, recorderLabel, useCaps, videoEncoderWhy, type ImageFormat, type RecorderCaps, type VideoSupport } from './caps';
 import { copyText, downloadBlob, downloadText, shareFile, useSaved } from './download';
 import {
-  SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, liveTime, loopSeconds, resolveSize, trailWarmup,
+  SIZE_PRESETS, captureFrames, captureGrid, exportGif, exportImage, exportVideo, exportStart, loopSeconds, resolveSize, trailWarmup,
   smallerEncodable, startRecording, stopRecording, useRecording, useStopOnLeave, videoSupport, type Cancel,
 } from './exporting';
 import { Sheet } from './Sheet';
@@ -63,6 +63,7 @@ export function ExportSheet() {
         {TABS.map(([id, name]) => <button key={id} type="button" role="tab" className="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{name}</button>)}
       </ScrollRow>
       <div className="sheet-body" ref={body}>
+        {(tab === 'imagen' || tab === 'vector' || tab === 'terminal') && <p className="note">Estela se reconstruye a partir de la animación de tu receta. La historia de una cámara o de gestos manuales anteriores sólo se conserva en la grabación en directo.</p>}
         {tab === 'imagen' && <ImageTab key={opening} req={req} />}
         {tab === 'video' && <VideoTab key={opening} req={req} />}
         {tab === 'vector' && <VectorTab />}
@@ -111,14 +112,15 @@ function SavedBar({ open }: { open: boolean }) {
 }
 
 function Busy({ p, label, onCancel }: { p: number; label?: string; onCancel?: () => void }) {
+  const [cancelling, setCancelling] = useState(false);
   // the bar says the percentage; only the stage (preparing, encoding…) is announced, not every percent
   return (
     <div>
-      <span className="sr-only" role="status">{label ?? 'Trabajando…'}</span>
+      <span className="sr-only" role="status">{cancelling ? 'Cancelando…' : label ?? 'Trabajando…'}</span>
       <div className="progress" role="progressbar" aria-label={label ?? 'Progreso'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)}><i style={{ '--v': Math.round(p * 100) + '%' } as React.CSSProperties} /></div>
       <div className="row" style={{ justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
         <span aria-hidden="true">{label ?? 'Trabajando…'} {Math.round(p * 100)} %</span>
-        {onCancel && <button type="button" className="mini" onClick={onCancel}>Cancelar</button>}
+        {onCancel && <button type="button" className="mini" disabled={cancelling} onClick={() => { setCancelling(true); onCancel(); }}>{cancelling ? 'Cancelando…' : 'Cancelar'}</button>}
       </div>
     </div>
   );
@@ -286,7 +288,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   const basic = useCaps(s => s.renderer === 'basic');
   const [preset, setPreset] = useState(() => presetOf(req, 'hd'));
   const [fps, setFps] = useState(30);
-  const loop = e ? +loopSeconds(e.recipe).toFixed(2) : 0;
+  const loop = e ? loopSeconds(e.recipe) : 0;
   /** Seconds drawn before the clip so Estela's trail is there on its first frame (0 without Estela). */
   const warm = e ? trailWarmup(e.recipe) : 0;
   const [secs, setSecs] = useState(loop > 0 ? loop : 6);
@@ -329,8 +331,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
   if (!e) return null;
   const cur = support?.key === key ? support.s : null;
   const alts = alt?.key === key ? alt : null;
-  const start = loop > 0 ? 0 : liveTime();
   const run = async (kind: 'mp4' | 'webm' | 'gif') => {
+    const start = exportStart(e.recipe);
     const job: Cancel = cancel.current = { cancelled: false, active: true };
     const where = kind === 'gif' ? 'gif' : 'video';
     setBusy({ kind: where, p: 0 });
@@ -339,6 +341,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
       const blob = kind === 'gif'
         ? await exportGif(r, gifW, { fps: Math.min(fps, 25), seconds: secs, start, colors: 128 }, (p, label) => setBusy({ kind: where, p, label }), cancel.current)
         : await exportVideo(r, spec, { fps, seconds: secs, format: kind, start }, (p, label) => setBusy({ kind: where, p, label }), cancel.current);
+      if (job.cancelled) throw new Error('cancelado');
       downloadBlob(`${baseName(e.recipe)}.${kind}`, blob);
     } catch (err) {
       if ((err as Error).message !== 'cancelado') toast('La exportación falló: ' + (err as Error).message);
@@ -385,7 +388,8 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
     <>
       {!camera && (
         <div className="ex-clip">
-          <div className="ctl"><label className="lbl" htmlFor="v-secs">Duración (s)</label><NumberField id="v-secs" min={1} max={60} step={0.5} value={secs} onValue={setSecs} /></div>
+          <div className="ctl"><label className="lbl" htmlFor="v-secs">Duración (s)</label><NumberField id="v-secs" min={0.01} max={60} step={0.00000001} value={secs} onValue={setSecs} /></div>
+          <p className="note">{e.recipe.source === 'video' ? 'El clip empieza al inicio de tu video (0 s).' : loop > 0 ? 'El clip empieza al inicio del bucle (0 s).' : 'El clip empieza en el instante en que pulses exportar.'}</p>
           <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
           <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}{warm > 0 ? ` Con Estela, antes del primer fotograma se preparan ${warm.toFixed(1).replace('.', ',')} s sin grabar, para que el clip empiece con su estela${loop > 0 ? ' y enlace' : ''}: tarda algo más.` : ''}</p>
           <InteractNote r={e.recipe} kind="clip" demo={demo} onDemo={setDemo} />
@@ -569,7 +573,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
     const job: Cancel = cancel.current = { cancelled: false, active: true };
     setBusy(0);
     try {
-      const f = await captureFrames(e.recipe, cols, rows, { fps, seconds: secs, start: loop > 0 ? 0 : liveTime(), depth, withBg }, p => setBusy(p), cancel.current);
+      const f = await captureFrames(e.recipe, cols, rows, { fps, seconds: secs, start: exportStart(e.recipe), depth, withBg }, p => setBusy(p), cancel.current);
       if (kind === 'cast') downloadText(name + '.cast', toAsciicast(f, title), 'application/x-asciicast');
       if (kind === 'node') downloadText(name + '.mjs', await toNodePlayer(f, title), 'text/javascript');
       if (kind === 'python') downloadText(name + '.py', await toPythonPlayer(f, title), 'text/x-python');

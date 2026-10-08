@@ -154,8 +154,8 @@ export function jsonLd(p: SitePage): object | null {
 
 /* ---------------------------------------------------------------- sitemap & robots */
 
-export function sitemapXml(date: string, pages: SitePage[] = PAGES): string {
-  const urls = pages.filter(p => p.sitemap).map(p => `  <url><loc>${absUrl(p.path)}</loc><lastmod>${date}</lastmod></url>`);
+export function sitemapXml(date: string | null, pages: SitePage[] = PAGES): string {
+  const urls = pages.filter(p => p.sitemap).map(p => `  <url><loc>${absUrl(p.path)}</loc>${date ? `<lastmod>${date}</lastmod>` : ''}</url>`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
 }
 

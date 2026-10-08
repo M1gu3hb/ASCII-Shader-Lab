@@ -287,9 +287,10 @@ export function Text({ f, label, area, mono, rows = 3, placeholder, help, helpKe
   const h = useHelp(helpKey ?? f.key, help);
   const v = useField(f) ?? '';
   const onChange = (val: string) => edit(r => f.set(r, val), f.key);
-  const common = { id, value: v, spellCheck: false, placeholder, 'aria-describedby': h?.hintId, ...h?.focus };
+  const maxLength = ({ 'text.content': 600, 'msg.text': 1200, 'glyph.words': 2000, 'glyph.charset': 400 } as Record<string, number>)[f.key];
+  const common = { id, maxLength, value: v, spellCheck: false, placeholder, 'aria-describedby': h?.hintId, ...h?.focus };
   return (
-    <Frame id={id} label={label} h={h}
+    <Frame id={id} label={maxLength ? `${label} · ${v.length}/${maxLength}` : label} h={h}
       field={area
         ? <textarea {...common} className={mono ? 'mono' : ''} rows={rows} onChange={e => onChange(e.target.value)} />
         : <input {...common} type="text" className={mono ? 'mono' : ''} autoComplete="off" onChange={e => onChange(e.target.value)} />} />
