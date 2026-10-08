@@ -13,6 +13,7 @@ import { withRepairedAvc } from '../exporters/avc';
 import { xformK } from '../engine/catalog';
 import type { Renderer } from '../engine/renderer';
 import { activeXforms } from '../engine/xform';
+import { currentRecipe, useStudio } from './store';
 
 export type SizeSpec = { kind: 'view'; scale: number } | { kind: 'fixed'; w: number; h: number };
 
@@ -142,7 +143,15 @@ function videoFrames(r: Recipe) {
   return {
     /** Moves the video to clip time `t` (real seconds from the clip's start time). */
     seek: async (t: number) => { if (video) await seekVideo(video, t * r.media.rate); },
-    done: async () => { if (video) { await seekVideo(video, originalTime); if (!wasPaused) void video.play().catch(() => undefined); } },
+    done: async () => {
+      if (!video) return;
+      await seekVideo(video, originalTime);
+      const s = useStudio.getState();
+      // Export finishing must not restart a hidden, replaced or relinquished video.
+      if (!wasPaused && mediaElement('video') === video && currentRecipe(s).source === 'video' && s.space !== 'componentes' && !s.away) {
+        void video.play().catch(() => undefined);
+      }
+    },
   };
 }
 

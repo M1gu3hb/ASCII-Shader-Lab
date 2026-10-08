@@ -153,6 +153,52 @@ test('el web component aplica recipe, paused y scrim tras conectarse y se libera
   expect(result).toEqual({ playing: true, stopped: true, updated: '#ff00ff', scrims: 1, cleaned: true });
 });
 
+test('web component: corregir una receta futura permite arrancar sin reconectar el elemento', async ({ page }) => {
+  await harness(page);
+  const result = await page.evaluate(async () => {
+    const m = await import('/__audit/module.js' as string);
+    m.install(); (window as any).Glyphos.register(m.PATTERN_GLSL);
+    const el = document.createElement('glyphos-field'); el.style.height = '200px';
+    el.setAttribute('paused', ''); el.setAttribute('recipe', JSON.stringify({ v: 99 }));
+    document.body.replaceChildren(el); await new Promise(r => setTimeout(r, 50));
+    const rejected = (el as any).ctl === null;
+    const recipe = m.defaultRecipe(); recipe.glyph.font = 'system';
+    el.setAttribute('recipe', JSON.stringify(recipe));
+    await new Promise(r => setTimeout(r, 100));
+    const recovered = !!(el as any).ctl?.engine;
+    el.remove(); return { rejected, recovered };
+  });
+  expect(result).toEqual({ rejected: true, recovered: true });
+});
+
+test('web component: cambiar el origen carga el medio correcto y cambiar la receta actualiza su velocidad', async ({ page }) => {
+  await harness(page);
+  const result = await page.evaluate(async () => {
+    const m = await import('/__audit/module.js' as string);
+    m.install(); (window as any).Glyphos.register(m.PATTERN_GLSL);
+    const videos: HTMLVideoElement[] = [];
+    const create = document.createElement.bind(document);
+    document.createElement = ((name: string, opts?: ElementCreationOptions) => {
+      const el = create(name, opts); if (name === 'video') videos.push(el as HTMLVideoElement); return el;
+    }) as typeof document.createElement;
+    const el = create('glyphos-field'); el.style.height = '200px'; el.setAttribute('paused', '');
+    el.setAttribute('src', 'data:video/webm;base64,');
+    const r = m.defaultRecipe(); r.glyph.font = 'system';
+    el.setAttribute('recipe', JSON.stringify(r));
+    document.body.replaceChildren(el); await new Promise(r => setTimeout(r, 100));
+    r.source = 'video'; r.media.rate = .5;
+    el.setAttribute('recipe', JSON.stringify(r)); await new Promise(r => setTimeout(r, 100));
+    const bound = !!(el as any).ctl?.engine?.hasMedia('video');
+    r.media.rate = 1.5; el.setAttribute('recipe', JSON.stringify(r));
+    const speed = videos.at(-1)?.playbackRate ?? null;
+    const ctl = (el as any).ctl; el.setAttribute('recipe', JSON.stringify({ v: 99 }));
+    const retained = (el as any).ctl === ctl;
+    el.remove(); document.createElement = create;
+    return { bound, speed, retained };
+  });
+  expect(result).toEqual({ bound: true, speed: 1.5, retained: true });
+});
+
 test('sin portapapeles, L abre un enlace seleccionable y Compartir no afirma que lo copió', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('blocked'); } } });

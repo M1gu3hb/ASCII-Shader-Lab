@@ -31,11 +31,13 @@ it('normalises unknown patterns consistently, while explicit custom libraries ca
 });
 
 it('every offered local font weight has a local stylesheet, and the five figures fit portrait canvases', () => {
-  const main = readFileSync('src/studio/main.tsx', 'utf8');
+  const main = readFileSync('src/studio/main.tsx', 'utf8') + readFileSync('src/landing/fonts.ts', 'utf8');
+  const viewer = readFileSync('src/landing/fonts.ts', 'utf8');
   const packages: Record<string, string> = { jetbrains: 'jetbrains-mono', plex: 'ibm-plex-mono', martian: 'martian-mono', space: 'space-mono', fira: 'fira-code', vt: 'vt323', pixel: 'press-start-2p', silk: 'silkscreen', serif: 'instrument-serif' };
   for (const f of FONTS) for (const weight of f.weights) {
     if (!packages[f.id]) continue;
     expect(main, `${f.id}/${weight}`).toContain(`@fontsource/${packages[f.id]}/latin-${weight}.css`);
+    expect(viewer, `visor ${f.id}/${weight}`).toContain(`@fontsource/${packages[f.id]}/latin-${weight}.css`);
   }
   for (const id of ['lissajous', 'estrella_mar', 'respiracion', 'radar', 'galaxia']) {
     expect(FIGURES.has(id)).toBe(true); expect(figureFit(id, 200, 800)).toBe(4);

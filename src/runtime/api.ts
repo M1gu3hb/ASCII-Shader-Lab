@@ -190,7 +190,11 @@ function mount(target: HTMLCanvasElement | HTMLElement | string, recipe: unknown
     play: () => { engine.play(); if (mediaVideo) void mediaVideo.play().catch(() => undefined); },
     pause: () => { engine.pause(); mediaVideo?.pause(); },
     set: (next: unknown) => {
-      try { engine.set(calm(normalizeRecipe(next, patterns)), { transition: true }); }
+      try {
+        const recipe = calm(normalizeRecipe(next, patterns));
+        engine.set(recipe, { transition: true });
+        if (mediaVideo) mediaVideo.playbackRate = recipe.media.rate;
+      }
       catch { console.warn('GLYPHOS: receta incompatible; se conserva la pieza actual.'); }
     },
     destroy: () => { unwatch(); releaseMedia(); engine.destroy(); remove(); },
@@ -218,13 +222,17 @@ class GlyphosField extends HTMLElement {
   static observedAttributes = ['recipe', 'src', 'paused', 'static', 'pointer', 'poster', 'no-basic', 'scrim', 'scrim-color', 'scrim-opacity', 'scrim-blur'];
   private updateQueued = false;
   attributeChangedCallback(name: string, old: string | null, value: string | null) {
-    if (old === value || !this.isConnected || !this.ctl) return;
-    if (name === 'paused') { if (value === null) this.ctl.play(); else this.ctl.pause(); return; }
+    if (old === value || !this.isConnected) return;
+    if (name === 'paused' && this.ctl) { if (value === null) this.ctl.play(); else this.ctl.pause(); return; }
     if (name === 'recipe') {
-      try { this.ctl.set(JSON.parse(value ?? this.querySelector('script[type="application/json"]')?.textContent ?? '{}')); }
-      catch { console.warn('GLYPHOS: el atributo recipe no contiene una receta compatible.'); }
-      return;
+      try {
+        const patterns = new Set([...PATTERN_IDS, ...Object.keys(registry)]);
+        const next = normalizeRecipe(JSON.parse(value ?? this.querySelector('script[type="application/json"]')?.textContent ?? '{}'), patterns);
+        // A changed source must rebind src; an invalid recipe must retain the current scene.
+        if (this.ctl?.engine && this.ctl.engine.recipe.source === next.source) { this.ctl.set(next); return; }
+      } catch { console.warn('GLYPHOS: el atributo recipe no contiene una receta compatible.'); return; }
     }
+    if (this.queued) return; // The first mount already reads the latest attributes.
     if (this.updateQueued) return;
     this.updateQueued = true;
     queueMicrotask(() => {

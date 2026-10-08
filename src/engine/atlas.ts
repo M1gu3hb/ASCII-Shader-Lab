@@ -76,6 +76,7 @@ export function measureDensity(chars: string[], spec: { stack: string; weight: n
       cv.width = G; cv.height = GH;
       cx = cv.getContext('2d', { willReadFrequently: true })!;
       fs = Math.round(Math.min(GH * 0.82, G * 1.55));
+      cx.textRendering = 'geometricPrecision';
       cx.font = fontString(spec, fs);
       cx.textAlign = 'center';
       cx.textBaseline = 'middle';
@@ -132,6 +133,9 @@ export function buildAtlas(spec: AtlasSpec, prev?: HTMLCanvasElement): Atlas {
   const cx = cv.getContext('2d')!;
   cx.clearRect(0, 0, cv.width, cv.height);
   const fs = Math.max(1, Math.min(ch * 0.82, cw * 1.55) * spec.scale);
+  // System glyph hinting otherwise depends on devicePixelRatio even at identical atlas dimensions.
+  // Shared frames must rasterise the same device pixels on a receiver at another density.
+  cx.textRendering = 'geometricPrecision';
   cx.font = fontString(spec, fs);
   cx.textAlign = 'center';
   cx.textBaseline = 'middle';

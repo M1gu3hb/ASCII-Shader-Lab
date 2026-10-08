@@ -1,5 +1,7 @@
 # Cierre de la auditoría de GLYPHOS
 
+> Este es el cierre previo a la segunda revisión. El resultado actualizado y el seguimiento de publicación están en [REAUDITORIA-2026-10-08.md](REAUDITORIA-2026-10-08.md).
+
 Auditoría de referencia: `9f3ef2aebee7262a88b1054ec1ca979116279991`. Rama de correcciones: `glyphos-correcciones-urgentes`. Fecha de comprobación: 8 de octubre de 2026 (UTC). Las propuestas siguen separadas; este trabajo no incorpora las ideas nuevas ni cambia producción.
 
 ## Procedimiento y alcance

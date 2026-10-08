@@ -71,7 +71,11 @@ it('detener la cámara mientras el video comienza a reproducirse libera también
   const pending = media.startCamera();
   await vi.advanceTimersByTimeAsync(0);
   expect(el.play).toHaveBeenCalledOnce();
-  media.stopCamera(); play(); await pending;
+  media.stopCamera();
+  // Capture must stop even if playback never finishes starting.
+  expect(stop).toHaveBeenCalledOnce();
+  expect(el.srcObject).toBeNull();
+  play(); await pending;
   expect(stop).toHaveBeenCalledOnce();
   expect(el.remove).toHaveBeenCalledOnce();
   expect(media.useMedia.getState().camera).toBe('off');

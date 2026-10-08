@@ -771,6 +771,7 @@ async function writeChanges(kind: 'now' | 'leave' | 'claim', dropV2 = false): Pr
     setStorage('ok');
     if (at === edits) guardUnload(false);
   } catch (err) {
+    if (savingBlocked) return; // A late failure must not replace the permanent recovery warning.
     // blocked or full: the work stays in this tab, and the studio says so (StorageNote)
     setStorage(isQuotaError(err) ? 'full' : 'unavailable');
   }

@@ -68,6 +68,7 @@ let video: Slot<HTMLVideoElement> | null = null;
 let videoUrl = '';
 let camStream: MediaStream | null = null;
 let camEl: HTMLVideoElement | null = null;
+let cancelCameraPlayback: (() => void) | null = null;
 let cameraGen = 0;
 /** What the engine has right now, to only call setMedia on real changes. */
 const shown: Record<MediaKind, Img | HTMLVideoElement | null> = { image: null, video: null };
@@ -469,12 +470,20 @@ export async function startCamera(ask: { facing?: Facing; deviceId?: string | nu
   saveCamWant(want);
   const g = ++cameraGen;
   // phones open one camera at a time: the one that is on stops before the other opens
-  if (camStream) releaseCamera();
+  releaseCamera();
   // until the new camera says which way it looks, the one asked for counts (an «Espejo» flipped meanwhile is its)
   useMedia.setState({ camera: 'starting', camFacing: null, camDevice: null, error: null });
   followCameraPieces();
   let stream: MediaStream | null = null;
   let el: HTMLVideoElement | null = null;
+  let released = false;
+  const cleanup = () => {
+    if (released) return;
+    released = true;
+    stream?.getTracks().forEach(t => t.stop());
+    if (el) { el.pause(); el.srcObject = null; el.remove(); }
+    if (cancelCameraPlayback === cleanup) cancelCameraPlayback = null;
+  };
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints(want), audio: false });
     if (g !== cameraGen) { stream.getTracks().forEach(t => t.stop()); return false; }
@@ -483,8 +492,11 @@ export async function startCamera(ask: { facing?: Facing; deviceId?: string | nu
     el.setAttribute('playsinline', '');
     el.srcObject = stream;
     hide(el);
-    try { await el.play(); } catch (err) { el.remove(); throw err; }
-    if (g !== cameraGen) { el.pause(); el.srcObject = null; el.remove(); stream.getTracks().forEach(t => t.stop()); return false; }
+    // A granted stream is already capturing while play() is still pending.
+    cancelCameraPlayback = cleanup;
+    await el.play();
+    if (g !== cameraGen) { cleanup(); return false; }
+    cancelCameraPlayback = null;
     camStream = stream;
     camEl = el;
     // unplugged, or taken by the system: say so instead of freezing on the last frame
@@ -505,8 +517,7 @@ export async function startCamera(ask: { facing?: Facing; deviceId?: string | nu
     return true;
   } catch (err) {
     // a stream that opened but could not play must not keep the camera (and its light) on
-    stream?.getTracks().forEach(t => t.stop());
-    el?.remove();
+    cleanup();
     if (g !== cameraGen) return false;
     camStream = null;
     camEl = null;
@@ -529,6 +540,7 @@ export function chooseCamera(deviceId: string) {
 
 /** Stops the camera's tracks and takes its picture off the stage. */
 function releaseCamera() {
+  cancelCameraPlayback?.();
   camStream?.getTracks().forEach(t => t.stop());
   camStream = null;
   if (camEl) { camEl.pause(); camEl.srcObject = null; }

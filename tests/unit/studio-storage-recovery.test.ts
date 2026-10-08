@@ -108,3 +108,17 @@ it('automatic pruning retains edited entries even when the history is over its t
   expect(store.useStudio.getState().entries).toHaveLength(2);
   expect(store.useStudio.getState().entries[0].recipe.color.bg).toBe('#ff00ff');
 });
+
+it('un guardado que falla después de activar la protección mantiene el aviso permanente', async () => {
+  db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
+  let fail!: (error: Error) => void;
+  db.write.mockReturnValue(new Promise<string>((_resolve, reject) => { fail = reject; }));
+  const store = await import('../../src/studio/store');
+  const loading = store.hydrate();
+  await vi.advanceTimersByTimeAsync(0);
+  store.protectStudio();
+  fail(new Error('transacción tardía interrumpida')); await loading;
+  expect(store.useStudio.getState().storage).toBe('protected');
+  await store.persistNow();
+  expect(db.write).toHaveBeenCalledOnce();
+});
