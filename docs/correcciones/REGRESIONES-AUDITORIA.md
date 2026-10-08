@@ -1,6 +1,6 @@
 # Regresiones de navegador verificadas
 
-108 casos distintos pasaron en varias tandas, con Chromium y SwiftShader. Móvil emulado. No es una única ejecución continua.
+109 casos distintos pasaron en varias tandas, con Chromium y SwiftShader. Móvil emulado. No es una única ejecución continua.
 
 Una prueba del estudio de foto pausado se omite por diseño. Las comparaciones corresponden al build local, no a producción.
 
@@ -31,6 +31,7 @@ Una prueba del estudio de foto pausado se omite por diseño. Las comparaciones c
 | desktop | `tests/e2e/audit-regressions.spec.ts` | objetivos pequeños del escritorio tienen al menos 24 px |
 | desktop | `tests/e2e/audit-regressions.spec.ts` | sin portapapeles, L abre un enlace seleccionable y Compartir no afirma que lo copió |
 | desktop | `tests/e2e/audit-regressions.spec.ts` | un GIF de video empieza a 0 s aunque la vista esté avanzada y restaura el video después |
+| desktop | `tests/e2e/audit-regressions.spec.ts` | un GIF de video empieza a 0 s aunque la vista esté avanzada y restaura el video después (duración aún desconocida) |
 | desktop | `tests/e2e/audit-regressions.spec.ts` | un enlace pegado con el estudio abierto crea una entrada y conserva la edición anterior |
 | desktop | `tests/e2e/audit-regressions.spec.ts` | webgl2: PNG y rejilla llevan Estela, y coinciden con su historia preparada |
 | desktop | `tests/e2e/audit-regressions.spec.ts` | webgl2: ocultar todas las capas deja una rejilla vacía incluso con inversión y glifos sin espacios |

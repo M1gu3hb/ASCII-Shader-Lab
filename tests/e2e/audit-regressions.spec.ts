@@ -238,9 +238,9 @@ test('el inicio del video exportado es explícito y la duración mostrada conser
   await expect(page.getByRole('spinbutton', { name: 'Duración (s)' })).toHaveValue('1.86');
 });
 
-test('un GIF de video empieza a 0 s aunque la vista esté avanzada y restaura el video después', async ({ page }) => {
+for (const unknownDuration of [false, true]) test('un GIF de video empieza a 0 s aunque la vista esté avanzada y restaura el video después' + (unknownDuration ? ' (duración aún desconocida)' : ''), async ({ page }) => {
   await harness(page);
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async unknownDuration => {
     const m = await import('/__audit/module.js' as string); m.useCaps.setState({ renderer: 'basic' });
     const c = document.createElement('canvas'); c.width = 160; c.height = 100; const ctx = c.getContext('2d')!;
     ctx.fillStyle = 'rgb(20,20,20)'; ctx.fillRect(0,0,160,100);
@@ -258,10 +258,11 @@ test('un GIF de video empieza a 0 s aunque la vista esté avanzada y restaura el
     const video = m.mediaElement('video') as HTMLVideoElement; video.pause();
     await new Promise<void>(resolve => { video.addEventListener('seeked', () => resolve(), {once:true}); video.currentTime = .4; });
     const before = video.currentTime;
+    if (unknownDuration) Object.defineProperty(video, 'duration', { configurable: true, get: () => Infinity });
     const gif = await m.exportGif(m.currentRecipe(), 320, {fps:4,seconds:.25,start:m.exportStart(m.currentRecipe()),colors:128}, () => {}, {cancelled:false});
     const bitmap = await createImageBitmap(gif); const out = document.createElement('canvas'); out.width=bitmap.width; out.height=bitmap.height; const x=out.getContext('2d')!; x.drawImage(bitmap,0,0); bitmap.close();
     const pixels=x.getImageData(0,0,out.width,out.height).data; let sum=0; for(let i=0;i<pixels.length;i+=4)sum+=pixels[i];
     return { mean:sum/(pixels.length/4), before, after:video.currentTime };
-  });
+  }, unknownDuration);
   expect(result.mean).toBeLessThan(50); expect(result.before).toBeGreaterThan(.3); expect(result.after).toBeCloseTo(result.before, 2);
 });

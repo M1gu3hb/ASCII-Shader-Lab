@@ -111,14 +111,16 @@ export async function smallerEncodable(W: number, H: number, need?: 'mp4' | 'web
 }
 
 async function seekVideo(v: HTMLVideoElement, t: number) {
-  const d = v.duration || 1;
-  const target = ((t % d) + d) % d;
+  const d = v.duration;
+  // Recordings may report Infinity until their duration is known: never seek to NaN.
+  const target = Number.isFinite(d) && d > 0 ? ((t % d) + d) % d : Math.max(0, t);
   if (Math.abs(v.currentTime - target) < 1e-3) return;
   await new Promise<void>(res => {
-    const done = () => { v.removeEventListener('seeked', done); res(); };
+    let timer = 0;
+    const done = () => { clearTimeout(timer); v.removeEventListener('seeked', done); res(); };
     v.addEventListener('seeked', done);
     v.currentTime = target;
-    setTimeout(done, 1500);
+    timer = window.setTimeout(done, 1500);
   });
 }
 
