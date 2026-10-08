@@ -54,6 +54,23 @@ const stageMagenta = async (page: Page) => {
   return magenta(page, 'data:image/png;base64,' + shot.toString('base64'));
 };
 
+/** A repeatable draw with a visible background; random CRT/glow can legitimately hide magenta. */
+async function historyPiece(page: Page) {
+  const open = () => page.locator('.seedline').getByRole('button', { name: 'semilla', exact: true }).click();
+  await open();
+  const sheet = page.getByRole('dialog', { name: 'Semilla', exact: true });
+  await sheet.getByLabel('Semilla', { exact: true }).fill('historial-5');
+  await sheet.getByRole('combobox', { name: 'Estilo', exact: true }).click();
+  await page.getByRole('option', { name: /^Minimal/ }).click();
+  await sheet.getByRole('button', { name: 'Tejer esta semilla' }).click();
+  await expect(sheet).not.toBeVisible();
+  // The subsequent R draws still cover unrestricted randomness.
+  await open();
+  await sheet.getByRole('combobox', { name: 'Estilo', exact: true }).click();
+  await page.getByRole('option', { name: /^Cualquiera/ }).click();
+  await page.keyboard.press('Escape');
+}
+
 async function editCurrent(page: Page) {
   await page.getByRole('tab', { name: /^Color/ }).click();
   await page.getByRole('button', { name: /^Fondo: #/ }).click();
@@ -80,7 +97,7 @@ test.describe('ediciones en el historial', () => {
 
   test('tirar, editar, tirar más (también rápido), volver con la flecha y con la miniatura: la versión editada, con su semilla; tras recargar también', async ({ page }) => {
     const errors = await openStudio(page);
-    await page.keyboard.press('r');
+    await historyPiece(page);
     await expect(page.locator('.seedline')).toContainText('2/2');
     const seed = await seedText(page);
     await editCurrent(page);
@@ -135,7 +152,7 @@ test.describe('ediciones en el historial', () => {
 
   test('restaurar el original y deshacerlo; la colección guarda la versión editada', async ({ page }) => {
     await openStudio(page);
-    await page.keyboard.press('r');
+    await historyPiece(page);
     await expect(page.locator('.seedline')).toContainText('2/2');
     const seed = await seedText(page);
     await editCurrent(page);
@@ -161,7 +178,7 @@ test.describe('ediciones en el historial', () => {
     const a = await browser.newContext();
     const pa = await a.newPage();
     await openStudio(pa);
-    await pa.keyboard.press('r');
+    await historyPiece(pa);
     await expect(pa.locator('.seedline')).toContainText('2/2');
     const seed = await seedText(pa);
     await editCurrent(pa);
