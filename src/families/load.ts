@@ -27,6 +27,9 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   gravedad: () => import('./sims/gravedad.ts'),
   tela: () => import('./sims/tela.ts'),
   chladni: () => import('./sims/chladni.ts'),
+  fluido: () => import('./sims/fluido.ts'),
+  agua: () => import('./sims/agua.ts'),
+  erosion: () => import('./sims/erosion.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */
