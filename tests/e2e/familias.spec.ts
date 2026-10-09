@@ -82,7 +82,7 @@ test.describe('familias · ejecución, exportación y guardado', () => {
     // (the deck is hidden for the screenshots: its shortcut, S)
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('s');
-    await expect(page.locator('.toast').filter({ hasText: /colecci/i }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.toast').filter({ hasText: /en tu colección/i }).first()).toBeAttached({ timeout: 15_000 });
     await page.waitForTimeout(800);
     await page.reload();
     await expect(page.locator('.stage canvas').first()).toBeVisible({ timeout: 60_000 });
