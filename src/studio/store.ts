@@ -10,6 +10,7 @@ import {
 import { idbKeys, idbRead, idbValues, idbWrite, isQuotaError } from './idb';
 import { gcMedia } from './mediaStore';
 import { gcStates, rawStateIds, stateIdsOf } from './stateStore';
+import { glyphSetIdsOf, rawGlyphSetIds, recordLabUses } from './glyphSets';
 import { within } from './deadline';
 import { DEFAULT_VIEW_OPTS, normalizeViewOpts, normalizeViews, type ViewId, type ViewOpts } from './views/views';
 
@@ -261,6 +262,15 @@ async function collectMedia() {
     if (S().away || savingBlocked) return;
     for (const id of referencedStateIds()) states.add(id);
     await gcStates(states, now ? 0 : undefined);
+    // glyph sets belong to «Crea tus GLYPHOS»: the lab never deletes one, it tells that studio which ones its pieces use
+    const sets = new Set<string>();
+    const [bodies, [fav]] = await Promise.all([idbValues(P_ENTRY), idbRead([K_FAV])]);
+    rawGlyphSetIds(bodies, sets);
+    if (Array.isArray(fav)) rawGlyphSetIds(fav, sets);
+    const st = S();
+    for (const id of glyphSetIdsOf(allRecipes(st.entries, st.favorites))) sets.add(id);
+    for (const k of stacks.values()) for (const id of glyphSetIdsOf([...k.past, ...k.future])) sets.add(id);
+    await recordLabUses(sets);
     await sweepOrphans();
   } catch { /* storage unavailable: nothing is collected */ }
 }

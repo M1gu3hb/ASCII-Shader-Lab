@@ -10,6 +10,7 @@ import { chooseCamera, chooseCameraMirror, chooseFacing, toggleMute, toggleVideo
 import type { Facing } from './cameraMirror';
 import { edit, setUI, useRecipe, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
+import { GlyphSetPicker } from './ui/GlyphSetPicker';
 import { BasicFxHint } from './BasicMode';
 import { pickFile } from './files';
 import { CompareStrip } from './guide/CompareStrip';
@@ -262,6 +263,7 @@ function GlifosTab({ space }: { space: SpaceId }) {
         <HelpMore h={csHelp}><CharsetExplorer asciiOnly={ascii} /></HelpMore>
       </div>
       <RampEditor ascii={ascii} />
+      <GlyphSetPicker />
       <Select f={F('glyph.font')} label="Tipografía de los caracteres" opts={fonts} minWidth={290}
         onPick={id => edit(r => { r.glyph.weight = nearestWeight(fontById(id), r.glyph.weight); }, 'glyph.font')} />
       {font.weights.length > 1 && <Select f={F('glyph.weight')} label="Grosor" opts={font.weights.map(w => ({ value: w, label: String(w) }))} />}

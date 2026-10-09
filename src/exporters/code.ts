@@ -9,7 +9,8 @@
 import RUNTIME from 'virtual:mt-runtime';
 import { families as FAMILY_CODE, patterns as BASIC_PATTERN_CODE, runtime as RUNTIME_BASIC } from 'virtual:mt-runtime-basic';
 import { familyExportNotes, familyIds } from '../families/export';
-import { cloneRecipe, type Recipe } from '../engine/recipe';
+import { getGlyphSet } from '../glyphset/registry';
+import { cloneRecipe, syncVersion, type Recipe } from '../engine/recipe';
 import { pickPatterns } from '../engine/glsl/patterns';
 import { LICENSE_LINE } from './text';
 import { scrimCss, type Scrim } from '../shared/scrim';
@@ -66,9 +67,19 @@ const familiesCode = (r: Recipe, basic: boolean) => familyCodeIds(r, basic).map(
  * of its visual families.
  */
 export function runtimeCode(r: Recipe, o: Pick<CodeOptions, 'fallback'>): string {
-  const fam = familiesCode(r, withBasic(o as CodeOptions));
+  const fam = [familiesCode(r, withBasic(o as CodeOptions)), glyphSetCode(r)].filter(Boolean).join('\n');
   if (!withBasic(o as CodeOptions)) return RUNTIME + (fam ? '\n' + fam : '');
   return RUNTIME_BASIC + '\n' + basicPatternIds(r).map(id => BASIC_PATTERN_CODE[id]).join('\n') + (fam ? '\n' + fam : '');
+}
+
+/**
+ * The glyph set the piece draws with (made in «Crea tus GLYPHOS»), registered before the piece mounts. A
+ * page whose runtime came from an older export has no registerGlyphSet: the piece is drawn with its font.
+ */
+function glyphSetCode(r: Recipe): string {
+  const set = r.glyph.set ? getGlyphSet(r.glyph.set) : undefined;
+  if (!set || !r.glyph.set) return '';
+  return `window.Glyphos.registerGlyphSet && window.Glyphos.registerGlyphSet(${json(r.glyph.set)}, ${json(set)});`;
 }
 
 /** Only the pattern and family scripts (a React component on a page whose runtime came from another export). */
@@ -100,6 +111,17 @@ export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes
   if (x.source === 'text' && x.text.font !== 'sans' && o.systemFont) x.text.font = 'sans';
   // a saved state of a simulation stays in the studio: the code starts it from its seed
   notes.push(...familyExportNotes(x));
+  if (x.glyph.set) {
+    const set = getGlyphSet(x.glyph.set);
+    if (!set) {
+      notes.push(`El juego de glifos${x.glyph.setName ? ` «${x.glyph.setName}»` : ''} no está en este navegador: el código dibuja la pieza con la tipografía.`);
+      delete x.glyph.set; delete x.glyph.setName;
+      syncVersion(x);
+    } else {
+      const kb = Math.round(JSON.stringify(set).length / 1024);
+      notes.push(`El código lleva tu juego de glifos «${set.name}» (${kb} KB)${set.mode === 'texto' ? '; los caracteres que no tiene salen con la tipografía' : ''}.`);
+    }
+  }
   return { recipe: x, notes };
 }
 
@@ -238,7 +260,9 @@ ${withBasic(o) ? RUNTIME_BASIC : RUNTIME}
   // the CPU versions of this piece's patterns and its visual families' code (each registers itself once per page)
   ${basicPatternsCode(r)}` : familyIds(r, false).length ? `
   // the code of this piece's visual families (each registers itself once per page)
-  ${familiesCode(r, false)}` : ''}
+  ${familiesCode(r, false)}` : ''}${glyphSetCode(r) ? `
+  // the glyph set this piece draws with (made in «Crea tus GLYPHOS»)
+  ${glyphSetCode(r)}` : ''}
   return window.Glyphos;
 }
 

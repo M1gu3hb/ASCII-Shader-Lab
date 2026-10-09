@@ -11,6 +11,7 @@ import { pickTransition, qualityFor, usePreview, type TransitionContext } from '
 import { currentRecipe, setStats, useStudio } from './store';
 import { toast } from './toast';
 import { installCheckpointLoader } from './familyState';
+import { installGlyphSetLoader } from './glyphSets';
 
 /**
  * One live renderer drives the studio stage; the store is the single source of truth.
@@ -46,6 +47,8 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   destroyStudioEngine();
   // saved states of family layers come from this browser's store when a piece asks for one
   installCheckpointLoader();
+  // glyph sets made in «Crea tus GLYPHOS» too
+  installGlyphSetLoader();
   const gen = ++mountGen;
   host = container;
   const s = useStudio.getState();

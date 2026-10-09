@@ -16,7 +16,9 @@ import './viewer.css';
 import { logoMark, wordmark } from '../shared/brand';
 import { decodeRecipe, pieceHash, readPieceHash, type ShareView } from '../shared/share';
 import { defaultFrame, describeFrame, encodeFrame, fitFrame, frameRecipe, gridOf, reduceFrame, type Frame } from '../shared/frame';
-import { patternName } from '../engine/catalog';
+import { fontById, patternName } from '../engine/catalog';
+import { installLocalGlyphSets, missingSetNotice } from '../glyphset/local';
+import { glyphSetStatus, watchGlyphSets } from '../glyphset/registry';
 import { FamilyHost } from '../families/host';
 import { isTouchMode } from '../engine/touch';
 import type { Recipe } from '../engine/recipe';
@@ -222,6 +224,13 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
   }
   // a visual family with memory: the link carries its seed, not the state its author saw
   if (FamilyHost.uses(recipe)) setNote('familia', 'Esta pieza tiene una simulación: empieza desde su semilla y evoluciona aquí, en tu navegador; no es el instante exacto que vio quien la compartió.');
+  // a glyph set made in «Crea tus GLYPHOS»: links do not carry it; this browser may have it (same site)
+  if (recipe.glyph.set) {
+    installLocalGlyphSets();
+    const id = recipe.glyph.set;
+    const say = () => setNote('glifos', glyphSetStatus(id) === 'missing' ? missingSetNotice(recipe, fontById(recipe.glyph.font).name) : null);
+    watchGlyphSets(say);
+  }
 
   /* ---------------- controls: play, full screen, auto-hide ---------------- */
   let playing = !view.paused && !reduced;

@@ -6,7 +6,9 @@ import { slowNoticeAnswered } from './Quality';
 import { getEngine } from './engineBridge';
 import { IClose } from './icons';
 import { Sheet } from './Sheet';
-import { persistNow, useStudio } from './store';
+import { persistNow, useRecipe, useStudio } from './store';
+import { missingSetNotice, useGlyphSetStatus } from './glyphSets';
+import { fontById } from '../engine/catalog';
 import './css/basic.css';
 
 /**
@@ -65,8 +67,21 @@ export function EngineNotes() {
         </div>
       )}
       {kind === 'webgl2' && gl.software && gl.reason === 'ok' && <SoftwareHint onWhy={() => setWhy(true)} />}
+      <GlyphSetNote />
       <EngineSheet open={why} onClose={() => setWhy(false)} />
     </>
+  );
+}
+
+/** A piece names a glyph set this browser does not have: it is drawn with its font, and says so (never silently). */
+function GlyphSetNote() {
+  const r = useRecipe();
+  const status = useGlyphSetStatus(r?.glyph.set);
+  if (!r || status !== 'missing') return null;
+  return (
+    <div className="bm-chip bm-soft" role="status">
+      <span className="bm-line">{missingSetNotice(r, fontById(r.glyph.font).name)}</span>
+    </div>
   );
 }
 

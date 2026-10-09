@@ -54,6 +54,15 @@ function FamilyClipNote({ r }: { r: Recipe }) {
   );
 }
 
+/**
+ * Text, ANSI and the console players carry characters (code points), not drawings: a piece made with a
+ * glyph set reads in them with the font of whoever opens them. Said where those formats are offered.
+ */
+function GlyphSetTextNote({ r }: { r: Recipe }) {
+  if (!r.glyph.set) return null;
+  return <p className="note">Esta pieza usa tu juego de glifos{r.glyph.setName ? ` «${r.glyph.setName}»` : ''}. El texto, el ANSI, el HTML de texto y los scripts de consola llevan los caracteres, no tus dibujos: se ven con la tipografía de la terminal o del navegador de quien los abra. Para conservar tus glifos exporta imagen, video, SVG de contornos o código web, o instala tu fuente OTF.</p>;
+}
+
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
 
@@ -614,6 +623,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
         <label className="toggle" style={{ margin: 0 }}><span>Pintar fondo</span><span className="switch"><input type="checkbox" role="switch" checked={withBg} onChange={ev => setWithBg(ev.target.checked)} /><span /></span></label>
       </div>
       {preview && <div className="ansi-pre" style={{ marginBottom: 14 }} tabIndex={0} role="region" aria-label={`Vista previa en texto, ${cols}×${rows}`} dangerouslySetInnerHTML={{ __html: preview.html }} />}
+      <GlyphSetTextNote r={e.recipe} />
       <div className="ex-grid">
         <div className="ex-card">
           <h3>Fotograma</h3>

@@ -36,6 +36,25 @@ export function statesIn(files: ZipEntry[], prefix: string): Array<{ id: string;
   return out;
 }
 
+/**
+ * Glyph sets made in «Crea tus GLYPHOS» that the piece draws with (recipe.glyph.set): `glifos/<id>.json`,
+ * the set's canonical bytes (the id is their hash: a reader checks it).
+ */
+export const GLYPHS_DIR = 'glifos/';
+export const GLYPHS_EXT = '.json';
+export const GLYPHS_MAX = 64;
+export function glyphSetsIn(files: ZipEntry[], prefix: string): Array<{ id: string; size: number; read: () => Promise<Uint8Array> }> {
+  const out: Array<{ id: string; size: number; read: () => Promise<Uint8Array> }> = [];
+  for (const f of files) {
+    if (!f.name.startsWith(prefix + GLYPHS_DIR) || f.name.startsWith('__MACOSX/') || !f.name.endsWith(GLYPHS_EXT)) continue;
+    const id = baseName(f.name).slice(0, -GLYPHS_EXT.length);
+    if (!STATE_ID.test(id)) continue;
+    out.push({ id, size: f.size, read: () => f.read() });
+    if (out.length >= GLYPHS_MAX) break;
+  }
+  return out;
+}
+
 export interface PackedMedia { name: string; type: string; data: Blob | Uint8Array }
 export interface UnpackedMedia { name: string; type: string; data: Uint8Array }
 
@@ -58,7 +77,7 @@ function mediaWord(ref: MediaRef | undefined) {
     : { la: 'la imagen', La: 'La imagen', una: 'una imagen', la_: 'la', con: 'con ella', guardada: 'guardada', incluida: 'incluida' };
 }
 
-function readme(r: Recipe, mediaPath: string | null, states = 0): string {
+function readme(r: Recipe, mediaPath: string | null, states = 0, sets = 0): string {
   const ref = r.media.ref;
   const uses = (r.source === 'image' || r.source === 'video') && ref;
   const w = mediaWord(ref);
@@ -84,6 +103,8 @@ function readme(r: Recipe, mediaPath: string | null, states = 0): string {
     mediaPath ? `   ${w.La} se guarda en tu navegador y la pieza se abre ${w.con}.` : '   La pieza se abre en tu historial.',
     '',
     ...(states ? [`   Lleva ${states === 1 ? 'el estado guardado de su simulación' : `${states} estados guardados de sus simulaciones`} (carpeta estados/): continúa exactamente desde ahí.`] : []),
+    ...(sets ? [`   Lleva el juego de glifos${r.glyph.setName ? ` «${r.glyph.setName}»` : ''} con el que se dibuja (carpeta glifos/): se guarda en tu navegador al abrirla.`] : []),
+    ...(r.glyph.set && !sets ? ['   Usa un juego de glifos propio que no estaba en el navegador al exportar: se verá con su tipografía.'] : []),
     'Todo se procesa en tu navegador: nada se sube a ningún servidor.',
     'Lo que creas es tuyo. Si compartes la pieza, asegúrate de tener derecho a usar la imagen o el video.',
     '',
@@ -95,7 +116,7 @@ function readme(r: Recipe, mediaPath: string | null, states = 0): string {
  * Packs a piece. Without its media, the recipe's media reference is stripped like in a link
  * (no file name, no local id), so the person who opens it is asked for a file of their own.
  */
-export async function buildProject(recipe: Recipe, media?: PackedMedia | null, states: PackedState[] = []): Promise<Blob> {
+export async function buildProject(recipe: Recipe, media?: PackedMedia | null, states: PackedState[] = [], sets: PackedState[] = []): Promise<Blob> {
   const ref = recipe.media.ref;
   const r = media && ref ? recipe : publicRecipe(recipe);
   const files: Array<{ name: string; data: string | Blob | Uint8Array }> = [{ name: PROJECT_RECIPE, data: recipeFile(r) }];
@@ -105,7 +126,8 @@ export async function buildProject(recipe: Recipe, media?: PackedMedia | null, s
     files.push({ name: path, data: media.data });
   }
   for (const st of states) files.push({ name: STATES_DIR + st.id + STATE_EXT, data: st.data });
-  files.push({ name: PROJECT_README, data: readme(r, path, states.length) });
+  for (const g of sets) files.push({ name: GLYPHS_DIR + g.id + GLYPHS_EXT, data: g.data });
+  files.push({ name: PROJECT_README, data: readme(r, path, states.length, sets.length) });
   return zip(files);
 }
 
@@ -127,7 +149,7 @@ export async function readProjectRecipe(files: ZipEntry[], max = 32 * 1024 * 102
 }
 
 /** Opens a project archive. Returns null when there is no valid recipe in it. */
-export async function readProject(files: ZipEntry[]): Promise<{ recipe: Recipe; media: UnpackedMedia | null; states: ReturnType<typeof statesIn> } | null> {
+export async function readProject(files: ZipEntry[]): Promise<{ recipe: Recipe; media: UnpackedMedia | null; states: ReturnType<typeof statesIn>; sets: ReturnType<typeof glyphSetsIn> } | null> {
   const rec = files.find(isRecipeFile);
   if (!rec) return null;
   const recipe = parseRecipe(await rec.text());
@@ -135,8 +157,9 @@ export async function readProject(files: ZipEntry[]): Promise<{ recipe: Recipe; 
   // re-zipped folders keep everything under one prefix ("pieza/receta.glyphos.json")
   const prefix = rec.name.slice(0, rec.name.length - baseName(rec.name).length);
   const states = statesIn(files, prefix);
+  const sets = glyphSetsIn(files, prefix);
   const m = files.find(f => f.name.startsWith(prefix + MEDIA_DIR) && !f.name.startsWith('__MACOSX/') && !baseName(f.name).startsWith('.'));
-  if (!m) return { recipe, media: null, states };
+  if (!m) return { recipe, media: null, states, sets };
   const name = baseName(m.name);
-  return { recipe, media: { name, type: recipe.media.ref?.type ?? '', data: await m.read() }, states };
+  return { recipe, media: { name, type: recipe.media.ref?.type ?? '', data: await m.read() }, states, sets };
 }

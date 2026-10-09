@@ -51,13 +51,13 @@ describe('site pages', () => {
 });
 
 describe('sitemap and robots', () => {
-  const PUBLIC = ['/', '/studio/', '/studio/foto/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
+  const PUBLIC = ['/', '/studio/', '/studio/foto/', '/studio/glifos/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
   const locsOf = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 
   it('lists absolute canonical URLs with a trailing slash, landing first', () => {
     const xml = sitemapXml('2026-09-27', sitePages(true));
     expect(locsOf(xml)).toEqual(PUBLIC.map(p => SITE_URL + p));
-    expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(9);
+    expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(PUBLIC.length);
     expect(xml).not.toContain('404');
   });
 

@@ -16,6 +16,8 @@
  * (engine/pointer.ts). The wheel is never taken: only Ctrl + wheel over the canvas zooms «Zoom con los dedos».
  */
 import { AsciiEngine } from '../engine/engine';
+import { provideGlyphSet } from '../glyphset/registry';
+import { normalizeGlyphSet } from '../glyphset/set';
 import { PATTERN_IDS } from '../engine/catalog';
 import { normalizeRecipe, type Recipe } from '../engine/recipe';
 import type { PatternLibrary } from '../engine/glsl/patterns';
@@ -69,6 +71,8 @@ interface Api {
    */
   registerFamily?(id: string, m: { create?: ModelFactory; impl?: AnalyticImpl }): void;
   hasFamily?(id: string): boolean;
+  /** A glyph set made in «Crea tus GLYPHOS» that the piece draws with (the exporter writes it before mount). */
+  registerGlyphSet?(id: string, set: unknown): void;
   mount: typeof mount;
   __basic?: BasicSupport;
 }
@@ -78,6 +82,10 @@ const registerFamily = (id: string, m: { create?: ModelFactory; impl?: AnalyticI
   if (m?.impl) registerAnalytic(id, m.impl);
 };
 const hasFamily = (id: string) => !!modelOf(id) || !!analyticOf(id);
+/** A damaged set is ignored: the piece is drawn with its font. */
+const registerGlyphSet = (id: string, set: unknown) => {
+  try { provideGlyphSet(id, normalizeGlyphSet(set)); } catch { /* drawn with the font */ }
+};
 
 const VERSION = '2.4.0';
 const registry: PatternLibrary = {};
@@ -306,7 +314,7 @@ class GlyphosField extends HTMLElement {
 export function install(basic?: BasicSupport) {
   const w = win();
   if (!w.Glyphos) {
-    const api: Api = { version: VERSION, register: (p: PatternLibrary) => { Object.assign(registry, p); }, registerFamily, hasFamily, mount };
+    const api: Api = { version: VERSION, register: (p: PatternLibrary) => { Object.assign(registry, p); }, registerFamily, hasFamily, registerGlyphSet, mount };
     if (basic) api.__basic = basic;
     w.Glyphos = api;
     if (typeof customElements !== 'undefined') {
