@@ -10,6 +10,11 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   reaccion_difusion: () => import('./sims/reaccion.ts'),
   sistema_l: () => import('./sims/lsystem.ts'),
   fractal_3d: () => import('./analytic/fractal3d.cpu.ts'),
+  hiperbolico: () => import('./analytic/hiperbolico.cpu.ts'),
+  nubes_vol: () => import('./analytic/nubes_vol.cpu.ts'),
+  orbitales: () => import('./analytic/orbitales.cpu.ts'),
+  lente_gravitacional: () => import('./analytic/lente.cpu.ts'),
+  campos_em: () => import('./sims/campos.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */
