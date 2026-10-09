@@ -3,6 +3,10 @@ import type { BasicEngine } from './basic/engine';
 import type { Recipe } from './recipe';
 import type { Renderer } from './renderer';
 import { probeWebGL, type GLStatus } from './support';
+import { installFamilyLoader } from '../families/load';
+
+// pages that create renderers fetch a visual family's code the first time a piece uses it
+installFamilyLoader();
 
 export interface CreatedRenderer {
   renderer: Renderer;

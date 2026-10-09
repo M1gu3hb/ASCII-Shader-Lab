@@ -13,6 +13,8 @@ const fr = Math.fround;
 import { basicPattern, setPX, type BasicPattern } from './patterns';
 import { DISP_MAX } from '../touch';
 import { XformState, runStage, updateTrail, type StageEnv } from './xform';
+import { familyPattern } from '../../families/basic';
+import type { FamilyHost } from '../../families/host';
 import type { XformStage } from '../xform';
 
 export type FieldSource = 'pattern' | 'media' | 'text';
@@ -76,11 +78,12 @@ export class FieldBuffers {
  * Active layers as the GPU engine binds them (max 4; with none on, the field is empty), on a
  * W×H canvas (a figure on a canvas taller than wide is sized to its width: catalog.ts figureFit).
  */
-export function fieldLayers(r: Recipe, W: number, H: number): FieldLayer[] {
+export function fieldLayers(r: Recipe, W: number, H: number, fam?: FamilyHost | null): FieldLayer[] {
   const on = r.layers.filter(l => l.on).slice(0, 4);
   const list = on;
-  return list.map(l => ({
-    pat: basicPattern(l.pattern),
+  return list.map((l, i) => ({
+    // a visual family: its run's raster or its analytic CPU twin (families/basic.ts)
+    pat: familyPattern(l, i, fam) ?? basicPattern(l.pattern),
     scale: l.scale * figureFit(l.pattern, W, H), rot: (l.rot * Math.PI) / 180, x: l.x, y: l.y, a: l.a, b: l.b,
     mix: l.mix, speed: l.speed, phase: l.phase, invert: l.invert, blend: Math.max(0, BLENDS.indexOf(l.blend)),
   }));

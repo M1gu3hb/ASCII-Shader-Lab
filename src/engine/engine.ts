@@ -18,6 +18,9 @@ import type { PreviewQuality, Renderer } from './renderer';
 import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
 import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
+import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../families/host';
+import { familyById } from '../families/registry';
+import { packParams } from '../families/params';
 
 export type MediaKind = 'image' | 'video' | 'camera';
 type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
@@ -51,6 +54,10 @@ export interface EngineOptions {
   onError?: (msg: string) => void;
   onStats?: (s: EngineStats) => void;
 }
+
+/** Commands for the runs of a piece's visual families (see families/host.ts). */
+export type FamilyCommand = { kind: 'reset'; layer?: number } | { kind: 'step'; layer?: number; n?: number };
+
 
 export interface EngineStats { cols: number; rows: number; fps: number; pixelRatio: number; width: number; height: number; ms: number }
 
@@ -100,6 +107,8 @@ interface Pending {
   /** Fence after a first draw with the new program (drivers that compile at the first draw do it then). */
   warm: WebGLSync | null;
   fonts: boolean;
+  /** The code of the piece's visual families is here. */
+  fam: boolean;
 }
 
 /** Whether the GPU got past a fence (never blocks; WebGL updates the status between tasks). */
@@ -206,6 +215,13 @@ export class AsciiEngine implements Renderer {
   private hub: PointerHub | null = null;
   /** realT of the last frame the pointer simulation (Ondas, Borrador, Pincel) had something to do. */
   private simLast = -1e9;
+  /** Runs of the piece's raster families, their textures (units 8–11) and what was uploaded last. */
+  private fam: FamilyHost;
+  private tFam: Tex[] = [];
+  private famVer = [-1, -1, -1, -1];
+  private famBusy = false;
+  /** Where the last brush stroke on each family layer ended (domain coordinates), while the pointer is down. */
+  private famStroke: Array<[number, number] | null> = [null, null, null, null];
   /** Fixed-size engines: realT of the last renderAt (the ghost plays when frames follow each other). */
   private demoT = NaN;
   private ro: ResizeObserver | null = null;
@@ -217,6 +233,7 @@ export class AsciiEngine implements Renderer {
     this.o = opts;
     this.lib = opts.library;
     this.r = cloneRecipe(recipe);
+    this.fam = new FamilyHost({ live: !opts.fixedSize, onError: opts.onError });
     this.fonts = opts.fonts ?? createFontLoader({ google: opts.googleFonts ?? true });
     this.playing = (opts.autoplay ?? true) && !opts.reducedMotion;
     const gl = canvas.getContext('webgl2', {
@@ -290,13 +307,14 @@ export class AsciiEngine implements Renderer {
     const key = this.fieldKeyOf(r);
     const needProg = !this.progs.has(key) && !this.failedPrograms.has(key);
     let p = this.pending;
-    if (!p && !trans && !needProg) { this.applyRecipe(r); return; }
-    if (!p) p = this.pending = { r, trans, since: performance.now(), frames: 0, key, prog: null, compiled: null, warm: null, fonts: false };
+    if (!p && !trans && !needProg && this.fam.loaded(r)) { this.applyRecipe(r); return; }
+    if (!p) p = this.pending = { r, trans, since: performance.now(), frames: 0, key, prog: null, compiled: null, warm: null, fonts: false, fam: false };
     else {
       if (p.key !== key) { this.dropPendingGL(p); p.key = key; p.frames = 0; }
       p.r = r;
       p.trans = trans ?? p.trans;
       p.fonts = false;
+      p.fam = false;
     }
     if (needProg && !p.prog) {
       try {
@@ -306,6 +324,7 @@ export class AsciiEngine implements Renderer {
     }
     const want = p;
     void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
+    void this.fam.ready(r).then(() => { if (this.pending === want && want.r === r) want.fam = true; });
     this.needsRender = true;
   }
 
@@ -357,6 +376,7 @@ export class AsciiEngine implements Renderer {
     }
     if (p.warm && !over && !passed(gl, p.warm)) return;
     if (p.trans && !p.fonts && !over) return;
+    if (!p.fam && !over) return;
     this.applyPending();
   }
 
@@ -525,7 +545,7 @@ export class AsciiEngine implements Renderer {
 
   /** Resolves once fonts are loaded and the atlas has been rebuilt with them. */
   async ready(): Promise<void> {
-    await this.requestFonts();
+    await Promise.all([this.requestFonts(), this.fam.ready(this.r)]);
     this.atlasKey = '';
     this.textKey = '';
     if (this.o.fixedSize) await this.compileAhead();
@@ -631,6 +651,7 @@ export class AsciiEngine implements Renderer {
 
   destroy() {
     this.alive = false;
+    this.fam.dispose();
     cancelAnimationFrame(this.raf);
     this.dropPending();
     this.ro?.disconnect();
@@ -691,6 +712,9 @@ export class AsciiEngine implements Renderer {
     this.fbWarm = fboFor(gl, this.tWarm);
     this.tTouch = createTex(gl, 1, 1, { data: new Uint8Array([0, 0, 128, 128]) });
     this.touchVer = -1;
+    // family rasters: one channel, read with texelFetch (the shader interpolates itself, as the CPU does)
+    this.tFam = [0, 1, 2, 3].map(() => createTex(gl, 1, 1, { internal: gl.R8, format: gl.RED, data: new Uint8Array(1) }));
+    this.famVer = [-1, -1, -1, -1];
     this.prevT = [null, null]; this.prevFb = [null, null]; this.prevIdx = 0;
     this.trans = -1;
     // (a restored context lost them all: made again when a piece needs them)
@@ -703,6 +727,7 @@ export class AsciiEngine implements Renderer {
     this.mediaUploaded = null;
     this.simMode = '';
     this.touchVer = -1;
+    this.famVer = [-1, -1, -1, -1];
     this.needsRender = true;
   }
 
@@ -773,7 +798,7 @@ export class AsciiEngine implements Renderer {
     const video = (this.r.source === 'video' || this.r.source === 'camera') && !!this.media[this.r.source];
     // Ondas, Borrador and Pincel draw until what the pointer left has settled (then an idle piece costs nothing)
     const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
-    if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {
+    if (this.playing || this.needsRender || interactive || touching || video || sim || this.famBusy || this.trans >= 0) {
       this.needsRender = false;
       this.lastDraw = now;
       const t0 = performance.now();
@@ -1005,12 +1030,12 @@ export class AsciiEngine implements Renderer {
    */
   private fieldKeyOf(r: Recipe, src?: FieldSource): string {
     const s = src ?? SRC_OF(r, r.source === this.r.source && this.mediaOK ? true : !!this.currentMediaOf(r));
-    return fieldKey(AsciiEngine.patternsOf(r), s, r.motion.loop > 0);
+    return fieldKey(AsciiEngine.patternsOf(r), s, fieldLoops(r));
   }
 
   private fieldSource(r: Recipe, key: string): string {
     const src = key.split('|')[0] as FieldSource;
-    return buildFieldShader(AsciiEngine.patternsOf(r), src, r.motion.loop > 0, this.lib);
+    return buildFieldShader(AsciiEngine.patternsOf(r), src, fieldLoops(r), this.lib);
   }
 
   private cacheProgram(key: string, p: Program) {
@@ -1105,6 +1130,7 @@ export class AsciiEngine implements Renderer {
         } else resizeTex(gl, T, this.cols, this.rows, this.touch.data);
       }
     }
+    this.updateFamilies();
     const src = SRC_OF(this.r, this.mediaOK);
     const fp = this.fieldProgram(src);
     if (!fp) return; // keep the last frame instead of selecting stale field textures
@@ -1214,6 +1240,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uXGrid'), 5);
     gl.uniform1i(loc(gl, p, 'uXOn'), grid ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uPatOnly'), patternInto ? 1 : 0);
+    this.bindFamilyUniforms(p, layers);
     this.bindPointerUniforms(p);
     void src;
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -1302,6 +1329,84 @@ export class AsciiEngine implements Renderer {
     }
     return X.grid[cur];
   }
+
+  /**
+   * Brings the piece's family runs to the current moment (families/host.ts), applies brush strokes and
+   * uploads the rasters that changed.
+   */
+  private updateFamilies() {
+    const r = this.r;
+    if (!r.layers.some(l => l.on && l.fam)) { this.famBusy = false; return; }
+    this.famStrokes();
+    this.famBusy = this.fam.update(r, familyTime(this.t, r.motion.hold));
+    const gl = this.gl;
+    for (let i = 0; i < 4; i++) {
+      const R = this.fam.raster(i);
+      if (!R || R.version === this.famVer[i]) continue;
+      this.famVer[i] = R.version;
+      const T = this.tFam[i];
+      gl.bindTexture(gl.TEXTURE_2D, T.tex);
+      if (T.w === R.w && T.h === R.h) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, R.w, R.h, gl.RED, gl.UNSIGNED_BYTE, R.data);
+      else resizeTex(gl, T, R.w, R.h, R.data);
+    }
+  }
+
+  /** Strokes of a family brush (layer.fam.brush) while the pointer is pressed on a live canvas. */
+  private famStrokes() {
+    const P = this.ptr, r = this.r;
+    const layers = r.layers.filter(l => l.on).slice(0, 4);
+    for (let i = 0; i < 4; i++) {
+      const l = layers[i], brush = l?.fam?.brush;
+      if (!l || !brush || this.o.fixedSize || !P.down || P.on < 0.2) { this.famStroke[i] = null; continue; }
+      // the pointer in the layer's coordinates (the field pass's p → q)
+      const px = (P.x - 0.5 * this.W) / this.H, py = (0.5 * this.H - P.y) / this.H;
+      const sc = l.scale * figureFit(l.pattern, this.W, this.H), a = (l.rot * Math.PI) / 180;
+      const dx = px - l.x, dy = py - l.y, c = Math.cos(a), s = Math.sin(a);
+      const qx = (c * dx - s * dy) * sc, qy = (s * dx + c * dy) * sc;
+      const prev = this.famStroke[i] ?? [qx, qy];
+      this.fam.stroke(i, { brush, x0: prev[0], y0: prev[1], x1: qx, y1: qy, r: Math.max(0.01, r.interact.radius * 0.5 * sc), strength: Math.max(0.2, r.interact.strength) });
+      this.famStroke[i] = [qx, qy];
+    }
+  }
+
+  /** Family layers: their textures (units 8–11), domains and typed parameters. */
+  private bindFamilyUniforms(p: Program, layers: Recipe['layers']) {
+    if (!layers.some(l => l.fam)) return;
+    const gl = this.gl;
+    const R = new Float32Array(16), K0 = new Float32Array(16), K1 = new Float32Array(16), k = new Float32Array(8);
+    layers.forEach((l, i) => {
+      const meta = familyById(l.pattern);
+      if (!meta || !l.fam) return;
+      if (meta.kind === 'analytic') {
+        packParams(meta, l.fam.p, k);
+        K0.set(k.subarray(0, 4), i * 4); K1.set(k.subarray(4, 8), i * 4);
+      } else {
+        const ras = this.fam.raster(i);
+        if (ras) R.set([ras.w, ras.h, ras.wrap ? 1 : 0, 1], i * 4);
+      }
+    });
+    gl.uniform4fv(loc(gl, p, 'uLR'), R);
+    gl.uniform4fv(loc(gl, p, 'uLF0'), K0);
+    gl.uniform4fv(loc(gl, p, 'uLF1'), K1);
+    for (let i = 0; i < 4; i++) {
+      gl.activeTexture(gl.TEXTURE8 + i); gl.bindTexture(gl.TEXTURE_2D, this.tFam[i].tex);
+      gl.uniform1i(loc(gl, p, 'uFT' + i), 8 + i);
+    }
+  }
+
+  /** A copy of the live runs of the piece's families (exports start from it; the live runs go on untouched). */
+  familyState(): FamilyBundle { return this.fam.bundle(); }
+  /** Fixed-size engines: the next renders start from these runs, at piece time t0 (null: from their seeds). */
+  setFamilyStart(bundle: FamilyBundle | null, t0 = 0) { this.fam.setStart(bundle, t0); this.famVer = [-1, -1, -1, -1]; this.needsRender = true; }
+  /** Live engines: carry on runs from another engine (the stage switching to the basic engine). */
+  adoptFamilies(bundle: FamilyBundle) { this.fam.adopt(bundle); this.needsRender = true; }
+  familyCommand(c: FamilyCommand) {
+    if (c.kind === 'reset') this.fam.reset(c.layer);
+    else this.fam.stepNow(c.n ?? 1, c.layer);
+    this.famVer = this.famVer.map((v, i) => (c.layer === undefined || c.layer === i ? -1 : v));
+    this.needsRender = true;
+  }
+  familyInfo(): SlotInfo[] { return this.fam.info(this.r); }
 
   private pulse(tq: number): number {
     const m = this.r.motion;
