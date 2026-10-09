@@ -15,9 +15,18 @@ export function openDb(): Promise<IDBDatabase> {
   return (opening ??= new Promise<IDBDatabase>((res, rej) => {
     // indexedDB itself throws where site data is blocked
     const req = indexedDB.open(DB);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    let finished = false;
+    const fail = (error: unknown) => { if (finished) return; finished = true; clearTimeout(timer); opening = null; rej(error); };
+    const timer = setTimeout(() => fail(new Error('El almacenamiento no respondió')), 8000);
+    req.onupgradeneeded = () => {
+      if (finished) { req.transaction?.abort(); return; }
+      req.result.createObjectStore(STORE);
+    };
     req.onsuccess = () => {
       const d = req.result;
+      if (finished) { d.close(); return; }
+      finished = true;
+      clearTimeout(timer);
       // a connection the browser closes (Safari does) or another version needs: open again next time
       const drop = () => { if (db === d) db = null; opening = null; };
       d.onclose = drop;
@@ -25,7 +34,8 @@ export function openDb(): Promise<IDBDatabase> {
       db = d;
       res(d);
     };
-    req.onerror = () => { opening = null; rej(req.error); };
+    req.onerror = () => fail(req.error);
+    req.onblocked = () => fail(new Error('Otra conexión bloqueó el almacenamiento'));
   }).catch(err => { opening = null; throw err; }));
 }
 

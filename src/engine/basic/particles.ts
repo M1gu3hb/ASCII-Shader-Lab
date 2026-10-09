@@ -118,7 +118,7 @@ export function particlePattern(mode: number): BasicPattern {
     prep(t, a) { place(mode, t, a, X, Y, TX, TY, D, H); },
     f(x, y, _t, a, b) {
       let v = 0;
-      const rad0 = Math.max(0.012 + b * 0.024, PX * 0.9);
+      const rad0 = Math.max(0.012, PX * 0.9) + b * Math.max(0.024, PX * 1.8);
       const lim = 0.12 + a * 0.3;
       for (let i = 0; i < N; i++) {
         const rad = rad0 * D[i], r2 = rad * rad;

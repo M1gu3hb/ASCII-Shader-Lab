@@ -77,7 +77,7 @@ function useTouchSlide(input: RefObject<HTMLInputElement | null>, area: RefObjec
     const set = (v: number) => {
       const L = live.current!;
       const n = snapTo(v, L.min, L.max, L.step);
-      if (n !== L.value) L.onValue(n);
+      if (!el.matches(':disabled') && n !== L.value) L.onValue(n);
     };
     const track = () => el.getBoundingClientRect();
     const take = (e: PointerEvent) => {
@@ -106,7 +106,7 @@ function useTouchSlide(input: RefObject<HTMLInputElement | null>, area: RefObjec
     };
 
     const down = (e: PointerEvent) => {
-      if (g || el.disabled) return;
+      if (g || el.matches(':disabled')) return;
       const t = e.target as Element | null;
       // a device with only fine pointers: the native range does everything
       if (t === el || !coarse()) return;

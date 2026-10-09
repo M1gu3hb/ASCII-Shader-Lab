@@ -1,5 +1,5 @@
 import { decodeRecipe, readPieceHash } from '../shared/share';
-import { genOf } from '../random/generator';
+import { archesForGen, genOf } from '../random/generator';
 import { spaceById, type SpaceId } from '../random/spaces';
 import { parseCamino, withoutCamino } from './guide/paths';
 import { startPath } from './guide/state';
@@ -9,6 +9,25 @@ import { spaceAccepts } from './presets';
 import { rememberLinkFrame } from './ShareSheet';
 import { applyRecipe, currentRecipe, edit, rollDice, setSpace, useStudio } from './store';
 import { toast } from './toast';
+import { retry } from './lazy';
+import { within } from './deadline';
+
+let watchingHash = false;
+let hashLoad: AbortController | undefined;
+function watchHash() {
+  if (watchingHash) return;
+  watchingHash = true;
+  addEventListener('hashchange', () => {
+    hashLoad?.abort();
+    const controller = hashLoad = new AbortController();
+    void within(bootFromUrl(controller.signal), 10_000, controller.signal).catch(() => {
+      controller.abort();
+      if (hashLoad === controller) toast('No se pudo abrir ese enlace. Tu pieza sigue en el historial; vuelve a intentarlo.');
+    });
+  });
+}
+
+const loadHandoff = retry(() => import('../foto/handoff'));
 
 /** What the address opened: a shared piece, a seed, a space, a guided path, or nothing. */
 export type BootOpened = 'link' | 'seed' | 'space' | 'camino' | null;
@@ -23,33 +42,38 @@ export type BootOpened = 'link' | 'seed' | 'space' | 'camino' | null;
  * and guided paths: ?camino=foto|fondo|palabra (the public guides link there).
  * Both are removed from the address once handled.
  */
-export async function bootFromUrl(): Promise<BootOpened> {
+export async function bootFromUrl(signal?: AbortSignal): Promise<BootOpened> {
+  watchHash();
+  const hash = location.hash;
   startMediaSync();
   startHistoryWarnings();
   const camino = parseCamino(location.search);
   if (camino) history.replaceState(null, '', location.pathname + withoutCamino(location.search) + location.hash);
   let opened: BootOpened = null;
-  const h = new URLSearchParams(location.hash.slice(1));
+  const h = new URLSearchParams(hash.slice(1));
   if (h.toString()) {
     const space = h.get('space');
     if (h.get('r')) {
       opened = 'link';
       const r = await decodeRecipe(h.get('r')!);
+      if (signal?.aborted || location.hash !== hash) return null;
       if (r) {
         useStudio.setState({ space: spaceById(r.meta.space ?? space ?? 'arte').id });
         applyRecipe(r, 'enlace', r.meta.name ?? 'Desde un enlace');
-        const { frame } = readPieceHash(location.hash).view;
+        const { frame } = readPieceHash(hash).view;
         if (frame) rememberLinkFrame(r, frame);
         const own = r.media.ref && (r.source === 'image' || r.source === 'video');
         setTimeout(() => toast(own
           ? `Pieza abierta desde un enlace. ${r.source === 'video' ? 'El video' : 'La imagen'} no viaja en los enlaces: elige ${r.source === 'video' ? 'uno tuyo' : 'una tuya'}.`
           : 'Pieza abierta desde un enlace. Guárdala con ★ para conservarla.'), 400);
-      } else setTimeout(() => toast('El enlace no contiene una receta válida.'), 400);
+      } else setTimeout(() => toast('El enlace no contiene una receta válida de esta versión. Puede estar dañado o requerir una versión más nueva de GLYPHOS.'), 400);
     } else if (h.get('foto')) {
       // «Abrir estilo en el laboratorio» from the photo studio (src/foto/bridge.ts): the recipe waits in IndexedDB
       opened = 'link';
-      const { takeHandoff } = await import('../foto/handoff');
+      const { takeHandoff } = await loadHandoff();
+      if (signal?.aborted || location.hash !== hash) return null;
       const got = await takeHandoff(h.get('foto')!);
+      if (signal?.aborted || location.hash !== hash) return null;
       if (got?.kind === 'foto-to-lab') {
         const own = got.recipe.source === 'image' || got.recipe.source === 'video';
         useStudio.setState({ space: own ? 'media' : spaceById(got.recipe.meta.space ?? 'arte').id });
@@ -60,7 +84,9 @@ export async function bootFromUrl(): Promise<BootOpened> {
       opened = 'seed';
       if (space) useStudio.setState({ space: spaceById(space).id });
       if (h.get('arch')) useStudio.setState({ arch: h.get('arch') });
-      rollDice(h.get('seed')!, genOf(h.get('gen') ?? undefined));
+      const gen = genOf(h.get('gen') ?? undefined);
+      if (h.get('arch') && !archesForGen(gen).some(a => a.id === h.get('arch'))) toast(`Ese estilo no existe en la versión ${gen}; se eligió uno compatible.`, undefined, 6000);
+      rollDice(h.get('seed')!, gen);
     } else if (space) {
       opened = 'space';
       const id = spaceById(space).id as SpaceId;
@@ -71,7 +97,7 @@ export async function bootFromUrl(): Promise<BootOpened> {
         edit(r => { r.source = source; });
       }
     }
-    history.replaceState(null, '', location.pathname + location.search);
+    if (location.hash === hash) history.replaceState(null, '', location.pathname + location.search);
   }
   // a shared piece or seed wins over a path (the person came to see that piece)
   if (camino && opened !== 'link' && opened !== 'seed') {

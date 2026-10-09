@@ -76,6 +76,41 @@ const inkAround = (page: Page, sel: string, fx: number, fy: number, r = 20) => p
   return n / (d.length / 4);
 }, [sel, fx, fy, r] as const);
 
+test('HTML pegado: quitar Imán o Pantalla de carga libera oyentes, observador e intervalo', async ({ page, browser }) => {
+  await openStudio(page);
+  const magnet = (await tabsOf(page, 'Imán'))['HTML para pegar'];
+  const loader = (await tabsOf(page, 'Pantalla de carga'))['HTML para pegar'];
+  const monitor = `<script>
+    window.resources = { listeners: 0, observers: 0, intervals: 0 };
+    const listeners = new Map();
+    const countListeners = () => [...listeners.values()].reduce((n, fs) => n + fs.size, 0);
+    const add = window.addEventListener, remove = window.removeEventListener;
+    window.addEventListener = function(t, fn, o) { if (t === 'scroll' || t === 'resize') { if (!listeners.has(t)) listeners.set(t, new Set()); listeners.get(t).add(fn); window.resources.listeners = countListeners(); } return add.call(this,t,fn,o); };
+    window.removeEventListener = function(t, fn, o) { listeners.get(t)?.delete(fn); window.resources.listeners = countListeners(); return remove.call(this,t,fn,o); };
+    const MO = MutationObserver;
+    window.MutationObserver = class extends MO {
+      observe(...a) { if (!this.active) { this.active = true; window.resources.observers++; } return super.observe(...a); }
+      disconnect() { if (this.active) { this.active = false; window.resources.observers--; } return super.disconnect(); }
+    };
+    const intervals = new Set(), interval = setInterval, clear = clearInterval;
+    window.setInterval = function(...a) { const id = interval(...a); intervals.add(id); window.resources.intervals = intervals.size; return id; };
+    window.clearInterval = function(id) { intervals.delete(id); window.resources.intervals = intervals.size; return clear(id); };
+  </script>`;
+  const { ctx, page: external, errors } = await otherSite(browser, { '/magnet': doc(monitor + magnet), '/loader': doc(monitor + loader) });
+  await external.goto(SITE + '/magnet');
+  const resources = () => external.evaluate(() => (window as any).resources);
+  await expect.poll(resources).toEqual({ listeners: 2, observers: 1, intervals: 0 });
+  // Use the page directly: Locator installs Playwright's own MutationObserver, outside the component.
+  await external.evaluate(() => document.querySelector('.iman')!.remove());
+  await expect.poll(resources).toEqual({ listeners: 0, observers: 0, intervals: 0 });
+  await external.goto(SITE + '/loader');
+  await expect.poll(resources).toEqual({ listeners: 0, observers: 1, intervals: 1 });
+  await external.evaluate(() => document.querySelector('.carga')!.remove());
+  await expect.poll(resources).toEqual({ listeners: 0, observers: 0, intervals: 0 });
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
 test.describe('piezas nuevas en otra web', () => {
   let code: Record<string, Record<string, string>> = {};
   test.beforeAll(async ({ browser }, info) => {

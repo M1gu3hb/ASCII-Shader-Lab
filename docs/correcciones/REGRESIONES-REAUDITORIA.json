@@ -1,0 +1,7083 @@
+{
+  "method": "Distinct file + suite path + title + project; latest affected-area verification supersedes the earlier failure. Different batches, not one all-green full run on the final SHA. Initial full CI: 380 passed, 14 intentional skips, 3 failures, 2 serial cases not run. All five then passed in the complete affected specs. No retries or relaxed tolerances.",
+  "fullRun": "https://github.com/M1gu3hb/ASCII-Shader-Lab/actions/runs/37878013847",
+  "checkpointCommit": "621c3ca89210f334a3211bf283f351b82dd1fc4a",
+  "distinctCases": 400,
+  "finalCounts": {
+    "passed": 386,
+    "skipped": 14
+  },
+  "sources": [
+    {
+      "file": "reaudit-shard-1-results.json",
+      "sha256": "e1e079961c7aab2290bf6d9b9303363a657785d9e8bc938b2cd4f5f28a3d9a5f",
+      "stats": {
+        "startTime": "2026-10-09T03:11:27.755Z",
+        "duration": 1407126.917,
+        "expected": 105,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "file": "reaudit-shard-2-results.json",
+      "sha256": "90c4980d28e4a065d39928f7d592b7ebc49bfc845fe85e3d38395b04d7a77701",
+      "stats": {
+        "startTime": "2026-10-09T03:10:53.692Z",
+        "duration": 1410395.557,
+        "expected": 88,
+        "skipped": 10,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "file": "reaudit-shard-3-results.json",
+      "sha256": "be8b042a93b3a141c64ffe1361659b32af9208a8e85a50d14aeff5347d57fbb4",
+      "stats": {
+        "startTime": "2026-10-09T03:10:57.934Z",
+        "duration": 2346791.5859999997,
+        "expected": 98,
+        "skipped": 2,
+        "unexpected": 3,
+        "flaky": 0
+      }
+    },
+    {
+      "file": "reaudit-shard-4-results.json",
+      "sha256": "9281df03780d8fdb47ad03deb58569ae33aee0f6dca92012d2b090907ee6beae",
+      "stats": {
+        "startTime": "2026-10-09T03:11:08.881Z",
+        "duration": 1730572.0089999998,
+        "expected": 89,
+        "skipped": 4,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "file": "glyphos-focused-final.json",
+      "sha256": "80920eab2b0839dba4383e700647ab54b621a09148b3b1b716c5ab7c8daea398",
+      "stats": {
+        "startTime": "2026-10-09T04:08:05.429Z",
+        "duration": 145254.674,
+        "expected": 34,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "file": "glyphos-input-fixed.json",
+      "sha256": "73e82d736094b4173be2d2b0df607e5f11a83dd25e0ec4036ac90802305ed7b4",
+      "stats": {
+        "startTime": "2026-10-09T04:10:55.482Z",
+        "duration": 18642.267,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "file": "glyphos-input-surfaces.json",
+      "sha256": "07032dd7a1059fcbfcac446c1219607a35641b1bd14520c8b171b5c71df5c797",
+      "stats": {
+        "startTime": "2026-10-09T04:16:23.449Z",
+        "duration": 299703.63300000003,
+        "expected": 23,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    }
+  ],
+  "cases": [
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "bienvenida, un paso de guía y la hoja de compartir, sin fallos graves"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "con el teclado dentro de las hojas: cada parada tiene nombre y foco visible"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "con el teclado: cada parada tiene nombre y foco visible, y nunca cae en una vista previa"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "el estudio: hojas de exportar, colección y atajos, sin fallos graves"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "el estudio: vista inicial y pestañas del panel, sin fallos graves"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "el estudio: vistas de destino, sin fallos graves"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "el texto pequeño sobre la pieza conserva el contraste aunque pase algo blanco detrás"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "galería de piezas: tarjetas con un solo botón, sin controles anidados; teclado y ratón"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "las hojas atrapan el foco, Escape las cierra y el foco vuelve a su botón"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "legibilidad y zona protegida: detalles, ajustes finos y guía del fondo, sin fallos graves"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "portada con sus bloques interactivos cargados (espacios, azar, salidas), sin fallos graves"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "a11y.spec.ts",
+      "title": [
+        "accesibilidad",
+        "portada, una guía y la licencia, sin fallos graves"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "a reversed clip draws the forward frames in reverse order, pixel for pixel"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "every template renders at five times on its layer, and at mid-clip on every kind it supports"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "on a phone",
+        "touch: one finger pans, two fingers zoom, a long press opens the clip menu; targets are 44 px"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "reduced motion: library previews show one still frame each"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "the timeline: add a key at the playhead with K, drag it, change its curve, delete it"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "the timeline: drag a clip with snapping and one undo step; resize from an edge"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "the timeline: play, pause, reverse, loop region, speed, and the keyboard"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "anim.spec.ts",
+      "title": [
+        "the timeline: the library adds a clip with animated previews, and closes to nothing"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "basic: PNG y rejilla llevan Estela, y coinciden con su historia preparada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "basic: ocultar todas las capas deja una rejilla vacía incluso con inversión y glifos sin espacios"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "colección: la estrella distingue cambios y desactivar atajos persiste tras recargar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "colores de imagen: controles inactivos y límites de texto explícitos"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "el inicio del video exportado es explícito y la duración mostrada conserva el bucle"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "el web component aplica recipe, paused y scrim tras conectarse y se libera al salir"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "escribir antes del primer paint no pierde caracteres por la selección pendiente"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-fixed.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "importar una sesión conserva la versión local después de persistir y volver a hidratar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "la placa del mensaje explica cuándo tiene efecto y se habilita con resplandor"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "la repetición de R no crea resultados y los atajos Deshacer no actúan con una hoja abierta"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "miniaturas: una valla GPU que no responde termina sin leer píxeles ni bloquear"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "objetivos pequeños del escritorio tienen al menos 24 px"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "sin portapapeles, L abre un enlace seleccionable y Compartir no afirma que lo copió"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "un GIF de video empieza a 0 s aunque la vista esté avanzada y restaura el video después"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "un GIF de video empieza a 0 s aunque la vista esté avanzada y restaura el video después (duración aún desconocida)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "un enlace pegado con el estudio abierto crea una entrada y conserva la edición anterior"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "web component: cambiar el origen carga el medio correcto y cambiar la receta actualiza su velocidad"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "web component: corregir una receta futura permite arrancar sin reconectar el elemento"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "webgl2: PNG y rejilla llevan Estela, y coinciden con su historia preparada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "audit-regressions.spec.ts",
+      "title": [
+        "webgl2: ocultar todas las capas deja una rejilla vacía incluso con inversión y glifos sin espacios"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "azar.spec.ts",
+      "title": [
+        "Texto: tirar el dado cambia la palabra que nadie escribió (la de la receta de inicio); la que escribes se queda"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "azar.spec.ts",
+      "title": [
+        "semillas y versiones del generador",
+        "la misma semilla sin versión teje con la actual, igual en dos navegadores"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "azar.spec.ts",
+      "title": [
+        "semillas y versiones del generador",
+        "un enlace con gen=1 teje la pieza de la versión 1, y la hoja de la semilla lo dice"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mobile.spec.ts",
+      "title": [
+        "en móvil, el aviso de modo básico se ve sin tapar la barra del dado"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "capacidades de exportación",
+        "WebP que el navegador no codifica aparece como no disponible"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "capacidades de exportación",
+        "sin MediaRecorder: la grabación en directo se explica"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "capacidades de exportación",
+        "sin WebCodecs: el video lo explica, sin botones MP4/WebM, y el GIF funciona"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "capacidades de exportación",
+        "sin códecs: filas que explican, sin botones MP4/WebM"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "capacidades de exportación",
+        "sin portapapeles, copiar selecciona el texto y lo dice"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "capacidades de exportación",
+        "un tamaño que no se puede codificar ofrece uno menor con un clic"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "el único callejón sin salida que queda: ni siquiera Canvas 2D, y se dice por qué"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "motor básico pedido",
+        "?motor=basico: el aviso dice que lo pediste y «Usar el motor completo» lo quita"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "motor básico pedido",
+        "como preferencia guardada: se quita igual"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "basic-mode.spec.ts",
+      "title": [
+        "motor básico pedido",
+        "si WebGL pierde el contexto y no vuelve, el escenario pasa al motor básico"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "camera.spec.ts",
+      "title": [
+        "la cámara",
+        "el espejo de la cámara es de la cámara: una foto que tome su lugar sale derecha"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "camera.spec.ts",
+      "title": [
+        "la cámara",
+        "la frontal empieza en espejo, y la imagen fija y la grabación salen como el escenario"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "camera.spec.ts",
+      "title": [
+        "la cámara",
+        "la trasera, sin espejo; lo que eliges se mantiene al apagar y encender, y el espejo automático no cuenta como edición"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "capture-lifecycle.spec.ts",
+      "title": [
+        "cámara encendida: Componentes cierra todas las pistas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "capture-lifecycle.spec.ts",
+      "title": [
+        "cámara esperando permiso: Componentes cierra todas las pistas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "capture-lifecycle.spec.ts",
+      "title": [
+        "micrófono: al entrar en Imagen se detienen todas las pistas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "capture-lifecycle.spec.ts",
+      "title": [
+        "un video con sonido se pausa al pasar a Componentes y vuelve al regresar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "collection.spec.ts",
+      "title": [
+        "colección",
+        "un favorito cuyo resultado ya no está en el historial se abre igual, con su imagen"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "collection.spec.ts",
+      "title": [
+        "colección",
+        "«Guardar colección» lleva las piezas y sus imágenes; en otro navegador se abre con ellas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "color-editor-mobile.spec.ts",
+      "title": [
+        "en el móvil: desplazar la hoja sobre el editor no cambia el color; la tira de tonos y el cuadro sólo cambian con un gesto deliberado"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "color-editor.spec.ts",
+      "title": [
+        "editor de color propio",
+        "accesible: nombres, estados y sin fallos de axe en la sección de color con el editor abierto"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "color-editor.spec.ts",
+      "title": [
+        "editor de color propio",
+        "añadir, mover y quitar colores; ideas; la biblioteca por ánimo; «Fijar color» al tirar el dado"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "color-editor.spec.ts",
+      "title": [
+        "editor de color propio",
+        "no queda ningún selector de color nativo en el laboratorio"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "color-editor.spec.ts",
+      "title": [
+        "editor de color propio",
+        "ratón y lápiz arrastran en el cuadro; el fondo también se edita"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "color-editor.spec.ts",
+      "title": [
+        "editor de color propio",
+        "teclado: el cuadro y la tira de tonos cambian el color en vivo, deshacer lo devuelve; el código acepta hex, rgb y hsl"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "abre sin errores en un navegador dentro de otra app (sin pantalla completa, portapapeles, almacenamiento ni WebGL 2)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "con «reducir movimiento» abre en pausa y lo dice"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "en pausa no dibuja nada, tampoco una pieza de video o de cámara, cuyo medio no viaja (los dos motores)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "girar el teléfono: la pieza se dibuja con todos sus píxeles, con la misma composición"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "mueve la pieza, se pausa y reanuda (botón y espacio), esconde los controles y abre el estudio o la portada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "un encuadre que ningún estudio da (celdas diminutas en un lienzo enorme) abre en el encuadre de siempre, sin colgarse"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "un enlace roto, uno vacío, y una semilla que llega al visor"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "el visor",
+        "una pieza con gestos recibe el dedo: pellizcar la acerca (no la página); ni arrastrar ni tocarla esconde los controles, tocar fuera sí, y en movimiento se quedan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "la hoja «Compartir»",
+        "copiar, compartir del sistema, WhatsApp y otras apps; semilla, receta y archivo, cada uno dicho"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "la página del visor",
+        "se sirve fuera de los buscadores, con su dirección canónica y la imagen de la marca para las apps"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "los enlaces de antes",
+        "#r= y #seed= siguen abriendo el estudio como siempre"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "una pieza compartida se ve igual en cualquier pantalla",
+        "Arte, editada: hecha en 1440×900, abierta en las demás pantallas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "una pieza compartida se ve igual en cualquier pantalla",
+        "Arte, generador 5: hecha en 360×740, abierta en las demás pantallas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "una pieza compartida se ve igual en cualquier pantalla",
+        "Fondos que responden al toque: hecha en 1024×768, abierta en las demás pantallas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "una pieza compartida se ve igual en cualquier pantalla",
+        "Fondos: hecha en 820×1180, abierta en las demás pantallas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "una pieza compartida se ve igual en cualquier pantalla",
+        "Terminal, editada: hecha en 390×844, abierta en las demás pantallas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "compartir.spec.ts",
+      "title": [
+        "una pieza compartida se ve igual en cualquier pantalla",
+        "Texto (Tipo): hecha en 1024×768, abierta en las demás pantallas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "Descifrar en otra web",
+        "en bucle se repite unos segundos y se queda quieto; el cursor lo repite una vez"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "Foco en otra web",
+        "sin nadie no dibuja nada; con el cursor la luz y la trama se mueven; al irse se queda quieta"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "HTML pegado: quitar Imán o Pantalla de carga libera oyentes, observador e intervalo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "Halo en otra web",
+        "el foco del teclado lo enciende (quieto con «reducir movimiento») y destroy() lo suelta del todo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "Enlaces con interferencia: se revuelven con el cursor y el teclado sin cambiar su nombre; quietos con «reducir movimiento»"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "Foco: la luz sigue al cursor y al foco del teclado; el contenido no cambia"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "Letras de bloque: el rótulo en la página se lee como su texto; el módulo sirve en Node"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "Pantalla de carga: es una barra de progreso accesible, llega al 100 % y se oculta; quieta con «reducir movimiento»"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "Revelar: la foto aparece bajo el cursor y entera con el teclado; sin CORS se ve la foto tal cual"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "Separador: desfila, se para con el cursor, con el foco y con su botón (que dice lo que se llama); en un móvil el botón se ve y tocar la franja lo pausa; quieto con «reducir movimiento»"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "cada pieza lleva la cabecera MIT-0 en su código y su módulo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "components-lib.spec.ts",
+      "title": [
+        "piezas nuevas en otra web",
+        "«Módulo ES» importado desde otra web y «React» compilado, en las seis piezas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls-mobile.spec.ts",
+      "title": [
+        "360×800",
+        "filas que no caben: se desplazan, avisan de «más» y nada más recorta"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls-mobile.spec.ts",
+      "title": [
+        "360×800",
+        "las listas se abren como hoja abajo, con opciones de 44 px, y «?» es un objetivo de 44 px"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "filas que no caben: se desplazan, avisan de «más» y nada más recorta"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "las listas se abren como hoja abajo, con opciones de 44 px, y «?» es un objetivo de 44 px"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "acceso horizontal",
+        "de 1024 a 768 px, ninguna fila recorta opciones sin avisar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "acceso horizontal",
+        "de 1920 a 1280 px, ninguna fila recorta opciones sin avisar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "acceso horizontal",
+        "en pantallas anchas no hay nada que desplazar: recetas y secciones caben enteras"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "acceso horizontal",
+        "una fila que no cabe lo dice, se desplaza con la rueda sólo mientras puede y con sus flechas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "controles que se explican",
+        "la pista aparece con el teclado y «?» abre la explicación y los ejemplos dentro del panel"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "controles que se explican",
+        "los estados pulsados y elegidos se leen (también con el ratón encima)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "teclado",
+        "las listas del estudio: abrir, recorrer, escribir para saltar, elegir, Escape y foco de vuelta"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "teclado",
+        "secciones, recetas, vistas y formatos: cada opción se alcanza con el teclado y queda a la vista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "vistas",
+        "Historia / Reel 9:16: limpia por defecto, con las zonas de las apps sólo si las pides"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "controls.spec.ts",
+      "title": [
+        "vistas",
+        "Pantalla de móvil: una página de 390×844 con su contenido, que se exporta como código o imagen ×3"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-1-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "core-integrity.spec.ts",
+      "title": [
+        "a mask whose picture was missing is drawn once the picture is there (the mask cache does not keep it empty)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "core-integrity.spec.ts",
+      "title": [
+        "a media collection (the lab’s, in another tab) keeps the files undo can bring back"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "core-integrity.spec.ts",
+      "title": [
+        "a video trimmed without re-encoding (MP4 edit list) exports from the cut, as the preview shows it, with its sound"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "core-integrity.spec.ts",
+      "title": [
+        "the exported mask of a tracked object at t is the mask of that frame"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "core-integrity.spec.ts",
+      "title": [
+        "the text of a glyph layer under a tracked mask keeps the characters the mask shows at t"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "core-integrity.spec.ts",
+      "title": [
+        "«Capa sola» of a layer that reads what is under it: its characters of the photo, and over the rest it gives the full render"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "creative-mobile.spec.ts",
+      "title": [
+        "en un teléfono: Transformar, las letras que se mueven y la rampa caben y se tocan bien"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "creative.spec.ts",
+      "title": [
+        "letras que se mueven",
+        "Tipo: el texto grande y el mensaje eligen su movimiento; «Palabra a palabra»"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "creative.spec.ts",
+      "title": [
+        "rampa de caracteres",
+        "se escribe, se mide, se ordena, se guarda en este navegador, se reutiliza y se borra"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "creative.spec.ts",
+      "title": [
+        "transformaciones de la fuente",
+        "con el motor básico también se transforman (y se dibujan)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "creative.spec.ts",
+      "title": [
+        "transformaciones de la fuente",
+        "el dado de Transformar propone una combinación, y los recetarios de Imagen la traen"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "creative.spec.ts",
+      "title": [
+        "transformaciones de la fuente",
+        "una foto: se añaden (ratón y teclado), se reordenan, se apagan, viajan en el enlace y se quitan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "al ir atrás y adelante, cada pieza recupera su propia imagen"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "al pasar el límite se descartan los más antiguos, nunca lo guardado con ★"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "guardar la sesión y abrirla en otro navegador"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "un historial guardado con el formato anterior se conserva entero"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "un proyecto exportado se abre con su imagen en otro navegador"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "un proyecto o un ajuste del estudio de foto (también .glyphos) se reconoce y lleva allí (o dice que está en revisión), sin tocar el historial"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "una imagen cargada vuelve sola al recargar la página"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "una pieza con imagen: el enlace no la lleva, «Compartir» lo dice y ofrece enviar un archivo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "historial y medios locales",
+        "«Llevar al estudio de foto» con una foto que el navegador no guardó lo dice, en lugar de abrir un proyecto sin ella"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "lectura insegura: conservar los datos anteriores",
+        "lectura fallida: historial y colección intactos después de editar y esperar 20 s"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "data.spec.ts",
+      "title": [
+        "lectura insegura: conservar los datos anteriores",
+        "versión futura: historial y colección intactos después de editar y esperar 20 s"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "engine-edges.spec.ts",
+      "title": [
+        "celdas de 2 a 6 px (proporción de píxel 1 y 0,5): se dibujan los caracteres, igual que en el motor básico"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "engine-edges.spec.ts",
+      "title": [
+        "celdas grandes: el primer carácter de la segunda fila del atlas se encuentra, igual que en el motor básico"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "engine-edges.spec.ts",
+      "title": [
+        "sin caracteres, la pieza en vivo y la misma pieza al volver a abrirla se ven igual (la rampa por defecto)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "engine-edges.spec.ts",
+      "title": [
+        "una instantánea de un contexto WebGL perdido es «nada», nunca una imagen en blanco"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "1 · retrato con pelo: el modelo de retrato recorta, el borde se afina y el PNG transparente tiene alfa real"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "Faltan los archivos locales de «portrait» en /home/runner/work/ASCII-Shader-Lab/ASCII-Shader-Lab/.cache/modelos: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm --only select,portrait"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "2 · objeto con fondo complejo: puntos sobre la guitarra (uno «no es esto») y una segunda parte"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "Faltan los archivos locales de «select» en /home/runner/work/ASCII-Shader-Lab/ASCII-Shader-Lab/.cache/modelos: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm --only select,portrait"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "3 · varias máscaras en una foto: tres zonas con estilos distintos y una zona en degradado"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "4 · PNG transparente: caracteres sólo sobre el sujeto recortado, sobre nada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "Faltan los archivos locales de «portrait» en /home/runner/work/ASCII-Shader-Lab/ASCII-Shader-Lab/.cache/modelos: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm --only select,portrait"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "5 · composición editorial: un cartel aplicado y editado se exporta igual a la vista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "6 · animación invertida: los cuadros del clip al revés son los de ida en orden inverso"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "7 · reapertura de proyecto: se guarda solo, se recarga y se abre desde su archivo con los mismos píxeles"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "8 · recetas anteriores: versiones 1–4 del generador, receta del laboratorio original, proyecto .monotrama, sesión vieja y enlace #r= se abren; «Llevar al estudio de foto» también"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "escenarios.spec.ts",
+      "title": [
+        "9 · experiencia móvil vertical (390×844): empezar, una foto, una herramienta con el dedo, el dado, exportar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "export-jobs.spec.ts",
+      "title": [
+        "exportaciones largas",
+        "cerrar la ventana cancela el GIF en curso: nada se descarga después"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export-jobs.spec.ts",
+      "title": [
+        "exportaciones largas",
+        "el GIF de una pieza con video sigue el video fotograma a fotograma"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export-jobs.spec.ts",
+      "title": [
+        "exportaciones largas",
+        "la grabación en directo sigue con la ventana cerrada y se detiene desde el lienzo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export-jobs.spec.ts",
+      "title": [
+        "exportaciones largas",
+        "si el motor básico no se puede descargar cuando WebGL se pierde, lo dice (no «ni Canvas 2D»)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export-jobs.spec.ts",
+      "title": [
+        "exportaciones largas",
+        "si una parte del estudio no se puede descargar, lo dice y el resto sigue en pie"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export-jobs.spec.ts",
+      "title": [
+        "exportaciones largas",
+        "una foto en «Bloques» sobre fondo claro sale sin franja negra abajo en el PNG grande"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "GIF animado"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "abre los ajustes JSON del laboratorio original"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "con Estela, un bucle perfecto exportado enlaza: su primer fotograma ya lleva la estela"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "código: póster PNG de respaldo; video: MP4 sólo si el navegador codifica H.264"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "el HTML exportado funciona solo en otra página"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "el código exportado vuelve a dibujar cuando su tipografía llega tarde"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "imagen, vector, texto y receta"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "export.spec.ts",
+      "title": [
+        "exportar",
+        "una pieza se dibuja igual la primera vez que se abre y al volver a ella"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "bienvenida",
+        "la primera visita pregunta qué quieres hacer; recargar o abrir un enlace no"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "bienvenida",
+        "«Explorar libremente» tira el dado; «Guías», G y la ayuda la vuelven a abrir; Escape devuelve el foco"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "caminos",
+        "fondo desde /studio/?camino=fondo: estilo, presencia legible, movimiento y código copiado"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "caminos",
+        "foto, sólo con el teclado: la foto de ejemplo hasta un PNG y el texto copiado"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "caminos",
+        "palabra desde /studio/?camino=palabra: una palabra propia hasta un GIF en bucle"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "caminos",
+        "«Ver todos los controles» sale de la guía con la pieza y el panel completo abierto"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "comparar",
+        "«?» en Glifos: tres tamaños de celda y los juegos de caracteres para comparar, aplicables con un clic"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "comparar",
+        "«ver original» muestra la pieza sin editar mientras se mantiene, sin tocar el historial"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "guide.spec.ts",
+      "title": [
+        "en el teléfono",
+        "la bienvenida y la guía caben en 390 px y se usan con el pulgar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history-edits.spec.ts",
+      "title": [
+        "ediciones en el historial",
+        "guardar la sesión con una pieza editada y abrirla en otro navegador: la versión editada, con su semilla"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history-edits.spec.ts",
+      "title": [
+        "ediciones en el historial",
+        "restaurar el original y deshacerlo; la colección guarda la versión editada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history-edits.spec.ts",
+      "title": [
+        "ediciones en el historial",
+        "tirar, editar, tirar más (también rápido), volver con la flecha y con la miniatura: la versión editada, con su semilla; tras recargar también"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history.spec.ts",
+      "title": [
+        "azar con memoria",
+        "deshacer y rehacer ediciones"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history.spec.ts",
+      "title": [
+        "azar con memoria",
+        "la misma semilla reproduce la misma pieza"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history.spec.ts",
+      "title": [
+        "azar con memoria",
+        "tirar diez veces, volver a la cuarta, avanzar, guardar y recuperar tras recargar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history.spec.ts",
+      "title": [
+        "azar con memoria",
+        "un enlace compartido abre exactamente la misma pieza"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "history.spec.ts",
+      "title": [
+        "azar con memoria",
+        "«Laboratorio» en la barra (la página en la que estás) no la recarga: deshacer sigue ahí"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "El estudio de foto y video está en pausa en esta compilación (VITE_FOTO_STUDIO sin definir): estas pruebas corren contra la compilación con el estudio, VITE_FOTO_STUDIO=1 PW_PORT=<otro puerto> npx playwright test foto-"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "interacciones-mobile.spec.ts",
+      "title": [
+        "con dos dedos: «Zoom con los dedos» acerca la pieza bajo ellos"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones-mobile.spec.ts",
+      "title": [
+        "con el dedo: el trazo deja rastro en la pieza sin mover la página, y deslizar en los ajustes los desplaza"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones-mobile.spec.ts",
+      "title": [
+        "el código pegado en un teléfono: un toque abre anillos y deslizar en vertical sigue desplazando la página"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones.spec.ts",
+      "title": [
+        "cada modo deja su marca donde se toca, igual en WebGL y en el motor básico, y se repite igual"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones.spec.ts",
+      "title": [
+        "el código pegado sin su tipografía web (sin conexión) pone los mismos caracteres en las mismas celdas que el estudio"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones.spec.ts",
+      "title": [
+        "en el estudio, con el ratón: cada gesto cambia la pieza donde ocurre y, quieta, la pieza deja de dibujar"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones.spec.ts",
+      "title": [
+        "grano, parpadeo, ciclo de color y mensaje siguen el reloj de la pieza: el mismo instante, los mismos píxeles"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones.spec.ts",
+      "title": [
+        "la hoja de exportar dice qué guarda cada formato, y el código pegado responde al puntero"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "interacciones.spec.ts",
+      "title": [
+        "«Cursor y tacto»: modos por gesto, cada uno con sus ajustes y su ejemplo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "abrir una sesión más antigua en un historial lleno descarta lo más antiguo por fecha, y lo dice antes"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "dos pestañas: la más nueva toma el estudio y ninguna borra lo de la otra"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "lo último antes de recargar o cerrar se guarda"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "sin IndexedDB, el estudio dice que no guarda"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "sin espacio, el estudio lo dice y lo guardado sigue ahí"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "un historial del formato anterior que siguió creciendo se une al actual"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "una pestaña en pausa no borra las imágenes que usa la otra"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "keeping.spec.ts",
+      "title": [
+        "lo que guarda el navegador",
+        "«Vaciar historial» borra también la foto recién cargada que ya nadie usa"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "320 px de ancho: la barra superior y el menú «Foto y video» caben enteros, Colección incluida"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "344 px de ancho: la barra superior y el menú «Foto y video» caben enteros, Colección incluida"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "360 px de ancho: la barra superior y el menú «Foto y video» caben enteros, Colección incluida"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "360×740",
+        "ajustes: una hoja con tres alturas; a media altura la pieza se ve entera encima"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "360×740",
+        "la pieza ocupa la pantalla y lo frecuente queda abajo, al alcance del pulgar"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "390 px de ancho: la barra superior y el menú «Foto y video» caben enteros, Colección incluida"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "accesibilidad con la hoja abierta y en inmersivo: sin fallos graves"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "ajustes: una hoja con tres alturas; a media altura la pieza se ve entera encima"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "exportar desde el dock: la hoja a pantalla completa, todos los formatos a la vista, y compartir donde se puede"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "inmersivo: sólo la pieza, el azar, anterior, siguiente y ajustes; Escape vuelve"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "la pieza ocupa la pantalla y lo frecuente queda abajo, al alcance del pulgar"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "390×844",
+        "«Más» reúne lo que no cabe en el dock, y el historial en miniaturas se puede mostrar"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "430×932",
+        "ajustes: una hoja con tres alturas; a media altura la pieza se ve entera encima"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "430×932",
+        "la pieza ocupa la pantalla y lo frecuente queda abajo, al alcance del pulgar"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "lab-mobile.spec.ts",
+      "title": [
+        "de lado (844×390)",
+        "el dock en una fila, los ajustes en una columna junto a la pieza"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "azar: empieza con resultados a los que volver, tirar añade más y la hoja de contactos los teje"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "azar: pasados 40 resultados la tira guarda los últimos 40, cada uno con su número"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "espacios: pestañas con teclado, un escenario vivo y el enlace a cada espacio del estudio"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "pausar también detiene la página de ejemplo del destino Web, y «Animar» la vuelve a mover"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "pausar también detiene las piezas de interfaz del escenario (Piezas), y «Animar» las vuelve a mover"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "pausar: el botón de la cabecera detiene los lienzos y el video; con «reducir movimiento» la portada empieza quieta"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "qué puedes hacer con «reducir movimiento»: la imagen del ejemplo, sin video"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "qué puedes hacer en una pantalla táctil: el primer toque muestra el ejemplo, el segundo abre la guía"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "qué puedes hacer: el ejemplo de cada guía se ve con el cursor y con el teclado, y Enter abre la guía"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "salidas: cada destino muestra su archivo real, y el Web Component exportado teje la pieza"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "titular con «reducir movimiento»: el texto real, quieto, sin lienzo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "titular: fuera de la pantalla y en pausa se queda legible y quieto"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "landing.spec.ts",
+      "title": [
+        "titular: «Haz arte ASCII» se teje en caracteres y vuelve a leerse, con el texto real y sin mover nada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout-mobile.spec.ts",
+      "title": [
+        "en el teléfono",
+        "el primer aviso del dado no nombra teclas en el teléfono ni sale en Componentes"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout-mobile.spec.ts",
+      "title": [
+        "en el teléfono",
+        "en la guía de fondos, la página de prueba enseña titular y botones"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout-mobile.spec.ts",
+      "title": [
+        "en el teléfono",
+        "en la guía, la palabra se ve encima de la hoja de pasos"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout-mobile.spec.ts",
+      "title": [
+        "en el teléfono",
+        "la tarjeta para elegir una imagen no queda debajo de la línea de la semilla"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout-mobile.spec.ts",
+      "title": [
+        "en el teléfono",
+        "la vista Historia / Reel 9:16 cabe entera, con sus franjas de interfaz"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout-mobile.spec.ts",
+      "title": [
+        "en el teléfono",
+        "una pieza abierta desde abajo en Componentes empieza por su título, y volver deja la galería donde estaba"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout.spec.ts",
+      "title": [
+        "en pantallas de escritorio",
+        "con la pantalla al 125 %, la vista Terminal tiene las columnas y filas que exporta"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout.spec.ts",
+      "title": [
+        "en pantallas de escritorio",
+        "en la vista README, mover un ajuste no dispara una captura por cada paso"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout.spec.ts",
+      "title": [
+        "en pantallas de escritorio",
+        "en una ventana baja, la vista Historia / Reel 9:16 se achica sin cortarse"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout.spec.ts",
+      "title": [
+        "en pantallas de escritorio",
+        "inmersivo en escritorio: la pieza a toda la ventana, cuatro controles, y todo vuelve como estaba"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "layout.spec.ts",
+      "title": [
+        "en pantallas de escritorio",
+        "«Exportar» se ve entero en la barra superior de 901 a 1500 px, con o sin colección"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-2-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "legibilidad de las vistas con contenido",
+        "Bermellón con texto claro: nunca «se lee bien»; dice qué falla y por qué; la zona protegida lo arregla"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "legibilidad de las vistas con contenido",
+        "Pantalla de móvil: mide su propio contenido y la zona protegida también"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "legibilidad de las vistas con contenido",
+        "en un teléfono, los detalles terminan sobre la línea de la semilla y se desplazan dentro"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "legibilidad de las vistas con contenido",
+        "la zona protegida viaja al código: HTML, Web Component y React; el script la dibuja en otra página"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "legibilidad de las vistas con contenido",
+        "las vistas previas son imágenes etiquetadas, no contenido del estudio: sin h1/h2, inertes y ocultas"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "legibilidad de las vistas con contenido",
+        "los detalles de la estimación se leen enteros: los avisos del escenario no los tapan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "legibilidad de las vistas con contenido",
+        "sin poder leer el lienzo (WebGL perdido) no cuenta fotogramas: «se lee bien» espera a los medidos"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "regiones en vivo",
+        "al terminar o cerrar una guía, lo que oye un lector de pantalla ya no dice «Paso 1 de 4»"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "legibility.spec.ts",
+      "title": [
+        "regiones en vivo",
+        "moverse por el historial anuncia la posición; exportar no anuncia cada porcentaje"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "library.spec.ts",
+      "title": [
+        "biblioteca",
+        "Armonógrafo de prueba: la imagen, el GIF y el código exportados muestran lo mismo que la vista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "library.spec.ts",
+      "title": [
+        "biblioteca",
+        "Bruma de prueba: la imagen, el GIF y el código exportados muestran lo mismo que la vista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "library.spec.ts",
+      "title": [
+        "biblioteca",
+        "Constelación de prueba: la imagen, el GIF y el código exportados muestran lo mismo que la vista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "library.spec.ts",
+      "title": [
+        "biblioteca",
+        "Medusa de prueba: la imagen, el GIF y el código exportados muestran lo mismo que la vista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "library.spec.ts",
+      "title": [
+        "biblioteca",
+        "en un teléfono de pie una figura cabe a lo ancho, y la imagen exportada y el código pegado la muestran igual"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "library.spec.ts",
+      "title": [
+        "biblioteca",
+        "las recetas nuevas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "loop.spec.ts",
+      "title": [
+        "con «Bucle perfecto» el final de la pieza enlaza con su principio, en los dos motores"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "mobile.spec.ts",
+      "title": [
+        "en móvil: el dado, el historial y el panel funcionan con el pulgar"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "no-webgl.spec.ts",
+      "title": [
+        "el estudio usa el motor básico, lo explica y exporta PNG y TXT"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "no-webgl.spec.ts",
+      "title": [
+        "la portada dibuja el héroe, el escenario de los espacios, el azar y el final"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "no-webgl.spec.ts",
+      "title": [
+        "las guías cargan su demo en modo básico"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "perf.spec.ts",
+      "title": [
+        "peso de la primera vista",
+        "estudio con ?motor=basico: el motor básico se descarga y dibuja"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "perf.spec.ts",
+      "title": [
+        "peso de la primera vista",
+        "estudio: arranca sin el motor básico ni la hoja de exportar, que llega al abrirla"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "perf.spec.ts",
+      "title": [
+        "peso de la primera vista",
+        "estudio: con la página quieta, la hoja de exportar llega sola (sin abrirla)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "perf.spec.ts",
+      "title": [
+        "peso de la primera vista",
+        "portada: el motor llega aparte y sin el motor básico ni los exportadores"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "perf.spec.ts",
+      "title": [
+        "peso de la primera vista",
+        "portada: el titular tejido llega después de la carga, sin cambiar el LCP ni mover nada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "perf.spec.ts",
+      "title": [
+        "presupuesto del estudio: JS/CSS iniciales y sin modelos de foto en el build público"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "previews.spec.ts",
+      "title": [
+        "vistas de destino",
+        "Historia / Reel 9:16: el marco es exactamente lo que compone la exportación 1080×1920"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "previews.spec.ts",
+      "title": [
+        "vistas de destino",
+        "README avisa cuando el juego de caracteres no es ASCII"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "previews.spec.ts",
+      "title": [
+        "vistas de destino",
+        "README: el bloque de texto es el TXT exportado del mismo fotograma, y se copia como Markdown"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "previews.spec.ts",
+      "title": [
+        "vistas de destino",
+        "cada vista dimensiona el lienzo real como su destino y lleva a su exportación"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "previews.spec.ts",
+      "title": [
+        "vistas de destino",
+        "con «reducir movimiento» la pieza empieza en pausa, las vistas funcionan y la interfaz no anima"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "a saved project and a project file reopen with the same pixels"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "a transparent project exports real alpha (and JPEG falls back to the background)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "evaluate at a scrubbed time: clips hold before, run, and hold after; keyframes move"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "every sample renders, the same pixels twice, with nothing missing"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "media collections: the lab keeps project files, the studio keeps lab files, unused files go"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "photo sequences, cut-outs, the engine budget, autosave and the other exports"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "the exported PNG at scale 1 is render() at scale 1, pixel for pixel"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "video sources: the frame-exact and the preview providers both draw the frame of each time"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "failed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "project.spec.ts",
+      "title": [
+        "without WebGL 2 (the basic engine) every sample renders and the export still equals the render"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "reaudit-additional.spec.ts",
+      "title": [
+        "el atlas del sistema tiene los mismos píxeles en pantallas de densidad 1 y 2"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "reaudit-additional.spec.ts",
+      "title": [
+        "estudio: cada peso de fuente local anunciado carga un archivo real"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "reaudit-additional.spec.ts",
+      "title": [
+        "snapshot conserva los píxeles de un lienzo vivo aunque espere a la GPU"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "reaudit-additional.spec.ts",
+      "title": [
+        "terminar una exportación no reanuda el video después de salir a Componentes"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "reaudit-additional.spec.ts",
+      "title": [
+        "visor: cada peso de fuente local anunciado carga un archivo real"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-mobile.spec.ts",
+      "title": [
+        "360×740: nada se corta, con las recetas abiertas y cerradas"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-mobile.spec.ts",
+      "title": [
+        "390×844: nada se corta, con las recetas abiertas y cerradas"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-mobile.spec.ts",
+      "title": [
+        "740×360: nada se corta, con las recetas abiertas y cerradas"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-mobile.spec.ts",
+      "title": [
+        "844×390: nada se corta, con las recetas abiertas y cerradas"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-mobile.spec.ts",
+      "title": [
+        "la línea en la hoja; las recetas ocupan la hoja y la pieza sigue arriba; buscar con un botón"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-mobile.spec.ts",
+      "title": [
+        "una tarjeta tocada aplica su receta; la anterior queda un paso atrás"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor WebGL",
+        "Arte: sus 48 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor WebGL",
+        "Fondos: sus 30 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor WebGL",
+        "Imagen: sus 15 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor WebGL",
+        "Terminal: sus 15 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor WebGL",
+        "Texto: sus 18 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor básico",
+        "Arte: sus 48 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor básico",
+        "Fondos: sus 30 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor básico",
+        "Imagen: sus 15 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor básico",
+        "Terminal: sus 15 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas-todas.spec.ts",
+      "title": [
+        "motor básico",
+        "Texto: sus 18 recetas y escenas abren en su espacio y dibujan"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "Glifos en Terminal: sólo juegos ASCII en la comparación"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "Glifos: el selector de caracteres y su comparación sobre la pieza son uno"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "accesible: la línea, el explorador y la comparación de caracteres (axe)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "aplicar nunca pierde la pieza: la anterior queda en el historial y el aviso vuelve a ella"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "buscar desde otro espacio y en la hoja de ajustes estrecha"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "la línea nombra la receta de la pieza; abierta, las recetas ocupan el lugar de los ajustes"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "las imágenes se dibujan para lo que se ve y se guardan para volver"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "recientes y tu colección"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "secciones, filtros y búsqueda sin acentos; lo de otro espacio se abre en su espacio"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "recetas.spec.ts",
+      "title": [
+        "teclado: flechas en la cuadrícula, Enter aplica, Escape cierra; la historia no se mueve"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "sections.spec.ts",
+      "title": [
+        "cada grupo tiene su color, su icono y una línea que dice para qué es; Color muestra la paleta y Glifos sus caracteres"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "sections.spec.ts",
+      "title": [
+        "la línea de recetas nombra la receta de la pieza (y si se editó) y abre las recetas en lugar de los ajustes"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "sections.spec.ts",
+      "title": [
+        "los campos de número se pueden vaciar al escribir; al terminar se ajustan a su rango y lo dicen"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "failed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "sections.spec.ts",
+      "title": [
+        "los deslizadores con teclado y ratón: flechas, Enter para escribir el valor, clic directo en la pista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "sections.spec.ts",
+      "title": [
+        "los juegos de caracteres se ven como texto: sus símbolos y unos cuantos grandes, sin imágenes"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "sections.spec.ts",
+      "title": [
+        "«Texto» en el estudio: la barra, la lista de espacios y el panel; #space=tipo sigue abriéndolo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/arte-ascii-terminal/: a useful guide with one h1, a studio CTA, a poster, siblings and a lazy live demo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/arte-ascii-terminal/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/fondos-ascii/: a useful guide with one h1, a studio CTA, a poster, siblings and a lazy live demo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/fondos-ascii/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/imagen-a-ascii/: a useful guide with one h1, a studio CTA, a poster, siblings and a lazy live demo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/imagen-a-ascii/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/licencia/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/studio/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/texto-animado-ascii/: a useful guide with one h1, a studio CTA, a poster, siblings and a lazy live demo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/texto-animado-ascii/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/video-a-ascii/: a useful guide with one h1, a studio CTA, a poster, siblings and a lazy live demo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "/video-a-ascii/: canonical, share tags and JSON-LD are absolute and valid, and the CSP allows the page"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "con el estudio de foto en pausa ninguna página pública lo enlaza, y el sitemap no lo lista"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "every public page credits Morphiq in the footer"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "robots.txt and sitemap.xml point crawlers to absolute canonical URLs that exist"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "failed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "the landing links the five guides, and unknown pages get a real 404 that leads back"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "the studio shell summarises the studio for crawlers and gives way to the app"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "seo.spec.ts",
+      "title": [
+        "the video guide opens the studio asking for a video, with a picker that takes videos"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-focused-final.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "site.spec.ts",
+      "title": [
+        "el espacio de piezas genera código que funciona"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "site.spec.ts",
+      "title": [
+        "la portada carga, muestra el motor y lleva al estudio"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "site.spec.ts",
+      "title": [
+        "movimiento reducido: el estudio empieza en pausa"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "stage-quality.spec.ts",
+      "title": [
+        "transiciones y calidad de la vista previa",
+        "con movimiento reducido no hay transición y el ajuste lo dice"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "stage-quality.spec.ts",
+      "title": [
+        "transiciones y calidad de la vista previa",
+        "la calidad de la vista previa cambia la resolución del lienzo, no la receta"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "stage-quality.spec.ts",
+      "title": [
+        "transiciones y calidad de la vista previa",
+        "la transición se elige en los ajustes del azar y se recuerda"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "stage-quality.spec.ts",
+      "title": [
+        "transiciones y calidad de la vista previa",
+        "si la vista previa va lenta, un aviso ofrece bajar la calidad"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "apertura",
+        "con movimiento reducido no hay apertura ni velos, y los cambios son inmediatos"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "apertura",
+        "la interfaz se teje una vez por sesión, funciona debajo y una tecla la termina"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "apertura",
+        "una tecla termina la apertura al momento"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "avisos y barras",
+        "a 1280 px, los avisos quedan bajo la barra de vistas sin tapar controles"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "avisos y barras",
+        "a 1440 px, los avisos quedan bajo la barra de vistas sin tapar controles"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "avisos y barras",
+        "a 1920 px, los avisos quedan bajo la barra de vistas sin tapar controles"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "avisos y barras",
+        "el historial es una fila que avisa de lo que queda a los lados"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "avisos y barras",
+        "la barra superior: marca, seis espacios con icono y nombre, y una sola acción principal"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "cambios de contenido",
+        "la calidad «Ligera» baja el movimiento de toda la interfaz"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "studio-look.spec.ts",
+      "title": [
+        "cambios de contenido",
+        "una sección, un espacio y una vista se recomponen sin bloquear nada"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-3-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "thumbs.spec.ts",
+      "title": [
+        "miniaturas del historial",
+        "Variar, Explorar y abrir un favorito: cada entrada con la suya, y la colección también"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "thumbs.spec.ts",
+      "title": [
+        "miniaturas del historial",
+        "recargar en mitad de una ráfaga: las entradas guardadas reciben su miniatura"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "thumbs.spec.ts",
+      "title": [
+        "miniaturas del historial",
+        "ráfagas con clics, cambios de espacio y pasos atrás y adelante"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "thumbs.spec.ts",
+      "title": [
+        "miniaturas del historial",
+        "si WebGL se pierde a mitad de un cambio, el escenario sigue en el motor básico y las miniaturas también"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "thumbs.spec.ts",
+      "title": [
+        "miniaturas del historial",
+        "un historial guardado sin miniaturas (versiones anteriores) las recibe al verse en la tira"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "thumbs.spec.ts",
+      "title": [
+        "miniaturas del historial",
+        "una pieza con imagen muestra su propia imagen, aunque el escenario muestre otra"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "thumbs.spec.ts",
+      "title": [
+        "miniaturas del historial",
+        "una ráfaga de tiradas rápidas (tecla R) deja una miniatura en cada resultado, la suya"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "brushes: «Pasar a ASCII» adds, «Borrar efecto» subtracts, [ ] change the size; «Restaurar original» paints every effect layer in one step"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "colour: a click selects everything close to it; ⇧ adds another; the tolerance edits it live"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "gradient: a drag makes a graded zone (strength changes along it)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "keyboard: a centred shape placed, moved, resized, rotated and applied; the edit tool walks and deletes parts"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "many strokes flatten into pictures with the same pixels (automatically, within the next stroke's undo step)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "modifiers: ⇧ when starting adds, ⌥ subtracts, ⇧⌥ intersects; ⇧ during the drag makes a circle"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "object tool: nothing downloads before consent; points select the guitar; «Aceptar» stores an object part"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "Faltan los archivos locales de «select» en /home/runner/work/ASCII-Shader-Lab/ASCII-Shader-Lab/.cache/modelos: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm --only select,portrait"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "polygon (clicks, Backspace, close on the first vertex) and lasso (simplified, zoom-aware)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "precise contour: follows an edge, fixes points, closes into a dense polygon; each move stays under a frame"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "rectangle: a drag makes one rect part (one undo step); the layer now shows inside and not outside"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "the palette: every tool with its Spanish name, touch hint, shortcut and icon"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "the part editor: click selects the topmost part, a vertex drags, a double-click inserts one, Delete removes"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "the «Recorte» panel: models with reasons, consent, cut-out, refinement, a cut-out layer and a background mask in one step, PNG export"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "Faltan los archivos locales de «portrait» en /home/runner/work/ASCII-Shader-Lab/ASCII-Shader-Lab/.cache/modelos: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm --only select,portrait"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "tools.spec.ts",
+      "title": [
+        "touch: one finger draws, two fingers move the view and draw nothing; brushes too"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-mobile.spec.ts",
+      "title": [
+        "Android 360×800",
+        "estudio: sin desbordes, controles de 44 px y hojas a pantalla completa"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-mobile.spec.ts",
+      "title": [
+        "Android 360×800",
+        "modo básico: el aviso del dado no tapa el chip"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-mobile.spec.ts",
+      "title": [
+        "Android 360×800",
+        "portada y una guía: sin desbordes ni fallos graves de accesibilidad"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-mobile.spec.ts",
+      "title": [
+        "iPhone 13",
+        "estudio: sin desbordes, controles de 44 px y hojas a pantalla completa"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-mobile.spec.ts",
+      "title": [
+        "iPhone 13",
+        "modo básico: el aviso del dado no tapa el chip"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-mobile.spec.ts",
+      "title": [
+        "iPhone 13",
+        "portada y una guía: sin desbordes ni fallos graves de accesibilidad"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-sliders-mobile.spec.ts",
+      "title": [
+        "con el dedo: desplazar el panel sobre un deslizador no lo cambia; un gesto de lado sí, y con precisión"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-sliders-mobile.spec.ts",
+      "title": [
+        "con un lápiz: lo mismo que con el dedo (y un toque no cambia nada)"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "touch-sliders-mobile.spec.ts",
+      "title": [
+        "− y + dan pasos exactos; el valor se escribe, y fuera de su rango se ajusta y lo dice"
+      ],
+      "project": "mobile",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        },
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "glyphos-input-surfaces.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "transitions.spec.ts",
+      "title": [
+        "al cambiar de espacio y de vista (Arte → Terminal), los caracteres forman la pieza nueva aunque el lienzo cambie de tamaño"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "transitions.spec.ts",
+      "title": [
+        "al cambiar de receta, la transición se ve varios cuadros y termina en la pieza nueva"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "transitions.spec.ts",
+      "title": [
+        "con movimiento reducido no hay transición: la pieza nueva aparece de una vez"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "transitions.spec.ts",
+      "title": [
+        "también con el motor básico (sin WebGL): Arte → Terminal forma la pieza nueva al tamaño nuevo"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "urgent-recovery.spec.ts",
+      "title": [
+        "IndexedDB que no responde: el estudio abre protegido y permite descargar una sesión"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "urgent-recovery.spec.ts",
+      "title": [
+        "el chunk de handoff bloqueado deja una salida en lugar de Cargando para siempre"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "urgent-recovery.spec.ts",
+      "title": [
+        "un shader fallido se intenta una vez y otra combinación sigue dibujando"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "urgent-recovery.spec.ts",
+      "title": [
+        "una excepción de render en la raíz conserva las recetas y ofrece una descarga independiente del motor"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "GIF: global palette with Bayer dithering, exact length in centiseconds, loops; frames ≈ render()"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "MP4 with what this browser encodes (AV1 here), the Opus sound copied into it"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "PNG sequence: pixel-identical to render() (preview = export), with its LEEME"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "WebM: 90 frames of 320×180 at 30 fps, each the render() of its time; the original sound copied, in sync"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "a correction repairs a bad stretch and recomputes only that stretch"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "cancel mid-export stops within a frame and leaves nothing running"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "exporting twice gives the same frames"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "formats are probed here: MP4 without H.264 goes AV1 (said so), WebM VP9 with real alpha, GIF and PNG always"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "playback clock: reverse shows earlier frames by seeking, loops stay in their region, nothing runs when paused"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "sound follows the picture: a looping video loops its tone, a video shown from 1 s is silent before (re-encoded)"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "tracking a moving square: IoU ≥ 0.8 on every frame; keyframes marked in the stored masks"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "tracking with the real point-selection model (EdgeTAM, WASM) on the moving square"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "Faltan los archivos locales de «select» en /home/runner/work/ASCII-Shader-Lab/ASCII-Shader-Lab/.cache/modelos: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "skipped"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "transparent WebM: the alpha that comes back is the alpha of render()"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "passed",
+          "skipReasons": [],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "passed"
+    },
+    {
+      "file": "video.spec.ts",
+      "title": [
+        "video background removal (portrait model, WASM): the person followed frame by frame, smoothed in time"
+      ],
+      "project": "desktop",
+      "attempts": [
+        {
+          "status": "skipped",
+          "skipReasons": [
+            "Faltan los archivos locales de «portrait» en /home/runner/work/ASCII-Shader-Lab/ASCII-Shader-Lab/.cache/modelos: node scripts/fetch-models.mjs --out .cache/modelos --backend wasm"
+          ],
+          "retry": 0,
+          "source": "reaudit-shard-4-results.json"
+        }
+      ],
+      "final": "skipped"
+    }
+  ]
+}

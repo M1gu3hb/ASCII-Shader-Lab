@@ -10,6 +10,7 @@
  *    runtime files get CORP same-origin + COEP require-corp so the module worker and ORT's thread workers load
  *    inside an isolated page. vercel.json carries the same rules for production.
  */
+import { FOTO_STUDIO } from '../src/shared/site.ts';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Connect, Plugin } from 'vite';
@@ -97,6 +98,7 @@ export function isolationPlugin(): Plugin {
       server.middlewares.use(headers);
     },
     generateBundle() {
+      if (!FOTO_STUDIO) return;
       // The optional same-origin model mirror (scripts/fetch-models.mjs) replaces this empty manifest.
       this.emitFile({ type: 'asset', fileName: 'models/manifest.json', source: EMPTY_MANIFEST });
       for (const name of ORT_FILES) {

@@ -14,7 +14,7 @@ const LICENSE_FILES: Array<[string, string]> = [
 /**
  * Public-site build step (see scripts/seo.ts for the HTML directives):
  * - expands head tags, JSON-LD, header, footer and guide cards in every page listed in src/shared/site.ts;
- * - emits robots.txt, sitemap.xml (lastmod = build date) and the license texts;
+ * - emits robots.txt, sitemap.xml (sin fecha de modificación inventada) and the license texts;
  * - adds <meta name="google-site-verification"> when GOOGLE_SITE_VERIFICATION is set at build time;
  * - keeps or drops the photo studio's @foto-on / @foto-off blocks (VITE_FOTO_STUDIO, see src/shared/site.ts);
  * - `vite preview` answers unknown pages with 404.html and status 404, like the host does.
@@ -54,9 +54,8 @@ export function seoPlugin(): Plugin {
       },
     },
     generateBundle() {
-      const date = new Date().toISOString().slice(0, 10);
       this.emitFile({ type: 'asset', fileName: 'robots.txt', source: robotsTxt() });
-      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml(date) });
+      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml(null) });
       for (const [fileName, src] of LICENSE_FILES) {
         this.emitFile({ type: 'asset', fileName, source: readFileSync(join(root, src), 'utf8') });
       }

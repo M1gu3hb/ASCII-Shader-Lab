@@ -1,0 +1,44 @@
+name: Comprobaciones
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run check
+  public-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Regresiones públicas y áreas corregidas en la reauditoría
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: critical-results.json
+        run: npx playwright test tests/e2e/data.spec.ts tests/e2e/history-edits.spec.ts tests/e2e/urgent-recovery.spec.ts tests/e2e/audit-regressions.spec.ts tests/e2e/reaudit-additional.spec.ts tests/e2e/legibility.spec.ts tests/e2e/seo.spec.ts tests/e2e/project.spec.ts tests/e2e/sections.spec.ts --project=desktop --workers=1 --reporter=list,json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: critical-regressions
+          path: |
+            critical-results.json
+            test-results
+          retention-days: 30

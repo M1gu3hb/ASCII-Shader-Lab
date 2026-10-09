@@ -86,3 +86,18 @@ test.describe('peso de la primera vista', () => {
     expect((await scripts(page)).some(u => /\/assets\/basic-engine-/.test(u))).toBe(true);
   });
 });
+
+
+test('presupuesto del estudio: JS/CSS iniciales y sin modelos de foto en el build público', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true }));
+  await page.goto('/studio/'); await expect(page.locator('.seedline')).toBeVisible(); await page.waitForLoadState('load');
+  const weights = await page.evaluate(() => {
+    const entries = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+    const js = entries.filter(e => /\.js(?:\?|$)/.test(e.name)).reduce((n, e) => n + e.decodedBodySize, 0);
+    const css = entries.filter(e => /\.css(?:\?|$)/.test(e.name)).reduce((n, e) => n + e.decodedBodySize, 0);
+    return { js, css, ort: entries.filter(e => /\/ort\//.test(e.name)).length };
+  });
+  expect(weights.js).toBeGreaterThan(100_000); expect(weights.js).toBeLessThan(1_100_000);
+  expect(weights.css).toBeLessThan(220_000); expect(weights.ort).toBe(0);
+  test.info().annotations.push({ type: 'peso inicial', description: JSON.stringify(weights) });
+});

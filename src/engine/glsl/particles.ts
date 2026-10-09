@@ -62,7 +62,7 @@ function particleChunk(id: string, mode: number): string {
   const trail = mode === 1 || mode === 2 || mode === 5 || mode === 6;
   return `
 float P_${id}(vec2 p, float t, float a, float b){
-  float v = 0., N = ${N}., rad0 = max(.012 + b * .024, PX * .9);
+  float v = 0., N = ${N}., rad0 = max(.012, PX * .9) + b * max(.024, PX * 1.8);
   vec2 prev = vec2(9.), prev2 = vec2(9.);
   for (int i = 0; i < ${N}; i++){
     float k = float(i), h = hash12(vec2(k, 19.)), h2 = hash12(vec2(k, 37.)), h3 = hash12(vec2(k, 53.));

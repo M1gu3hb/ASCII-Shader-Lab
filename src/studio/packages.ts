@@ -213,13 +213,16 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
   syncMedia(true);
   if (onlyCollection) {
     const bits = [`Colección abierta: ${res.favAdded} ${res.favAdded === 1 ? 'pieza nueva' : 'piezas nuevas'}`];
+    if (res.invalid) bits.push(`${res.invalid} no válidas omitidas`);
     if (res.favUpdated) bits.push(`${res.favUpdated} ${res.favUpdated === 1 ? 'actualizada' : 'actualizadas'} con la versión más reciente`);
     if (lost) bits.push(lost === 1 ? '1 archivo no cabe en el navegador: se verá hasta que cierres la pestaña' : `${lost} archivos no caben en el navegador: se verán hasta que cierres la pestaña`);
     toast(bits.join(' · '), { label: 'Ver', run: () => setUI({ sheet: 'collection' }) }, 8000);
     return;
   }
   const parts = [`Sesión abierta: ${res.added} ${res.added === 1 ? 'resultado añadido' : 'resultados añadidos'}`];
-  if (res.updated) parts.push(`${res.updated} ${res.updated === 1 ? 'actualizado' : 'actualizados'} con la versión más reciente de la sesión (en cada uno, Deshacer vuelve a la tuya)`);
+  if (res.updated) parts.push(`${res.updated} ${res.updated === 1 ? 'actualizado' : 'actualizados'} con la versión más reciente de la sesión (Deshacer vuelve a la tuya durante esta visita)`);
+  if (res.preserved) parts.push(`${res.preserved} ediciones locales conservadas como copias en el historial`);
+  if (res.invalid) parts.push(`${res.invalid} entradas no válidas omitidas`);
   if (res.skipped) parts.push(`${res.skipped} ya ${res.skipped === 1 ? 'estaba' : 'estaban'}`);
   if (res.favAdded) parts.push(`${res.favAdded} ${res.favAdded === 1 ? 'pieza nueva' : 'piezas nuevas'} en la colección`);
   if (res.favUpdated) parts.push(`${res.favUpdated} ${res.favUpdated === 1 ? 'pieza de tu colección actualizada' : 'piezas de tu colección actualizadas'} con la versión más reciente`);

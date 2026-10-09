@@ -130,12 +130,13 @@ test('los campos de número se pueden vaciar al escribir; al terminar se ajustan
   await expect(secs).toHaveValue(was);
   await secs.fill('0');
   await secs.press('Enter');
-  await expect(secs).toHaveValue('1');
-  await expect(page.getByRole('dialog').locator('.nf-hint').filter({ hasText: 'Va de 1 a 60: queda en 1.' })).toBeVisible();
+  await expect(secs).toHaveValue('0.01');
+  await expect(secs).toHaveAttribute('aria-valuemin', '0.01');
+  await expect(page.getByRole('dialog').locator('.nf-hint').filter({ hasText: 'Va de 0.01 a 60: queda en 0.01.' })).toBeVisible();
   // Escape in a field that changed restores it and leaves the sheet open
   await secs.fill('12');
   await secs.press('Escape');
-  await expect(secs).toHaveValue('1');
+  await expect(secs).toHaveValue('0.01');
   await expect(page.getByRole('dialog', { name: 'Llevar la pieza fuera' })).toBeVisible();
 });
 

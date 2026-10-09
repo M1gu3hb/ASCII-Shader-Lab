@@ -50,7 +50,8 @@ test('robots.txt and sitemap.xml point crawlers to absolute canonical URLs that 
   const xml = await sitemap.text();
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
   expect(locs).toEqual(PATHS.map(p => SITE + p));
-  expect(xml.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g)).toHaveLength(PATHS.length);
+  // No trustworthy per-page editing date is available: the build must not invent lastmod.
+  expect(xml).not.toContain('<lastmod>');
   for (const loc of locs) {
     const path = new URL(loc).pathname;
     const res = await request.get(path);

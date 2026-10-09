@@ -72,6 +72,9 @@ export function parseRecipe(text: string): Recipe | null {
   try { o = JSON.parse(text); } catch { return null; }
   if (!o || typeof o !== 'object') return null;
   const obj = o as Record<string, unknown>;
+  if (typeof obj.version === 'number' && obj.version > 2) return null;
+  const body = (obj.recipe && typeof obj.recipe === 'object' ? obj.recipe : obj) as Record<string, unknown>;
+  if (typeof body.v === 'number' && body.v > 2) return null;
   // files saved as GLYPHOS, and as Monotrama (its earlier name)
   if ((obj.glyphos === 'recipe' || obj.monotrama === 'recipe') && obj.recipe) return normalizeRecipe(obj.recipe, PATTERN_IDS);
   if (isV1Settings(o)) return migrateV1(o);

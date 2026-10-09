@@ -11,7 +11,7 @@ import { TopBar, toggleFullscreen } from './TopBar';
 import { SPACES } from '../random/spaces';
 import { back, forward, redo, setPlaying, setSpace, setUI, undo, useStudio, vary, type UIState } from './store';
 import { Welcome } from './guide/Welcome';
-import { TabAway } from './Keeping';
+import { StorageNote, TabAway } from './Keeping';
 import { openWelcome, useGuide } from './guide/state';
 import { loadComponents, loadExportSheet, loadSheets, warmCodeExporter } from './lazy';
 import { LoadBoundary } from './Boundary';
@@ -85,6 +85,7 @@ export function App() {
       <ShareSheet />
       <Welcome />
       <TabAway />
+      {comps && <div className="storage-global"><StorageNote /></div>}
       <LiveLine />
       {hideUI && <button type="button" className="sr-only" onClick={() => setUI({ hideUI: false })}>Mostrar la interfaz</button>}
     </div>
@@ -150,7 +151,10 @@ function useKeys() {
       const field = t.closest('input, textarea, select, [contenteditable="true"]') as HTMLInputElement | null;
       // sliders, switches and buttons don't take letters: let shortcuts through
       const typing = field && !['range', 'checkbox', 'radio', 'color', 'button'].includes(field.type);
+      if (s.ui.sheet !== 'none' || document.querySelector('dialog[open]')) return;
+      if (e.repeat && e.key.length === 1) return;
       const mod = e.ctrlKey || e.metaKey;
+      if (s.space === 'componentes' && mod) return;
       if (mod && (e.key === 'z' || e.key === 'Z')) {
         if (typing) return;
         e.preventDefault();
@@ -159,7 +163,7 @@ function useKeys() {
       }
       if (mod && (e.key === 'y' || e.key === 'Y')) { if (!typing) { e.preventDefault(); redo(); } return; }
       if (mod || e.altKey || typing) return;
-      if (s.ui.sheet !== 'none' || document.querySelector('dialog[open]')) return;
+      if (e.key.length === 1 && !s.ui.characterShortcuts) return;
       if (s.ui.hideUI && e.key !== 'h' && e.key !== 'H' && e.key !== 'Escape') { setUI({ hideUI: false }); return; }
       const comps = s.space === 'componentes';
       const k = e.key;

@@ -12,7 +12,7 @@ const ids = (l: Array<{ id: string }>) => l.map(x => x.id);
 describe('history limit', () => {
   it('is a thousand results, and the counter says what is kept', () => {
     expect(HISTORY_LIMIT).toBe(1000);
-    expect(historyLabel(812, 1000)).toBe('Historial: 812 de 1000 · lo guardado con ★ no se descarta');
+    expect(historyLabel(812, 1000)).toBe('Historial: 812 de 1000 · lo editado y lo guardado con ★ no se descarta');
   });
 
   it('does nothing while under the limit', () => {
@@ -127,5 +127,24 @@ describe('stored and imported entries', () => {
     const e1 = entry('a', { recipe: withRef('00000000000000a1'), origin: withRef('00000000000000a0') });
     const f = { ...fav('F'), recipe: withRef('00000000000000f1') };
     expect([...mediaIdsOf(allRecipes([e1, entry('b')], [f]))].sort()).toEqual(['00000000000000a0', '00000000000000a1', '00000000000000f1']);
+  });
+});
+
+
+describe('import conflicts preserve local work across reloads', () => {
+  it('stores an edited local version as a separate, stable entry and does not duplicate it on reimport', () => {
+    const mine = defaultRecipe(); mine.color.bg = '#00ff00';
+    const newer = defaultRecipe(); newer.color.bg = '#ff00ff';
+    const cur = { entries: [entry('same', { recipe: mine, edited: true, updated: 10 })], cursor: 0, favorites: [] };
+    const inc = { entries: [entry('same', { recipe: newer, edited: true, updated: 20 })], cursor: 0, favorites: [] };
+    const m = mergeSession(cur, inc);
+    expect(m.preserved).toBe(1);
+    expect(m.entries[m.cursor].recipe.color.bg).toBe('#ff00ff');
+    const copy = m.entries.find(e => e.id !== 'same')!;
+    expect(copy.recipe.color.bg).toBe('#00ff00');
+    expect(normalizeEntry(JSON.parse(JSON.stringify(copy)))!.recipe.color.bg).toBe('#00ff00');
+    const twice = mergeSession(m, inc);
+    expect(twice.entries).toHaveLength(2);
+    expect(twice.preserved).toBe(0);
   });
 });

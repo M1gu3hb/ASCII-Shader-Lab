@@ -112,13 +112,40 @@ export async function buildRuntimes(): Promise<{ runtime: string; basic: string;
   const src = readFileSync(PATTERNS, 'utf8');
   const table = patternTable(src);
   const names = coreNames();
-  const patterns: Record<string, string> = {};
-  await Promise.all(table.map(async ([id]) => { patterns[id] = await patternScript(id, src, table, names); }));
+  const entries = await Promise.all(table.map(async ([id]) => [id, await patternScript(id, src, table, names)] as const));
+  const patterns: Record<string, string> = Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b, 'en')));
   return { runtime, basic, patterns };
 }
 
+/** Shares unchanged string blocks between the two runtimes without evaluating generated code. */
+export function runtimeDataModule(b: { runtime: string; basic: string; patterns: Record<string, string> }): string {
+  const base = b.basic;
+  const index = new Map<string, number[]>();
+  const anchor = 64;
+  for (let i = 0; i + anchor <= base.length; i += 32) {
+    const key = base.slice(i, i + anchor), positions = index.get(key) ?? [];
+    if (positions.length < 8) positions.push(i);
+    index.set(key, positions);
+  }
+  const pieces: string[] = [];
+  let literal = '', p = 0;
+  const flush = () => { if (literal) { pieces.push(JSON.stringify(literal)); literal = ''; } };
+  while (p < b.runtime.length) {
+    let at = 0, length = 0;
+    for (const i of index.get(b.runtime.slice(p, p + anchor)) ?? []) {
+      let n = anchor;
+      while (i + n < base.length && p + n < b.runtime.length && base[i + n] === b.runtime[p + n]) n++;
+      if (n > length) { at = i; length = n; }
+    }
+    if (length >= 128) { flush(); pieces.push(`basic.slice(${at},${at + length})`); p += length; }
+    else literal += b.runtime[p++];
+  }
+  flush();
+  return `export const basic=${JSON.stringify(base)};\nexport const runtime=[${pieces.join(',')}].join('');\nexport const patterns=${JSON.stringify(b.patterns)};`;
+}
+
 export function runtimePlugin(): Plugin {
-  const ids = { 'virtual:mt-runtime': '\0virtual:mt-runtime', 'virtual:mt-runtime-basic': '\0virtual:mt-runtime-basic' } as Record<string, string>;
+  const ids = { 'virtual:mt-runtime': '\0virtual:mt-runtime', 'virtual:mt-runtime-basic': '\0virtual:mt-runtime-basic', 'virtual:mt-runtime-data': '\0virtual:mt-runtime-data' } as Record<string, string>;
   let built: ReturnType<typeof buildRuntimes> | null = null;
   return {
     name: 'mt-runtime',
@@ -126,13 +153,13 @@ export function runtimePlugin(): Plugin {
       return ids[source] ?? null;
     },
     async load(source) {
-      if (source !== ids['virtual:mt-runtime'] && source !== ids['virtual:mt-runtime-basic']) return null;
+      if (!Object.values(ids).includes(source)) return null;
+      if (source === ids['virtual:mt-runtime']) return `export { runtime as default } from 'virtual:mt-runtime-data';`;
+      if (source === ids['virtual:mt-runtime-basic']) return `export { basic as runtime, patterns } from 'virtual:mt-runtime-data';`;
       built ??= buildRuntimes();
       const b = await built;
       for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, ...LIBRARY, SHIM]) this.addWatchFile(f);
-      return source === ids['virtual:mt-runtime']
-        ? `export default ${JSON.stringify(b.runtime)};`
-        : `export const runtime = ${JSON.stringify(b.basic)};\nexport const patterns = ${JSON.stringify(b.patterns)};`;
+      return runtimeDataModule(b);
     },
     // in `vite dev`, an edit to the engine rebuilds the strings on the next load
     watchChange() { built = null; },

@@ -281,9 +281,8 @@ test.describe('on a phone', () => {
     expect(pps1).toBeGreaterThan(pps0 * 1.5);
     // one finger: pan
     const s0 = Number(await page.locator('.tl').getAttribute('data-start'));
-    await touch('touchStart', [[cx + 60, y]]);
-    for (let i = 1; i <= 6; i++) await touch('touchMove', [[cx + 60 - i * 15, y]]);
-    await touch('touchEnd', []);
+    // End the synthetic pan at rest: raw moves can leave Chromium swallowing the next tap.
+    await cdp.send('Input.synthesizeScrollGesture', { x: cx + 60, y, xDistance: -90, yDistance: 0, speed: 450, preventFling: true, gestureSourceType: 'touch' });
     expect(Number(await page.locator('.tl').getAttribute('data-start'))).toBeGreaterThan(s0);
     // long press on a clip: its menu
     await tap(page.getByRole('button', { name: 'Ver todo' }));

@@ -1,0 +1,568 @@
+{
+  "date": "2026-10-08",
+  "sample": "GLYPHOS abcdefghijklmnopqrstuvwxyz 0123456789 ñáé ?#@",
+  "sizePx": 32,
+  "canvas": [
+    1300,
+    80
+  ],
+  "textRendering": "geometricPrecision",
+  "browser": "Chromium 141.0.7390.37",
+  "staticGoogleFacesVersusStaticLocal": [
+    {
+      "id": "jetbrains",
+      "weight": 100,
+      "alphaDifference": 0,
+      "remoteInk": 947342,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 200,
+      "alphaDifference": 0,
+      "remoteInk": 1219831,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 300,
+      "alphaDifference": 0,
+      "remoteInk": 1437926,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 1608408,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 500,
+      "alphaDifference": 0,
+      "remoteInk": 1886317,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 600,
+      "alphaDifference": 0,
+      "remoteInk": 2010638,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 700,
+      "alphaDifference": 0,
+      "remoteInk": 2138403,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 800,
+      "alphaDifference": 0,
+      "remoteInk": 2495585,
+      "identical": true
+    },
+    {
+      "id": "plex",
+      "weight": 100,
+      "alphaDifference": 0,
+      "remoteInk": 431201,
+      "identical": true
+    },
+    {
+      "id": "plex",
+      "weight": 200,
+      "alphaDifference": 0,
+      "remoteInk": 679820,
+      "identical": true
+    },
+    {
+      "id": "plex",
+      "weight": 300,
+      "alphaDifference": 0,
+      "remoteInk": 1075803,
+      "identical": true
+    },
+    {
+      "id": "plex",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 1465363,
+      "identical": true
+    },
+    {
+      "id": "plex",
+      "weight": 500,
+      "alphaDifference": 0,
+      "remoteInk": 1876976,
+      "identical": true
+    },
+    {
+      "id": "plex",
+      "weight": 600,
+      "alphaDifference": 0,
+      "remoteInk": 2143441,
+      "identical": true
+    },
+    {
+      "id": "plex",
+      "weight": 700,
+      "alphaDifference": 0,
+      "remoteInk": 2417078,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 100,
+      "alphaDifference": 0,
+      "remoteInk": 919080,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 200,
+      "alphaDifference": 0,
+      "remoteInk": 1517121,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 300,
+      "alphaDifference": 0,
+      "remoteInk": 2077076,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 2349151,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 500,
+      "alphaDifference": 0,
+      "remoteInk": 2643297,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 600,
+      "alphaDifference": 0,
+      "remoteInk": 2974925,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 700,
+      "alphaDifference": 0,
+      "remoteInk": 3293903,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 800,
+      "alphaDifference": 0,
+      "remoteInk": 3605851,
+      "identical": true
+    },
+    {
+      "id": "space",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 1546255,
+      "identical": true
+    },
+    {
+      "id": "space",
+      "weight": 700,
+      "alphaDifference": 0,
+      "remoteInk": 2321663,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 300,
+      "alphaDifference": 0,
+      "remoteInk": 1127663,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 1453279,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 500,
+      "alphaDifference": 0,
+      "remoteInk": 1849731,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 600,
+      "alphaDifference": 0,
+      "remoteInk": 2127323,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 700,
+      "alphaDifference": 0,
+      "remoteInk": 2485729,
+      "identical": true
+    },
+    {
+      "id": "vt",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 1040332,
+      "identical": true
+    },
+    {
+      "id": "pixel",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 3639360,
+      "identical": true
+    },
+    {
+      "id": "silk",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 2083296,
+      "identical": true
+    },
+    {
+      "id": "silk",
+      "weight": 700,
+      "alphaDifference": 0,
+      "remoteInk": 3202912,
+      "identical": true
+    },
+    {
+      "id": "serif",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 987091,
+      "identical": true
+    }
+  ],
+  "variableGoogleFacesVersusStaticLocal": [
+    {
+      "id": "jetbrains",
+      "weight": 100,
+      "alphaDifference": 226,
+      "remoteInk": 947454,
+      "identical": false
+    },
+    {
+      "id": "jetbrains",
+      "weight": 200,
+      "alphaDifference": 5411,
+      "remoteInk": 1220668,
+      "identical": false
+    },
+    {
+      "id": "jetbrains",
+      "weight": 300,
+      "alphaDifference": 11218,
+      "remoteInk": 1436998,
+      "identical": false
+    },
+    {
+      "id": "jetbrains",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 1608408,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 500,
+      "alphaDifference": 9271,
+      "remoteInk": 1886754,
+      "identical": false
+    },
+    {
+      "id": "jetbrains",
+      "weight": 600,
+      "alphaDifference": 10511,
+      "remoteInk": 2012321,
+      "identical": false
+    },
+    {
+      "id": "jetbrains",
+      "weight": 700,
+      "alphaDifference": 8640,
+      "remoteInk": 2139511,
+      "identical": false
+    },
+    {
+      "id": "jetbrains",
+      "weight": 800,
+      "alphaDifference": 149,
+      "remoteInk": 2495574,
+      "identical": false
+    },
+    {
+      "id": "martian",
+      "weight": 100,
+      "alphaDifference": 9766,
+      "remoteInk": 917826,
+      "identical": false
+    },
+    {
+      "id": "martian",
+      "weight": 200,
+      "alphaDifference": 16326,
+      "remoteInk": 1513831,
+      "identical": false
+    },
+    {
+      "id": "martian",
+      "weight": 300,
+      "alphaDifference": 25844,
+      "remoteInk": 2067780,
+      "identical": false
+    },
+    {
+      "id": "martian",
+      "weight": 400,
+      "alphaDifference": 0,
+      "remoteInk": 2349151,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 500,
+      "alphaDifference": 19604,
+      "remoteInk": 2648017,
+      "identical": false
+    },
+    {
+      "id": "martian",
+      "weight": 600,
+      "alphaDifference": 13291,
+      "remoteInk": 2973022,
+      "identical": false
+    },
+    {
+      "id": "martian",
+      "weight": 700,
+      "alphaDifference": 13209,
+      "remoteInk": 3294180,
+      "identical": false
+    },
+    {
+      "id": "martian",
+      "weight": 800,
+      "alphaDifference": 10937,
+      "remoteInk": 3606760,
+      "identical": false
+    },
+    {
+      "id": "fira",
+      "weight": 300,
+      "alphaDifference": 0,
+      "remoteInk": 1127663,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 400,
+      "alphaDifference": 4857,
+      "remoteInk": 1453480,
+      "identical": false
+    },
+    {
+      "id": "fira",
+      "weight": 500,
+      "alphaDifference": 5092,
+      "remoteInk": 1848639,
+      "identical": false
+    },
+    {
+      "id": "fira",
+      "weight": 600,
+      "alphaDifference": 6523,
+      "remoteInk": 2127544,
+      "identical": false
+    },
+    {
+      "id": "fira",
+      "weight": 700,
+      "alphaDifference": 124,
+      "remoteInk": 2485655,
+      "identical": false
+    }
+  ],
+  "variableGoogleFacesVersusVariableLocal": [
+    {
+      "id": "jetbrains",
+      "weight": 100,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 200,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 300,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 400,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 500,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 600,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 700,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "jetbrains",
+      "weight": 800,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 100,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 200,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 300,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 400,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 500,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 600,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 700,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "martian",
+      "weight": 800,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 300,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 400,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 500,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 600,
+      "alphaDifference": 0,
+      "identical": true
+    },
+    {
+      "id": "fira",
+      "weight": 700,
+      "alphaDifference": 0,
+      "identical": true
+    }
+  ],
+  "variableGoogleSources": [
+    {
+      "family": "jetbrains",
+      "faces": [
+        {
+          "weight": "100 800",
+          "url": "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbV2o-flEEny0FZhsfKu5WU4xD7OwE.woff2",
+          "sha256": "18be452724bfdc236c074ca94a249a7f41a86752c7d04ab258ce9ed5651f6a7e"
+        }
+      ]
+    },
+    {
+      "family": "martian",
+      "faces": [
+        {
+          "weight": "100 800",
+          "url": "https://fonts.gstatic.com/s/martianmono/v6/2V0PKIcADoYhV6w87xrTKjs4CYElh_VS9YA4TlTnaTq9wQ.woff2",
+          "sha256": "d0be3a78a854bcea53a9dc26b6620ba322eaa515ccbd92bb4b6ec20a3c91b291"
+        }
+      ]
+    },
+    {
+      "family": "fira",
+      "faces": [
+        {
+          "weight": "300 700",
+          "url": "https://fonts.gstatic.com/s/firacode/v27/uU9NCBsR6Z2vfE9aq3bh3dSD.woff2",
+          "sha256": "771bf4b79a97fc005d12866168bd39d868a9dd3d5903008fe8b796723c8a56f4"
+        }
+      ]
+    }
+  ],
+  "limits": "Muestra de caracteres e instante de descarga; no certifica todos los tamaños, Unicode, dispositivos ni futuras versiones del CDN."
+}

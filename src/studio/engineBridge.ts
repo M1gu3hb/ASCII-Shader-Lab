@@ -5,7 +5,7 @@ import type { Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
 import { probeWebGL } from '../engine/support';
 import { useCaps } from './caps';
-import { attachEngine, pauseVideo, resumeVideo, stopCamera } from './media';
+import { attachEngine } from './media';
 import { pickTransition, qualityFor, usePreview, type TransitionContext } from './preview';
 import { currentRecipe, setStats, useStudio } from './store';
 import { toast } from './toast';
@@ -45,7 +45,7 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   const gen = ++mountGen;
   host = container;
   const s = useStudio.getState();
-  let lastErr = 0, mounting = true;
+  let lastErr = -Infinity, mounting = true;
   let created: CreatedRenderer;
   // a fresh canvas for each try (a canvas keeps the first kind of context it gave)
   const make = () => {
@@ -64,13 +64,12 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
       reducedMotion: false,
       onStats: st => setStats({ cols: st.cols, rows: st.rows, fps: st.fps, pr: st.pixelRatio }),
       onError: m => {
+        if (performance.now() - lastErr < 4000) return;
+        lastErr = performance.now();
         console.error('[glyphos]', m);
         // a WebGL failure while starting is not the piece's fault: the stage fell back to the basic engine
         if (mounting) return;
-        if (performance.now() - lastErr > 4000) {
-          lastErr = performance.now();
-          toast(engine?.kind === 'basic' ? 'El motor básico no pudo dibujar esa combinación. Prueba otra.' : 'El motor no pudo compilar esa combinación. Prueba otra.');
-        }
+        toast(engine?.kind === 'basic' ? 'El motor básico no pudo dibujar esa combinación. Prueba otra.' : 'El motor no pudo compilar esa combinación. Prueba otra.');
       },
     }, o);
   };
@@ -103,7 +102,6 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   e.setQuality(qualityFor(usePreview.getState().quality, e.kind));
   unsubQ = usePreview.subscribe((q, p) => { if (q.quality !== p.quality && engine === e) e.setQuality(qualityFor(q.quality, e.kind)); });
   trackPointer(container);
-  let prevSource = currentRecipe(s).source;
   // the canvas says while the engine prepares a change or runs a transition (data-busy): what it shows
   // is not yet the current piece (tests wait on it before comparing the stage)
   let busyRaf = 0;
@@ -119,12 +117,6 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   const follow = (r: Recipe, transition: ReturnType<typeof pickTransition>) => {
     e.set(r, { transition: transition ?? false });
     markBusy();
-    if (r.source !== prevSource) {
-      if (prevSource === 'camera') stopCamera();
-      if (prevSource === 'video') pauseVideo();
-      if (r.source === 'video') resumeVideo();
-      prevSource = r.source;
-    }
   };
   // the history may have moved while the basic engine's chunk was loading
   const now = useStudio.getState();

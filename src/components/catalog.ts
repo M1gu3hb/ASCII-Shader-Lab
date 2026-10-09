@@ -61,6 +61,18 @@ function el(tag: string, style: string, text = ''): HTMLElement {
   return e;
 }
 
+/** Releases a pasted component when its page removes the node. */
+const AUTO_DISPOSE = `function glyphosWatchRemoval(node, ctl) {
+  if (!node || !ctl || typeof MutationObserver === 'undefined') return () => {};
+  let stopped = false;
+  const observer = new MutationObserver(() => {
+    if (node.isConnected || stopped) return;
+    stopped = true; observer.disconnect(); ctl.destroy();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  return () => { stopped = true; observer.disconnect(); };
+}`;
+
 /** Standard trio of exports for DOM components. */
 function standardCode(fn: string, file: string, src: string, markup: string, selector: string, opts: Record<string, unknown>, reactTag: string, reactProps = ''): CodeTab[] {
   const call = `${fn}(document.querySelector(${JSON.stringify(selector)}), ${js(opts)});`;
@@ -69,7 +81,10 @@ function standardCode(fn: string, file: string, src: string, markup: string, sel
 <script type="module">
 ${src.trim()}
 
-${call}
+${AUTO_DISPOSE}
+const glyphosNode = document.querySelector(${JSON.stringify(selector)});
+const glyphosController = ${fn}(glyphosNode, ${js(opts)});
+glyphosWatchRemoval(glyphosNode, glyphosController);
 </script>`;
   const usage = `import { ${fn} } from './${file}';\n\n${call}`;
   const Comp = fn[0].toUpperCase() + fn.slice(1);
@@ -516,6 +531,8 @@ carga.set(0.35, 'Descargando');
 ${loaderSrc.trim()}
 
 ${use}
+${AUTO_DISPOSE}
+const stopWatch = glyphosWatchRemoval(document.querySelector('.carga'), { destroy() { clearInterval(id); carga.destroy(); } });
 
 // (ejemplo: una carga de mentira que termina en unos segundos; bórralo)
 let v = 0.35;

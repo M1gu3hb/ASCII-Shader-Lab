@@ -1,0 +1,149 @@
+{
+  "before": {
+    "codec": "vp9",
+    "bytes": 2109,
+    "frames": [
+      {
+        "t": 0.05,
+        "want": 20,
+        "exact": 20,
+        "preview": 20
+      },
+      {
+        "t": 0.15,
+        "want": 42,
+        "exact": 42,
+        "preview": 42
+      },
+      {
+        "t": 0.25,
+        "want": 64,
+        "exact": 65,
+        "preview": 65
+      },
+      {
+        "t": 0.35,
+        "want": 86,
+        "exact": 87,
+        "preview": 87
+      },
+      {
+        "t": 0.45,
+        "want": 108,
+        "exact": 107,
+        "preview": 107
+      },
+      {
+        "t": 0.55,
+        "want": 130,
+        "exact": 130,
+        "preview": 130
+      },
+      {
+        "t": 0.65,
+        "want": 152,
+        "exact": 151,
+        "preview": 151
+      },
+      {
+        "t": 0.75,
+        "want": 174,
+        "exact": 175,
+        "preview": 151
+      },
+      {
+        "t": 0.85,
+        "want": 196,
+        "exact": 195,
+        "preview": 195
+      },
+      {
+        "t": 0.95,
+        "want": 218,
+        "exact": 218,
+        "preview": 218
+      },
+      {
+        "t": 1.025,
+        "want": 20,
+        "exact": 20,
+        "preview": 20
+      }
+    ],
+    "logSha256": "895940c6d38163e50081f79ed4b1fb73a6c99b195c3d8342708aebd5e4e51cd5"
+  },
+  "after": {
+    "codec": "vp9",
+    "bytes": 2109,
+    "frames": [
+      {
+        "t": 0.05,
+        "want": 20,
+        "exact": 20,
+        "preview": 20
+      },
+      {
+        "t": 0.15,
+        "want": 42,
+        "exact": 42,
+        "preview": 42
+      },
+      {
+        "t": 0.25,
+        "want": 64,
+        "exact": 65,
+        "preview": 65
+      },
+      {
+        "t": 0.35,
+        "want": 86,
+        "exact": 87,
+        "preview": 87
+      },
+      {
+        "t": 0.45,
+        "want": 108,
+        "exact": 107,
+        "preview": 107
+      },
+      {
+        "t": 0.55,
+        "want": 130,
+        "exact": 130,
+        "preview": 130
+      },
+      {
+        "t": 0.65,
+        "want": 152,
+        "exact": 151,
+        "preview": 151
+      },
+      {
+        "t": 0.75,
+        "want": 174,
+        "exact": 175,
+        "preview": 175
+      },
+      {
+        "t": 0.85,
+        "want": 196,
+        "exact": 195,
+        "preview": 195
+      },
+      {
+        "t": 0.95,
+        "want": 218,
+        "exact": 218,
+        "preview": 218
+      },
+      {
+        "t": 1.025,
+        "want": 20,
+        "exact": 20,
+        "preview": 20
+      }
+    ],
+    "logSha256": "40d2d5bf4e9883b32357e721bd59a846ac81efbb442f63e2587c46b92244a9ad"
+  },
+  "scope": "Real VP9 fixture, Chromium, hidden project preview. Existing pixel tolerance 6 unchanged. At 0.75s previous frame151 becomes correct175; exact decoder175, target174."
+}

@@ -68,6 +68,8 @@ let video: Slot<HTMLVideoElement> | null = null;
 let videoUrl = '';
 let camStream: MediaStream | null = null;
 let camEl: HTMLVideoElement | null = null;
+let cancelCameraPlayback: (() => void) | null = null;
+let cameraGen = 0;
 /** What the engine has right now, to only call setMedia on real changes. */
 const shown: Record<MediaKind, Img | HTMLVideoElement | null> = { image: null, video: null };
 /** Recently decoded images by id: stepping through the history does not decode them again. */
@@ -143,10 +145,14 @@ let lastKey = '';
 export function syncMedia(force = false) {
   const r = currentRecipe();
   const ref = r.media.ref;
-  const key = `${r.source}|${ref?.kind ?? ''}|${ref?.id ?? ''}|${ref ? 1 : 0}`;
+  const space = useStudio.getState().space;
+  const key = `${space}|${r.source}|${ref?.kind ?? ''}|${ref?.id ?? ''}|${ref ? 1 : 0}`;
   if (!force && key === lastKey) return;
   lastKey = key;
   const kind = r.source;
+  if (space === 'componentes' || kind !== 'camera') stopCamera();
+  if (space === 'componentes' || kind !== 'video' || (ref?.id && loadedId('video') !== ref.id)) pauseVideo();
+  else resumeVideo();
   if (kind !== 'image' && kind !== 'video') { setNeed(null); return; }
   const want = ref?.kind === kind ? ref : undefined;
   const settle = (on: boolean, need: MediaNeed | null) => { cancelRestore(kind); show(kind, on); setNeed(need); };
@@ -193,7 +199,10 @@ function wanted(kind: MediaKind): string | undefined {
 }
 
 /** Starts following the current piece. Call once, after the store is hydrated. */
+let mediaSyncStarted = false;
 export function startMediaSync() {
+  if (mediaSyncStarted) return;
+  mediaSyncStarted = true;
   linkMedia({
     refFor: kind => {
       const i = (kind === 'image' ? image : video)?.info;
@@ -205,7 +214,10 @@ export function startMediaSync() {
     },
   });
   syncMedia(true);
-  useStudio.subscribe((st, prev) => { if (st.entries !== prev.entries || st.cursor !== prev.cursor) syncMedia(); });
+  useStudio.subscribe((st, prev) => {
+    if (st.away) { stopCamera(); pauseVideo(); return; }
+    if (st.entries !== prev.entries || st.cursor !== prev.cursor || st.space !== prev.space) syncMedia();
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -265,21 +277,34 @@ function openVideo(blob: Blob, info: MediaInfo, g: number): Promise<HTMLVideoEle
     v.loop = true; v.playsInline = true; v.preload = 'auto';
     v.setAttribute('playsinline', '');
     const url = URL.createObjectURL(blob);
+    let settled = false;
+    const fail = () => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      v.pause(); v.removeAttribute('src'); v.load(); v.remove(); URL.revokeObjectURL(url); resolve(null);
+    };
+    const timer = setTimeout(fail, 10_000);
     v.src = url;
     v.addEventListener('loadeddata', () => {
-      if (gen.video !== g) { v.remove(); URL.revokeObjectURL(url); resolve(null); return; }
+      if (settled) return;
+      if (gen.video !== g) { fail(); return; }
+      settled = true; clearTimeout(timer);
       if (video) { video.el.pause(); video.el.remove(); }
       if (videoUrl) URL.revokeObjectURL(videoUrl);
       videoUrl = url;
       video = { el: v, info: { ...info, w: info.w || v.videoWidth, h: info.h || v.videoHeight } };
       v.playbackRate = currentRecipe().media.rate;
-      if (currentRecipe().source === 'video') {
-        v.play().catch(() => { v.muted = true; useMedia.setState({ videoMuted: true }); v.play().catch(() => undefined); });
+      if (currentRecipe().source === 'video' && useStudio.getState().space !== 'componentes' && !useStudio.getState().away) {
+        v.play().catch(error => {
+          // A pause or space change can reject play after the caller already left the video.
+          if (error?.name === 'AbortError' || video?.el !== v || currentRecipe().source !== 'video' || useStudio.getState().space === 'componentes' || useStudio.getState().away) return;
+          v.muted = true; useMedia.setState({ videoMuted: true }); v.play().catch(() => undefined);
+        });
       }
       useMedia.setState({ videoPaused: v.paused, error: null });
       resolve(v);
     }, { once: true });
-    v.addEventListener('error', () => { v.remove(); URL.revokeObjectURL(url); resolve(null); }, { once: true });
+    v.addEventListener('error', fail, { once: true });
     v.addEventListener('play', () => { if (v === video?.el) useMedia.setState({ videoPaused: false }); });
     v.addEventListener('pause', () => { if (v === video?.el) useMedia.setState({ videoPaused: true }); });
     hide(v);
@@ -316,7 +341,7 @@ export async function loadFile(file: File): Promise<Loaded | null> {
   } else {
     vid = await openVideo(file, { name: file.name, w: 0, h: 0, size: file.size }, g);
     if (!vid) {
-      if (gen.video === g) useMedia.setState({ error: 'Este navegador no puede reproducir ese video. Prueba con MP4 (H.264) o WebM.' });
+      if (gen.video === g) useMedia.setState({ error: 'No se pudo decodificar el video en 10 segundos. Comprueba que se reproduce en este navegador; si falla, vuelve a exportarlo con otro perfil o códec.' });
       return null;
     }
     w = vid.videoWidth; h = vid.videoHeight;
@@ -431,6 +456,7 @@ export async function startCamera(ask: { facing?: Facing; deviceId?: string | nu
     deviceId: ask.deviceId !== undefined ? ask.deviceId : ask.facing ? null : prevWant.deviceId,
   };
   const switching = ask.facing !== undefined || ask.deviceId !== undefined;
+  if (useMedia.getState().camera === 'starting' && !switching) return false;
   if (camStream && camEl && !switching) {
     engine?.setMedia('camera', camEl);
     // the caller may make the piece a camera piece right after this call
@@ -442,20 +468,35 @@ export async function startCamera(ask: { facing?: Facing; deviceId?: string | nu
     return false;
   }
   saveCamWant(want);
+  const g = ++cameraGen;
   // phones open one camera at a time: the one that is on stops before the other opens
-  if (camStream) releaseCamera();
+  releaseCamera();
   // until the new camera says which way it looks, the one asked for counts (an «Espejo» flipped meanwhile is its)
   useMedia.setState({ camera: 'starting', camFacing: null, camDevice: null, error: null });
   followCameraPieces();
   let stream: MediaStream | null = null;
+  let el: HTMLVideoElement | null = null;
+  let released = false;
+  const cleanup = () => {
+    if (released) return;
+    released = true;
+    stream?.getTracks().forEach(t => t.stop());
+    if (el) { el.pause(); el.srcObject = null; el.remove(); }
+    if (cancelCameraPlayback === cleanup) cancelCameraPlayback = null;
+  };
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints(want), audio: false });
-    const el = document.createElement('video');
+    if (g !== cameraGen) { stream.getTracks().forEach(t => t.stop()); return false; }
+    el = document.createElement('video');
     el.muted = true; el.playsInline = true;
     el.setAttribute('playsinline', '');
     el.srcObject = stream;
     hide(el);
-    try { await el.play(); } catch (err) { el.remove(); throw err; }
+    // A granted stream is already capturing while play() is still pending.
+    cancelCameraPlayback = cleanup;
+    await el.play();
+    if (g !== cameraGen) { cleanup(); return false; }
+    cancelCameraPlayback = null;
     camStream = stream;
     camEl = el;
     // unplugged, or taken by the system: say so instead of freezing on the last frame
@@ -476,7 +517,8 @@ export async function startCamera(ask: { facing?: Facing; deviceId?: string | nu
     return true;
   } catch (err) {
     // a stream that opened but could not play must not keep the camera (and its light) on
-    stream?.getTracks().forEach(t => t.stop());
+    cleanup();
+    if (g !== cameraGen) return false;
     camStream = null;
     camEl = null;
     useMedia.setState({ camera: 'error', camFacing: null, camDevice: null, error: cameraProblem(err) });
@@ -498,14 +540,17 @@ export function chooseCamera(deviceId: string) {
 
 /** Stops the camera's tracks and takes its picture off the stage. */
 function releaseCamera() {
+  cancelCameraPlayback?.();
   camStream?.getTracks().forEach(t => t.stop());
   camStream = null;
+  if (camEl) { camEl.pause(); camEl.srcObject = null; }
   camEl?.remove();
   camEl = null;
   engine?.setMedia('camera', null);
 }
 
 export function stopCamera() {
+  cameraGen++;
   releaseCamera();
   useMedia.setState({ camera: 'off', camFacing: null, camDevice: null });
 }

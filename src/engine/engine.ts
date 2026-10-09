@@ -118,6 +118,8 @@ export class AsciiEngine implements Renderer {
   private quad!: WebGLBuffer;
   private vao!: WebGLVertexArrayObject;
   private progs = new Map<string, Program>();
+  /** Compilation failures belong to this GL context: never retry them on every frame. */
+  private failedPrograms = new Set<string>();
   private pSim!: Program; private pSel!: Program; private pBlur!: Program; private pComp!: Program;
   private tField!: Tex; private fbField!: WebGLFramebuffer;
   private tSelC!: Tex; private tSelG!: Tex; private fbSel!: WebGLFramebuffer;
@@ -237,7 +239,7 @@ export class AsciiEngine implements Renderer {
       this.trans = -1;
       if (p) this.applyRecipe(p.r);
     };
-    const onRestored = () => { this.lost = false; this.progs.clear(); this.initGL(); this.invalidate(); };
+    const onRestored = () => { this.lost = false; this.progs.clear(); this.failedPrograms.clear(); this.initGL(); this.invalidate(); };
     canvas.addEventListener('webglcontextlost', onLost);
     canvas.addEventListener('webglcontextrestored', onRestored);
     this.cleanup.push(() => { canvas.removeEventListener('webglcontextlost', onLost); canvas.removeEventListener('webglcontextrestored', onRestored); });
@@ -286,7 +288,7 @@ export class AsciiEngine implements Renderer {
       return;
     }
     const key = this.fieldKeyOf(r);
-    const needProg = !this.progs.has(key);
+    const needProg = !this.progs.has(key) && !this.failedPrograms.has(key);
     let p = this.pending;
     if (!p && !trans && !needProg) { this.applyRecipe(r); return; }
     if (!p) p = this.pending = { r, trans, since: performance.now(), frames: 0, key, prog: null, compiled: null, warm: null, fonts: false };
@@ -300,7 +302,7 @@ export class AsciiEngine implements Renderer {
       try {
         p.prog = startProgram(this.gl, VERT, this.fieldSource(r, key));
         p.compiled = this.fence();
-      } catch { /* an unknown pattern: fieldProgram() reports it when the piece shows */ }
+      } catch (error) { this.failProgram(key, error); }
     }
     const want = p;
     void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
@@ -366,7 +368,7 @@ export class AsciiEngine implements Renderer {
     try {
       this.cacheProgram(p.key, finishProgram(this.gl, pp));
     } catch (e) {
-      this.o.onError?.((e as Error).message);
+      this.failProgram(p.key, e);
     }
   }
 
@@ -392,9 +394,9 @@ export class AsciiEngine implements Renderer {
   private async compileAhead() {
     if (this.lost) return;
     const gl = this.gl, key = this.fieldKeyOf(this.r);
-    if (this.progs.has(key)) return;
+    if (this.progs.has(key) || this.failedPrograms.has(key)) return;
     let pp: PendingProgram;
-    try { pp = startProgram(gl, VERT, this.fieldSource(this.r, key)); } catch { return; }
+    try { pp = startProgram(gl, VERT, this.fieldSource(this.r, key)); } catch (error) { this.failProgram(key, error); return; }
     const compiled = this.fence();
     const t0 = performance.now(), later = () => new Promise(res => setTimeout(res, 16));
     await later();
@@ -403,40 +405,71 @@ export class AsciiEngine implements Renderer {
     if (!this.alive || this.lost) return;
     if (this.progs.has(key)) { dropProgram(gl, pp); return; }
     // (no warm-up draw here: the render that follows is the first draw, and nothing waits on screen for it)
-    try { this.cacheProgram(key, finishProgram(gl, pp)); } catch (e) { this.o.onError?.((e as Error).message); }
+    try { this.cacheProgram(key, finishProgram(gl, pp)); } catch (e) { this.failProgram(key, e); }
   }
 
   /**
    * Pixels of a region of the last frame (top-left origin), read without making the page wait for the
-   * GPU: into a pixel buffer, then copied out once a fence says the GPU is done. Needs
-   * preserveDrawingBuffer (offscreen engines). Null if the context went away (also before its event arrives:
+   * GPU: into a pixel buffer, then copied out once a fence says the GPU is done. A live canvas's
+   * region is copied before yielding, because presenting it discards its drawing buffer.
+   * Null if the context went away (also before its event arrives:
    * a lost context reads as zeros, and a blank picture must never pass for the piece, e.g. as a thumbnail).
    */
   async snapshot(sx: number, sy: number, sw: number, sh: number): Promise<ImageData | null> {
     const gl = this.gl;
-    const gone = () => this.lost || gl.isContextLost();
+    const gone = () => !this.alive || this.lost || gl.isContextLost();
     if (gone()) return null;
     sx = Math.max(0, Math.min(this.W - 1, Math.round(sx))); sy = Math.max(0, Math.min(this.H - 1, Math.round(sy)));
     sw = Math.max(1, Math.min(this.W - sx, Math.round(sw))); sh = Math.max(1, Math.min(this.H - sy, Math.round(sh)));
+    // Wait for drawing before issuing the read: some drivers stall even a PBO read otherwise.
+    const wait = async (sync: WebGLSync | null) => {
+      if (!sync) return false;
+      const t0 = performance.now();
+      while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
+      return !gone() && passed(gl, sync);
+    };
     const size = sw * sh * 4;
-    const pbo = gl.createBuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-    gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ);
-    gl.readPixels(sx, this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-    const sync = this.fence();
-    // no fence: the context went away between two calls (some browsers return null then)
-    if (!sync || gone()) { if (sync) gl.deleteSync(sync); gl.deleteBuffer(pbo); return null; }
-    const t0 = performance.now();
-    while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
-    if (gone()) return null;
+    let copy: Tex | null = null, fb: WebGLFramebuffer | null = null;
+    let drawn: WebGLSync | null = null, pbo: WebGLBuffer | null = null;
+    let sync: WebGLSync | null = null;
     const raw = new Uint8Array(size);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-    gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-    gl.deleteBuffer(pbo);
-    gl.deleteSync(sync);
+    try {
+      if (!this.o.preserveDrawingBuffer) {
+        // Queue the copy in the same task as renderNow(), before the live buffer can be cleared.
+        copy = createTex(gl, sw, sh);
+        fb = fboFor(gl, copy);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fb);
+        // Blitting also handles an opaque default buffer (RGB) into our RGBA target.
+        gl.blitFramebuffer(sx, this.H - sy - sh, sx + sw, this.H - sy,
+          0, 0, sw, sh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      }
+      drawn = this.fence();
+      if (!await wait(drawn)) return null;
+      pbo = gl.createBuffer();
+      if (!pbo) return null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+      gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ);
+      gl.readPixels(fb ? 0 : sx, fb ? 0 : this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      sync = this.fence();
+      if (!await wait(sync)) return null;
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+      gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
+    } finally {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      if (pbo) gl.deleteBuffer(pbo);
+      if (fb) gl.deleteFramebuffer(fb);
+      if (copy) gl.deleteTexture(copy.tex);
+      if (drawn) gl.deleteSync(drawn);
+      if (sync) gl.deleteSync(sync);
+    }
+    if (gone()) return null;
     // GL rows run bottom to top
     const out = new ImageData(sw, sh), row = sw * 4;
     for (let y = 0; y < sh; y++) out.data.set(raw.subarray((sh - 1 - y) * row, (sh - y) * row), y * row);
@@ -963,7 +996,7 @@ export class AsciiEngine implements Renderer {
 
   private static patternsOf(r: Recipe) {
     const layers = r.layers.filter(l => l.on).slice(0, 4);
-    return layers.length ? layers.map(l => l.pattern) : ['nube'];
+    return layers.map(l => l.pattern);
   }
 
   /**
@@ -992,17 +1025,24 @@ export class AsciiEngine implements Renderer {
 
   private fieldProgram(src: FieldSource): Program | null {
     const key = this.fieldKeyOf(this.r, src);
+    if (this.failedPrograms.has(key)) return null;
     let p = this.progs.get(key);
     if (!p) {
       try {
         p = compileProgram(this.gl, VERT, this.fieldSource(this.r, key));
         this.cacheProgram(key, p);
       } catch (e) {
-        this.o.onError?.((e as Error).message);
+        this.failProgram(key, e);
         return null;
       }
     }
     return p;
+  }
+
+  private failProgram(key: string, error: unknown) {
+    if (this.failedPrograms.has(key)) return;
+    this.failedPrograms.add(key);
+    this.o.onError?.(error instanceof Error ? error.message : String(error));
   }
 
   /**
@@ -1067,6 +1107,7 @@ export class AsciiEngine implements Renderer {
     }
     const src = SRC_OF(this.r, this.mediaOK);
     const fp = this.fieldProgram(src);
+    if (!fp) return; // keep the last frame instead of selecting stale field textures
     const stages = fp && !this.xfBroken ? xformStages(activeXforms(this.r, src), this.cols, this.rows, this.ch / this.cw) : [];
     let grid: Tex | null = null;
     if (stages.length) {
@@ -1148,7 +1189,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uLoop'), r.motion.loop);
     const layers = r.layers.filter(l => l.on).slice(0, 4);
     const A = new Float32Array(16), B = new Float32Array(16), C = new Float32Array(16);
-    (layers.length ? layers : [{ ...r.layers[0], on: true }]).forEach((l, i) => {
+    layers.forEach((l, i) => {
       A.set([l.scale * figureFit(l.pattern, this.W, this.H), (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
       B.set([l.a, l.b, l.mix, l.speed], i * 4);
       C.set([l.invert ? 1 : 0, l.phase, Math.max(0, BLENDS.indexOf(l.blend)), 0], i * 4);
@@ -1333,6 +1374,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
     gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' ? 1 : 0);
+    gl.uniform1f(loc(gl, p, 'uEmptyField'), r.source === 'pattern' && !r.layers.some(l => l.on) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uShift'), r.color.shift);
     gl.uniform1f(loc(gl, p, 'uCycle'), r.color.cycle);
     gl.uniform1f(loc(gl, p, 'uHue'), r.color.hue);

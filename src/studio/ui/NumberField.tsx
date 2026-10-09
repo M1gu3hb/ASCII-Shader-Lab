@@ -24,11 +24,12 @@ export interface NumberFieldProps extends Omit<InputHTMLAttributes<HTMLInputElem
   selectOnFocus?: boolean;
 }
 
-export function NumberField({ value, min, max, step = 1, onValue, onDone, selectOnFocus = true, className, onFocus, onBlur, onKeyDown, ...rest }: NumberFieldProps) {
+export function NumberField({ value, min, max, step = 1, onValue, onDone, selectOnFocus = true, className, onFocus, onBlur, onKeyDown, onInput, ...rest }: NumberFieldProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const [hint, setHint] = useState('');
   const start = useRef(value);
   const ref = useRef<HTMLInputElement>(null);
+  const focusEdit = useRef(0);
   const hintId = useId();
   const hintT = useRef(0);
   useEffect(() => () => clearTimeout(hintT.current), []);
@@ -102,11 +103,16 @@ export function NumberField({ value, min, max, step = 1, onValue, onDone, select
           if (v !== null && v !== value) onValue(v);
         }}
         onFocus={e => {
+          const focus = ++focusEdit.current;
           start.current = value;
           onFocus?.(e);
-          if (selectOnFocus) { const el = e.currentTarget; requestAnimationFrame(() => { if (document.activeElement === el) el.select(); }); }
+          if (selectOnFocus) {
+            const el = e.currentTarget, text = el.value;
+            requestAnimationFrame(() => { if (focusEdit.current === focus && document.activeElement === el && el.value === text) el.select(); });
+          }
         }}
-        onBlur={e => { onBlur?.(e); finish('blur'); }}
+        onInput={e => { focusEdit.current++; onInput?.(e); }}
+        onBlur={e => { focusEdit.current++; onBlur?.(e); finish('blur'); }}
         onKeyDown={keys}
       />
       <span id={hintId} className="nf-hint" role="status">{hint}</span>

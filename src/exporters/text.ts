@@ -151,7 +151,7 @@ export function gridToHtml(g: GridSnapshot, font = 'ui-monospace, Menlo, Consola
 
 /** A standalone page with the coloured block (the title is escaped: piece names come from shared links). */
 export function gridToHtmlPage(g: GridSnapshot, title: string): string {
-  return `<!doctype html>\n<html lang="es">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${escHtml(title)}</title>\n<body style="margin:0;background:${g.bg}">${gridToHtml(g)}</body>\n</html>\n`;
+  return `<!doctype html>\n<html lang="es">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${escHtml(oneLine(title))}</title>\n<body style="margin:0;background:${g.bg}">${gridToHtml(g)}</body>\n</html>\n`;
 }
 
 /* ---------- animations for the terminal ---------- */

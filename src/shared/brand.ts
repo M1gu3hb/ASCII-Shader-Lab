@@ -1,4 +1,4 @@
-import { WORD_ACCENT, WORD_H, WORD_INK, WORD_W } from './brandArt';
+import { WORD_ACCENT, WORD_H, WORD_INK, WORD_W } from './brandArt.ts';
 
 /**
  * GLYPHOS symbol: a halftone ramp across a 4×4 grid of dots that ends in a block cursor. Measured from the
