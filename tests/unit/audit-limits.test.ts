@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { normalizeRecipe } from '../../src/engine/recipe';
 import { FONTS, FIGURES, figureFit } from '../../src/engine/catalog';
 import { particlePattern, setParticlePX } from '../../src/engine/basic/particles';
@@ -30,14 +31,26 @@ it('normalises unknown patterns consistently, while explicit custom libraries ca
   expect(normalizeRecipe({ layers: [{ pattern: 'propio' }] }, new Set(['propio'])).layers[0].pattern).toBe('propio');
 });
 
-it('every offered local font weight has a local stylesheet, and the five figures fit portrait canvases', () => {
+it('every offered local font weight has an available face covering it, and the five figures fit portrait canvases', () => {
   const main = readFileSync('src/studio/main.tsx', 'utf8') + readFileSync('src/landing/fonts.ts', 'utf8');
   const viewer = readFileSync('src/landing/fonts.ts', 'utf8');
+  const variable = new Set(['jetbrains', 'martian', 'fira']);
   const packages: Record<string, string> = { jetbrains: 'jetbrains-mono', plex: 'ibm-plex-mono', martian: 'martian-mono', space: 'space-mono', fira: 'fira-code', vt: 'vt323', pixel: 'press-start-2p', silk: 'silkscreen', serif: 'instrument-serif' };
   for (const f of FONTS) for (const weight of f.weights) {
     if (!packages[f.id]) continue;
-    expect(main, `${f.id}/${weight}`).toContain(`@fontsource/${packages[f.id]}/latin-${weight}.css`);
-    expect(viewer, `visor ${f.id}/${weight}`).toContain(`@fontsource/${packages[f.id]}/latin-${weight}.css`);
+    const sheetPath = variable.has(f.id) ? 'src/landing/fonts-variable.css' : `node_modules/@fontsource/${packages[f.id]}/latin-${weight}.css`;
+    const imported = variable.has(f.id) ? './fonts-variable.css' : `@fontsource/${packages[f.id]}/latin-${weight}.css`;
+    expect(main, `${f.id}/${weight}`).toContain(imported);
+    expect(viewer, `visor ${f.id}/${weight}`).toContain(imported);
+    const sheet = readFileSync(sheetPath, 'utf8');
+    const face = sheet.match(/@font-face\s*\{[^}]+\}/g)?.find(block => block.includes(`font-family: '${f.family}'`));
+    expect(face, `${f.family}/${weight}`).toBeDefined();
+    const range = face!.match(/font-weight:\s*(\d+)(?:\s+(\d+))?/)!.slice(1);
+    expect(weight).toBeGreaterThanOrEqual(Number(range[0]));
+    expect(weight).toBeLessThanOrEqual(Number(range[1] ?? range[0]));
+    const url = face!.match(/url\(['"]?([^)'"]+)/)![1];
+    const asset = resolve(url.startsWith('@') ? 'node_modules' : dirname(sheetPath), url);
+    expect(readFileSync(asset).subarray(0, 4).toString()).toBe('wOF2');
   }
   for (const id of ['lissajous', 'estrella_mar', 'respiracion', 'radar', 'galaxia']) {
     expect(FIGURES.has(id)).toBe(true); expect(figureFit(id, 200, 800)).toBe(4);

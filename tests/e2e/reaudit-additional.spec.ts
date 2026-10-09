@@ -3,6 +3,25 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { openStudio } from './helpers';
 
+test('snapshot conserva los píxeles de un lienzo vivo aunque espere a la GPU', async ({ page }) => {
+  const module = await build({ entryPoints: [join(process.cwd(), 'src/engine/index.ts')], bundle: true, format: 'esm', write: false, logLevel: 'silent' });
+  await page.route('**/__audit/engine.js', r => r.fulfill({ body: Buffer.from(module.outputFiles[0].contents), contentType: 'text/javascript' }));
+  await page.goto('/licencia/');
+  const result = await page.evaluate(async () => {
+    const m = await import('/__audit/engine.js' as string);
+    const canvas = document.createElement('canvas'); document.body.append(canvas);
+    const r = m.defaultRecipe(); r.layers.forEach((l: any) => { l.on = false; }); r.color.bg = '#123456';
+    const e = new m.AsciiEngine(canvas, r, { library: m.PATTERN_GLSL, googleFonts: false,
+      fixedSize: { width: 32, height: 24, pixelRatio: 1 }, autoplay: false, interactive: false });
+    await e.ready(); e.renderAt(0);
+    const preserved = canvas.getContext('webgl2')!.getContextAttributes()!.preserveDrawingBuffer;
+    const image = await e.snapshot(0, 0, 4, 4); e.destroy(); canvas.remove();
+    return { preserved, pixels: image ? Array.from(image.data) : null };
+  });
+  expect(result.preserved).toBe(false);
+  expect(result.pixels).toEqual(Array.from({ length: 16 }, () => [18, 52, 86, 255]).flat());
+});
+
 async function harness(page: Page) {
   const root = process.cwd();
   const out = await build({ stdin: { resolveDir: root, contents: `
@@ -71,12 +90,17 @@ for (const surface of ['estudio', 'visor'] as const) test(`${surface}: cada peso
     const out = [];
     for (const [family, weights] of fonts) for (const weight of weights) {
       const faces = await document.fonts.load(`${weight} 16px "${family}"`, 'GLYPHOS ñ');
-      out.push({ family, weight, loaded: faces.length > 0 && faces.every(f => f.status === 'loaded') });
+      const variableRange = family === 'Fira Code' ? '300 700' : ['JetBrains Mono', 'Martian Mono'].includes(family) ? '100 800' : null;
+      out.push({ family, weight, loaded: faces.length > 0 && faces.every(f => f.status === 'loaded'),
+        correctFace: !variableRange || faces.some(f => f.weight === variableRange) });
     }
     return out;
   });
   expect(rows.length).toBe(35);
-  for (const row of rows) expect(row.loaded, `${row.family}/${row.weight}`).toBe(true);
+  for (const row of rows) {
+    expect(row.loaded, `${row.family}/${row.weight}`).toBe(true);
+    expect(row.correctFace, `${row.family}/${row.weight}: cara variable equivalente al código`).toBe(true);
+  }
 });
 
 

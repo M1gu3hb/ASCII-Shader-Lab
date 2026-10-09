@@ -1,0 +1,51 @@
+name: Reauditoría completa
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'package*.json'
+      - 'vite.config.ts'
+      - 'playwright.config.ts'
+      - '.github/workflows/reaudit-completa.yml'
+permissions:
+  contents: read
+jobs:
+  regression:
+    if: github.head_ref == 'glyphos-correcciones-urgentes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npx playwright install --with-deps chromium
+      - name: Producto público y páginas locales de QA, sin modelos de foto
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: reaudit-results.json
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          files = sorted(str(p) for p in Path('tests/e2e').glob('*.spec.ts')
+                         if not p.name.startswith('foto-') and p.name != 'cutout.spec.ts')
+          raise SystemExit(subprocess.call(['npx', 'playwright', 'test', *files,
+                           '--workers=1', '--shard=${{ matrix.shard }}/4', '--reporter=list,json']))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reaudit-shard-${{ matrix.shard }}
+          path: |
+            reaudit-results.json
+            test-results
+          retention-days: 30

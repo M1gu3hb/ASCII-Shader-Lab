@@ -123,23 +123,33 @@ test.describe('exportaciones largas', () => {
     await page.getByLabel('Duración (s)').fill('1');
     await page.getByRole('radiogroup', { name: 'Fotogramas por segundo' }).getByRole('radio', { name: '24', exact: true }).click();
     await page.getByRole('radio', { name: '320 px' }).click();
-    // watch the video while the GIF is made: it is paused and moved to each frame's time, within the clip's second.
-    // Every seek from the moment the export pauses it: before that the clip is still playing, and on a slow
-    // machine (the export's engine takes seconds to start) it can reach its end and loop, a seek of its own
-    await page.evaluate(() => {
+    // Begin well outside the one-second clip so restoring the preview cannot be mistaken for a frame.
+    // Observe pause synchronously: its DOM event can arrive after the first seek changed currentTime.
+    await page.evaluate(async () => {
       const v = [...document.querySelectorAll('video')].find(x => x.duration > 5)!;
-      const log: Array<{ paused: boolean; t: number }> = [];
-      (window as unknown as { seeks: typeof log }).seeks = log;
+      await new Promise<void>(resolve => { v.addEventListener('seeked', () => resolve(), { once: true }); v.currentTime = 3; });
+      const trace = { seeks: [] as Array<{ paused: boolean; t: number }>, original: 0, restored: 0, resumed: false };
+      (window as unknown as { exportTrace: typeof trace }).exportTrace = trace;
       let held = false;
-      v.addEventListener('pause', () => { held = true; }, { once: true });
-      v.addEventListener('seeked', () => { if (held) log.push({ paused: v.paused, t: v.currentTime }); });
+      const pause = v.pause.bind(v), play = v.play.bind(v);
+      v.pause = () => { if (!held) trace.original = v.currentTime; held = true; pause(); };
+      v.play = () => { if (held) { trace.restored = v.currentTime; trace.resumed = true; held = false; } return play(); };
+      v.addEventListener('seeked', () => { if (held) trace.seeks.push({ paused: v.paused, t: v.currentTime }); });
     });
     const [d] = await Promise.all([page.waitForEvent('download', { timeout: 120_000 }), page.getByRole('button', { name: 'Descargar GIF' }).click()]);
     expect(d.suggestedFilename()).toMatch(/\.gif$/);
-    const seeks = await page.evaluate(() => (window as unknown as { seeks: Array<{ paused: boolean; t: number }> }).seeks);
-    expect(seeks.length).toBeGreaterThanOrEqual(20);
-    expect(seeks.every(x => x.paused)).toBe(true);
-    const ts = seeks.map(x => x.t);
+    const trace = await page.evaluate(() => (window as unknown as { exportTrace: { seeks: Array<{ paused: boolean; t: number }>; original: number; restored: number; resumed: boolean } }).exportTrace);
+    expect(trace.original).toBeGreaterThanOrEqual(3);
+    expect(trace.resumed).toBe(true);
+    expect(trace.restored).toBeCloseTo(trace.original, 2);
+    expect(trace.seeks.at(-1)!.t).toBeCloseTo(trace.original, 2);
+    // The last seek restores the preview; it is not an exported frame.
+    const frames = trace.seeks.slice(0, -1);
+    expect(frames.length).toBeGreaterThanOrEqual(20);
+    expect(frames.every(x => x.paused)).toBe(true);
+    const ts = frames.map(x => x.t);
+    expect(ts[0]).toBeCloseTo(0, 2);
+    expect(ts.at(-1)!).toBeCloseTo(23 / 24, 2);
     expect(Math.max(...ts) - Math.min(...ts)).toBeLessThanOrEqual(1.05);
   });
 });

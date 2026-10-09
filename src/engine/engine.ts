@@ -410,13 +410,14 @@ export class AsciiEngine implements Renderer {
 
   /**
    * Pixels of a region of the last frame (top-left origin), read without making the page wait for the
-   * GPU: into a pixel buffer, then copied out once a fence says the GPU is done. Needs
-   * preserveDrawingBuffer (offscreen engines). Null if the context went away (also before its event arrives:
+   * GPU: into a pixel buffer, then copied out once a fence says the GPU is done. A live canvas's
+   * region is copied before yielding, because presenting it discards its drawing buffer.
+   * Null if the context went away (also before its event arrives:
    * a lost context reads as zeros, and a blank picture must never pass for the piece, e.g. as a thumbnail).
    */
   async snapshot(sx: number, sy: number, sw: number, sh: number): Promise<ImageData | null> {
     const gl = this.gl;
-    const gone = () => this.lost || gl.isContextLost();
+    const gone = () => !this.alive || this.lost || gl.isContextLost();
     if (gone()) return null;
     sx = Math.max(0, Math.min(this.W - 1, Math.round(sx))); sy = Math.max(0, Math.min(this.H - 1, Math.round(sy)));
     sw = Math.max(1, Math.min(this.W - sx, Math.round(sw))); sh = Math.max(1, Math.min(this.H - sy, Math.round(sh)));
@@ -427,27 +428,45 @@ export class AsciiEngine implements Renderer {
       while (!gone() && !passed(gl, sync) && performance.now() - t0 < 4000) await new Promise(res => setTimeout(res, 8));
       return !gone() && passed(gl, sync);
     };
-    const drawn = this.fence();
-    try { if (!await wait(drawn)) return null; }
-    finally { if (drawn) gl.deleteSync(drawn); }
     const size = sw * sh * 4;
-    const pbo = gl.createBuffer();
-    if (!pbo) return null;
+    let copy: Tex | null = null, fb: WebGLFramebuffer | null = null;
+    let drawn: WebGLSync | null = null, pbo: WebGLBuffer | null = null;
     let sync: WebGLSync | null = null;
     const raw = new Uint8Array(size);
     try {
+      if (!this.o.preserveDrawingBuffer) {
+        // Queue the copy in the same task as renderNow(), before the live buffer can be cleared.
+        copy = createTex(gl, sw, sh);
+        fb = fboFor(gl, copy);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fb);
+        // Blitting also handles an opaque default buffer (RGB) into our RGBA target.
+        gl.blitFramebuffer(sx, this.H - sy - sh, sx + sw, this.H - sy,
+          0, 0, sw, sh, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      }
+      drawn = this.fence();
+      if (!await wait(drawn)) return null;
+      pbo = gl.createBuffer();
+      if (!pbo) return null;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb);
       gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
       gl.bufferData(gl.PIXEL_PACK_BUFFER, size, gl.STREAM_READ);
-      gl.readPixels(sx, this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      gl.readPixels(fb ? 0 : sx, fb ? 0 : this.H - sy - sh, sw, sh, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
       gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
       sync = this.fence();
       if (!await wait(sync)) return null;
       gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
       gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
     } finally {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
       gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-      gl.deleteBuffer(pbo);
+      if (pbo) gl.deleteBuffer(pbo);
+      if (fb) gl.deleteFramebuffer(fb);
+      if (copy) gl.deleteTexture(copy.tex);
+      if (drawn) gl.deleteSync(drawn);
       if (sync) gl.deleteSync(sync);
     }
     if (gone()) return null;

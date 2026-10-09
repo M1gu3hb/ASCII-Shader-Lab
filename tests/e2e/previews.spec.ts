@@ -52,7 +52,8 @@ test.describe('vistas de destino', () => {
     // Fondo web: a page over the piece, and an estimate that says it is one
     await pick(page, 'Fondo web');
     await expect(page.locator('.preview-content .pc-h')).toBeVisible();
-    await expect(page.getByText('Tu pieza como fondo de una página')).toBeVisible();
+    await expect(page.locator('.vbar-what')).toBeVisible();
+    await expect(page.locator('.vbar-what')).toContainText('Tu pieza como fondo de una página');
     const est = page.locator('.vbar .legib-line');
     await expect(est).toContainText('Legibilidad (estimación)');
     await expect(est.locator('.legib-say')).toHaveText(/^(Se lee bien|Cuesta leer .+|Se lee con esfuerzo .+)$/, { timeout: 30_000 });
