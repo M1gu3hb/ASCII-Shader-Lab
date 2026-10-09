@@ -107,6 +107,12 @@ const keyOf = (l: Layer, f: LayerFam) => {
   return `${l.pattern}|${f.v}|${f.seed}|${f.res ?? 0}|${f.ck ?? ''}|${built}`;
 };
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+/**
+ * Raster versions are unique across every run of the page: an engine uploads a layer's raster when its version
+ * changes, and a fresh run counting from 0 would repeat the version of the run it replaced (a stale texture).
+ */
+let versions = 0;
+const nextVersion = () => ++versions;
 
 export interface HostOptions {
   live: boolean;
@@ -327,7 +333,7 @@ export class FamilyHost {
     const base = baseState ? model.steps : meta.budget.warmup ?? 0;
     const s: Slot = {
       key, meta, model, params: f.p, paramsKey: JSON.stringify(f.p), rate, base, baseState, baseSimT, simT: baseSimT,
-      debt: baseState ? 0 : base, raster: new Uint8Array(model.w * model.h), version: 0, renderedSteps: -1, renderedT: NaN,
+      debt: baseState ? 0 : base, raster: new Uint8Array(model.w * model.h), version: nextVersion(), renderedSteps: -1, renderedT: NaN,
       modified, lag: false, partial: false, fromCheckpoint, ckMissing, failed: false, ms: 0,
     };
     if (params !== f.p && this.o.live) { s.params = params; s.paramsKey = JSON.stringify(params); }
@@ -409,7 +415,7 @@ export class FamilyHost {
     s.model.render(s.raster, t);
     s.renderedSteps = s.model.steps;
     s.renderedT = t;
-    s.version++;
+    s.version = nextVersion();
   }
 
   private retire(s: Slot) {

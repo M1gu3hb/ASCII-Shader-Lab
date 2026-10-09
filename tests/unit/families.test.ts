@@ -256,12 +256,15 @@ it('en vivo, cambiar un parámetro de construcción crea otra ejecución; deshac
   const h = new FamilyHost({ live: true, frameBudget: 1e9 });
   for (let t = 0.1; t <= 1; t += 0.1) h.update(r, t);
   const first = h.raster(0)!.data.slice();
-  const other = (spec as { options: Array<{ value: string }> }).options.map(o => o.value).find(v => v !== r.layers[0].fam!.p[spec.key])!;
+  const v1 = h.raster(0)!.version;
+  const other = (spec as unknown as { options: Array<{ value: string }> }).options.map(o => o.value).find(v => v !== r.layers[0].fam!.p[spec.key])!;
   const r2 = structuredClone(r);
   r2.layers[0].fam!.p = { ...r2.layers[0].fam!.p, [spec.key]: other };
   for (let t = 1.1; t <= 2; t += 0.1) h.update(r2, t);
   const second = h.raster(0)!.data.slice();
   expect(mad(first, second), `${meta.id}.${spec.key}`).toBeGreaterThan(0);
+  // a new run never repeats a version an engine already uploaded (a stale texture in WebGL)
+  expect(h.raster(0)!.version).toBeGreaterThan(v1);
   // back to the first value: the earlier run comes back from the retired ones, where it was
   h.update(r, 2.02);
   const back = h.raster(0)!.data;
