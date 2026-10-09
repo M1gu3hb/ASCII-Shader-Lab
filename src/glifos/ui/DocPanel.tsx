@@ -1,5 +1,6 @@
 import { edit, useGlifos } from '../state';
 import { MetricsPanel } from './editor/MetricsPanel';
+import { KernPanel } from './KernPanel';
 
 /**
  * The document: its metrics (shared by every glyph), what it is for, and the authorship and licence that go
@@ -17,6 +18,8 @@ export function DocPanel() {
         : 'Alfabeto: letras con su propio ancho, márgenes y kerning, como una fuente. En el laboratorio dibujan las letras que tengas; las demás salen con la tipografía de la pieza.'}</p>
       <h3 className="sub">Métricas</h3>
       <MetricsPanel doc={doc} />
+      <h3 className="sub">Kerning</h3>
+      <KernPanel />
       <h3 className="sub">Autoría y licencia</h3>
       <p className="note">Van en los nombres de la fuente OTF y en el proyecto. Lo que diseñas es tuyo: elige tú la licencia.</p>
       <div className="ctl"><label className="lbl" htmlFor="lic-a">Autoría</label><input id="lic-a" type="text" disabled={readOnly} value={doc.license.author} onChange={e => lic('author', e.target.value)} /></div>

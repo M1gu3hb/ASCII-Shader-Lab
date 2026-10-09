@@ -5,7 +5,7 @@ import { FOTO_STUDIO } from './foto-helpers';
 /** Public site: crawl files, canonical URLs, share tags, structured data, guides and the brand credit. */
 const SITE = 'https://glyphos-ascii.vercel.app';
 /** The photo and video studio is listed only when the build makes it public (VITE_FOTO_STUDIO=1). */
-const PATHS = ['/', '/studio/', ...(FOTO_STUDIO ? ['/studio/foto/'] : []), '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
+const PATHS = ['/', '/studio/', ...(FOTO_STUDIO ? ['/studio/foto/'] : []), '/studio/glifos/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
 const GUIDES: Array<[string, string]> = [
   ['/imagen-a-ascii/', '/studio/?camino=foto'],
   ['/video-a-ascii/', '/studio/#space=media&source=video'],

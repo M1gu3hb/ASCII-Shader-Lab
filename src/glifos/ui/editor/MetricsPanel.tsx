@@ -3,15 +3,20 @@
  * cell and the default side bearings. Each field is one undoable edit (`metrics-*`, so arrow presses
  * coalesce).
  */
+import { useContext } from 'react';
 import type { GlyphDoc, Metrics } from '../../doc';
-import { useEditorApi } from './editorStore';
+import { edit, useGlifos } from '../../state';
+import { EditorApiCtx } from './editorStore';
 import { NumField } from './NumField';
 
+/** Inside the editor it edits through the editor; elsewhere (the Documento panel) straight on the document. */
 export function MetricsPanel({ doc }: { doc: GlyphDoc }) {
-  const api = useEditorApi();
+  const api = useContext(EditorApiCtx);
+  const readOnly = useGlifos(s => !!s.readOnly);
   const m = doc.metrics, u = m.upm;
-  const ro = !api.docEditable;
-  const set = (k: keyof Metrics, name: string) => (v: number) => api.editDoc(d => { d.metrics[k] = Math.round(v * 10) / 10; }, `Métrica: ${name}`, `metrics-${k}`);
+  const ro = api ? !api.docEditable : readOnly;
+  const editDoc = (fn: (d: GlyphDoc) => void, label: string, key?: string) => (api ? api.editDoc(fn, label, key) : edit(fn, label, { key }));
+  const set = (k: keyof Metrics, name: string) => (v: number) => editDoc(d => { d.metrics[k] = Math.round(v * 10) / 10; }, `Métrica: ${name}`, `metrics-${k}`);
   const fields: Array<[keyof Metrics, string, number, number]> = [
     ['asc', 'Ascendente', 0, u * 4], ['cap', 'Mayúsculas', 0, u * 4], ['xh', 'Altura x', 0, u * 4], ['desc', 'Descendente', -u * 4, 0],
   ];

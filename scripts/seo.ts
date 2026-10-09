@@ -108,11 +108,12 @@ function website() {
   };
 }
 
-/** The lab (/studio/) by default; the photo and video studio (/studio/foto/) describes itself. */
+/** The lab (/studio/) by default; the photo and video studio (/studio/foto/) and «Crea tus GLYPHOS» (/studio/glifos/) describe themselves. */
 function webApplication(studio: SitePage = page('studio')) {
-  const foto = studio.id === 'foto';
+  const own = studio.id === 'foto' || studio.id === 'glifos';
+  const name = studio.id === 'foto' ? 'Estudio de foto y video GLYPHOS' : studio.id === 'glifos' ? 'Crea tus GLYPHOS' : 'Estudio GLYPHOS';
   return {
-    '@type': 'WebApplication', '@id': foto ? `${SITE_URL}/studio/foto/#app` : ID.app, name: foto ? 'Estudio de foto y video GLYPHOS' : 'Estudio GLYPHOS',
+    '@type': 'WebApplication', '@id': own ? `${absUrl(studio.path)}#app` : ID.app, name,
     url: absUrl(studio.path), description: studio.description,
     applicationCategory: 'DesignApplication', operatingSystem: 'Web',
     browserRequirements: 'Requiere JavaScript; WebGL 2 para el motor completo',

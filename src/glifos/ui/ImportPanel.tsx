@@ -141,7 +141,8 @@ export function ImportPanel() {
               {g.raster.use === 'glifo' ? 'Usarla sólo como guía' : 'Usarla tal cual como glifo (píxeles)'}
             </button>
           </div>
-          <p className="note">El umbral, el recorte y la posición se ajustan en el editor, en «Imagen».</p>
+          <CropFields ch={current!} disabled={readOnly || locked} />
+          <p className="note">El umbral, la lectura y la posición se ajustan en el editor, en «Imagen».</p>
         </>
       )}
 
@@ -169,5 +170,32 @@ export function ImportPanel() {
       )}
       {msg && <p className={'note gl-line' + (msg.warn ? ' warn' : '')} role="status">{msg.text}</p>}
     </div>
+  );
+}
+
+/** The crop of a glyph's picture, in image pixels, and «Recortar a la tinta». */
+function CropFields({ ch, disabled }: { ch: string; disabled: boolean }) {
+  const g = useGlifos(s => s.doc?.glyphs[ch]);
+  const r = g?.raster;
+  if (!r) return null;
+  const pic = pictureOf(r.img);
+  const set = (k: 'x' | 'y' | 'w' | 'h', v: number) => editGlyph(ch, gl => {
+    if (!gl.raster) return;
+    const c = { ...gl.raster.crop, [k]: Math.max(k === 'w' || k === 'h' ? 1 : 0, Math.round(v)) };
+    if (pic) { c.x = Math.min(c.x, pic.w - 1); c.y = Math.min(c.y, pic.h - 1); c.w = Math.min(c.w, pic.w - c.x); c.h = Math.min(c.h, pic.h - c.y); }
+    gl.raster = { ...gl.raster, crop: c };
+  }, `Recorte de ${ch}`, 'crop-' + ch + k);
+  return (
+    <fieldset className="gl-crop" disabled={disabled}>
+      <legend>Recorte (píxeles de la imagen{pic ? `, ${pic.w}×${pic.h}` : ''})</legend>
+      <div className="row">
+        {(['x', 'y', 'w', 'h'] as const).map(k => (
+          <label key={k} className="gl-crop-f"><span>{{ x: 'X', y: 'Y', w: 'Ancho', h: 'Alto' }[k]}</span>
+            <input className="field" type="number" min={0} value={r.crop[k]} onChange={e => { const n = Number(e.target.value); if (Number.isFinite(n)) set(k, n); }} />
+          </label>
+        ))}
+      </div>
+      <button type="button" className="btn small" disabled={!pic} onClick={() => { if (pic) { const b = inkBox(pic, r.read, r.threshold); editGlyph(ch, gl => { if (gl.raster) gl.raster = { ...gl.raster, crop: b }; }, `Recortar ${ch} a la tinta`); } }}>Recortar a la tinta</button>
+    </fieldset>
   );
 }

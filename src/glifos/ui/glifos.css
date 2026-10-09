@@ -229,3 +229,14 @@ div.gl-start-card { cursor: default; }
   .gl-top-acts { margin-left: 0; width: 100%; }
   .gl-top-acts .btn { flex: 1; }
 }
+
+.gl-kern-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.gl-kern-list li { display: flex; align-items: center; gap: 8px; }
+.gl-kern-list canvas { background: rgba(0, 0, 0, .25); border-radius: 6px; }
+.gl-kern-list input.field { width: 84px; }
+
+.gl-crop { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 10px; margin: 8px 0; }
+.gl-crop legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.gl-crop .row { margin-bottom: 8px; flex-wrap: nowrap; }
+.gl-crop-f { display: grid; gap: 3px; font-size: 11px; color: var(--muted); }
+.gl-crop-f .field { width: 100%; padding: 5px 6px; }
