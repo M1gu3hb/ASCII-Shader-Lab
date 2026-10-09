@@ -135,6 +135,11 @@ export const sitePages = (foto: boolean): SitePage[] => [
     description: 'Genera arte ASCII en tiempo real: tira el dado, ajusta patrón, color y glifos, usa tu foto, video o cámara y exporta a PNG, SVG, MP4, GIF, ANSI o código.',
   },
   fotoPage(foto),
+  {
+    id: 'glifos', file: 'studio/glifos/index.html', path: '/studio/glifos/', kind: 'app', crumb: 'Crea tus GLYPHOS', sitemap: true, image: SITE_IMAGE,
+    title: 'Crea tus GLYPHOS — diseña tus letras y símbolos ASCII',
+    description: 'Dibuja, importa un PNG, un SVG o tu fuente, o parte de una letra: un asistente local propone el resto con tu estilo. Úsalos en GLYPHOS o exporta OTF, SVG y atlas.',
+  },
   guidePage('imagen', 'imagen-a-ascii/index.html',
     'Imagen a ASCII: convierte tu foto en arte ASCII · GLYPHOS',
     'Convierte una foto en arte ASCII en tu navegador, sin subirla a ningún servidor. Ajusta glifos y color, y descarga PNG, SVG, texto o video.'),

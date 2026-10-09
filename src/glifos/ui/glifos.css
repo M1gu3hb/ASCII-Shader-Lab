@@ -1,0 +1,44 @@
+/* «Crea tus GLYPHOS» (/studio/glifos/): the same dark workshop as the lab, its own layout. */
+@import '../../shared/tokens.css';
+
+:root {
+  --bg: var(--ink);
+  --panel: #141311;
+  --panel-2: #1b1917;
+  --field: rgba(237, 230, 218, .055);
+  --field-2: rgba(237, 230, 218, .09);
+  --line: rgba(237, 230, 218, .1);
+  --line-2: rgba(237, 230, 218, .18);
+  --text: var(--bone);
+  --muted: #a39c90;
+  --dim: #948d81;
+  --accent: var(--signal);
+  --accent-ink: var(--signal-ink);
+  --focus: #ffb08a;
+  --ok: #8fd6a0;
+  --warn: #ffcf70;
+  --top-h: 52px;
+  /* board states */
+  --st-vacio: rgba(237, 230, 218, .16);
+  --st-dibujado: #9fc4ff;
+  --st-propuesto: #ffcf70;
+  --st-aceptado: #8fd6a0;
+  --st-bloqueado: #d8a6ff;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
