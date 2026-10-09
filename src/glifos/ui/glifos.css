@@ -42,3 +42,57 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- controls (the lab's, src/studio/studio.css, so both studios read the same) ---------- */
+.sub { font: 600 11px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 22px 0 12px; display: flex; align-items: center; gap: 8px; }
+.sub::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.sub:first-child { margin-top: 2px; }
+.note { font-size: 12.5px; color: var(--muted); margin: -2px 0 14px; line-height: 1.5; }
+.note b { color: var(--text); font-weight: 600; }
+.note.warn { color: var(--warn); }
+.ctl { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; margin: 0 0 12px; }
+.ctl > .lbl, .ctl > label.lbl { font-size: 13px; color: var(--muted); user-select: none; }
+.ctl output, .val { font: 500 11.5px/1 var(--font-mono); color: var(--text); font-variant-numeric: tabular-nums; }
+.ctl > input[type=range], .ctl > select, .ctl > textarea, .ctl > input[type=text], .ctl > input[type=number], .ctl > .seg, .ctl > .row { grid-column: 1 / -1; }
+.ctl select, .ctl textarea, .ctl input[type=text], .ctl input[type=number], .field {
+  width: 100%; background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px;
+}
+.ctl textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
+select option { background: var(--panel-2); color: var(--text); }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 26px; margin: 0; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 2px; border-radius: 2px; background: var(--line-2); }
+input[type=range]::-moz-range-track { height: 2px; background: var(--line-2); border-radius: 2px; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 18px; margin-top: -8px; border-radius: 1px; background: var(--bone); border: 0; box-shadow: 0 0 0 3px var(--panel); }
+input[type=range]::-moz-range-thumb { width: 9px; height: 18px; border-radius: 1px; background: var(--bone); border: 0; box-shadow: 0 0 0 3px var(--panel); }
+input[type=range]:hover::-webkit-slider-thumb, input[type=range]:focus-visible::-webkit-slider-thumb { background: var(--accent); }
+.seg { display: flex; flex-wrap: wrap; gap: 3px; background: var(--field); padding: 3px; border-radius: 9px; }
+.seg button { flex: 1 1 auto; border: 0; background: none; padding: 7px 8px; border-radius: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--bone); color: var(--ink); font-weight: 600; }
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.switch { position: relative; width: 34px; height: 20px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--field-2); border: 1px solid var(--line-2); transition: background .15s; }
+.switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 2px; background: var(--muted); transition: transform .15s var(--ease-out), background .15s; }
+.switch input:checked + span { background: var(--accent); border-color: transparent; }
+.switch input:checked + span::after { transform: translateX(14px); background: var(--accent-ink); }
+.switch input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--field); font-weight: 500; font-size: 13.5px; text-decoration: none; color: var(--text);
+}
+.btn:hover { border-color: var(--line-2); background: var(--field-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: none; }
+.btn.wide { display: flex; width: 100%; margin: 0 0 8px; }
+.btn.small { padding: 6px 9px; font-size: 12.5px; border-radius: 8px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chip { min-height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--field); color: var(--text); font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chip[aria-pressed="true"] { background: var(--bone); color: var(--ink); border-color: transparent; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+@media (pointer: coarse) {
+  .btn, .chip, .seg button { min-height: 44px; }
+}

@@ -230,18 +230,23 @@ export interface CompileResult {
   skipped: Array<{ ch: string; why: string }>;
 }
 
-export function compileDoc(doc: GlyphDoc, pictures: (id: string) => Picture | undefined = () => undefined): CompileResult {
+/**
+ * `all`: proposals too (the preview shows the whole set as it would be if everything were accepted; what
+ * goes to the lab and the exports never has unaccepted proposals).
+ */
+export function compileDoc(doc: GlyphDoc, pictures: (id: string) => Picture | undefined = () => undefined, o: { all?: boolean } = {}): CompileResult {
   const m = doc.metrics;
+  const ok = o.all ? (g: Glyph | undefined) => !!g && g.status !== 'vacio' : usable;
   const skipped: CompileResult['skipped'] = [];
   const glyphs: Record<string, GlyphShape> = {};
   for (const ch of doc.chars) {
     const g = doc.glyphs[ch];
     if (!g) continue;
     if (ch === ' ') { glyphs[ch] = { a: doc.mode === 'ascii' ? m.cell : g.adv }; continue; }
-    if (!usable(g)) { if (g.status === 'propuesto') skipped.push({ ch, why: 'propuesta sin aceptar' }); continue; }
+    if (!ok(g)) { if (g.status === 'propuesto') skipped.push({ ch, why: 'propuesta sin aceptar' }); continue; }
     if (!hasDrawing(g)) { skipped.push({ ch, why: 'sin dibujo' }); continue; }
     const shape: GlyphShape = { a: doc.mode === 'ascii' && !g.ownAdv ? m.cell : g.adv };
-    const d = contoursToPathData(glyphContours(doc, ch, usable));
+    const d = contoursToPathData(glyphContours(doc, ch, ok));
     if (d) shape.d = d;
     if (g.raster?.use === 'glifo') {
       const pic = pictures(g.raster.img);
@@ -257,7 +262,7 @@ export function compileDoc(doc: GlyphDoc, pictures: (id: string) => Picture | un
   };
   if (doc.mode === 'ascii') {
     const have = (c: string) => !!glyphs[c];
-    const order = doc.ramp.manual ? doc.ramp.order.filter(have) : proposeRamp(doc, doc.chars.filter(have), usable).map(r => r.ch);
+    const order = doc.ramp.manual ? doc.ramp.order.filter(have) : proposeRamp(doc, doc.chars.filter(have), ok).map(r => r.ch);
     for (const c of Object.keys(glyphs)) if (!order.includes(c)) order.push(c);
     set.ramp = order.join('');
   } else {
