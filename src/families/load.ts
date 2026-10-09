@@ -8,6 +8,10 @@ import type { AnalyticImpl, ModelFactory } from './types';
  */
 const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: AnalyticImpl }>> = {
   reaccion_difusion: () => import('./sims/reaccion.ts'),
+  physarum: () => import('./sims/physarum.ts'),
+  lenia: () => import('./sims/lenia.ts'),
+  automata: () => import('./sims/automata.ts'),
+  kuramoto: () => import('./sims/kuramoto.ts'),
   sistema_l: () => import('./sims/lsystem.ts'),
   fractal_3d: () => import('./analytic/fractal3d.cpu.ts'),
 };
