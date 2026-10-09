@@ -14,7 +14,12 @@ import type { SpaceId } from './spaces';
  */
 
 /** The families version 6 draws from, in this order (never the live registry). */
-export const FAMILIES_V6: readonly string[] = ['reaccion_difusion', 'sistema_l', 'fractal_3d'];
+export const FAMILIES_V6: readonly string[] = Object.freeze([
+  'reaccion_difusion', 'physarum', 'lenia', 'automata', 'kuramoto', 'dla', 'crecimiento',
+  'fluido', 'agua', 'erosion', 'boids', 'gravedad', 'tela', 'chladni',
+  'sistema_l', 'atractor', 'wfc', 'hiperbolico',
+  'fractal_3d', 'nubes_vol', 'orbitales', 'lente_gravitacional', 'campos_em',
+]);
 
 /** How often a roll of each space starts from a family (the photo and the words keep their own pieces). */
 export const FAMILY_CHANCE6: Partial<Record<SpaceId, number>> = { arte: 0.22, fondos: 0.16, terminal: 0.12 };

@@ -291,7 +291,8 @@ export async function getImage(id: string): Promise<StoredImage | undefined> {
   } catch { return undefined; }
 }
 
-export interface StoredSet { bytes: Uint8Array; name: string; doc?: string; rev?: number; added: number }
+/** `mode` lets the lab list a set as an alphabet or as symbols without parsing it. */
+export interface StoredSet { bytes: Uint8Array; name: string; mode?: 'texto' | 'ascii'; doc?: string; rev?: number; added: number }
 
 /**
  * Stores a compiled set (validated, in its canonical bytes) under the hash of those bytes. Putting it again
@@ -306,7 +307,7 @@ export async function putSet(input: GlyphSet): Promise<{ id: string; bytes: Uint
     const had = await db.get(G + id);
     const rec: StoredSet = isObj(had) && had.bytes instanceof Uint8Array
       ? { ...(had as unknown as StoredSet), added: clock() }
-      : { bytes, name: clean.name, ...(clean.doc ? { doc: clean.doc.id, rev: clean.doc.rev } : {}), added: clock() };
+      : { bytes, name: clean.name, mode: clean.mode, ...(clean.doc ? { doc: clean.doc.id, rev: clean.doc.rev } : {}), added: clock() };
     await db.set(G + id, rec);
     return { id, bytes, stored: true };
   } catch {

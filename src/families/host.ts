@@ -96,7 +96,16 @@ export const familyTime = (t: number, hold: number) => (hold > 0 ? Math.floor(t 
 /** Moment a preview of a recipe (picker thumbnails, explorer) shows: a family with memory at most at `cap` s. */
 export const previewTime = (r: Recipe, t: number, cap = 4) => (FamilyHost.uses(r) ? Math.min(t, cap) : t);
 
-const keyOf = (l: Layer, f: LayerFam) => `${l.pattern}|${f.v}|${f.seed}|${f.res ?? 0}|${f.ck ?? ''}`;
+/**
+ * A run is its family, version, seed, resolution, saved state and the parameters its model only reads when
+ * built (`rebuild`: a grammar, a tile set, a population): changing one of those is another run, built anew
+ * (and an undo finds the previous one among the retired runs). Other parameters change a run in place.
+ */
+const keyOf = (l: Layer, f: LayerFam) => {
+  const meta = familyById(l.pattern);
+  const built = meta ? meta.params.filter(s => s.rebuild).map(s => JSON.stringify(f.p[s.key] ?? null)).join(',') : '';
+  return `${l.pattern}|${f.v}|${f.seed}|${f.res ?? 0}|${f.ck ?? ''}|${built}`;
+};
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export interface HostOptions {
