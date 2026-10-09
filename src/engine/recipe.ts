@@ -159,6 +159,14 @@ export interface Recipe {
     dither: number;
     ditherKind: DitherKind;
     jitter: number;    // animation rate for scramble / words
+    /**
+     * A glyph set made in «Crea tus GLYPHOS», by content id: the characters it draws come from it, the rest
+     * from `font`. Absent: the font alone. A link names it but does not carry it (a project, a session and
+     * exported code do); where it is missing the piece is drawn with `font`, and the studio and viewer say so.
+     */
+    set?: string;
+    /** The set's name, to say which one is missing where it is. */
+    setName?: string;
   };
   tone: {
     bright: number;
@@ -391,8 +399,8 @@ export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS, 
 }
 
 /** Whether a recipe needs the v3 format (it uses a visual family). */
-export function needsV3(r: Pick<Recipe, 'layers'>): boolean {
-  return r.layers.some(l => !!l.fam && !!familyById(l.pattern));
+export function needsV3(r: Pick<Recipe, 'layers'> & { glyph?: Pick<Recipe['glyph'], 'set'> }): boolean {
+  return r.layers.some(l => !!l.fam && !!familyById(l.pattern)) || !!r.glyph?.set;
 }
 
 /** Sets a recipe's format to what it uses (an edit that adds or removes a family changes it). */
@@ -417,7 +425,7 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
   const xform = normXforms(me.xform);
   const textAnim = normAnim(tx.anim, TEXT_ANIMS), msgAnim = normAnim(ms.anim, MSG_ANIMS);
   const r: Recipe = {
-    v: needsV3({ layers }) ? 3 : 2,
+    v: needsV3({ layers, glyph: { set: typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set) ? g.set : undefined } }) ? 3 : 2,
     source: oneOf(o.source, SOURCES, d.source),
     layers,
     motion: {
@@ -470,6 +478,9 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
       dither: num(g.dither, 0, 0, 1),
       ditherKind: oneOf(g.ditherKind, ['bayer', 'noise'] as const, 'bayer'),
       jitter: num(g.jitter, 0.5, 0, 1),
+      ...(typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set)
+        ? { set: g.set, ...(typeof g.setName === 'string' && g.setName ? { setName: g.setName.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60) } : {}) }
+        : {}),
     },
     tone: {
       bright: num(to.bright, 0, -1, 1),

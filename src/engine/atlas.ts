@@ -1,5 +1,10 @@
 import { EDGE_GLYPHS } from './catalog';
 import { CHARSET_DEFAULT } from './recipe';
+import { paintGlyph } from '../glyphset/paint';
+import type { GlyphSet } from '../glyphset/set';
+
+/** A custom glyph set drawn instead of the font for the characters it has (its content id keys the caches). */
+export interface AtlasGlyphs { id: string; set: GlyphSet }
 
 export interface AtlasSpec {
   charset: string;
@@ -12,6 +17,8 @@ export interface AtlasSpec {
   ch: number;         // cell height in device px (integer)
   extras: string;     // characters needed by messages / words
   maxTex: number;
+  /** Characters this set draws come from it; the rest from the font. */
+  glyphs?: AtlasGlyphs;
 }
 
 export interface Atlas {
@@ -63,8 +70,10 @@ const inkCache = new Map<string, number>();
  * measured on a small canvas. Cached per character, font, proportion and set of loaded fonts. The ramp
  * editor shows it; the atlas sorts by it.
  */
-export function measureDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): number[] {
-  const tail = '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts();
+type InkSpec = { stack: string; weight: number; italic?: boolean; glyphs?: AtlasGlyphs };
+
+export function measureDensity(chars: string[], spec: InkSpec, aspect: number): number[] {
+  const tail = '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts() + '|' + (spec.glyphs?.id ?? '');
   const G = 32, GH = Math.max(12, Math.round(G * aspect));
   let cx: CanvasRenderingContext2D | null = null;
   let fs = 0;
@@ -83,7 +92,7 @@ export function measureDensity(chars: string[], spec: { stack: string; weight: n
       cx.fillStyle = '#fff';
     }
     cx.clearRect(0, 0, G, GH);
-    cx.fillText(c, G / 2, GH / 2 + fs * 0.04);
+    if (!spec.glyphs || !paintGlyph(cx, spec.glyphs.set, c, G / 2, GH / 2, fs)) cx.fillText(c, G / 2, GH / 2 + fs * 0.04);
     const d = cx.getImageData(0, 0, G, GH).data;
     let s = 0;
     for (let i = 3; i < d.length; i += 4) s += d[i];
@@ -95,8 +104,8 @@ export function measureDensity(chars: string[], spec: { stack: string; weight: n
 }
 
 /** Orders characters from empty to full by measuring rendered ink coverage. Cached (per set of loaded fonts). */
-export function sortByDensity(chars: string[], spec: { stack: string; weight: number; italic?: boolean }, aspect: number): string[] {
-  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts();
+export function sortByDensity(chars: string[], spec: InkSpec, aspect: number): string[] {
+  const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts() + '|' + (spec.glyphs?.id ?? '');
   const hit = densityCache.get(key);
   if (hit) return hit;
   const dens = measureDensity(chars, spec, aspect);
@@ -147,7 +156,8 @@ export function buildAtlas(spec: AtlasSpec, prev?: HTMLCanvasElement): Atlas {
     cx.beginPath();
     cx.rect(x0, y0, cw, ch);
     cx.clip();
-    if (c === '█') cx.fillRect(x0, y0, cw, ch);
+    if (spec.glyphs && paintGlyph(cx, spec.glyphs.set, c, x0 + cw / 2, y0 + ch / 2, fs)) { /* the set's own drawing */ }
+    else if (c === '█') cx.fillRect(x0, y0, cw, ch);
     else cx.fillText(c, x0 + cw / 2, y0 + ch / 2 + fs * 0.04);
     cx.restore();
   });

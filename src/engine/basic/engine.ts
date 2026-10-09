@@ -1,4 +1,5 @@
 import { buildAtlas, uniqueChars, type Atlas } from '../atlas';
+import { getGlyphSet, watchGlyphSets, whenGlyphSet } from '../../glyphset/registry';
 import { BLENDS, INTERACT, cloneRecipe, type Recipe } from '../recipe';
 import { figureFit, fontById } from '../catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from '../color';
@@ -252,7 +253,7 @@ export class BasicEngine implements Renderer {
     if (this.o.fixedSize) { this.xf.have = false; this.touch.reset(); this.demoT = NaN; }
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
-      || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
+      || prev.glyph.set !== next.glyph.set || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
       || prev.text.font !== next.text.font || prev.text.weight !== next.text.weight || prev.text.italic !== next.text.italic
       || prev.text.content !== next.text.content) void this.requestFonts();
     if (prev.source !== next.source) { this.mediaEl = null; this.mediaOK = false; }
@@ -269,8 +270,9 @@ export class BasicEngine implements Renderer {
 
   private fontsFor(r: Recipe): Promise<unknown> {
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).catch(() => undefined);
   }
 
@@ -413,8 +415,9 @@ export class BasicEngine implements Renderer {
     const r = this.r;
     const gen = ++this.fontGen;
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).then(() => {
       if (gen !== this.fontGen && this.alive) return;
       this.atlasKey = '';
@@ -425,6 +428,9 @@ export class BasicEngine implements Renderer {
 
   /** A web font that lands after requestFonts() stopped waiting is drawn when it arrives (see engine.ts). */
   private watchLateFonts() {
+    // a glyph set the studio loads from this browser's storage (or one declared missing) redraws the atlas
+    const off = watchGlyphSets(() => { if (this.r.glyph.set) { this.atlasKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; } });
+    this.cleanup.push(off);
     const set = typeof document !== 'undefined' ? document.fonts : undefined;
     if (!set || typeof set.addEventListener !== 'function') return;
     const landed = () => { this.atlasKey = this.textKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; };
@@ -583,12 +589,14 @@ export class BasicEngine implements Renderer {
   private updateAtlas() {
     const r = this.r, g = r.glyph;
     const extras = (r.msg.on ? r.msg.text : '') + (g.mode === 'words' ? g.words : '');
-    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join('')].join('\u0001');
+    const set = g.set ? getGlyphSet(g.set) : undefined;
+    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join(''), set ? g.set : ''].join('\u0001');
     if (key === this.atlasKey && this.atlas) return;
     this.atlasKey = key;
     this.atlas = buildAtlas({
-      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (fontById(g.font).fit ?? 1),
-      cw: this.cw, ch: this.ch, extras, maxTex: MAX_DIM,
+      // a glyph set fills its own em box: the font's optical fit does not apply to it
+      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (set ? 1 : fontById(g.font).fit ?? 1),
+      cw: this.cw, ch: this.ch, extras, maxTex: MAX_DIM, glyphs: set ? { id: g.set!, set } : undefined,
     }, this.atlasCanvas ?? undefined);
     this.atlasCanvas = this.atlas.canvas;
     const cv = this.atlas.canvas, w = cv.width, h = cv.height;
