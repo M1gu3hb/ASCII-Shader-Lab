@@ -19,6 +19,10 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   orbitales: () => import('./analytic/orbitales.cpu.ts'),
   lente_gravitacional: () => import('./analytic/lente.cpu.ts'),
   campos_em: () => import('./sims/campos.ts'),
+  dla: () => import('./sims/dla.ts'),
+  crecimiento: () => import('./sims/crecimiento.ts'),
+  atractor: () => import('./sims/atractor.ts'),
+  wfc: () => import('./sims/wfc.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */

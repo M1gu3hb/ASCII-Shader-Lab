@@ -26,6 +26,8 @@ const INERT: Record<string, Record<string, string>> = {
   },
   reaccion_difusion: { edges: 'los bordes sólo cambian lo que cruza el límite; con pocas iteraciones puede no notarse' },
   automata: { custom: 'sólo cuenta con «Regla propia»' },
+  crecimiento: { bound: 'el límite sólo actúa cuando la curva llega a él; en la prueba corta todavía no llega' },
+  wfc: { hold: 'la espera sólo cuenta con el tablero terminado; en la prueba corta todavía se construye' },
 };
 
 const raster = (m: FieldModel, t = 0) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };
