@@ -10,6 +10,10 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   reaccion_difusion: () => import('./sims/reaccion.ts'),
   sistema_l: () => import('./sims/lsystem.ts'),
   fractal_3d: () => import('./analytic/fractal3d.cpu.ts'),
+  dla: () => import('./sims/dla.ts'),
+  crecimiento: () => import('./sims/crecimiento.ts'),
+  atractor: () => import('./sims/atractor.ts'),
+  wfc: () => import('./sims/wfc.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */
