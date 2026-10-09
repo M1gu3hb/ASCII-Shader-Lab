@@ -28,7 +28,7 @@ test.describe('semillas y versiones del generador', () => {
     await expect(seedSheet.getByText(/salió de la versión 1 del generador/)).toBeVisible();
     // another seed: the current version, unless one is chosen
     await seedSheet.getByLabel('Semilla', { exact: true }).fill('marea-leve-001');
-    await expect(gen).toContainText('Versión 5 (actual)');
+    await expect(gen).toContainText('Versión 6 (actual)');
     await gen.click();
     await page.getByRole('option', { name: /Versión 1/ }).click();
     await expect(gen).toContainText('Versión 1');

@@ -280,7 +280,8 @@ export function ShortcutsSheet() {
 
 /** What each generator version is, for the person choosing one (newest first). */
 const GEN_INFO: Record<number, { label: string; desc: string }> = {
-  5: { label: 'Versión 5', desc: 'La actual: la biblioteca de patrones, partículas y escenas, 19 estilos y paletas mucho más variadas (vivas, duotonos, carteles, pasteles…).' },
+  6: { label: 'Versión 6', desc: 'La actual: las piezas de la versión 5 y, a veces, una familia visual (simulaciones, estructuras y ciencia en 3D) en Arte, Fondos y Terminal.' },
+  5: { label: 'Versión 5', desc: 'La biblioteca de patrones, partículas y escenas, 19 estilos y paletas mucho más variadas (vivas, duotonos, carteles, pasteles…).' },
   4: { label: 'Versión 4', desc: 'Las mismas piezas que la versión 3, con el nombre nuevo (GLYPHOS) cuando el azar rellena con palabras.' },
   3: { label: 'Versión 3', desc: 'Las piezas de la versión 2 y, en Imagen, Texto y Terminal, transformaciones y letras que se mueven.' },
   2: { label: 'Versión 2', desc: 'Trece objetos 3D y un azar que rara vez repite lo que acabas de ver.' },
