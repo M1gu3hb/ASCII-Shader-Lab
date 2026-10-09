@@ -3,9 +3,12 @@ import {
   BLEND_NAMES, CHARSETS, COLOR_MAP_NAMES, FAMILY_NAMES, FONTS, INTERACT_NAMES, LETTER_ANIMS, MSG_MODE_NAMES, PATTERNS, XFORMS, fontById, patternById, type PatternFamily,
 } from '../../engine/catalog';
 import {
-  DEFAULT_LAYER, cloneRecipe, defaultRecipe, type BlendMode, type ColorMap, type InteractMode, type LetterAnimKind, type MsgMode, type Recipe, type Xform, type XformKind,
+  DEFAULT_LAYER, cloneRecipe, defaultRecipe, syncVersion, type BlendMode, type ColorMap, type InteractMode, type LetterAnimKind, type MsgMode, type Recipe, type Xform, type XformKind,
 } from '../../engine/recipe';
 import { ARCHETYPES } from '../../random/archetypes';
+import { FAMILIES, familyById } from '../../families/registry';
+import { familyLayer } from '../../families/recipes';
+import { FAMILY_GROUP_NAMES } from '../../families/types';
 import { renderCrops, type CropSpec, type Signal } from '../guide/thumbs';
 import {
   BLEND_DESC, CHARSET_ASCII_LINE, CHARSET_UNICODE_LINE, COLOR_MAP_DESC, FONT_DESC, INTERACT_DESC, INTERACT_ICON, MSG_MODE_DESC, MSG_MODE_ICON, PATTERN_DESC,
@@ -201,9 +204,12 @@ export function msgModeOptions(): PickOpt<MsgMode>[] {
 /* ------------------------------------------------------------------ */
 
 export function patternOptions(): PickOpt<string>[] {
-  return (Object.keys(FAMILY_NAMES) as PatternFamily[]).flatMap(fam => PATTERNS.filter(p => p.family === fam).map(p => ({
+  const classic = (Object.keys(FAMILY_NAMES) as PatternFamily[]).flatMap(fam => PATTERNS.filter(p => p.family === fam).map(p => ({
     value: p.id, label: p.name, group: FAMILY_NAMES[fam], desc: PATTERN_DESC[p.id],
   })));
+  // the visual families (src/families) after the patterns: simulations, structures and 3D science
+  const families = FAMILIES.map(f => ({ value: f.id, label: f.name, group: 'Familias · ' + FAMILY_GROUP_NAMES[f.group], desc: f.blurb }));
+  return [...classic, ...families];
 }
 
 /**
@@ -212,8 +218,10 @@ export function patternOptions(): PickOpt<string>[] {
  */
 export function patternThumbRecipe(base: Recipe, pattern: string): Recipe {
   const d = defaultRecipe();
-  // a 3D object is drawn smaller, so the thumbnail's centre crop shows all of it
-  d.layers = [{ ...DEFAULT_LAYER, pattern, scale: patternById(pattern).family === 'solidos' ? 1.6 : 1 }];
+  const fam = familyById(pattern);
+  // a 3D object is drawn smaller, so the thumbnail's centre crop shows all of it; a family shows its first preset
+  d.layers = [fam ? familyLayer(fam, 'muestra') : { ...DEFAULT_LAYER, pattern, scale: patternById(pattern).family === 'solidos' ? 1.6 : 1 }];
+  syncVersion(d);
   d.color = { ...base.color, mode: 'ramp', cycle: 0 };
   d.glyph = { ...base.glyph, cell: 14, mode: 'density', edge: 0, dither: 0 };
   d.interact = { ...d.interact, mode: 'none' };

@@ -29,6 +29,10 @@ import {
 import { XformTab } from './ui/Xforms';
 import { TouchControls } from './ui/Touch';
 import { RampEditor } from './ui/RampEditor';
+import { FamilyControls } from './ui/FamilyControls';
+import { FAMILIES, familyById } from '../families/registry';
+import { withPreset } from '../families/recipes';
+import { hasStateful, setLayerPattern } from './families';
 import { PaletteEditor } from './ui/color/PaletteEditor';
 import { useRamps } from './ui/ramps';
 import { LETTER_ANIMS } from '../engine/catalog';
@@ -115,6 +119,7 @@ function LayerCard({ i, n }: { i: number; n: number }) {
   const on = useField(P('on')) as boolean;
   const pat = useField(P('pattern')) as string;
   const info = patternById(pat);
+  const fam = familyById(pat);
   const move = (d: number) => edit(r => { const l = r.layers.splice(i, 1)[0]; r.layers.splice(i + d, 0, l); if (r.layers[0]) r.layers[0].blend = 'normal'; }, 'move' + Date.now());
   const recipe = useRecipe();
   const h = useHelp('layers.*.pattern');
@@ -122,6 +127,15 @@ function LayerCard({ i, n }: { i: number; n: number }) {
   const onOpen = useCallback((o: boolean) => { if (o) openThumbSession(); else closeThumbSession(); }, []);
   const reroll = () => edit(r => {
     const rng = new Rng(`reroll${i}${Date.now()}`);
+    if (fam) {
+      // a family: another one (half the time of the same group) with one of its presets
+      const same = FAMILIES.filter(f => f.group === fam.group && f.id !== pat);
+      const next = rng.chance(0.5) && same.length ? rng.pick(same) : rng.pick(FAMILIES);
+      setLayerPattern(r, i, next.id);
+      const l = r.layers[i];
+      if (l.fam) r.layers[i] = withPreset(l, rng.pick(next.presets).id);
+      return;
+    }
     const same = PATTERNS.filter(p => p.family === info.family && p.id !== pat);
     r.layers[i].pattern = (rng.chance(0.5) && same.length ? rng.pick(same) : rng.pick(PATTERNS)).id;
     r.layers[i].a = Math.round(rng.range(0.1, 0.9) * 100) / 100;
@@ -140,19 +154,23 @@ function LayerCard({ i, n }: { i: number; n: number }) {
               <span className="pk-main"><span className="pk-name">{o.label}</span>{o.desc && <span className="pk-desc">{o.desc}</span>}</span>
             </>
           )}
-          onChange={v => edit(r => { r.layers[i].pattern = v; }, `layers.${i}.pattern`)} />
-        <button type="button" className="icon-btn" title="Otro patrón al azar" aria-label="Otro patrón al azar" onClick={reroll}><IDice /></button>
+          onChange={v => edit(r => setLayerPattern(r, i, v), `layers.${i}.pattern`)} />
+        <button type="button" className="icon-btn" title={fam ? 'Otra familia al azar' : 'Otro patrón al azar'} aria-label={fam ? 'Otra familia al azar' : 'Otro patrón al azar'} onClick={reroll}><IDice /></button>
         <button type="button" className="icon-btn" aria-pressed={!on} title={on ? 'Ocultar capa' : 'Oculta: pulsa para mostrarla'} aria-label={`Ocultar la capa ${i + 1}`}
           onClick={() => edit(r => { r.layers[i].on = !r.layers[i].on; }, 'toggle' + Date.now())}>{on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={`Patrón de la capa ${i + 1}`} />}
       </div>
       <HintText h={h} />
       <HelpMore h={h} />
-      <p className="layer-desc">{PATTERN_OPTS.find(o => o.value === pat)?.desc}</p>
+      {!fam && <p className="layer-desc">{PATTERN_OPTS.find(o => o.value === pat)?.desc}</p>}
       {i > 0 && <Select f={P('blend')} label="Mezcla con la capa de abajo" opts={BLEND_OPTS} minWidth={300} />}
       <Slider f={P('mix')} label={i === 0 ? 'Intensidad' : 'Fuerza de la mezcla'} min={0} max={1} />
-      <Slider f={P('a')} label={info.a} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.a.toLowerCase()}.` }} />
-      <Slider f={P('b')} label={info.b} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.b.toLowerCase()}.` }} />
+      {fam ? <FamilyControls i={i} /> : (
+        <>
+          <Slider f={P('a')} label={info.a} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.a.toLowerCase()}.` }} />
+          <Slider f={P('b')} label={info.b} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.b.toLowerCase()}.` }} />
+        </>
+      )}
       <Slider f={P('scale')} label="Escala" min={0.2} max={4} />
       <Slider f={P('speed')} label="Velocidad" min={-2} max={3} />
       <Slider f={P('rot')} label="Rotación" min={-360} max={360} step={1} fmt={v => Math.round(v) + '°'} />
@@ -281,6 +299,7 @@ function MovTab({ space }: { space: SpaceId }) {
           <Slider f={F('motion.speed')} label="Velocidad" min={0} max={3} />
           <Slider f={F('motion.hold')} label="Stop motion" min={0} max={24} step={1} fmt={v => (v === 0 ? 'fluido' : v + ' fps')} />
           <Slider f={F('motion.loop')} label="Bucle perfecto" min={0} max={20} step={0.5} fmt={v => (v === 0 ? 'no' : v + ' s')} />
+          <LoopNote />
           <Sub>Ritmo</Sub>
           <Slider f={F('motion.pulse')} label="Latido" min={0} max={1} />
           <Slider f={F('motion.bpm')} label="Tempo" min={40} max={180} step={1} fmt={v => v + ' bpm'} />
@@ -290,6 +309,13 @@ function MovTab({ space }: { space: SpaceId }) {
       <TouchControls />
     </>
   );
+}
+
+/** With a family that has memory, the loop cannot close on it: said where the loop is set. */
+function LoopNote() {
+  const r = useRecipe();
+  if (!hasStateful(r)) return null;
+  return <Note>Esta pieza tiene una simulación con memoria: no vuelve a su inicio, así que «Bucle perfecto» no la cierra. Sus clips y videos son evolución continua desde el momento que elijas.</Note>;
 }
 
 function SoundControl() {

@@ -31,6 +31,28 @@ import { useSwap } from './motion/hooks';
 import { getEngine } from './engineBridge';
 import { InteractNote, withDemo } from './ui/Touch';
 import { studioRamp } from './ramp';
+import { FamilyHost } from '../families/host';
+import { familyById } from '../families/registry';
+import { useFamilyStart, type FamilyStart } from './exporting';
+
+/**
+ * A piece with a family that has memory: its clips show a continuous evolution (no perfect loop), from a
+ * copy of the state on stage or from the seed and its defined warm-up. Said, and chosen, beside the clip.
+ */
+function FamilyClipNote({ r }: { r: Recipe }) {
+  const start = useFamilyStart(s => s.start);
+  if (!FamilyHost.uses(r)) return null;
+  const metas = FamilyHost.layersOf(r).map(l => (l.fam ? familyById(l.pattern) : undefined)).filter(m => m && m.kind !== 'analytic');
+  const names = [...new Set(metas.map(m => m!.name))].join(', ');
+  const warm = metas.map(m => m!.budget.warmup ?? 0).reduce((a, b) => Math.max(a, b), 0);
+  return (
+    <div className="ex-fam">
+      <p className="note"><b>{names}</b> evoluciona con memoria: el clip muestra su evolución desde el momento que elijas y no forma un bucle perfecto. Exportar trabaja sobre una copia: la simulación del escenario sigue como estaba.</p>
+      <SegGroup<FamilyStart> label="Empezar la simulación desde" value={start} onPick={v => useFamilyStart.setState({ start: v })}
+        opts={[['estado', 'El estado actual'], ['semilla', `La semilla${warm ? ` (+${warm.toLocaleString('es-ES')} pasos de calentamiento)` : ''}`]]} />
+    </div>
+  );
+}
 
 type Tab = 'imagen' | 'video' | 'vector' | 'terminal' | 'codigo' | 'receta';
 const TABS: Array<[Tab, string]> = [['imagen', 'Imagen'], ['video', 'Video y GIF'], ['vector', 'Vector'], ['terminal', 'Texto y terminal'], ['codigo', 'Código'], ['receta', 'Receta']];
@@ -393,6 +415,7 @@ function VideoTab({ req }: { req: ExportRequest | null }) {
           <Numbers id="v-fps" label="Fotogramas por segundo" value={fps} list={[24, 25, 30, 60]} onPick={setFps} />
           <p className="note">Valen para el video y el GIF. {loop > 0 ? <b>Tu pieza tiene bucle de {loop} s: el clip enlaza perfecto.</b> : 'Activa «Bucle perfecto» en Movimiento para clips que se repiten sin corte.'}{warm > 0 ? ` Con Estela, antes del primer fotograma se preparan ${warm.toFixed(1).replace('.', ',')} s sin grabar, para que el clip empiece con su estela${loop > 0 ? ' y enlace' : ''}: tarda algo más.` : ''}</p>
           <InteractNote r={e.recipe} kind="clip" demo={demo} onDemo={setDemo} />
+          <FamilyClipNote r={e.recipe} />
         </div>
       )}
       <div className="ex-grid">
@@ -612,6 +635,7 @@ function TerminalTab({ req }: { req: ExportRequest | null }) {
         <div className="ex-card">
           <h3>Animación para la consola</h3>
           <p>Scripts autónomos: no necesitan instalar nada. Se detienen con Ctrl+C y restauran la terminal.</p>
+          <FamilyClipNote r={e.recipe} />
           <div className="ex-anim">
             <div className="ctl"><label className="lbl" htmlFor="t-secs">Duración (s)</label><NumberField id="t-secs" min={1} max={30} step={0.5} value={secs} onValue={setSecs} /></div>
             <Numbers id="t-fps" label="Fotogramas por segundo" value={fps} list={[8, 10, 12, 15, 20, 24]} onPick={setFps} />

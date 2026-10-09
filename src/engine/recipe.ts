@@ -395,6 +395,12 @@ export function needsV3(r: Pick<Recipe, 'layers'>): boolean {
   return r.layers.some(l => !!l.fam && !!familyById(l.pattern));
 }
 
+/** Sets a recipe's format to what it uses (an edit that adds or removes a family changes it). */
+export function syncVersion(r: Recipe): Recipe {
+  r.v = needsV3(r) ? 3 : 2;
+  return r;
+}
+
 /** Sanitises old/current recipes; refuses future formats rather than discarding their fields. */
 export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PATTERN_IDS): Recipe {
   const d = defaultRecipe();

@@ -10,7 +10,7 @@
  */
 import { SITE_URL } from './site';
 import { normMediaRef } from '../engine/recipe';
-import { MEDIA_DIR, safeFileName } from './project';
+import { MEDIA_DIR, STATES_DIR, STATE_EXT, safeFileName, statesIn, type PackedState } from './project';
 import { zip, type ZipEntry } from './zip';
 
 export const SESSION_FILE = 'sesion.json';
@@ -68,7 +68,7 @@ const readmeCollection = (favs: number, media: number) => [
   '',
 ].join('\r\n');
 
-export async function buildSession(data: SessionData, media: Array<SessionMedia & { data: Blob | Uint8Array }> = [], scope: SessionScope = 'all'): Promise<Blob> {
+export async function buildSession(data: SessionData, media: Array<SessionMedia & { data: Blob | Uint8Array }> = [], scope: SessionScope = 'all', states: PackedState[] = []): Promise<Blob> {
   const packed = media.map(m => ({ ...m, path: `${MEDIA_DIR}${m.id}-${safeFileName(m.name, m.kind === 'video' ? 'video' : 'imagen')}` }));
   const doc = {
     glyphos: 'session', version: 1, exported: new Date().toISOString(), ...(scope === 'collection' ? { scope } : {}),
@@ -78,6 +78,8 @@ export async function buildSession(data: SessionData, media: Array<SessionMedia 
   return zip([
     { name: SESSION_FILE, data: JSON.stringify(doc) },
     ...packed.map(m => ({ name: m.path, data: m.data })),
+    // saved states of family layers (layer.fam.ck), by content id; older studios ignore the folder
+    ...states.map(st => ({ name: STATES_DIR + st.id + STATE_EXT, data: st.data })),
     { name: README, data: scope === 'collection' ? readmeCollection(data.favorites.length, media.length) : readme(data.entries.length, data.favorites.length, media.length) },
   ]);
 }
@@ -89,7 +91,7 @@ export function isSession(files: ZipEntry[]): boolean {
 }
 
 /** Opens a session archive. Media are read on demand. Returns null when it is not a session. */
-export async function readSession(files: ZipEntry[]): Promise<{ data: SessionData; scope: SessionScope; media: Array<{ meta: SessionMedia; read: () => Promise<Uint8Array> }> } | null> {
+export async function readSession(files: ZipEntry[]): Promise<{ data: SessionData; scope: SessionScope; media: Array<{ meta: SessionMedia; read: () => Promise<Uint8Array> }>; states: ReturnType<typeof statesIn> } | null> {
   const f = files.find(x => baseName(x.name) === SESSION_FILE && !x.name.startsWith('__MACOSX/'));
   if (!f) return null;
   let doc: Record<string, unknown>;
@@ -118,5 +120,6 @@ export async function readSession(files: ZipEntry[]): Promise<{ data: SessionDat
       cursor: typeof doc.cursor === 'number' ? doc.cursor : doc.entries.length - 1,
     },
     media,
+    states: statesIn(files, prefix),
   };
 }

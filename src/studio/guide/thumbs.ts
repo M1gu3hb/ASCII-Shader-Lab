@@ -1,3 +1,4 @@
+import { previewTime } from '../../families/host';
 import type { Recipe } from '../../engine/recipe';
 import { getEngine } from '../engineBridge';
 import { canvasUrl, snapshotCanvas, stageSize, withOffscreen } from '../offscreen';
@@ -68,7 +69,8 @@ async function run(recipes: Recipe[], todo: number[], o: CropSpec, onEach: (i: n
         eng.set(recipes[i]);
         await eng.ready();
         if (signal.cancelled) return null;
-        eng.renderAt(t);
+        // (a family with memory: an early moment of its run, not a fast-forward to the stage's clock)
+        eng.renderAt(previewTime(recipes[i], t));
         const W = eng.canvas.width, H = eng.canvas.height, sw = regW * pr, sh = regH * pr;
         return snapshotCanvas(eng, (W - sw) / 2, (H - sh) / 2, sw, sh, o.w, o.h);
       });

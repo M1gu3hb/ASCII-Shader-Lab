@@ -93,6 +93,9 @@ export const fieldLoops = (r: Recipe) => r.motion.loop > 0 && !FamilyHost.uses(r
 /** The time a family's run reads: stop motion applied, never folded into a loop. */
 export const familyTime = (t: number, hold: number) => (hold > 0 ? Math.floor(t * hold) / hold : t);
 
+/** Moment a preview of a recipe (picker thumbnails, explorer) shows: a family with memory at most at `cap` s. */
+export const previewTime = (r: Recipe, t: number, cap = 4) => (FamilyHost.uses(r) ? Math.min(t, cap) : t);
+
 const keyOf = (l: Layer, f: LayerFam) => `${l.pattern}|${f.v}|${f.seed}|${f.res ?? 0}|${f.ck ?? ''}`;
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -112,7 +115,7 @@ export class FamilyHost {
   /** Live: runs that left the stage a moment ago (an undo brings them back as they were). */
   private retired: Slot[] = [];
   private lastT = NaN;
-  private start: { bundle: FamilyBundle; t0: number } | null = null;
+  private start: { bundle: FamilyBundle | null; t0: number } | null = null;
   private seenModels = -1;
   private seenCk = -1;
   private o: HostOptions;
@@ -141,9 +144,12 @@ export class FamilyHost {
     return this.needs(r).every(id => !!modelOf(id) || !!analyticOf(id));
   }
 
-  /** Fixed engines: the next renders start from these live runs at piece time t0 (null: from their seeds). */
+  /**
+   * Fixed engines: the next renders start from these live runs at piece time t0; with no bundle, from their
+   * seeds and warm-up with their clock starting at t0 (a clip «desde la semilla» that begins at t0).
+   */
   setStart(bundle: FamilyBundle | null, t0 = 0) {
-    this.start = bundle ? { bundle, t0 } : null;
+    this.start = bundle || t0 ? { bundle, t0 } : null;
     for (let i = 0; i < 4; i++) this.slots[i] = null;
   }
 
@@ -295,7 +301,7 @@ export class FamilyHost {
     // where the run starts: a copy handed over (exports), a saved state, or the seed and its warm-up
     let baseState: ModelState | null = null, baseSimT = 0, fromCheckpoint = false, ckMissing = false, modified = false;
     let params = f.p;
-    const handed = this.start?.bundle.slots[i];
+    const handed = this.start?.bundle?.slots[i];
     if (handed && handed.key === key) {
       baseState = handed.state; baseSimT = handed.simT; modified = handed.modified;
       // a live engine taking over keeps its live parameters until the recipe says otherwise
