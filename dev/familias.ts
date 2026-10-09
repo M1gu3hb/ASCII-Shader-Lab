@@ -10,6 +10,7 @@ import { AsciiEngine, BasicEngine, PATTERN_GLSL, createFontLoader, defaultRecipe
 import { FAMILIES } from '../src/families/registry';
 import { familyRecipe } from '../src/families/recipes';
 import { FAMILY_GROUP_NAMES } from '../src/families/types';
+import { DEFAULT_CODE, htmlPage } from '../src/exporters/code';
 
 const fonts = createFontLoader({ google: false });
 const params = new URLSearchParams(location.search);
@@ -121,6 +122,11 @@ window.__fam = {
   errors,
   items: items.map(i => ({ family: i.family, preset: i.preset, title: i.title })),
   compare,
+  /** The exported HTML page of a preset (the code the studio's «Código» tab gives), with or without the basic engine. */
+  codePage: (family: string, preset: string, fallback: 'basic' | 'poster' = 'basic') => {
+    const item = items.find(i => i.family === family && i.preset === preset)!;
+    return htmlPage(item.recipe(), { ...DEFAULT_CODE, fallback, interactive: false });
+  },
   snap: async (family: string, preset: string, o: { engine: 'gl' | 'basic'; t?: number }) => {
     const item = items.find(i => i.family === family && i.preset === preset)!;
     const c = document.createElement('canvas');

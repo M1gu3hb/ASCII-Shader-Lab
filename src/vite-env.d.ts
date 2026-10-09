@@ -15,6 +15,8 @@ declare module 'virtual:mt-runtime-basic' {
   export const runtime: string;
   /** One self-registering script per CPU pattern (id → code). */
   export const patterns: Record<string, string>;
+  /** One self-registering script per visual family (id → code): its model, or its analytic CPU twin. */
+  export const families: Record<string, string>;
 }
 declare module 'opentype.js' {
   const opentype: { parse(buf: ArrayBuffer): unknown };

@@ -22,6 +22,8 @@ import type { PatternLibrary } from '../engine/glsl/patterns';
 import type { Renderer } from '../engine/renderer';
 import type { BasicEngineOptions } from '../engine/basic/engine';
 import { gradientSide, scrimCss } from '../shared/scrim';
+import { analyticOf, modelOf, registerAnalytic, registerModel } from '../families/models';
+import type { AnalyticImpl, ModelFactory } from '../families/types';
 
 /** The protected zone: colour, opacity (0..1), backdrop blur in px and shape. */
 interface ScrimOption { color: string; opacity: number; blur: number; shape: 'full' | 'gradient' }
@@ -61,9 +63,21 @@ export interface BasicSupport {
 interface Api {
   version: string;
   register(p: PatternLibrary): void;
+  /**
+   * A visual family's code (scripts the exporter appends, one per family the piece uses): the model of a
+   * simulation or structure, or the CPU twin of an analytic family for the basic engine.
+   */
+  registerFamily?(id: string, m: { create?: ModelFactory; impl?: AnalyticImpl }): void;
+  hasFamily?(id: string): boolean;
   mount: typeof mount;
   __basic?: BasicSupport;
 }
+
+const registerFamily = (id: string, m: { create?: ModelFactory; impl?: AnalyticImpl }) => {
+  if (m?.create) registerModel(id, m.create);
+  if (m?.impl) registerAnalytic(id, m.impl);
+};
+const hasFamily = (id: string) => !!modelOf(id) || !!analyticOf(id);
 
 const VERSION = '2.4.0';
 const registry: PatternLibrary = {};
@@ -292,7 +306,7 @@ class GlyphosField extends HTMLElement {
 export function install(basic?: BasicSupport) {
   const w = win();
   if (!w.Glyphos) {
-    const api: Api = { version: VERSION, register: (p: PatternLibrary) => { Object.assign(registry, p); }, mount };
+    const api: Api = { version: VERSION, register: (p: PatternLibrary) => { Object.assign(registry, p); }, registerFamily, hasFamily, mount };
     if (basic) api.__basic = basic;
     w.Glyphos = api;
     if (typeof customElements !== 'undefined') {
