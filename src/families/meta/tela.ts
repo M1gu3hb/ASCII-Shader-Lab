@@ -33,7 +33,7 @@ export const META: FamilyMeta = {
   presets: [
     { id: 'velo', name: 'Velo al viento', desc: 'Una tela fina colgada de dos esquinas: cae en pliegues y se hincha con cada ráfaga.', params: { anchors: 'esquinas', mesh: 'alta', stiff: 0.55, gravity: 1, wind: 0.9, substeps: 10, damping: 0.15, sphere: 'ninguna', turn: 0.12, view: 'sombreado' }, look: { stops: ['#0b0a10', '#f1e6ff'], bg: '#06050a', charset: ' .:-=+*#%@' } },
     { id: 'bandera', name: 'Bandera', desc: 'Sujeta a un mástil, flamea con pliegues que viajan hasta el borde libre.', params: { anchors: 'mastil', mesh: 'media', stiff: 0.85, gravity: 0.25, wind: 2, substeps: 12, damping: 0.05, sphere: 'ninguna', turn: 0.05, view: 'ambos' }, look: { stops: ['#140606', '#ffc9a8'], bg: '#0a0303', charset: ' .-~=*#' } },
-    { id: 'membrana', name: 'Membrana', desc: 'Una lámina elástica sujeta por sus cuatro esquinas a la que una esfera golpea desde abajo.', params: { anchors: 'cuatro', mesh: 'media', stiff: 0.3, gravity: 1, wind: 0, substeps: 12, damping: 0.05, sphere: 'rebota', turn: 0.2, view: 'malla' }, look: { stops: ['#04100e', '#a8fff0'], bg: '#020807', charset: ' .·:+#' } },
+    { id: 'membrana', name: 'Membrana elástica', desc: 'Una lámina elástica sujeta por sus cuatro esquinas a la que una esfera golpea desde abajo.', params: { anchors: 'cuatro', mesh: 'media', stiff: 0.3, gravity: 1, wind: 0, substeps: 12, damping: 0.05, sphere: 'rebota', turn: 0.2, view: 'malla' }, look: { stops: ['#04100e', '#a8fff0'], bg: '#020807', charset: ' .·:+#' } },
   ],
   caps: {
     loop: false, basic: 'full', checkpoint: true,
