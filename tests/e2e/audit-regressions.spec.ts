@@ -6,6 +6,33 @@ import { openStudio, pressUntil } from './helpers';
 const enc = (r: unknown) => '#r=j' + Buffer.from(JSON.stringify(r)).toString('base64url');
 const recipe = { v: 2, source: 'text', text: { content: 'GLYPHOS', font: 'system', weight: 700, size: 1, anim: { kind: 'orbita', on: true, amount: 1, speed: 1 } }, glyph: { cell: 10, aspect: 1, charset: ' .:-=+*#%@', font: 'system', sort: false }, color: { stops: ['#ffffff', '#ffffff'], bg: '#000000' }, motion: { speed: 1 }, media: { xform: [{ kind: 'estela', on: true, amount: 0.95, p: 0.1 }] }, interact: { mode: 'none' }, meta: { space: 'tipo' } };
 
+test('escribir antes del primer paint no pierde caracteres por la selección pendiente', async ({ page }) => {
+  const errors = await openStudio(page, '#space=terminal');
+  await page.getByRole('tab', { name: 'Terminal', exact: true }).click();
+  const cols = page.getByRole('spinbutton', { name: 'Columnas', exact: true });
+  for (const [typed, expected] of [['3', '30'], ['30', '300']]) {
+    await cols.evaluate((input: HTMLInputElement) => input.blur());
+    await page.evaluate(() => {
+      const request = window.requestAnimationFrame.bind(window), cancel = window.cancelAnimationFrame.bind(window);
+      const held = new Map<number, FrameRequestCallback>(); let id = 1_000_000;
+      window.requestAnimationFrame = callback => { held.set(++id, callback); return id; };
+      window.cancelAnimationFrame = key => { held.delete(key); };
+      (window as unknown as { resumeFocusPaint: () => void }).resumeFocusPaint = () => {
+        window.requestAnimationFrame = request; window.cancelAnimationFrame = cancel;
+        const callbacks = [...held.values()]; held.clear();
+        for (const callback of callbacks) callback(performance.now());
+      };
+    });
+    await cols.focus();
+    await cols.fill(typed);
+    await page.evaluate(() => (window as unknown as { resumeFocusPaint: () => void }).resumeFocusPaint());
+    await cols.pressSequentially('0');
+    await expect(cols).toHaveValue(expected);
+    await expect(page.locator('.term-bar')).toContainText(`${expected}×24`);
+  }
+  expect(errors).toEqual([]);
+});
+
 async function harness(page: Page) {
   const root = process.cwd();
   const out = await build({ stdin: { resolveDir: root, contents: `

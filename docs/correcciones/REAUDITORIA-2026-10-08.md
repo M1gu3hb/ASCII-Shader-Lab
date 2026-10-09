@@ -81,6 +81,28 @@ El selector global de texto de previews.spec coincidía simultáneamente con el 
 - Fuentes: [aviso revisado](https://github.com/advisories/GHSA-68fv-2mgg-jv7q), [corrección del mantenedor](https://github.com/7rulnik/source-map-js/pull/79), [release 1.2.2](https://github.com/7rulnik/source-map-js/releases/tag/v1.2.2).
 - Comprobación acotada: un mapa indexado con offset.line=100 000 000 es aceptado por el constructor de 1.2.1 y rechazado inmediatamente por 1.2.2; un mapa válido sigue reconstruyendo su texto. La prueba usa un proceso con memoria/tiempo limitados y no ejecuta el bucle vulnerable. La instalación limpia, audit y build se vuelven a verificar antes de publicar.
 
+### I-08: prueba de sitemap con expectativa anterior
+
+La e2e de SEO seguía exigiendo un lastmod para cada URL, aunque la corrección de I-08 elimina fechas de build presentadas como fechas de edición. El sitemap actual confirma que no publica esas fechas. Se exige ahora su ausencia en el build, conservando URLs, canonical, status y H1. La prueba de HTTP sobre el build pasa; se añade una unitaria para omitir fechas desconocidas y se mantiene la prueba de fechas explícitas. No se restituye una fecha falsa para hacer pasar una expectativa obsoleta.
+
+### Previsualización privada de video: `seeked` antes del fotograma nuevo
+
+- Prioridad: baja; afecta al proveedor de video del proyecto/estudio pausado, no se reactiva esa superficie pública.
+- Detección: la tanda completa y su reproducción aislada fallan en el mismo video VP9 real de 10 fps. En 0,75 s el decodificador exacto devuelve rojo 175, la muestra objetivo es 174 y la previsualización devuelve 151, el cuadro anterior. No es una diferencia dentro de la tolerancia de 6.
+- Solución: después del seek esperar dos presentaciones del navegador antes de dibujar; límite de 4 s y cancelación inmediata al cerrar, liberando callbacks, temporizador y listener. Si no puede presentar, no adoptar un cuadro viejo como nuevo.
+- Verificación: los 11 instantes de la muestra coinciden con el decodificador, sin cambiar tolerancia ni archivo. Las 9 pruebas completas de proyecto pasan, incluidas las dos que el fallo anterior había bloqueado por ejecución serial. Dos unitarias comprueban límite de tiempo y cancelación entre presentaciones. [Valores antes/después](VIDEO-PREVIEW-REAUDITORIA.json).
+
+### Campo numérico: selección diferida que borraba caracteres
+
+- Prioridad: media, edición. Al enfocar el campo, la selección programada para el primer paint podía ejecutarse después de comenzar a escribir; el siguiente carácter sustituía el texto recién introducido.
+- Detección: retener explícitamente el primer paint, escribir 3, liberar la selección pendiente y escribir 0. En copia aislada de la referencia anterior se obtiene 0 en lugar de 30.
+- Solución: invalidar la selección pendiente cuando hay entrada o desenfoque, y seleccionar sólo si el foco y el texto siguen siendo los iniciales. Se conserva la selección inicial útil y se propaga el callback de entrada.
+- Verificación: la nueva e2e fuerza el retraso y comprueba 3→30 y 30→300, incluso cuando la entrada coincide con el valor inicial. Las 23 pruebas de controles, sliders táctiles/lápiz y editores de color en escritorio y móvil emulado pasan; no se cambian límites de campos ni aserciones de gestos.
+
+### I-07: expectativa antigua del mínimo de duración
+
+La prueba de secciones aún esperaba el mínimo anterior de 1 s. La duración precisa del bucle ya admite 0,01 s; se comprueban el valor, aria-valuenow, mensaje de límite y restauración con Escape usando ese mínimo real. Se mantienen las comprobaciones de escritura, campo vacío y flechas. No se vuelve a redondear el bucle para satisfacer la expectativa antigua. Las seis pruebas de secciones y las 19 de SEO pasan.
+
 ## Matriz de los 48 hallazgos
 
 La causa, impacto y cambio detallados de cada ID están en [CIERRE-AUDITORIA.md](CIERRE-AUDITORIA.md). Esta matriz identifica la comprobación repetida en esta entrega. «Decisión documentada» se usa para informativos: no implica un defecto funcional ni una mejora de rendimiento medida en hardware real.
@@ -101,7 +123,7 @@ La causa, impacto y cambio detallados de cada ID están en [CIERRE-AUDITORIA.md]
 | E-12 | Serialización ordenada; compilaciones reproducibles. | Hashes SHA-256 normal frente a native. |
 | E-13 | Imports compatibles con cargador native. | Build con --configLoader native. |
 | R-01 | Boundary raíz, rechazos y descarga de recuperación. | startup y storage-recovery; urgent-recovery. |
-| R-02 | Registro único de pesos reales para estudio y visor. | audit-limits; carga real de 35 pesos en cada superficie. CDN externo: límite declarado. |
+| R-02 | Registro único de pesos reales para estudio y visor. | audit-limits; carga real de 35 pesos en cada superficie. Comparación con CDN y caras variables equivalentes, en la muestra documentada. |
 | R-03 | CI y regresiones para los límites de enlace/video y pérdida de datos. | audit-limits; workflow check y public-e2e del commit final. |
 | R-04 | Título HTML limpia controles ESC/BEL. | text-export. |
 | R-05 | Rechazo de formatos futuros sin reemplazar el estado válido. | audit-limits, packages; runtime en audit-regressions. |
@@ -138,20 +160,23 @@ La causa, impacto y cambio detallados de cada ID están en [CIERRE-AUDITORIA.md]
 
 ## Resultados finales y publicación
 
-Checkpoint de validación de esta segunda revisión:
+Evidencia nueva de esta segunda revisión, sin sumar la auditoría histórica:
 
-- Typecheck correcto y **1 847 unitarias en 97 archivos aprobadas**, en la comprobación local anterior al corte, incluyendo la alineación de fuentes y snapshot; se confirma otra vez en CI del commit final.
-- **21 e2e aprobados** de compartir y regresiones nuevas: comparaciones entre las seis pantallas, visor básico, fuentes reales en estudio/visor, atlas idéntico entre DPR=1/2 y video que no se reanuda al salir durante una exportación.
-- Builds normal y native: **252 archivos idénticos por SHA-256**. Build público: **13 130 225 bytes**, exportador **511 678 bytes**; sin ORT. Build con foto habilitada: 4 assets ORT, **41 099 249 bytes**.
-- La selección amplia final tiene **399 casos**, incluidos 8 de QA de animación que no son rutas de producción. El entorno se desconectó antes de recuperar el resultado final de la tanda local; no se declara completa. Se vuelve a ejecutar la selección íntegra en GitHub Actions, en cuatro runners independientes y un worker por runner, sin reintentos automáticos ni umbrales relajados. Los resultados previos no se suman como casos nuevos y los omitidos no cuentan como aprobados.
-- El workflow incorpora las regresiones nuevas para que check y public-e2e comprueben el commit final.
+- **Typecheck, 1 850 unitarias en 98 archivos y build aprobados**, incluyendo cancelación de presentación del video y omisión de lastmod desconocido. CI repite estos checks sobre el commit publicado; npm audit no informa vulnerabilidades.
+- [Tanda completa de cuatro runners](https://github.com/M1gu3hb/ASCII-Shader-Lab/actions/runs/37878013847), referencia `621c3ca`: **399 casos**, 380 aprobados, 14 omisiones justificadas, 3 fallos y 2 casos no ejecutados por el fallo serial de proyecto. Los tres fallos se analizan arriba: dos expectativas obsoletas y un fotograma anterior real. No se presentan los dos casos bloqueados como omisiones intencionales.
+- Después de corregirlos, **34 pruebas completas de proyecto, secciones y SEO pasan**; incluyen los tres fallos y los dos casos antes bloqueados. La nueva regresión del campo numérico pasa después de demostrar que falla en la referencia anterior. Balance deduplicado: **400 casos distintos, 386 aprobados y 14 omitidos**. [Registro por caso, intentos y razones](REGRESIONES-REAUDITORIA.json). Son tandas sucesivas; no una única corrida íntegra aprobada sobre el SHA final.
+- La selección incluye QA local de animación/proyecto/tools/video, además del producto público. Se excluyen las specs foto-* y cutout; las 14 omisiones restantes explicitan estudio pausado o modelos no instalados. No certifican esos módulos como probados.
+- Builds normal y native finales: **227 archivos idénticos por SHA-256**. Build público: **12 664 983 bytes**, exportador **511 440 bytes**; ningún asset ORT. Build con foto habilitada: 4 assets ORT, **41 099 249 bytes**. [Manifiesto y huella de todos los archivos fuente](BUILD-REAUDITORIA.json).
+- La suite completa queda repetible manualmente. Para los dos cambios localizados posteriores se repiten todas las specs afectadas, controles y regresiones críticas, en lugar de repetir el recorrido de recetas de 24 minutos sin modificar su motor. `check.yml` ejecuta automáticamente unitarias/typecheck/build/audit y 86 casos de navegador del commit final, conservando el JSON de resultados.
 
-El registro definitivo de la tanda completa, CI, SHA integrado, deployment y recorrido sobre producción se añade al [PR #9](https://github.com/M1gu3hb/ASCII-Shader-Lab/pull/9). La integración y publicación requieren completar esa verificación; este checkpoint por sí solo no afirma que producción haya cambiado.
+El [PR #9](https://github.com/M1gu3hb/ASCII-Shader-Lab/pull/9) registra el resultado de CI del commit final, SHA integrado, deployment y verificación sobre producción. Esa verificación espera el HTML y SHA-256 del chunk idénticos al build de main, comprueba 19 rutas/assets/cabeceras y ejecuta datos, recuperación, fuentes, legibilidad, compartir y SEO sobre el dominio público. El registro de publicación distingue el estado previo de la confirmación posterior al despliegue.
 
-Límites: móvil/tableta emulados y Chromium/SwiftShader; sin certificación de Safari/Firefox, GPU/teléfonos reales, lectores de pantalla, H.264 ni equivalencia exacta con Google Fonts externo. Las fuentes del sistema varían entre sistemas operativos. Las propuestas y el borrado de la rama antigua quedan fuera de esta entrega.
+Límites: móvil/tableta emulados y Chromium/SwiftShader; sin certificación de Safari/Firefox, GPU/teléfonos reales, lectores de pantalla ni H.264; la equivalencia de fuentes corresponde a la muestra y archivos del CDN medidos. Las fuentes del sistema varían entre sistemas operativos. Las propuestas y el borrado de la rama antigua quedan fuera de esta entrega.
 
 Incidencia del entorno: el primer intento de navegador se detuvo porque faltaba Chromium. Se instaló antes de repetir; esos fallos de lanzamiento no cuentan como pruebas funcionales ni aprobadas.
 
 ## Recuperación del corte de infraestructura
 
 El servidor de ejecución quedó fuera de línea antes de recuperar el resultado de la última tanda y sus archivos temporales dejaron de estar disponibles. Los cambios del repositorio se recuperaron intactos al reconectarse. Para evitar una conclusión basada en logs parciales, `reaudit-completa.yml` conserva los resultados JSON y artefactos de las cuatro particiones durante 30 días; `production-verification.yml` espera el HTML idéntico al build de main y ejecuta recorridos reales sobre el dominio público. Esta incidencia no se cuenta como fallo ni éxito funcional. Main y producción permanecen sin cambios hasta completar la validación del código.
+
+CI del checkpoint `621c3ca`: [Comprobaciones 37878013996](https://github.com/M1gu3hb/ASCII-Shader-Lab/actions/runs/37878013996) aprobado: typecheck, 1 847 unitarias/97 archivos, build, audit sin vulnerabilidades y 50 e2e aprobadas/1 omitida. Sus resultados son del checkpoint; el total actual de 1 850 unitarias y la selección ampliada se vuelven a comprobar en CI antes de integrar. El resultado completo de la tanda amplia ya se recuperó y se detalla arriba.

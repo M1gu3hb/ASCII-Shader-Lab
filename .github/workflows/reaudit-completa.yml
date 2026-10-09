@@ -1,19 +1,12 @@
 name: Reauditoría completa
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'package*.json'
-      - 'vite.config.ts'
-      - 'playwright.config.ts'
-      - '.github/workflows/reaudit-completa.yml'
+  # Full software-GPU audits run on demand. check.yml protects every PR and main
+  # with the unit/build checks and the affected browser regression suite.
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   regression:
-    if: github.head_ref == 'glyphos-correcciones-urgentes'
     runs-on: ubuntu-latest
     timeout-minutes: 65
     strategy:

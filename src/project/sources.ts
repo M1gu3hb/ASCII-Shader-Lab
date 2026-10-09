@@ -59,6 +59,26 @@ function fitSize(w: number, h: number, maxSide: number) {
   return { w: Math.max(1, Math.round(w * k)), h: Math.max(1, Math.round(h * k)) };
 }
 
+/** seeked can precede the video element's new painted frame. Never wait forever in a hidden tab. */
+export function afterVideoSeekPaint(signal: AbortSignal): Promise<boolean> {
+  return new Promise(resolve => {
+    if (signal.aborted) { resolve(false); return; }
+    let first = 0, second = 0, settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cancelAnimationFrame(first); cancelAnimationFrame(second);
+      signal.removeEventListener('abort', abort);
+      resolve(ok);
+    };
+    const abort = () => finish(false);
+    const timer = setTimeout(() => finish(false), 4000);
+    signal.addEventListener('abort', abort, { once: true });
+    first = requestAnimationFrame(() => { second = requestAnimationFrame(() => finish(true)); });
+  });
+}
+
 /** A video element seeked to each time asked (hidden, muted). */
 export async function openPreviewVideo(blob: Blob, maxSide = 1920): Promise<VideoFrameProvider | null> {
   if (typeof document === 'undefined') return null;
@@ -70,12 +90,13 @@ export async function openPreviewVideo(blob: Blob, maxSide = 1920): Promise<Vide
   const url = URL.createObjectURL(blob);
   v.src = url;
   document.body.appendChild(v);
+  const life = new AbortController();
   const ok = await new Promise<boolean>(res => {
     const t = setTimeout(() => res(false), 15_000);
     v.addEventListener('loadeddata', () => { clearTimeout(t); res(true); }, { once: true });
     v.addEventListener('error', () => { clearTimeout(t); res(false); }, { once: true });
   });
-  const close = () => { v.pause(); v.removeAttribute('src'); v.load(); v.remove(); URL.revokeObjectURL(url); };
+  const close = () => { life.abort(); v.pause(); v.removeAttribute('src'); v.load(); v.remove(); URL.revokeObjectURL(url); };
   if (!ok || !v.videoWidth) { close(); return null; }
   const size = fitSize(v.videoWidth, v.videoHeight, maxSide);
   const canvas = document.createElement('canvas');
@@ -99,6 +120,7 @@ export async function openPreviewVideo(blob: Blob, maxSide = 1920): Promise<Vide
         v.currentTime = target;
         if (!(await seeked) && v.readyState < 2) return false;
       }
+      if (!(await afterVideoSeekPaint(life.signal)) || closed) return false;
       draw();
       last = target;
       return true;

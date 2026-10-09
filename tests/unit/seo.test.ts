@@ -61,6 +61,12 @@ describe('sitemap and robots', () => {
     expect(xml).not.toContain('404');
   });
 
+  it('omits modification dates when no trustworthy date is supplied', () => {
+    const xml = sitemapXml(null, sitePages(false));
+    expect(locsOf(xml)).toEqual(PUBLIC.filter(p => p !== '/studio/foto/').map(p => SITE_URL + p));
+    expect(xml).not.toContain('<lastmod>');
+  });
+
   it('leaves the photo studio out while it is paused (VITE_FOTO_STUDIO unset), and the build uses the flag', () => {
     const xml = sitemapXml('2026-09-27', sitePages(false));
     expect(locsOf(xml)).toEqual(PUBLIC.filter(p => p !== '/studio/foto/').map(p => SITE_URL + p));
