@@ -167,6 +167,8 @@ export interface GlyphDoc {
   license: DocLicense;
   /** Sets compiled from it and used in the lab: revision → content id. */
   published: Array<{ rev: number; set: string; at: number }>;
+  /** The person's guides, shared by every glyph: a vertical line at x, or a horizontal one at y (font units). */
+  guides: Array<{ axis: 'x' | 'y'; at: number }>;
 }
 
 export const DOC_LIMITS = {
@@ -250,7 +252,7 @@ export function newDoc(o: { name?: string; mode: 'texto' | 'ascii'; groups?: str
     name: (o.name ?? '').trim().slice(0, DOC_LIMITS.name) || (o.mode === 'ascii' ? 'Mis símbolos' : 'Mi alfabeto'),
     mode: o.mode, created: now, updated: now, metrics, glyphs: {}, chars, kern: {},
     ramp: { order: o.mode === 'ascii' ? [...DEFAULT_ASCII_RAMP] : [], manual: false },
-    style: defaultStyle(metrics), refs: [], images: {}, license: { author: '', copyright: '', license: 'Todos los derechos reservados' }, published: [],
+    style: defaultStyle(metrics), refs: [], images: {}, license: { author: '', copyright: '', license: 'Todos los derechos reservados' }, published: [], guides: [],
   };
   for (const c of chars) doc.glyphs[c] = emptyGlyph(c, doc);
   return doc;
@@ -399,6 +401,7 @@ export function normalizeDoc(input: unknown): { doc: GlyphDoc; future: boolean }
     images,
     license: { author: str(lIn.author, 120), copyright: str(lIn.copyright, 200), license: str(lIn.license, 200, 'Todos los derechos reservados') },
     published: (Array.isArray(input.published) ? input.published : []).flatMap(p => (isObj(p) && typeof p.set === 'string' && /^[0-9a-f]{16}$/.test(p.set) ? [{ rev: fin(p.rev, 0, 1e9, 0), set: p.set, at: fin(p.at, 0, 1e15, 0) }] : [])).slice(-50),
+    guides: (Array.isArray(input.guides) ? input.guides : []).flatMap(g => (isObj(g) && (g.axis === 'x' || g.axis === 'y') && typeof g.at === 'number' && Number.isFinite(g.at) ? [{ axis: g.axis as 'x' | 'y', at: fin(g.at, -C, C, 0) }] : [])).slice(0, 64),
   };
   return { doc, future };
 }
