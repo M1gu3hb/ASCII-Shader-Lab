@@ -39,7 +39,8 @@ export function create(cfg: ModelConfig): FieldModel {
     for (let y = Math.max(0, Math.floor(cy - rh)); y < Math.min(h, Math.ceil(cy + rh)); y++)
       for (let x = Math.max(0, Math.floor(cx - rw)); x < Math.min(w, Math.ceil(cx + rw)); x++) { B[y * w + x] = 1; A[y * w + x] = 0.5; }
   };
-  const s0 = Math.max(2, h * 0.035);
+  // (patterns have a size in grid cells, set by the diffusion: a seed smaller than a few cells dies at once)
+  const s0 = Math.max(4, h * 0.04);
   switch (p.seedShape) {
     case 'centro': rect(w / 2, h / 2, s0 * 2, s0 * 2); break;
     case 'anillo': {
@@ -62,7 +63,7 @@ export function create(cfg: ModelConfig): FieldModel {
       break;
     }
     default: {
-      const k = Math.round(10 + 10 * rng.next());
+      const k = Math.max(6, Math.round((n / 900) * (0.7 + 0.6 * rng.next())));
       for (let i = 0; i < k; i++) rect(rng.next() * w, rng.next() * h, s0 * rng.range(0.6, 1.4), s0 * rng.range(0.6, 1.4));
     }
   }

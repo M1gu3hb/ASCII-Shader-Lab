@@ -160,6 +160,8 @@ export interface FamilyMeta {
   figure?: boolean;
   /** Raster families: how the domain repeats outside itself. */
   wrap?: 'repeat' | 'clamp';
+  /** The model draws nothing at random: another seed gives the same run (tests then skip that check). */
+  seedless?: boolean;
 }
 
 /* ------------------------------------------------------------------ */

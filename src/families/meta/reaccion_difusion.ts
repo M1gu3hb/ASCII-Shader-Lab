@@ -27,13 +27,13 @@ export const META: FamilyMeta = {
     { id: 'coral', name: 'Coral', desc: 'Ramas que crecen desde sus puntas hasta cubrir el campo.', params: { feed: 0.0545, kill: 0.062, diff: 0.5, scale: 1, seedShape: 'centro', view: 'concentracion' }, look: { stops: ['#0c1416', '#e9d8b4'], bg: '#070b0c', charset: ' .:-=+*#%@' } },
     { id: 'mitosis', name: 'Mitosis', desc: 'Manchas que se estiran y se dividen una y otra vez.', params: { feed: 0.0367, kill: 0.0649, diff: 0.5, scale: 1, seedShape: 'manchas', view: 'concentracion' }, look: { stops: ['#100a14', '#f0b6d4'], bg: '#08050a', charset: ' .·:oO@' } },
     { id: 'laberinto', name: 'Laberinto', desc: 'Franjas que se curvan como una huella dactilar y llenan el campo.', params: { feed: 0.029, kill: 0.057, diff: 0.5, scale: 1, seedShape: 'ruido', view: 'relieve' }, look: { stops: ['#0b0f08', '#d9f0a2'], bg: '#060805', charset: ' .-~=≈#' } },
-    { id: 'caos', name: 'Caos que respira', desc: 'Manchas que nacen, chocan y se deshacen sin quedarse quietas nunca.', params: { feed: 0.018, kill: 0.051, diff: 0.5, scale: 1.1, seedShape: 'manchas', view: 'contorno' }, look: { stops: ['#04101c', '#7fd0ff'], bg: '#020810', charset: ' .:+*#' } },
+    { id: 'caos', name: 'Caos que respira', desc: 'Manchas que nacen, chocan y se deshacen sin quedarse quietas nunca.', params: { feed: 0.018, kill: 0.051, diff: 0.5, scale: 1, seedShape: 'manchas', view: 'contorno' }, look: { stops: ['#04101c', '#7fd0ff'], bg: '#020810', charset: ' .:+*#' } },
   ],
   caps: {
     loop: false, basic: 'full', checkpoint: true,
     brushes: [{ id: 'sembrar', label: 'Sembrar', hint: 'Añade sustancia B donde tocas.' }, { id: 'borrar', label: 'Borrar', hint: 'Devuelve la zona al estado vacío.' }],
   },
-  budget: { res: [48, 256, 96], rate: 600, warmup: 1200, limits: 'Rejilla de 2 × filas columnas con dos sustancias en coma flotante (16 bytes por celda con el doble búfer); laplaciano de 9 puntos.' },
+  budget: { res: [64, 256, 96], rate: 600, warmup: 1200, limits: 'Rejilla de 2 × filas columnas con dos sustancias en coma flotante (16 bytes por celda con el doble búfer); laplaciano de 9 puntos.' },
   sources: [
     { label: 'Karl Sims: tutorial de reacción–difusión', url: 'https://www.karlsims.com/rd.html' },
     { label: 'Karl Sims: RD Tool', url: 'https://www.karlsims.com/rdtool.html' },
