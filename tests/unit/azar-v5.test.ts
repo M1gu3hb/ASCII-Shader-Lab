@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, defaultRecipe, hexToOklch, normalizeRecipe, PATTERN_IDS, PATTERNS, charsetById, fontById, type Recipe } from '../../src/engine';
 import {
-  ARCHETYPES, colourFamily, generate, GEN_VERSION, isStudioWord, lookDistance, lookOf, makePalette5, PALETTE5_NAMES, randomSeed, roll, Rng, SCENE_SEEDS, SPACES, tune5,
+  ARCHETYPES, colourFamily, generate, GEN_VERSION, GEN_VERSIONS, isStudioWord, lookDistance, lookOf, makePalette5, PALETTE5_NAMES, randomSeed, roll, Rng, SCENE_SEEDS, SPACES, tune5,
   type LockGroup, type Palette5Style, type SpaceId,
 } from '../../src/random';
 import { diceWord5, TERMINAL_LINES_5, TIPO_WORDS_5, WORD_FILLS_5 } from '../../src/random/gen5';
@@ -34,8 +34,9 @@ function colourOf(r: Recipe) {
 }
 
 describe('generator version 5', () => {
-  it('is the current version, and every id its styles use exists', () => {
-    expect(GEN_VERSION).toBe(5);
+  it('stays reproducible (version 6 is the current one, from the same styles), and every id its styles use exists', () => {
+    expect(GEN_VERSION).toBe(6);
+    expect(GEN_VERSIONS).toContain(5);
     const palettes = new Set([...Object.keys(PALETTE5_NAMES), ...Object.keys(PALETTE_STYLE_NAMES)]);
     for (const a of ARCHETYPES) {
       for (const id of [...Object.keys(a.patterns), ...Object.keys(a.overlays ?? {})]) expect(PATTERN_IDS.has(id), `${a.id}: ${id}`).toBe(true);
@@ -53,10 +54,10 @@ describe('generator version 5', () => {
 
   it('weaves valid recipes that reproduce from their seed', () => {
     for (const s of SPACES) for (let i = 0; i < 80; i++) {
-      const r = generate({ seed: `v5-${i}`, space: s.id, base: defaultRecipe() });
+      const r = generate({ seed: `v5-${i}`, space: s.id, base: defaultRecipe(), gen: 5 });
       expect(r.meta.gen).toBe(5);
       expect(normalizeRecipe(r, PATTERN_IDS)).toEqual(r);
-      expect(generate({ seed: `v5-${i}`, space: s.id, base: defaultRecipe() })).toEqual(r);
+      expect(generate({ seed: `v5-${i}`, space: s.id, base: defaultRecipe(), gen: 5 })).toEqual(r);
       expect(r.tone.contrast).toBeLessThanOrEqual(3);
       expect(Math.abs(r.tone.bright)).toBeLessThanOrEqual(1);
     }

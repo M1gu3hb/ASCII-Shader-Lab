@@ -65,7 +65,8 @@ describe('registro de familias', () => {
 });
 
 for (const meta of FAMILIES) {
-  describe(`familia ${meta.id}`, () => {
+  // (simulations run thousands of steps here: generous time when the whole suite shares the machine)
+  describe(`familia ${meta.id}`, { timeout: 60_000 }, () => {
     it('metadatos completos y coherentes', () => {
       expect(meta.name.length).toBeGreaterThan(2);
       for (const k of ['blurb', 'mechanism', 'time'] as const) expect(meta[k].length, k).toBeGreaterThan(20);

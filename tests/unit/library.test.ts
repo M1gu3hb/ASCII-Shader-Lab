@@ -256,8 +256,8 @@ describe('library: recipes and scenes', () => {
 
 describe('library: the generator', () => {
   it('versions 1–4 never weave with the library; version 5 does', () => {
-    expect(GEN_VERSION).toBe(5);
-    expect(GEN_VERSIONS).toEqual([1, 2, 3, 4, 5]);
+    expect(GEN_VERSION).toBe(6);
+    expect(GEN_VERSIONS).toEqual([1, 2, 3, 4, 5, 6]);
     const lib = new Set<string>([...NEW_IDS]);
     const libCharsets = new Set(CHARSET_LIB.map(id => charsetById(id)!.chars));
     const galleryNames = new Set(PALETTE_GALLERY.map(p => p.name));
