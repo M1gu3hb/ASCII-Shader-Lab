@@ -71,3 +71,21 @@ describe('compatibilidad de las 86 recetas de familia publicadas en el PR #10', 
     });
   }
 });
+
+describe('el Azar v6 usa los presets publicados, congelados', () => {
+  it('su instantánea coincide con los parámetros originales de la referencia', async () => {
+    const { FAMILIES6_DATA } = await import('../../src/random/families6-data');
+    const fixture = JSON.parse(readFileSync(FILE, 'utf8')) as { cases: Case[] };
+    let n = 0;
+    for (const [id, , keys, presets] of FAMILIES6_DATA) {
+      for (const [pid, , , v, res, ...values] of presets) {
+        const c = fixture.cases.find(x => x.family === id && x.preset === pid)!;
+        expect(c, `${id}/${pid}`).toBeTruthy();
+        expect(Object.fromEntries(keys.map((k, i) => [k, values[i]])), `${id}/${pid}`).toEqual(c.params);
+        expect([v, res]).toEqual([c.v, c.res]);
+        n++;
+      }
+    }
+    expect(n).toBe(86);
+  });
+});
