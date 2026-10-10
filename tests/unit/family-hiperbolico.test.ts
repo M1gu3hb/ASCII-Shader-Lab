@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FOLD, fold, hyperbolicPQ, hyperbolicTriangle, impl } from '../../src/families/analytic/hiperbolico.cpu';
 import { META } from '../../src/families/meta/hiperbolico';
-import { defaultParams, packParams } from '../../src/families/params';
+import { defaultParams, packParams, timeContract } from '../../src/families/params';
 import type { Params } from '../../src/families/types';
 
 /** Mechanism checks of «Teselación hiperbólica»: the fundamental triangle, the fold and its symmetry. */
@@ -74,7 +74,8 @@ describe('teselación hiperbólica', () => {
   });
 
   it('la imagen quieta es simétrica por el giro 2π/p y la deriva vuelve a coincidir tras un polígono', () => {
-    for (const pr of META.presets) {
+    // («Relieve» lights every tile from the same side of the screen: its geometry turns, its light does not)
+    for (const pr of META.presets.filter(x => x.params.motif !== 'relieve')) {
       const p: Params = { ...defaultParams(META), ...pr.params, drift: 0, turn: 0 };
       const k = packParams(META, p);
       impl.prep!(0, k);
@@ -99,5 +100,86 @@ describe('teselación hiperbólica', () => {
     const diff = (u: number[], v: number[]) => u.filter((x, i) => Math.abs(x - v[i]) > 1e-3).length / u.length;
     expect(diff(a, b)).toBeLessThan(0.02);
     expect(diff(a, mid)).toBeGreaterThan(0.2);
+  });
+  /** The CPU twin over the 2:1 domain at time t (scale: the preset's layer scale, as the engines apply it). */
+  const frame = (p: Params, t: number, sc = 1, w = 64, h = 32) => {
+    const k = packParams(META, { ...defaultParams(META), ...p });
+    impl.prep!(t, k);
+    const o: number[] = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) o.push(impl.cpu(((x + 0.5) / w - 0.5) * 2 * sc, (0.5 - (y + 0.5) / h) * sc, t, k));
+    return o;
+  };
+  const mad = (a: number[], b: number[]) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
+  const lit = (a: number[]) => a.filter(v => v > 24 / 255).length / a.length;
+
+  it('«Relieve»: cada azulejo tiene el bisel claro arriba a la izquierda y oscuro abajo a la derecha, también plegado', () => {
+    for (const [P, Q] of [[6, 4], [5, 4], [7, 3], [4, 5]]) {
+      const T = hyperbolicTriangle(P, Q);
+      const p: Params = { ...defaultParams(META), p: P, q: Q, motif: 'relieve', width: 1, drift: 0, turn: 0, rim: 0, outside: 0 };
+      const k = packParams(META, p);
+      impl.prep!(0, k);
+      const tag = `${P},${Q}`;
+      // the central polygon (inradius m in the disk, 0.48 m on the screen): just inside its edges along the diagonals
+      const r = 0.48 * T.m * 0.9;
+      let lightSide = 0, darkSide = 0;
+      for (const f of [0.75, 0.8, 0.85]) lightSide += impl.cpu(r * Math.cos(f * Math.PI), r * Math.sin(f * Math.PI), 0, k);
+      for (const f of [-0.25, -0.2, -0.15]) darkSide += impl.cpu(r * Math.cos(f * Math.PI), r * Math.sin(f * Math.PI), 0, k);
+      expect(lightSide, tag).toBeGreaterThan(darkSide + 0.6);
+    }
+  });
+
+  it('el pliegue lleva la dirección de su derivada: la de un desplazamiento pequeño, girada o reflejada', () => {
+    for (const [P, Q] of PAIRS) {
+      const T = hyperbolicTriangle(P, Q);
+      for (let i = 0; i < 300; i++) {
+        const r = 0.95 * Math.sqrt(rnd()), a = rnd() * Math.PI * 2, x = r * Math.cos(a), y = r * Math.sin(a);
+        const da = rnd() * Math.PI * 2, e = 1e-7, ex = Math.cos(da), ey = Math.sin(da);
+        fold(x, y, T.an, T.cx, T.cr, 1, true);
+        const F0 = { ...FOLD };
+        fold(x + e * ex, y + e * ey, T.an, T.cx, T.cr, 1, true);
+        // (a step across a mirror folds differently: skip those)
+        if (FOLD.n !== F0.n || FOLD.par !== F0.par) continue;
+        let vx = FOLD.x - F0.x, vy = FOLD.y - F0.y;
+        const l = Math.hypot(vx, vy); vx /= l; vy /= l;
+        // dw = A dz, or A conj(dz)
+        const dx = ex, dy = F0.flip > 0.5 ? -ey : ey;
+        const px = F0.ax * dx - F0.ay * dy, py = F0.ax * dy + F0.ay * dx;
+        expect(Math.hypot(px - vx, py - vy), `${P},${Q}`).toBeLessThan(1e-4);
+        expect(F0.flip, `${P},${Q}`).toBe(F0.par);
+      }
+    }
+  });
+
+  it('contrato: sin giro, bucle exacto de 8 / deriva s (el gemelo de CPU en t y t + periodo); con giro, continuo', () => {
+    for (const pr of META.presets) {
+      const tc = timeContract(META, { ...defaultParams(META), ...pr.params });
+      expect(tc, pr.id).toBe(pr.params.turn === 0 ? 'bucle' : 'continuo');
+      expect(pr.period !== undefined, pr.id).toBe(tc === 'bucle');
+      if (tc !== 'bucle') continue;
+      expect(pr.period).toBeCloseTo(8 / Math.abs(pr.params.drift as number), 9);
+      const sc = pr.layer?.scale ?? 1;
+      for (const t of [0.6, 11.3]) {
+        const a = frame(pr.params, t, sc), b = frame(pr.params, t + pr.period!, sc);
+        // (a cell right on an edge can land on either side of it)
+        expect(a.filter((v, i) => Math.abs(v - b[i]) > 1e-3).length / a.length, `${pr.id} t=${t}`).toBeLessThan(0.01);
+        expect(mad(a, frame(pr.params, t + pr.period! / 2, sc)), `${pr.id} medio periodo`).toBeGreaterThan(0.01);
+      }
+    }
+  });
+
+  it('ningún preset se queda quieto ni vacío; «Mosaico que fluye» llena el cuadro', () => {
+    for (const pr of META.presets) {
+      const sc = pr.layer?.scale ?? 1;
+      for (const t of [1, 61, 600]) {
+        const a = frame(pr.params, t, sc), b = frame(pr.params, t + 2, sc);
+        expect(mad(a, b), `${pr.id} t=${t}`).toBeGreaterThan(0.003);
+        expect(lit(b), `${pr.id} t=${t}`).toBeGreaterThan(0.02);
+        expect(lit(b), `${pr.id} t=${t}`).toBeLessThan(0.97);
+      }
+    }
+    const fill = META.presets.find(x => x.id === 'mosaico')!;
+    // across a 16:9 canvas, every column has ink
+    const f = frame(fill.params, 3, (fill.layer?.scale ?? 1) * 0.89, 64, 32);
+    for (let x = 0; x < 64; x++) expect(f.filter((v, i) => i % 64 === x && v > 0.1).length, `columna ${x}`).toBeGreaterThan(3);
   });
 });

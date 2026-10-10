@@ -22,27 +22,44 @@ export function hyperbolicTriangle(P: number, Q: number) {
   return { an, m, cx, cr, vr, vx: vr * Math.cos(an), vy: vr * Math.sin(an), b: Math.log(ch + sh) };
 }
 
-/** Result of a fold: the point in the fundamental triangle, the reflection parity and |dw/dz|. */
-export const FOLD = { x: 0, y: 0, par: 0, D: 1, n: 0 };
+/**
+ * Result of a fold: the point in the fundamental triangle, the reflection parity and |dw/dz|; with `track`, also
+ * the direction of the map's derivative (a unit complex ax + i·ay: dw = A dz, or A conj(dz) when `flip`).
+ */
+export const FOLD = { x: 0, y: 0, par: 0, D: 1, n: 0, ax: 1, ay: 0, flip: 0 };
 
 /** Folds (x, y) into the fundamental triangle of the given mirrors (FOLD holds the result). */
-export function fold(x: number, y: number, an: number, cx: number, cr: number, D = 1) {
+export function fold(x: number, y: number, an: number, cx: number, cr: number, D = 1, track = false, ax = 1, ay = 0, flip = 0) {
   let par = 0, n = 0;
   if (x * x + y * y < 1e-12) { x = 1e-6; y = 0; }
   for (let i = 0; i < IT; i++) {
-    let w = mod(Math.atan2(y, x), 2 * an);
-    if (w > an) { w = 2 * an - w; par = 1 - par; }
+    const th = Math.atan2(y, x);
+    let w = mod(th, 2 * an);
+    const refl = w > an;
+    if (refl) { w = 2 * an - w; par = 1 - par; }
     const l = Math.sqrt(x * x + y * y);
+    if (track) {
+      // the wedge: a turn by w − θ, or (reflected) e^{i(w + θ)} conj(z)
+      const a = refl ? w + th : w - th, c = Math.cos(a), s = Math.sin(a);
+      if (refl) { const bx = ax, by = -ay; ax = c * bx - s * by; ay = s * bx + c * by; flip = 1 - flip; }
+      else { const bx = ax, by = ay; ax = c * bx - s * by; ay = s * bx + c * by; }
+    }
     x = l * Math.cos(w); y = l * Math.sin(w);
     const dx = x - cx, dy = y, d2 = dx * dx + dy * dy;
     if (d2 >= cr * cr) break;
     const k = (cr * cr) / d2;
+    if (track) {
+      // the edge mirror: −((z − c)/|z − c|)² conj(dz)
+      const ux = dx / Math.sqrt(d2), uy = dy / Math.sqrt(d2), qx = -(ux * ux - uy * uy), qy = -2 * ux * uy;
+      const bx = ax, by = -ay;
+      ax = qx * bx - qy * by; ay = qx * by + qy * bx; flip = 1 - flip;
+    }
     x = cx + dx * k; y = dy * k;
     D *= k;
     par = 1 - par;
     n++;
   }
-  FOLD.x = x; FOLD.y = y; FOLD.par = par; FOLD.D = D; FOLD.n = n;
+  FOLD.x = x; FOLD.y = y; FOLD.par = par; FOLD.D = D; FOLD.n = n; FOLD.ax = ax; FOLD.ay = ay; FOLD.flip = flip;
 }
 
 // per frame (prep)
@@ -68,17 +85,33 @@ export const impl: AnalyticImpl = {
     nvx = lx / l; nvy = ly / l;
   },
   cpu(px, py) {
+    // (relief: the direction of the map's derivative, carried through every step)
+    const rel = K[2] > 2.5;
+    let ax = cg, ay = -sg, flip = 0;
     // rot2(p / R, g), then the reflection of the outside in the rim
     let x = (cg * px + sg * py) / R, y = (-sg * px + cg * py) / R;
     let D = 1 / R, outside = 0;
     const r2 = x * x + y * y;
-    if (r2 > 1) { x /= r2; y /= r2; D /= r2; outside = 1; }
+    if (r2 > 1) {
+      if (rel) {
+        // 1 / conj(z): −(z/|z|)² conj(dz)
+        const qx = -(x * x - y * y) / r2, qy = (-2 * x * y) / r2, bx = ax, by = -ay;
+        ax = qx * bx - qy * by; ay = qx * by + qy * bx; flip = 1;
+      }
+      x /= r2; y /= r2; D /= r2; outside = 1;
+    }
     const rr = Math.sqrt(x * x + y * y);
     const x1 = cu * x + su * y, y1 = -su * x + cu * y;
     const ddx = 1 + a * x1, ddy = a * y1, dl = ddx * ddx + ddy * ddy;
+    if (rel) {
+      // a turn by −ρu, then the translation: conj(1 + a z)² / |1 + a z|²
+      const bx = cu * ax + su * ay, by = cu * ay - su * ax;
+      const qx = (ddx * ddx - ddy * ddy) / dl, qy = (-2 * ddx * ddy) / dl;
+      ax = qx * bx - qy * by; ay = qx * by + qy * bx;
+    }
     x = ((x1 + a) * ddx + y1 * ddy) / dl; y = (y1 * ddx - (x1 + a) * ddy) / dl;
     D *= (1 - a * a) / dl;
-    fold(x, y, T.an, T.cx, T.cr, D);
+    fold(x, y, T.an, T.cx, T.cr, D, rel, ax, ay, flip);
     x = FOLD.x; y = FOLD.y; D = FOLD.D;
     const par = FOLD.par;
     const tile = T.m / D;
@@ -93,12 +126,23 @@ export const impl: AnalyticImpl = {
     } else if (K[2] < 1.5) {
       v = (par > 0.5 ? 0.84 : 0.26) * (1 - edge) + 0.03 * edge;
       avg = 0.5;
-    } else {
+    } else if (K[2] < 2.5) {
       const sd = ((x - sx) * nvx + y * nvy) / D;
       const s = 1 - smoothstep(-0.003, 0.003, sd);
       v = (0.1 + 0.14 * par) * (1 - s) + 0.94 * s;
       v = v * (1 - edge) + 0.45 * edge;
       avg = 0.42;
+    } else {
+      // relief: raised tiles lit from the upper left. The bevel rises along the edge's inward normal n,
+      // brought back to the screen through the map's derivative (A⁻¹ n, or A⁻¹ conj(n) when it reflects)
+      const nl = Math.hypot(x - T.cx, y), nx = (x - T.cx) / nl, ny = y / nl, fx = FOLD.ax, fy = FOLD.ay;
+      const sxs = nx * fx + ny * fy, sys = FOLD.flip > 0.5 ? nx * fy - ny * fx : ny * fx - nx * fy;
+      const lam = (sys - sxs) * 0.70710678;
+      const bw = K[3] * 0.32 * tile;
+      const wb = 1 - smoothstep(0.55 * bw, bw, de);
+      v = 0.4 * (1 - wb) + sat(0.5 - 0.62 * lam) * wb;
+      v *= smoothstep(0, 0.12 * bw, de);
+      avg = 0.4;
     }
     const f = smoothstep(0.008, 0.024, tile);
     v = avg * (1 - f) + v * f;
