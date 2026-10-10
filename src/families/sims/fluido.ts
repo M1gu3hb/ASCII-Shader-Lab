@@ -470,7 +470,7 @@ export function create(cfg: ModelConfig): FieldModel {
     const f = lv, sx = dw / w, sy = dh / h;
     for (let y = 0; y < h; y++) {
       const gy = (y + 0.5) * sy;
-      for (let x = 0; x < w; x++) f[y * w + x] = (1 - Math.exp(-bil(dye, dw, dh, (x + 0.5) * sx - 0.5, gy - 0.5) * 2)) * LEVELS;
+      for (let x = 0; x < w; x++) { const c = bil(dye, dw, dh, (x + 0.5) * sx - 0.5, gy - 0.5); f[y * w + x] = (c < 1 ? c : 1) * LEVELS; }
     }
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const k = y * w + x, q = f[k], o = overlay[k];
