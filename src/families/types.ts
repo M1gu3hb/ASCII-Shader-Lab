@@ -96,11 +96,32 @@ export type TimeContract = 'continuo' | 'bucle' | 'construccion';
 /** What decides a family's contract: one for all its settings, or the value of one parameter. */
 export type TimeRule = TimeContract | { param: string; values: Record<string, TimeContract>; else: TimeContract };
 
+/**
+ * Where a preset is offered in the library (PR #10 review, A-06): by use and look, never by mechanism.
+ * `<space>/<section>` with the lab's spaces and sections (src/studio/recipes/catalog.ts):
+ *  - fondos/color · fondos/materia · fondos/vivas · fondos/ondas · fondos/organicas · fondos/geometricas · fondos/espacio
+ *    (only continuous or exactly looping presets that fill the canvas: never a figure drawn in the middle);
+ *  - arte/figuras (3D figures and space: Saturn, the black hole) · arte/organicas · arte/geometricas · arte/curvas · arte/optica;
+ *  - terminal/consola · terminal/figuras (only where it reads at terminal sizes);
+ *  - tipo/texturas (a texture inside the person's words) · media/efectos (over the person's picture).
+ * The same preset can be in several places: one id, several entries.
+ */
+export type PresetUse =
+  | 'fondos/color' | 'fondos/materia' | 'fondos/vivas' | 'fondos/ondas' | 'fondos/organicas' | 'fondos/geometricas' | 'fondos/espacio'
+  | 'arte/figuras' | 'arte/organicas' | 'arte/geometricas' | 'arte/curvas' | 'arte/optica'
+  | 'terminal/consola' | 'terminal/figuras'
+  | 'tipo/texturas' | 'media/efectos';
+
 /** A named starting point that shows a distinct regime of the family (never a recolouring alone). */
 export interface FamilyPreset {
   id: string;
+  /** A short visual name in Spanish: what it looks like, not the mechanism (that goes in «Cómo funciona»). */
   name: string;
   params: Params;
+  /** Where the library offers it (see PresetUse). */
+  uses?: PresetUse[];
+  /** Other names it is found by (a scientific name, the name it had before): search only, never shown as its name. */
+  aka?: string[];
   /** Exactly periodic presets ('bucle'): the period in seconds of layer time. */
   period?: number;
   /** Suggested look: palette stops (dark → light), background, character set and cell size. */
@@ -182,6 +203,15 @@ export interface FamilyMeta {
   budget: FamilyBudget;
   /** Relation to an existing catalog entry, when there is one (an extension, not a duplicate). */
   extends?: string;
+  /** Other names the family is found by (the scientific one: «Gray–Scott», «Wave Function Collapse»…). */
+  aka?: string[];
+  /**
+   * Analytic families that draw their own colour per cell (PR #10 review, V-01/V-02/V-04): their chunk defines
+   * `vec4 FC_<id>(vec2 p, float t, vec4 k0, vec4 k1)` (rgb, and the luminance that picks the glyph) and may read
+   * the piece's palette (uPal[0..5], uPalN); their CPU twin has `cpuColor`. With «Colores de: la familia» the
+   * cells keep that colour; with the palette, only the luminance counts, like any pattern.
+   */
+  color?: boolean;
   /** Drawn around the centre (sized to the width on canvases taller than wide). */
   figure?: boolean;
   /** Raster families: how the domain repeats outside itself. */
@@ -248,9 +278,14 @@ export type ModelFactory = (cfg: ModelConfig) => FieldModel;
 export type AnalyticFn = (x: number, y: number, t: number, k: Float32Array) => number;
 
 export interface AnalyticImpl {
-  /** GLSL chunk defining `float F_<id>(vec2 p, float t, vec4 k0, vec4 k1)`. */
+  /** GLSL chunk defining `float F_<id>(vec2 p, float t, vec4 k0, vec4 k1)` (colour families: `vec4 FC_<id>`). */
   glsl: string;
   cpu: AnalyticFn;
-  /** Optional per-frame CPU work that does not depend on the cell (as basic patterns' prep). */
-  prep?: (t: number, k: Float32Array) => void;
+  /** Optional per-frame CPU work that does not depend on the cell (as basic patterns' prep). `pal`: the palette. */
+  prep?: (t: number, k: Float32Array, pal?: Palette) => void;
+  /** Colour families: the cell's colour (0..1 rgb) written into out[0..2]; `cpu` gives its luminance. */
+  cpuColor?: (x: number, y: number, t: number, k: Float32Array, out: Float64Array) => void;
 }
+
+/** The piece's palette as colour families read it: up to six sRGB colours (0..1), dark → light. */
+export interface Palette { n: number; rgb: Float32Array }
