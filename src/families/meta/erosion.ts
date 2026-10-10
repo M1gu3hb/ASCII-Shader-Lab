@@ -7,6 +7,7 @@ export const META: FamilyMeta = {
   kind: 'simulation',
   version: 1,
   extends: 'topografia',
+  aka: ['Erosión hidráulica', 'Erosión térmica', 'Levantamiento tectónico', 'Red de drenaje', 'Mapa de ríos'],
   params: [
     { key: 'shape', label: 'Relieve inicial', type: 'choice', def: 'cordillera', rebuild: true, options: [
       { id: 'cordillera', label: 'Cordillera' }, { id: 'ladera', label: 'Ladera hacia el mar' }, { id: 'meseta', label: 'Meseta' },
@@ -20,6 +21,10 @@ export const META: FamilyMeta = {
     { key: 'evap', label: 'Evaporación', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
     { key: 'talus', label: 'Pendiente de talud', type: 'number', min: 15, max: 75, def: 40, step: 1, unit: '°' },
     { key: 'strata', label: 'Estratos', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'uplift', label: 'Levantamiento', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'frame', label: 'Encuadre', type: 'choice', def: 'maqueta', rebuild: true, options: [
+      { id: 'maqueta', label: 'Maqueta que gira' }, { id: 'lienzo', label: 'Lienzo entero, desde arriba' },
+    ] },
     { key: 'view', label: 'Vista', type: 'choice', def: 'relieve', options: [
       { id: 'relieve', label: 'Relieve 3D' }, { id: 'agua', label: 'Mapa del agua' }, { id: 'alturas', label: 'Mapa de alturas' },
     ] },
@@ -27,11 +32,38 @@ export const META: FamilyMeta = {
     { key: 'pitch', label: 'Inclinación', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
   ],
   presets: [
-    { id: 'barrancos', name: 'Barrancos', params: { shape: 'cordillera', height: 0.75, scale: 3, rain: 0.7, erode: 0.9, deposit: 0.3, capacity: 0.8, evap: 0.3, talus: 45, strata: 0, view: 'relieve', orbit: 0.6, pitch: 0.45 }, look: { stops: ['#0b0906', '#e8c9a0'], bg: '#060503', charset: ' .:-=+*#%@' } },
-    { id: 'delta', name: 'Ríos y delta', params: { shape: 'ladera', height: 0.6, scale: 2.5, rain: 0.6, erode: 0.6, deposit: 0.7, capacity: 0.6, evap: 0.08, talus: 40, strata: 0, view: 'relieve', orbit: 0.4, pitch: 0.6 }, look: { stops: ['#04100c', '#7fe0c0', '#effff8'], bg: '#020806', charset: ' .·:;=+#' } },
-    { id: 'mesetas', name: 'Mesetas', params: { shape: 'meseta', height: 0.8, scale: 4, rain: 0.2, erode: 0.5, deposit: 0.4, capacity: 0.5, evap: 0.4, talus: 22, strata: 1, view: 'relieve', orbit: 0.5, pitch: 0.2 }, look: { stops: ['#120806', '#ffb27a'], bg: '#090403', charset: ' .-=+*#' } },
+    {
+      id: 'rios', name: 'Mapa de ríos', aka: ['Red de drenaje', 'Erosión y levantamiento'], uses: ['fondos/organicas', 'fondos/materia', 'tipo/texturas'],
+      params: { shape: 'cordillera', height: 0.6, scale: 3, rain: 0.8, erode: 0.5, deposit: 0.5, capacity: 0.5, evap: 0.1, talus: 40, strata: 0, uplift: 0.5, frame: 'lienzo', view: 'agua', orbit: 0, pitch: 0.4 },
+      look: { stops: ['#03080c', '#6fc8e8', '#effaff'], bg: '#020508', charset: ' .·:-=+*#' },
+    },
+    {
+      id: 'costa', name: 'Costa tallada', aka: ['Relieve sombreado', 'Erosión y levantamiento'], uses: ['fondos/materia'],
+      params: { shape: 'ladera', height: 0.6, scale: 2.5, rain: 0.8, erode: 0.7, deposit: 0.5, capacity: 0.7, evap: 0.1, talus: 40, strata: 0, uplift: 0.25, frame: 'lienzo', view: 'relieve', orbit: 0, pitch: 0.4 },
+      look: { stops: ['#080706', '#d8c8a8', '#fff8ea'], bg: '#040302', charset: ' .:-=+*#%@' },
+    },
+    {
+      id: 'montana', name: 'Montaña viva', aka: ['Levantamiento tectónico', 'Equilibrio dinámico'], uses: ['arte/figuras'],
+      params: { shape: 'cordillera', height: 0.75, scale: 3, rain: 0.7, erode: 0.9, deposit: 0.3, capacity: 0.8, evap: 0.3, talus: 45, strata: 0, uplift: 0.35, frame: 'maqueta', view: 'relieve', orbit: 0.4, pitch: 0.45 },
+      look: { stops: ['#0b0906', '#f0d6b0'], bg: '#060503', charset: ' .:-=+*#%@' },
+    },
+    {
+      id: 'barrancos', name: 'Barrancos', aka: ['Erosión hidráulica'], uses: ['arte/figuras'],
+      params: { shape: 'cordillera', height: 0.75, scale: 3, rain: 0.7, erode: 0.9, deposit: 0.3, capacity: 0.8, evap: 0.3, talus: 45, strata: 0, uplift: 0, frame: 'maqueta', view: 'relieve', orbit: 0.6, pitch: 0.45 },
+      look: { stops: ['#0b0906', '#e8c9a0'], bg: '#060503', charset: ' .:-=+*#%@' },
+    },
+    {
+      id: 'delta', name: 'Ríos y delta', aka: ['Sedimentación', 'Delta fluvial'], uses: ['arte/figuras'],
+      params: { shape: 'ladera', height: 0.6, scale: 2.5, rain: 0.6, erode: 0.6, deposit: 0.7, capacity: 0.6, evap: 0.08, talus: 40, strata: 0, uplift: 0, frame: 'maqueta', view: 'relieve', orbit: 0.4, pitch: 0.6 },
+      look: { stops: ['#04100c', '#7fe0c0', '#effff8'], bg: '#020806', charset: ' .·:;=+#' },
+    },
+    {
+      id: 'mesetas', name: 'Mesetas', aka: ['Estratos', 'Terrazas', 'Erosión térmica'], uses: ['arte/figuras'],
+      params: { shape: 'meseta', height: 0.8, scale: 4, rain: 0.2, erode: 0.5, deposit: 0.4, capacity: 0.5, evap: 0.4, talus: 22, strata: 1, uplift: 0, frame: 'maqueta', view: 'relieve', orbit: 0.5, pitch: 0.2 },
+      look: { stops: ['#120806', '#ffb27a'], bg: '#090403', charset: ' .-=+*#' },
+    },
   ],
-  caps: { loop: false, time: 'continuo', basic: 'full', checkpoint: true },
+  caps: { loop: false, time: { param: 'uplift', values: { '0': 'construccion' }, else: 'continuo' }, basic: 'full', checkpoint: true },
   budget: {
     res: [48, 160, 112], rate: 30, warmup: 30,
   },
