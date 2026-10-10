@@ -11,6 +11,10 @@ import { applyRecipe, currentRecipe, edit, rollDice, setSpace, useStudio } from 
 import { toast } from './toast';
 import { retry } from './lazy';
 import { within } from './deadline';
+import { cloneRecipe, syncVersion } from '../engine/recipe';
+import { getGlyphSet } from '../glyphset/registry';
+import { isGlyphSetId } from '../glyphset/set';
+import { applySet, glyphSetFile, importGlyphSet, recordLabUses } from './glyphSets';
 
 let watchingHash = false;
 let hashLoad: AbortController | undefined;
@@ -39,6 +43,7 @@ export type BootOpened = 'link' | 'seed' | 'space' | 'camino' | null;
  * src/shared/share.ts: the frame is kept, so the piece shared again unedited keeps the frame it came in),
  * #seed=<seed>&space=<space>&arch=<arch>[&gen=<generator version>] (without gen: the current
  * generator), #space=<space>[&source=image|video|camera],
+ * #glifos=<set id> («Usar en el laboratorio» of «Crea tus GLYPHOS»: the current piece, as a new entry, with that set),
  * and guided paths: ?camino=foto|fondo|palabra (the public guides link there).
  * Both are removed from the address once handled.
  */
@@ -80,6 +85,22 @@ export async function bootFromUrl(signal?: AbortSignal): Promise<BootOpened> {
         applyRecipe(got.recipe, 'importado', got.name);
         setTimeout(() => toast('Estilo abierto desde el estudio de foto: es una entrada nueva de tu historial.'), 400);
       } else setTimeout(() => toast('Ese estilo ya no está esperando (se abre una sola vez y caduca en una hora).'), 400);
+    } else if (h.get('glifos')) {
+      // a glyph set just made in «Crea tus GLYPHOS» (same browser): the current piece takes it, as a new entry
+      opened = 'link';
+      const id = h.get('glifos')!;
+      const bytes = isGlyphSetId(id) ? await glyphSetFile(id) : null;
+      if (signal?.aborted || location.hash !== hash) return null;
+      const got = bytes ? await importGlyphSet(bytes, id) : null;
+      const set = got ? getGlyphSet(got) : undefined;
+      if (set && got) {
+        const r = cloneRecipe(currentRecipe());
+        applySet(r, got, set);
+        syncVersion(r);
+        applyRecipe(r, 'importado', `Con tus glifos «${set.name}»`);
+        void recordLabUses(new Set([got]), true);
+        setTimeout(() => toast(`La pieza usa tus glifos «${set.name}». Cámbialos o quítalos en Glifos → Tus glifos.`), 400);
+      } else setTimeout(() => toast('Ese juego de glifos no está en este navegador. Ábrelo desde «Crea tus GLYPHOS» con «Usar en el laboratorio».'), 400);
     } else if (h.get('seed')) {
       opened = 'seed';
       if (space) useStudio.setState({ space: spaceById(space).id });

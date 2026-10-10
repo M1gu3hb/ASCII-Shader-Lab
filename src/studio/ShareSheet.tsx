@@ -1,3 +1,4 @@
+import { FamilyHost } from '../families/host';
 import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { sameRecipe, type Recipe } from '../engine/recipe';
@@ -287,6 +288,19 @@ function ShareBody({ target, onClose }: { target: Target; onClose: () => void })
       )}
       {r.source === 'camera' && (
         <p className="note shr-cam">Tu cámara nunca se comparte: quien abra el enlace verá el patrón de fondo, y en el estudio podrá usar su propia cámara.</p>
+      )}
+      {FamilyHost.uses(r) && (
+        <section className="shr-media" aria-labelledby="shr-fam-h">
+          <h3 className="shr-h" id="shr-fam-h">La simulación empieza de nuevo en el enlace</h3>
+          <p>
+            El enlace lleva la receta con su semilla: quien lo abra verá la misma simulación evolucionar desde su comienzo, no el estado exacto de tu escenario.
+            {r.layers.some(l => l.fam?.ck) ? ' El estado que guardaste se queda en este navegador.' : ''} Para conservar el estado exacto, envía un proyecto con su estado guardado o una imagen.
+          </p>
+          <div className="shr-media-acts">
+            <button type="button" className="btn" onClick={() => void exportProject(r, pieceFileBase(r))}>Proyecto (.zip){r.layers.some(l => l.fam?.ck) ? ' con su estado' : ''}</button>
+            <button type="button" className="btn" onClick={() => toExport('imagen')}>Imagen…</button>
+          </div>
+        </section>
       )}
       <div className="shr-main">
         <figure className="shr-prev" style={frame ? { aspectRatio: `${frame.w} / ${frame.h}` } : undefined}>

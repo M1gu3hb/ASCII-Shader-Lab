@@ -3,12 +3,15 @@ import { createFontLoader } from '../engine/fonts';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import type { Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
+import type { FamilyBundle } from '../families/host';
 import { probeWebGL } from '../engine/support';
 import { useCaps } from './caps';
 import { attachEngine } from './media';
 import { pickTransition, qualityFor, usePreview, type TransitionContext } from './preview';
 import { currentRecipe, setStats, useStudio } from './store';
 import { toast } from './toast';
+import { installCheckpointLoader } from './familyState';
+import { installGlyphSetLoader } from './glyphSets';
 
 /**
  * One live renderer drives the studio stage; the store is the single source of truth.
@@ -40,8 +43,12 @@ const noCanvas = (e: unknown) => e instanceof Error && e.message === 'canvas2d';
  * Mounts the live renderer in `container`: the WebGL 2 engine when it works, the basic engine otherwise.
  * Only when not even Canvas 2D is available does the stage stay empty (caps.fatal says why).
  */
-export async function mountStudioEngine(container: HTMLElement, o: { force?: 'basic' } = {}): Promise<void> {
+export async function mountStudioEngine(container: HTMLElement, o: { force?: 'basic'; families?: FamilyBundle | null } = {}): Promise<void> {
   destroyStudioEngine();
+  // saved states of family layers come from this browser's store when a piece asks for one
+  installCheckpointLoader();
+  // glyph sets made in «Crea tus GLYPHOS» too
+  installGlyphSetLoader();
   const gen = ++mountGen;
   host = container;
   const s = useStudio.getState();
@@ -94,6 +101,8 @@ export async function mountStudioEngine(container: HTMLElement, o: { force?: 'ba
   // the stage went away (or mounted again) while the renderer was on its way
   if (gen !== mountGen) { e.destroy(); e.canvas.remove(); return; }
   engine = e;
+  // the runs of the piece's families go on in the new engine (the stage moved to the basic engine)
+  if (o.families) e.adoptFamilies(o.families);
   e.canvas.setAttribute('aria-hidden', 'true');
   useCaps.setState({ renderer: e.kind, gl: created.status, fatal: null, ...(o.force ? {} : { lost: false }) });
   if (e.kind === 'webgl2') watchContext(e.canvas);
@@ -177,8 +186,10 @@ function watchContext(canvas: HTMLCanvasElement) {
     lostT = window.setTimeout(() => {
       if (!host || engine?.canvas !== canvas) return;
       const time = engine.time;
+      // the simulations live on the CPU: their state survives the lost context and carries on
+      const families = engine.familyState();
       const gl = useCaps.getState().gl;
-      void mountStudioEngine(host, { force: 'basic' }).then(() => {
+      void mountStudioEngine(host, { force: 'basic', families }).then(() => {
         if (engine) engine.time = time;
         useCaps.setState({ lost: true, gl: { ...gl, reason: 'blocked', detail: undefined } });
       });

@@ -1,9 +1,12 @@
 import { buildAtlas, uniqueChars, type Atlas } from '../atlas';
+import { getGlyphSet, watchGlyphSets, whenGlyphSet } from '../../glyphset/registry';
 import { BLENDS, INTERACT, cloneRecipe, type Recipe } from '../recipe';
-import { fontById } from '../catalog';
+import { figureFit, fontById } from '../catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
-import type { EngineOptions, EngineStats, GestureInput, GridSnapshot, MediaKind } from '../engine';
+import type { EngineOptions, EngineStats, FamilyCommand, GestureInput, GridSnapshot, MediaKind } from '../engine';
+import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../../families/host';
+import { retryFamily } from '../../families/models';
 import { TOUCH_TILE, VIEW_MODES, TouchField, isMarkMode, isTouchMode, touchSettings } from '../touch';
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
 import type { PatternLibrary } from '../glsl/patterns';
@@ -166,6 +169,10 @@ export class BasicEngine implements Renderer {
   private simLast = -1e9;
   /** Fixed-size engines: realT of the last renderAt (see AsciiEngine.demo). */
   private demoT = NaN;
+  /** Runs of the piece's visual families (the same host as the WebGL engine's: the same states). */
+  private fam: FamilyHost;
+  private famBusy = false;
+  private famStroke: Array<[number, number] | null> = [null, null, null, null];
   private ro: ResizeObserver | null = null;
   private io: IntersectionObserver | null = null;
   private cleanup: Array<() => void> = [];
@@ -179,6 +186,8 @@ export class BasicEngine implements Renderer {
     this.canvas = canvas;
     this.o = opts;
     this.r = cloneRecipe(recipe);
+    // (budget per frame below the WebGL engine's: here the CPU also draws every pixel)
+    this.fam = new FamilyHost({ live: !opts.fixedSize, cpu: true, frameBudget: 6, onError: opts.onError });
     this.fonts = opts.fonts ?? createFontLoader({ google: opts.googleFonts ?? true });
     this.playing = (opts.autoplay ?? true) && !opts.reducedMotion;
     // an offscreen engine read back often (thumbnails) keeps its canvas in memory: reading it then never waits for a GPU
@@ -230,7 +239,7 @@ export class BasicEngine implements Renderer {
     if (!this.o.fixedSize && this.rendered && (trans || p)) {
       if (p) { p.r = r; p.trans = trans ?? p.trans; p.fonts = false; }
       const want = p ?? (this.pending = { r, trans: trans!, since: performance.now(), fonts: false });
-      void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
+      void Promise.all([this.fontsFor(r), this.fam.ready(r)]).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
       this.needsRender = true;
       return;
     }
@@ -245,7 +254,7 @@ export class BasicEngine implements Renderer {
     if (this.o.fixedSize) { this.xf.have = false; this.touch.reset(); this.demoT = NaN; }
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
-      || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
+      || prev.glyph.set !== next.glyph.set || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
       || prev.text.font !== next.text.font || prev.text.weight !== next.text.weight || prev.text.italic !== next.text.italic
       || prev.text.content !== next.text.content) void this.requestFonts();
     if (prev.source !== next.source) { this.mediaEl = null; this.mediaOK = false; }
@@ -262,8 +271,9 @@ export class BasicEngine implements Renderer {
 
   private fontsFor(r: Recipe): Promise<unknown> {
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).catch(() => undefined);
   }
 
@@ -301,7 +311,7 @@ export class BasicEngine implements Renderer {
   hasMedia(kind: MediaKind) { return !!this.media[kind]; }
 
   async ready(): Promise<void> {
-    await this.requestFonts();
+    await Promise.all([this.requestFonts(), this.fam.ready(this.r)]);
     this.atlasKey = '';
     this.textKey = '';
   }
@@ -388,6 +398,7 @@ export class BasicEngine implements Renderer {
 
   destroy() {
     this.alive = false;
+    this.fam.dispose();
     this.pending = null;
     this.transLayer.release();
     cancelAnimationFrame(this.raf);
@@ -405,8 +416,9 @@ export class BasicEngine implements Renderer {
     const r = this.r;
     const gen = ++this.fontGen;
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).then(() => {
       if (gen !== this.fontGen && this.alive) return;
       this.atlasKey = '';
@@ -417,6 +429,9 @@ export class BasicEngine implements Renderer {
 
   /** A web font that lands after requestFonts() stopped waiting is drawn when it arrives (see engine.ts). */
   private watchLateFonts() {
+    // a glyph set the studio loads from this browser's storage (or one declared missing) redraws the atlas
+    const off = watchGlyphSets(() => { if (this.r.glyph.set) { this.atlasKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; } });
+    this.cleanup.push(off);
     const set = typeof document !== 'undefined' ? document.fonts : undefined;
     if (!set || typeof set.addEventListener !== 'function') return;
     const landed = () => { this.atlasKey = this.textKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; };
@@ -462,7 +477,7 @@ export class BasicEngine implements Renderer {
     // (a shared link, a file still loading) is a still picture while paused
     const video = (this.r.source === 'video' || this.r.source === 'camera') && !!this.media[this.r.source];
     const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
-    if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {
+    if (this.playing || this.needsRender || interactive || touching || video || sim || this.famBusy || this.trans >= 0) {
       this.needsRender = false;
       const t0 = performance.now();
       const inTrans = this.trans >= 0;
@@ -575,12 +590,14 @@ export class BasicEngine implements Renderer {
   private updateAtlas() {
     const r = this.r, g = r.glyph;
     const extras = (r.msg.on ? r.msg.text : '') + (g.mode === 'words' ? g.words : '');
-    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join('')].join('\u0001');
+    const set = g.set ? getGlyphSet(g.set) : undefined;
+    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join(''), set ? g.set : ''].join('\u0001');
     if (key === this.atlasKey && this.atlas) return;
     this.atlasKey = key;
     this.atlas = buildAtlas({
-      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (fontById(g.font).fit ?? 1),
-      cw: this.cw, ch: this.ch, extras, maxTex: MAX_DIM,
+      // a glyph set fills its own em box: the font's optical fit does not apply to it
+      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (set ? 1 : fontById(g.font).fit ?? 1),
+      cw: this.cw, ch: this.ch, extras, maxTex: MAX_DIM, glyphs: set ? { id: g.set!, set } : undefined,
     }, this.atlasCanvas ?? undefined);
     this.atlasCanvas = this.atlas.canvas;
     const cv = this.atlas.canvas, w = cv.width, h = cv.height;
@@ -777,6 +794,37 @@ export class BasicEngine implements Renderer {
     }
   }
 
+  /** Brings the piece's family runs to the current moment and applies brush strokes (see AsciiEngine). */
+  private updateFamilies() {
+    const r = this.r;
+    if (!r.layers.some(l => l.on && l.fam)) { this.famBusy = false; return; }
+    const P = this.ptr;
+    const layers = r.layers.filter(l => l.on).slice(0, 4);
+    for (let i = 0; i < 4; i++) {
+      const l = layers[i], brush = l?.fam?.brush;
+      if (!l || !brush || this.o.fixedSize || !P.down || P.on < 0.2) { this.famStroke[i] = null; continue; }
+      const px = (P.x - 0.5 * this.W) / this.H, py = (0.5 * this.H - P.y) / this.H;
+      const sc = l.scale * figureFit(l.pattern, this.W, this.H), a = (l.rot * Math.PI) / 180;
+      const dx = px - l.x, dy = py - l.y, c = Math.cos(a), s = Math.sin(a);
+      const qx = (c * dx - s * dy) * sc, qy = (s * dx + c * dy) * sc;
+      const prev = this.famStroke[i] ?? [qx, qy];
+      this.fam.stroke(i, { brush, x0: prev[0], y0: prev[1], x1: qx, y1: qy, r: Math.max(0.01, r.interact.radius * 0.5 * sc), strength: Math.max(0.2, r.interact.strength) });
+      this.famStroke[i] = [qx, qy];
+    }
+    this.famBusy = this.fam.update(r, familyTime(this.t, r.motion.hold));
+  }
+
+  familyState(): FamilyBundle { return this.fam.bundle(); }
+  setFamilyStart(bundle: FamilyBundle | null, t0 = 0) { this.fam.setStart(bundle, t0); this.needsRender = true; }
+  adoptFamilies(bundle: FamilyBundle) { this.fam.adopt(bundle); this.needsRender = true; }
+  familyCommand(c: FamilyCommand) {
+    if (c.kind === 'retry') { void retryFamily(c.id).then(() => { this.needsRender = true; }); return; }
+    if (c.kind === 'reset') this.fam.reset(c.layer);
+    else this.fam.stepNow(c.n ?? 1, c.layer);
+    this.needsRender = true;
+  }
+  familyInfo(): SlotInfo[] { return this.fam.info(this.r); }
+
   private render(dt: number) {
     const T0 = performance.now();
     if (this.sizeDirty) this.resize();
@@ -815,9 +863,11 @@ export class BasicEngine implements Renderer {
       this.xf.t = this.realT;
       decay = trailDecay(dt, trail.k);
     } else this.xf.have = false;
+    this.updateFamilies();
     runField({
       W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows,
-      time: tq, loop: r.motion.loop, layers: fieldLayers(r, this.W, this.H),
+      // (a family with memory never claims a perfect loop: its layers are drawn as they are, see fieldLoops)
+      time: tq, loop: fieldLoops(r) ? r.motion.loop : 0, layers: fieldLayers(r, this.W, this.H, this.fam),
       warp: r.motion.warp, warpScale: r.motion.warpScale, pulse,
       src, mediaMix: r.media.mix, mediaBlend: Math.max(0, BLENDS.indexOf(r.media.blend)), morph: morphPeriod(r.text.morph, loop),
       media: this.mediaBuf, fit: r.media.fit === 'cover' ? 0 : r.media.fit === 'contain' ? 1 : 2,

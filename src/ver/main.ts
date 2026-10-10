@@ -16,7 +16,10 @@ import './viewer.css';
 import { logoMark, wordmark } from '../shared/brand';
 import { decodeRecipe, pieceHash, readPieceHash, type ShareView } from '../shared/share';
 import { defaultFrame, describeFrame, encodeFrame, fitFrame, frameRecipe, gridOf, reduceFrame, type Frame } from '../shared/frame';
-import { patternById } from '../engine/catalog';
+import { fontById, patternName } from '../engine/catalog';
+import { installLocalGlyphSets, missingSetNotice } from '../glyphset/local';
+import { glyphSetStatus, watchGlyphSets } from '../glyphset/registry';
+import { FamilyHost } from '../families/host';
 import { isTouchMode } from '../engine/touch';
 import type { Recipe } from '../engine/recipe';
 import type { Renderer } from '../engine/renderer';
@@ -47,7 +50,7 @@ const titleOf = (r: Recipe) => r.meta.name?.trim() || r.meta.seed?.trim() || '';
 
 /** What the piece is, for screen readers (the canvas itself is only pixels). */
 function describe(r: Recipe, f: Frame, playing: boolean): string {
-  const pats = [...new Set(r.layers.filter(l => l.on).map(l => patternById(l.pattern).name))].join(', ');
+  const pats = [...new Set(r.layers.filter(l => l.on).map(l => patternName(l.pattern)))].join(', ');
   const src = r.source === 'text' ? `el texto «${r.text.content.slice(0, 80)}»` : r.source === 'pattern' ? '' : 'su patrón de fondo';
   const what = [src, pats && `patrones ${pats}`].filter(Boolean).join(' con ');
   const msg = r.msg.on && r.msg.text ? ` Mensaje: «${r.msg.text.slice(0, 80)}».` : '';
@@ -218,6 +221,15 @@ async function show(recipe: Recipe, code: string, view: ShareView) {
     setNote('media', `Esta pieza se hizo con ${src === 'video' ? 'un video' : 'una imagen'} de quien la compartió, que no viaja en los enlaces: aquí ves su estilo con el patrón de fondo.`);
   } else if (src === 'camera') {
     setNote('media', 'Esta pieza usa la cámara de quien la mira. Aquí ves su patrón de fondo; ábrela en el estudio para verla con tu cámara.');
+  }
+  // a visual family with memory: the link carries its seed, not the state its author saw
+  if (FamilyHost.uses(recipe)) setNote('familia', 'Esta pieza tiene una simulación: empieza desde su semilla y evoluciona aquí, en tu navegador; no es el instante exacto que vio quien la compartió.');
+  // a glyph set made in «Crea tus GLYPHOS»: links do not carry it; this browser may have it (same site)
+  if (recipe.glyph.set) {
+    installLocalGlyphSets();
+    const id = recipe.glyph.set;
+    const say = () => setNote('glifos', glyphSetStatus(id) === 'missing' ? missingSetNotice(recipe, fontById(recipe.glyph.font).name) : null);
+    watchGlyphSets(say);
   }
 
   /* ---------------- controls: play, full screen, auto-hide ---------------- */

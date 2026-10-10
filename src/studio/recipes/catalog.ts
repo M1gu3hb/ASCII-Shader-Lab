@@ -5,6 +5,9 @@ import { SPACES, spaceById, type SpaceId } from '../../random/spaces';
 import { PRESETS } from '../presets';
 import { SCENES, makeScene, type SceneSpace, type SceneSpec } from '../scenes';
 import { fold } from './search';
+import { FAMILIES } from '../../families/registry';
+import { familyRecipe } from '../../families/recipes';
+import { FAMILY_GROUP_NAMES, type FamilyGroup } from '../../families/types';
 
 /**
  * Every starting point of the lab in one catalogue: the recipes of each space (presets.ts) and the composed
@@ -19,7 +22,7 @@ import { fold } from './search';
  * here.
  */
 
-export type ItemKind = 'receta' | 'escena';
+export type ItemKind = 'receta' | 'escena' | 'familia';
 
 export interface RecipeItem {
   /** Unique in the whole catalogue: `${space}/${id}` for recipes, `${space}/escena:${id}` for scenes. */
@@ -73,12 +76,19 @@ export const CATEGORIES: Record<string, Category> = {
   escenas: { id: 'escenas', label: 'Escenas compuestas', hint: 'Varias capas que se mueven a su ritmo; después puedes cambiar cada una.', words: 'escena escenas compuesta compuestas capas' },
   tranquilas: { id: 'tranquilas', label: 'Tranquilas', hint: 'Lentas y suaves: buenas de fondo o para mirar un rato.', words: 'tranquila tranquilo calma calmada lenta suave relajante' },
   expresivas: { id: 'expresivas', label: 'Expresivas', hint: 'Rápidas, brillantes, con mucho carácter.', words: 'expresiva energia energica rapida intensa brillante vibrante' },
+  // the visual families (src/families): one section per group, in Arte
+  'fam-vida': { id: 'fam-vida', label: FAMILY_GROUP_NAMES.vida, hint: 'Simulaciones que se organizan solas: reacción–difusión, moho, vida artificial, autómatas.', words: 'simulacion familia vida quimica organismo celula moho automata' },
+  'fam-fisica': { id: 'fam-fisica', label: FAMILY_GROUP_NAMES.fisica, hint: 'Fluidos, agua, bandadas, gravedad, telas y terrenos que evolucionan por su modelo.', words: 'simulacion familia fisica fluido agua gravedad tela bandada particulas' },
+  'fam-forma': { id: 'fam-forma', label: FAMILY_GROUP_NAMES.forma, hint: 'Gramáticas, restricciones y caos que construyen estructuras.', words: 'simulacion familia geometria gramatica caos estructura fractal' },
+  'fam-ciencia': { id: 'fam-ciencia', label: FAMILY_GROUP_NAMES.ciencia, hint: 'Volúmenes y espacios trazados rayo a rayo: fractales, nubes, orbitales, agujeros negros.', words: 'simulacion familia ciencia 3d volumen fractal nube orbital agujero negro' },
 };
+
+const FAMILY_SECTION: Record<FamilyGroup, string> = { vida: 'fam-vida', fisica: 'fam-fisica', forma: 'fam-forma', ciencia: 'fam-ciencia' };
 
 /** The order sections are listed in, per space (a section not listed goes after these). */
 const SECTION_ORDER: Record<SceneSpace, string[]> = {
   fondos: ['ondas', 'organicas', 'geometricas', 'espacio', 'escenas'],
-  arte: ['figuras', 'curvas', 'organicas', 'optica', 'escenas'],
+  arte: ['figuras', 'curvas', 'organicas', 'optica', 'fam-vida', 'fam-fisica', 'fam-forma', 'fam-ciencia', 'escenas'],
   media: ['clasicas', 'efectos', 'escenas'],
   tipo: ['letras', 'texturas', 'mensajes', 'escenas'],
   terminal: ['figuras', 'consola', 'curvas', 'escenas'],
@@ -171,6 +181,19 @@ function build(): RecipeItem[] {
         key: `${space}/${p.id}`, id: p.id, name: p.name, space, kind: 'receta', section, cats, make: p.make,
         line: CATEGORIES[section].label, words: wordsOf(space, r, cats, [p.name]), folded: fold(p.name), look: lookOf(r), order: order++,
       });
+    }
+    // the presets of the visual families: in Arte, after its recipes and scenes (moods say nothing of them)
+    if (space === 'arte') {
+      for (const f of FAMILIES) for (const pr of f.presets) {
+        const make = () => familyRecipe(f.id, pr.id, undefined, `${f.id}-${pr.id}`);
+        const r = make();
+        const section = FAMILY_SECTION[f.group];
+        out.push({
+          key: `${space}/familia:${f.id}:${pr.id}`, id: `${f.id}:${pr.id}`, name: pr.name, space, kind: 'familia', section, cats: [section], make,
+          line: f.name, words: fold([pr.name, f.name, CATEGORIES[section].label, CATEGORIES[section].words ?? '', 'familia simulacion'].join(' ')),
+          folded: fold(pr.name), look: lookOf(r), order: order++,
+        });
+      }
     }
     for (const s of SCENES.filter(x => x.space === space)) {
       const r = makeScene(s);

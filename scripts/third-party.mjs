@@ -29,6 +29,9 @@ const USE = {
   mediabunny: 'Codificación de video MP4/WebM en el editor. Se usa sin modificar y nunca va dentro del código exportado',
   'onnxruntime-web': 'Motor de los modelos de recorte en el navegador (estudio de foto). Se usa sin modificar y nunca va dentro del código exportado',
   'onnxruntime-common': 'Dependencia de onnxruntime-web',
+  'polygon-clipping': 'Operaciones de trazo en el estudio de glifos',
+  splaytree: 'Operaciones de trazo en el estudio de glifos (dependencia de polygon-clipping)',
+  'robust-predicates': 'Operaciones de trazo en el estudio de glifos (dependencia de polygon-clipping)',
 };
 
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'));
@@ -45,7 +48,11 @@ function findDir(name, from) {
 
 function licenseFile(dir) {
   const f = readdirSync(dir).find(n => /^(licen[cs]e|copying)(\.(md|txt|mit))?$|^licen[cs]e-mit(\.txt)?$/i.test(n));
-  return f ? readFileSync(join(dir, f), 'utf8').replace(/\r\n/g, '\n').trim() : '';
+  if (f) return readFileSync(join(dir, f), 'utf8').replace(/\r\n/g, '\n').trim();
+  // Some packages (splaytree) ship their license only as the README's «License» section: keep that text.
+  const readme = readdirSync(dir).find(n => /^readme(\.md)?$/i.test(n));
+  const m = readme && /^#{1,3} Licen[cs]e\s*\n([\s\S]*?)(?=\n#{1,3} |(?![\s\S]))/im.exec(readFileSync(join(dir, readme), 'utf8').replace(/\r\n/g, '\n'));
+  return m && /copyright/i.test(m[1]) ? m[1].trim() : '';
 }
 
 const repoUrl = j => {

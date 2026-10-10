@@ -1,6 +1,9 @@
 import { GLSL_BLEND, GLSL_CORE } from './core';
 import { DISP_MAX } from '../touch';
 import type { PatternLibrary } from './patterns';
+import { isAnalytic, isFamily, isRaster } from '../../families/registry';
+import { FAMILY_SAMPLE_GLSL } from '../../families/sample';
+import { familyGlsl } from '../../families/analytic/glsl';
 
 export const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
 
@@ -12,7 +15,10 @@ export type FieldSource = 'pattern' | 'media' | 'text';
 
 /** Program cache key for the field pass. */
 export function fieldKey(patterns: string[], src: FieldSource, loop: boolean): string {
-  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}`;
+  // an analytic family whose chunk has not arrived yet draws nothing: that program is another key, so it is
+  // never kept in place of the real one
+  const waiting = patterns.some(id => isAnalytic(id) && !familyGlsl(id));
+  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}${waiting ? '|sin-glsl' : ''}`;
 }
 
 /** Media sampling with fit/zoom/pan/mirror; shared by field and compose passes. */
@@ -41,18 +47,24 @@ vec4 media(vec2 s){
 
 export function buildFieldShader(patterns: string[], src: FieldSource, loop: boolean, lib: PatternLibrary): string {
   const used = [...new Set(patterns)];
-  const chunks = used.map(id => {
-    const c = lib[id];
+  // raster families (geometry, simulation) need no chunk: their layer reads the raster their model computed
+  const chunks = used.filter(id => !isRaster(id)).map(id => {
+    const c = isAnalytic(id) ? familyGlsl(id) ?? `float F_${id}(vec2 p, float t, vec4 k0, vec4 k1) { return 0.; }` : lib[id];
     if (!c) throw new Error('Patrón no disponible en la librería: ' + id);
     return c;
   }).join('\n');
+  const families = used.some(isFamily);
 
+  // a family layer: analytic ones read their eight typed parameters (uLF0/uLF1), raster ones their raster
+  const call = (id: string, i: number) => isRaster(id) ? `famRaster(${i}, q)`
+    : isAnalytic(id) ? `F_${id}(q, t * B.w + C.y, uLF0[${i}], uLF1[${i}])`
+    : `P_${id}(q, t * B.w + C.y, B.x, B.y)`;
   const layerCode = patterns.map((id, i) => `
   {
     vec4 A = uLA[${i}], B = uLB[${i}], C = uLC[${i}];
     vec2 q = rot2(p - A.zw, A.y) * A.x;
     PX = uCellP * A.x;
-    float x = P_${id}(q, t * B.w + C.y, B.x, B.y);
+    float x = ${call(id, i)};
     x = mix(x, 1. - x, C.x);
     ${i === 0 ? 'v = x * B.z;' : 'v = blendf(v, x, int(C.z), B.z);'}
   }`).join('');
@@ -87,6 +99,7 @@ float PX;
 ${GLSL_CORE}
 ${GLSL_BLEND}
 ${src === 'media' ? GLSL_MEDIA : ''}
+${families ? FAMILY_SAMPLE_GLSL : ''}
 ${chunks}
 float stack(vec2 p, float t){
   float v = 0.;

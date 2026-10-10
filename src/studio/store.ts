@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { cloneRecipe, sameRecipe, type Recipe } from '../engine/recipe';
+import { cloneRecipe, sameRecipe, syncVersion, type Recipe } from '../engine/recipe';
 import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type SpaceId } from '../random';
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import { ownText } from './ownWords';
@@ -9,6 +9,8 @@ import {
 } from './history';
 import { idbKeys, idbRead, idbValues, idbWrite, isQuotaError } from './idb';
 import { gcMedia } from './mediaStore';
+import { gcStates, rawStateIds, stateIdsOf } from './stateStore';
+import { glyphSetIdsOf, rawGlyphSetIds, recordLabUses } from './glyphSets';
 import { within } from './deadline';
 import { DEFAULT_VIEW_OPTS, normalizeViewOpts, normalizeViews, type ViewId, type ViewOpts } from './views/views';
 
@@ -191,6 +193,23 @@ export function referencedMediaIds(): Set<string> {
   return ids;
 }
 
+/** Saved family states (layer.fam.ck) still needed: history, collection and undo steps. */
+function referencedStateIds(): Set<string> {
+  const s = S();
+  const ids = stateIdsOf(allRecipes(s.entries, s.favorites));
+  for (const st of stacks.values()) for (const id of stateIdsOf([...st.past, ...st.future])) ids.add(id);
+  return ids;
+}
+
+/** Saved family states named by the stored history and collection. Rejects (nothing collected) when unreadable. */
+async function storedStateIds(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const [bodies, [fav]] = await Promise.all([idbValues(P_ENTRY), idbRead([K_FAV])]);
+  rawStateIds(bodies, ids);
+  if (Array.isArray(fav)) rawStateIds(fav, ids);
+  return ids;
+}
+
 /** Media ids in raw stored data (entries, favourites, a v2 history): what IndexedDB says is in use. */
 function storedRefs(list: unknown[], ids: Set<string>) {
   const add = (r: unknown) => {
@@ -238,6 +257,20 @@ async function collectMedia() {
     if (S().away || savingBlocked) return;
     for (const id of referencedMediaIds()) ids.add(id);
     await gcMedia(ids, now ? 0 : undefined);
+    // saved states of family layers: the same rule (stored and in-memory references keep them)
+    const states = await storedStateIds();
+    if (S().away || savingBlocked) return;
+    for (const id of referencedStateIds()) states.add(id);
+    await gcStates(states, now ? 0 : undefined);
+    // glyph sets belong to «Crea tus GLYPHOS»: the lab never deletes one, it tells that studio which ones its pieces use
+    const sets = new Set<string>();
+    const [bodies, [fav]] = await Promise.all([idbValues(P_ENTRY), idbRead([K_FAV])]);
+    rawGlyphSetIds(bodies, sets);
+    if (Array.isArray(fav)) rawGlyphSetIds(fav, sets);
+    const st = S();
+    for (const id of glyphSetIdsOf(allRecipes(st.entries, st.favorites))) sets.add(id);
+    for (const k of stacks.values()) for (const id of glyphSetIdsOf([...k.past, ...k.future])) sets.add(id);
+    await recordLabUses(sets);
     await sweepOrphans();
   } catch { /* storage unavailable: nothing is collected */ }
 }
@@ -364,6 +397,8 @@ export function edit(fn: (r: Recipe) => void, key = '') {
   if (!e) return;
   const next = cloneRecipe(e.recipe);
   fn(next);
+  // a visual family added or removed changes the recipe's format (v3 only while one is there)
+  syncVersion(next);
   if (next.source !== e.recipe.source) nameLoadedMedia(next);
   // the camera's mirror is the camera's (setCameraMirror): a photo or video that takes its place starts as
   // it is, not flipped (the front camera is mirrored by default, and that used to stay with the new picture)

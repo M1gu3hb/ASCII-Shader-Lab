@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
-import { FOTO_STUDIO, pageByFile } from '../src/shared/site.ts';
+import { FOTO_STUDIO, GLIFOS_STUDIO, pageByFile } from '../src/shared/site.ts';
 import { cleanVerification, renderPage, robotsTxt, sitemapXml } from './seo.ts';
 
 /** Repository files published next to /licencia/ so the deployed site carries its own notices. */
@@ -16,7 +16,8 @@ const LICENSE_FILES: Array<[string, string]> = [
  * - expands head tags, JSON-LD, header, footer and guide cards in every page listed in src/shared/site.ts;
  * - emits robots.txt, sitemap.xml (sin fecha de modificación inventada) and the license texts;
  * - adds <meta name="google-site-verification"> when GOOGLE_SITE_VERIFICATION is set at build time;
- * - keeps or drops the photo studio's @foto-on / @foto-off blocks (VITE_FOTO_STUDIO, see src/shared/site.ts);
+ * - keeps or drops the photo studio's @foto-on / @foto-off blocks (VITE_FOTO_STUDIO, see src/shared/site.ts) and
+ *   «Crea tus GLYPHOS»'s @glifos-on / @glifos-off ones (VITE_GLIFOS_STUDIO);
  * - `vite preview` answers unknown pages with 404.html and status 404, like the host does.
  */
 export function seoPlugin(): Plugin {
@@ -36,6 +37,9 @@ export function seoPlugin(): Plugin {
       // .env file, which this file (read while the config loads) cannot: set it in the environment instead.
       if ((c.env.VITE_FOTO_STUDIO === '1') !== FOTO_STUDIO) {
         throw new Error('[mt-seo] VITE_FOTO_STUDIO está en un archivo .env: defínela en el entorno (VITE_FOTO_STUDIO=1 npm run build) para que las páginas, el sitemap y la app coincidan.');
+      }
+      if ((c.env.VITE_GLIFOS_STUDIO === '1') !== GLIFOS_STUDIO) {
+        throw new Error('[mt-seo] VITE_GLIFOS_STUDIO está en un archivo .env: defínela en el entorno (VITE_GLIFOS_STUDIO=1 npm run build) para que las páginas, el sitemap y la app coincidan.');
       }
       if (isBuild && process.env.GOOGLE_SITE_VERIFICATION && !verification) {
         c.logger.warn('[mt-seo] GOOGLE_SITE_VERIFICATION no parece un token válido: no se añade la etiqueta.');

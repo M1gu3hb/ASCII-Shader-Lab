@@ -14,6 +14,23 @@ import { xformK } from '../engine/catalog';
 import type { Renderer } from '../engine/renderer';
 import { activeXforms } from '../engine/xform';
 import { currentRecipe, useStudio } from './store';
+import { FamilyHost } from '../families/host';
+
+/**
+ * Where an export starts a visual family with memory (families/host.ts): from a copy of the state on stage
+ * at the moment of the click ('estado'), or from its seed and its defined warm-up ('semilla'). Either way the
+ * export works on its own copy: the run on stage is not moved. Stills (PNG, SVG, text) always show the state
+ * on stage.
+ */
+export type FamilyStart = 'estado' | 'semilla';
+export const useFamilyStart = create<{ start: FamilyStart }>(() => ({ start: 'estado' }));
+
+export function startFamilies(r: Recipe, eng: Renderer, t0: number, how: FamilyStart = 'estado') {
+  if (!FamilyHost.uses(r)) return;
+  const live = getEngine();
+  if (how === 'estado' && live) eng.setFamilyStart(live.familyState(), t0);
+  else eng.setFamilyStart(null, t0);
+}
 
 export type SizeSpec = { kind: 'view'; scale: number } | { kind: 'fixed'; w: number; h: number };
 
@@ -59,6 +76,7 @@ export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: b
   const size = resolveSize(spec);
   const eng = await offscreenEngine(r, size, { transparent: o.transparent && o.format !== 'jpeg' });
   const time = liveTime();
+  startFamilies(r, eng, time);
   const realTime = stillSourceTime(r, time);
   const clip = videoFrames(r);
   try {
@@ -182,13 +200,14 @@ async function warmTrail(r: Recipe, eng: Renderer, clip: ReturnType<typeof video
 }
 
 /** Deterministic, frame-by-frame render: no dropped frames even on slow machines. */
-export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
+export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number; familyStart?: FamilyStart }, progress: Progress, cancel: Cancel): Promise<Blob> {
   const mb = await import('mediabunny');
   const size = resolveSize(spec, true);
   const can = await codecsAt(size.W, size.H);
   if (o.format === 'mp4' ? !can.avc : !can.vp9 && !can.vp8) throw new Error(`este navegador no codifica ${o.format === 'mp4' ? 'H.264' : 'VP9 ni VP8'} a ${size.W}×${size.H}`);
   const codec = o.format === 'mp4' ? 'avc' : can.vp9 ? 'vp9' : 'vp8';
   const eng = await offscreenEngine(r, size);
+  startFamilies(r, eng, o.start, o.familyStart ?? useFamilyStart.getState().start);
   const clip = videoFrames(r);
   const target = new mb.BufferTarget();
   const output = new mb.Output({ format: o.format === 'mp4' ? new mb.Mp4OutputFormat({ fastStart: 'in-memory' }) : new mb.WebMOutputFormat(), target });
@@ -312,11 +331,12 @@ async function tidyRecording(blob: Blob, ext: 'mp4' | 'webm'): Promise<Blob> {
 /* GIF                                                                 */
 /* ------------------------------------------------------------------ */
 
-export async function exportGif(r: Recipe, width: number, o: { fps: number; seconds: number; start: number; colors: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
+export async function exportGif(r: Recipe, width: number, o: { fps: number; seconds: number; start: number; colors: number; familyStart?: FamilyStart }, progress: Progress, cancel: Cancel): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
   const { cssW, cssH } = stageSize();
   const pr = width / cssW;
   const eng = await offscreenEngine(r, { cssW, cssH, pixelRatio: pr });
+  startFamilies(r, eng, o.start, o.familyStart ?? useFamilyStart.getState().start);
   const clip = videoFrames(r);
   const W = eng.canvas.width, H = eng.canvas.height;
   const c2 = document.createElement('canvas');
@@ -363,6 +383,7 @@ function gridSize(r: Recipe, cols?: number, rows?: number): OffscreenSize {
 /** Grid of the frame at `time`, plus the size of the canvas it was read from (the SVG uses it). */
 export async function captureGrid(r: Recipe, cols?: number, rows?: number, time = liveTime()): Promise<GridSnapshot & { width: number; height: number }> {
   const eng = await offscreenEngine(r, gridSize(r, cols, rows));
+  startFamilies(r, eng, time);
   const realTime = stillSourceTime(r, time);
   const clip = videoFrames(r);
   try {
@@ -374,10 +395,11 @@ export async function captureGrid(r: Recipe, cols?: number, rows?: number, time 
 }
 
 export async function captureFrames(
-  r: Recipe, cols: number, rows: number, o: { fps: number; seconds: number; start: number; depth: ColorDepth; withBg: boolean },
+  r: Recipe, cols: number, rows: number, o: { fps: number; seconds: number; start: number; depth: ColorDepth; withBg: boolean; familyStart?: FamilyStart },
   progress: Progress, cancel: Cancel,
 ): Promise<Frames> {
   const eng = await offscreenEngine(r, gridSize(r, cols, rows));
+  startFamilies(r, eng, o.start, o.familyStart ?? useFamilyStart.getState().start);
   const clip = videoFrames(r);
   const frames: string[] = [];
   const n = Math.max(1, Math.round(o.seconds * o.fps));

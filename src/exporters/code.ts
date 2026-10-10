@@ -7,8 +7,10 @@
  * Everything exported here carries the MIT-0 header: people can use, change and sell it without attribution.
  */
 import RUNTIME from 'virtual:mt-runtime';
-import { patterns as BASIC_PATTERN_CODE, runtime as RUNTIME_BASIC } from 'virtual:mt-runtime-basic';
-import { cloneRecipe, type Recipe } from '../engine/recipe';
+import { families as FAMILY_CODE, patterns as BASIC_PATTERN_CODE, runtime as RUNTIME_BASIC } from 'virtual:mt-runtime-basic';
+import { familyExportNotes, familyIds } from '../families/export';
+import { getGlyphSet } from '../glyphset/registry';
+import { cloneRecipe, syncVersion, type Recipe } from '../engine/recipe';
 import { pickPatterns } from '../engine/glsl/patterns';
 import { LICENSE_LINE } from './text';
 import { scrimCss, type Scrim } from '../shared/scrim';
@@ -56,17 +58,32 @@ export function basicPatternIds(r: Recipe): string[] {
   return ids.filter(id => BASIC_PATTERN_CODE[id]);
 }
 
+const familyCodeIds = (r: Recipe, basic: boolean) => familyIds(r, basic, id => !!FAMILY_CODE[id]);
+const familiesCode = (r: Recipe, basic: boolean) => familyCodeIds(r, basic).map(id => FAMILY_CODE[id]).join('\n');
+
 /**
  * The engine this export carries: the WebGL 2 runtime, or the runtime with the basic engine followed by
- * the scripts of the CPU patterns this recipe uses (each registers itself, once per page).
+ * the scripts of the CPU patterns this recipe uses (each registers itself, once per page); then the code
+ * of its visual families.
  */
 export function runtimeCode(r: Recipe, o: Pick<CodeOptions, 'fallback'>): string {
-  if (!withBasic(o as CodeOptions)) return RUNTIME;
-  return RUNTIME_BASIC + '\n' + basicPatternIds(r).map(id => BASIC_PATTERN_CODE[id]).join('\n');
+  const fam = [familiesCode(r, withBasic(o as CodeOptions)), glyphSetCode(r)].filter(Boolean).join('\n');
+  if (!withBasic(o as CodeOptions)) return RUNTIME + (fam ? '\n' + fam : '');
+  return RUNTIME_BASIC + '\n' + basicPatternIds(r).map(id => BASIC_PATTERN_CODE[id]).join('\n') + (fam ? '\n' + fam : '');
 }
 
-/** Only the pattern scripts (a React component on a page whose runtime came from another export). */
-const basicPatternsCode = (r: Recipe) => basicPatternIds(r).map(id => BASIC_PATTERN_CODE[id]).join('\n');
+/**
+ * The glyph set the piece draws with (made in «Crea tus GLYPHOS»), registered before the piece mounts. A
+ * page whose runtime came from an older export has no registerGlyphSet: the piece is drawn with its font.
+ */
+function glyphSetCode(r: Recipe): string {
+  const set = r.glyph.set ? getGlyphSet(r.glyph.set) : undefined;
+  if (!set || !r.glyph.set) return '';
+  return `window.Glyphos.registerGlyphSet && window.Glyphos.registerGlyphSet(${json(r.glyph.set)}, ${json(set)});`;
+}
+
+/** Only the pattern and family scripts (a React component on a page whose runtime came from another export). */
+const basicPatternsCode = (r: Recipe) => [basicPatternIds(r).map(id => BASIC_PATTERN_CODE[id]).join('\n'), familiesCode(r, true)].filter(Boolean).join('\n');
 
 const safeScript = (code: string) => code.replace(/<\/(script)/gi, '<\\/$1');
 const json = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
@@ -92,6 +109,19 @@ export function exportRecipe(r: Recipe, o: CodeOptions): { recipe: Recipe; notes
   if (x.source === 'camera') { x.source = 'pattern'; notes.push('La cámara no se exporta: el código usa el patrón. Pide permiso de cámara en tu propia web si lo necesitas.'); }
   if ((x.source === 'image' || x.source === 'video') && !o.mediaUrl) notes.push(`Indica la URL de tu ${x.source === 'image' ? 'imagen' : 'video'} (mismo dominio o servida con CORS).`);
   if (x.source === 'text' && x.text.font !== 'sans' && o.systemFont) x.text.font = 'sans';
+  // a saved state of a simulation stays in the studio: the code starts it from its seed
+  notes.push(...familyExportNotes(x));
+  if (x.glyph.set) {
+    const set = getGlyphSet(x.glyph.set);
+    if (!set) {
+      notes.push(`El juego de glifos${x.glyph.setName ? ` «${x.glyph.setName}»` : ''} no está en este navegador: el código dibuja la pieza con la tipografía.`);
+      delete x.glyph.set; delete x.glyph.setName;
+      syncVersion(x);
+    } else {
+      const kb = Math.round(JSON.stringify(set).length / 1024);
+      notes.push(`El código lleva tu juego de glifos «${set.name}» (${kb} KB)${set.mode === 'texto' ? '; los caracteres que no tiene salen con la tipografía' : ''}.`);
+    }
+  }
   return { recipe: x, notes };
 }
 
@@ -227,8 +257,12 @@ function runtime() {
   if (!window.Glyphos${withBasic(o) ? ' || !window.Glyphos.__basic' : ''}) {
 ${withBasic(o) ? RUNTIME_BASIC : RUNTIME}
   }${withBasic(o) ? `
-  // the CPU versions of this piece's patterns (each registers itself once per page)
-  ${basicPatternsCode(r)}` : ''}
+  // the CPU versions of this piece's patterns and its visual families' code (each registers itself once per page)
+  ${basicPatternsCode(r)}` : familyIds(r, false).length ? `
+  // the code of this piece's visual families (each registers itself once per page)
+  ${familiesCode(r, false)}` : ''}${glyphSetCode(r) ? `
+  // the glyph set this piece draws with (made in «Crea tus GLYPHOS»)
+  ${glyphSetCode(r)}` : ''}
   return window.Glyphos;
 }
 

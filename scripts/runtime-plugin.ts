@@ -25,6 +25,27 @@ const LIBRARY = ['patterns-extra.ts', 'patterns-next.ts', 'particles.ts', 'solid
 const PATTERN_MODULES = new Set([PATTERNS, ...LIBRARY]);
 const CORE = resolve(ROOT, 'src/engine/basic/core.ts');
 const SHIM = resolve(ROOT, 'src/runtime/basic-patterns.ts');
+const FAMILY_LOADER = resolve(ROOT, 'src/families/load.ts');
+
+/** id → module of each visual family's code, as src/families/load.ts lists them (`id: () => import('./x.ts')`). */
+export function familyModules(src = readFileSync(FAMILY_LOADER, 'utf8')): Array<[string, string]> {
+  return [...src.matchAll(/^\s*(\w+): \(\) => import\('(\.\/[^']+)'\),?$/gm)].map(m => [m[1], resolve(ROOT, 'src/families', m[2])]);
+}
+
+/**
+ * One visual family as a script that registers its code in the runtime (Glyphos.registerFamily): the model
+ * of a raster family, or the CPU twin of an analytic one. Each carries its own copy of the small helpers it
+ * uses; nothing happens on a page without a runtime that knows families, or that has it already.
+ */
+async function familyScript(id: string, path: string): Promise<string> {
+  const out = await build({
+    ...common,
+    stdin: { contents: `import * as M from ${JSON.stringify(path)}; __OUT = M;`, resolveDir: ROOT, loader: 'ts' },
+  });
+  const body = out.outputFiles[0].text.trim();
+  const q = JSON.stringify(id);
+  return `(function(G){if(!G||!G.registerFamily||G.hasFamily(${q}))return;var __OUT;${body}G.registerFamily(${q},__OUT)})(window.Glyphos);`;
+}
 
 const common = {
   bundle: true, minify: true, format: 'iife', target: 'es2020', write: false, legalComments: 'none',
@@ -100,7 +121,7 @@ async function patternScript(id: string, src: string, table: Array<[string, stri
 }
 
 /** The two runtimes and the pattern scripts (also used by the unit tests). */
-export async function buildRuntimes(): Promise<{ runtime: string; basic: string; patterns: Record<string, string> }> {
+export async function buildRuntimes(): Promise<{ runtime: string; basic: string; patterns: Record<string, string>; families: Record<string, string> }> {
   const runtime = (await build({ ...common, entryPoints: [ENTRY] })).outputFiles[0].text;
   const shim: EsbuildPlugin = {
     name: 'mt-basic-registry',
@@ -114,11 +135,13 @@ export async function buildRuntimes(): Promise<{ runtime: string; basic: string;
   const names = coreNames();
   const entries = await Promise.all(table.map(async ([id]) => [id, await patternScript(id, src, table, names)] as const));
   const patterns: Record<string, string> = Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b, 'en')));
-  return { runtime, basic, patterns };
+  const fam = await Promise.all(familyModules().map(async ([id, path]) => [id, await familyScript(id, path)] as const));
+  const families: Record<string, string> = Object.fromEntries(fam.sort(([a], [b]) => a.localeCompare(b, 'en')));
+  return { runtime, basic, patterns, families };
 }
 
 /** Shares unchanged string blocks between the two runtimes without evaluating generated code. */
-export function runtimeDataModule(b: { runtime: string; basic: string; patterns: Record<string, string> }): string {
+export function runtimeDataModule(b: { runtime: string; basic: string; patterns: Record<string, string>; families?: Record<string, string> }): string {
   const base = b.basic;
   const index = new Map<string, number[]>();
   const anchor = 64;
@@ -141,7 +164,7 @@ export function runtimeDataModule(b: { runtime: string; basic: string; patterns:
     else literal += b.runtime[p++];
   }
   flush();
-  return `export const basic=${JSON.stringify(base)};\nexport const runtime=[${pieces.join(',')}].join('');\nexport const patterns=${JSON.stringify(b.patterns)};`;
+  return `export const basic=${JSON.stringify(base)};\nexport const runtime=[${pieces.join(',')}].join('');\nexport const patterns=${JSON.stringify(b.patterns)};\nexport const families=${JSON.stringify(b.families ?? {})};`;
 }
 
 export function runtimePlugin(): Plugin {
@@ -155,10 +178,10 @@ export function runtimePlugin(): Plugin {
     async load(source) {
       if (!Object.values(ids).includes(source)) return null;
       if (source === ids['virtual:mt-runtime']) return `export { runtime as default } from 'virtual:mt-runtime-data';`;
-      if (source === ids['virtual:mt-runtime-basic']) return `export { basic as runtime, patterns } from 'virtual:mt-runtime-data';`;
+      if (source === ids['virtual:mt-runtime-basic']) return `export { basic as runtime, patterns, families } from 'virtual:mt-runtime-data';`;
       built ??= buildRuntimes();
       const b = await built;
-      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, ...LIBRARY, SHIM]) this.addWatchFile(f);
+      for (const f of [ENTRY, ENTRY_BASIC, PATTERNS, ...LIBRARY, SHIM, FAMILY_LOADER, ...familyModules().map(([, p]) => p)]) this.addWatchFile(f);
       return runtimeDataModule(b);
     },
     // in `vite dev`, an edit to the engine rebuilds the strings on the next load

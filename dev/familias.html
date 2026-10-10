@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QA · familias visuales</title>
+<style>
+body{margin:0;background:#0c0b0a;color:#ede6da;font:12px/1.4 system-ui}
+header{padding:10px 12px;border-bottom:1px solid #2a2724;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+header b{font-size:14px}
+h2{font-size:14px;margin:18px 12px 4px;color:#fff}
+.note{margin:0 12px 6px;color:#a39c90;max-width:900px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile,420px),1fr));gap:10px;padding:6px 12px}
+figure{margin:0;background:#161412;padding:6px;border-radius:6px}
+.row{display:grid;grid-template-columns:repeat(var(--n,2),1fr);gap:4px}
+.row canvas{width:100%;display:block;background:#000}
+.lbl{display:grid;grid-template-columns:repeat(var(--n,2),1fr);gap:4px;color:#7d766c;font-size:10px}
+figcaption{padding:4px 0 0;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+figcaption code{color:#ffb08a}
+.bad{color:#ff8a65}
+</style></head>
+<body>
+<header><b>Familias visuales</b><span id="status">cargando…</span></header>
+<p class="note">Cada preset de cada familia con los dos motores, el mismo tamaño y el mismo momento: WebGL 2 y el básico (Canvas 2D). Las familias con memoria corren desde su semilla y su calentamiento con el mismo código en los dos motores. <code>?motor=basico|webgl</code>, <code>?ids=reaccion_difusion,sistema_l</code>, <code>?t=6</code>.</p>
+<main id="main"></main>
+<script type="module" src="./familias.ts"></script>
+</body></html>

@@ -1,0 +1,50 @@
+import { importChunk } from '../shared/chunks';
+import { registerAnalytic, registerModel, setFamilyLoader } from './models';
+import type { AnalyticImpl, ModelFactory } from './types';
+
+/**
+ * The site's loader: each family's code is its own chunk, fetched the first time a piece uses it, so the
+ * first view of a page never carries a model it does not show. Raster families export `create`, analytic
+ * families their CPU twin `impl` (the GLSL is part of the pattern library).
+ */
+const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: AnalyticImpl }>> = {
+  reaccion_difusion: () => import('./sims/reaccion.ts'),
+  physarum: () => import('./sims/physarum.ts'),
+  lenia: () => import('./sims/lenia.ts'),
+  automata: () => import('./sims/automata.ts'),
+  kuramoto: () => import('./sims/kuramoto.ts'),
+  sistema_l: () => import('./sims/lsystem.ts'),
+  fractal_3d: () => import('./analytic/fractal3d.cpu.ts'),
+  hiperbolico: () => import('./analytic/hiperbolico.cpu.ts'),
+  nubes_vol: () => import('./analytic/nubes_vol.cpu.ts'),
+  orbitales: () => import('./analytic/orbitales.cpu.ts'),
+  lente_gravitacional: () => import('./analytic/lente.cpu.ts'),
+  campos_em: () => import('./sims/campos.ts'),
+  dla: () => import('./sims/dla.ts'),
+  crecimiento: () => import('./sims/crecimiento.ts'),
+  atractor: () => import('./sims/atractor.ts'),
+  wfc: () => import('./sims/wfc.ts'),
+  boids: () => import('./sims/boids.ts'),
+  gravedad: () => import('./sims/gravedad.ts'),
+  tela: () => import('./sims/tela.ts'),
+  chladni: () => import('./sims/chladni.ts'),
+  fluido: () => import('./sims/fluido.ts'),
+  agua: () => import('./sims/agua.ts'),
+  erosion: () => import('./sims/erosion.ts'),
+};
+
+/** Loads and registers a family's code now (tools and tests call it directly). */
+export async function loadFamilyNow(id: string): Promise<void> {
+  const load = CODE[id];
+  if (!load) return;
+  // (a chunk that failed is asked for again under another address: see shared/chunks.ts)
+  const m = await importChunk('familia:' + id, load);
+  if (m.create) registerModel(id, m.create);
+  if (m.impl) registerAnalytic(id, m.impl);
+}
+
+/** Every family with code (tests check none is missing). */
+export const LOADABLE = Object.keys(CODE);
+
+/** Installs the loader for this page (studio, viewer, landing, guides). */
+export function installFamilyLoader() { setFamilyLoader(loadFamilyNow); }

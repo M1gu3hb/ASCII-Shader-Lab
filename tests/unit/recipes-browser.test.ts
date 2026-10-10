@@ -3,6 +3,7 @@ import { defaultRecipe, type Recipe } from '../../src/engine/recipe';
 import type { Entry } from '../../src/studio/history';
 import { PRESETS, spaceAccepts } from '../../src/studio/presets';
 import { SCENES } from '../../src/studio/scenes';
+import { FAMILIES } from '../../src/families/registry';
 import { CATEGORIES, allItems, filtersOf, itemNamed, itemsOf, moodOf, sectionOf, sectionsOf } from '../../src/studio/recipes/catalog';
 import { fold, search, tokens } from '../../src/studio/recipes/search';
 import { itemOfEntry, isShown, recentItems } from '../../src/studio/recipes/used';
@@ -22,9 +23,12 @@ const entry = (label: string, space: Entry['space'], kind: Entry['kind'] = 'rece
 };
 
 describe('catálogo', () => {
-  it('cada receta y cada escena aparece una vez, en su espacio', () => {
+  it('cada receta, cada escena y cada preset de familia aparece una vez, en su espacio', () => {
     const all = allItems();
-    const n = SPACES.reduce((a, sp) => a + PRESETS[sp].length, 0) + SCENES.length;
+    const families = FAMILIES.reduce((a, f) => a + f.presets.length, 0);
+    const n = SPACES.reduce((a, sp) => a + PRESETS[sp].length, 0) + SCENES.length + families;
+    // the visual families' presets are listed in Arte, each once
+    for (const f of FAMILIES) for (const p of f.presets) expect(all.filter(i => i.space === 'arte' && i.kind === 'familia' && i.id === `${f.id}:${p.id}`)).toHaveLength(1);
     expect(all).toHaveLength(n);
     expect(new Set(all.map(i => i.key)).size).toBe(n);
     for (const sp of SPACES) {

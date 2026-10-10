@@ -1,11 +1,19 @@
 import { PATTERN_IDS } from './catalog';
+import { familyById } from '../families/registry';
+import { normFam, type LayerFam } from '../families/params';
 /**
  * Recipe: the complete, serialisable description of a creation.
  * Everything the engine draws comes from a Recipe (plus optional media the user loads locally).
  * Recipes are plain JSON so they can be saved, shared in URLs, diffed and exported.
  */
 
-export const RECIPE_VERSION = 2 as const;
+/**
+ * Newest recipe format this studio reads. Recipes are written as v2 unless they use something v2 studios
+ * cannot draw (a visual family layer): then v3, which those studios refuse with an explanation instead of
+ * drawing another pattern in its place. A v2 recipe stays byte for byte what it was.
+ */
+export const RECIPE_VERSION = 3 as const;
+export type RecipeVersion = 2 | 3;
 
 export type SourceKind = 'pattern' | 'image' | 'video' | 'camera' | 'text';
 export type BlendMode =
@@ -57,6 +65,11 @@ export interface Layer {
   b: number;        // pattern-specific shape parameter 0..1
   invert: boolean;
   phase: number;    // time offset, seconds
+  /**
+   * Visual families (src/families): typed parameters, seed, simulation rows, brush and saved state. Only
+   * on layers whose pattern is a family; absent everywhere else.
+   */
+  fam?: LayerFam;
 }
 
 /**
@@ -77,7 +90,7 @@ export interface MediaRef {
 }
 
 export interface Recipe {
-  v: 2;
+  v: RecipeVersion;
   source: SourceKind;
   layers: Layer[];
   motion: {
@@ -146,6 +159,14 @@ export interface Recipe {
     dither: number;
     ditherKind: DitherKind;
     jitter: number;    // animation rate for scramble / words
+    /**
+     * A glyph set made in «Crea tus GLYPHOS», by content id: the characters it draws come from it, the rest
+     * from `font`. Absent: the font alone. A link names it but does not carry it (a project, a session and
+     * exported code do); where it is missing the piece is drawn with `font`, and the studio and viewer say so.
+     */
+    set?: string;
+    /** The set's name, to say which one is missing where it is. */
+    setName?: string;
   };
   tone: {
     bright: number;
@@ -211,7 +232,7 @@ export const CHARSET_DEFAULT = ' .:-=+*#%@';
 
 export function defaultRecipe(): Recipe {
   return {
-    v: RECIPE_VERSION,
+    v: 2,
     source: 'pattern',
     layers: [{ ...DEFAULT_LAYER }],
     motion: { speed: 1, warp: 0, warpScale: 1, hold: 0, loop: 0, pulse: 0, bpm: 110 },
@@ -344,10 +365,21 @@ export function normAnim(v: unknown, kinds: readonly LetterAnimKind[]): LetterAn
   return { kind: o.kind as LetterAnimKind, amount: num(o.amount, 0.5, 0, 1), speed: num(o.speed, 1, 0.1, 3) };
 }
 
-export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS): Layer {
+export const FUTURE_RECIPE = 'Esta receta usa una versión más nueva de GLYPHOS. Conserva el archivo original y actualiza el estudio.';
+
+/**
+ * Validates a layer. `strict` (layers of a v3 recipe): a pattern this studio does not know comes from a
+ * newer GLYPHOS (a family it has not got), so the recipe is refused rather than drawn with Nubes in its place.
+ */
+export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS, strict = false): Layer {
   const o = obj(v), d = DEFAULT_LAYER;
   let pattern = str(o.pattern, d.pattern, 40);
-  if (knownPatterns && !knownPatterns.has(pattern)) pattern = d.pattern;
+  if (knownPatterns && !knownPatterns.has(pattern)) {
+    if (strict) throw new Error(FUTURE_RECIPE);
+    pattern = d.pattern;
+  }
+  const meta = familyById(pattern);
+  const fam = meta ? normFam(meta, o.fam) : undefined;
   return {
     on: bool(o.on, true),
     pattern,
@@ -362,25 +394,38 @@ export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS):
     b: num(o.b, 0.5, 0, 1),
     invert: bool(o.invert, false),
     phase: num(o.phase, 0, 0, 1000),
+    ...(fam ? { fam } : {}),
   };
+}
+
+/** Whether a recipe needs the v3 format (it uses a visual family). */
+export function needsV3(r: Pick<Recipe, 'layers'> & { glyph?: Pick<Recipe['glyph'], 'set'> }): boolean {
+  return r.layers.some(l => !!l.fam && !!familyById(l.pattern)) || !!r.glyph?.set;
+}
+
+/** Sets a recipe's format to what it uses (an edit that adds or removes a family changes it). */
+export function syncVersion(r: Recipe): Recipe {
+  r.v = needsV3(r) ? 3 : 2;
+  return r;
 }
 
 /** Sanitises old/current recipes; refuses future formats rather than discarding their fields. */
 export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PATTERN_IDS): Recipe {
   const d = defaultRecipe();
   const o = obj(input);
-  if (typeof o.v === 'number' && o.v > RECIPE_VERSION) throw new Error('Esta receta usa una versión más nueva de GLYPHOS. Conserva el archivo original y actualiza el estudio.');
+  if (typeof o.v === 'number' && o.v > RECIPE_VERSION) throw new Error(FUTURE_RECIPE);
+  const strict = typeof o.v === 'number' && o.v >= 3;
   const m = obj(o.motion), me = obj(o.media), tx = obj(o.text), it = obj(o.interact);
   const g = obj(o.glyph), to = obj(o.tone), c = obj(o.color), fx = obj(o.fx), ms = obj(o.msg), meta = obj(o.meta);
   const layersIn = Array.isArray(o.layers) ? o.layers.slice(0, 4) : [];
-  const layers = layersIn.length ? layersIn.map(l => normLayer(l, knownPatterns)) : d.layers;
+  const layers = layersIn.length ? layersIn.map(l => normLayer(l, knownPatterns, strict)) : d.layers;
   const stopsIn = Array.isArray(c.stops) ? c.stops.slice(0, 6) : [];
   const stops = stopsIn.map(s => normHex(s, '')).filter(Boolean);
   const ref = normMediaRef(me.ref);
   const xform = normXforms(me.xform);
   const textAnim = normAnim(tx.anim, TEXT_ANIMS), msgAnim = normAnim(ms.anim, MSG_ANIMS);
   const r: Recipe = {
-    v: RECIPE_VERSION,
+    v: needsV3({ layers, glyph: { set: typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set) ? g.set : undefined } }) ? 3 : 2,
     source: oneOf(o.source, SOURCES, d.source),
     layers,
     motion: {
@@ -433,6 +478,9 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
       dither: num(g.dither, 0, 0, 1),
       ditherKind: oneOf(g.ditherKind, ['bayer', 'noise'] as const, 'bayer'),
       jitter: num(g.jitter, 0.5, 0, 1),
+      ...(typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set)
+        ? { set: g.set, ...(typeof g.setName === 'string' && g.setName ? { setName: g.setName.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60) } : {}) }
+        : {}),
     },
     tone: {
       bright: num(to.bright, 0, -1, 1),

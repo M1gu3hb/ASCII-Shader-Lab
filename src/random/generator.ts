@@ -29,10 +29,12 @@ export { copyGroup } from './locks';
  *       animations), nineteen styles (v5.ts: Partículas, Curvas, Calma, Cartel and Escenas are new), palettes
  *       that keep their colour (palettes5.ts: the gallery's forty by mood, vivid, duotone, poster, pastel, greys
  *       with an accent…), pieces that start from a composed scene, and words without the old name.
+ *   6 — version 5's pieces from their own streams, plus visual families (src/families) as the lead layer now
+ *       and then in Arte, Fondos and Terminal, with one of their presets (families6.ts).
  */
-export const GEN_VERSION = 5;
+export const GEN_VERSION = 6;
 /** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5];
+export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6];
 /** A version asked for by a link or a person: a known one, else the current one. */
 export const genOf = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -64,6 +66,7 @@ const TABLES: Record<number, Tables> = {
   3: { archs: ARCHETYPES_V2, spaces: SPACE_ARCHS_V2 },
   4: { archs: ARCHETYPES_V2, spaces: SPACE_ARCHS_V2 },
   5: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
+  6: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
 };
 
 const TERMINAL_LINES = ['> hola, terminal', '$ ./tejer --luz', 'CONECTANDO...', '> sistema listo', 'SEÑAL RECIBIDA', 'ERROR 404: sueño no encontrado', '$ sudo apt install calma', '> compilando estrellas'];

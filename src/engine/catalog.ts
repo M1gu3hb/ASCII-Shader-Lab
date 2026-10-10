@@ -1,4 +1,5 @@
 import type { BlendMode, ColorMap, GlyphMode, InteractMode, LetterAnimKind, MsgMode, SourceKind, XformKind } from './recipe';
+import { FAMILIES, FAMILY_IDS, familyById } from '../families/registry';
 
 export type PatternFamily = 'organico' | 'geometrico' | 'ondas' | 'espacio' | 'solidos' | 'matematico' | 'formas' | 'señal' | 'particulas';
 
@@ -137,7 +138,15 @@ export const PATTERNS: PatternInfo[] = [
   { id: 'constelacion_dinamica', name: 'Constelación', family: 'particulas', a: 'Vínculos', b: 'Tamaño', cost: 3 },
 ];
 
-export const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
+/**
+ * Every pattern id a recipe may name: the catalog's patterns and the visual families (src/families). The
+ * families live apart from PATTERNS on purpose: the generator's frozen versions read PATTERNS, and a new
+ * entry there would change what an old seed gives.
+ */
+export const PATTERN_IDS = new Set([...PATTERNS.map(p => p.id), ...FAMILY_IDS]);
+/** Name of a pattern or of a visual family. */
+export const patternName = (id: string) => familyById(id)?.name ?? PATTERNS.find(p => p.id === id)?.name ?? id;
+export { FAMILIES };
 
 /**
  * Figures drawn around the centre (the 3D objects, the shapes, the centred curves and the particle figures).
@@ -148,6 +157,7 @@ export const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
  */
 export const FIGURES: ReadonlySet<string> = new Set([
   ...PATTERNS.filter(p => p.family === 'solidos' || p.family === 'formas').map(p => p.id),
+  ...FAMILIES.filter(f => f.figure).map(f => f.id),
   'lissajous', 'estrella_mar', 'respiracion', 'radar', 'galaxia',
   'rosa', 'espirografo', 'lemniscata', 'superformula', 'armonografo', 'apolonio', 'flor_armonica', 'filotaxis',
   'corazon_particulas', 'enjambre_vivo', 'mariposa_puntos', 'orbitas_gemelas', 'vortice_polvo', 'floracion_luz', 'ondas_estelares',

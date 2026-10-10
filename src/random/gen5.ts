@@ -1,5 +1,7 @@
 import { CHARSETS, FONTS, charsetById, fontById, nearestWeight, patternById, PATTERNS } from '../engine/catalog';
-import { defaultRecipe, DEFAULT_LAYER, type Layer, type LetterAnimKind, type Recipe } from '../engine/recipe';
+import { defaultRecipe, DEFAULT_LAYER, syncVersion, type Layer, type LetterAnimKind, type Recipe } from '../engine/recipe';
+import { familyById } from '../families/registry';
+import { families6 } from './families6';
 import type { Archetype } from './archetypes';
 import type { GenInput, Tables } from './generator';
 import { LIBRARY_MSG_ANIMS, LIBRARY_TEXT_ANIMS } from './library';
@@ -63,6 +65,8 @@ export function generate5(inp: GenInput, T: Tables, gen: number): Recipe {
   const r = defaultRecipe();
   const light = color5(r, root.fork('color'), A, inp.space, scene);
   forma5(r, root.fork('forma'), A, inp.space, scene);
+  // version 6: sometimes a visual family leads (its own stream: version 5 never reads it)
+  const family = gen >= 6 && families6(r, root.fork('familia'), A, inp.space, !!scene);
   glifos5(r, root.fork('glifos'), A, inp.space, light, scene);
   movimiento5(r, root.fork('movimiento'), A, inp.space, scene);
   efectos5(r, root.fork('efectos'), A, inp.space, light, scene);
@@ -72,7 +76,12 @@ export function generate5(inp: GenInput, T: Tables, gen: number): Recipe {
   // exposed for the lead that stays (after the locks: a locked «Forma» brings the base's), unless the tone is locked
   // (Texto: only when the pattern fills the letters; lifting a pattern around them would drown the word)
   const aroundWord = r.source === 'text' && r.media.mix > 0 && r.media.blend === 'screen';
-  if (inp.space !== 'media' && !aroundWord && !inp.locks?.includes('glifos')) expose5(r, inp.space === 'fondos');
+  // (a family lead keeps its own tonal range: version 5's exposure table knows only the catalogue's patterns)
+  const familyLead = family && !inp.locks?.includes('forma');
+  if (inp.space !== 'media' && !aroundWord && !inp.locks?.includes('glifos') && !familyLead) expose5(r, inp.space === 'fondos');
+  // a family with memory has no perfect loop: unless the motion is locked, the roll does not ask for one
+  if (gen >= 6 && !inp.locks?.includes('movimiento') && r.layers.some(l => l.on && l.fam && !familyById(l.pattern)?.caps.loop)) r.motion.loop = 0;
+  syncVersion(r);
   r.meta = { seed: inp.seed, arch: A.id, space: inp.space, gen };
   return r;
 }

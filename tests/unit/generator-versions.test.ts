@@ -11,6 +11,7 @@ const fixture2 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/gen
 const fixture34 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v3v4.json'), 'utf8')) as { gens: number[]; cases: Array<Omit<Case, 'base'> & { gen: number; base?: Recipe }> };
 /** Version 5 as published (the studio and the landing's contact sheet, whose 19 draws are in it). */
 const fixture5 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v5.json'), 'utf8')) as typeof fixture34;
+const fixture6 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v6.json'), 'utf8')) as typeof fixture34;
 /** Recipes live as JSON (history, favourites, links): compare that form (it also folds -0 into 0). */
 const json = (r: Recipe) => JSON.parse(JSON.stringify(r)) as Recipe;
 
@@ -74,6 +75,17 @@ describe('generator versions', () => {
       const r = generate({ seed: c.seed, space: c.space, arch: c.arch, locks: c.locks, base, gen: 5, ownText });
       expect(json(r), `v5 ${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r), `v5 ${c.space}/${c.seed}`).toBe(c.fp);
+    }
+  });
+
+  it('version 6 keeps weaving exactly what it wove when it was published, families included', () => {
+    expect(fixture6.gens).toEqual([6]);
+    expect(fixture6.cases.length).toBeGreaterThan(100);
+    expect(fixture6.cases.filter(c => c.recipe.layers[0].fam).length).toBeGreaterThan(5);
+    for (const c of fixture6.cases) {
+      const r = generate({ seed: c.seed, space: c.space, base: defaultRecipe(), gen: 6 });
+      expect(json(r), `v6 ${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r), `v6 ${c.space}/${c.seed}`).toBe(c.fp);
     }
   });
 
