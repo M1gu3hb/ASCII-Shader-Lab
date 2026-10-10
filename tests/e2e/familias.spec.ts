@@ -90,3 +90,28 @@ test.describe('familias · ejecución, exportación y guardado', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('familias · código que no llega (A-03)', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('un chunk de familia con 404 deja la capa en error, lo dice, y «Reintentar» la recupera sin recargar', async ({ page }) => {
+    test.setTimeout(300_000);
+    const boids = FAMILIES.find(f => f.id === 'boids')!;
+    // the model's own chunk (not its words) answers 404 until we let it through
+    let block = true;
+    await page.route(/\/assets\/boids-[\w-]+\.js$/, route => (block ? route.fulfill({ status: 404, body: 'no' }) : route.continue()));
+    await openStudio(page, '#space=arte');
+    await hideStageOverlays(page);
+    await applyPreset(page, boids.presets[0].name);
+    const err = page.locator('.fam-error');
+    await expect(err).toContainText(`No llegó el código de «${boids.name}»`, { timeout: 30_000 });
+    const run = page.getByRole('group', { name: 'Simulación en el escenario' });
+    await expect(run.locator('.fam-status')).toContainText('No llegó el código');
+    await expect(run.locator('.fam-status')).not.toContainText('Cargando');
+    block = false;
+    await err.getByRole('button', { name: 'Reintentar' }).click();
+    await expect(page.locator('.fam-error')).toHaveCount(0, { timeout: 30_000 });
+    await expect(run.locator('.fam-status')).toContainText(/Paso \d/, { timeout: 30_000 });
+    await expect.poll(() => stageColours(page), { timeout: 30_000 }).toBeGreaterThan(2);
+  });
+});

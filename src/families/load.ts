@@ -1,3 +1,4 @@
+import { importChunk } from '../shared/chunks';
 import { registerAnalytic, registerModel, setFamilyLoader } from './models';
 import type { AnalyticImpl, ModelFactory } from './types';
 
@@ -36,7 +37,8 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
 export async function loadFamilyNow(id: string): Promise<void> {
   const load = CODE[id];
   if (!load) return;
-  const m = await load();
+  // (a chunk that failed is asked for again under another address: see shared/chunks.ts)
+  const m = await importChunk('familia:' + id, load);
   if (m.create) registerModel(id, m.create);
   if (m.impl) registerAnalytic(id, m.impl);
 }

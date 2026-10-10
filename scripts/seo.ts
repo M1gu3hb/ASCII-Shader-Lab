@@ -16,7 +16,8 @@
  *   <!-- @salida:key -->        a fact about the landing's exported files, read from public/ex/salidas/manifest.json
  *                               (sizes, duration, link…), so the page never quotes a stale number
  *
- * and two blocks that depend on whether the photo and video studio is public (FOTO_STUDIO, src/shared/site.ts):
+ * and two blocks that depend on whether the photo and video studio is public (FOTO_STUDIO, src/shared/site.ts;
+ * «Crea tus GLYPHOS» has the same pair, @glifos-on / @glifos-off / @glifos-end, with GLIFOS_STUDIO):
  *   <!-- @foto-on -->…<!-- @foto-end -->    kept only when it is public (links to it, its app script)
  *   <!-- @foto-off -->…<!-- @foto-end -->   kept only while it is paused (the «en revisión» wording)
  * They are resolved before anything else (a dropped block's scripts never reach the bundle) and do not nest.
@@ -25,7 +26,7 @@ import { logoMark, wordmark } from '../src/shared/brand.ts';
 import { CONTACTS, CONTACT_PX, contactSrc } from '../src/landing/contacts.ts';
 import { GUIDE_MEDIA, GUIDE_MEDIA_PX, guideLoop, guidePoster } from '../src/landing/guias-data.ts';
 import {
-  FOTO_STUDIO, GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
+  FOTO_STUDIO, GLIFOS_STUDIO, GUIDES, MORPHIQ, PAGES, REPO_URL, SITE_LOCALE, SITE_NAME, SITE_URL, absUrl, type SitePage,
 } from '../src/shared/site.ts';
 
 export const escapeHtml = (s: string) =>
@@ -270,22 +271,27 @@ export function guideLinks(): string {
 /* ---------------------------------------------------------------- directives */
 
 const DIRECTIVE = /<!--\s*@([a-z-]+)(?::([\w./-]+))?(?:\s+(\w+))?\s*-->/g;
-const FOTO_BLOCK = /<!--\s*@foto-(on|off)\s*-->([\s\S]*?)<!--\s*@foto-end\s*-->/g;
-
-/** Keeps the @foto-on blocks when the photo studio is public (`foto`), the @foto-off ones while it is paused. */
-export function fotoBlocks(html: string, foto: boolean): string {
-  return html.replace(FOTO_BLOCK, (_m, when: string, body: string) => {
-    if (/<!--\s*@foto-(on|off)\s*-->/.test(body)) throw new Error('[mt-seo] los bloques @foto-on/@foto-off no se anidan');
-    return (when === 'on') === foto ? body : '';
+/** Keeps a paused studio's @<name>-on blocks when it is public, its @<name>-off ones while it is paused. */
+function studioBlocks(html: string, name: 'foto' | 'glifos', on: boolean): string {
+  const block = new RegExp(`<!--\\s*@${name}-(on|off)\\s*-->([\\s\\S]*?)<!--\\s*@${name}-end\\s*-->`, 'g');
+  const inner = new RegExp(`<!--\\s*@${name}-(on|off)\\s*-->`);
+  return html.replace(block, (_m, when: string, body: string) => {
+    if (inner.test(body)) throw new Error(`[mt-seo] los bloques @${name}-on/@${name}-off no se anidan`);
+    return (when === 'on') === on ? body : '';
   });
 }
+
+/** Keeps the @foto-on blocks when the photo studio is public (`foto`), the @foto-off ones while it is paused. */
+export const fotoBlocks = (html: string, foto: boolean) => studioBlocks(html, 'foto', foto);
+/** The same for «Crea tus GLYPHOS» (@glifos-on / @glifos-off / @glifos-end). */
+export const glifosBlocks = (html: string, glifos: boolean) => studioBlocks(html, 'glifos', glifos);
 
 /**
  * Expands the directives of one page. `readPublic` returns a file from public/ (for @include); `foto` says whether
  * the photo studio is public (FOTO_STUDIO by default).
  */
-export function renderPage(html: string, p: SitePage, o: { verification?: string | null; readPublic: (path: string) => string; foto?: boolean }): string {
-  return fotoBlocks(html, o.foto ?? FOTO_STUDIO).replace(DIRECTIVE, (_m, name: string, arg: string | undefined, opt: string | undefined) => {
+export function renderPage(html: string, p: SitePage, o: { verification?: string | null; readPublic: (path: string) => string; foto?: boolean; glifos?: boolean }): string {
+  return glifosBlocks(fotoBlocks(html, o.foto ?? FOTO_STUDIO), o.glifos ?? GLIFOS_STUDIO).replace(DIRECTIVE, (_m, name: string, arg: string | undefined, opt: string | undefined) => {
     switch (name) {
       case 'head': return headTags(p, o);
       case 'header': return siteHeader(p);

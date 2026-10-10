@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GlyphSet } from '../../glyphset/set';
 import { paintGlyph, placeGlyph } from '../../glyphset/paint';
-import { provideGlyphSet } from '../../glyphset/registry';
+import { TempGlyphSets } from '../../glyphset/registry';
 import { compileDoc } from '../compile';
 import { layoutText } from '../layout';
 import { useGlifos } from '../state';
@@ -123,9 +123,6 @@ function Waterfall({ set, text }: { set: GlyphSet; text: string }) {
 /* A lab piece with the set                                            */
 /* ------------------------------------------------------------------ */
 
-let previewSerial = 0;
-/** Ids for the preview's sets: one per compile, so the engine's atlas and ink caches never mix two drawings. */
-const previewId = () => 'f' + (++previewSerial).toString(16).padStart(15, '0');
 
 const PIECES = [
   { id: 'patron', name: 'Patrón' },
@@ -160,7 +157,11 @@ function PiecePreview({ set }: { set: GlyphSet }) {
   const eng = useRef<BasicEngine | null>(null);
   const [kind, setKind] = useState<typeof PIECES[number]['id']>('patron');
   const [err, setErr] = useState('');
-  const id = useMemo(() => { const i = previewId(); provideGlyphSet(i, set); return i; }, [set]);
+  // one temporary set per drawing (the engine's caches never mix two); the older ones go once the engine
+  // draws with the new one, and all of them when the preview goes
+  const temp = useRef<TempGlyphSets | null>(null);
+  temp.current ??= new TempGlyphSets();
+  const id = useMemo(() => temp.current!.use(set), [set]);
   useEffect(() => {
     let live = true;
     void (async () => {
@@ -180,13 +181,14 @@ function PiecePreview({ set }: { set: GlyphSet }) {
         await e.ready();
         if (!live) return;
         e.renderAt(6);
+        temp.current?.settle(id);
         e.canvas.setAttribute('aria-label', `Una pieza ASCII del laboratorio dibujada con tus glifos (${PIECES.find(p => p.id === kind)!.name})`);
         setErr('');
       } catch (x) { if (live) setErr('No se pudo dibujar la vista previa: ' + (x as Error).message); }
     })();
     return () => { live = false; };
   }, [set, id, kind]);
-  useEffect(() => () => { eng.current?.destroy(); eng.current = null; }, []);
+  useEffect(() => () => { eng.current?.destroy(); eng.current = null; temp.current?.release(); temp.current = null; }, []);
   return (
     <>
       <div className="seg" role="group" aria-label="Pieza de ejemplo">{PIECES.map(p => <button key={p.id} type="button" aria-pressed={kind === p.id} onClick={() => setKind(p.id)}>{p.name}</button>)}</div>

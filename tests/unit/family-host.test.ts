@@ -167,3 +167,12 @@ describe('una familia cuyo código no llega (A-03)', () => {
     expect(h.raster(1)).toBeNull();
   });
 });
+
+describe('un chunk que falló se vuelve a pedir con otra dirección (A-03)', () => {
+  it('lee la dirección del mensaje de Chromium y de Firefox', async () => {
+    const { failedChunkUrl } = await import('../../src/shared/chunks');
+    expect(failedChunkUrl(new TypeError('Failed to fetch dynamically imported module: https://x.app/assets/boids-CPmh2xft.js'))).toBe('https://x.app/assets/boids-CPmh2xft.js');
+    expect(failedChunkUrl(new TypeError('error loading dynamically imported module: http://127.0.0.1:4173/assets/tela-uz.js?reintento=2'))).toBe('http://127.0.0.1:4173/assets/tela-uz.js');
+    expect(failedChunkUrl(new TypeError('Importing a module script failed.'))).toBeUndefined();
+  });
+});

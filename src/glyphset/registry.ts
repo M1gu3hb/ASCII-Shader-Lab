@@ -76,3 +76,48 @@ export function onMissingGlyphSet(fn: ((id: string) => void) | null) {
 }
 
 export function forgetGlyphSets() { known.clear(); missing.clear(); asked.clear(); changed(); }
+
+const retireHooks = new Set<(id: string) => void>();
+/** Caches keyed by a set id (the atlas's ink measures) drop their entries when the set is retired. */
+export function onGlyphSetRetired(fn: (id: string) => void): () => void {
+  retireHooks.add(fn);
+  return () => { retireHooks.delete(fn); };
+}
+
+/**
+ * Lets go of a set nobody draws with any more (a preview's temporary set). Only for ids a caller provided for
+ * itself: sets the lab, thumbnails or exports use stay until the page goes.
+ */
+export function retireGlyphSet(id: string) {
+  const had = known.delete(id);
+  missing.delete(id); asked.delete(id); waiters.delete(id);
+  for (const fn of retireHooks) fn(id);
+  if (had) changed();
+}
+
+/** How many sets this page holds (tests check temporary ones do not pile up). */
+export const glyphSetCount = () => known.size;
+
+/**
+ * A temporary set that follows its owner (a preview): each `use` provides the new drawing under a fresh id
+ * (the engine's caches never mix two drawings) and `settle` retires the ids before the current one once the
+ * engine draws with it; `release` retires everything when the owner goes.
+ */
+export class TempGlyphSets {
+  private ids: string[] = [];
+  constructor(private prefix = 'f') {}
+  private static serial = 0;
+  use(set: GlyphSet): string {
+    const id = this.prefix + (++TempGlyphSets.serial).toString(16).padStart(15, '0');
+    provideGlyphSet(id, set);
+    this.ids.push(id);
+    return id;
+  }
+  /** The engine now draws with `current`: the older ones can go. */
+  settle(current: string) {
+    const keep = this.ids.indexOf(current);
+    if (keep < 0) return;
+    for (const id of this.ids.splice(0, keep)) retireGlyphSet(id);
+  }
+  release() { for (const id of this.ids.splice(0)) retireGlyphSet(id); }
+}

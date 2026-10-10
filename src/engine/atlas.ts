@@ -1,6 +1,7 @@
 import { EDGE_GLYPHS } from './catalog';
 import { CHARSET_DEFAULT } from './recipe';
 import { paintGlyph } from '../glyphset/paint';
+import { onGlyphSetRetired } from '../glyphset/registry';
 import type { GlyphSet } from '../glyphset/set';
 
 /** A custom glyph set drawn instead of the font for the characters it has (its content id keys the caches). */
@@ -104,6 +105,13 @@ export function measureDensity(chars: string[], spec: InkSpec, aspect: number): 
 }
 
 /** Orders characters from empty to full by measuring rendered ink coverage. Cached (per set of loaded fonts). */
+// a retired set (a preview's temporary one) leaves no measures behind
+onGlyphSetRetired(id => {
+  const tail = '|' + id;
+  for (const k of [...inkCache.keys()]) if (k.endsWith(tail)) inkCache.delete(k);
+  for (const k of [...densityCache.keys()]) if (k.endsWith(tail)) densityCache.delete(k);
+});
+
 export function sortByDensity(chars: string[], spec: InkSpec, aspect: number): string[] {
   const key = chars.join('') + '|' + spec.stack + '|' + spec.weight + '|' + (spec.italic ? 1 : 0) + '|' + aspect.toFixed(2) + '|' + loadedFonts() + '|' + (spec.glyphs?.id ?? '');
   const hit = densityCache.get(key);

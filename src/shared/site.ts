@@ -16,6 +16,17 @@ export const FOTO_STUDIO: boolean = (import.meta.env
   ? import.meta.env.VITE_FOTO_STUDIO
   : (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.VITE_FOTO_STUDIO) === '1';
 
+/**
+ * Whether «Crea tus GLYPHOS» (/studio/glifos/) is public: `VITE_GLIFOS_STUDIO=1` at build time (or in
+ * `npm run dev`). Unset, it is paused (PR #10 review, A-08: its experience is being rethought): nothing public
+ * links to it, it is out of the sitemap and the structured data, and /studio/glifos/ answers with an «en pausa»
+ * page that does not load the studio. The projects and sets saved in a browser stay untouched, and the lab still
+ * draws the pieces that use a set this browser holds (the shared glyph-set code, src/glyphset, stays in).
+ */
+export const GLIFOS_STUDIO: boolean = (import.meta.env
+  ? import.meta.env.VITE_GLIFOS_STUDIO
+  : (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.VITE_GLIFOS_STUDIO) === '1';
+
 /** Canonical origin. Other hosts (e.g. ascii-shader-lab.vercel.app) redirect here (vercel.json). */
 export const SITE_URL = 'https://glyphos-ascii.vercel.app';
 export const SITE_NAME = 'GLYPHOS';
@@ -122,8 +133,24 @@ export function fotoPage(foto: boolean): SitePage {
     };
 }
 
-/** Every page of the site, with the photo studio public (`foto`) or paused. The build uses PAGES. */
-export const sitePages = (foto: boolean): SitePage[] => [
+/** «Crea tus GLYPHOS»: the studio when it is public, the «en pausa» page while paused. */
+export function glifosPage(on: boolean): SitePage {
+  const base = { id: 'glifos', file: 'studio/glifos/index.html', path: '/studio/glifos/', crumb: 'Crea tus GLYPHOS', image: SITE_IMAGE };
+  return on
+    ? {
+      ...base, kind: 'app', sitemap: true,
+      title: 'Crea tus GLYPHOS — diseña tus letras y símbolos ASCII',
+      description: 'Dibuja, importa PNG, SVG o tu fuente, o parte de una letra: un asistente local propone el resto con tu estilo. Úsalos en GLYPHOS o exporta OTF, SVG y atlas.',
+    }
+    : {
+      ...base, kind: 'paused', sitemap: false,
+      title: 'Crea tus GLYPHOS está en pausa · GLYPHOS',
+      description: 'El estudio para diseñar tus letras y símbolos se está repensando y no está disponible. Lo que guardaste en este navegador sigue ahí.',
+    };
+}
+
+/** Every page of the site, with the photo studio (`foto`) and «Crea tus GLYPHOS» (`glifos`) public or paused. The build uses PAGES. */
+export const sitePages = (foto: boolean, glifos = false): SitePage[] => [
   {
     id: 'main', file: 'index.html', path: '/', kind: 'home', crumb: 'GLYPHOS', sitemap: true, image: SITE_IMAGE,
     title: 'GLYPHOS — Generador de arte ASCII online y animado',
@@ -135,11 +162,7 @@ export const sitePages = (foto: boolean): SitePage[] => [
     description: 'Genera arte ASCII en tiempo real: tira el dado, ajusta patrón, color y glifos, usa tu foto, video o cámara y exporta a PNG, SVG, MP4, GIF, ANSI o código.',
   },
   fotoPage(foto),
-  {
-    id: 'glifos', file: 'studio/glifos/index.html', path: '/studio/glifos/', kind: 'app', crumb: 'Crea tus GLYPHOS', sitemap: true, image: SITE_IMAGE,
-    title: 'Crea tus GLYPHOS — diseña tus letras y símbolos ASCII',
-    description: 'Dibuja, importa PNG, SVG o tu fuente, o parte de una letra: un asistente local propone el resto con tu estilo. Úsalos en GLYPHOS o exporta OTF, SVG y atlas.',
-  },
+  glifosPage(glifos),
   guidePage('imagen', 'imagen-a-ascii/index.html',
     'Imagen a ASCII: convierte tu foto en arte ASCII · GLYPHOS',
     'Convierte una foto en arte ASCII en tu navegador, sin subirla a ningún servidor. Ajusta glifos y color, y descarga PNG, SVG, texto o video.'),
@@ -174,7 +197,7 @@ export const sitePages = (foto: boolean): SitePage[] => [
   },
 ];
 
-export const PAGES: SitePage[] = sitePages(FOTO_STUDIO);
+export const PAGES: SitePage[] = sitePages(FOTO_STUDIO, GLIFOS_STUDIO);
 
 export const pageByFile = (file: string) => PAGES.find(p => p.file === file.replace(/\\/g, '/').replace(/^\/+/, ''));
 export const absUrl = (path: string) => SITE_URL + path;

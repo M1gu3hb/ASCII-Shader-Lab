@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { FOTO_STUDIO } from './foto-helpers';
+import { GLIFOS_STUDIO } from '../../src/shared/site';
 
 /** Public site: crawl files, canonical URLs, share tags, structured data, guides and the brand credit. */
 const SITE = 'https://glyphos-ascii.vercel.app';
-/** The photo and video studio is listed only when the build makes it public (VITE_FOTO_STUDIO=1). */
-const PATHS = ['/', '/studio/', ...(FOTO_STUDIO ? ['/studio/foto/'] : []), '/studio/glifos/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
+/** The photo and video studio and «Crea tus GLYPHOS» are listed only when the build makes them public (VITE_FOTO_STUDIO=1, VITE_GLIFOS_STUDIO=1). */
+const PATHS = ['/', '/studio/', ...(FOTO_STUDIO ? ['/studio/foto/'] : []), ...(GLIFOS_STUDIO ? ['/studio/glifos/'] : []), '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
 const GUIDES: Array<[string, string]> = [
   ['/imagen-a-ascii/', '/studio/?camino=foto'],
   ['/video-a-ascii/', '/studio/#space=media&source=video'],
@@ -237,4 +238,32 @@ test('con el estudio de foto en pausa ninguna página pública lo enlaza, y el s
     await page.waitForTimeout(600);
     expect(toFoto(await hrefs(page)), path).toEqual([]);
   }
+});
+
+test('con «Crea tus GLYPHOS» en pausa su página no carga el estudio, ninguna página pública lo enlaza y el sitemap no lo lista', async ({ page, request }) => {
+  test.skip(GLIFOS_STUDIO, 'Con VITE_GLIFOS_STUDIO=1 el estudio de glifos es público.');
+  expect(await (await request.get('/sitemap.xml')).text()).not.toContain('/studio/glifos');
+  const res = await request.get('/studio/glifos/');
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  expect(html).toContain('está en pausa');
+  expect(html).toContain('noindex');
+  expect(html).not.toMatch(/<script[^>]+src=/);
+  const scripts: string[] = [];
+  page.on('request', r => { if (r.resourceType() === 'script') scripts.push(r.url()); });
+  await page.goto('/studio/glifos/');
+  await expect(page.getByRole('heading', { name: /está en pausa/ })).toBeVisible();
+  expect(scripts).toEqual([]);
+  const toGlifos = (hrefs: string[]) => hrefs.filter(h => new URL(h, SITE).pathname.startsWith('/studio/glifos'));
+  const hrefs = (p: Page) => p.locator('a[href], area[href]').evaluateAll(els => els.map(e => e.getAttribute('href') ?? ''));
+  for (const path of ['/', '/studio/', ...GUIDES.map(g => g[0]), '/licencia/']) {
+    expect(await (await request.get(path)).text(), path).not.toContain('/studio/glifos');
+  }
+  // the lab: its Glifos tab offers nothing of the paused studio
+  await page.goto('/studio/#space=arte');
+  await expect(page.locator('.stage canvas').first()).toBeVisible({ timeout: 45_000 });
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Glifos' }).click();
+  await expect(page.getByRole('combobox', { name: 'Tus glifos' })).toHaveCount(0);
+  expect(toGlifos(await hrefs(page))).toEqual([]);
 });

@@ -1,6 +1,9 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { encodeRecipe, pieceHash } from '../../src/shared/share';
+import { GLIFOS_STUDIO } from '../../src/shared/site';
+import { glyphSetBytes, normalizeGlyphSet } from '../../src/glyphset/set';
 import { download, openStudio } from './helpers';
 import { closeRecipes, hideStageOverlays, openRecipes, recipeCard } from './recipes';
 
@@ -8,6 +11,9 @@ import { closeRecipes, hideStageOverlays, openRecipes, recipeCard } from './reci
  * «Crea tus GLYPHOS», the essential flow: make a set (one letter imported as SVG, the assistant proposes
  * the rest, everything accepted), check the font it exports, use it in the lab on a visual family, save the
  * piece, reload, and export it: the set is still there and the vector export draws its outlines.
+ *
+ * The studio is paused (A-08 of the PR #10 review): these run on a build with VITE_GLIFOS_STUDIO=1. The paused
+ * build is checked at the end: a set this browser already holds still draws in the lab.
  */
 
 const SVG_H = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect x="0" y="0" width="22" height="140"/><rect x="78" y="0" width="22" height="140"/><rect x="0" y="60" width="100" height="18"/>'
@@ -41,7 +47,36 @@ async function makeSet(page: Page, name: string) {
 }
 
 test.describe('Crea tus GLYPHOS', () => {
+  test.skip(!GLIFOS_STUDIO, 'El estudio de glifos está en pausa: estas pruebas corren con VITE_GLIFOS_STUDIO=1.');
   test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('si el guardado falla, «Proyectos» no cierra: los cambios siguen y se puede descargar una copia (A-01)', async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.goto('/studio/glifos/');
+    await page.getByRole('button', { name: /Nuevo alfabeto/ }).click();
+    await expect(page.locator('.gl-board')).toBeVisible();
+    await expect(page.locator('.gl-save')).toHaveText('Guardado en este navegador', { timeout: 15_000 });
+    // from now on this browser's storage refuses to write (the injected throw aborts the transaction: the studio
+    // reads it as storage it cannot use; a real quota error reads as «no queda espacio», see the unit tests)
+    await page.evaluate(() => {
+      IDBObjectStore.prototype.put = function () { throw new DOMException('lleno', 'QuotaExceededError'); };
+    });
+    await page.getByLabel('Nombre del proyecto').fill('Cambio que no cabe');
+    await page.getByRole('button', { name: 'Proyectos', exact: true }).click();
+    const guard = page.getByRole('alertdialog');
+    await expect(guard).toContainText('No se guardaron tus últimos cambios');
+    await expect(guard).toContainText(/Motivo: (no queda espacio|este navegador no deja guardar)/);
+    await expect(page.getByLabel('Nombre del proyecto')).toHaveValue('Cambio que no cabe');
+    const copy = await download(page, () => guard.getByRole('button', { name: 'Descargar una copia' }).click());
+    expect(copy.name).toMatch(/cambio-que-no-cabe\.glyphos-glifos$/);
+    await guard.getByRole('button', { name: 'Seguir editando' }).click();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(page.locator('.gl-board')).toBeVisible();
+    // leaving on purpose still works
+    await page.getByRole('button', { name: 'Proyectos', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: /Volver/ }).click();
+    await expect(page.getByRole('button', { name: /Nuevo alfabeto/ })).toBeVisible();
+  });
 
   test('crear un juego, usarlo en una familia, guardar, recargar y exportar', async ({ page }) => {
     test.setTimeout(600_000);
@@ -126,4 +161,40 @@ test.describe('Crea tus GLYPHOS', () => {
     await expect(p2.getByText(/«Juego viajero», que no está en este navegador/).first()).toBeVisible({ timeout: 60_000 });
     await other.close();
   });
+});
+
+test('con el estudio en pausa, un juego que este navegador ya tiene se sigue usando en el laboratorio', async ({ page }) => {
+  test.skip(GLIFOS_STUDIO, 'Sólo con el estudio de glifos en pausa.');
+  test.setTimeout(300_000);
+  const set = normalizeGlyphSet({
+    kind: 'glyphos-glifos', v: 1, name: 'Juego guardado antes', mode: 'texto', upm: 1000, asc: 800, desc: -200, xh: 500, cap: 700,
+    glyphs: { A: { a: 600, d: 'M0 0L300 700L600 0Z' }, B: { a: 600, d: 'M0 0L0 700L500 600L500 100Z' } },
+  });
+  const bytes = glyphSetBytes(set);
+  const id = createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+  await page.goto('/studio/');
+  // what the studio left in this browser before its pause
+  await page.evaluate(async ({ id, bytes }) => {
+    await new Promise<void>((res, rej) => {
+      const req = indexedDB.open('glyphos-glifos');
+      req.onupgradeneeded = () => req.result.createObjectStore('datos');
+      req.onsuccess = () => {
+        const tx = req.result.transaction('datos', 'readwrite');
+        tx.objectStore('datos').put({ bytes: new Uint8Array(bytes), name: 'Juego guardado antes', mode: 'texto', added: Date.now() }, 'g:' + id);
+        tx.oncomplete = () => { req.result.close(); res(); };
+        tx.onerror = () => rej(tx.error);
+      };
+      req.onerror = () => rej(req.error);
+    });
+  }, { id, bytes: [...bytes] });
+  await page.goto('/studio/#space=arte');
+  await expect(page.locator('.stage canvas').first()).toBeVisible({ timeout: 60_000 });
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Glifos' }).click();
+  const picker = page.getByRole('combobox', { name: 'Tus glifos' });
+  await picker.click();
+  await page.getByRole('option', { name: /Juego guardado antes/ }).click();
+  await expect(picker).toContainText('Juego guardado antes');
+  await expect(page.getByText(/que no está en este navegador/)).toHaveCount(0);
+  await expect(page.locator('a[href^="/studio/glifos"]')).toHaveCount(0);
 });

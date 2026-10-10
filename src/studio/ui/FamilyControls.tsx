@@ -103,7 +103,7 @@ export function FamilyControls({ i }: { i: number }) {
     <div className="fam">
       {loadError && (
         <div className="fam-error" role="alert">
-          <p>No llegó el código de «{meta.name}» ({loadError}). Esta capa queda vacía; las demás siguen funcionando.</p>
+          <p>No llegó el código de «{meta.name}» ({loadError}). Esta capa queda vacía; las demás siguen funcionando. Si al reintentar sigue sin llegar, recarga la página.</p>
           <button type="button" className="btn" onClick={() => retryFamilyLoad(meta.id)}>Reintentar</button>
         </div>
       )}

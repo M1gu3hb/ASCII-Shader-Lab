@@ -5,6 +5,7 @@ import { Note } from '../controls';
 import { applySet, dropSet, glyphSetFile, importGlyphSet, listGlyphSets, missingSetNotice, recordLabUses, useGlyphSetStatus, type SetSummary } from '../glyphSets';
 import { edit, useRecipe } from '../store';
 import { Picker, type PickOpt } from './Picker';
+import { GLIFOS_STUDIO } from '../../shared/site';
 
 const NONE = '';
 
@@ -28,6 +29,9 @@ export function GlyphSetPicker() {
     return () => { live = false; document.removeEventListener('visibilitychange', back); };
   }, []);
   if (!r) return null;
+  // while «Crea tus GLYPHOS» is paused nothing here invites to it: the control is there only for a piece that
+  // uses a set, or for the sets this browser already holds
+  if (!GLIFOS_STUDIO && !current && !sets?.length) return null;
   const opts: PickOpt<string>[] = [{ value: NONE, label: 'Ninguno', desc: 'Sólo la tipografía de abajo.' }];
   for (const s of sets ?? []) opts.push({ value: s.id, label: s.name, group: 'Tus glifos', desc: s.mode === 'ascii' ? 'Símbolos para celdas, con su rampa.' : 'Alfabeto: dibuja las letras que tiene; las demás, con la tipografía.' });
   if (current && !opts.some(o => o.value === current)) opts.push({ value: current, label: r.glyph.setName ?? 'Juego de esta pieza', group: 'Tus glifos', desc: status === 'missing' ? 'No está en este navegador.' : undefined });
@@ -53,8 +57,8 @@ export function GlyphSetPicker() {
       <Picker value={current ?? NONE} options={opts} label="Tus glifos" labelId={labelId} minWidth={290} onChange={id => void pick(id)} />
       {status === 'missing' && <Note>{missingSetNotice(r, fontById(r.glyph.font).name)}</Note>}
       {set?.mode === 'texto' && <Note>Las letras que tu alfabeto no dibuja salen con la tipografía de abajo.</Note>}
-      {sets && !sets.length && !current && <Note>Todavía no tienes glifos propios en este navegador.</Note>}
-      <p className="note"><a href="/studio/glifos/" target="_blank" rel="noopener">{current ? 'Editar tus glifos en «Crea tus GLYPHOS»' : 'Crear tus glifos en «Crea tus GLYPHOS»'}</a> (se abre en otra pestaña)</p>
+      {GLIFOS_STUDIO && sets && !sets.length && !current && <Note>Todavía no tienes glifos propios en este navegador.</Note>}
+      {GLIFOS_STUDIO && <p className="note"><a href="/studio/glifos/" target="_blank" rel="noopener">{current ? 'Editar tus glifos en «Crea tus GLYPHOS»' : 'Crear tus glifos en «Crea tus GLYPHOS»'}</a> (se abre en otra pestaña)</p>}
     </div>
   );
 }

@@ -12,6 +12,7 @@ const LOAD: Record<string, () => Promise<string>> = {
   lente_gravitacional: () => import('./lente').then(m => m.LENTE_GLSL),
 };
 
+import { importChunk } from '../../shared/chunks';
 import { familyLoadError, markFamilyFailed, onFamilyRetry, withTimeLimit } from '../models';
 
 const known = new Map<string, string>();
@@ -33,7 +34,7 @@ export function loadFamilyGlsl(id: string): Promise<void> {
   if (!p) {
     const load = LOAD[id];
     p = load
-      ? withTimeLimit(load(), 'El sombreador de la familia').then(c => { known.set(id, c); }).catch(e => { markFamilyFailed(id, e); }).finally(() => { loading.delete(id); })
+      ? withTimeLimit(importChunk('glsl:' + id, load), 'El sombreador de la familia').then(c => { known.set(id, c); }).catch(e => { markFamilyFailed(id, e); }).finally(() => { loading.delete(id); })
       : Promise.resolve();
     loading.set(id, p);
   }
