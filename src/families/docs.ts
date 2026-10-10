@@ -28,6 +28,7 @@ const DOCS: Record<string, () => Promise<{ DOC: FamilyDoc }>> = {
   orbitales: () => import('./meta/orbitales.doc.ts'),
   lente_gravitacional: () => import('./meta/lente_gravitacional.doc.ts'),
   campos_em: () => import('./meta/campos_em.doc.ts'),
+  corrientes: () => import('./meta/corrientes.doc.ts'),
 };
 
 const known = new Map<string, FamilyDoc>();

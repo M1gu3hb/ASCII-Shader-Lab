@@ -10,6 +10,7 @@ const LOAD: Record<string, () => Promise<string>> = {
   nubes_vol: () => import('./nubes_vol').then(m => m.NUBES_VOL_GLSL),
   orbitales: () => import('./orbitales').then(m => m.ORBITALES_GLSL),
   lente_gravitacional: () => import('./lente').then(m => m.LENTE_GLSL),
+  corrientes: () => import('./corrientes').then(m => m.CORRIENTES_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';

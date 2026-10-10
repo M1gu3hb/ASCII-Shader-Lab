@@ -24,7 +24,8 @@ export function applyLook(r: Recipe, pr: FamilyPreset | undefined) {
   if (L.charset) { r.glyph.charset = L.charset; r.glyph.sort = true; }
   if (L.cell) r.glyph.cell = L.cell;
   if (L.glyphMode) r.glyph.mode = L.glyphMode;
-  r.color.mode = 'ramp';
+  r.color.mode = L.colorMode ?? 'ramp';
+  if (L.vivid !== undefined) r.color.vivid = L.vivid;
   r.color.map = 'luma';
 }
 

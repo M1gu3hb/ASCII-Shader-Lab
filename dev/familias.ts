@@ -2,6 +2,7 @@
  * QA page of the visual families (src/families): every preset of every family drawn by both engines at the
  * same size and moment. Not part of the production build.
  *   ?motor=basico | ?motor=webgl   one engine only;  ?ids=a,b   only these families;  ?t=6   the moment
+ *   ?presets=a,b   only these presets;  ?big=1   a 1280 × 720 canvas per tile (cell ?cell=10) to judge the look
  * window.__fam drives scripts that compare the engines and take screenshots (compare, snap).
  */
 import '@fontsource/jetbrains-mono/latin-400.css';
@@ -18,7 +19,10 @@ const T = parseFloat(params.get('t') ?? '6');
 const motor = params.get('motor');
 const ENGINES: Array<'gl' | 'basic'> = motor === 'basico' ? ['basic'] : motor === 'webgl' ? ['gl'] : ['gl', 'basic'];
 const onlyIds = params.get('ids')?.split(',');
-const W = 480, H = 270;
+const onlyPresets = params.get('presets')?.split(',');
+const big = params.get('big') === '1';
+const W = big ? 1280 : 480, H = big ? 720 : 270;
+const CELL = parseFloat(params.get('cell') ?? (big ? '10' : '7'));
 const errors: string[] = [];
 addEventListener('error', e => errors.push(String(e.message)));
 
@@ -26,7 +30,10 @@ interface Item { family: string; preset: string; title: string; recipe: () => Re
 const items: Item[] = [];
 for (const f of FAMILIES) {
   if (onlyIds && !onlyIds.includes(f.id)) continue;
-  for (const p of f.presets) items.push({ family: f.id, preset: p.id, title: `${f.name} · ${p.name}`, recipe: () => { const r = familyRecipe(f.id, p.id, defaultRecipe(), 'qa'); r.glyph.cell = 7; r.interact.mode = 'none'; return r; } });
+  for (const p of f.presets) {
+    if (onlyPresets && !onlyPresets.includes(p.id)) continue;
+    items.push({ family: f.id, preset: p.id, title: `${f.name} · ${p.name}`, recipe: () => { const r = familyRecipe(f.id, p.id, defaultRecipe(), 'qa'); r.glyph.cell = CELL; r.interact.mode = 'none'; return r; } });
+  }
 }
 
 const common = { fonts, fixedSize: { width: W, height: H, pixelRatio: 1 }, autoplay: false, interactive: false, adaptive: false };
@@ -52,7 +59,7 @@ for (const item of items) {
     group = f.group;
     const h = document.createElement('h2'); h.textContent = FAMILY_GROUP_NAMES[f.group];
     grid = document.createElement('div'); grid.className = 'grid';
-    grid.style.setProperty('--tile', ENGINES.length > 1 ? '520px' : '280px');
+    grid.style.setProperty('--tile', big ? `${Math.min(1240, 640 * ENGINES.length)}px` : ENGINES.length > 1 ? '520px' : '280px');
     main.append(h, grid);
   }
   const fig = document.createElement('figure');
@@ -95,7 +102,13 @@ async function compare(family: string, preset: string, t = T) {
   const a = gl.readGrid(), b = basic.readGrid();
   let same = 0;
   for (let i = 0; i < a.chars.length; i++) if (a.chars[i] === b.chars[i]) same++;
-  return { r: pearson(a.lum, b.lum), glyphs: same / a.chars.length, ink: a.lum.reduce((s, v) => s + v, 0) / a.lum.length, inkBasic: b.lum.reduce((s, v) => s + v, 0) / b.lum.length };
+  // colour families: the cells' own colour must match too (rgb correlation and mean difference, 0..255)
+  let drgb = 0;
+  for (let i = 0; i < a.rgb.length; i++) drgb += Math.abs(a.rgb[i] - b.rgb[i]);
+  return {
+    r: pearson(a.lum, b.lum), glyphs: same / a.chars.length, ink: a.lum.reduce((s, v) => s + v, 0) / a.lum.length, inkBasic: b.lum.reduce((s, v) => s + v, 0) / b.lum.length,
+    rgb: pearson(a.rgb, b.rgb), drgb: drgb / a.rgb.length,
+  };
 }
 
 const status = document.getElementById('status')!;

@@ -100,8 +100,10 @@ for (const meta of FAMILIES) {
         expect(meta.params.length).toBeLessThanOrEqual(8);
         await loadFamilyGlsl(meta.id);
         expect(FAMILY_GLSL_IDS).toContain(meta.id);
-        expect(familyGlsl(meta.id)).toContain(`float F_${meta.id}(vec2 p, float t, vec4 k0, vec4 k1)`);
+        // colour families give each cell its colour and the luminance that picks its glyph (FamilyMeta.color)
+        expect(familyGlsl(meta.id)).toContain(meta.color ? `vec4 FC_${meta.id}(vec2 p, float t, vec4 k0, vec4 k1)` : `float F_${meta.id}(vec2 p, float t, vec4 k0, vec4 k1)`);
         expect(analyticOf(meta.id)).toBeTruthy();
+        if (meta.color) expect(analyticOf(meta.id)!.cpuColor, 'gemelo de color').toBeTruthy();
       } else {
         expect(meta.caps.loop).toBe(false);
         expect(meta.budget.res).toBeTruthy();

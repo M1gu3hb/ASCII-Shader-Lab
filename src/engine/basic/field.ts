@@ -14,6 +14,7 @@ import { basicPattern, setPX, type BasicPattern } from './patterns';
 import { DISP_MAX } from '../touch';
 import { XformState, runStage, updateTrail, type StageEnv } from './xform';
 import { familyPattern } from '../../families/basic';
+import { paletteOf } from '../../families/palette';
 import type { FamilyHost } from '../../families/host';
 import type { XformStage } from '../xform';
 
@@ -66,6 +67,8 @@ export class FieldBuffers {
   readonly a: Uint8Array; readonly r: Uint8Array; readonly g: Uint8Array; readonly b: Uint8Array;
   readonly ppx: Float64Array; readonly ppy: Float64Array; readonly qx: Float64Array; readonly qy: Float64Array;
   readonly v0: Float64Array; readonly v1: Float64Array;
+  /** Colour families: each stack's cell colours (rgb per cell), allocated the first time one is drawn. */
+  c0: Float64Array | null = null; c1: Float64Array | null = null;
   constructor(n: number) {
     this.n = n;
     this.a = new Uint8Array(n); this.r = new Uint8Array(n); this.g = new Uint8Array(n); this.b = new Uint8Array(n);
@@ -81,9 +84,10 @@ export class FieldBuffers {
 export function fieldLayers(r: Recipe, W: number, H: number, fam?: FamilyHost | null): FieldLayer[] {
   const on = r.layers.filter(l => l.on).slice(0, 4);
   const list = on;
+  const pal = paletteOf(r.color.stops);
   return list.map((l, i) => ({
     // a visual family: its run's raster or its analytic CPU twin (families/basic.ts)
-    pat: familyPattern(l, i, fam) ?? basicPattern(l.pattern),
+    pat: familyPattern(l, i, fam, pal) ?? basicPattern(l.pattern),
     scale: l.scale * figureFit(l.pattern, W, H), rot: (l.rot * Math.PI) / 180, x: l.x, y: l.y, a: l.a, b: l.b,
     mix: l.mix, speed: l.speed, phase: l.phase, invert: l.invert, blend: Math.max(0, BLENDS.indexOf(l.blend)),
   }));
@@ -174,9 +178,17 @@ function mediaTap(m: MediaBuffer, sx: number, sy: number) {
 
 /* ---------------------------------------------------------------- */
 
-function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array) {
+const COL = new Float64Array(3);
+
+/**
+ * The layers' stack at time t into `out`; with colour families also each cell's colour into `cout` (as the
+ * shader's SC: white with none, the first colour family's colour, the next ones mixed in by their layer's mix).
+ */
+function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array, cout: Float64Array | null = null) {
   const { cols, rows } = f;
   if (!f.layers.length) out.fill(0);
+  if (cout) cout.fill(1);
+  let coloured = false;
   const cellP = f.ch / f.H;
   const qxs = B.qx, qys = B.qy;
   for (let li = 0; li < f.layers.length; li++) {
@@ -188,16 +200,25 @@ function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array) {
     // uniforms are float32 on the GPU, and so is the transform: exact-boundary floors in hashed patterns depend on it
     const c = fr(Math.cos(fr(L.rot))), s = fr(Math.sin(fr(L.rot))), sc = fr(L.scale), ox = fr(L.x), oy = fr(L.y), a = L.a, b = L.b;
     const inv = L.invert, mixK = L.mix, blend = L.blend, first = li === 0;
+    const cf = cout ? L.pat.col : undefined, mixC = coloured;
     // column-major, so patterns that only depend on x (per column) can reuse work between cells
     for (let col = 0; col < cols; col++) {
       for (let row = 0; row < rows; row++) {
         const i = row * cols + col;
         const dx = fr(qxs[i] - ox), dy = fr(qys[i] - oy);
-        let x = fn(fr(fr(fr(c * dx) + fr(s * dy)) * sc), fr(fr(fr(-s * dx) + fr(c * dy)) * sc), lt, a, b);
+        const lx = fr(fr(fr(c * dx) + fr(s * dy)) * sc), ly = fr(fr(fr(-s * dx) + fr(c * dy)) * sc);
+        let x = fn(lx, ly, lt, a, b);
         if (inv) x = 1 - x;
         out[i] = first ? x * mixK : blendf(out[i], x, blend, mixK);
+        if (cf) {
+          cf(lx, ly, lt, COL);
+          const o = i * 3;
+          if (mixC) { cout![o] += (COL[0] - cout![o]) * mixK; cout![o + 1] += (COL[1] - cout![o + 1]) * mixK; cout![o + 2] += (COL[2] - cout![o + 2]) * mixK; }
+          else { cout![o] = COL[0]; cout![o + 1] = COL[1]; cout![o + 2] = COL[2]; }
+        }
       }
     }
+    if (cf) coloured = true;
   }
 }
 
@@ -266,16 +287,19 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
     }
   }
 
-  // 2. pattern stack (twice when looping, to crossfade the end of the loop into its start)
+  // 2. pattern stack (twice when looping, to crossfade the end of the loop into its start); colour families
+  // also give each cell its colour (pattern source only: a picture or text keeps its own)
   const loop = f.loop > 0;
+  const colour = f.src === 'pattern' && f.layers.some(L => !!L.pat.col);
+  if (colour && (!B.c0 || B.c0.length !== B.n * 3)) { B.c0 = new Float64Array(B.n * 3); B.c1 = new Float64Array(B.n * 3); }
   let tl = T, w = 0;
   if (loop) {
-    tl = T - f.loop * Math.floor(T / f.loop); w = tl / f.loop; stack(f, B, tl, B.v0);
+    tl = T - f.loop * Math.floor(T / f.loop); w = tl / f.loop; stack(f, B, tl, B.v0, colour ? B.c0 : null);
     // the warp drifts too: the second stack reads it as it was one loop earlier (as the field shader)
     if (f.warp > 0) warpInto(f, B, tl - f.loop);
-    stack(f, B, tl - f.loop, B.v1);
+    stack(f, B, tl - f.loop, B.v1, colour ? B.c1 : null);
   }
-  else stack(f, B, T, B.v0);
+  else stack(f, B, T, B.v0, colour ? B.c0 : null);
   const loopK = 1 + 0.41 * Math.sin(PI * w);
 
   // 3. source, pointer light / ripples / trails, pulse; quantise like an RGBA8 target
@@ -297,6 +321,11 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
       const i = row * cols + col;
       const pv = pvOf(i);
       let l = pv, cr = 1, cg = 1, cb = 1;
+      if (colour) {
+        const o = i * 3, c0 = B.c0!;
+        if (loop) { const c1 = B.c1!; cr = c0[o] + (c1[o] - c0[o]) * w; cg = c0[o + 1] + (c1[o + 1] - c0[o + 1]) * w; cb = c0[o + 2] + (c1[o + 2] - c0[o + 2]) * w; }
+        else { cr = c0[o]; cg = c0[o + 1]; cb = c0[o + 2]; }
+      }
       if (media || text) {
         const sx = B.ppx[i] * (H / W) + 0.5, sy = 0.5 - B.ppy[i];
         let gi = -1;

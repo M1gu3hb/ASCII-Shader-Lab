@@ -21,7 +21,8 @@ import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, 
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../families/host';
 import { retryFamily } from '../families/models';
-import { familyById } from '../families/registry';
+import { hasColourFamily, paletteOf } from '../families/palette';
+import { familyById, isColorFamily } from '../families/registry';
 import { packParams } from '../families/params';
 
 export type MediaKind = 'image' | 'video' | 'camera';
@@ -1407,6 +1408,11 @@ export class AsciiEngine implements Renderer {
     gl.uniform4fv(loc(gl, p, 'uLR'), R);
     gl.uniform4fv(loc(gl, p, 'uLF0'), K0);
     gl.uniform4fv(loc(gl, p, 'uLF1'), K1);
+    if (layers.some(l => isColorFamily(l.pattern))) {
+      const pal = paletteOf(this.r.color.stops);
+      gl.uniform3fv(loc(gl, p, 'uPal'), pal.rgb);
+      gl.uniform1f(loc(gl, p, 'uPalN'), pal.n);
+    }
     for (let i = 0; i < 4; i++) {
       gl.activeTexture(gl.TEXTURE8 + i); gl.bindTexture(gl.TEXTURE_2D, this.tFam[i].tex);
       gl.uniform1i(loc(gl, p, 'uFT' + i), 8 + i);
@@ -1499,7 +1505,8 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uWordsN'), this.wordsN);
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
-    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' ? 1 : 0);
+    // the cells carry a colour of their own: the picture's, or a colour family's (families/palette.ts)
+    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' || (src === 'pattern' && hasColourFamily(r)) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uEmptyField'), r.source === 'pattern' && !r.layers.some(l => l.on) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uShift'), r.color.shift);
     gl.uniform1f(loc(gl, p, 'uCycle'), r.color.cycle);

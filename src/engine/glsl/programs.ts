@@ -1,7 +1,7 @@
 import { GLSL_BLEND, GLSL_CORE } from './core';
 import { DISP_MAX } from '../touch';
 import type { PatternLibrary } from './patterns';
-import { isAnalytic, isFamily, isRaster } from '../../families/registry';
+import { isAnalytic, isColorFamily, isFamily, isRaster } from '../../families/registry';
 import { FAMILY_SAMPLE_GLSL } from '../../families/sample';
 import { familyGlsl } from '../../families/analytic/glsl';
 
@@ -49,17 +49,32 @@ export function buildFieldShader(patterns: string[], src: FieldSource, loop: boo
   const used = [...new Set(patterns)];
   // raster families (geometry, simulation) need no chunk: their layer reads the raster their model computed
   const chunks = used.filter(id => !isRaster(id)).map(id => {
-    const c = isAnalytic(id) ? familyGlsl(id) ?? `float F_${id}(vec2 p, float t, vec4 k0, vec4 k1) { return 0.; }` : lib[id];
+    const stub = isColorFamily(id) ? `vec4 FC_${id}(vec2 p, float t, vec4 k0, vec4 k1) { return vec4(0.); }` : `float F_${id}(vec2 p, float t, vec4 k0, vec4 k1) { return 0.; }`;
+    const c = isAnalytic(id) ? familyGlsl(id) ?? stub : lib[id];
     if (!c) throw new Error('Patrón no disponible en la librería: ' + id);
     return c;
   }).join('\n');
   const families = used.some(isFamily);
+  // colour families (FamilyMeta.color) give each cell a colour besides its luminance: SC carries it through
+  // the stack (the first one sets it, the next ones mix theirs in by their layer's mix) to the pattern's col
+  const colour = used.some(isColorFamily);
 
   // a family layer: analytic ones read their eight typed parameters (uLF0/uLF1), raster ones their raster
   const call = (id: string, i: number) => isRaster(id) ? `famRaster(${i}, q)`
+    : isColorFamily(id) ? `FC_${id}(q, t * B.w + C.y, uLF0[${i}], uLF1[${i}])`
     : isAnalytic(id) ? `F_${id}(q, t * B.w + C.y, uLF0[${i}], uLF1[${i}])`
     : `P_${id}(q, t * B.w + C.y, B.x, B.y)`;
-  const layerCode = patterns.map((id, i) => `
+  const layerCode = patterns.map((id, i) => isColorFamily(id) ? `
+  {
+    vec4 A = uLA[${i}], B = uLB[${i}], C = uLC[${i}];
+    vec2 q = rot2(p - A.zw, A.y) * A.x;
+    PX = uCellP * A.x;
+    vec4 c4 = ${call(id, i)};
+    float x = c4.a;
+    x = mix(x, 1. - x, C.x);
+    ${i === 0 ? 'v = x * B.z;' : 'v = blendf(v, x, int(C.z), B.z);'}
+    SC = SCN > .5 ? mix(SC, c4.rgb, B.z) : c4.rgb; SCN = 1.;
+  }` : `
   {
     vec4 A = uLA[${i}], B = uLB[${i}], C = uLC[${i}];
     vec2 q = rot2(p - A.zw, A.y) * A.x;
@@ -96,13 +111,16 @@ uniform sampler2D uTouch;
 uniform int uTouchDisp;
 out vec4 o;
 float PX;
+${colour ? `uniform vec3 uPal[6];
+uniform float uPalN;
+vec3 SC; float SCN;` : ''}
 ${GLSL_CORE}
 ${GLSL_BLEND}
 ${src === 'media' ? GLSL_MEDIA : ''}
 ${families ? FAMILY_SAMPLE_GLSL : ''}
 ${chunks}
 float stack(vec2 p, float t){
-  float v = 0.;
+  float v = 0.;${colour ? '\n  SC = vec3(1.); SCN = 0.;' : ''}
   ${layerCode}
   return v;
 }
@@ -148,12 +166,15 @@ void main(){
     float t2 = tl - uLoop;
     q2 += uWarp * (vec2(fbm(wq + t2 * .15), fbm(wq + vec2(5.2, 1.3) - t2 * .15)) - .5) * 1.6;
   }
-  pv = mix(stack(q, tl), stack(q2, tl - uLoop), w);
+  ${colour ? `float pa = stack(q, tl);
+  vec3 sa = SC;
+  pv = mix(pa, stack(q2, tl - uLoop), w);
+  SC = mix(sa, SC, w);` : 'pv = mix(stack(q, tl), stack(q2, tl - uLoop), w);'}
   pv = clamp(.5 + (pv - .5) * (1. + .41 * sin(PI * w)), 0., 1.);` : `
   pv = stack(q, uTime);`}
   // the pattern alone, for a transformation that reads it (Desplazar, see glsl/xform.ts)
   if (uPatOnly == 1){ o = vec4(pv, 0., 0., 1.); return; }
-  vec3 col = vec3(1.);
+  vec3 col = ${colour && src === 'pattern' ? 'SC' : 'vec3(1.)'};
   float l = pv;
   vec2 s = vec2(pp.x * uRes.y + .5 * uRes.x, .5 * uRes.y - pp.y * uRes.y) / uRes;
   vec2 cs = uCell / uRes * .25;

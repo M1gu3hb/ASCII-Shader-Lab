@@ -29,11 +29,15 @@ export type PatternFn = (x: number, y: number, t: number, a: number, b: number) 
 export interface BasicPattern {
   f: PatternFn;
   prep?: (t: number, a: number, b: number) => void;
+  /** Colour families: the cell's own colour (0..1 rgb) into out[0..2], at the same point and time as f. */
+  col?: (x: number, y: number, t: number, out: Float64Array) => void;
 }
 
 let PX = 0.02;
 /** Size of one cell in pattern units for the layer being evaluated (GLSL: PX = uCellP * scale). */
 export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); setNextPX(v); setParticlePX(v); }
+/** The cell size of the layer being evaluated (family CPU twins that work per cell read it). */
+export const currentPX = () => PX;
 
 const len = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const f32 = Math.fround;

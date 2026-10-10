@@ -19,13 +19,15 @@
 export type FamilyKind = 'analytic' | 'geometry' | 'simulation';
 
 /** Library groups the studio shows (the existing pattern families stay as they are). */
-export type FamilyGroup = 'vida' | 'fisica' | 'forma' | 'ciencia';
+export type FamilyGroup = 'vida' | 'fisica' | 'forma' | 'ciencia' | 'materia';
 
+/** How the mechanism is grouped in «Cómo funciona» and the docs (the library groups by use: PresetUse). */
 export const FAMILY_GROUP_NAMES: Record<FamilyGroup, string> = {
   vida: 'Vida y química',
   fisica: 'Física y movimiento',
   forma: 'Forma y geometría',
-  ciencia: 'Ciencia en 3D',
+  ciencia: 'Figuras y espacio',
+  materia: 'Color, materia y óptica',
 };
 
 export type ParamValue = number | string | boolean;
@@ -125,7 +127,13 @@ export interface FamilyPreset {
   /** Exactly periodic presets ('bucle'): the period in seconds of layer time. */
   period?: number;
   /** Suggested look: palette stops (dark → light), background, character set and cell size. */
-  look?: { stops?: string[]; bg?: string; charset?: string; cell?: number; glyphMode?: 'density' | 'lines' };
+  look?: {
+    stops?: string[]; bg?: string; charset?: string; cell?: number; glyphMode?: 'density' | 'lines';
+    /** Colour families: 'source' keeps each cell's own colour (default: the palette by brightness). */
+    colorMode?: 'source';
+    /** How strongly the cells' own colour shows (0..1, see recipe color.vivid). */
+    vivid?: number;
+  };
   /** Layer transform the preset is designed for. */
   layer?: { scale?: number; speed?: number };
   /** Simulation rows (raster families). */

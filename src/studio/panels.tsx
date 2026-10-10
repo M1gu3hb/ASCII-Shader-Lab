@@ -34,6 +34,7 @@ import { FamilyControls } from './ui/FamilyControls';
 import { FAMILIES, familyById } from '../families/registry';
 import { withPreset } from '../families/recipes';
 import { hasStateful, setLayerPattern } from './families';
+import { hasColourFamily } from '../families/palette';
 import { PaletteEditor } from './ui/color/PaletteEditor';
 import { useRamps } from './ui/ramps';
 import { LETTER_ANIMS } from '../engine/catalog';
@@ -201,17 +202,23 @@ function ColorTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const maps = useMemo(() => colorMapOptions(recipe), [stopsKey]);
   const isMedia = source === 'image' || source === 'video' || source === 'camera';
+  // a colour family paints each cell with the palette's colours where they flow, not by brightness
+  const famColour = !!recipe && hasColourFamily(recipe);
+  const ownColour = (isMedia || famColour) && mode === 'source';
   return (
     <>
       <Sub>Paleta</Sub>
 {isMedia && mode === 'source' && <p className="note">Los colores vienen de la imagen. Para cambiar su paleta y reparto, <button type="button" className="mini" onClick={() => edit(r => { r.color.mode = 'ramp'; }, 'color.mode')}>Usar tu paleta</button>.</p>}
-      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><PaletteEditor isMedia={isMedia} /></fieldset>
+{famColour && mode === 'source' && <p className="note">La familia reparte los colores de tu paleta por el lienzo: cada celda lleva su color y el carácter sale de su brillo.</p>}
+      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><PaletteEditor isMedia={isMedia || famColour} /></fieldset>
       {isMedia && <Seg f={F('color.mode')} label="Colores de" opts={[['ramp', 'Tu paleta'], ['source', 'La imagen']]} />}
-      {mode === 'source' && isMedia && <Slider f={F('color.vivid')} label="Viveza" min={0} max={1} />}
-      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} /></fieldset>
+      {famColour && <Seg f={F('color.mode')} label="Colores de" opts={[['source', 'La familia'], ['ramp', 'Por brillo']]}
+        desc={{ source: 'Cada celda con el color que la familia le da.', ramp: 'Tu paleta repartida por el brillo, como cualquier patrón.' }} />}
+      {ownColour && <Slider f={F('color.vivid')} label="Viveza" min={0} max={1} />}
+      <fieldset disabled={ownColour} className="inactive-controls"><Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} /></fieldset>
       <Slider f={F('color.shade')} label="Atenuar las zonas oscuras" min={0} max={1} />
       <Sub>Ajustes</Sub>
-      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
+      <fieldset disabled={ownColour} className="inactive-controls"><Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
       <Slider f={F('color.cycle')} label="Colores en movimiento" min={-0.3} max={0.3} step={0.005} fmt={v => (v === 0 ? 'quietos' : v.toFixed(3))} /></fieldset>
       <Slider f={F('color.hue')} label="Rotar tono" min={0} max={1} step={0.005} fmt={v => Math.round(v * 360) + '°'} scale={360} />
       <Slider f={F('color.sat')} label="Saturación" min={0} max={2} />

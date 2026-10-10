@@ -83,7 +83,7 @@ export const CATEGORIES: Record<string, Category> = {
   'fam-ciencia': { id: 'fam-ciencia', label: FAMILY_GROUP_NAMES.ciencia, hint: 'Volúmenes y espacios trazados rayo a rayo: fractales, nubes, orbitales, agujeros negros.', words: 'simulacion familia ciencia 3d volumen fractal nube orbital agujero negro' },
 };
 
-const FAMILY_SECTION: Record<FamilyGroup, string> = { vida: 'fam-vida', fisica: 'fam-fisica', forma: 'fam-forma', ciencia: 'fam-ciencia' };
+const FAMILY_SECTION: Record<FamilyGroup, string> = { vida: 'fam-vida', fisica: 'fam-fisica', forma: 'fam-forma', ciencia: 'fam-ciencia', materia: 'fam-ciencia' };
 
 /** The order sections are listed in, per space (a section not listed goes after these). */
 const SECTION_ORDER: Record<SceneSpace, string[]> = {
