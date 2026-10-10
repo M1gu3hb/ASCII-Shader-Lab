@@ -16,11 +16,17 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * With the jets «Desde la izquierda» the box becomes a channel: a uniform inflow on the left wall and an open
  * outlet on the right (pressure 0 outside). The velocity grid has half the raster's rows (at most SIM_ROWS), the
  * dye three quarters (at most DYE_ROWS); the raster reads them bilinearly.
+ *
+ * Renewal (marbling): with «Franjas» the dye starts as bands of ink and clear water and keeps relaxing towards
+ * them (a template that drifts and waves slowly), so the flow folds and stretches the bands while calm water
+ * gets its bands back: the field never mixes into an even grey nor runs dry. In the channel the bands come in
+ * with the inflow instead. Jets can carry ink, clear water (alternating) or nothing (they only stir).
+ * Drawing: the chosen quantity through an optional contrast curve, or the ink's level lines («Curvas de nivel»).
  */
 
 const ID = 'fluido', V = 1, RATE = 30;
 const SIM_ROWS = 80, DYE_ROWS = 128;
-const MAX_JETS = 8, MAX_OBST = 6, MAX_ITERS = 40, VISC_SWEEPS = 4;
+const MAX_JETS = 8, MAX_OBST = 6, MAX_ITERS = 40, VISC_SWEEPS = 4, MAX_BANDS = 12;
 /** Over-relaxation of the pressure sweeps. */
 const SOR = 1.6;
 /** Speed limit (cells per step) after the forces: keeps every setting bounded. */
@@ -28,13 +34,20 @@ const VMAX = 6;
 
 interface P {
   visc: number; vort: number; force: number; jets: number; layout: string; motion: number; pulse: number; buoy: number;
-  obst: number; iters: number; dyeDiss: number; view: string;
+  obst: number; iters: number; dyeDiss: number; view: string; ink: string; bands: number; renew: number; contrast: number; sharp: number;
 }
 const read = (p: Params): P => ({
   visc: Number(p.visc ?? 0), vort: Number(p.vort ?? 0.35), force: Number(p.force ?? 2), jets: Math.round(Number(p.jets ?? 4)),
   layout: String(p.layout ?? 'libres'), motion: Number(p.motion ?? 0.4), pulse: Number(p.pulse ?? 0), buoy: Number(p.buoy ?? 0), obst: Math.round(Number(p.obst ?? 0)),
   iters: Math.round(Number(p.iters ?? 14)), dyeDiss: Number(p.dyeDiss ?? 0.25), view: String(p.view ?? 'tinta'),
+  ink: String(p.ink ?? 'tinta'), bands: Math.max(0, Math.min(MAX_BANDS, Math.round(Number(p.bands ?? 0)))), renew: Number(p.renew ?? 0.3),
+  contrast: Number(p.contrast ?? 0), sharp: Number(p.sharp ?? 0),
 });
+
+/** Profile of one ink band over its period: plateaus of ink and clear water with soft edges (a few cells). */
+const BAND = new Float32Array(1024);
+for (let i = 0; i < 1024; i++) { const v = 0.5 + 1.8 * Math.sin((i / 1024) * Math.PI * 2); BAND[i] = v < 0 ? 0 : v > 1 ? 1 : v; }
+const band = (ph: number) => BAND[((ph - Math.floor(ph)) * 1024) | 0];
 
 /** Bilinear sample of an nx × ny field at index coordinates (fx, fy), clamped at its edges. */
 function bil(f: Float32Array, nx: number, ny: number, fx: number, fy: number): number {
@@ -80,6 +93,11 @@ export function create(cfg: ModelConfig): FieldModel {
     if (tries < 150 && obstacles.some(([x, y, r]) => Math.hypot(x - ox, y - oy) < r + or + sh * 0.08)) continue;
     obstacles.push([ox, oy, or]);
   }
+  // the bands' waves and drift: from a hash of the seed, so the jets and obstacles above draw what they drew
+  const bandRng = new SimRng(`${ID}|franjas|${cfg.seed}`);
+  const bw1 = bandRng.range(0.9, 1.6), bw2 = bandRng.range(2.2, 3.4), bp1 = bandRng.next(), bp2 = bandRng.next();
+  const bdir = bandRng.next() < 0.5 ? 1 : -1;
+  const bandWarp = new Float32Array(dw);
 
   let nObst = -1, tunnel = false;
   const buildSolids = () => {
@@ -126,6 +144,34 @@ export function create(cfg: ModelConfig): FieldModel {
     }
   };
   buildSolids();
+
+  /**
+   * «Franjas»: the bands the dye renews towards at simulated time T (seconds), into `bandWarp` per dye column
+   * (its vertical offset, in bands) plus a drift; in the channel only the inlet's columns, without waves.
+   */
+  let bandDrift = 0;
+  const bandsAt = (T: number) => {
+    const k = p.bands;
+    bandDrift = bdir * T * 0.04;
+    for (let i = 0; i < dw; i++) {
+      const u = (i + 0.5) / dw;
+      bandWarp[i] = tunnel ? 0 : k * (0.07 * Math.sin(Math.PI * 2 * (u * bw1 + bp1 + T * 0.011)) + 0.035 * Math.sin(Math.PI * 2 * (u * bw2 + bp2 - T * 0.017)));
+    }
+  };
+  /** The dye relaxes towards the bands (rate r per step); r = 1 sets it. */
+  const renewBands = (r: number, cols: number) => {
+    const k = p.bands;
+    for (let j = 0; j < dh; j++) {
+      const v = k * ((j + 0.5) / dh) + bandDrift;
+      for (let i = 0; i < cols; i++) {
+        const q = j * dw + i;
+        if (dyeSolid[q]) continue;
+        dye[q] += (band(v + bandWarp[i]) - dye[q]) * r;
+      }
+    }
+  };
+  if (p.bands > 0) { bandsAt(0); renewBands(1, dw); }
+
   const inflow = () => 0.5 * p.force;
   const closeFaces = () => {
     const uin = inflow();
@@ -204,14 +250,17 @@ export function create(cfg: ModelConfig): FieldModel {
           if (i < sw) { const q = j * sw + i; v[q] += (tv - v[q]) * b * gx1[i]; }
         }
       }
-      // dye, on its own grid, from the jet's core
+      // dye, on its own grid, from the jet's core: ink, clear water (every other jet with «Tinta y agua clara»)
+      // or none (the jets only stir)
+      if (p.ink === 'nada') continue;
+      const ink = p.ink === 'alterna' && k & 1 ? 0 : 1;
       const di0 = Math.max(0, Math.floor((x - reach) * kd)), di1 = Math.min(dw - 1, Math.ceil((x + reach) * kd));
       const dj0 = Math.max(0, Math.floor((y - reach) * kd)), dj1 = Math.min(dh - 1, Math.ceil((y + reach) * kd));
       const ird = ir2 * 2.5;
       for (let i = di0; i <= di1; i++) { const d = (i + 0.5) / kd - x; gx0[i] = Math.exp(-d * d * ird); }
       for (let j = dj0; j <= dj1; j++) {
         const d = (j + 0.5) / kd - y, a = on * 0.8 * Math.exp(-d * d * ird);
-        for (let i = di0; i <= di1; i++) { const q = j * dw + i; dye[q] += (1 - dye[q]) * a * gx0[i]; }
+        for (let i = di0; i <= di1; i++) { const q = j * dw + i; dye[q] += (ink - dye[q]) * a * gx0[i]; }
       }
     }
     // buoyancy: the dye is lighter (> 0) or heavier (< 0) than the fluid around it (rows grow downwards)
@@ -356,6 +405,34 @@ export function create(cfg: ModelConfig): FieldModel {
     const t = dye; dye = dye2; dye2 = t;
   };
 
+  /**
+   * «Bordes nítidos»: ink and water behave as two liquids that do not mix (the reaction term of Allen–Cahn,
+   * ∂c/∂t = k c (1 − c)(c − θ)): what the advection blurs is pushed back to ink or water, so the edges stay a
+   * couple of cells wide. In the closed box θ follows the field (Σ of the term = 0), so no ink is made or lost.
+   */
+  const separate = () => {
+    const k = 2 * p.sharp;
+    let A = 0, B = 0;
+    if (!tunnel) {
+      for (let q = 0; q < nd; q++) { const c = dye[q]; if (c > 0 && c < 1) { const b = c * (1 - c); A += b * c; B += b; } }
+    }
+    const th = B > 1e-6 ? Math.min(0.8, Math.max(0.2, A / B)) : 0.5;
+    if (p.bands > 0 && !tunnel) {
+      // with bands, each cell leans towards its band (θ lower where the band is ink): the edges stay sharp and
+      // drift back to where the bands are, instead of fighting their renewal
+      const bias = 2 * p.renew, kb = p.bands;
+      for (let j = 0; j < dh; j++) {
+        const v = kb * ((j + 0.5) / dh) + bandDrift;
+        for (let i = 0, q = j * dw; i < dw; i++, q++) {
+          const c = dye[q];
+          if (c > 0 && c < 1) dye[q] = c + k * c * (1 - c) * (c - th - bias * (band(v + bandWarp[i]) - 0.5));
+        }
+      }
+      return;
+    }
+    for (let q = 0; q < nd; q++) { const c = dye[q]; if (c > 0 && c < 1) dye[q] = c + k * c * (1 - c) * (c - th); }
+  };
+
   const step1 = () => {
     if (p.obst !== nObst || (p.layout === 'izquierda') !== tunnel) buildSolids();
     forces();
@@ -363,13 +440,54 @@ export function create(cfg: ModelConfig): FieldModel {
     diffuse();
     project();
     advectDye();
+    if (p.bands > 0) {
+      // calm water gets its bands back; the channel's inflow brings them in through the inlet
+      bandsAt((steps + 1) / RATE);
+      if (tunnel) renewBands(1, Math.max(2, Math.ceil(dw * 0.03)));
+      else renewBands(1 - Math.exp(-(0.04 + 1.2 * p.renew * p.renew) / RATE), dw);
+    }
+    if (p.sharp > 0) separate();
     phase += (p.motion * Math.PI * 2) / (10 * RATE);
     steps++;
   };
 
   // raster: the chosen quantity, bilinear over its grid, with the obstacles outlined
   const field = new Float32Array(Math.max(n, nd));
+  let lv: Float32Array | null = null;
+  /** «Contraste»: a steeper curve around half-strength ink (0: the field as it is), so its edges read as edges. */
+  const EDGE = 1 - Math.exp(-1);
+  const curve = (v: number) => {
+    const c = p.contrast;
+    if (c <= 0) return v;
+    let g = (v - EDGE) * (1 + 7 * c) + 0.5;
+    g = g < 0 ? 0 : g > 1 ? 1 : g;
+    return v + (g * g * (3 - 2 * g) - v) * c;
+  };
+  /** «Curvas de nivel»: lines about one pixel wide where the ink crosses each of LEVELS levels, over a faint fill. */
+  const LEVELS = 6;
+  const contours = (out: Uint8Array) => {
+    if (!lv || lv.length !== w * h) lv = new Float32Array(w * h);
+    const f = lv, sx = dw / w, sy = dh / h;
+    for (let y = 0; y < h; y++) {
+      const gy = (y + 0.5) * sy;
+      for (let x = 0; x < w; x++) f[y * w + x] = (1 - Math.exp(-bil(dye, dw, dh, (x + 0.5) * sx - 0.5, gy - 0.5) * 2)) * LEVELS;
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = y * w + x, q = f[k], o = overlay[k];
+      let val: number;
+      if (o >= 0) val = o;
+      else {
+        const gx = 0.5 * (f[x < w - 1 ? k + 1 : k] - f[x > 0 ? k - 1 : k]), gy = 0.5 * (f[y < h - 1 ? k + w : k] - f[y > 0 ? k - w : k]);
+        const g = Math.sqrt(gx * gx + gy * gy), d = Math.abs(q - Math.round(q)) / (g + 1e-3);
+        const line = q < 0.5 ? 0 : d < 0.5 ? 1 : d < 1.3 ? (1.3 - d) / 0.8 : 0;
+        val = Math.max(line, 0.22 * q / LEVELS);
+      }
+      val = curve(val);
+      out[k] = val <= 0 ? 0 : val >= 1 ? 255 : (val * 255 + 0.5) | 0;
+    }
+  };
   const render = (out: Uint8Array) => {
+    if (p.view === 'contornos') { contours(out); return; }
     let fw = sw, fh = sh;
     if (p.view === 'velocidad') {
       for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) {
@@ -388,7 +506,8 @@ export function create(cfg: ModelConfig): FieldModel {
       const gy = (y + 0.5) * sy;
       for (let x = 0; x < w; x++) {
         const o = overlay[y * w + x];
-        const val = o >= 0 ? o : bil(field, fw, fh, (x + 0.5) * sx - 0.5, gy - 0.5);
+        let val = o >= 0 ? o : bil(field, fw, fh, (x + 0.5) * sx - 0.5, gy - 0.5);
+        if (p.contrast > 0 && o < 0) val = curve(val);
         out[y * w + x] = val <= 0 ? 0 : val >= 1 ? 255 : (val * 255 + 0.5) | 0;
       }
     }
