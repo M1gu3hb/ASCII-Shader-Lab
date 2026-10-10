@@ -9,10 +9,13 @@
  * Drawn in a sphere of radius 1 (s Bohr radii, fitted to the larger state) seen from an orbiting camera:
  * 'densidad' integrates the density along the ray (a probability cloud), 'isosuperficie' finds the surface
  * |Ψ|² = level (bisection, gradient normal, diffuse light), 'fase' the same surface toned by the sign of
- * Re Ψ. Densities are taken per unit of the drawing's volume (s³ |Ψ|²), so levels mean the same at any n.
+ * Re Ψ, 'capas' three nested surfaces (the level, a third and a ninth of it) as glowing films, bright where
+ * the ray grazes them. Densities are taken per unit of the drawing's volume (s³ |Ψ|²), so levels mean the
+ * same at any n.
  *
  * k0 = (state A, state B, mix, phase speed), k1 = (mode, level, camera turn, exposure).
- * Bounds: OR_STEPS samples per ray, 5 bisections, 6 samples for the normal; Laguerre degree ≤ 3.
+ * Bounds: OR_STEPS samples per ray, 5 bisections, 6 samples for the normal ('capas': 7 more per crossing
+ * of a shell); Laguerre degree ≤ 3.
  */
 export const ORBITALES_GLSL = `
 #define OR_STEPS 64
@@ -20,6 +23,9 @@ export const ORBITALES_GLSL = `
 const vec3 OR_S[15] = vec3[15](vec3(1., 0., 0.), vec3(2., 0., 0.), vec3(2., 1., 1.), vec3(2., 1., 2.), vec3(3., 0., 0.),
   vec3(3., 1., 1.), vec3(3., 2., 3.), vec3(3., 2., 4.), vec3(3., 2., 5.), vec3(4., 0., 0.), vec3(4., 1., 1.),
   vec3(4., 2., 3.), vec3(4., 3., 6.), vec3(4., 3., 7.), vec3(4., 3., 8.));
+// «Capas»: the shells' levels (fractions of «Nivel») and weights
+const float OR_SH[3] = float[3](1., 1. / 3., 1. / 9.);
+const float OR_SW[3] = float[3](1., .7, .45);
 float OR_fact(float n){ float f = 1.; for (int i = 2; i <= 7; i++){ if (float(i) > n) break; f *= float(i); } return f; }
 float OR_norm(vec3 s){ float n = s.x, l = s.y; return sqrt(8. / (n * n * n) * OR_fact(n - l - 1.) / (2. * n * OR_fact(n + l))); }
 float OR_R(float r, vec3 s, float N){
@@ -75,6 +81,32 @@ float F_orbitales(vec2 p, float t, vec4 k0, vec4 k1){
   if (disc <= 0.) return 0.;
   float sq = sqrt(disc), t0 = -b - sq, t1 = -b + sq, dt = (t1 - t0) / float(OR_STEPS);
   float lev = .02 * pow(200., k1.y);
+  if (k1.x > 2.5){
+    // shells: three nested surfaces (the level, a third and a ninth of it), glowing where the ray grazes
+    // them (a rim as wide as a glyph or more, a faint face), front to back
+    float T = 1., acc = 0.;
+    float dp = OR_rho(ro + rd * t0, sA, sB, NA, NB, c).x;
+    for (int i = 0; i < OR_STEPS; i++){
+      float s = t0 + dt * float(i + 1);
+      float d = OR_rho(ro + rd * s, sA, sB, NA, NB, c).x;
+      for (int j = 0; j < 3; j++){
+        float L = lev * OR_SH[j];
+        if ((d - L) * (dp - L) >= 0.) continue;
+        float tc = s - dt + (L - dp) / (d - dp) * dt;
+        vec3 x = ro + rd * tc;
+        vec2 h = vec2(.01, 0.);
+        vec3 g = vec3(OR_rho(x + h.xyy, sA, sB, NA, NB, c).x - OR_rho(x - h.xyy, sA, sB, NA, NB, c).x,
+          OR_rho(x + h.yxy, sA, sB, NA, NB, c).x - OR_rho(x - h.yxy, sA, sB, NA, NB, c).x,
+          OR_rho(x + h.yyx, sA, sB, NA, NB, c).x - OR_rho(x - h.yyx, sA, sB, NA, NB, c).x);
+        float cs = abs(dot(g, rd)) / max(length(g), 1e-12);
+        float film = (.07 + .93 * (1. - smoothstep(.15, .8, cs))) * OR_SW[j] * (OR_rho(x, sA, sB, NA, NB, c).y < 0. ? .55 : 1.);
+        acc += T * film;
+        T *= 1. - .35 * OR_SW[j];
+      }
+      dp = d;
+    }
+    return sat(acc * (.45 + .55 * k1.w));
+  }
   if (k1.x < .5){
     // probability along the ray, softly cut below the level
     float I = 0.;

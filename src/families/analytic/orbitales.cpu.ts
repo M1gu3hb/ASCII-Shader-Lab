@@ -4,6 +4,8 @@ import { ORBITALES_GLSL } from './orbitales';
 
 /** CPU twin of F_orbitales, line by line (same steps, bisections and normal). */
 const STEPS = 64;
+/** «Capas»: the shells' levels (fractions of «Nivel») and weights. */
+const SHELL = [1, 1 / 3, 1 / 9], SHELL_W = [1, 0.7, 0.45];
 
 /** The states of the «Estado» choices, in order: [n, l, harmonic]. */
 export const STATES: ReadonlyArray<readonly [number, number, number]> = [
@@ -90,6 +92,29 @@ export const impl: AnalyticImpl = {
     const b = ro[0] * dx + ro[1] * dy + ro[2] * dz, disc = b * b - (ro[0] * ro[0] + ro[1] * ro[1] + ro[2] * ro[2]) + 1;
     if (disc <= 0) return 0;
     const sq = Math.sqrt(disc), t0 = -b - sq, t1 = -b + sq, dt = (t1 - t0) / STEPS;
+    if (K[4] > 2.5) {
+      // shells: three nested surfaces (the level, a third and a ninth of it), glowing where the ray
+      // grazes them (a rim as wide as a glyph or more, a faint face), front to back
+      let T = 1, acc = 0, dp = rho(ro[0] + dx * t0, ro[1] + dy * t0, ro[2] + dz * t0);
+      for (let i = 0; i < STEPS; i++) {
+        const s = t0 + dt * (i + 1);
+        const d = rho(ro[0] + dx * s, ro[1] + dy * s, ro[2] + dz * s);
+        for (let j = 0; j < 3; j++) {
+          const L = lev * SHELL[j];
+          if ((d - L) * (dp - L) >= 0) continue;
+          const f = (L - dp) / (d - dp), tc = s - dt + f * dt;
+          const x = ro[0] + dx * tc, y = ro[1] + dy * tc, z = ro[2] + dz * tc, h = 0.01;
+          const gx = rho(x + h, y, z) - rho(x - h, y, z), gy = rho(x, y + h, z) - rho(x, y - h, z), gz = rho(x, y, z + h) - rho(x, y, z - h);
+          rho(x, y, z);
+          const c = Math.abs(gx * dx + gy * dy + gz * dz) / Math.max(Math.hypot(gx, gy, gz), 1e-12);
+          const film = (0.07 + 0.93 * (1 - smoothstep(0.15, 0.8, c))) * SHELL_W[j] * (RE < 0 ? 0.55 : 1);
+          acc += T * film;
+          T *= 1 - 0.35 * SHELL_W[j];
+        }
+        dp = d;
+      }
+      return sat(acc * (0.45 + 0.55 * K[7]));
+    }
     if (K[4] < 0.5) {
       let I = 0;
       for (let i = 0; i < STEPS; i++) {

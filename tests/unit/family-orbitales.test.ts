@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STATES, harmonic, impl, radial } from '../../src/families/analytic/orbitales.cpu';
 import { META } from '../../src/families/meta/orbitales';
-import { defaultParams, packParams } from '../../src/families/params';
+import { defaultParams, packParams, timeContract } from '../../src/families/params';
 import type { Params } from '../../src/families/types';
 
 /** Mechanism checks of «Orbitales y superposiciones»: hydrogen radial functions, real harmonics, beats. */
@@ -95,5 +95,52 @@ describe('orbitales del hidrógeno', () => {
     expect(mad(sample(dip, 1), sample(dip, 1 + T / 2))).toBeGreaterThan(0.01);
     const sp = { a: '2s', b: '2pz', mix: 0.5, speed: 1, mode: 'densidad', level: 0.2 };
     expect(mad(sample(sp, 1), sample(sp, 2.3))).toBeLessThan(1e-9);
+  });
+
+  /** The CPU twin over the 2:1 domain at time t (what the time probe and the compatibility fixture read). */
+  const frame = (p: Params, t: number, w = 64, h = 32) => {
+    const k = packParams(META, { ...defaultParams(META), ...p });
+    impl.prep!(t, k);
+    const o: number[] = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) o.push(impl.cpu(((x + 0.5) / w - 0.5) * 2, 0.5 - (y + 0.5) / h, t, k));
+    return o;
+  };
+  const lit = (a: number[]) => a.filter(v => v > 24 / 255).length / a.length;
+  const mad = (a: number[], b: number[]) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
+
+  it('contrato: cámara quieta, bucle con su periodo exacto (el gemelo de CPU en t y t + periodo); girando, continuo', () => {
+    for (const pr of META.presets) {
+      const tc = timeContract(META, { ...defaultParams(META), ...pr.params });
+      expect(tc, pr.id).toBe(pr.params.turn === 0 ? 'bucle' : 'continuo');
+      expect(pr.period !== undefined, pr.id).toBe(tc === 'bucle');
+      if (tc !== 'bucle') continue;
+      for (const t of [0.7, 13.1]) {
+        expect(mad(frame(pr.params, t), frame(pr.params, t + pr.period!)), `${pr.id} t=${t}`).toBeLessThan(1e-4);
+        expect(mad(frame(pr.params, t), frame(pr.params, t + pr.period! / 2)), `${pr.id} medio periodo`).toBeGreaterThan(0.0015);
+      }
+    }
+  });
+
+  it('ningún preset se queda quieto ni vacío', () => {
+    for (const pr of META.presets) {
+      const step = pr.period ? pr.period / 4 : 3;
+      for (const t of [1, 61, 600]) {
+        const a = frame(pr.params, t), b = frame(pr.params, t + step);
+        expect(mad(a, b), `${pr.id} t=${t}`).toBeGreaterThan(0.002);
+        expect(lit(b), `${pr.id} t=${t}`).toBeGreaterThan(0.02);
+        expect(lit(b), `${pr.id} t=${t}`).toBeLessThan(0.97);
+      }
+    }
+  });
+
+  it('«Capas»: láminas anidadas que brillan en su contorno, distintas de la superficie maciza', () => {
+    const base = { a: '3dz2', b: '3dz2', mix: 0, speed: 0, level: 0.45, turn: 0, expo: 1 };
+    const shells = frame({ ...base, mode: 'capas' }, 0, 96, 48), solid = frame({ ...base, mode: 'iso' }, 0, 96, 48);
+    expect(mad(shells, solid)).toBeGreaterThan(0.03);
+    // the brightest cells are the outlines: along the middle row, the peak is not in the figure's centre
+    const row = shells.slice(24 * 96, 25 * 96);
+    const peak = row.indexOf(Math.max(...row));
+    expect(Math.abs(peak - 47.5)).toBeGreaterThan(4);
+    expect(Math.max(...row)).toBeGreaterThan(Math.min(...row.filter(v => v > 0.02)) * 2);
   });
 });
