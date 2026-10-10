@@ -13,6 +13,10 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * the plate moves and rests where it does not, so its density ends up ∝ 1/u² and draws the nodal lines.
  * A mode sequence moves to other (n, m) every few seconds with a smooth blend, and the sand migrates.
  * The picture: grain density accumulated with persistence, the field's nodal lines, or both.
+ *
+ * «Todo el lienzo»: a rectangular plate twice as wide as tall that fills the canvas, with square cells
+ * (u = cos(nπX) cos(mπY) + c · cos(mπX) cos(nπY), X ∈ [0, 2] across the width, Y ∈ [0, 1] down): the same figures,
+ * repeated side by side, as a background. Its grains walk with steps that are as long across as down.
  */
 
 const ID = 'chladni', V = 1;
@@ -66,8 +70,21 @@ export function besselDerivZero(n: number, m: number): number {
 
 /* ---------------- mode fields ---------------- */
 
-/** u on a G × G grid over the plate's box, scaled so that max |u| = 1 (0 outside a circular plate). */
+/**
+ * u on a G × G grid over the plate's box (2G × G for the canvas plate), scaled so that max |u| = 1 (0 outside a
+ * circular plate).
+ */
 export function modeField(plate: string, n: number, m: number, mix: number): Float32Array {
+  if (plate === 'lienzo') {
+    const W = 2 * G, f = new Float32Array(W * G), cnx = new Float32Array(W), cmx = new Float32Array(W), cny = new Float32Array(G), cmy = new Float32Array(G);
+    for (let i = 0; i < W; i++) { const s = ((i + 0.5) / W) * 2; cnx[i] = Math.cos(n * Math.PI * s); cmx[i] = Math.cos(m * Math.PI * s); }
+    for (let i = 0; i < G; i++) { const s = (i + 0.5) / G; cny[i] = Math.cos(n * Math.PI * s); cmy[i] = Math.cos(m * Math.PI * s); }
+    const c = n === m ? 0 : mix;
+    let mx = 0;
+    for (let y = 0; y < G; y++) for (let x = 0; x < W; x++) { const v = cnx[x] * cmy[y] + c * cmx[x] * cny[y]; f[y * W + x] = v; mx = Math.max(mx, Math.abs(v)); }
+    if (mx > 0) for (let i = 0; i < f.length; i++) f[i] /= mx;
+    return f;
+  }
   const f = new Float32Array(G * G);
   if (plate === 'circular') {
     const k = besselDerivZero(n, m), k0 = besselDerivZero(0, m), w0 = (1 + mix) * 0.5;
@@ -103,6 +120,8 @@ export function create(cfg: ModelConfig): FieldModel {
   const pos = new Float32Array(N * 2), dens = new Float32Array(w * h);
   let steps = 0;
   const inside = (x: number, y: number) => (p.plate === 'circular' ? x * x + y * y <= 1 : x >= -1 && x <= 1 && y >= -1 && y <= 1);
+  /** The canvas plate: plate x spans the width (twice the height), so its steps across are halved. */
+  const wideOf = () => p.plate === 'lienzo';
   for (let i = 0; i < N; i++) {
     let x = 0, y = 0;
     do { x = rng.range(-1, 1); y = rng.range(-1, 1); } while (x * x + y * y > 1 && p.plate === 'circular');
@@ -142,25 +161,26 @@ export function create(cfg: ModelConfig): FieldModel {
     const sm = t < period - blend ? 0 : (t - (period - blend)) / blend;
     return { a: at(k), b: at(k + 1), s: sm * sm * (3 - 2 * sm) };
   };
-  /** Bilinear lookup of a field at plate coordinates. */
+  /** Bilinear lookup of a field at plate coordinates (its grid is G wide, or 2G for the canvas plate). */
   const look = (f: Float32Array, x: number, y: number) => {
-    const fx = Math.min(G - 1.001, Math.max(0, (x * 0.5 + 0.5) * G - 0.5)), fy = Math.min(G - 1.001, Math.max(0, (y * 0.5 + 0.5) * G - 0.5));
-    const x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, o = y0 * G + x0;
-    return (f[o] * (1 - tx) + f[o + 1] * tx) * (1 - ty) + (f[o + G] * (1 - tx) + f[o + G + 1] * tx) * ty;
+    const GX = f.length === G * G ? G : 2 * G;
+    const fx = Math.min(GX - 1.001, Math.max(0, (x * 0.5 + 0.5) * GX - 0.5)), fy = Math.min(G - 1.001, Math.max(0, (y * 0.5 + 0.5) * G - 0.5));
+    const x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, o = y0 * GX + x0;
+    return (f[o] * (1 - tx) + f[o + 1] * tx) * (1 - ty) + (f[o + GX] * (1 - tx) + f[o + GX + 1] * tx) * ty;
   };
-  // plate coordinates → raster pixels
-  const toPx = (x: number) => (x * HALF * 0.5 + 0.5) * w - 0.5;
-  const toPy = (y: number) => (0.5 - y * HALF) * h - 0.5;
+  // plate coordinates → raster pixels (the canvas plate fills the raster)
+  const toPx = (x: number) => (wideOf() ? x * 0.5 + 0.5 : x * HALF * 0.5 + 0.5) * w - 0.5;
+  const toPy = (y: number) => (wideOf() ? 0.5 - y * 0.5 : 0.5 - y * HALF) * h - 0.5;
 
   const step1 = () => {
     const { a, b, s } = modeAt(steps / RATE);
     const blend = s > 0 && a !== b;
-    const amp = 0.07 * p.agit, circ = p.plate === 'circular';
+    const amp = 0.07 * p.agit, circ = p.plate === 'circular', sx = wideOf() ? 0.5 : 1;
     for (let i = 0; i < N; i++) {
       let x = pos[i * 2], y = pos[i * 2 + 1];
       const u = blend ? (1 - s) * look(a, x, y) + s * look(b, x, y) : look(a, x, y);
       const st = amp * (Math.abs(u) + 0.015);
-      x += (rng.next() * 2 - 1) * st; y += (rng.next() * 2 - 1) * st;
+      x += (rng.next() * 2 - 1) * st * sx; y += (rng.next() * 2 - 1) * st;
       // the plate's edge reflects the grains back
       if (circ) {
         const r = hyp(x, y);
@@ -196,15 +216,16 @@ export function create(cfg: ModelConfig): FieldModel {
     render(out: Uint8Array) {
       // sand: density relative to an even spread over the plate (log tone), so the brightness does not
       // depend on the number of grains or the persistence
-      const area = p.plate === 'circular' ? Math.PI * (HALF * h) ** 2 : (2 * HALF * h) ** 2;
+      const area = p.plate === 'circular' ? Math.PI * (HALF * h) ** 2 : wideOf() ? w * h : (2 * HALF * h) ** 2;
       const norm = ((1 - p.persist) * area) / N;
       const sand = p.view !== 'campo', fieldOn = p.view !== 'arena';
       const { a, b, s } = fieldOn ? modeAt(steps / RATE) : { a: null, b: null, s: 0 };
       const lg = 1 / Math.log(1 + 6);
+      const wide = wideOf();
       for (let py = 0; py < h; py++) {
-        const y = (0.5 - (py + 0.5) / h) / HALF;
+        const y = wide ? (0.5 - (py + 0.5) / h) * 2 : (0.5 - (py + 0.5) / h) / HALF;
         for (let px = 0; px < w; px++) {
-          const x = (((px + 0.5) / w) * 2 - 1) / HALF, i = py * w + px;
+          const x = wide ? ((px + 0.5) / w) * 2 - 1 : (((px + 0.5) / w) * 2 - 1) / HALF, i = py * w + px;
           if (!inside(x, y)) { out[i] = 0; continue; }
           let v = 0;
           if (sand) v = Math.log(1 + 6 * Math.min(4, dens[i] * norm * 0.35)) * lg * 0.82;
