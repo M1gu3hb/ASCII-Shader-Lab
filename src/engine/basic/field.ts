@@ -15,6 +15,7 @@ import { DISP_MAX } from '../touch';
 import { XformState, runStage, updateTrail, type StageEnv } from './xform';
 import { familyPattern } from '../../families/basic';
 import { paletteOf } from '../../families/palette';
+import { OP, opticsAt, opticsLoop, type OpticsU } from './optics';
 import type { FamilyHost } from '../../families/host';
 import type { XformStage } from '../xform';
 
@@ -57,6 +58,8 @@ export interface FieldFrame {
    * the trail keeps this frame. Null: none.
    */
   xform?: { stages: XformStage[]; state: XformState; decay: number; times?: [number, number] } | null;
+  /** Glass in front of the piece (recipe.optics, ../opticsU.ts), null: none. */
+  optics?: OpticsU | null;
 }
 
 export { INTERACT as INTERACT_MODES } from '../recipe';
@@ -69,6 +72,8 @@ export class FieldBuffers {
   readonly v0: Float64Array; readonly v1: Float64Array;
   /** Colour families: each stack's cell colours (rgb per cell), allocated the first time one is drawn. */
   c0: Float64Array | null = null; c1: Float64Array | null = null;
+  /** The glass's light and fog per cell (recipe.optics), allocated the first time there is glass. */
+  oz: Float64Array | null = null; ow: Float64Array | null = null;
   constructor(n: number) {
     this.n = n;
     this.a = new Uint8Array(n); this.r = new Uint8Array(n); this.g = new Uint8Array(n); this.b = new Uint8Array(n);
@@ -241,6 +246,9 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const rad2 = Math.max(f.irad * f.irad, 1e-5), str = f.istr, on = f.ptrOn;
   const pulseK = 1 - f.pulse * 0.06;
   const V = f.view, disp = f.disp, down = f.ptrDown ?? 0;
+  const glass = f.optics ?? null;
+  if (glass && (!B.oz || B.oz.length !== B.n)) { B.oz = new Float64Array(B.n); B.ow = new Float64Array(B.n); }
+  const gtl = glass && f.loop > 0 ? T - f.loop * Math.floor(T / f.loop) : T;
 
   // 1. warped sample positions (pointer distortion, pulse zoom, domain warp)
   for (let row = 0; row < rows; row++) {
@@ -275,6 +283,12 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
         // Estirar: the grid shows the pattern from where the finger took it
         const o = i * 4;
         ppx -= ((disp[o + 2] - 128) / 127) * DISP_MAX; ppy -= ((disp[o + 3] - 128) / 127) * DISP_MAX;
+      }
+      if (glass) {
+        // glass in front of the piece: the cell reads the source where the drops or flutes send it (optics.ts)
+        if (f.loop > 0) opticsLoop(fr(ppx), fr(ppy), gtl, f.loop, glass); else opticsAt(fr(ppx), fr(ppy), T, glass);
+        ppx = fr(ppx + OP[0]); ppy = fr(ppy + OP[1]);
+        B.oz![i] = OP[2]; B.ow![i] = OP[3];
       }
       if (pulseK !== 1) { ppx = fr(ppx * pulseK); ppy = fr(ppy * pulseK); }
       let qx = ppx, qy = ppy;
@@ -363,6 +377,7 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
       } else if (im === 2 && sim) l += sim.h[i] * 0.3 * str;
       else if (im === 6 && sim) l *= 1 - clamp(sim.tr[i], 0, 1);
       else if (im === 7 && sim) l += sim.tr[i] * 0.85;
+      if (glass) { l = l + (l * 0.55 + 0.06 - l) * B.ow![i]; l += glass.b[2] * B.oz![i] * 0.6; }
       l += f.pulse * 0.22;
       l = l > 0 ? (l < 1 ? l : 1) : 0;
       B.a[i] = Math.round(l * 255);

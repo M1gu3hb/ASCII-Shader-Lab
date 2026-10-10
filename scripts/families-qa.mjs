@@ -17,6 +17,7 @@ const t = arg('t', '');
 const presets = arg('presets', '');
 const big = process.argv.includes('--big');
 const motor = arg('motor', '');
+const vidrio = arg('vidrio', '');
 const doCompare = process.argv.includes('--compare');
 
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -30,6 +31,7 @@ if (t) q.set('t', t);
 if (presets) q.set('presets', presets);
 if (big) q.set('big', '1');
 if (motor) q.set('motor', motor);
+if (vidrio) q.set('vidrio', vidrio);
 await page.goto(`${base}/dev/familias.html?${q}`);
 await page.waitForFunction(() => window.__fam?.done === true, null, { timeout: 600_000 });
 const state = await page.evaluate(() => ({ errors: window.__fam.errors, items: window.__fam.items, status: document.getElementById('status').textContent }));

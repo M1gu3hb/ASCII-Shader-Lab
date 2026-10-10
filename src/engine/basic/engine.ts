@@ -8,6 +8,7 @@ import type { EngineOptions, EngineStats, FamilyCommand, GestureInput, GridSnaps
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../../families/host';
 import { retryFamily } from '../../families/models';
 import { hasColourFamily } from '../../families/palette';
+import { opticsUniforms } from '../opticsU';
 import { TOUCH_TILE, VIEW_MODES, TouchField, isMarkMode, isTouchMode, touchSettings } from '../touch';
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
 import type { PatternLibrary } from '../glsl/patterns';
@@ -870,6 +871,7 @@ export class BasicEngine implements Renderer {
       // (a family with memory never claims a perfect loop: its layers are drawn as they are, see fieldLoops)
       time: tq, loop: fieldLoops(r) ? r.motion.loop : 0, layers: fieldLayers(r, this.W, this.H, this.fam),
       warp: r.motion.warp, warpScale: r.motion.warpScale, pulse,
+      optics: r.optics ? opticsUniforms(r.optics) : null,
       src, mediaMix: r.media.mix, mediaBlend: Math.max(0, BLENDS.indexOf(r.media.blend)), morph: morphPeriod(r.text.morph, loop),
       media: this.mediaBuf, fit: r.media.fit === 'cover' ? 0 : r.media.fit === 'contain' ? 1 : 2,
       zoom: r.media.zoom, panX: r.media.panX, panY: r.media.panY, mirror: r.media.mirror,

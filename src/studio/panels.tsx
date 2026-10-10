@@ -31,6 +31,7 @@ import { XformTab } from './ui/Xforms';
 import { TouchControls } from './ui/Touch';
 import { RampEditor } from './ui/RampEditor';
 import { FamilyControls } from './ui/FamilyControls';
+import { GlassControls } from './ui/Glass';
 import { FAMILIES, familyById } from '../families/registry';
 import { withPreset } from '../families/recipes';
 import { hasStateful, setLayerPattern } from './families';
@@ -353,6 +354,8 @@ function SoundControl() {
 function FxTab() {
   return (
     <>
+      <Sub>Vidrio</Sub>
+      <GlassControls />
       <Sub>Luz</Sub>
       <Slider f={F('fx.glow')} label="Resplandor en la celda" min={0} max={1.5} />
       <Slider f={F('fx.bloom')} label="Halo de luz (bloom)" min={0} max={1.5}

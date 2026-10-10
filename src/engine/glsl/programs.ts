@@ -4,6 +4,7 @@ import type { PatternLibrary } from './patterns';
 import { isAnalytic, isColorFamily, isFamily, isRaster } from '../../families/registry';
 import { FAMILY_SAMPLE_GLSL } from '../../families/sample';
 import { familyGlsl } from '../../families/analytic/glsl';
+import { GLSL_OPTICS } from './optics';
 
 export const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
 
@@ -14,11 +15,11 @@ void main(){ gl_Position = vec4(aPos, 0., 1.); }`;
 export type FieldSource = 'pattern' | 'media' | 'text';
 
 /** Program cache key for the field pass. */
-export function fieldKey(patterns: string[], src: FieldSource, loop: boolean): string {
+export function fieldKey(patterns: string[], src: FieldSource, loop: boolean, optics = false): string {
   // an analytic family whose chunk has not arrived yet draws nothing: that program is another key, so it is
   // never kept in place of the real one
   const waiting = patterns.some(id => isAnalytic(id) && !familyGlsl(id));
-  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}${waiting ? '|sin-glsl' : ''}`;
+  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}${waiting ? '|sin-glsl' : ''}${optics ? '|vidrio' : ''}`;
 }
 
 /** Media sampling with fit/zoom/pan/mirror; shared by field and compose passes. */
@@ -45,7 +46,7 @@ vec4 media(vec2 s){
 }
 `;
 
-export function buildFieldShader(patterns: string[], src: FieldSource, loop: boolean, lib: PatternLibrary): string {
+export function buildFieldShader(patterns: string[], src: FieldSource, loop: boolean, lib: PatternLibrary, optics = false): string {
   const used = [...new Set(patterns)];
   // raster families (geometry, simulation) need no chunk: their layer reads the raster their model computed
   const chunks = used.filter(id => !isRaster(id)).map(id => {
@@ -118,6 +119,7 @@ ${GLSL_CORE}
 ${GLSL_BLEND}
 ${src === 'media' ? GLSL_MEDIA : ''}
 ${families ? FAMILY_SAMPLE_GLSL : ''}
+${optics ? GLSL_OPTICS : ''}
 ${chunks}
 float stack(vec2 p, float t){
   float v = 0.;${colour ? '\n  SC = vec3(1.); SCN = 0.;' : ''}
@@ -149,6 +151,9 @@ void main(){
   }
   // «Estirar»: where the grid was dragged, it shows the pattern from where the finger took it
   if (uTouchDisp == 1) pp -= (floor(texelFetch(uTouch, ivec2(cell), 0).ba * 255. + .5) - 128.) / 127. * ${DISP_MAX.toFixed(2)};
+  ${optics ? `// glass in front of the piece: what each cell reads moves where the drops or flutes send it (optics.ts)
+  vec4 OP = ${loop ? 'mix(optics(pp, mod(uTime, uLoop)), optics(pp, mod(uTime, uLoop) - uLoop), mod(uTime, uLoop) / uLoop)' : 'optics(pp, uTime)'};
+  pp += OP.xy;` : ''}
   pp *= 1. - uPulse * .06;
   vec2 q = pp;
   if (uWarp > 0.){
@@ -205,6 +210,9 @@ void main(){
   else if (uIMode == 2) l += simH(cell) * .3 * uIStr;
   else if (uIMode == 6) l *= 1. - clamp(sim.b, 0., 1.);
   else if (uIMode == 7) l += sim.b * .85;
+  ${optics ? `// the glass's own light, and fog that dims what is behind it outside the drops
+  l = mix(l, l * .55 + .06, OP.w);
+  l += uOpB.z * OP.z * .6;` : ''}
   l += uPulse * .22;
   o = vec4(col, clamp(l, 0., 1.));
 }`;

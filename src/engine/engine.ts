@@ -22,6 +22,7 @@ import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSe
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../families/host';
 import { retryFamily } from '../families/models';
 import { hasColourFamily, paletteOf } from '../families/palette';
+import { opticsUniforms } from './opticsU';
 import { familyById, isColorFamily } from '../families/registry';
 import { packParams } from '../families/params';
 
@@ -1050,12 +1051,12 @@ export class AsciiEngine implements Renderer {
    */
   private fieldKeyOf(r: Recipe, src?: FieldSource): string {
     const s = src ?? SRC_OF(r, r.source === this.r.source && this.mediaOK ? true : !!this.currentMediaOf(r));
-    return fieldKey(AsciiEngine.patternsOf(r), s, fieldLoops(r));
+    return fieldKey(AsciiEngine.patternsOf(r), s, fieldLoops(r), !!r.optics);
   }
 
   private fieldSource(r: Recipe, key: string): string {
     const src = key.split('|')[0] as FieldSource;
-    return buildFieldShader(AsciiEngine.patternsOf(r), src, fieldLoops(r), this.lib);
+    return buildFieldShader(AsciiEngine.patternsOf(r), src, fieldLoops(r), this.lib, !!r.optics);
   }
 
   private cacheProgram(key: string, p: Program) {
@@ -1245,6 +1246,11 @@ export class AsciiEngine implements Renderer {
     gl.uniform4fv(loc(gl, p, 'uLC'), C);
     gl.uniform1f(loc(gl, p, 'uWarp'), r.motion.warp);
     gl.uniform1f(loc(gl, p, 'uWarpScale'), r.motion.warpScale);
+    if (r.optics) {
+      const u = opticsUniforms(r.optics);
+      gl.uniform4fv(loc(gl, p, 'uOpA'), u.a);
+      gl.uniform4fv(loc(gl, p, 'uOpB'), u.b);
+    }
     gl.uniform1f(loc(gl, p, 'uPulse'), this.pulse(tq));
     gl.uniform1f(loc(gl, p, 'uMediaMix'), r.media.mix);
     gl.uniform1i(loc(gl, p, 'uMediaBlend'), Math.max(0, BLENDS.indexOf(r.media.blend)));

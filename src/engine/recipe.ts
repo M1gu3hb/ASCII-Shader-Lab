@@ -199,6 +199,8 @@ export interface Recipe {
     cellBg: number;
     grid: number;
   };
+  /** Glass in front of the piece (absent: none; recipes without it stay as they were). See Optics. */
+  optics?: Optics;
   msg: {
     on: boolean;
     text: string;
@@ -398,9 +400,51 @@ export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS, 
   };
 }
 
-/** Whether a recipe needs the v3 format (it uses a visual family). */
-export function needsV3(r: Pick<Recipe, 'layers'> & { glyph?: Pick<Recipe['glyph'], 'set'> }): boolean {
-  return r.layers.some(l => !!l.fam && !!familyById(l.pattern)) || !!r.glyph?.set;
+/**
+ * Glass in front of the piece (PR #10 review: V-06 «Lluvia sobre vidrio», V-10 «Vidrio acanalado»): before
+ * the grid is formed, every cell reads the source from where the glass moves it (engine/glsl/optics.ts).
+ * Works on patterns, pictures and text alike.
+ */
+export type OpticsKind = 'lluvia' | 'acanalado';
+export const OPTICS_KINDS: OpticsKind[] = ['lluvia', 'acanalado'];
+export interface Optics {
+  kind: OpticsKind;
+  /** How strongly it refracts (0..1). */
+  amount: number;
+  /** Size of the drops or flutes (0.4..3). */
+  scale: number;
+  /** How fast the drops slide or the glass moves (0..2). */
+  speed: number;
+  /** Slant of the rain or direction of the flutes (degrees, −90..90). */
+  angle: number;
+  /** Rain: how many small drops (0..1). Fluted: the flute's shape (0 prism, 1 lens, 2 contour, 3 cascade, 4 waves). */
+  profile: number;
+  /** Light on the glass: highlights and shadows of the drops or flutes (0..1). */
+  shine: number;
+  /** Rain: fogged glass that dims what is behind outside the drops (0..1). */
+  fog: number;
+}
+
+export function normOptics(v: unknown): Optics | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  if (!(OPTICS_KINDS as string[]).includes(o.kind as string)) return undefined;
+  const kind = o.kind as OpticsKind;
+  return {
+    kind,
+    amount: num(o.amount, 0.6, 0, 1),
+    scale: num(o.scale, 1, 0.4, 3),
+    speed: num(o.speed, 0.6, 0, 2),
+    angle: num(o.angle, kind === 'lluvia' ? 0 : 0, -90, 90),
+    profile: kind === 'acanalado' ? Math.round(num(o.profile, 1, 0, 4)) : num(o.profile, 0.5, 0, 1),
+    shine: num(o.shine, 0.5, 0, 1),
+    fog: num(o.fog, kind === 'lluvia' ? 0.6 : 0, 0, 1),
+  };
+}
+
+/** Whether a recipe needs the v3 format (it uses a visual family, a glyph set or glass in front). */
+export function needsV3(r: Pick<Recipe, 'layers'> & { glyph?: Pick<Recipe['glyph'], 'set'>; optics?: Optics }): boolean {
+  return r.layers.some(l => !!l.fam && !!familyById(l.pattern)) || !!r.glyph?.set || !!r.optics;
 }
 
 /** Sets a recipe's format to what it uses (an edit that adds or removes a family changes it). */
@@ -424,8 +468,9 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
   const ref = normMediaRef(me.ref);
   const xform = normXforms(me.xform);
   const textAnim = normAnim(tx.anim, TEXT_ANIMS), msgAnim = normAnim(ms.anim, MSG_ANIMS);
+  const optics = normOptics(o.optics);
   const r: Recipe = {
-    v: needsV3({ layers, glyph: { set: typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set) ? g.set : undefined } }) ? 3 : 2,
+    v: needsV3({ layers, glyph: { set: typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set) ? g.set : undefined }, optics }) ? 3 : 2,
     source: oneOf(o.source, SOURCES, d.source),
     layers,
     motion: {
@@ -528,6 +573,8 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
       space: typeof meta.space === 'string' ? meta.space.slice(0, 40) : undefined,
       gen: typeof meta.gen === 'number' ? meta.gen : undefined,
     },
+    // (last, where an edit appends it: an edited recipe and its normalised copy keep one key order)
+    ...(optics ? { optics } : {}),
   };
   return r;
 }

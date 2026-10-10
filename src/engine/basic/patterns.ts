@@ -24,6 +24,7 @@ import {
   cardumen_luz, constelacion_dinamica, corazon_particulas, enjambre_vivo, estela_cometas, floracion_luz, lluvia_ascendente,
   mariposa_puntos, nieve_orbital, ondas_estelares, orbitas_gemelas, setParticlePX, vortice_polvo,
 } from './particles';
+import { setCurrentPX } from './px';
 
 export type PatternFn = (x: number, y: number, t: number, a: number, b: number) => number;
 export interface BasicPattern {
@@ -35,9 +36,7 @@ export interface BasicPattern {
 
 let PX = 0.02;
 /** Size of one cell in pattern units for the layer being evaluated (GLSL: PX = uCellP * scale). */
-export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); setNextPX(v); setParticlePX(v); }
-/** The cell size of the layer being evaluated (family CPU twins that work per cell read it). */
-export const currentPX = () => PX;
+export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); setNextPX(v); setParticlePX(v); setCurrentPX(PX); }
 
 const len = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const f32 = Math.fround;

@@ -1,6 +1,6 @@
 import type { AnalyticImpl, Palette } from '../types';
 import { V2, gnoise, hash22, smoothstep } from '../../engine/basic/core';
-import { currentPX } from '../../engine/basic/patterns';
+import { currentPX } from '../../engine/basic/px';
 import { CORRIENTES_GLSL } from './corrientes';
 
 /** CPU twin of FC_corrientes, line by line. The palette arrives with prep (the shader's uPal / uPalN). */
