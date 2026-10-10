@@ -24,7 +24,7 @@ export const META: FamilyMeta = {
     { id: 'estrellas', name: 'Estrellas {6,4}', params: { p: 6, q: 4, motif: 'estrella', width: 0.7, drift: 0.2, turn: -0.12, rim: 0.35, outside: 0 }, look: { stops: ['#100a04', '#ffd38a'], bg: '#080502', charset: ' .-=+*#@' } },
     { id: 'espejo', name: 'Pentágonos y su reflejo {5,4}', params: { p: 5, q: 4, motif: 'aristas', width: 1, drift: 0.3, turn: 0, rim: 0.2, outside: 0.6 }, look: { stops: ['#0b0814', '#c9b8ff'], bg: '#05040c', charset: ' .:;+*#' } },
   ],
-  caps: { loop: true, basic: 'full', checkpoint: false },
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
   budget: { },
   figure: true,
 };

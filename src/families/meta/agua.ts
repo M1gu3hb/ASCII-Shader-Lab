@@ -28,7 +28,7 @@ export const META: FamilyMeta = {
     { id: 'canal', name: 'Ondas en un canal', params: { rain: 0, drop: 1.2, damp: 0.05, speed: 0.6, paddle: 0.55, obst: 'rendijas', depth: 0.6, light: 180, view: 'causticas' }, look: { stops: ['#0a0816', '#c6b6ff'], bg: '#05040c', charset: ' .-=+#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'gota', label: 'Gota', hint: 'Deja caer gotas donde tocas; al arrastrar, un rastro de gotas pequeñas.' }],
   },
   budget: {

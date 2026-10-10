@@ -23,7 +23,7 @@ export const META: FamilyMeta = {
     { id: 'rejilla', name: 'Lente sobre la rejilla', params: { dist: 16, incl: 24, orbit: 0.3, rout: 12, disk: 0, bg: 'rejilla', expo: 1.2, spin: 1 }, look: { stops: ['#03080f', '#b0dcff'], bg: '#02050a', charset: ' .·:;+=#' } },
     { id: 'canto', name: 'De canto', params: { dist: 22, incl: 2, orbit: 0.15, rout: 13, disk: 1.3, bg: 'ambos', expo: 1.3, spin: -1.2 }, look: { stops: ['#0c0410', '#ffc0e0'], bg: '#060208', charset: ' .-=+*#' } },
   ],
-  caps: { loop: true, basic: 'full', checkpoint: false },
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
   budget: { },
   figure: true,
 };

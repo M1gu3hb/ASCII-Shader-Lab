@@ -31,7 +31,7 @@ export const META: FamilyMeta = {
     { id: 'anillos', name: 'Anillos 4f', params: { a: '4fz3', b: '4fz3', mix: 0, speed: 0, mode: 'iso', level: 0.55, turn: -0.3, expo: 1.1 }, look: { stops: ['#041008', '#b6f5c8'], bg: '#020804', charset: ' .-=+*#' } },
     { id: 'hibrido', name: 'Híbrido sp (2s+2p)', params: { a: '2s', b: '2pz', mix: 0.5, speed: 1, mode: 'iso', level: 0.4, turn: 0.25, expo: 1 }, look: { stops: ['#100606', '#ffc2b0'], bg: '#080303', charset: ' .:;oO@' } },
   ],
-  caps: { loop: true, basic: 'full', checkpoint: false },
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
   budget: { },
   figure: true,
 };

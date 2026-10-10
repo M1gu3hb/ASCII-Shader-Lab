@@ -25,7 +25,7 @@ export const META: FamilyMeta = {
     { id: 'nube', name: 'Nube orbital', params: { type: 'dejong', a: 2.27, b: -2.54, c: 1.11, d: -1.58, drift: 0.1, trail: 0.5, points: 14000, zoom: 1, gain: 1.3 }, look: { stops: ['#0a0612', '#e3b9ff'], bg: '#05030a', charset: ' .·:;oO@' } },
     { id: 'lorenz', name: 'Mariposa de Lorenz', params: { type: 'lorenz', a: 0, b: 0, c: 0, d: 0, drift: 0.1, trail: 0.7, points: 20000, zoom: 1, gain: 1 }, look: { stops: ['#040d10', '#a6f3ff'], bg: '#02070a', charset: ' .,:;+*#' } },
   ],
-  caps: { loop: false, basic: 'full', checkpoint: true },
+  caps: { loop: false, time: 'continuo', basic: 'full', checkpoint: true },
   budget: { res: [48, 256, 96], rate: 30, warmup: 30 },
   wrap: 'clamp',
   figure: true,

@@ -33,7 +33,7 @@ export const META: FamilyMeta = {
     { id: 'membrana', name: 'Membrana elástica', params: { anchors: 'cuatro', mesh: 'media', stiff: 0.3, gravity: 1, wind: 0, substeps: 12, damping: 0.05, sphere: 'rebota', turn: 0.2, view: 'malla' }, look: { stops: ['#04100e', '#a8fff0'], bg: '#020807', charset: ' .·:+#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'empujar', label: 'Empujar', hint: 'Arrastra la tela con el dedo; sin moverlo, la hunde hacia el fondo.' }],
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 20 },

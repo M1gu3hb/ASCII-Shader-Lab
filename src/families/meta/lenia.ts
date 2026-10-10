@@ -29,7 +29,7 @@ export const META: FamilyMeta = {
     { id: 'sopa', name: 'Sopa primordial', params: { mu: 0.15, sigma: 0.015, R: 13, dt: 0.1, rings: 'uno', seedShape: 'sopa', density: 0.5, view: 'contorno' }, look: { stops: ['#0e0a04', '#f0e0a0'], bg: '#070502', charset: ' .-~=+#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'sembrar', label: 'Sembrar', hint: 'Echa una mancha de materia: a veces nace una criatura.' }, { id: 'borrar', label: 'Borrar', hint: 'Vacía la zona.' }],
   },
   budget: { res: [64, 256, 128], rate: 24, warmup: 48 },

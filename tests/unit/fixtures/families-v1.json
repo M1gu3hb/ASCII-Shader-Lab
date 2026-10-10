@@ -1,0 +1,1969 @@
+{
+ "note": "Parámetros originales y salida de los 86 presets del PR #10 (algoritmo v1).",
+ "cases": [
+  {
+   "family": "reaccion_difusion",
+   "preset": "coral",
+   "v": 1,
+   "seed": "reaccion_difusion-coral",
+   "res": 96,
+   "params": {
+    "feed": 0.0545,
+    "kill": 0.062,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "centro",
+    "edges": "toro",
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "25b5c84082742b01",
+    "25b5c84082742b01"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "mitosis",
+   "v": 1,
+   "seed": "reaccion_difusion-mitosis",
+   "res": 96,
+   "params": {
+    "feed": 0.0367,
+    "kill": 0.0649,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "manchas",
+    "edges": "toro",
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "8591877065b7f97d",
+    "8591877065b7f97d"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "laberinto",
+   "v": 1,
+   "seed": "reaccion_difusion-laberinto",
+   "res": 96,
+   "params": {
+    "feed": 0.029,
+    "kill": 0.057,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "ruido",
+    "edges": "toro",
+    "view": "relieve"
+   },
+   "steps": 2400,
+   "hash": [
+    "5bcbcf58e1662e84",
+    "5bcbcf58e1662e84"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "caos",
+   "v": 1,
+   "seed": "reaccion_difusion-caos",
+   "res": 96,
+   "params": {
+    "feed": 0.018,
+    "kill": 0.051,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "manchas",
+    "edges": "toro",
+    "view": "contorno"
+   },
+   "steps": 2400,
+   "hash": [
+    "0bbd3f6343863fbb",
+    "0bbd3f6343863fbb"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "venacion",
+   "v": 1,
+   "seed": "physarum-venacion",
+   "res": 96,
+   "params": {
+    "sensorAngle": 22.5,
+    "sensorDist": 5,
+    "turn": 45,
+    "stepSize": 1,
+    "density": 6,
+    "deposit": 1,
+    "decay": 0.1,
+    "diffuse": 1,
+    "layout": "disco"
+   },
+   "steps": 350,
+   "hash": [
+    "944b5c57c6e83320",
+    "944b5c57c6e83320"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "membrana",
+   "v": 1,
+   "seed": "physarum-membrana",
+   "res": 96,
+   "params": {
+    "sensorAngle": 10,
+    "sensorDist": 4,
+    "turn": 60,
+    "stepSize": 1,
+    "density": 20,
+    "deposit": 1,
+    "decay": 0.1,
+    "diffuse": 1,
+    "layout": "aleatorio"
+   },
+   "steps": 350,
+   "hash": [
+    "86361807f7a54b74",
+    "86361807f7a54b74"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "red",
+   "v": 1,
+   "seed": "physarum-red",
+   "res": 96,
+   "params": {
+    "sensorAngle": 20,
+    "sensorDist": 12,
+    "turn": 40,
+    "stepSize": 2,
+    "density": 4,
+    "deposit": 1.5,
+    "decay": 0.04,
+    "diffuse": 0.4,
+    "layout": "aleatorio"
+   },
+   "steps": 350,
+   "hash": [
+    "2bcf505f6aba5a6e",
+    "2bcf505f6aba5a6e"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "meandros",
+   "v": 1,
+   "seed": "physarum-meandros",
+   "res": 96,
+   "params": {
+    "sensorAngle": 45,
+    "sensorDist": 3,
+    "turn": 45,
+    "stepSize": 0.7,
+    "density": 5,
+    "deposit": 1,
+    "decay": 0.1,
+    "diffuse": 1,
+    "layout": "aleatorio"
+   },
+   "steps": 350,
+   "hash": [
+    "6076513c7495dd2d",
+    "6076513c7495dd2d"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "orbium",
+   "v": 1,
+   "seed": "lenia-orbium",
+   "res": 128,
+   "params": {
+    "mu": 0.15,
+    "sigma": 0.015,
+    "R": 18,
+    "dt": 0.1,
+    "rings": "uno",
+    "seedShape": "criaturas",
+    "density": 0.5,
+    "view": "materia"
+   },
+   "steps": 96,
+   "hash": [
+    "c0648b2cbba2fb7b",
+    "c0648b2cbba2fb7b"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "colonia",
+   "v": 1,
+   "seed": "lenia-colonia",
+   "res": 128,
+   "params": {
+    "mu": 0.12,
+    "sigma": 0.0145,
+    "R": 16,
+    "dt": 0.1,
+    "rings": "uno",
+    "seedShape": "manchas",
+    "density": 0.35,
+    "view": "materia"
+   },
+   "steps": 96,
+   "hash": [
+    "a7081e611cf9a4eb",
+    "a7081e611cf9a4eb"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "anulares",
+   "v": 1,
+   "seed": "lenia-anulares",
+   "res": 128,
+   "params": {
+    "mu": 0.19,
+    "sigma": 0.02,
+    "R": 24,
+    "dt": 0.1,
+    "rings": "tres",
+    "seedShape": "criaturas",
+    "density": 0.4,
+    "view": "materia"
+   },
+   "steps": 96,
+   "hash": [
+    "07e4536c81f5ef56",
+    "07e4536c81f5ef56"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "sopa",
+   "v": 1,
+   "seed": "lenia-sopa",
+   "res": 128,
+   "params": {
+    "mu": 0.15,
+    "sigma": 0.015,
+    "R": 13,
+    "dt": 0.1,
+    "rings": "uno",
+    "seedShape": "sopa",
+    "density": 0.5,
+    "view": "contorno"
+   },
+   "steps": 96,
+   "hash": [
+    "714c80bf862c3245",
+    "714c80bf862c3245"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "vida",
+   "v": 1,
+   "seed": "automata-vida",
+   "res": 64,
+   "params": {
+    "rule": "conway",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.3,
+    "seedShape": "aleatoria",
+    "edges": "toro",
+    "speed": 10,
+    "trail": "corta"
+   },
+   "steps": 150,
+   "hash": [
+    "0ebb16d285c205aa",
+    "0ebb16d285c205aa"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "cerebro",
+   "v": 1,
+   "seed": "automata-cerebro",
+   "res": 64,
+   "params": {
+    "rule": "cerebro",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.2,
+    "seedShape": "aleatoria",
+    "edges": "toro",
+    "speed": 12,
+    "trail": "corta"
+   },
+   "steps": 150,
+   "hash": [
+    "cd90a87fe4bc94f9",
+    "cd90a87fe4bc94f9"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "diaynoche",
+   "v": 1,
+   "seed": "automata-diaynoche",
+   "res": 64,
+   "params": {
+    "rule": "diaynoche",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.5,
+    "seedShape": "aleatoria",
+    "edges": "cerrado",
+    "speed": 10,
+    "trail": "corta"
+   },
+   "steps": 150,
+   "hash": [
+    "7880b791c6e96b11",
+    "7880b791c6e96b11"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "pasadizos",
+   "v": 1,
+   "seed": "automata-pasadizos",
+   "res": 64,
+   "params": {
+    "rule": "laberinto",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.4,
+    "seedShape": "centro",
+    "edges": "cerrado",
+    "speed": 12,
+    "trail": "ninguna"
+   },
+   "steps": 150,
+   "hash": [
+    "1688e1b7f63311c4",
+    "1688e1b7f63311c4"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "remolinos",
+   "v": 1,
+   "seed": "kuramoto-remolinos",
+   "res": 96,
+   "params": {
+    "K": 3,
+    "spread": 0.02,
+    "freq": 0.45,
+    "neigh": "r2",
+    "lag": 0.8,
+    "noise": 0,
+    "init": "espirales",
+    "view": "fase"
+   },
+   "steps": 240,
+   "hash": [
+    "0a34202afa171564",
+    "0a34202afa171564"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "sincronizado",
+   "v": 1,
+   "seed": "kuramoto-sincronizado",
+   "res": 96,
+   "params": {
+    "K": 3,
+    "spread": 0.02,
+    "freq": 0.4,
+    "neigh": "r2",
+    "lag": 0.3,
+    "noise": 0,
+    "init": "ondas",
+    "view": "fase"
+   },
+   "steps": 240,
+   "hash": [
+    "66734497598b9f37",
+    "66734497598b9f37"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "destellos",
+   "v": 1,
+   "seed": "kuramoto-destellos",
+   "res": 96,
+   "params": {
+    "K": 4,
+    "spread": 0.06,
+    "freq": 0.6,
+    "neigh": "r3",
+    "lag": 0.5,
+    "noise": 0,
+    "init": "aleatoria",
+    "view": "destellos"
+   },
+   "steps": 240,
+   "hash": [
+    "dd8f1ff4f731a646",
+    "dd8f1ff4f731a646"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "turbulencia",
+   "v": 1,
+   "seed": "kuramoto-turbulencia",
+   "res": 96,
+   "params": {
+    "K": 4,
+    "spread": 0.05,
+    "freq": 0.5,
+    "neigh": "r3",
+    "lag": 1,
+    "noise": 0,
+    "init": "aleatoria",
+    "view": "vortices"
+   },
+   "steps": 240,
+   "hash": [
+    "ccd93c27fe0e7f87",
+    "ccd93c27fe0e7f87"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "cristal",
+   "v": 1,
+   "seed": "dla-cristal",
+   "res": 64,
+   "params": {
+    "seed": "punto",
+    "stick": 1,
+    "bias": 0.06,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.9,
+    "age": "nuevas"
+   },
+   "steps": 150,
+   "hash": [
+    "0415b7e4d589925a",
+    "0415b7e4d589925a"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "coral",
+   "v": 1,
+   "seed": "dla-coral",
+   "res": 64,
+   "params": {
+    "seed": "suelo",
+    "stick": 0.12,
+    "bias": 0,
+    "dir": "arriba",
+    "walkers": 10,
+    "width": 1.1,
+    "age": "antiguas"
+   },
+   "steps": 150,
+   "hash": [
+    "3346406abd27de15",
+    "3346406abd27de15"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "raices",
+   "v": 1,
+   "seed": "dla-raices",
+   "res": 64,
+   "params": {
+    "seed": "techo",
+    "stick": 1,
+    "bias": 0.12,
+    "dir": "abajo",
+    "walkers": 8,
+    "width": 0.7,
+    "age": "plano"
+   },
+   "steps": 150,
+   "hash": [
+    "7bcaba8ab5bf3f7d",
+    "7bcaba8ab5bf3f7d"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "corona",
+   "v": 1,
+   "seed": "dla-corona",
+   "res": 64,
+   "params": {
+    "seed": "anillo",
+    "stick": 0.7,
+    "bias": 0.05,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.8,
+    "age": "nuevas"
+   },
+   "steps": 150,
+   "hash": [
+    "278086c8b606b2cc",
+    "278086c8b606b2cc"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "colonias",
+   "v": 1,
+   "seed": "dla-colonias",
+   "res": 64,
+   "params": {
+    "seed": "varios",
+    "stick": 0.5,
+    "bias": 0.15,
+    "dir": "fuera",
+    "walkers": 10,
+    "width": 1,
+    "age": "antiguas"
+   },
+   "steps": 150,
+   "hash": [
+    "88a023485943f278",
+    "88a023485943f278"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "coral",
+   "v": 1,
+   "seed": "crecimiento-coral",
+   "res": 96,
+   "params": {
+    "sep": 0.07,
+    "att": 0.5,
+    "ali": 0.5,
+    "edge": 0.55,
+    "sprout": 0.5,
+    "shape": "circulo",
+    "bound": "circulo",
+    "view": "relleno"
+   },
+   "steps": 210,
+   "hash": [
+    "074f2ccadecea480",
+    "074f2ccadecea480"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "corteza",
+   "v": 1,
+   "seed": "crecimiento-corteza",
+   "res": 96,
+   "params": {
+    "sep": 0.07,
+    "att": 0.8,
+    "ali": 0.6,
+    "edge": 0.55,
+    "sprout": 0.3,
+    "shape": "linea",
+    "bound": "rect",
+    "view": "historia"
+   },
+   "steps": 210,
+   "hash": [
+    "1f8bcb99de0844a9",
+    "1f8bcb99de0844a9"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "colonia",
+   "v": 1,
+   "seed": "crecimiento-colonia",
+   "res": 96,
+   "params": {
+    "sep": 0.075,
+    "att": 0.6,
+    "ali": 0.7,
+    "edge": 0.5,
+    "sprout": 0.4,
+    "shape": "varias",
+    "bound": "rect",
+    "view": "trazo"
+   },
+   "steps": 210,
+   "hash": [
+    "f7b411ffb3a9e8b4",
+    "f7b411ffb3a9e8b4"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "medusa",
+   "v": 1,
+   "seed": "crecimiento-medusa",
+   "res": 96,
+   "params": {
+    "sep": 0.085,
+    "att": 0.6,
+    "ali": 0.4,
+    "edge": 0.4,
+    "sprout": 0.3,
+    "shape": "estrella",
+    "bound": "circulo",
+    "view": "trazo"
+   },
+   "steps": 210,
+   "hash": [
+    "0149df313f22d676",
+    "0149df313f22d676"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "tinta_agua",
+   "v": 1,
+   "seed": "fluido-tinta_agua",
+   "res": 128,
+   "params": {
+    "jets": 6,
+    "layout": "arriba",
+    "force": 1,
+    "motion": 0.2,
+    "pulse": 0.75,
+    "vort": 0,
+    "visc": 0.05,
+    "buoy": -0.7,
+    "obst": 0,
+    "iters": 14,
+    "dyeDiss": 0.12,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "e1018d56ce02cf2b",
+    "e1018d56ce02cf2b"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "humo_neon",
+   "v": 1,
+   "seed": "fluido-humo_neon",
+   "res": 128,
+   "params": {
+    "jets": 4,
+    "layout": "suelo",
+    "force": 1.4,
+    "motion": 0.35,
+    "pulse": 0,
+    "vort": 0.4,
+    "visc": 0,
+    "buoy": 0.8,
+    "obst": 0,
+    "iters": 14,
+    "dyeDiss": 0.45,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "2255ef0b3614eb48",
+    "2255ef0b3614eb48"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "tormenta",
+   "v": 1,
+   "seed": "fluido-tormenta",
+   "res": 128,
+   "params": {
+    "jets": 8,
+    "layout": "libres",
+    "force": 3.2,
+    "motion": 1.1,
+    "pulse": 0,
+    "vort": 0.95,
+    "visc": 0,
+    "buoy": 0,
+    "obst": 0,
+    "iters": 18,
+    "dyeDiss": 0.7,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "8d2a20e22d6e7bec",
+    "8d2a20e22d6e7bec"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "pilares",
+   "v": 1,
+   "seed": "fluido-pilares",
+   "res": 128,
+   "params": {
+    "jets": 5,
+    "layout": "izquierda",
+    "force": 2.2,
+    "motion": 0.15,
+    "pulse": 0,
+    "vort": 0.3,
+    "visc": 0,
+    "buoy": 0,
+    "obst": 4,
+    "iters": 22,
+    "dyeDiss": 0.3,
+    "view": "vorticidad"
+   },
+   "steps": 90,
+   "hash": [
+    "52863e7603a29dd4",
+    "52863e7603a29dd4"
+   ]
+  },
+  {
+   "family": "agua",
+   "preset": "piscina",
+   "v": 1,
+   "seed": "agua-piscina",
+   "res": 96,
+   "params": {
+    "rain": 5,
+    "drop": 2.2,
+    "damp": 0.55,
+    "speed": 0.5,
+    "paddle": 0,
+    "obst": "ninguno",
+    "depth": 0.8,
+    "light": 135,
+    "view": "suelo"
+   },
+   "steps": 480,
+   "hash": [
+    "026a6c27d9bf7860",
+    "026a6c27d9bf7860"
+   ]
+  },
+  {
+   "family": "agua",
+   "preset": "lluvia",
+   "v": 1,
+   "seed": "agua-lluvia",
+   "res": 96,
+   "params": {
+    "rain": 14,
+    "drop": 1.6,
+    "damp": 0.5,
+    "speed": 0.4,
+    "paddle": 0,
+    "obst": "rocas",
+    "depth": 0.4,
+    "light": 120,
+    "view": "superficie"
+   },
+   "steps": 480,
+   "hash": [
+    "7a8ea2eaa215e0b4",
+    "7a8ea2eaa215e0b4"
+   ]
+  },
+  {
+   "family": "agua",
+   "preset": "canal",
+   "v": 1,
+   "seed": "agua-canal",
+   "res": 96,
+   "params": {
+    "rain": 0,
+    "drop": 1.2,
+    "damp": 0.05,
+    "speed": 0.6,
+    "paddle": 0.55,
+    "obst": "rendijas",
+    "depth": 0.6,
+    "light": 180,
+    "view": "causticas"
+   },
+   "steps": 480,
+   "hash": [
+    "6461ec76baccc5c9",
+    "6461ec76baccc5c9"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "barrancos",
+   "v": 1,
+   "seed": "erosion-barrancos",
+   "res": 112,
+   "params": {
+    "shape": "cordillera",
+    "height": 0.75,
+    "scale": 3,
+    "rain": 0.7,
+    "erode": 0.9,
+    "deposit": 0.3,
+    "capacity": 0.8,
+    "evap": 0.3,
+    "talus": 45,
+    "strata": 0,
+    "view": "relieve",
+    "orbit": 0.6,
+    "pitch": 0.45
+   },
+   "steps": 90,
+   "hash": [
+    "1d1493ce21370e48",
+    "389264960ae9714e"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "delta",
+   "v": 1,
+   "seed": "erosion-delta",
+   "res": 112,
+   "params": {
+    "shape": "ladera",
+    "height": 0.6,
+    "scale": 2.5,
+    "rain": 0.6,
+    "erode": 0.6,
+    "deposit": 0.7,
+    "capacity": 0.6,
+    "evap": 0.08,
+    "talus": 40,
+    "strata": 0,
+    "view": "relieve",
+    "orbit": 0.4,
+    "pitch": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "e71b9c45012b4794",
+    "ea2d3cfee47474f3"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "mesetas",
+   "v": 1,
+   "seed": "erosion-mesetas",
+   "res": 112,
+   "params": {
+    "shape": "meseta",
+    "height": 0.8,
+    "scale": 4,
+    "rain": 0.2,
+    "erode": 0.5,
+    "deposit": 0.4,
+    "capacity": 0.5,
+    "evap": 0.4,
+    "talus": 22,
+    "strata": 1,
+    "view": "relieve",
+    "orbit": 0.5,
+    "pitch": 0.2
+   },
+   "steps": 90,
+   "hash": [
+    "308f4b09f8d9bd03",
+    "3d21f5c999f23624"
+   ]
+  },
+  {
+   "family": "boids",
+   "preset": "murmuracion",
+   "v": 1,
+   "seed": "boids-murmuracion",
+   "res": 96,
+   "params": {
+    "count": 1500,
+    "vision": 0.1,
+    "sep": 0.03,
+    "wSep": 1.5,
+    "wAli": 2.2,
+    "wCoh": 1,
+    "speed": 0.32,
+    "force": 1,
+    "predators": 1,
+    "obstacles": 0,
+    "trail": 0.35
+   },
+   "steps": 105,
+   "hash": [
+    "98bfcadc12387b15",
+    "98bfcadc12387b15"
+   ]
+  },
+  {
+   "family": "boids",
+   "preset": "cardumen",
+   "v": 1,
+   "seed": "boids-cardumen",
+   "res": 96,
+   "params": {
+    "count": 1000,
+    "vision": 0.07,
+    "sep": 0.028,
+    "wSep": 1.8,
+    "wAli": 1.8,
+    "wCoh": 1.2,
+    "speed": 0.26,
+    "force": 1.6,
+    "predators": 3,
+    "obstacles": 2,
+    "trail": 0.2
+   },
+   "steps": 105,
+   "hash": [
+    "c12409bf062bdac5",
+    "c12409bf062bdac5"
+   ]
+  },
+  {
+   "family": "boids",
+   "preset": "dispersion",
+   "v": 1,
+   "seed": "boids-dispersion",
+   "res": 96,
+   "params": {
+    "count": 800,
+    "vision": 0.045,
+    "sep": 0.025,
+    "wSep": 1,
+    "wAli": 1,
+    "wCoh": 0.35,
+    "speed": 0.2,
+    "force": 0.8,
+    "predators": 0,
+    "obstacles": 4,
+    "trail": 0.5
+   },
+   "steps": 105,
+   "hash": [
+    "bce204d503721fdb",
+    "bce204d503721fdb"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "galaxia",
+   "v": 1,
+   "seed": "gravedad-galaxia",
+   "res": 96,
+   "params": {
+    "bodies": 700,
+    "init": "disco",
+    "masses": "iguales",
+    "G": 1,
+    "soft": 0.03,
+    "dt": 0.012,
+    "trail": 0.55,
+    "zoom": 1.05,
+    "tilt": 40,
+    "spin": 0.15,
+    "view": "velocidad"
+   },
+   "steps": 90,
+   "hash": [
+    "3b7512c2c189fb7c",
+    "3b7512c2c189fb7c"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "choque",
+   "v": 1,
+   "seed": "gravedad-choque",
+   "res": 96,
+   "params": {
+    "bodies": 700,
+    "init": "choque",
+    "masses": "variadas",
+    "G": 1,
+    "soft": 0.04,
+    "dt": 0.012,
+    "trail": 0.4,
+    "zoom": 1.2,
+    "tilt": 30,
+    "spin": 0.08,
+    "view": "masa"
+   },
+   "steps": 90,
+   "hash": [
+    "f7100ca6833d6c9d",
+    "f7100ca6833d6c9d"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "colapso",
+   "v": 1,
+   "seed": "gravedad-colapso",
+   "res": 96,
+   "params": {
+    "bodies": 700,
+    "init": "colapso",
+    "masses": "iguales",
+    "G": 1,
+    "soft": 0.05,
+    "dt": 0.01,
+    "trail": 0.7,
+    "zoom": 1,
+    "tilt": 60,
+    "spin": 0.2,
+    "view": "velocidad"
+   },
+   "steps": 90,
+   "hash": [
+    "c0790c74ba51349a",
+    "c0790c74ba51349a"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "binaria",
+   "v": 1,
+   "seed": "gravedad-binaria",
+   "res": 96,
+   "params": {
+    "bodies": 600,
+    "init": "binario",
+    "masses": "iguales",
+    "G": 1,
+    "soft": 0.03,
+    "dt": 0.01,
+    "trail": 0.85,
+    "zoom": 1,
+    "tilt": 25,
+    "spin": 0.05,
+    "view": "masa"
+   },
+   "steps": 90,
+   "hash": [
+    "5162b5ad015504db",
+    "5162b5ad015504db"
+   ]
+  },
+  {
+   "family": "tela",
+   "preset": "velo",
+   "v": 1,
+   "seed": "tela-velo",
+   "res": 96,
+   "params": {
+    "anchors": "esquinas",
+    "mesh": "alta",
+    "stiff": 0.55,
+    "gravity": 1,
+    "wind": 0.9,
+    "substeps": 10,
+    "damping": 0.15,
+    "sphere": "ninguna",
+    "turn": 0.12,
+    "view": "sombreado"
+   },
+   "steps": 80,
+   "hash": [
+    "85c53872af0cc51d",
+    "85c53872af0cc51d"
+   ]
+  },
+  {
+   "family": "tela",
+   "preset": "bandera",
+   "v": 1,
+   "seed": "tela-bandera",
+   "res": 96,
+   "params": {
+    "anchors": "mastil",
+    "mesh": "media",
+    "stiff": 0.85,
+    "gravity": 0.25,
+    "wind": 2,
+    "substeps": 12,
+    "damping": 0.05,
+    "sphere": "ninguna",
+    "turn": 0.05,
+    "view": "ambos"
+   },
+   "steps": 80,
+   "hash": [
+    "2b8948e24b171a8c",
+    "2b8948e24b171a8c"
+   ]
+  },
+  {
+   "family": "tela",
+   "preset": "membrana",
+   "v": 1,
+   "seed": "tela-membrana",
+   "res": 96,
+   "params": {
+    "anchors": "cuatro",
+    "mesh": "media",
+    "stiff": 0.3,
+    "gravity": 1,
+    "wind": 0,
+    "substeps": 12,
+    "damping": 0.05,
+    "sphere": "rebota",
+    "turn": 0.2,
+    "view": "malla"
+   },
+   "steps": 80,
+   "hash": [
+    "0114b4761c6ee253",
+    "0114b4761c6ee253"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "placa",
+   "v": 1,
+   "seed": "chladni-placa",
+   "res": 96,
+   "params": {
+    "plate": "cuadrada",
+    "n": 3,
+    "m": 5,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1,
+    "persist": 0.85,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "6b5673cd9b4c3d89",
+    "6b5673cd9b4c3d89"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "flor",
+   "v": 1,
+   "seed": "chladni-flor",
+   "res": 96,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1.1,
+    "persist": 0.88,
+    "view": "ambos"
+   },
+   "steps": 120,
+   "hash": [
+    "ecc509b0b46cdfe5",
+    "ecc509b0b46cdfe5"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "musical",
+   "v": 1,
+   "seed": "chladni-musical",
+   "res": 96,
+   "params": {
+    "plate": "cuadrada",
+    "n": 2,
+    "m": 7,
+    "mix": -1,
+    "seq": "rapido",
+    "count": 24000,
+    "agit": 1.6,
+    "persist": 0.75,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "be2148dad25a91ca",
+    "be2148dad25a91ca"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "helecho",
+   "v": 1,
+   "seed": "sistema_l-helecho",
+   "res": 96,
+   "params": {
+    "model": "helecho",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 5,
+    "angle": 25,
+    "decay": 1,
+    "jitter": 0.12,
+    "grow": 8,
+    "wind": 0.25,
+    "turn": 0.15,
+    "width": 1.2
+   },
+   "steps": 60,
+   "hash": [
+    "3585e7281c759450",
+    "927443647b8e4d29"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "arbol3d",
+   "v": 1,
+   "seed": "sistema_l-arbol3d",
+   "res": 96,
+   "params": {
+    "model": "arbol3d",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 6,
+    "angle": 28,
+    "decay": 0.78,
+    "jitter": 0.2,
+    "grow": 10,
+    "wind": 0.2,
+    "turn": 0.25,
+    "width": 1.8
+   },
+   "steps": 60,
+   "hash": [
+    "ce30a3adb5cb7e90",
+    "f79a1d9d305ecb9d"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "raices",
+   "v": 1,
+   "seed": "sistema_l-raices",
+   "res": 96,
+   "params": {
+    "model": "raices",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 6,
+    "angle": 18,
+    "decay": 0.92,
+    "jitter": 0.45,
+    "grow": 12,
+    "wind": 0.05,
+    "turn": 0.15,
+    "width": 1
+   },
+   "steps": 60,
+   "hash": [
+    "6c68a2158a8d705f",
+    "1662fe77d2019da9"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "dragon",
+   "v": 1,
+   "seed": "sistema_l-dragon",
+   "res": 96,
+   "params": {
+    "model": "dragon",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 9,
+    "angle": 90,
+    "decay": 1,
+    "jitter": 0,
+    "grow": 14,
+    "wind": 0,
+    "turn": 0.15,
+    "width": 1.2
+   },
+   "steps": 60,
+   "hash": [
+    "588fd4943d1fcd2a",
+    "588fd4943d1fcd2a"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "cintas",
+   "v": 1,
+   "seed": "atractor-cintas",
+   "res": 96,
+   "params": {
+    "type": "clifford",
+    "a": 1.53,
+    "b": 2.91,
+    "c": 1.63,
+    "d": 0.33,
+    "drift": 0.15,
+    "trail": 0.6,
+    "points": 10000,
+    "zoom": 1,
+    "gain": 1
+   },
+   "steps": 90,
+   "hash": [
+    "7b08a5ff13457eb2",
+    "7b08a5ff13457eb2"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "nube",
+   "v": 1,
+   "seed": "atractor-nube",
+   "res": 96,
+   "params": {
+    "type": "dejong",
+    "a": 2.27,
+    "b": -2.54,
+    "c": 1.11,
+    "d": -1.58,
+    "drift": 0.1,
+    "trail": 0.5,
+    "points": 14000,
+    "zoom": 1,
+    "gain": 1.3
+   },
+   "steps": 90,
+   "hash": [
+    "8bd253de9ca52265",
+    "8bd253de9ca52265"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "lorenz",
+   "v": 1,
+   "seed": "atractor-lorenz",
+   "res": 96,
+   "params": {
+    "type": "lorenz",
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0,
+    "drift": 0.1,
+    "trail": 0.7,
+    "points": 20000,
+    "zoom": 1,
+    "gain": 1
+   },
+   "steps": 90,
+   "hash": [
+    "da68d29068551bc6",
+    "c4233aa34c625b73"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "placa",
+   "v": 1,
+   "seed": "wfc-placa",
+   "res": 96,
+   "params": {
+    "set": "circuitos",
+    "rows": 12,
+    "density": 0.55,
+    "pace": 60,
+    "hold": 6,
+    "edges": "vacios",
+    "view": "piezas"
+   },
+   "steps": 90,
+   "hash": [
+    "f2ebad1fd68fb9d3",
+    "f2ebad1fd68fb9d3"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "plano",
+   "v": 1,
+   "seed": "wfc-plano",
+   "res": 96,
+   "params": {
+    "set": "muros",
+    "rows": 12,
+    "density": 0.45,
+    "pace": 45,
+    "hold": 8,
+    "edges": "vacios",
+    "view": "piezas"
+   },
+   "steps": 90,
+   "hash": [
+    "60369a50ba163410",
+    "60369a50ba163410"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "acueducto",
+   "v": 1,
+   "seed": "wfc-acueducto",
+   "res": 96,
+   "params": {
+    "set": "acueducto",
+    "rows": 12,
+    "density": 0.75,
+    "pace": 45,
+    "hold": 8,
+    "edges": "vacios",
+    "view": "piezas"
+   },
+   "steps": 90,
+   "hash": [
+    "da177fd8c72460dd",
+    "da177fd8c72460dd"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "laberinto",
+   "v": 1,
+   "seed": "wfc-laberinto",
+   "res": 96,
+   "params": {
+    "set": "muros",
+    "rows": 22,
+    "density": 0.95,
+    "pace": 180,
+    "hold": 5,
+    "edges": "libres",
+    "view": "lineas"
+   },
+   "steps": 90,
+   "hash": [
+    "4604409f4c248d65",
+    "4604409f4c248d65"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "onda",
+   "v": 1,
+   "seed": "wfc-onda",
+   "res": 96,
+   "params": {
+    "set": "circuitos",
+    "rows": 14,
+    "density": 0.7,
+    "pace": 30,
+    "hold": 4,
+    "edges": "libres",
+    "view": "entropia"
+   },
+   "steps": 90,
+   "hash": [
+    "2a8779fbe5bba4c9",
+    "2a8779fbe5bba4c9"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "triangulos",
+   "v": 1,
+   "seed": "hiperbolico-triangulos",
+   "res": null,
+   "params": {
+    "p": 7,
+    "q": 3,
+    "motif": "alternas",
+    "width": 0.8,
+    "drift": 0.3,
+    "turn": 0.1,
+    "rim": 0.4,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "ff724bc1a31ced36",
+    "63b3bea8f4a73a04"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "cuadrados",
+   "v": 1,
+   "seed": "hiperbolico-cuadrados",
+   "res": null,
+   "params": {
+    "p": 4,
+    "q": 5,
+    "motif": "aristas",
+    "width": 1.2,
+    "drift": -0.25,
+    "turn": 0.15,
+    "rim": 0.3,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "3439599c3ee7e57a",
+    "66914a3bd9f1d863"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "estrellas",
+   "v": 1,
+   "seed": "hiperbolico-estrellas",
+   "res": null,
+   "params": {
+    "p": 6,
+    "q": 4,
+    "motif": "estrella",
+    "width": 0.7,
+    "drift": 0.2,
+    "turn": -0.12,
+    "rim": 0.35,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "0a918fdf02b79a5c",
+    "22443cc5cc32e413"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "espejo",
+   "v": 1,
+   "seed": "hiperbolico-espejo",
+   "res": null,
+   "params": {
+    "p": 5,
+    "q": 4,
+    "motif": "aristas",
+    "width": 1,
+    "drift": 0.3,
+    "turn": 0,
+    "rim": 0.2,
+    "outside": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "236ad00bea582ac2",
+    "907c46e944a8d21d"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "bulbo",
+   "v": 1,
+   "seed": "fractal_3d-bulbo",
+   "res": null,
+   "params": {
+    "form": "bulb",
+    "power": 8,
+    "iters": 7,
+    "cut": 0,
+    "orbit": 0.2,
+    "dist": 3,
+    "breathe": 0.1,
+    "light": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "22956fcb8ff1058e",
+    "c1ce2865348c21ea"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "corte",
+   "v": 1,
+   "seed": "fractal_3d-corte",
+   "res": null,
+   "params": {
+    "form": "bulb",
+    "power": 6,
+    "iters": 8,
+    "cut": 0.55,
+    "orbit": 0.12,
+    "dist": 2.4,
+    "breathe": 0,
+    "light": 0.8
+   },
+   "steps": 60,
+   "hash": [
+    "48257833983123fe",
+    "23019eb323bbab80"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "caja",
+   "v": 1,
+   "seed": "fractal_3d-caja",
+   "res": null,
+   "params": {
+    "form": "box",
+    "power": 6,
+    "iters": 10,
+    "cut": 0,
+    "orbit": 0.15,
+    "dist": 3,
+    "breathe": 0.05,
+    "light": 0.4
+   },
+   "steps": 60,
+   "hash": [
+    "dd3f913441bacab4",
+    "fed987fadf5a83d6"
+   ]
+  },
+  {
+   "family": "nubes_vol",
+   "preset": "banco",
+   "v": 1,
+   "seed": "nubes_vol-banco",
+   "res": null,
+   "params": {
+    "cover": 0.78,
+    "scale": 1.1,
+    "erosion": 0.45,
+    "wind": 0.35,
+    "sun": 0.55,
+    "absorb": 1,
+    "steps": 40,
+    "camera": "horizonte"
+   },
+   "steps": 60,
+   "hash": [
+    "5ee620c075f1fe96",
+    "6c724fb30a901531"
+   ]
+  },
+  {
+   "family": "nubes_vol",
+   "preset": "nebulosa",
+   "v": 1,
+   "seed": "nubes_vol-nebulosa",
+   "res": null,
+   "params": {
+    "cover": 0.45,
+    "scale": 1.1,
+    "erosion": 1,
+    "wind": 0.6,
+    "sun": 0.9,
+    "absorb": 2.2,
+    "steps": 36,
+    "camera": "dentro"
+   },
+   "steps": 60,
+   "hash": [
+    "d452f6d567e7fd52",
+    "872c99a52b2b755a"
+   ]
+  },
+  {
+   "family": "nubes_vol",
+   "preset": "haces",
+   "v": 1,
+   "seed": "nubes_vol-haces",
+   "res": null,
+   "params": {
+    "cover": 0.8,
+    "scale": 1.6,
+    "erosion": 0.3,
+    "wind": 0.3,
+    "sun": 0.85,
+    "absorb": 2.6,
+    "steps": 40,
+    "camera": "haces"
+   },
+   "steps": 60,
+   "hash": [
+    "e9f4e3778f2dbc44",
+    "2437252bd0e3b76c"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "lobulos",
+   "v": 1,
+   "seed": "orbitales-lobulos",
+   "res": null,
+   "params": {
+    "a": "3dz2",
+    "b": "3dz2",
+    "mix": 0,
+    "speed": 0,
+    "mode": "fase",
+    "level": 0.45,
+    "turn": 0.4,
+    "expo": 1.2
+   },
+   "steps": 60,
+   "hash": [
+    "20ad89b597a17b43",
+    "00d10bc1c0114f4d"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "dipolo",
+   "v": 1,
+   "seed": "orbitales-dipolo",
+   "res": null,
+   "params": {
+    "a": "1s",
+    "b": "2pz",
+    "mix": 0.55,
+    "speed": 1,
+    "mode": "densidad",
+    "level": 0.12,
+    "turn": 0.15,
+    "expo": 2
+   },
+   "steps": 60,
+   "hash": [
+    "c6a0794b26ae763f",
+    "837aa55b529b0d4c"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "anillos",
+   "v": 1,
+   "seed": "orbitales-anillos",
+   "res": null,
+   "params": {
+    "a": "4fz3",
+    "b": "4fz3",
+    "mix": 0,
+    "speed": 0,
+    "mode": "iso",
+    "level": 0.55,
+    "turn": -0.3,
+    "expo": 1.1
+   },
+   "steps": 60,
+   "hash": [
+    "24509fe52d38bc04",
+    "76df4c20e96aab22"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "hibrido",
+   "v": 1,
+   "seed": "orbitales-hibrido",
+   "res": null,
+   "params": {
+    "a": "2s",
+    "b": "2pz",
+    "mix": 0.5,
+    "speed": 1,
+    "mode": "iso",
+    "level": 0.4,
+    "turn": 0.25,
+    "expo": 1
+   },
+   "steps": 60,
+   "hash": [
+    "0591970fbb6a5fdc",
+    "d5af1d0dc60195b1"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "disco",
+   "v": 1,
+   "seed": "lente_gravitacional-disco",
+   "res": null,
+   "params": {
+    "dist": 20,
+    "incl": 9,
+    "orbit": 0.2,
+    "rout": 10,
+    "disk": 1,
+    "bg": "estrellas",
+    "expo": 1.5,
+    "spin": 1
+   },
+   "steps": 60,
+   "hash": [
+    "02bfd392647169c4",
+    "c24fe44f1e1b89c3"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "rejilla",
+   "v": 1,
+   "seed": "lente_gravitacional-rejilla",
+   "res": null,
+   "params": {
+    "dist": 16,
+    "incl": 24,
+    "orbit": 0.3,
+    "rout": 12,
+    "disk": 0,
+    "bg": "rejilla",
+    "expo": 1.2,
+    "spin": 1
+   },
+   "steps": 60,
+   "hash": [
+    "81aada840abb656c",
+    "8019178b76e02477"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "canto",
+   "v": 1,
+   "seed": "lente_gravitacional-canto",
+   "res": null,
+   "params": {
+    "dist": 22,
+    "incl": 2,
+    "orbit": 0.15,
+    "rout": 13,
+    "disk": 1.3,
+    "bg": "ambos",
+    "expo": 1.3,
+    "spin": -1.2
+   },
+   "steps": 60,
+   "hash": [
+    "e939123e1edeff39",
+    "c2befa629f7fc06e"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "dipolo",
+   "v": 1,
+   "seed": "campos_em-dipolo",
+   "res": 96,
+   "params": {
+    "config": "dipolo",
+    "sep": 0.9,
+    "ratio": 1,
+    "lines": 16,
+    "particles": 3,
+    "turn": 0.2,
+    "tilt": 18,
+    "view": "lineas"
+   },
+   "steps": 60,
+   "hash": [
+    "69a0cc2bd84ca902",
+    "8c3cbaf04915f533"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "repulsion",
+   "v": 1,
+   "seed": "campos_em-repulsion",
+   "res": 96,
+   "params": {
+    "config": "iguales",
+    "sep": 1.1,
+    "ratio": 2,
+    "lines": 10,
+    "particles": 4,
+    "turn": -0.15,
+    "tilt": 25,
+    "view": "potencial"
+   },
+   "steps": 60,
+   "hash": [
+    "16c54aa7ea071764",
+    "47544ccb5c605307"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "helmholtz",
+   "v": 1,
+   "seed": "campos_em-helmholtz",
+   "res": 96,
+   "params": {
+    "config": "espira",
+    "sep": 0.45,
+    "ratio": 1,
+    "lines": 9,
+    "particles": 5,
+    "turn": 0.25,
+    "tilt": 12,
+    "view": "flujo"
+   },
+   "steps": 60,
+   "hash": [
+    "786eca5104b294f7",
+    "00bff5c195c5ea7e"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "cuadrupolo",
+   "v": 1,
+   "seed": "campos_em-cuadrupolo",
+   "res": 96,
+   "params": {
+    "config": "cuadrupolo",
+    "sep": 0.8,
+    "ratio": 1,
+    "lines": 10,
+    "particles": 2,
+    "turn": 0.1,
+    "tilt": 60,
+    "view": "lineas"
+   },
+   "steps": 60,
+   "hash": [
+    "d64bd39c65036312",
+    "bb522deefc3594a1"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "iman",
+   "v": 1,
+   "seed": "campos_em-iman",
+   "res": 96,
+   "params": {
+    "config": "iman",
+    "sep": 0.9,
+    "ratio": 0,
+    "lines": 16,
+    "particles": 3,
+    "turn": 0.2,
+    "tilt": 8,
+    "view": "lineas"
+   },
+   "steps": 60,
+   "hash": [
+    "ab58af9820fa3e46",
+    "d79cdca9980b003d"
+   ]
+  }
+ ]
+}

@@ -30,7 +30,7 @@ export const META: FamilyMeta = {
     { id: 'pasadizos', name: 'Pasadizos', params: { rule: 'laberinto', neigh: 'moore', density: 0.4, seedShape: 'centro', edges: 'cerrado', speed: 12, trail: 'ninguna' }, look: { stops: ['#0c0c06', '#f0f0b0'], bg: '#060603', charset: ' .|+#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'dibujar', label: 'Dibujar', hint: 'Enciende celdas al azar donde tocas.' }, { id: 'borrar', label: 'Borrar', hint: 'Apaga las celdas de la zona.' }],
   },
   budget: { res: [32, 192, 64], rate: 30, warmup: 90 },

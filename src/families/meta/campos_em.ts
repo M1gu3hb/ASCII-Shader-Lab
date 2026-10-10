@@ -28,7 +28,7 @@ export const META: FamilyMeta = {
     { id: 'cuadrupolo', name: 'Cuadrupolo', params: { config: 'cuadrupolo', sep: 0.8, ratio: 1, lines: 10, particles: 2, turn: 0.1, tilt: 60, view: 'lineas' }, look: { stops: ['#0b0814', '#d2c4ff'], bg: '#05040c', charset: ' .:-=+#' } },
     { id: 'iman', name: 'Imán', params: { config: 'iman', sep: 0.9, ratio: 0, lines: 16, particles: 3, turn: 0.2, tilt: 8, view: 'lineas' }, look: { stops: ['#0e0a04', '#ffe2a0'], bg: '#070502', charset: ' .\'`:;|+#' } },
   ],
-  caps: { loop: false, basic: 'full', checkpoint: true },
+  caps: { loop: false, time: 'construccion', basic: 'full', checkpoint: true },
   budget: { res: [48, 192, 96], rate: 30, warmup: 0 },
   wrap: 'clamp',
   figure: true,

@@ -33,7 +33,7 @@ export const META: FamilyMeta = {
     { id: 'pilares', name: 'Estela entre pilares', params: { jets: 5, layout: 'izquierda', force: 2.2, motion: 0.15, pulse: 0, vort: 0.3, visc: 0, buoy: 0, obst: 4, iters: 22, dyeDiss: 0.3, view: 'vorticidad' }, look: { stops: ['#0b0a06', '#ffd27a'], bg: '#060503', charset: ' .-~=≈#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'tinta', label: 'Tinta', hint: 'Echa tinta y empuja el fluido en la dirección del trazo.' }],
   },
   budget: {

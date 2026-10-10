@@ -26,7 +26,7 @@ export const META: FamilyMeta = {
     { id: 'meandros', name: 'Meandros', params: { sensorAngle: 45, sensorDist: 3, turn: 45, stepSize: 0.7, density: 5, deposit: 1, decay: 0.1, diffuse: 1, layout: 'aleatorio' }, look: { stops: ['#100a14', '#e2c4ff'], bg: '#08050a', charset: ' .:;+*#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [
       { id: 'atraer', label: 'Atraer', hint: 'Deja rastro donde tocas: los agentes acuden y la red se desvía hacia ahí.' },
       { id: 'dispersar', label: 'Dispersar', hint: 'Borra el rastro y empuja a los agentes fuera de la zona.' },

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { familyById } from '../../families/registry';
-import { formatParam, normParam, type LayerFam } from '../../families/params';
+import { TIME_WORDS, defaultParams, formatParam, normParam, timeContract, type LayerFam } from '../../families/params';
 import type { FamilyMeta, ParamSpec, TextParam } from '../../families/types';
 import { F, Note, Select, Seg, Slider, Sub, Toggle, useField } from '../controls';
 import { edit, useRecipe, useStudio } from '../store';
@@ -84,6 +84,18 @@ function RunPanel({ i, meta, fam }: { i: number; meta: FamilyMeta; fam: LayerFam
   );
 }
 
+/** What the layer's settings promise in time (A-04): continuous, an exact loop, or a construction that ends. */
+function TimeLine({ meta, fam }: { meta: FamilyMeta; fam: LayerFam }) {
+  const tc = timeContract(meta, fam.p);
+  const pr = meta.presets.find(p => JSON.stringify({ ...defaultParams(meta), ...p.params }) === JSON.stringify(fam.p));
+  const w = TIME_WORDS[tc];
+  return (
+    <p className={'fam-time fam-t-' + tc}>
+      <span className="fam-tmark" aria-hidden="true">{w.mark}</span> <b>{w.label}{tc === 'bucle' && pr?.period ? ` de ${String(pr.period).replace('.', ',')} s` : ''}.</b> {w.hint}
+    </p>
+  );
+}
+
 export function FamilyControls({ i }: { i: number }) {
   const pat = useField(F<string>(`layers.${i}.pattern`));
   const fam = useField(F<LayerFam>(`layers.${i}.fam`));
@@ -108,12 +120,19 @@ export function FamilyControls({ i }: { i: number }) {
         </div>
       )}
       {doc && <p className="layer-desc">{doc.blurb}</p>}
+      <TimeLine meta={meta} fam={fam} />
       {!meta.caps.loop && loop > 0 && <Note>«Bucle perfecto» no se aplica a esta capa: evoluciona con memoria y no vuelve a su inicio. El resto de la pieza sí lo usa.</Note>}
       <Sub>Presets</Sub>
       <div className="chips" role="group" aria-label={`Presets de ${meta.name}`}>
-        {meta.presets.map(p => (
-          <button key={p.id} type="button" className="chip" title={doc?.presets[p.id]} onClick={() => applyFamilyPreset(i, p.id, withLook)}>{p.name}</button>
-        ))}
+        {meta.presets.map(p => {
+          const tc = timeContract(meta, { ...defaultParams(meta), ...p.params });
+          const tw = TIME_WORDS[tc];
+          return (
+            <button key={p.id} type="button" className={'chip fam-t-' + tc} title={[doc?.presets[p.id], `${tw.label}${p.period ? ` (${p.period} s)` : ''}: ${tw.hint}`].filter(Boolean).join(' · ')} onClick={() => applyFamilyPreset(i, p.id, withLook)}>
+              <span className="fam-tmark" aria-label={tw.label}>{tw.mark}</span> {p.name}
+            </button>
+          );
+        })}
       </div>
       <label className="check"><input type="checkbox" checked={withLook} onChange={e => setWithLook(e.target.checked)} /> Con su paleta y sus caracteres</label>
       <p className="hint-line">Un preset cambia los ajustes de esta capa; se deshace como cualquier cambio.</p>

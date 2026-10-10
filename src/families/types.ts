@@ -83,11 +83,26 @@ export interface TextParam extends ParamBase {
 
 export type ParamSpec = NumberParam | IntParam | ChoiceParam | BoolParam | TextParam;
 
+/**
+ * How a piece behaves in time (PR #10 review, A-04): what the studio promises and the probes check.
+ *  - 'continuo': keeps changing for as long as it runs, with no visible restart (checked over ten minutes at
+ *    several seeds and resolutions). It is not periodic: «Bucle perfecto» does not make it loop.
+ *  - 'bucle': exactly periodic in state, colour and camera with `period` seconds of layer time.
+ *  - 'construccion': a finite process that builds something and then holds it still (or rebuilds after a
+ *    designed pause). Said in the panel and the library: it is an experiment to watch, not a background.
+ */
+export type TimeContract = 'continuo' | 'bucle' | 'construccion';
+
+/** What decides a family's contract: one for all its settings, or the value of one parameter. */
+export type TimeRule = TimeContract | { param: string; values: Record<string, TimeContract>; else: TimeContract };
+
 /** A named starting point that shows a distinct regime of the family (never a recolouring alone). */
 export interface FamilyPreset {
   id: string;
   name: string;
   params: Params;
+  /** Exactly periodic presets ('bucle'): the period in seconds of layer time. */
+  period?: number;
   /** Suggested look: palette stops (dark → light), background, character set and cell size. */
   look?: { stops?: string[]; bg?: string; charset?: string; cell?: number; glyphMode?: 'density' | 'lines' };
   /** Layer transform the preset is designed for. */
@@ -106,6 +121,8 @@ export interface BrushSpec {
 export interface FamilyCaps {
   /** «Bucle perfecto» keeps continuity: only analytic families. */
   loop: boolean;
+  /** How it behaves in time (see TimeContract): for every setting, or by the value of one parameter. */
+  time: TimeRule;
   /** Implementation in the basic engine: the same model ('full'), a lighter faithful port ('reduced'). */
   basic: 'full' | 'reduced';
   /** What 'reduced' leaves out, in product language (shown in basic mode). */
@@ -191,6 +208,11 @@ export interface ModelConfig {
   params: Params;
   /** Raster rows; columns are 2 × rows (the domain is 2 × 1 screen heights). */
   res: number;
+  /**
+   * Algorithm version the recipe was made with (absent: the family's current one). A model whose version went
+   * up keeps the earlier path for recipes made with it (tests/unit/families-compat.test.ts).
+   */
+  v?: number;
 }
 
 /** Exact state of a model: typed arrays plus the scalars it needs (RNG state included). */

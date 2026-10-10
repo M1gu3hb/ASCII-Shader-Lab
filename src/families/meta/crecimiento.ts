@@ -26,7 +26,7 @@ export const META: FamilyMeta = {
     { id: 'colonia', name: 'Colonia de pliegues', params: { sep: 0.075, att: 0.6, ali: 0.7, edge: 0.5, sprout: 0.4, shape: 'varias', bound: 'rect', view: 'trazo' }, look: { stops: ['#04100a', '#a8f0c6'], bg: '#020805', charset: ' .·:oO@' } },
     { id: 'medusa', name: 'Tentáculos radiales', params: { sep: 0.085, att: 0.6, ali: 0.4, edge: 0.4, sprout: 0.3, shape: 'estrella', bound: 'circulo', view: 'trazo' }, look: { stops: ['#0a0716', '#d3c4ff'], bg: '#05030c', charset: ' .:-=+#' } },
   ],
-  caps: { loop: false, basic: 'full', checkpoint: true },
+  caps: { loop: false, time: 'construccion', basic: 'full', checkpoint: true },
   budget: { res: [48, 256, 96], rate: 30, warmup: 150 },
   wrap: 'clamp',
 };

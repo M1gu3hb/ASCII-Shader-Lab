@@ -29,7 +29,7 @@ export const META: FamilyMeta = {
     { id: 'binaria', name: 'Estrella doble con anillo', params: { bodies: 600, init: 'binario', masses: 'iguales', G: 1, soft: 0.03, dt: 0.01, trail: 0.85, zoom: 1, tilt: 25, spin: 0.05, view: 'masa' }, look: { stops: ['#03100c', '#a8ffd8'], bg: '#010805', charset: ' .-~=*#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'masa', label: 'Añadir masa', hint: 'Deja un cuerpo pesado en reposo donde tocas (hasta 12).' }],
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 30 },

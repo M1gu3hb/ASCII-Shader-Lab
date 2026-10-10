@@ -27,7 +27,7 @@ export const META: FamilyMeta = {
     { id: 'caos', name: 'Caos que respira', params: { feed: 0.018, kill: 0.051, diff: 0.5, scale: 1, seedShape: 'manchas', view: 'contorno' }, look: { stops: ['#04101c', '#7fd0ff'], bg: '#020810', charset: ' .:+*#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'sembrar', label: 'Sembrar', hint: 'Añade sustancia B donde tocas.' }, { id: 'borrar', label: 'Borrar', hint: 'Devuelve la zona al estado vacío.' }],
   },
   budget: { res: [64, 256, 96], rate: 600, warmup: 1200 },

@@ -27,7 +27,7 @@ export const META: FamilyMeta = {
     { id: 'musical', name: 'Arena musical', params: { plate: 'cuadrada', n: 2, m: 7, mix: -1, seq: 'rapido', count: 24000, agit: 1.6, persist: 0.75, view: 'arena' }, look: { stops: ['#04100f', '#bff7ec'], bg: '#020807', charset: ' .`:;+=#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'golpe', label: 'Golpe', hint: 'Esparce la arena donde tocas.' }],
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 60 },

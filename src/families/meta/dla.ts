@@ -31,7 +31,7 @@ export const META: FamilyMeta = {
     { id: 'colonias', name: 'Colonias', params: { seed: 'varios', stick: 0.5, bias: 0.15, dir: 'fuera', walkers: 10, width: 1, age: 'antiguas' }, look: { stops: ['#0c0f05', '#e6f59a'], bg: '#060802', charset: ' .:-=+#' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'construccion', basic: 'full', checkpoint: true,
     brushes: [{ id: 'semilla', label: 'Semilla', hint: 'Añade agregado donde tocas: una rama nueva que sigue creciendo desde ahí, aunque la agregación se hubiera detenido.' }],
   },
   budget: { res: [48, 160, 64], rate: 30, warmup: 90 },

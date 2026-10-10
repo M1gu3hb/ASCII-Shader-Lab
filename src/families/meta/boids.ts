@@ -26,7 +26,7 @@ export const META: FamilyMeta = {
     { id: 'dispersion', name: 'Dispersión', params: { count: 800, vision: 0.045, sep: 0.025, wSep: 1, wAli: 1, wCoh: 0.35, speed: 0.2, force: 0.8, predators: 0, obstacles: 4, trail: 0.5 }, look: { stops: ['#120d06', '#f2cf8a'], bg: '#090603', charset: ' .,:;!|' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'espantar', label: 'Espantar', hint: 'Los agentes huyen de donde tocas, como de un depredador.' }],
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 45 },

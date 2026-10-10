@@ -29,7 +29,7 @@ export const META: FamilyMeta = {
     { id: 'turbulencia', name: 'Turbulencia', params: { K: 4, spread: 0.05, freq: 0.5, neigh: 'r3', lag: 1, noise: 0, init: 'aleatoria', view: 'vortices' }, look: { stops: ['#100608', '#ffb0c0'], bg: '#080304', charset: ' .:o@' } },
   ],
   caps: {
-    loop: false, basic: 'full', checkpoint: true,
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
     brushes: [{ id: 'empujar', label: 'Empujar fase', hint: 'Adelanta la fase donde tocas: lanza una onda o abre un remolino.' }],
   },
   budget: { res: [48, 192, 96], rate: 20, warmup: 200 },

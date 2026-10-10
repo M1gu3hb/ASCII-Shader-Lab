@@ -354,7 +354,7 @@ export class FamilyHost {
     const res = f.res ?? meta.budget.res?.[2] ?? 128;
     let model: FieldModel;
     try {
-      model = factory({ seed: f.seed, params: f.p, res });
+      model = factory({ seed: f.seed, params: f.p, res, v: f.v });
     } catch (e) {
       this.report(meta.id, e);
       return { key, loading: false, failed: true, error: e instanceof Error ? e.message : String(e) };
@@ -448,7 +448,7 @@ export class FamilyHost {
     const factory = modelOf(s.meta.id);
     if (!factory) return;
     const res = s.model.h;
-    s.model = factory({ seed: this.seedOf(s.key), params: p, res });
+    s.model = factory({ seed: this.seedOf(s.key), params: p, res, v: Number(s.key.split('|')[1]) || s.meta.version });
     if (s.baseState) s.model.restore(s.baseState);
     if (s.baseState && p !== s.params) s.model.setParams(p);
     s.params = p; s.paramsKey = JSON.stringify(p);

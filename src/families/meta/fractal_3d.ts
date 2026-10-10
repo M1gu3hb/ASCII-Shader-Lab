@@ -22,7 +22,7 @@ export const META: FamilyMeta = {
     { id: 'corte', name: 'Corte interior', params: { form: 'bulb', power: 6, iters: 8, cut: 0.55, orbit: 0.12, dist: 2.4, breathe: 0, light: 0.8 }, look: { stops: ['#04100f', '#9ff2de'], bg: '#020807', charset: ' .·:;oO@' } },
     { id: 'caja', name: 'Caja plegada', params: { form: 'box', power: 6, iters: 10, cut: 0, orbit: 0.15, dist: 3, breathe: 0.05, light: 0.4 }, look: { stops: ['#0e0a06', '#ffd27a'], bg: '#070503', charset: ' .-=+#' } },
   ],
-  caps: { loop: true, basic: 'reduced', basicNote: 'En el motor básico: 56 pasos de rayo y sin sombra suave.', checkpoint: false },
+  caps: { loop: true, time: 'continuo', basic: 'reduced', basicNote: 'En el motor básico: 56 pasos de rayo y sin sombra suave.', checkpoint: false },
   budget: { },
   figure: true,
 };

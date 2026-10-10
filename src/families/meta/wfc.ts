@@ -24,7 +24,7 @@ export const META: FamilyMeta = {
     { id: 'laberinto', name: 'Ciudad densa', params: { set: 'muros', rows: 22, density: 0.95, pace: 180, hold: 5, edges: 'libres', view: 'lineas' }, look: { stops: ['#0b0b12', '#c8d2ff'], bg: '#050509', charset: ' .-=+#' } },
     { id: 'onda', name: 'La onda que colapsa', params: { set: 'circuitos', rows: 14, density: 0.7, pace: 30, hold: 4, edges: 'libres', view: 'entropia' }, look: { stops: ['#120612', '#ffc2f0'], bg: '#090309', charset: ' .·:+*#' } },
   ],
-  caps: { loop: false, basic: 'full', checkpoint: true },
+  caps: { loop: false, time: 'construccion', basic: 'full', checkpoint: true },
   budget: { res: [48, 256, 96], rate: 30, warmup: 30 },
   wrap: 'clamp',
 };

@@ -29,7 +29,7 @@ export const META: FamilyMeta = {
     { id: 'raices', name: 'Raíces', params: { model: 'raices', gens: 6, angle: 18, decay: 0.92, jitter: 0.45, grow: 12, wind: 0.05, width: 1 }, look: { stops: ['#120a06', '#e8b07c'], bg: '#090503', charset: ' .,:;!|' } },
     { id: 'dragon', name: 'Curva del dragón', params: { model: 'dragon', gens: 9, angle: 90, decay: 1, jitter: 0, grow: 14, wind: 0, width: 1.2 }, look: { stops: ['#0a0816', '#c6b6ff'], bg: '#05040c', charset: ' .-=+#' } },
   ],
-  caps: { loop: false, basic: 'full', checkpoint: true },
+  caps: { loop: false, time: 'construccion', basic: 'full', checkpoint: true },
   budget: { res: [48, 256, 96], rate: 30, warmup: 0 },
   wrap: 'clamp',
   figure: true,

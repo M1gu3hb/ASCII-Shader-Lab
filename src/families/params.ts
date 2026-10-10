@@ -1,4 +1,4 @@
-import type { FamilyMeta, ParamSpec, ParamValue, Params } from './types';
+import type { FamilyMeta, ParamSpec, ParamValue, Params, TimeContract } from './types';
 
 /**
  * A layer's family settings, as the recipe keeps them (layer.fam). Absent on every other layer, so recipes
@@ -139,3 +139,18 @@ export function formatParam(s: ParamSpec, v: ParamValue): string {
 export function needsRebuild(meta: FamilyMeta, a: Params, b: Params): boolean {
   return meta.params.some(s => s.rebuild && a[s.key] !== b[s.key]);
 }
+
+/** How a layer with these parameters behaves in time (FamilyCaps.time). */
+export function timeContract(meta: FamilyMeta, p: Params): TimeContract {
+  const rule = meta.caps.time;
+  if (typeof rule === 'string') return rule;
+  const v = p[rule.param];
+  return (typeof v === 'string' || typeof v === 'boolean' || typeof v === 'number') && rule.values[String(v)] ? rule.values[String(v)] : rule.else;
+}
+
+/** What each contract promises, in product language (panel and library). */
+export const TIME_WORDS: Record<TimeContract, { label: string; mark: string; hint: string }> = {
+  continuo: { label: 'Continuo', mark: '∞', hint: 'Sigue cambiando mientras corre, sin reinicio visible. No es periódico.' },
+  bucle: { label: 'Bucle', mark: '↻', hint: 'Vuelve exactamente a su inicio: estado, color y cámara empalman.' },
+  construccion: { label: 'Construcción', mark: '▣', hint: 'Un proceso que termina: construye y se queda quieto. Para mirarlo crecer, no como fondo.' },
+};

@@ -31,7 +31,7 @@ export const META: FamilyMeta = {
     { id: 'delta', name: 'Ríos y delta', params: { shape: 'ladera', height: 0.6, scale: 2.5, rain: 0.6, erode: 0.6, deposit: 0.7, capacity: 0.6, evap: 0.08, talus: 40, strata: 0, view: 'relieve', orbit: 0.4, pitch: 0.6 }, look: { stops: ['#04100c', '#7fe0c0', '#effff8'], bg: '#020806', charset: ' .·:;=+#' } },
     { id: 'mesetas', name: 'Mesetas', params: { shape: 'meseta', height: 0.8, scale: 4, rain: 0.2, erode: 0.5, deposit: 0.4, capacity: 0.5, evap: 0.4, talus: 22, strata: 1, view: 'relieve', orbit: 0.5, pitch: 0.2 }, look: { stops: ['#120806', '#ffb27a'], bg: '#090403', charset: ' .-=+*#' } },
   ],
-  caps: { loop: false, basic: 'full', checkpoint: true },
+  caps: { loop: false, time: 'continuo', basic: 'full', checkpoint: true },
   budget: {
     res: [48, 160, 112], rate: 30, warmup: 30,
   },
