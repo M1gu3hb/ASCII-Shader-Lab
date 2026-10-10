@@ -3,7 +3,7 @@ import { DISP_MAX } from '../touch';
 import type { PatternLibrary } from './patterns';
 import { isAnalytic, isFamily, isRaster } from '../../families/registry';
 import { FAMILY_SAMPLE_GLSL } from '../../families/sample';
-import { FAMILY_GLSL } from '../../families/analytic/glsl';
+import { familyGlsl } from '../../families/analytic/glsl';
 
 export const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
 
@@ -15,7 +15,10 @@ export type FieldSource = 'pattern' | 'media' | 'text';
 
 /** Program cache key for the field pass. */
 export function fieldKey(patterns: string[], src: FieldSource, loop: boolean): string {
-  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}`;
+  // an analytic family whose chunk has not arrived yet draws nothing: that program is another key, so it is
+  // never kept in place of the real one
+  const waiting = patterns.some(id => isAnalytic(id) && !familyGlsl(id));
+  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}${waiting ? '|sin-glsl' : ''}`;
 }
 
 /** Media sampling with fit/zoom/pan/mirror; shared by field and compose passes. */
@@ -46,7 +49,7 @@ export function buildFieldShader(patterns: string[], src: FieldSource, loop: boo
   const used = [...new Set(patterns)];
   // raster families (geometry, simulation) need no chunk: their layer reads the raster their model computed
   const chunks = used.filter(id => !isRaster(id)).map(id => {
-    const c = isAnalytic(id) ? FAMILY_GLSL[id] : lib[id];
+    const c = isAnalytic(id) ? familyGlsl(id) ?? `float F_${id}(vec2 p, float t, vec4 k0, vec4 k1) { return 0.; }` : lib[id];
     if (!c) throw new Error('Patrón no disponible en la librería: ' + id);
     return c;
   }).join('\n');

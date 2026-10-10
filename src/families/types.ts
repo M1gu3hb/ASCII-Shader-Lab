@@ -87,8 +87,6 @@ export type ParamSpec = NumberParam | IntParam | ChoiceParam | BoolParam | TextP
 export interface FamilyPreset {
   id: string;
   name: string;
-  /** What makes this regime different (one line). */
-  desc: string;
   params: Params;
   /** Suggested look: palette stops (dark → light), background, character set and cell size. */
   look?: { stops?: string[]; bg?: string; charset?: string; cell?: number; glyphMode?: 'density' | 'lines' };
@@ -125,14 +123,32 @@ export interface FamilyBudget {
   rate?: number;
   /** Steps run from the seed before the first frame (the clip's defined warm-up). */
   warmup?: number;
-  /** Human-readable limits (agents, nodes, iterations, ray steps, memory). */
-  limits: string;
 }
 
 /** What the studio and the docs say about where the model comes from. */
 export interface FamilySource {
   label: string;
   url: string;
+}
+
+/**
+ * What the studio says about a family, apart from its spec (meta/<id>.doc.ts): loaded with its panel, the
+ * recipe browser or the docs, never with the first view of a page that does not show a family.
+ */
+export interface FamilyDoc {
+  /** One line for the library card. */
+  blurb: string;
+  /** How it works, two or three sentences. */
+  mechanism: string;
+  /** How time behaves, in product language (continuous evolution, clip, loop). */
+  time: string;
+  /** Human-readable limits (agents, nodes, iterations, ray steps, memory). */
+  limits: string;
+  sources: FamilySource[];
+  /** Parameter key → what it does (one line). */
+  hints: Record<string, string>;
+  /** Preset id → what makes that regime different (one line). */
+  presets: Record<string, string>;
 }
 
 export interface FamilyMeta {
@@ -143,17 +159,10 @@ export interface FamilyMeta {
   kind: FamilyKind;
   /** Algorithm version: a recipe made with a newer one is refused, not reinterpreted. */
   version: number;
-  /** One line for the library card. */
-  blurb: string;
-  /** How it works, two or three sentences. */
-  mechanism: string;
-  /** How time behaves, in product language (continuous evolution, clip, loop). */
-  time: string;
   params: ParamSpec[];
   presets: FamilyPreset[];
   caps: FamilyCaps;
   budget: FamilyBudget;
-  sources: FamilySource[];
   /** Relation to an existing catalog entry, when there is one (an extension, not a duplicate). */
   extends?: string;
   /** Drawn around the centre (sized to the width on canvases taller than wide). */

@@ -3,7 +3,8 @@ import { FAMILIES, FAMILY_IDS, familyById } from '../../src/families/registry';
 import { LOADABLE, loadFamilyNow } from '../../src/families/load';
 import { analyticOf, modelOf } from '../../src/families/models';
 import { defaultParams, normFam, normParam, packParams } from '../../src/families/params';
-import { FAMILY_GLSL } from '../../src/families/analytic/glsl';
+import { FAMILY_GLSL_IDS, familyGlsl, loadFamilyGlsl } from '../../src/families/analytic/glsl';
+import { DOC_IDS, loadFamilyDoc } from '../../src/families/docs';
 import { decodeCheckpoint, encodeCheckpoint } from '../../src/families/checkpoints';
 import { FamilyHost } from '../../src/families/host';
 import { familyRecipe } from '../../src/families/recipes';
@@ -70,11 +71,16 @@ describe('registro de familias', () => {
 for (const meta of FAMILIES) {
   // (simulations run thousands of steps here: generous time when the whole suite shares the machine)
   describe(`familia ${meta.id}`, { timeout: 60_000 }, () => {
-    it('metadatos completos y coherentes', () => {
+    it('metadatos completos y coherentes', async () => {
       expect(meta.name.length).toBeGreaterThan(2);
-      for (const k of ['blurb', 'mechanism', 'time'] as const) expect(meta[k].length, k).toBeGreaterThan(20);
-      expect(meta.sources.length).toBeGreaterThan(0);
-      expect(meta.budget.limits.length).toBeGreaterThan(10);
+      // its prose lives in its own module (meta/<id>.doc.ts), loaded with its panel
+      const doc = (await loadFamilyDoc(meta.id))!;
+      expect(doc, 'meta/' + meta.id + '.doc.ts').toBeTruthy();
+      for (const k of ['blurb', 'mechanism', 'time'] as const) expect(doc[k].length, k).toBeGreaterThan(20);
+      expect(doc.sources.length).toBeGreaterThan(0);
+      expect(doc.limits.length).toBeGreaterThan(10);
+      for (const k of Object.keys(doc.hints)) expect(meta.params.some(p => p.key === k), `pista de un parámetro que no existe: ${k}`).toBe(true);
+      expect(Object.keys(doc.presets).sort()).toEqual(meta.presets.map(p => p.id).sort());
       expect(new Set(meta.params.map(p => p.key)).size).toBe(meta.params.length);
       // defaults are valid values of their own spec
       for (const s of meta.params) expect(normParam(s, s.def), s.key).toEqual(s.def);
@@ -82,7 +88,7 @@ for (const meta of FAMILIES) {
       expect(meta.presets.length).toBeGreaterThanOrEqual(3);
       expect(new Set(meta.presets.map(p => p.id)).size).toBe(meta.presets.length);
       for (const pr of meta.presets) {
-        expect(pr.desc.length, pr.id).toBeGreaterThan(10);
+        expect((doc.presets[pr.id] ?? '').length, pr.id).toBeGreaterThan(10);
         for (const [k, v] of Object.entries(pr.params)) {
           const s = meta.params.find(p => p.key === k);
           expect(s, `${pr.id}.${k}`).toBeTruthy();
@@ -92,7 +98,9 @@ for (const meta of FAMILIES) {
       if (meta.kind === 'analytic') {
         expect(meta.caps.loop).toBe(true);
         expect(meta.params.length).toBeLessThanOrEqual(8);
-        expect(FAMILY_GLSL[meta.id]).toContain(`float F_${meta.id}(vec2 p, float t, vec4 k0, vec4 k1)`);
+        await loadFamilyGlsl(meta.id);
+        expect(FAMILY_GLSL_IDS).toContain(meta.id);
+        expect(familyGlsl(meta.id)).toContain(`float F_${meta.id}(vec2 p, float t, vec4 k0, vec4 k1)`);
         expect(analyticOf(meta.id)).toBeTruthy();
       } else {
         expect(meta.caps.loop).toBe(false);
@@ -273,4 +281,6 @@ it('en vivo, cambiar un parámetro de construcción crea otra ejecución; deshac
 
 it('las familias conocidas por la receta son las del registro', () => {
   for (const id of LOADABLE) expect(familyById(id), id).toBeTruthy();
+  // every family has its prose, and nothing else does
+  expect([...DOC_IDS].sort()).toEqual([...FAMILY_IDS].sort());
 });

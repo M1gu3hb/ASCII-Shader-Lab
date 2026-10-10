@@ -190,7 +190,7 @@ function build(): RecipeItem[] {
         const section = FAMILY_SECTION[f.group];
         out.push({
           key: `${space}/familia:${f.id}:${pr.id}`, id: `${f.id}:${pr.id}`, name: pr.name, space, kind: 'familia', section, cats: [section], make,
-          line: f.name, words: fold([pr.name, f.name, f.blurb, pr.desc, CATEGORIES[section].label, CATEGORIES[section].words ?? '', 'familia simulacion'].join(' ')),
+          line: f.name, words: fold([pr.name, f.name, CATEGORIES[section].label, CATEGORIES[section].words ?? '', 'familia simulacion'].join(' ')),
           folded: fold(pr.name), look: lookOf(r), order: order++,
         });
       }

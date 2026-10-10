@@ -6,6 +6,7 @@ import { F, Note, Select, Seg, Slider, Sub, Toggle, useField } from '../controls
 import { edit, useRecipe, useStudio } from '../store';
 import { applyFamilyPreset, engineLayer, newFamilySeed, resetFamily, stepFamily, useFamilyInfo } from '../families';
 import { saveFamilyState, dropFamilyState, useCheckpointNote } from '../familyState';
+import { useFamilyDoc } from '../familyDoc';
 import '../css/families.css';
 
 /**
@@ -15,30 +16,30 @@ import '../css/families.css';
  * recipe edit with undo; reset and step only act on the stage's run.
  */
 
-const hintOf = (s: ParamSpec) => (s.hint ? { hint: /[.:]$/.test(s.hint) ? s.hint : s.hint + '.' } : null);
+const hintOf = (h: string | undefined) => (h ? { hint: /[.:]$/.test(h) ? h : h + '.' } : null);
 
-function ParamControl({ i, s }: { i: number; s: ParamSpec }) {
+function ParamControl({ i, s, hint }: { i: number; s: ParamSpec; hint?: string }) {
   const path = `layers.${i}.fam.p.${s.key}`;
   switch (s.type) {
     case 'number': {
       const span = s.max - s.min;
-      return <Slider f={F<number>(path)} label={s.label} min={s.min} max={s.max} step={s.step ?? (span > 20 ? 1 : span / 200)} fmt={v => formatParam(s, v)} help={hintOf(s)} />;
+      return <Slider f={F<number>(path)} label={s.label} min={s.min} max={s.max} step={s.step ?? (span > 20 ? 1 : span / 200)} fmt={v => formatParam(s, v)} help={hintOf(hint)} />;
     }
     case 'int':
-      return <Slider f={F<number>(path)} label={s.label} min={s.min} max={s.max} step={1} fmt={v => formatParam(s, Math.round(v))} help={hintOf(s)} />;
+      return <Slider f={F<number>(path)} label={s.label} min={s.min} max={s.max} step={1} fmt={v => formatParam(s, Math.round(v))} help={hintOf(hint)} />;
     case 'choice':
       return s.options.length <= 4
-        ? <Seg f={F<string>(path)} label={s.label} opts={s.options.map(o => [o.id, o.label] as [string, string])} help={hintOf(s)} />
-        : <Select f={F<string>(path)} label={s.label} opts={s.options.map(o => [o.id, o.label] as [string, string])} help={hintOf(s)} minWidth={240} />;
+        ? <Seg f={F<string>(path)} label={s.label} opts={s.options.map(o => [o.id, o.label] as [string, string])} help={hintOf(hint)} />
+        : <Select f={F<string>(path)} label={s.label} opts={s.options.map(o => [o.id, o.label] as [string, string])} help={hintOf(hint)} minWidth={240} />;
     case 'bool':
-      return <Toggle f={F<boolean>(path)} label={s.label} help={hintOf(s)} />;
+      return <Toggle f={F<boolean>(path)} label={s.label} help={hintOf(hint)} />;
     case 'text':
-      return <ParamText i={i} s={s} />;
+      return <ParamText i={i} s={s} hint={hint} />;
   }
 }
 
 /** A text parameter (a grammar): only its allowed characters, with its length limit said. */
-function ParamText({ i, s }: { i: number; s: TextParam }) {
+function ParamText({ i, s, hint }: { i: number; s: TextParam; hint?: string }) {
   const id = useId();
   const v = (useField(F<string>(`layers.${i}.fam.p.${s.key}`)) ?? s.def) as string;
   return (
@@ -46,7 +47,7 @@ function ParamText({ i, s }: { i: number; s: TextParam }) {
       <label className="lbl" htmlFor={id}>{`${s.label} · ${Array.from(v).length}/${s.max}`}</label>
       <input id={id} type="text" className="mono" value={v} maxLength={s.max} spellCheck={false} autoComplete="off" aria-describedby={id + 'h'}
         onChange={e => { const val = normParam(s, e.target.value) as string; edit(r => { const f = r.layers[i]?.fam; if (f) f.p[s.key] = val; }, `layers.${i}.fam.p.${s.key}`); }} />
-      {s.hint && <p className="hint-line" id={id + 'h'}>{s.hint}{s.allowed ? ` Caracteres: ${s.allowed.replace(/=;/, '').split('').join(' ')}` : ''}</p>}
+      {hint && <p className="hint-line" id={id + 'h'}>{hint}{s.allowed ? ` Caracteres: ${s.allowed.replace(/=;/, '').split('').join(' ')}` : ''}</p>}
     </div>
   );
 }
@@ -89,6 +90,8 @@ export function FamilyControls({ i }: { i: number }) {
   const [more, setMore] = useState(false);
   const [withLook, setWithLook] = useState(false);
   const meta = pat ? familyById(pat) : undefined;
+  // its words (how it works, the hints) come in their own chunk: the controls work before they arrive
+  const doc = useFamilyDoc(meta?.id);
   if (!meta || !fam) return null;
   const raster = meta.kind !== 'analytic';
   const basic = meta.params.filter(s => !s.advanced), adv = meta.params.filter(s => s.advanced);
@@ -96,22 +99,22 @@ export function FamilyControls({ i }: { i: number }) {
   const resOpts: Array<[number, string]> = res ? [...new Set([res[0], Math.round((res[0] + res[2]) / 2), res[2], Math.round((res[2] + res[1]) / 2), res[1]])].map(v => [v, `${v} filas${v === res[2] ? ' (por defecto)' : ''}`]) : [];
   return (
     <div className="fam">
-      <p className="layer-desc">{meta.blurb}</p>
+      {doc && <p className="layer-desc">{doc.blurb}</p>}
       {!meta.caps.loop && loop > 0 && <Note>«Bucle perfecto» no se aplica a esta capa: evoluciona con memoria y no vuelve a su inicio. El resto de la pieza sí lo usa.</Note>}
       <Sub>Presets</Sub>
       <div className="chips" role="group" aria-label={`Presets de ${meta.name}`}>
         {meta.presets.map(p => (
-          <button key={p.id} type="button" className="chip" title={p.desc} onClick={() => applyFamilyPreset(i, p.id, withLook)}>{p.name}</button>
+          <button key={p.id} type="button" className="chip" title={doc?.presets[p.id]} onClick={() => applyFamilyPreset(i, p.id, withLook)}>{p.name}</button>
         ))}
       </div>
       <label className="check"><input type="checkbox" checked={withLook} onChange={e => setWithLook(e.target.checked)} /> Con su paleta y sus caracteres</label>
       <p className="hint-line">Un preset cambia los ajustes de esta capa; se deshace como cualquier cambio.</p>
       <Sub>{meta.name}</Sub>
-      {basic.map(s => <ParamControl key={s.key} i={i} s={s} />)}
+      {basic.map(s => <ParamControl key={s.key} i={i} s={s} hint={doc?.hints[s.key]} />)}
       {adv.length > 0 && (
         <>
           <button type="button" className="linkish" aria-expanded={more} onClick={() => setMore(!more)}>{more ? 'Menos ajustes' : 'Más ajustes'}</button>
-          {more && adv.map(s => <ParamControl key={s.key} i={i} s={s} />)}
+          {more && adv.map(s => <ParamControl key={s.key} i={i} s={s} hint={doc?.hints[s.key]} />)}
         </>
       )}
       {raster && (
@@ -131,15 +134,17 @@ export function FamilyControls({ i }: { i: number }) {
         <span className="lbl">Semilla <code>{fam.seed}</code></span>
         <button type="button" className="btn" onClick={() => newFamilySeed(i)}>Otra semilla</button>
       </div>
-      <details className="fam-how">
-        <summary>Cómo funciona</summary>
-        <p>{meta.mechanism}</p>
-        <p>{meta.time}</p>
-        <p>Límites: {meta.budget.limits}</p>
-        {meta.caps.basic === 'reduced' && meta.caps.basicNote && <p>{meta.caps.basicNote}</p>}
-        <p>Referencias (inspiración; GLYPHOS usa código propio):</p>
-        <ul>{meta.sources.map(s => <li key={s.url}><a href={s.url} target="_blank" rel="noopener noreferrer">{s.label}</a></li>)}</ul>
-      </details>
+      {doc && (
+        <details className="fam-how">
+          <summary>Cómo funciona</summary>
+          <p>{doc.mechanism}</p>
+          <p>{doc.time}</p>
+          <p>Límites: {doc.limits}</p>
+          {meta.caps.basic === 'reduced' && meta.caps.basicNote && <p>{meta.caps.basicNote}</p>}
+          <p>Referencias (inspiración; GLYPHOS usa código propio):</p>
+          <ul>{doc.sources.map(s => <li key={s.url}><a href={s.url} target="_blank" rel="noopener noreferrer">{s.label}</a></li>)}</ul>
+        </details>
+      )}
     </div>
   );
 }

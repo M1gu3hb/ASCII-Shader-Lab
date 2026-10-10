@@ -2,6 +2,7 @@ import type { Layer, Recipe } from '../engine/recipe';
 import { checkpointGen, getCheckpoint } from './checkpoints';
 import { analyticOf, modelOf, modelsGen, ensureFamily } from './models';
 import { familyById } from './registry';
+import { familyGlsl, loadFamilyGlsl } from './analytic/glsl';
 import type { LayerFam } from './params';
 import type { FamilyMeta, FieldModel, ModelState, Params, Stroke } from './types';
 
@@ -149,14 +150,20 @@ export class FamilyHost {
     return FamilyHost.layersOf(r).map(l => familyById(l.pattern)).filter((m): m is FamilyMeta => !!m && (m.kind !== 'analytic' || !!this.o.cpu)).map(m => m.id);
   }
 
-  /** Loads the code of every family the recipe uses. */
+  /** The analytic families whose GLSL the WebGL engine needs (the basic engine draws them on the CPU). */
+  private glslNeeds(r: Recipe): string[] {
+    if (this.o.cpu) return [];
+    return FamilyHost.layersOf(r).map(l => familyById(l.pattern)).filter((m): m is FamilyMeta => !!m && m.kind === 'analytic').map(m => m.id);
+  }
+
+  /** Loads the code of every family the recipe uses (and, for WebGL, the GLSL of its analytic ones). */
   ready(r: Recipe): Promise<void> {
-    return Promise.all(this.needs(r).map(ensureFamily)).then(() => undefined);
+    return Promise.all([...this.needs(r).map(ensureFamily), ...this.glslNeeds(r).map(loadFamilyGlsl)]).then(() => undefined);
   }
 
   /** Whether the code of every family the recipe uses is here already. */
   loaded(r: Recipe): boolean {
-    return this.needs(r).every(id => !!modelOf(id) || !!analyticOf(id));
+    return this.needs(r).every(id => !!modelOf(id) || !!analyticOf(id)) && this.glslNeeds(r).every(id => !!familyGlsl(id));
   }
 
   /**

@@ -317,15 +317,25 @@ export class AsciiEngine implements Renderer {
       p.fonts = false;
       p.fam = false;
     }
-    if (needProg && !p.prog) {
+    // (a family's GLSL may still be on its way: then the program starts once it is here)
+    const start = (q: Pending) => {
+      if (q.prog || this.progs.has(q.key) || this.failedPrograms.has(q.key)) return;
       try {
-        p.prog = startProgram(this.gl, VERT, this.fieldSource(r, key));
-        p.compiled = this.fence();
-      } catch (error) { this.failProgram(key, error); }
-    }
+        q.prog = startProgram(this.gl, VERT, this.fieldSource(q.r, q.key));
+        q.compiled = this.fence();
+      } catch (error) { this.failProgram(q.key, error); }
+    };
+    if (needProg && this.fam.loaded(r)) start(p);
     const want = p;
     void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
-    void this.fam.ready(r).then(() => { if (this.pending === want && want.r === r) want.fam = true; });
+    void this.fam.ready(r).then(() => {
+      if (this.pending !== want || want.r !== r) return;
+      // the key may name the program with the GLSL now (it named the one without it before)
+      const k = this.fieldKeyOf(r);
+      if (k !== want.key) { this.dropPendingGL(want); want.key = k; }
+      start(want);
+      want.fam = true;
+    });
     this.needsRender = true;
   }
 

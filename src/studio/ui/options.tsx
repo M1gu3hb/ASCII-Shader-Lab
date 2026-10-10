@@ -208,7 +208,9 @@ export function patternOptions(): PickOpt<string>[] {
     value: p.id, label: p.name, group: FAMILY_NAMES[fam], desc: PATTERN_DESC[p.id],
   })));
   // the visual families (src/families) after the patterns: simulations, structures and 3D science
-  const families = FAMILIES.map(f => ({ value: f.id, label: f.name, group: 'Familias · ' + FAMILY_GROUP_NAMES[f.group], desc: f.blurb }));
+  // (their prose loads with their panel: here, what kind of family each is)
+  const KIND: Record<string, string> = { simulation: 'Simulación con memoria: evoluciona sin bucle perfecto.', geometry: 'Estructura que se construye y se mueve.', analytic: 'Calculada en cada instante: admite bucle perfecto.' };
+  const families = FAMILIES.map(f => ({ value: f.id, label: f.name, group: 'Familias · ' + FAMILY_GROUP_NAMES[f.group], desc: KIND[f.kind] }));
   return [...classic, ...families];
 }
 
