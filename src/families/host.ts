@@ -50,6 +50,8 @@ export interface SlotInfo {
   lag: boolean;
   /** A fixed engine stopped short of the asked moment (budget). */
   partial: boolean;
+  /** Fixed engines: steps still to run to reach the asked moment (0 when complete). */
+  debt?: number;
   /** The state started from a saved checkpoint. */
   fromCheckpoint: boolean;
   /** The recipe names a checkpoint this page does not have: the run started from the seed. */
@@ -60,6 +62,8 @@ export interface SlotInfo {
   error?: string;
   /** Mean cost of a step (ms). */
   msPerStep: number;
+  /** Mean cost of drawing its raster (ms). */
+  msRender?: number;
 }
 
 interface Slot {
@@ -90,6 +94,8 @@ interface Slot {
   ckMissing: boolean;
   failed: boolean;
   ms: number;
+  /** Mean cost of rendering its raster (ms): live engines keep it inside the frame's budget. */
+  rms: number;
 }
 
 interface Pending { key: string; loading: boolean; failed: boolean; error?: string }
@@ -209,7 +215,11 @@ export class FamilyHost {
     const got = this.match(want);
     const next: Array<Slot | Pending | null> = [null, null, null, null];
     const budget0 = now();
-    const frameBudget = this.o.live ? this.o.frameBudget ?? 8 : this.o.catchupBudget ?? 2500;
+    // live: the frame's budget covers the steps and the rasters drawn after them (A-10 of the PR #10 review):
+    // what the rasters cost to draw (measured) is set aside before stepping
+    let reserve = 0;
+    if (this.o.live) for (const s of got) if (s) reserve += s.rms;
+    const frameBudget = this.o.live ? Math.max(1, (this.o.frameBudget ?? 8) - reserve) : this.o.catchupBudget ?? 2500;
     for (const w of want) {
       if (!w) continue;
       const { i, l, f, meta, key } = w;
@@ -331,7 +341,7 @@ export class FamilyHost {
       }
       out.push({
         layer: i, id: meta.id, name: meta.name, steps: s.model.steps, rate: s.rate, simT: s.simT, modified: s.modified, lag: s.lag,
-        partial: s.partial, fromCheckpoint: s.fromCheckpoint, ckMissing: s.ckMissing, loading: false, failed: s.failed, msPerStep: s.ms,
+        partial: s.partial, ...(this.o.live ? {} : { debt: Math.max(0, Math.floor(s.debt)) }), msRender: s.rms, fromCheckpoint: s.fromCheckpoint, ckMissing: s.ckMissing, loading: false, failed: s.failed, msPerStep: s.ms,
       });
     }
     return out;
@@ -381,7 +391,7 @@ export class FamilyHost {
     const s: Slot = {
       key, src, fp, meta, model, params: f.p, paramsKey: JSON.stringify(f.p), rate, base, baseState, baseSimT, simT: baseSimT,
       debt: baseState ? 0 : base, raster: new Uint8Array(model.w * model.h), version: nextVersion(), renderedSteps: -1, renderedT: NaN,
-      modified, lag: false, partial: false, fromCheckpoint, ckMissing, failed: false, ms: 0,
+      modified, lag: false, partial: false, fromCheckpoint, ckMissing, failed: false, ms: 0, rms: 0,
     };
     if (params !== f.p && this.o.live) { s.params = params; s.paramsKey = JSON.stringify(params); }
     return s;
@@ -459,7 +469,10 @@ export class FamilyHost {
 
   private render(s: Slot, t: number) {
     if (s.renderedSteps === s.model.steps && s.renderedT === t) return;
+    const a = now();
     s.model.render(s.raster, t);
+    const ms = now() - a;
+    s.rms = s.rms > 0 ? s.rms * 0.8 + ms * 0.2 : ms;
     s.renderedSteps = s.model.steps;
     s.renderedT = t;
     s.version = nextVersion();

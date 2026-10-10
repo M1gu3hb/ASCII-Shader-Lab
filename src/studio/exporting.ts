@@ -71,6 +71,32 @@ export const clipTime = (r: Recipe, start: number, seconds: number) => start + s
 export const loopSeconds = (r: Recipe) => (r.motion.loop > 0 && r.motion.speed > 0 ? r.motion.loop / r.motion.speed : 0);
 const canvasBlob = (c: HTMLCanvasElement, type: string, q?: number) => new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('toBlob'))), type, q));
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
+const yieldToPage = () => new Promise(r => setTimeout(r, 0));
+
+/**
+ * Renders the moment t and, while a visual family with memory stopped short of it (a fixed engine catches up
+ * only within its budget per render: SlotInfo.partial), renders it again until its state is the one asked
+ * for, saying how far it is. A partial state never reaches a file: cancelling stops it, and past `limitMs`
+ * the export fails saying which family needed more work than fits (PR #10 review, A-11).
+ */
+export async function renderComplete(eng: Renderer, t: number, realTime?: number, o: { progress?: Progress; cancel?: Cancel; limitMs?: number } = {}): Promise<void> {
+  eng.renderAt(t, realTime);
+  let first = 0;
+  const t0 = performance.now();
+  for (;;) {
+    const short = eng.familyInfo().filter(i => i.partial);
+    if (!short.length) return;
+    if (o.cancel?.cancelled) throw new Error('cancelado');
+    const left = short.reduce((n, i) => n + (i.debt ?? 0), 0);
+    first ||= Math.max(left, 1);
+    if (performance.now() - t0 > (o.limitMs ?? 180_000)) {
+      throw new Error(`«${short[0].name}» necesita más cálculo del que cabe en esta exportación (faltan ${left.toLocaleString('es-ES')} pasos). Empieza desde el estado del escenario o baja la resolución de la simulación.`);
+    }
+    o.progress?.(Math.min(0.99, 1 - left / first), `Calculando «${short[0].name}» hasta este momento… (${left.toLocaleString('es-ES')} pasos)`);
+    await yieldToPage();
+    eng.renderAt(t, realTime);
+  }
+}
 
 export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: boolean; format: 'png' | 'webp' | 'jpeg' }): Promise<Blob> {
   const size = resolveSize(spec);
@@ -82,7 +108,7 @@ export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: b
   try {
     await warmTrail(r, eng, clip, time, 30, () => {}, { cancelled: false }, realTime);
     await clip.seek(realTime);
-    eng.renderAt(time, realTime);
+    await renderComplete(eng, time, realTime);
     const blob = await canvasBlob(eng.canvas, 'image/' + o.format, o.format === 'png' ? undefined : 0.92);
     // a browser without that encoder silently returns a PNG: never save it under the wrong name
     if (blob.type && blob.type !== 'image/' + o.format) throw new Error(`este navegador no codifica ${o.format.toUpperCase()}; usa PNG`);
@@ -223,7 +249,7 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
       const t = clipTime(r, o.start, i / o.fps);
       await clip.seek(o.start + i / o.fps);
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(t, o.start + i / o.fps);
+      await renderComplete(eng, t, o.start + i / o.fps, { progress, cancel });
       await src.add(i / o.fps, 1 / o.fps);
       progress((i + 1) / n, `Fotograma ${i + 1} de ${n}`);
       if (i % 4 === 0) await nextFrame();
@@ -353,7 +379,7 @@ export async function exportGif(r: Recipe, width: number, o: { fps: number; seco
       const delay = (cs(i + 1) - cs(i)) * 10;
       await clip.seek(o.start + i / o.fps);
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
+      await renderComplete(eng, clipTime(r, o.start, i / o.fps), o.start + i / o.fps, { progress, cancel });
       ctx.drawImage(eng.canvas, 0, 0);
       const { data } = ctx.getImageData(0, 0, W, H);
       const palette = quantize(data, o.colors);
@@ -389,7 +415,7 @@ export async function captureGrid(r: Recipe, cols?: number, rows?: number, time 
   try {
     await warmTrail(r, eng, clip, time, 30, () => {}, { cancelled: false }, realTime);
     await clip.seek(realTime);
-    eng.renderAt(time, realTime);
+    await renderComplete(eng, time, realTime);
     return { ...eng.readGrid(), width: eng.canvas.width, height: eng.canvas.height };
   } finally { eng.destroy(); await clip.done(); }
 }
@@ -409,7 +435,7 @@ export async function captureFrames(
       if (cancel.cancelled) throw new Error('cancelado');
       await clip.seek(o.start + i / o.fps);
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
+      await renderComplete(eng, clipTime(r, o.start, i / o.fps), o.start + i / o.fps, { progress, cancel });
       const g = eng.readGrid();
       const s = o.depth === 'none' ? gridToText(g) : gridToAnsi(g, o.depth, o.withBg);
       frames.push(s.replace(/\n$/, ''));

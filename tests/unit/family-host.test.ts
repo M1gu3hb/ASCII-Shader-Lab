@@ -176,3 +176,53 @@ describe('un chunk que falló se vuelve a pedir con otra dirección (A-03)', () 
     expect(failedChunkUrl(new TypeError('Importing a module script failed.'))).toBeUndefined();
   });
 });
+
+describe('un motor fijo que no llega en un solo cuadro (A-11)', () => {
+  beforeAll(async () => { await loadFamilyNow('reaccion_difusion'); });
+
+  it('dice que se quedó corto y, repitiendo el cuadro, llega exactamente al estado de una reconstrucción completa', () => {
+    const r = familyRecipe('reaccion_difusion', 'coral', undefined, 'parcial');
+    const slow = new FamilyHost({ live: false, catchupBudget: 1 });
+    slow.setStart(null, 0);
+    slow.update(r, 3);
+    const first = slow.info(r)[0];
+    expect(first.partial).toBe(true);
+    expect(first.debt).toBeGreaterThan(0);
+    let k = 0;
+    while (slow.info(r)[0].partial && k++ < 10_000) slow.update(r, 3);
+    expect(slow.info(r)[0]).toMatchObject({ partial: false, debt: 0 });
+    const full = new FamilyHost({ live: false, catchupBudget: 1e9 });
+    full.setStart(null, 0);
+    full.update(r, 3);
+    expect(full.info(r)[0].steps).toBe(slow.info(r)[0].steps);
+    expect(Buffer.from(slow.raster(0)!.data).equals(Buffer.from(full.raster(0)!.data))).toBe(true);
+  }, 60_000);
+});
+
+describe('el presupuesto del cuadro cubre también el dibujo del raster (A-10)', () => {
+  it('con un raster caro de dibujar, el cuadro hace menos pasos y no pasa de su presupuesto', async () => {
+    const { registerModel } = await import('../../src/families/models');
+    let clock = 0;
+    const spy = vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    try {
+      // a model whose step costs 1 ms and whose raster costs 6 ms to draw (fake clock)
+      registerModel('erosion', cfg => {
+        const h = cfg.res, w = 2 * h;
+        let steps = 0;
+        return {
+          w, h, get steps() { return steps; },
+          setParams() {}, step(n: number) { steps += n; clock += n; }, render(out: Uint8Array) { out.fill(steps % 255); clock += 6; },
+          snapshot: () => ({ id: 'erosion', v: 1, steps, res: h, scalars: {}, arrays: {} }), restore() {},
+        };
+      });
+      const r = familyRecipe('erosion', 'barrancos');
+      r.layers[0].speed = 3;
+      const h = new FamilyHost({ live: true, frameBudget: 8 });
+      const spent: number[] = [];
+      for (let k = 0; k <= 20; k++) { const a = clock; h.update(r, k * 0.25); spent.push(clock - a); }
+      // after the first frames measured the raster, a frame stays within its 8 ms (2 steps + a 6 ms raster)
+      for (const ms of spent.slice(3)) expect(ms).toBeLessThanOrEqual(8);
+      expect(h.info(r)[0].lag).toBe(true);
+    } finally { spy.mockRestore(); }
+  });
+});
