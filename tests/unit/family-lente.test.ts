@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { impl, trace } from '../../src/families/analytic/lente.cpu';
 import { META } from '../../src/families/meta/lente_gravitacional';
-import { defaultParams, packParams } from '../../src/families/params';
+import { defaultParams, packParams, timeContract } from '../../src/families/params';
+import type { Params } from '../../src/families/types';
 
 /**
  * Mechanism checks of «Agujero negro»: the null geodesics of Schwarzschild (r_s = 1), u'' = −u + 3/2 u².
@@ -60,5 +61,43 @@ describe('agujero negro', () => {
     const i = (9 * Math.PI) / 180;
     const flatTop = 1.1 * Math.tan(i - Math.atan((20 * Math.sin(i)) / (20 * Math.cos(i) + 10)));
     expect(flatTop).toBeLessThan(0.07);
+  });
+
+  /** The CPU twin over the 2:1 domain at time t. */
+  const frame = (p: Params, t: number, w = 64, h = 32) => {
+    const k = packParams(META, { ...defaultParams(META), ...p });
+    impl.prep!(t, k);
+    const o: number[] = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) o.push(impl.cpu(((x + 0.5) / w - 0.5) * 2, 0.5 - (y + 0.5) / h, t, k));
+    return o;
+  };
+  const mad = (a: number[], b: number[]) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
+  const lit = (a: number[]) => a.filter(v => v > 24 / 255).length / a.length;
+
+  it('contrato: con el disco quieto, bucle exacto (la rejilla sola cada 15° de vuelta); girando, continuo', () => {
+    for (const pr of META.presets) {
+      const tc = timeContract(META, { ...defaultParams(META), ...pr.params });
+      expect(tc, pr.id).toBe(pr.params.spin === 0 ? 'bucle' : 'continuo');
+      expect(pr.period !== undefined, pr.id).toBe(tc === 'bucle');
+      if (tc !== 'bucle') continue;
+      // the camera comes back after 60 / orbit s; with the grid alone, after a 24th of that
+      const full = 60 / Math.abs(pr.params.orbit as number);
+      expect(pr.period).toBeCloseTo(pr.params.disk === 0 && pr.params.bg === 'rejilla' ? full / 24 : full, 9);
+      for (const t of [0.4, 7.3]) {
+        expect(mad(frame(pr.params, t), frame(pr.params, t + pr.period!)), `${pr.id} t=${t}`).toBeLessThan(1e-5);
+        expect(mad(frame(pr.params, t), frame(pr.params, t + pr.period! / 2)), `${pr.id} medio periodo`).toBeGreaterThan(0.01);
+      }
+    }
+  });
+
+  it('ningún preset se queda quieto ni vacío, tampoco a los diez minutos', () => {
+    for (const pr of META.presets) {
+      for (const t of [1, 61, 600]) {
+        const a = frame(pr.params, t), b = frame(pr.params, t + 2);
+        expect(mad(a, b), `${pr.id} t=${t}`).toBeGreaterThan(0.003);
+        expect(lit(b), `${pr.id} t=${t}`).toBeGreaterThan(0.02);
+        expect(lit(b), `${pr.id} t=${t}`).toBeLessThan(0.97);
+      }
+    }
   });
 });
