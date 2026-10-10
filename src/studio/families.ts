@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { SlotInfo } from '../families/host';
 import { FamilyHost } from '../families/host';
 import { familyById, isStateful } from '../families/registry';
+import { familyLoadError } from '../families/models';
 import { familyLayer, withPreset, applyLook } from '../families/recipes';
 import type { Layer, Recipe } from '../engine/recipe';
 import { freshSeed } from '../random/seeds';
@@ -49,6 +50,23 @@ export function newFamilySeed(i: number) {
 export function resetFamily(i?: number) { getEngine()?.familyCommand({ kind: 'reset', layer: i }); }
 /** Runs n steps of layer i's run now (useful while paused). */
 export function stepFamily(i: number, n = 1) { getEngine()?.familyCommand({ kind: 'step', layer: i, n }); }
+
+/** «Reintentar»: asks again for a family's code that did not arrive (the stage and its previews pick it up). */
+export function retryFamilyLoad(id: string) { getEngine()?.familyCommand({ kind: 'retry', id }); }
+
+/** Why a family's code could not be fetched, while that failure stands (refreshed a few times a second). */
+export function useFamilyLoadError(id: string | undefined): string | undefined {
+  const [err, setErr] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!id) { setErr(undefined); return; }
+    let alive = true;
+    const tick = () => { if (alive) setErr(familyLoadError(id)); };
+    tick();
+    const t = window.setInterval(tick, 400);
+    return () => { alive = false; clearInterval(t); };
+  }, [id]);
+  return err;
+}
 
 /** How the stage's family runs are going, refreshed a few times a second while shown. */
 export function useFamilyInfo(): SlotInfo[] {

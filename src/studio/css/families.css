@@ -33,3 +33,5 @@
   .fam .linkish { min-height: 44px; }
   .fam .check input { width: 22px; height: 22px; }
 }
+.fam-error { margin: 0 0 10px; padding: 9px 11px; border-radius: 8px; background: var(--field); border: 1px solid rgba(255, 176, 138, .45); background: rgba(255, 91, 31, .08); }
+.fam-error p { margin: 0 0 6px; font-size: 12.5px; line-height: 1.45; }

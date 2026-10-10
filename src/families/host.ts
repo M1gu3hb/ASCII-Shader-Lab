@@ -1,6 +1,6 @@
 import type { Layer, Recipe } from '../engine/recipe';
 import { checkpointGen, getCheckpoint } from './checkpoints';
-import { analyticOf, modelOf, modelsGen, ensureFamily } from './models';
+import { analyticOf, modelOf, modelsGen, ensureFamily, familyLoadError } from './models';
 import { familyById } from './registry';
 import { familyGlsl, loadFamilyGlsl } from './analytic/glsl';
 import type { LayerFam } from './params';
@@ -56,12 +56,17 @@ export interface SlotInfo {
   ckMissing: boolean;
   loading: boolean;
   failed: boolean;
+  /** Why the run failed (code that did not arrive, a model that threw), when it did. */
+  error?: string;
   /** Mean cost of a step (ms). */
   msPerStep: number;
 }
 
 interface Slot {
   key: string;
+  /** Which recipe layer the run belongs to (see `match`): its index in recipe.layers and its settings. */
+  src: number;
+  fp: string;
   meta: FamilyMeta;
   model: FieldModel;
   params: Params;
@@ -87,7 +92,7 @@ interface Slot {
   ms: number;
 }
 
-interface Pending { key: string; loading: boolean; failed: boolean }
+interface Pending { key: string; loading: boolean; failed: boolean; error?: string }
 
 /** Whether a recipe's field pass can use «Bucle perfecto»: not with a family that has memory. */
 export const fieldLoops = (r: Recipe) => r.motion.loop > 0 && !FamilyHost.uses(r);
@@ -107,6 +112,8 @@ const keyOf = (l: Layer, f: LayerFam) => {
   const built = meta ? meta.params.filter(s => s.rebuild).map(s => JSON.stringify(f.p[s.key] ?? null)).join(',') : '';
   return `${l.pattern}|${f.v}|${f.seed}|${f.res ?? 0}|${f.ck ?? ''}|${built}`;
 };
+/** A layer's settings outside its run key: two layers with the same run key still tell apart by these. */
+const fpOf = (l: Layer) => JSON.stringify([l.blend, l.mix, l.scale, l.speed, l.rot, l.x, l.y, l.a, l.b, l.invert, l.phase, l.fam?.p, l.fam?.brush]);
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 /**
  * Raster versions are unique across every run of the page: an engine uploads a layer's raster when its version
@@ -186,8 +193,8 @@ export class FamilyHost {
     this.lastT = t;
     let busy = false;
     if (modelsGen() !== this.seenModels || checkpointGen() !== this.seenCk) {
-      // code or a checkpoint arrived: pending slots try again; runs from the seed that waited for a
-      // checkpoint start over from it (only if nobody touched them yet)
+      // code arrived or failed to, or a checkpoint arrived: pending slots look again; runs from the seed that
+      // waited for a checkpoint start over from it (only if nobody touched them yet)
       this.seenModels = modelsGen(); this.seenCk = checkpointGen();
       for (let i = 0; i < 4; i++) {
         const s = this.slots[i];
@@ -195,36 +202,65 @@ export class FamilyHost {
         else if (s && 'model' in s && s.ckMissing && !s.modified) this.slots[i] = null;
       }
     }
-    const pool = new Map<string, Slot>();
-    for (let i = 0; i < 4; i++) { const s = this.slots[i]; if (s && 'model' in s) pool.set(s.key, s); }
+    const want = layers.map((l, i) => {
+      const meta = familyById(l.pattern), f = l.fam;
+      return meta && meta.kind !== 'analytic' && f ? { i, l, f, meta, key: keyOf(l, f), src: r.layers.indexOf(l), fp: fpOf(l) } : null;
+    });
+    const got = this.match(want);
     const next: Array<Slot | Pending | null> = [null, null, null, null];
     const budget0 = now();
     const frameBudget = this.o.live ? this.o.frameBudget ?? 8 : this.o.catchupBudget ?? 2500;
-    for (let i = 0; i < layers.length; i++) {
-      const l = layers[i], f = l.fam, meta = familyById(l.pattern);
-      if (!meta || meta.kind === 'analytic' || !f) continue;
-      const key = keyOf(l, f);
-      let s: Slot | Pending | null | undefined = pool.get(key);
-      if (s) pool.delete(key);
-      else if (this.o.live) {
-        const k = this.retired.findIndex(x => x.key === key);
-        if (k >= 0) s = this.retired.splice(k, 1)[0];
-      }
+    for (const w of want) {
+      if (!w) continue;
+      const { i, l, f, meta, key } = w;
+      let s: Slot | Pending | undefined = got[i];
       if (!s) {
         const prev = this.slots[i];
-        s = prev && !('model' in prev) && prev.key === key ? prev : this.create(i, f, meta, key);
+        s = prev && !('model' in prev) && prev.key === key ? prev : this.create(i, f, meta, key, w.src, w.fp);
       }
       next[i] = s;
       if (!('model' in s)) { busy ||= s.loading; continue; }
+      s.src = w.src; s.fp = w.fp;
       try {
         busy = this.advance(s, l, f, t, dt, budget0, frameBudget) || busy;
       } catch (e) {
         this.fail(s, e);
       }
     }
-    if (this.o.live) for (const s of pool.values()) this.retire(s);
+    if (this.o.live) for (const s of this.slots) if (s && 'model' in s && !next.includes(s)) this.retire(s);
     this.slots = next;
     return busy;
+  }
+
+  /**
+   * Which run each family layer keeps. Layers carry no id (the recipe format stays as it is), so a run follows
+   * its layer by run key first, then by what else identifies the layer: the same place and settings, the same
+   * settings elsewhere (a reorder), the same place with other settings (a live edit), any run with that key.
+   * Two layers with the same family and seed thus keep two runs, each its own (a Map by key kept only one).
+   * Live engines also look among the runs retired a moment ago (a layer switched off and on, an undo).
+   */
+  private match(want: Array<{ i: number; key: string; src: number; fp: string } | null>): Array<Slot | undefined> {
+    const free = this.slots.filter((s): s is Slot => !!s && 'model' in s);
+    const got: Array<Slot | undefined> = [undefined, undefined, undefined, undefined];
+    const passes: Array<(s: Slot, w: { key: string; src: number; fp: string }) => boolean> = [
+      (s, w) => s.src === w.src && s.fp === w.fp,
+      (s, w) => s.fp === w.fp,
+      (s, w) => s.src === w.src,
+      () => true,
+    ];
+    const pick = (from: Slot[]) => {
+      for (const ok of passes) {
+        for (const w of want) {
+          if (!w || got[w.i]) continue;
+          const k = from.findIndex(s => s.key === w.key && ok(s, w));
+          if (k >= 0) got[w.i] = from.splice(k, 1)[0];
+        }
+      }
+    };
+    pick(free);
+    if (this.o.live) pick(this.retired);
+    // runs nobody took stay where `update` finds them (it retires them)
+    return got;
   }
 
   /** Raster of layer i (index among the on-layers), or null when it has none (yet). */
@@ -290,7 +326,7 @@ export class FamilyHost {
       const meta = familyById(l.pattern);
       if (!meta) continue;
       if (!('model' in s)) {
-        out.push({ layer: i, id: meta.id, name: meta.name, steps: 0, rate: meta.budget.rate ?? 30, simT: 0, modified: false, lag: false, partial: false, fromCheckpoint: false, ckMissing: false, loading: s.loading, failed: s.failed, msPerStep: 0 });
+        out.push({ layer: i, id: meta.id, name: meta.name, steps: 0, rate: meta.budget.rate ?? 30, simT: 0, modified: false, lag: false, partial: false, fromCheckpoint: false, ckMissing: false, loading: s.loading, failed: s.failed, ...(s.error ? { error: s.error } : {}), msPerStep: 0 });
         continue;
       }
       out.push({
@@ -305,19 +341,23 @@ export class FamilyHost {
 
   /* ---------------------------------------------------------------- */
 
-  private create(i: number, f: LayerFam, meta: FamilyMeta, key: string): Slot | Pending {
+  private create(i: number, f: LayerFam, meta: FamilyMeta, key: string, src: number, fp: string): Slot | Pending {
     const factory = modelOf(meta.id);
     if (!factory) {
+      // its code did not arrive (a rejection, a 404, the time limit): say so once, wait for «Reintentar»
+      const error = familyLoadError(meta.id);
+      if (error) { this.report(meta.id, error); return { key, loading: false, failed: true, error }; }
       void ensureFamily(meta.id);
       return { key, loading: true, failed: false };
     }
+    this.reported.delete(meta.id);
     const res = f.res ?? meta.budget.res?.[2] ?? 128;
     let model: FieldModel;
     try {
       model = factory({ seed: f.seed, params: f.p, res });
     } catch (e) {
       this.report(meta.id, e);
-      return { key, loading: false, failed: true };
+      return { key, loading: false, failed: true, error: e instanceof Error ? e.message : String(e) };
     }
     const rate = meta.budget.rate ?? 30;
     // where the run starts: a copy handed over (exports), a saved state, or the seed and its warm-up
@@ -339,7 +379,7 @@ export class FamilyHost {
     if (params !== f.p) model.setParams(params);
     const base = baseState ? model.steps : meta.budget.warmup ?? 0;
     const s: Slot = {
-      key, meta, model, params: f.p, paramsKey: JSON.stringify(f.p), rate, base, baseState, baseSimT, simT: baseSimT,
+      key, src, fp, meta, model, params: f.p, paramsKey: JSON.stringify(f.p), rate, base, baseState, baseSimT, simT: baseSimT,
       debt: baseState ? 0 : base, raster: new Uint8Array(model.w * model.h), version: nextVersion(), renderedSteps: -1, renderedT: NaN,
       modified, lag: false, partial: false, fromCheckpoint, ckMissing, failed: false, ms: 0,
     };

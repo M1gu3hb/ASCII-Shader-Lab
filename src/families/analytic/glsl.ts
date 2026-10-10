@@ -12,6 +12,8 @@ const LOAD: Record<string, () => Promise<string>> = {
   lente_gravitacional: () => import('./lente').then(m => m.LENTE_GLSL),
 };
 
+import { familyLoadError, markFamilyFailed, onFamilyRetry, withTimeLimit } from '../models';
+
 const known = new Map<string, string>();
 const loading = new Map<string, Promise<void>>();
 
@@ -21,13 +23,21 @@ export const FAMILY_GLSL_IDS = Object.keys(LOAD);
 /** The chunk of a family if it is here already. */
 export const familyGlsl = (id: string): string | undefined => known.get(id);
 
+/**
+ * Fetches a family's chunk (once). A chunk that fails or never comes is recorded as the family's load
+ * failure (models.ts): the panel says so and «Reintentar» asks again; nothing retries by itself.
+ */
 export function loadFamilyGlsl(id: string): Promise<void> {
-  if (known.has(id)) return Promise.resolve();
+  if (known.has(id) || familyLoadError(id)) return Promise.resolve();
   let p = loading.get(id);
   if (!p) {
     const load = LOAD[id];
-    p = load ? load().then(c => { known.set(id, c); }).catch(() => { loading.delete(id); }) : Promise.resolve();
+    p = load
+      ? withTimeLimit(load(), 'El sombreador de la familia').then(c => { known.set(id, c); }).catch(e => { markFamilyFailed(id, e); }).finally(() => { loading.delete(id); })
+      : Promise.resolve();
     loading.set(id, p);
   }
   return p;
 }
+
+onFamilyRetry(id => (LOAD[id] ? loadFamilyGlsl(id) : Promise.resolve()));

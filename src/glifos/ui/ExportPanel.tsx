@@ -3,26 +3,16 @@ import { hashBytes } from '../../studio/mediaStore';
 import { glyphSetBytes, type GlyphSet } from '../../glyphset/set';
 import { compileDoc } from '../compile';
 import { edit, useGlifos } from '../state';
-import { getImage, getSet, putSet } from '../storage';
+import { putSet } from '../storage';
 import { flushSave } from '../autosave';
 import { pictureOf } from './pictures';
+import { download, downloadProjectCopy, slug } from './projectCopy';
 
 /**
  * Taking the set out: the project file (a backup that opens here again, on any computer), an OpenType font
  * checked by reading it back and by drawing it in this browser, SVGs, an atlas with its manifest, and the
  * lab. Every export works on the accepted glyphs (proposals wait), and says what it left out.
  */
-
-const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'glifos';
-
-function download(name: string, data: Blob) {
-  const url = URL.createObjectURL(data);
-  const a = Object.assign(document.createElement('a'), { href: url, download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
 
 /** Loads a font file into this page and checks that it draws: every character measures, at least one has ink. */
 async function tryFontInBrowser(buf: ArrayBuffer, set: GlyphSet): Promise<{ ok: boolean; note: string; sample?: string }> {
@@ -71,16 +61,9 @@ export function ExportPanel() {
   };
 
   const project = job('proyecto', async () => {
-    const { writePackage } = await import('../export/package');
     await flushSave();
-    const sets: Array<{ id: string; bytes: Uint8Array }> = [];
-    const last = doc.published[doc.published.length - 1];
-    // the set the lab last took travels too: a piece made with it can be reopened from this file
-    const lastSet = last ? await getSet(last.set) : undefined;
-    if (last && lastSet) sets.push({ id: last.set, bytes: glyphSetBytes(lastSet) });
-    const r = await writePackage(doc, { images: async id => (await getImage(id))?.blob, sets });
-    download(`${name}.glyphos-glifos`, r.blob);
-    setLine({ text: `Proyecto descargado (${Math.max(1, Math.round(r.blob.size / 1024))} KB): ábrelo en «Crea tus GLYPHOS» con «Abrir proyecto».${r.missingImages.length ? ` ${r.missingImages.length} imágenes ya no estaban en este navegador y no van dentro.` : ''}`, warn: r.missingImages.length > 0 });
+    const r = await downloadProjectCopy(doc);
+    setLine({ text: `Proyecto descargado (${Math.max(1, Math.round(r.size / 1024))} KB): ábrelo en «Crea tus GLYPHOS» con «Abrir proyecto».${r.missingImages.length ? ` ${r.missingImages.length} imágenes ya no estaban en este navegador y no van dentro.` : ''}`, warn: r.missingImages.length > 0 });
   });
 
   const otf = job('otf', async () => {

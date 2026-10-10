@@ -113,6 +113,9 @@ input[type=range]:hover::-webkit-slider-thumb, input[type=range]:focus-visible::
 .gl-save.s-lleno, .gl-save.s-sin-almacenamiento, .gl-save.s-conflicto, .gl-save.s-error { color: var(--warn); }
 .gl-top-acts { margin-left: auto; display: flex; gap: 6px; }
 .gl-banner { margin: 0; padding: 8px 14px; background: rgba(255, 207, 112, .1); border-bottom: 1px solid rgba(255, 207, 112, .3); color: var(--warn); font-size: 13px; }
+.gl-guard { margin: 0; padding: 12px 14px; background: rgba(255, 207, 112, .12); border-bottom: 1px solid rgba(255, 207, 112, .4); font-size: 13.5px; line-height: 1.5; }
+.gl-guard p { margin: 0 0 6px; }
+.gl-guard .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
 .gl-home { overflow-y: auto; padding: 28px clamp(16px, 4vw, 48px) 48px; }
 .gl-main { display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(300px, 380px); min-height: 0; }
 .gl-left, .gl-right { min-height: 0; overflow-y: auto; background: var(--panel); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }

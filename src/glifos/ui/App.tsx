@@ -1,7 +1,8 @@
 import { useEffect, useReducer, useState } from 'react';
 import { installLocalGlyphSets } from '../../glyphset/local';
-import { installAutosave, flushSave } from '../autosave';
-import { closeDoc, edit, redo, undo, useGlifos, type SaveState } from '../state';
+import { closeIfSaved, discardAndClose, installAutosave, flushSave, type SaveOutcome } from '../autosave';
+import { downloadProjectCopy } from './projectCopy';
+import { edit, redo, undo, useGlifos, type SaveState } from '../state';
 import { AssistantPanel } from './AssistantPanel';
 import { Board } from './Board';
 import { DocPanel } from './DocPanel';
@@ -23,6 +24,36 @@ type PanelId = 'asistente' | 'importar' | 'vista' | 'rampa' | 'exportar' | 'docu
 const PANELS: Array<[PanelId, string]> = [['asistente', 'Asistente'], ['importar', 'Importar'], ['vista', 'Vista previa'], ['rampa', 'Rampa'], ['exportar', 'Exportar'], ['documento', 'Documento']];
 type MobileView = 'tablero' | 'editor' | 'panel';
 
+const WHY_NOT: Record<Exclude<SaveOutcome, 'ok'>, string> = {
+  full: 'no queda espacio en este navegador',
+  unavailable: 'este navegador no deja guardar (¿ventana privada?)',
+  conflict: 'otra pestaña guardó este proyecto después que ésta',
+  future: 'el proyecto guardado es de una versión más nueva',
+  error: 'el guardado falló',
+};
+
+/**
+ * «Proyectos» when the last changes did not reach storage: the project stays open with them; the person can
+ * take a copy, keep editing, or go back dropping them on purpose. Never closes by itself.
+ */
+function LeaveGuard({ why, onStay }: { why: Exclude<SaveOutcome, 'ok'>; onStay: () => void }) {
+  const doc = useGlifos(s => s.doc);
+  const [copied, setCopied] = useState<string | null>(null);
+  if (!doc) return null;
+  return (
+    <div className="gl-guard" role="alertdialog" aria-modal="false" aria-labelledby="gl-guard-t" aria-describedby="gl-guard-d">
+      <p id="gl-guard-t"><b>No se guardaron tus últimos cambios.</b></p>
+      <p id="gl-guard-d">Motivo: {WHY_NOT[why]}. Siguen en esta pestaña; si vuelves a Proyectos sin una copia, se pierden.</p>
+      <div className="row">
+        <button type="button" className="btn" onClick={() => void downloadProjectCopy(doc).then(() => setCopied('Copia descargada: ábrela con «Abrir proyecto».'), e => setCopied('No se pudo hacer la copia: ' + (e as Error).message))}>Descargar una copia</button>
+        <button type="button" className="btn" onClick={onStay} autoFocus>Seguir editando</button>
+        <button type="button" className="btn" onClick={() => { discardAndClose(); onStay(); }}>{copied ? 'Volver a Proyectos' : 'Volver sin guardar'}</button>
+      </div>
+      {copied && <p role="status">{copied}</p>}
+    </div>
+  );
+}
+
 const SAVE_TEXT: Record<SaveState, string> = {
   guardado: 'Guardado en este navegador', pendiente: 'Cambios sin guardar…', guardando: 'Guardando…', conflicto: 'Otra pestaña lo guardó: aquí no se guarda',
   lleno: 'Sin espacio: no se guardó', 'sin-almacenamiento': 'Sin almacenamiento: no se guarda', 'solo-lectura': 'Sólo lectura', error: 'No se pudo guardar',
@@ -38,6 +69,7 @@ export function GlifosApp() {
   const undoLabel = useGlifos(s => s.undoLabel), redoLabel = useGlifos(s => s.redoLabel);
   const [panel, setPanel] = useState<PanelId>('asistente');
   const [view, setView] = useState<MobileView>('editor');
+  const [leaving, setLeaving] = useState<Exclude<SaveOutcome, 'ok'> | null>(null);
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   useEffect(() => { installAutosave(); installLocalGlyphSets(); return onPictures(redraw); }, []);
   useEffect(() => { document.title = doc ? `${doc.name} · Crea tus GLYPHOS` : 'Crea tus GLYPHOS — diseña tus letras y símbolos ASCII'; }, [doc?.name]);
@@ -81,12 +113,13 @@ export function GlifosApp() {
             <span className="gl-top-acts">
               <button type="button" className="btn small" disabled={!canUndo || !!readOnly} onClick={() => undo()} title={undoLabel ? `Deshacer: ${undoLabel} (Ctrl+Z)` : 'Deshacer (Ctrl+Z)'}>Deshacer</button>
               <button type="button" className="btn small" disabled={!canRedo || !!readOnly} onClick={() => redo()} title={redoLabel ? `Rehacer: ${redoLabel} (Ctrl+Mayús+Z)` : 'Rehacer'}>Rehacer</button>
-              <button type="button" className="btn small" onClick={() => { void flushSave().then(() => closeDoc()); }}>Proyectos</button>
+              <button type="button" className="btn small" onClick={() => { void closeIfSaved().then(r => setLeaving(r === 'ok' ? null : r)); }}>Proyectos</button>
             </span>
           </>
         )}
       </header>
       {(readOnly || (saveNote && save !== 'guardado')) && doc && <p className="gl-banner" role="alert">{readOnly ?? saveNote}</p>}
+      {leaving && doc && <LeaveGuard why={leaving} onStay={() => setLeaving(null)} />}
       {!doc ? (
         <main className="gl-home"><Projects onOpened={() => setView('editor')} /></main>
       ) : (

@@ -4,7 +4,7 @@ import { formatParam, normParam, type LayerFam } from '../../families/params';
 import type { FamilyMeta, ParamSpec, TextParam } from '../../families/types';
 import { F, Note, Select, Seg, Slider, Sub, Toggle, useField } from '../controls';
 import { edit, useRecipe, useStudio } from '../store';
-import { applyFamilyPreset, engineLayer, newFamilySeed, resetFamily, stepFamily, useFamilyInfo } from '../families';
+import { applyFamilyPreset, engineLayer, newFamilySeed, resetFamily, retryFamilyLoad, stepFamily, useFamilyInfo, useFamilyLoadError } from '../families';
 import { saveFamilyState, dropFamilyState, useCheckpointNote } from '../familyState';
 import { useFamilyDoc } from '../familyDoc';
 import '../css/families.css';
@@ -62,6 +62,7 @@ function RunPanel({ i, meta, fam }: { i: number; meta: FamilyMeta; fam: LayerFam
   const run = info.find(x => x.layer === k);
   const ck = useCheckpointNote(i);
   const status = !run ? 'La capa está oculta: su simulación no corre.'
+    : run.failed && run.error && !run.steps ? 'No llegó el código de esta familia. La capa queda vacía; el resto de la pieza sigue.'
     : run.failed ? 'Esta familia no pudo calcularse en este navegador. La capa queda vacía.'
     : run.loading ? 'Cargando el modelo…'
     : `Paso ${fmtSteps(run.steps)} · ${run.simT.toFixed(1).replace('.', ',')} s simulados${run.lag ? ' · el equipo no llega: va más despacio que el reloj' : ''}`;
@@ -92,6 +93,7 @@ export function FamilyControls({ i }: { i: number }) {
   const meta = pat ? familyById(pat) : undefined;
   // its words (how it works, the hints) come in their own chunk: the controls work before they arrive
   const doc = useFamilyDoc(meta?.id);
+  const loadError = useFamilyLoadError(meta?.id);
   if (!meta || !fam) return null;
   const raster = meta.kind !== 'analytic';
   const basic = meta.params.filter(s => !s.advanced), adv = meta.params.filter(s => s.advanced);
@@ -99,6 +101,12 @@ export function FamilyControls({ i }: { i: number }) {
   const resOpts: Array<[number, string]> = res ? [...new Set([res[0], Math.round((res[0] + res[2]) / 2), res[2], Math.round((res[2] + res[1]) / 2), res[1]])].map(v => [v, `${v} filas${v === res[2] ? ' (por defecto)' : ''}`]) : [];
   return (
     <div className="fam">
+      {loadError && (
+        <div className="fam-error" role="alert">
+          <p>No llegó el código de «{meta.name}» ({loadError}). Esta capa queda vacía; las demás siguen funcionando.</p>
+          <button type="button" className="btn" onClick={() => retryFamilyLoad(meta.id)}>Reintentar</button>
+        </div>
+      )}
       {doc && <p className="layer-desc">{doc.blurb}</p>}
       {!meta.caps.loop && loop > 0 && <Note>«Bucle perfecto» no se aplica a esta capa: evoluciona con memoria y no vuelve a su inicio. El resto de la pieza sí lo usa.</Note>}
       <Sub>Presets</Sub>

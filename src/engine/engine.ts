@@ -20,6 +20,7 @@ import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec
 import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../families/host';
+import { retryFamily } from '../families/models';
 import { familyById } from '../families/registry';
 import { packParams } from '../families/params';
 
@@ -57,7 +58,7 @@ export interface EngineOptions {
 }
 
 /** Commands for the runs of a piece's visual families (see families/host.ts). */
-export type FamilyCommand = { kind: 'reset'; layer?: number } | { kind: 'step'; layer?: number; n?: number };
+export type FamilyCommand = { kind: 'reset'; layer?: number } | { kind: 'step'; layer?: number; n?: number } | { kind: 'retry'; id: string };
 
 
 export interface EngineStats { cols: number; rows: number; fps: number; pixelRatio: number; width: number; height: number; ms: number }
@@ -1419,6 +1420,8 @@ export class AsciiEngine implements Renderer {
   /** Live engines: carry on runs from another engine (the stage switching to the basic engine). */
   adoptFamilies(bundle: FamilyBundle) { this.fam.adopt(bundle); this.needsRender = true; }
   familyCommand(c: FamilyCommand) {
+    // «Reintentar»: the family's code (and GLSL) is asked for again; the next frames pick it up
+    if (c.kind === 'retry') { void retryFamily(c.id).then(() => { this.famVer = [-1, -1, -1, -1]; this.needsRender = true; }); return; }
     if (c.kind === 'reset') this.fam.reset(c.layer);
     else this.fam.stepNow(c.n ?? 1, c.layer);
     this.famVer = this.famVer.map((v, i) => (c.layer === undefined || c.layer === i ? -1 : v));

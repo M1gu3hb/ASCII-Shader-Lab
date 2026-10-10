@@ -6,6 +6,7 @@ import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
 import type { EngineOptions, EngineStats, FamilyCommand, GestureInput, GridSnapshot, MediaKind } from '../engine';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../../families/host';
+import { retryFamily } from '../../families/models';
 import { TOUCH_TILE, VIEW_MODES, TouchField, isMarkMode, isTouchMode, touchSettings } from '../touch';
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
 import type { PatternLibrary } from '../glsl/patterns';
@@ -817,6 +818,7 @@ export class BasicEngine implements Renderer {
   setFamilyStart(bundle: FamilyBundle | null, t0 = 0) { this.fam.setStart(bundle, t0); this.needsRender = true; }
   adoptFamilies(bundle: FamilyBundle) { this.fam.adopt(bundle); this.needsRender = true; }
   familyCommand(c: FamilyCommand) {
+    if (c.kind === 'retry') { void retryFamily(c.id).then(() => { this.needsRender = true; }); return; }
     if (c.kind === 'reset') this.fam.reset(c.layer);
     else this.fam.stepNow(c.n ?? 1, c.layer);
     this.needsRender = true;
