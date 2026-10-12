@@ -2,6 +2,7 @@ import { CHARSETS, FONTS, charsetById, fontById, nearestWeight, patternById, PAT
 import { defaultRecipe, DEFAULT_LAYER, syncVersion, type Layer, type LetterAnimKind, type Recipe } from '../engine/recipe';
 import { familyById } from '../families/registry';
 import { families6 } from './families6';
+import { familyLoops7, families7, glass7, settleFamily7 } from './families7';
 import type { Archetype } from './archetypes';
 import type { GenInput, Tables } from './generator';
 import { LIBRARY_MSG_ANIMS, LIBRARY_TEXT_ANIMS } from './library';
@@ -65,14 +66,20 @@ export function generate5(inp: GenInput, T: Tables, gen: number): Recipe {
   const r = defaultRecipe();
   const light = color5(r, root.fork('color'), A, inp.space, scene);
   forma5(r, root.fork('forma'), A, inp.space, scene);
-  // version 6: sometimes a visual family leads (its own stream: version 5 never reads it)
-  const family = gen >= 6 && families6(r, root.fork('familia'), A, inp.space, !!scene);
+  // version 6: sometimes a visual family leads (its own stream: version 5 never reads it); version 7 chooses it
+  // by use and look, in every space that has families (families7.ts)
+  const colour7 = gen >= 7 ? families7(r, root.fork('familia'), A, inp.space, !!scene) : null;
+  const family = gen >= 7 ? colour7 !== null : gen >= 6 && families6(r, root.fork('familia'), A, inp.space, !!scene);
   glifos5(r, root.fork('glifos'), A, inp.space, light, scene);
   movimiento5(r, root.fork('movimiento'), A, inp.space, scene);
   efectos5(r, root.fork('efectos'), A, inp.space, light, scene);
   fuente5(r, root.fork('fuente'), inp.space, inp.base, inp.seed, inp.ownText);
   creative5(r, root.fork('creativo'), A, inp.space);
+  if (colour7 !== null) settleFamily7(r, inp.space, colour7);
+  // version 7: glass in front now and then (its own stream); a locked «Efectos» keeps the base's glass
+  if (gen >= 7) glass7(r, root.fork('vidrio'), inp.space);
   for (const g of inp.locks ?? []) copyGroup(r, inp.base, g);
+  if (gen >= 7 && inp.locks?.includes('efectos')) { if (inp.base.optics) r.optics = { ...inp.base.optics }; else delete r.optics; }
   // exposed for the lead that stays (after the locks: a locked «Forma» brings the base's), unless the tone is locked
   // (Texto: only when the pattern fills the letters; lifting a pattern around them would drown the word)
   const aroundWord = r.source === 'text' && r.media.mix > 0 && r.media.blend === 'screen';
@@ -80,7 +87,9 @@ export function generate5(inp: GenInput, T: Tables, gen: number): Recipe {
   const familyLead = family && !inp.locks?.includes('forma');
   if (inp.space !== 'media' && !aroundWord && !inp.locks?.includes('glifos') && !familyLead) expose5(r, inp.space === 'fondos');
   // a family with memory has no perfect loop: unless the motion is locked, the roll does not ask for one
-  if (gen >= 6 && !inp.locks?.includes('movimiento') && r.layers.some(l => l.on && l.fam && !familyById(l.pattern)?.caps.loop)) r.motion.loop = 0;
+  // (version 7 reads its frozen families' word for it; a family it does not know, the registry's)
+  const loops = (id: string) => (gen >= 7 ? familyLoops7(id) ?? familyById(id)?.caps.loop : familyById(id)?.caps.loop);
+  if (gen >= 6 && !inp.locks?.includes('movimiento') && r.layers.some(l => l.on && l.fam && !loops(l.pattern))) r.motion.loop = 0;
   syncVersion(r);
   r.meta = { seed: inp.seed, arch: A.id, space: inp.space, gen };
   return r;

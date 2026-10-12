@@ -18,10 +18,14 @@
  *       with an accent…), pieces that start from a composed scene, and words without the old name.
  *   6 — version 5's pieces from their own streams, plus visual families (src/families) as the lead layer now
  *       and then in Arte, Fondos and Terminal, with one of their presets (families6.ts).
+ *   7 — version 5's pieces from their own streams, plus visual families chosen by use and look (families7.ts):
+ *       in every space that has them (Fondos, Arte, Terminal, Texto inside the words, Imagen over the photo),
+ *       with the families and presets of PR #10's review, colour families in their own colour, and now and then
+ *       glass in front of the piece (rain on the window, fluted glass).
  */
-export const GEN_VERSION = 6;
+export const GEN_VERSION = 7;
 /** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6];
+export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
 /** A version asked for by a link or a person: a known one, else the current one. */
 export const genOf = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;

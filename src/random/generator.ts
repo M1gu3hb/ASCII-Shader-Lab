@@ -43,6 +43,7 @@ const TABLES: Record<number, Tables> = {
   4: { archs: ARCHETYPES_V2, spaces: SPACE_ARCHS_V2 },
   5: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
   6: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
+  7: { archs: ARCHETYPES_V5, spaces: SPACE_ARCHS_V5 },
 };
 
 const TERMINAL_LINES = ['> hola, terminal', '$ ./tejer --luz', 'CONECTANDO...', '> sistema listo', 'SEÑAL RECIBIDA', 'ERROR 404: sueño no encontrado', '$ sudo apt install calma', '> compilando estrellas'];

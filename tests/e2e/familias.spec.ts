@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { FAMILIES } from '../../src/families/registry';
+import type { FamilyMeta } from '../../src/families/types';
+import { usesOf } from '../../src/studio/recipes/catalog';
 import { contextOf } from './canvas';
 import { download, openStudio } from './helpers';
 import { closeRecipes, hideStageOverlays, openRecipes, recipeCard, stageColours } from './recipes';
@@ -15,7 +17,29 @@ async function settle(page: Page) {
   await page.waitForFunction(() => { const c = document.querySelector('.stage canvas'); return !!c && !c.hasAttribute('data-busy'); }, undefined, { timeout: 90_000, polling: 100 });
 }
 
-async function applyPreset(page: Page, name: string) {
+const SPACE_NAMES = { arte: 'Arte', fondos: 'Fondos', terminal: 'Terminal' } as const;
+type Shown = keyof typeof SPACE_NAMES;
+
+/**
+ * A preset of a family the recipe browser offers without a photo or words of the person (the catalogue lists
+ * family presets by use: Arte first, else Fondos, else Terminal), and that space.
+ */
+function shownPreset(f: FamilyMeta) {
+  for (const space of ['arte', 'fondos', 'terminal'] as Shown[]) {
+    const preset = f.presets.find(p => usesOf(f, p).some(u => u.startsWith(space + '/')));
+    if (preset) return { preset, space };
+  }
+  throw new Error(`${f.id}: ningún preset en Arte, Fondos o Terminal`);
+}
+
+async function toSpace(page: Page, space: Shown) {
+  const btn = page.getByRole('navigation', { name: 'Espacios del estudio' }).getByRole('button', { name: SPACE_NAMES[space], exact: true });
+  if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+}
+
+async function applyPreset(page: Page, name: string, space?: Shown) {
+  if (space) { await closeRecipes(page); await toSpace(page, space); }
   await openRecipes(page);
   const card = recipeCard(page, name);
   await card.scrollIntoViewIfNeeded();
@@ -38,8 +62,8 @@ for (const engine of ['webgl', 'basico'] as const) {
       await hideStageOverlays(page);
       const bad: string[] = [];
       for (const f of FAMILIES) {
-        const preset = f.presets[0];
-        await applyPreset(page, preset.name);
+        const { preset, space } = shownPreset(f);
+        await applyPreset(page, preset.name, space);
         await expect.poll(() => stageColours(page), { message: `${f.id}: el escenario dibuja`, timeout: 60_000 }).toBeGreaterThan(2);
         // the layer's family panel: its presets and «Cómo funciona»
         await expect(page.getByRole('group', { name: `Presets de ${f.name}` }), f.id).toBeVisible();
@@ -60,7 +84,8 @@ test.describe('familias · ejecución, exportación y guardado', () => {
     const errors = await openStudio(page, '#space=arte');
     await hideStageOverlays(page);
     const rd = FAMILIES.find(f => f.id === 'reaccion_difusion')!;
-    await applyPreset(page, rd.presets[0].name);
+    const shown = shownPreset(rd);
+    await applyPreset(page, shown.preset.name, shown.space);
     const run = page.getByRole('group', { name: 'Simulación en el escenario' });
     await expect(run).toBeVisible();
     // pause, then step: the stage changes by a tenth of a second of the model, and restarting changes it back
@@ -102,7 +127,8 @@ test.describe('familias · código que no llega (A-03)', () => {
     await page.route(/\/assets\/boids-[\w-]+\.js$/, route => (block ? route.fulfill({ status: 404, body: 'no' }) : route.continue()));
     await openStudio(page, '#space=arte');
     await hideStageOverlays(page);
-    await applyPreset(page, boids.presets[0].name);
+    const shown = shownPreset(boids);
+    await applyPreset(page, shown.preset.name, shown.space);
     const err = page.locator('.fam-error');
     await expect(err).toContainText(`No llegó el código de «${boids.name}»`, { timeout: 30_000 });
     const run = page.getByRole('group', { name: 'Simulación en el escenario' });
