@@ -8,7 +8,7 @@ import {
 } from './icons';
 import { usePhone } from './ui/useMatch';
 import {
-  back, canRedo, canUndo, forward, go, redo, restoreOrigin, rollDice, saveFavorite, setAmount, setArch, setUI, toggleLock, undo,
+  afterDice, back, canRedo, canUndo, forward, go, redo, restoreOrigin, rollDice, saveFavorite, setAmount, setArch, setUI, toggleLock, undo,
   useStudio, vary, whenSaved, type Entry,
 } from './store';
 import { saveSession } from './packages';
@@ -33,6 +33,8 @@ export function dice() {
 }
 
 export async function favorite() {
+  // after a roll still waiting for the dice: the star goes on the piece it brings
+  await afterDice();
   const s = useStudio.getState();
   const e = s.entries[s.cursor];
   const had = !!e?.favId;

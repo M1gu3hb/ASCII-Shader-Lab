@@ -122,3 +122,19 @@ it('un guardado que falla después de activar la protección mantiene el aviso p
   await store.persistNow();
   expect(db.write).toHaveBeenCalledOnce();
 });
+
+it('con el azar todavía por llegar, las tiradas, «Guardar» y las flechas van en orden', async () => {
+  db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
+  db.write.mockResolvedValue('written');
+  // a fresh store: the dice (src/random) have not loaded yet
+  const store = await import('../../src/studio/store');
+  await store.hydrate();
+  const start = store.useStudio.getState().entries.length;
+  store.rollDice('uno'); store.rollDice('dos'); store.rollDice('tres');
+  store.back(); // asked for after the third roll: lands on the second one
+  await vi.runAllTimersAsync();
+  await store.afterDice();
+  const s = store.useStudio.getState();
+  expect(s.entries.map(e => e.seed).slice(start)).toEqual(['uno', 'dos', 'tres']);
+  expect(s.entries[s.cursor].seed).toBe('dos');
+});

@@ -3,7 +3,7 @@ import { cloneRecipe, sameRecipe, syncVersion, type Recipe } from '../engine/rec
 import { fingerprint } from '../random/fingerprint';
 import { styleById as archById } from '../random/styles';
 import { spaceById, type LockGroup, type SpaceId } from '../random/spaces';
-import { loadDice } from './lazy';
+import { retry } from './retry';
 import { toast } from './toast';
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import { ownText } from './ownWords';
@@ -346,21 +346,37 @@ function recentIn(s: State, n = 10): Recipe[] {
   return out.reverse();
 }
 
+const loadDice = retry(() => import('../random'));
 type Generator = Awaited<ReturnType<typeof loadDice>>;
 let generator: Generator | null = null;
 /**
  * The dice (src/random: every generator version, its styles and tables) are not needed to show the first piece:
- * they load on first use, or in idle time once the studio has settled (lazy.ts). Until then a roll waits for them.
+ * they load on first use, or in idle time once the studio has settled (lazy.ts).
  */
 export function loadGenerator(): Promise<Generator> {
   return generator ? Promise.resolve(generator) : loadDice().then(g => (generator = g));
 }
 const diceFailed = () => toast('No se pudo cargar el azar. Revisa la conexión y vuelve a intentarlo.');
 
+/*
+ * While the dice load, what the person asks for next waits its turn, in order: «Azar» three times and then «Guardar»
+ * saves the third new piece, and the arrows move from it, as when the dice were already here.
+ */
+let waiting = 0;
+let turn: Promise<void> = Promise.resolve();
+function inTurn(fn: () => unknown) {
+  waiting++;
+  turn = turn.then(async () => { await fn(); }).catch(diceFailed).finally(() => { waiting--; });
+}
+/** Resolves once every action waiting for the dice is done (at once when none is). */
+export const afterDice = (): Promise<void> => (waiting ? turn : Promise.resolve());
+
 /** A new result from the dice; `seed` (and its generator version `gen`) reproduces a given one. */
 export function rollDice(seed?: string, gen?: number): Entry | undefined {
-  if (!generator) { loadGenerator().then(() => rollDice(seed, gen), diceFailed); return; }
-  const { roll } = generator;
+  if (generator && !waiting) return rollNow(generator, seed, gen);
+  inTurn(() => loadGenerator().then(g => { rollNow(g, seed, gen); }));
+}
+function rollNow({ roll }: Generator, seed?: string, gen?: number): Entry | undefined {
   const s = S();
   const base = currentRecipe(s);
   // Texto: the person's words stay, a word nobody typed changes (ownWords.ts)
@@ -372,8 +388,10 @@ export function rollDice(seed?: string, gen?: number): Entry | undefined {
 
 let mutCounter = 0;
 export function vary(amount = S().amount): Entry | undefined {
-  if (!generator) { loadGenerator().then(() => vary(amount), diceFailed); return; }
-  const { mutate } = generator;
+  if (generator && !waiting) return varyNow(generator, amount);
+  inTurn(() => loadGenerator().then(g => { varyNow(g, amount); }));
+}
+function varyNow({ mutate }: Generator, amount: number): Entry | undefined {
   const s = S();
   const e = currentEntry(s);
   if (!e) return;
@@ -397,16 +415,20 @@ export function applyRecipe(recipe: Recipe, kind: EntryKind, label?: string, ext
 }
 
 export function go(i: number) {
+  if (waiting) inTurn(() => goNow(i)); else goNow(i);
+}
+function goNow(i: number) {
   const s = S();
   if (i < 0 || i >= s.entries.length || i === s.cursor) return;
   const e = s.entries[i];
   set({ cursor: i, space: e.space, change: bump('nav') });
   persistSoon();
 }
-export function back() { go(S().cursor - 1); }
+export function back() { if (waiting) inTurn(() => goNow(S().cursor - 1)); else goNow(S().cursor - 1); }
 export function forward() {
+  if (waiting) { inTurn(() => (S().cursor < S().entries.length - 1 ? goNow(S().cursor + 1) : loadGenerator().then(g => { rollNow(g); }))); return; }
   const s = S();
-  if (s.cursor < s.entries.length - 1) go(s.cursor + 1);
+  if (s.cursor < s.entries.length - 1) goNow(s.cursor + 1);
   else rollDice();
 }
 
