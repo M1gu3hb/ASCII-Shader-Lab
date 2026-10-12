@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { FAMILIES } from '../../src/families/all';
 import type { FamilyMeta } from '../../src/families/types';
 import { usesOf } from '../../src/studio/recipes/catalog';
+import { familyRecipe } from '../../src/families/recipes';
 import { contextOf } from './canvas';
 import { download, openStudio } from './helpers';
 import { closeRecipes, hideStageOverlays, openRecipes, recipeCard, stageColours } from './recipes';
@@ -140,4 +141,53 @@ test.describe('familias · código que no llega (A-03)', () => {
     await expect(run.locator('.fam-status')).toContainText(/Paso \d/, { timeout: 30_000 });
     await expect.poll(() => stageColours(page), { timeout: 30_000 }).toBeGreaterThan(2);
   });
+});
+
+/** Colours in a page's first canvas, from a screenshot (a WebGL canvas cannot be read back otherwise). */
+async function canvasColours(page: Page): Promise<number> {
+  const png = await page.locator('canvas').first().screenshot();
+  return page.evaluate(async src => {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = 160; c.height = 100;
+    const x = c.getContext('2d', { willReadFrequently: true })!;
+    x.drawImage(img, 0, 0, 160, 100);
+    const d = x.getImageData(0, 0, 160, 100).data, seen = new Set<number>();
+    for (let i = 0; i < d.length; i += 4) seen.add(((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3));
+    return seen.size;
+  }, 'data:image/png;base64,' + png.toString('base64'));
+}
+
+test.describe('familias · código exportado', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  // (PR #10 review) exported code mounts its piece without set(): the analytic families' GLSL and every family's
+  // spec were never asked for there, so WebGL drew them empty (and, once the specs loaded on demand, the basic
+  // engine too). A colour family and a raster one, in a browser with WebGL 2 and in one without it.
+  for (const [id, preset] of [['corrientes', 'neon'], ['hiperbolico', 'triangulos'], ['reaccion_difusion', 'coral']] as const) {
+    test(`${id}: la página exportada dibuja con WebGL 2 y con el motor básico`, async ({ page, browser }) => {
+      test.setTimeout(240_000);
+      const code = Buffer.from(JSON.stringify(familyRecipe(id, preset, undefined, 'exportado'))).toString('base64url');
+      await openStudio(page, '#r=j' + code);
+      await page.keyboard.press('e');
+      await page.getByRole('tab', { name: 'Código' }).click();
+      const [d] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Descargar página/ }).click()]);
+      const file = test.info().outputPath(`${id}.html`);
+      await d.saveAs(file);
+      const noGl = await browser.browserType().launch({ args: ['--disable-3d-apis'] });
+      try {
+        for (const [name, b] of [['WebGL 2', browser], ['motor básico', noGl]] as const) {
+          const other = await (await b.newContext({ viewport: { width: 640, height: 360 } })).newPage();
+          const errors: string[] = [];
+          other.on('pageerror', e => errors.push(e.message));
+          await other.goto('file://' + file);
+          await expect.poll(() => canvasColours(other), { message: `${id} · ${name}: la pieza dibuja`, timeout: 30_000 }).toBeGreaterThan(3);
+          expect(errors, `${id} · ${name}`).toEqual([]);
+          await other.context().close();
+        }
+      } finally { await noGl.close(); }
+    });
+  }
 });

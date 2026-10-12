@@ -209,6 +209,9 @@ export class BasicEngine implements Renderer {
       this.io.observe(canvas);
     }
     if (opts.interactive ?? true) this.bindPointer();
+    // the families of the first recipe (their specs, code and GLSL): set() asks for a new recipe's; this one
+    // was given to the constructor (exported code mounts its piece this way and never calls set())
+    void this.fam.ready(this.r).then(() => { this.needsRender = true; }, () => undefined);
     if (!opts.fixedSize) this.raf = requestAnimationFrame(this.loop);
   }
 
