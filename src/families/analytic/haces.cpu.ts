@@ -65,7 +65,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
     if (al <= 0) continue;
     const w = F ? 0.02 + (0.08 + (0.34 - 0.08) * wd) * al : 0.003 + (0.004 + (0.07 - 0.004) * wd) * al;
     const x = pe / w;
-    let I = F ? smoothstep(1, 0.55, Math.abs(x)) * (0.55 + 0.45 * Math.exp(-x * x * 2)) * Math.exp(-al * 0.35) : Math.exp(-x * x * 1.5) / (1 + al * 0.5);
+    let I = F ? (1 - smoothstep(0.55, 1, Math.abs(x))) * (0.55 + 0.45 * Math.exp(-x * x * 2)) * Math.exp(-al * 0.35) : Math.exp(-x * x * 1.5) / (1 + al * 0.5);
     I *= 1 + (0.35 + 1.3 * gnoise(x * 3.5 + i * 7.3, al * 1.2 - t * 0.25) - 1) * ray;
     const core = F ? 0 : Math.exp(-pe * pe / (PX * PX * 0.25)) / (1 + al * 0.5);
     const h = hue + (F ? 0.04 : 0.5 / n) * i + hr * 0.05 * t;

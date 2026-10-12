@@ -81,7 +81,7 @@ export const impl: AnalyticImpl = {
     dmin = Math.min(dmin, db);
     v = Math.max(v, glo * 0.32 * Math.exp(-dmin / (PX * 1.3)) * (0.85 + 0.15 * Math.sin(TAU * 2 * u)) * step(r, R0 + 0.02));
     v *= 1 - cen * 0.85 * (smoothstep(0.022, 0.03, r) - smoothstep(0.05, 0.06, r));
-    v = Math.max(v, cen * Math.max(smoothstep(0.03, 0.022, r), 0.7 * Math.exp(-r / 0.035) * Math.pow(Math.abs(Math.cos(0.5 * n * (th - rot1))), 8) * step(0.03, r) * step(r, 0.09)));
+    v = Math.max(v, cen * Math.max(1 - smoothstep(0.022, 0.03, r), 0.7 * Math.exp(-r / 0.035) * Math.pow(Math.abs(Math.cos(0.5 * n * (th - rot1))), 8) * step(0.03, r) * step(r, 0.09)));
     v = Math.max(v, glo * 0.2 * Math.exp(-Math.max(r - R0, 0) / 0.05) * step(R0, r));
     return Math.min(1, Math.max(0, v));
   },

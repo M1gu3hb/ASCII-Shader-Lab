@@ -40,6 +40,7 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"campos_em","name":"Líneas de campo","group":"ciencia","kind":"geometry","v":1,"loop":false},
   {"id":"niebla","name":"Cámara de niebla","group":"ciencia","kind":"simulation","v":1,"loop":false},
   {"id":"hipercubo","name":"Hipercubo","group":"ciencia","kind":"analytic","v":1,"loop":true},
+  {"id":"eclipse_total","name":"Eclipse total","group":"ciencia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"corrientes","name":"Corrientes de color","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"ecos","name":"Ecos y realimentación","group":"materia","kind":"simulation","v":1,"loop":false},
   {"id":"membrana","name":"Membrana iridiscente","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},

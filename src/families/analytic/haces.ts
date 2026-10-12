@@ -60,7 +60,7 @@ vec4 FC_haces_luz(vec2 p, float t, vec4 k0, vec4 k1){
     if (al <= 0.) continue;
     float w = F ? .02 + mix(.08, .34, wd) * al : .003 + mix(.004, .07, wd) * al;
     float x = pe / w;
-    float I = F ? smoothstep(1., .55, abs(x)) * (.55 + .45 * exp(-x * x * 2.)) * exp(-al * .35) : exp(-x * x * 1.5) / (1. + al * .5);
+    float I = F ? (1. - smoothstep(.55, 1., abs(x))) * (.55 + .45 * exp(-x * x * 2.)) * exp(-al * .35) : exp(-x * x * 1.5) / (1. + al * .5);
     // volumetric rays: streaks that run along the beam and drift down it
     I *= mix(1., .35 + 1.3 * gnoise(vec2(x * 3.5 + fi * 7.3, al * 1.2 - t * .25)), ray);
     float core = F ? 0. : exp(-pe * pe / (PX * PX * .25)) / (1. + al * .5);

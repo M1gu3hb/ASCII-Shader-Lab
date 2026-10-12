@@ -90,7 +90,7 @@ float F_mandala_capas(vec2 p, float t, vec4 k0, vec4 k1){
   v = max(v, glo * .32 * exp(-dmin / (PX * 1.3)) * (.85 + .15 * sin(TAU * 2. * u)) * step(r, R0 + .02));
   // the centre: a dark moat around a bright point, and a small star of n rays
   v *= 1. - cen * .85 * (smoothstep(.022, .03, r) - smoothstep(.05, .06, r));
-  v = max(v, cen * max(smoothstep(.03, .022, r), .7 * exp(-r / .035) * pow(abs(cos(.5 * n * (th - rot1))), 8.) * step(.03, r) * step(r, .09)));
+  v = max(v, cen * max(1. - smoothstep(.022, .03, r), .7 * exp(-r / .035) * pow(abs(cos(.5 * n * (th - rot1))), 8.) * step(.03, r) * step(r, .09)));
   // a faint aura around the outer edge
   v = max(v, glo * .2 * exp(-max(r - R0, 0.) / .05) * step(R0, r));
   return clamp(v, 0., 1.);
