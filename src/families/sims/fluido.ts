@@ -22,6 +22,16 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * gets its bands back: the field never mixes into an even grey nor runs dry. In the channel the bands come in
  * with the inflow instead. Jets can carry ink, clear water (alternating) or nothing (they only stir).
  * Drawing: the chosen quantity through an optional contrast curve, or the ink's level lines («Curvas de nivel»).
+ *
+ * PR #10 close-out (I-14, I-24), two more layouts; with their defaults the earlier ones draw what they drew:
+ *  - «Emisores en órbita»: each emitter rides an ellipse round the centre plus a faster epicycle (an orbit that
+ *    loops back on itself), blowing along its own path, so its dye is laid down in loops that the flow curls;
+ *    «Un tono por emisor» gives each emitter its own strength of ink (a tone of the palette each).
+ *  - «Chorro sumergido»: a nozzle in the floor blows a jet upward into still water and the top of the box is open
+ *    (pressure 0 beyond it: what rises leaves); the side walls stay closed. «Perturbación de cizalla» shakes the
+ *    jet's two edges sideways at two seeded frequencies, the push the shear layers need to roll up into vortex
+ *    pairs. Two tracers: the core carries one dye and the edges a second one, advected by the same flow and
+ *    drawn in two tones, so the rolled-up shear layers read apart from the core.
  */
 
 const ID = 'fluido', V = 1, RATE = 30;
@@ -35,14 +45,19 @@ const VMAX = 6;
 interface P {
   visc: number; vort: number; force: number; jets: number; layout: string; motion: number; pulse: number; buoy: number;
   obst: number; iters: number; dyeDiss: number; view: string; ink: string; bands: number; renew: number; contrast: number; sharp: number;
+  shear: number;
 }
 const read = (p: Params): P => ({
   visc: Number(p.visc ?? 0), vort: Number(p.vort ?? 0.35), force: Number(p.force ?? 2), jets: Math.round(Number(p.jets ?? 4)),
   layout: String(p.layout ?? 'libres'), motion: Number(p.motion ?? 0.4), pulse: Number(p.pulse ?? 0), buoy: Number(p.buoy ?? 0), obst: Math.round(Number(p.obst ?? 0)),
   iters: Math.round(Number(p.iters ?? 14)), dyeDiss: Number(p.dyeDiss ?? 0.25), view: String(p.view ?? 'tinta'),
   ink: String(p.ink ?? 'tinta'), bands: Math.max(0, Math.min(MAX_BANDS, Math.round(Number(p.bands ?? 0)))), renew: Number(p.renew ?? 0.3),
-  contrast: Number(p.contrast ?? 0), sharp: Number(p.sharp ?? 0),
+  contrast: Number(p.contrast ?? 0), sharp: Number(p.sharp ?? 0), shear: Number(p.shear ?? 0),
 });
+/** «Un tono por emisor»: the strength of ink each emitter lays (one tone of the palette each). */
+const TONES = [1, 0.7, 0.48];
+/** «Chorro sumergido»: the nozzle's half width (share of the box's width) and the second tracer's tone. */
+const NOZZLE = 0.05, TRACER2 = 0.6;
 
 /** Profile of one ink band over its period: plateaus of ink and clear water with soft edges (a few cells). */
 const BAND = new Float32Array(1024);
@@ -61,6 +76,23 @@ function bil(f: Float32Array, nx: number, ny: number, fx: number, fy: number): n
 
 interface Jet { bx: number; by: number; ax: number; ay: number; fx: number; fy: number; px: number; py: number; dir: number; swing: number; fd: number; pd: number }
 
+/**
+ * «Emisores en órbita»: where emitter k of cnt is at phase ph and where it blows (into out: x, y in velocity cells,
+ * then the unit direction of its path). An ellipse round the centre plus an epicycle at least five times faster
+ * and wide enough that, at the ends of the ellipse, the emitter runs backwards: its path loops back on itself.
+ */
+export function orbitAt(J: Pick<Jet, 'fx' | 'fy' | 'px' | 'py' | 'swing'>, k: number, cnt: number, ph: number, sw: number, sh: number, out: Float64Array) {
+  const sg = k & 1 ? -1 : 1, q = (k * 0.618034) % 1;
+  const Rx = sh * (0.5 + 0.35 * q), Ry = sh * (0.22 + 0.08 * q), r = sh * (0.1 + 0.04 * J.swing);
+  const W = (5 + 2 * J.fy) * J.fx;
+  const th = sg * J.fx * ph + J.px + (k * Math.PI * 2) / Math.max(1, cnt), Th = sg * W * ph + J.py;
+  out[0] = sw / 2 + Rx * Math.cos(th) + r * Math.cos(Th);
+  out[1] = sh / 2 + Ry * Math.sin(th) + r * Math.sin(Th);
+  const dx = -sg * (Rx * Math.sin(th) * J.fx + r * Math.sin(Th) * W), dy = sg * (Ry * Math.cos(th) * J.fx + r * Math.cos(Th) * W);
+  const l = Math.hypot(dx, dy) || 1;
+  out[2] = dx / l; out[3] = dy / l;
+}
+
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
   const sh = Math.max(16, Math.min(SIM_ROWS, Math.round(h / 2))), sw = 2 * sh, n = sw * sh;
@@ -70,6 +102,8 @@ export function create(cfg: ModelConfig): FieldModel {
   // dye grid: dw × dh, `kd` dye cells per velocity cell
   const dh = Math.max(24, Math.min(DYE_ROWS, Math.round(h * 0.75))), dw = 2 * dh, nd = dw * dh, kd = dh / sh;
   let dye = new Float32Array(nd), dye2 = new Float32Array(nd);
+  // «Chorro sumergido»: the second tracer (the jet's edges) and its scratch buffer
+  let trB = new Float32Array(nd), trB2 = new Float32Array(nd);
   const dyeSolid = new Uint8Array(nd), overlay = new Float32Array(w * h);
   const cu = new Float32Array(n), cv = new Float32Array(n), curl = new Float32Array(n), fxc = new Float32Array(n), fyc = new Float32Array(n);
   // solid cells; per face 0 free, 1 closed (no flow), 2 inflow; per cell the fluid neighbours (bits L R U D) and 1/count
@@ -99,10 +133,13 @@ export function create(cfg: ModelConfig): FieldModel {
   const bdir = bandRng.next() < 0.5 ? 1 : -1;
   const bandWarp = new Float32Array(dw);
 
-  let nObst = -1, tunnel = false;
+  let nObst = -1, tunnel = false, jet = false;
+  /** «Chorro sumergido»: the nozzle's half width (velocity cells) and its first and last face in the floor. */
+  const nozzle = Math.max(1.5, sw * NOZZLE), n0 = Math.max(0, Math.floor(sw / 2 - nozzle)), n1 = Math.min(sw, Math.ceil(sw / 2 + nozzle));
   const buildSolids = () => {
     nObst = Math.max(0, Math.min(MAX_OBST, p.obst));
     tunnel = p.layout === 'izquierda';
+    jet = p.layout === 'chorro';
     solid.fill(0);
     for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) {
       for (let k = 0; k < nObst; k++) {
@@ -115,8 +152,9 @@ export function create(cfg: ModelConfig): FieldModel {
       const next = (i > 0 && solid[j * sw + i - 1]) || (i < sw && solid[j * sw + i]);
       uFace[j * uw + i] = next ? 1 : i === 0 ? (tunnel ? 2 : 1) : i === sw ? (tunnel ? 0 : 1) : 0;
     }
+    // (the jet's box: its top is open and the nozzle in its floor blows)
     for (let j = 0; j <= sh; j++) for (let i = 0; i < sw; i++)
-      vFace[j * sw + i] = j === 0 || j === sh || solid[(j - 1) * sw + i] || solid[j * sw + i] ? 1 : 0;
+      vFace[j * sw + i] = j === 0 ? (jet ? 0 : 1) : j === sh ? (jet && i >= n0 && i < n1 ? 2 : 1) : solid[(j - 1) * sw + i] || solid[j * sw + i] ? 1 : 0;
     // the dye inside obstacles, and their outline on the raster (−1: none)
     dyeSolid.fill(0); overlay.fill(-1);
     for (let k = 0; k < nObst; k++) {
@@ -139,6 +177,7 @@ export function create(cfg: ModelConfig): FieldModel {
         if (j > 0 && !solid[k - sw]) { m |= 4; c++; }
         if (j < sh - 1 && !solid[k + sw]) { m |= 8; c++; }
         if (tunnel && i === sw - 1) c++; // the outlet: pressure 0 beyond it
+        if (jet && j === 0) c++; // the jet's open top: the same
       }
       nb[k] = m; nbInv[k] = c ? 1 / c : 0;
     }
@@ -173,10 +212,12 @@ export function create(cfg: ModelConfig): FieldModel {
   if (p.bands > 0) { bandsAt(0); renewBands(1, dw); }
 
   const inflow = () => 0.5 * p.force;
+  /** «Chorro sumergido»: the nozzle's speed (upward: rows grow downward). */
+  const jetIn = () => 0.45 * p.force;
   const closeFaces = () => {
-    const uin = inflow();
+    const uin = inflow(), vin = -jetIn();
     for (let i = 0; i < nu; i++) { const f = uFace[i]; if (f) u[i] = f === 2 ? uin : 0; }
-    for (let i = 0; i < nv; i++) if (vFace[i]) v[i] = 0;
+    for (let i = 0; i < nv; i++) { const f = vFace[i]; if (f) v[i] = f === 2 ? vin : 0; }
   };
   closeFaces();
 
@@ -194,6 +235,9 @@ export function create(cfg: ModelConfig): FieldModel {
       x = 0.035 * sw;
       y = ((k + 0.5) / cnt + 0.25 * (J.by - 0.5) / cnt + 0.06 * Math.sin(J.fy * ph + J.py)) * sh;
       a = 0.25 * J.swing * Math.sin(J.fd * ph + J.pd);
+    } else if (p.layout === 'orbitas') {
+      orbitAt(J, k, cnt, ph, sw, sh, JP);
+      return;
     } else {
       x = (J.bx + J.ax * Math.sin(J.fx * ph + J.px)) * sw;
       y = (J.by + J.ay * Math.sin(J.fy * ph + J.py)) * sh;
@@ -223,8 +267,41 @@ export function create(cfg: ModelConfig): FieldModel {
     }
   };
 
+  /**
+   * «Chorro sumergido»: the two tracers enter through the nozzle (the core's dye in its middle, the second one at
+   * its edges), and «Perturbación de cizalla» shakes the fluid at the jet's two edges sideways, just above the
+   * nozzle, at two frequencies from the seed (the left and right edges a little out of step).
+   */
+  const nozzleForces = () => {
+    const t = steps / RATE, U = jetIn(), xc = sw / 2;
+    if (p.shear > 0) {
+      const J0 = jets[0], J1 = jets[1];
+      const amp = p.shear * U * 0.6, w1 = 2 * Math.PI * (0.35 + 0.25 * J0.fx), w2 = 2 * Math.PI * (0.9 + 0.5 * J1.fx);
+      const rows = Math.max(3, Math.round(sh * 0.12));
+      for (let side = 0; side < 2; side++) {
+        const ex = side ? xc + nozzle : xc - nozzle, ph = side ? J1.pd : J0.pd;
+        const d = amp * (Math.sin(w1 * t + ph) + 0.5 * Math.sin(w2 * t + 1.7 * ph));
+        for (let j = sh - rows; j < sh; j++) {
+          const fall = (j - (sh - rows)) / rows;
+          for (let i = Math.max(1, Math.floor(ex - 2)); i <= Math.min(sw - 1, Math.ceil(ex + 2)); i++) {
+            const q = j * uw + i;
+            if (!uFace[q]) u[q] += (d - u[q] * 0.2) * fall * Math.exp(-((i - ex) * (i - ex)) / 2);
+          }
+        }
+      }
+    }
+    if (p.ink === 'nada') return;
+    const half = nozzle * kd, xd = (sw * kd) / 2, rows = Math.max(2, Math.round(kd * 1.5));
+    for (let j = dh - rows; j < dh; j++) for (let i = Math.max(0, Math.floor(xd - half * 1.4)); i <= Math.min(dw - 1, Math.ceil(xd + half * 1.4)); i++) {
+      const q = j * dw + i, r = Math.abs(i + 0.5 - xd) / half;
+      // (the water that comes in through the nozzle carries one tracer or the other, not both)
+      if (r < 0.55) { dye[q] = 1; trB[q] = 0; } else if (r < 1.25) { trB[q] = 1; dye[q] = 0; }
+    }
+  };
+
   const forces = () => {
-    const F = p.force, cnt = Math.max(0, Math.min(MAX_JETS, p.jets));
+    // (the jet's box has its nozzle, not free jets)
+    const F = p.force, cnt = jet ? 0 : Math.max(0, Math.min(MAX_JETS, p.jets));
     const re = Math.max(1.5, sh * 0.055), ir2 = 1 / (re * re), reach = Math.ceil(re * 2.2);
     // «Pulsos»: each jet blows only part of its own cycle (2–4 s), so it lets out puffs instead of a stream
     const duty = 1 - 0.85 * p.pulse, secs = steps / RATE;
@@ -253,7 +330,7 @@ export function create(cfg: ModelConfig): FieldModel {
       // dye, on its own grid, from the jet's core: ink, clear water (every other jet with «Tinta y agua clara»)
       // or none (the jets only stir)
       if (p.ink === 'nada') continue;
-      const ink = p.ink === 'alterna' && k & 1 ? 0 : 1;
+      const ink = p.ink === 'alterna' && k & 1 ? 0 : p.ink === 'tonos' ? TONES[k % TONES.length] : 1;
       const di0 = Math.max(0, Math.floor((x - reach) * kd)), di1 = Math.min(dw - 1, Math.ceil((x + reach) * kd));
       const dj0 = Math.max(0, Math.floor((y - reach) * kd)), dj1 = Math.min(dh - 1, Math.ceil((y + reach) * kd));
       const ird = ir2 * 2.5;
@@ -263,6 +340,7 @@ export function create(cfg: ModelConfig): FieldModel {
         for (let i = di0; i <= di1; i++) { const q = j * dw + i; dye[q] += (ink - dye[q]) * a * gx0[i]; }
       }
     }
+    if (jet) nozzleForces();
     // buoyancy: the dye is lighter (> 0) or heavier (< 0) than the fluid around it (rows grow downwards)
     if (p.buoy !== 0) {
       const b = p.buoy * 0.03;
@@ -373,6 +451,8 @@ export function create(cfg: ModelConfig): FieldModel {
       if (!uFace[q]) u[q] += pr[j * sw + sw - 1];
     }
     for (let q = sw; q < nv - sw; q++) if (!vFace[q]) v[q] -= pr[q] - pr[q - sw];
+    // the jet's open top: pressure 0 above it
+    if (jet) for (let q = 0; q < sw; q++) if (!vFace[q]) v[q] -= pr[q];
     closeFaces();
   };
 
@@ -392,17 +472,23 @@ export function create(cfg: ModelConfig): FieldModel {
       for (let i = 0; i < dw; i++) {
         const k = j * dw + i;
         before += dye[k];
-        if (dyeSolid[k]) { dye2[k] = 0; continue; }
+        if (dyeSolid[k]) { dye2[k] = 0; if (jet) trB2[k] = 0; continue; }
         const x = (i + 0.5) / kd;
         const bx = x - bil(cu, sw, sh, x - 0.5, y - 0.5), by = y - bil(cv, sw, sh, x - 0.5, y - 0.5);
         after += dye2[k] = bil(dye, dw, dh, bx * kd - 0.5, by * kd - 0.5);
+        if (jet) trB2[k] = bil(trB, dw, dh, bx * kd - 0.5, by * kd - 0.5);
       }
     }
     // semi-Lagrangian advection does not keep the total by itself: in the closed box it is renormalised, so
     // only the dissipation removes dye (the channel's outlet lets it leave)
-    const keep = Math.exp(-p.dyeDiss / RATE) * (!tunnel && after > 1e-6 ? Math.min(1.25, Math.max(0.8, before / after)) : 1);
+    const keep = Math.exp(-p.dyeDiss / RATE) * (!tunnel && !jet && after > 1e-6 ? Math.min(1.25, Math.max(0.8, before / after)) : 1);
     for (let k = 0; k < nd; k++) dye2[k] *= keep;
     const t = dye; dye = dye2; dye2 = t;
+    if (jet) {
+      const kb = Math.exp(-p.dyeDiss / RATE);
+      for (let k = 0; k < nd; k++) trB2[k] *= kb;
+      const tb = trB; trB = trB2; trB2 = tb;
+    }
   };
 
   /**
@@ -413,11 +499,11 @@ export function create(cfg: ModelConfig): FieldModel {
   const separate = () => {
     const k = 2 * p.sharp;
     let A = 0, B = 0;
-    if (!tunnel) {
+    if (!tunnel && !jet) {
       for (let q = 0; q < nd; q++) { const c = dye[q]; if (c > 0 && c < 1) { const b = c * (1 - c); A += b * c; B += b; } }
     }
     const th = B > 1e-6 ? Math.min(0.8, Math.max(0.2, A / B)) : 0.5;
-    if (p.bands > 0 && !tunnel) {
+    if (p.bands > 0 && !tunnel && !jet) {
       // with bands, each cell leans towards its band (θ lower where the band is ink): the edges stay sharp and
       // drift back to where the bands are, instead of fighting their renewal
       const bias = 2 * p.renew, kb = p.bands;
@@ -434,7 +520,7 @@ export function create(cfg: ModelConfig): FieldModel {
   };
 
   const step1 = () => {
-    if (p.obst !== nObst || (p.layout === 'izquierda') !== tunnel) buildSolids();
+    if (p.obst !== nObst || (p.layout === 'izquierda') !== tunnel || (p.layout === 'chorro') !== jet) buildSolids();
     forces();
     advectVelocity();
     diffuse();
@@ -497,6 +583,10 @@ export function create(cfg: ModelConfig): FieldModel {
     } else if (p.view === 'vorticidad') {
       computeCurl();
       for (let k = 0; k < n; k++) field[k] = 1 - Math.exp(-Math.abs(curl[k]) * 3.2);
+    } else if (jet) {
+      // two tracers in two tones: the core's dye, and the edges' one under it
+      for (let k = 0; k < nd; k++) { const a = 1 - Math.exp(-dye[k] * 2), b = TRACER2 * (1 - Math.exp(-trB[k] * 2)); field[k] = a > b ? a : b; }
+      fw = dw; fh = dh;
     } else {
       for (let k = 0; k < nd; k++) field[k] = 1 - Math.exp(-dye[k] * 2);
       fw = dw; fh = dh;
@@ -516,7 +606,7 @@ export function create(cfg: ModelConfig): FieldModel {
   return {
     w, h,
     get steps() { return steps; },
-    setParams(np: Params) { p = read(np); if (p.obst !== nObst || (p.layout === 'izquierda') !== tunnel) buildSolids(); },
+    setParams(np: Params) { p = read(np); if (p.obst !== nObst || (p.layout === 'izquierda') !== tunnel || (p.layout === 'chorro') !== jet) buildSolids(); },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
     render(out: Uint8Array) { render(out); },
     stroke(s: Stroke) {
@@ -547,7 +637,7 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = { phase };
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { u: u.slice(), v: v.slice(), p: pr.slice(), dye: dye.slice() } };
+      return { id: ID, v: V, steps, res: h, scalars, arrays: { u: u.slice(), v: v.slice(), p: pr.slice(), dye: dye.slice(), dyeB: trB.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a este fluido.');
@@ -555,6 +645,8 @@ export function create(cfg: ModelConfig): FieldModel {
       const ok = (x: unknown, len: number): x is Float32Array => x instanceof Float32Array && x.length === len;
       if (!ok(a.u, nu) || !ok(a.v, nv) || !ok(a.p, n) || !ok(a.dye, nd)) throw new Error('El estado guardado está incompleto.');
       u.set(a.u); v.set(a.v); pr.set(a.p); dye.set(a.dye);
+      // (a state saved before the second tracer existed: it starts empty)
+      if (ok(a.dyeB, nd)) trB.set(a.dyeB); else trB.fill(0);
       steps = s.steps; phase = s.scalars.phase ?? 0;
       rng.load(s.scalars);
     },

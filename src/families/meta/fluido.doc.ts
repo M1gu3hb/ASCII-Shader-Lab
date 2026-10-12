@@ -3,8 +3,8 @@ import type { FamilyDoc } from '../types';
 /** What the studio says about this family (loaded with its panel, not with the first view). */
 export const DOC: FamilyDoc = {
   blurb: 'Tinta, humo y mármol líquido en un fluido que no se comprime: masas y franjas que se estiran, se enroscan y se reacomodan.',
-  mechanism: 'Fluidos estables de Stam sobre una rejilla: la velocidad se transporta a sí misma, la viscosidad la difunde y una proyección de presión la deja sin compresión. El refuerzo de vorticidad devuelve los remolinos que la rejilla borra; la tinta viaja con la corriente y se desvanece. Con «Franjas», la tinta vuelve despacio a unas bandas que ondulan y se desplazan, así que la corriente las pliega sin llegar a mezclarlas en un gris; con «Bordes nítidos», tinta y agua se comportan como dos líquidos que no se mezclan (el término de reacción de Allen–Cahn, que conserva la tinta) y sus bordes quedan netos.',
-  time: 'Evoluciona con memoria: cada momento depende del anterior y los chorros recorren caminos que salen de la semilla. Con emisores es continuo: los chorros, las franjas que se renuevan o la corriente que entra por la izquierda traen tinta sin parar, y la disipación se la lleva, así que ni se apaga ni se llena. Con 0 emisores no hay corriente propia: sólo actúa tu pincel, lo que pintas se mueve, se calma y se desvanece (o, con franjas, éstas sólo se deslizan). Se puede pausar y guardar su estado; no repite un bucle perfecto.',
+  mechanism: 'Fluidos estables de Stam sobre una rejilla: la velocidad se transporta a sí misma, la viscosidad la difunde y una proyección de presión la deja sin compresión. El refuerzo de vorticidad devuelve los remolinos que la rejilla borra; la tinta viaja con la corriente y se desvanece. Con «Franjas», la tinta vuelve despacio a unas bandas que ondulan y se desplazan, así que la corriente las pliega sin llegar a mezclarlas en un gris; con «Bordes nítidos», tinta y agua se comportan como dos líquidos que no se mezclan (el término de reacción de Allen–Cahn, que conserva la tinta) y sus bordes quedan netos. Con «Emisores en órbita», cada emisor recorre una elipse alrededor del centro más un epiciclo cinco veces más rápido, sopla en la dirección de su propio camino y deja su tinte en lazos que la vorticidad enrosca. El «Chorro sumergido» entra por una boquilla en el fondo con la tapa de arriba abierta (lo que sube, sale); la «Perturbación de cizalla» sacude de lado sus dos bordes y las capas de cizalla se enrollan en pares de remolinos; el núcleo lleva un trazador y los bordes otro, dibujados en dos tonos.',
+  time: 'Evoluciona con memoria: cada momento depende del anterior y los chorros recorren caminos que salen de la semilla. Con emisores es continuo: los chorros, las franjas que se renuevan o la corriente que entra por la izquierda traen tinta sin parar, y la disipación se la lleva, así que ni se apaga ni se llena. El chorro sumergido también es continuo: la boquilla no deja de soplar y lo que sube sale por arriba. Con 0 emisores (y sin chorro) no hay corriente propia: sólo actúa tu pincel, lo que pintas se mueve, se calma y se desvanece (o, con franjas, éstas sólo se deslizan). Se puede pausar y guardar su estado; no repite un bucle perfecto.',
   limits: 'Velocidad y presión en una rejilla de la mitad de filas que el raster (hasta 160 × 80 celdas, velocidades en las caras); tinta en otra de tres cuartos (hasta 256 × 128). Hasta 40 iteraciones de presión, 4 de viscosidad, 8 chorros, 6 obstáculos y 12 franjas; velocidad limitada a 6 celdas por paso.',
   sources: [
     { label: 'Stam (1999): Stable Fluids', url: 'https://www.dgp.toronto.edu/public_user/stam/reality/Research/pdf/ns.pdf' },
@@ -15,7 +15,7 @@ export const DOC: FamilyDoc = {
   ],
   hints: {
     'jets': 'Chorros que remueven el agua (y echan tinta, si así lo pides). Con 0 sólo actúa tu pincel.',
-    'layout': 'Dónde nacen los chorros y hacia dónde apuntan. La corriente abre la caja por los lados: entra por la izquierda y sale por la derecha.',
+    'layout': 'Dónde nacen los chorros y hacia dónde apuntan. La corriente abre la caja por los lados: entra por la izquierda y sale por la derecha. En órbita, los emisores dan vueltas con epiciclos; el chorro sumergido sube desde el fondo y sale por arriba.',
     'force': 'Velocidad de salida de cada chorro.',
     'motion': 'Lo rápido que los chorros cambian de sitio y de dirección.',
     'pulse': 'De chorro continuo a bocanadas sueltas, como gotas de tinta.',
@@ -25,12 +25,13 @@ export const DOC: FamilyDoc = {
     'obst': 'Pilares sólidos que la corriente rodea.',
     'iters': 'Más: el fluido se comprime menos y los remolinos son más limpios.',
     'dyeDiss': 'Lo rápido que la tinta se desvanece.',
-    'ink': 'Tinta, tinta y agua clara (un chorro de cada) o nada: los chorros sólo remueven lo que ya hay.',
+    'ink': 'Tinta, tinta y agua clara (un chorro de cada), un tono distinto por emisor, o nada: los chorros sólo remueven lo que ya hay.',
     'bands': 'Bandas de tinta y agua que llenan el lienzo y vuelven poco a poco donde el agua se calma (en la corriente, entran por la izquierda). 0: sin franjas.',
     'renew': 'Lo deprisa que vuelven las franjas: poca, la corriente las pliega mucho; mucha, apenas se deforman.',
     'sharp': 'Separa la tinta del agua como dos líquidos que no se mezclan: bordes netos en vez de un gris.',
     'contrast': 'Endurece el paso de la tinta al fondo: más contraste y bordes que se leen como bordes.',
     'view': 'Tinta, velocidad, vorticidad o las curvas de nivel de la tinta (líneas finas que siguen su forma).',
+    'shear': 'Chorro sumergido: cuánto se sacuden de lado los bordes del chorro al salir; más, remolinos antes y más grandes.',
   },
   presets: {
     'tinta_agua': 'Gotas de tinta más pesada que el agua caen en bocanadas, se abren en hongos de borde neto y se posan en el fondo.',
@@ -41,5 +42,7 @@ export const DOC: FamilyDoc = {
     'humo_curvas': 'Penachos de humo dibujados sólo con sus curvas de nivel: líneas finas que suben, se enroscan y se cierran.',
     'tormenta': 'Ocho chorros veloces que giran por todo el campo con vorticidad alta: remolinos que se enroscan y chocan.',
     'pilares': 'Una corriente entra por la izquierda, rodea cuatro pilares y suelta remolinos detrás de cada uno (vista de vorticidad).',
+    'lazos': 'Tres emisores de tinte, cada uno de un tono, giran en órbitas con epiciclos y dejan lazos que la vorticidad alta enrosca y estira.',
+    'chorro': 'Un chorro sube desde una boquilla en el fondo y sale por arriba; sus bordes se enrollan en remolinos y dos trazadores separan el núcleo de las capas de cizalla.',
   },
 };

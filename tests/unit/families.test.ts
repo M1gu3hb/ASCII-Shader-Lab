@@ -41,9 +41,10 @@ const INERT: Record<string, Record<string, string>> = {
     drift: 'sólo cuenta con «Flujo: avanza sin fin»',
   },
   dla: { life: 'sólo cuenta con «Renovación: sí»' },
-  fluido: { renew: 'sólo cuenta con «Franjas»; por defecto no hay franjas' },
+  fluido: { renew: 'sólo cuenta con «Franjas»; por defecto no hay franjas', shear: 'sólo cuenta con el «Chorro sumergido»; por defecto, chorros libres' },
   gravedad: { arms: 'sólo cuenta con la galaxia de brazos; por defecto, el disco de N cuerpos' },
   osciloscopio: { grid: 'la retícula son líneas de una celda: la sonda de 48 × 24 puntos cae entre ellas' },
+  tela: { every: 'sólo cuenta con «Golpes»; por defecto no hay golpes' },
 };
 
 const raster = (m: FieldModel, t = 0) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };

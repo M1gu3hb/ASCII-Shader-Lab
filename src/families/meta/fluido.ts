@@ -13,6 +13,7 @@ export const META: FamilyMeta = {
     { key: 'layout', label: 'Chorros', type: 'choice', def: 'libres', options: [
       { id: 'libres', label: 'Libres' }, { id: 'suelo', label: 'Desde el suelo' }, { id: 'arriba', label: 'Desde arriba' },
       { id: 'izquierda', label: 'Corriente desde la izquierda' },
+      { id: 'orbitas', label: 'Emisores en órbita' }, { id: 'chorro', label: 'Chorro sumergido (desde el fondo)' },
     ] },
     { key: 'force', label: 'Fuerza', type: 'number', min: 0.3, max: 5, def: 2, step: 0.05, unit: 'celdas/paso' },
     { key: 'motion', label: 'Movimiento', type: 'number', min: 0, max: 2, def: 0.4, step: 0.01 },
@@ -25,6 +26,7 @@ export const META: FamilyMeta = {
     { key: 'dyeDiss', label: 'Disipación de la tinta', type: 'number', min: 0.02, max: 1.5, def: 0.25, step: 0.01, unit: '/s' },
     { key: 'ink', label: 'Qué echan los chorros', type: 'choice', def: 'tinta', options: [
       { id: 'tinta', label: 'Tinta' }, { id: 'alterna', label: 'Tinta y agua clara' }, { id: 'nada', label: 'Nada: sólo remueven' },
+      { id: 'tonos', label: 'Un tono por emisor' },
     ] },
     { key: 'bands', label: 'Franjas', type: 'int', min: 0, max: 12, def: 0 },
     { key: 'renew', label: 'Renovación de las franjas', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
@@ -34,6 +36,7 @@ export const META: FamilyMeta = {
       { id: 'tinta', label: 'Tinta' }, { id: 'velocidad', label: 'Velocidad' }, { id: 'vorticidad', label: 'Vorticidad' },
       { id: 'contornos', label: 'Curvas de nivel' },
     ] },
+    { key: 'shear', label: 'Perturbación de cizalla', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
   ],
   presets: [
     {
@@ -76,9 +79,19 @@ export const META: FamilyMeta = {
       params: { jets: 5, layout: 'izquierda', force: 2.2, motion: 0.15, pulse: 0, vort: 0.3, visc: 0, buoy: 0, obst: 4, iters: 22, dyeDiss: 0.3, ink: 'tinta', bands: 0, renew: 0.3, sharp: 0, contrast: 0, view: 'vorticidad' },
       look: { stops: ['#0b0a06', '#ffd27a'], bg: '#060503', charset: ' .-~=≈#' },
     },
+    {
+      id: 'lazos', name: 'Lazos de tinta', aka: ['Emisores en órbita', 'Tinte que traza lazos', 'Refuerzo de vorticidad'], uses: ['fondos/organicas', 'arte/organicas'],
+      params: { jets: 3, layout: 'orbitas', force: 2.2, motion: 0.5, pulse: 0, vort: 0.85, visc: 0, buoy: 0, obst: 0, iters: 16, dyeDiss: 0.3, ink: 'tonos', bands: 0, renew: 0.3, sharp: 0, contrast: 0, view: 'tinta', shear: 0 },
+      look: { stops: ['#0a0309', '#7a1d56', '#ff5a8f', '#ffe3ec'], bg: '#060206', charset: ' .:-=+*#%' },
+    },
+    {
+      id: 'chorro', name: 'Chorro sumergido', aka: ['Chorro turbulento', 'Inestabilidad de Kelvin–Helmholtz', 'Capa de cizalla', 'Dos trazadores'], uses: ['fondos/organicas', 'arte/organicas'],
+      params: { jets: 1, layout: 'chorro', force: 2.6, motion: 0.4, pulse: 0, vort: 0.4, visc: 0, buoy: 0, obst: 0, iters: 20, dyeDiss: 0.3, ink: 'tinta', bands: 0, renew: 0.3, sharp: 0, contrast: 0, view: 'tinta', shear: 0.6 },
+      look: { stops: ['#02070c', '#1d7f86', '#59e0c8', '#f4fff6'], bg: '#010407', charset: ' .·:-=+*#' },
+    },
   ],
   caps: {
-    loop: false, time: p => (Number(p.jets) > 0 || (Number(p.bands) > 0 && Number(p.renew) > 0) ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true,
+    loop: false, time: p => (Number(p.jets) > 0 || p.layout === 'chorro' || (Number(p.bands) > 0 && Number(p.renew) > 0) ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true,
     brushes: [{ id: 'tinta', label: 'Tinta', hint: 'Echa tinta y empuja el fluido en la dirección del trazo.' }],
   },
   budget: {

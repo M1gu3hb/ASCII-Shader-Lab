@@ -13,6 +13,14 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * The picture: shaded triangles (Lambert, both faces) through a perspective camera that orbits slowly
  * (its angle is part of the state, so a touch maps to the cloth as you see it), with a depth buffer.
  * Soft bodies (a closed shape held by pressure) are not modelled yet: only sheets.
+ *
+ * «Todo el borde» (PR #10 close-out, I-04, a kinetic grid): a drumhead pinned along its whole edge, as wide as
+ * the domain and seen face on, its springs a little shorter than the grid (so the sheet is taut and carries
+ * waves). «Golpes» hits it every «Cada» seconds from a border chosen at random (its own seeded stream: a run
+ * without hits draws what it drew): the nodes near that point of the border get a velocity into the sheet and
+ * out of its plane, and a ring of stretch and ripples crosses the grid and bounces off the frame. View
+ * «Tensión»: each spring of the grid drawn with the ink of how far it is from its resting stretch, so the
+ * glyphs (and the palette) follow the tension.
  */
 
 const ID = 'tela', V = 1;
@@ -25,12 +33,23 @@ const FLOOR = -0.62;
 /** Skin drag along the surface, relative to the pressure along the normal. */
 const SKIN = 0.3;
 
-interface P { stiff: number; gravity: number; wind: number; anchors: string; mesh: string; substeps: number; damping: number; turn: number; sphere: string; view: string; angle: number }
+/** «Todo el borde»: particles across and down for each «Resolución de la malla» (square cells over 2 × 1). */
+const GRIDS: Record<string, [number, number]> = { baja: [33, 17], media: [41, 21], alta: [49, 25] };
+/** «Todo el borde»: how much shorter than the grid its springs rest (the sheet's tension). */
+const PRE = 0.03;
+/** «Todo el borde»: its springs' compliance, 10^(DRUM_A − DRUM_B × «Rigidez») (a spring grid, softer than cloth). */
+const DRUM_A = 2, DRUM_B = 2.5;
+/** «Golpes»: speed a full hit gives the nodes at its centre, and (drumhead) the share of it out of the sheet. */
+const KICK = 6, KICK_OUT = 0.35;
+/** «Tensión»: stretch (relative) that reads as full ink. */
+const TENSION_FULL = 0.05;
+interface P { stiff: number; gravity: number; wind: number; anchors: string; mesh: string; substeps: number; damping: number; turn: number; sphere: string; view: string; angle: number; kick: number; every: number }
 const read = (p: Params): P => ({
   stiff: Number(p.stiff ?? 0.6), gravity: Number(p.gravity ?? 1), wind: Number(p.wind ?? 0.5),
   anchors: String(p.anchors ?? 'borde'), mesh: String(p.mesh ?? 'baja'),
   substeps: Math.max(1, Math.min(24, Math.round(Number(p.substeps ?? 6)))), damping: Number(p.damping ?? 0.2),
   turn: Number(p.turn ?? 0.1), sphere: String(p.sphere ?? 'ninguna'), view: String(p.view ?? 'sombreado'), angle: Number(p.angle ?? 0),
+  kick: Number(p.kick ?? 0), every: Math.max(0.5, Number(p.every ?? 2.5)),
 });
 
 /** Whether a layout hangs from above (vertical cloth) or lies flat (horizontal). */
@@ -40,16 +59,19 @@ export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
   const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
   let p = read(cfg.params);
-  const [nx, ny] = MESHES[p.mesh] ?? MESHES.media;
+  const drum = p.anchors === 'perimetro';
+  const [nx, ny] = (drum ? GRIDS[p.mesh] : MESHES[p.mesh]) ?? MESHES.media;
   const np = nx * ny;
   const X = new Float32Array(np * 3), Vel = new Float32Array(np * 3), Prev = new Float32Array(np * 3), W = new Float32Array(np);
   let steps = 0, yaw = 0;
-  const vertical = hangs(p.anchors);
+  // (the drumhead stands facing the camera, as a hanging cloth does)
+  const vertical = hangs(p.anchors) || drum;
+  const sizeW = drum ? 2 : SIZE_W;
 
   // ---- the grid at rest: vertical (xy) for hanging layouts, horizontal (xz) for the others
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const k = j * nx + i, u = i / (nx - 1) - 0.5, v = j / (ny - 1);
-    if (vertical) { X[k * 3] = u * SIZE_W; X[k * 3 + 1] = 0.5 - v * SIZE_H; X[k * 3 + 2] = 0; }
+    if (vertical) { X[k * 3] = u * sizeW; X[k * 3 + 1] = 0.5 - v * SIZE_H; X[k * 3 + 2] = 0; }
     else { X[k * 3] = u * SIZE_W; X[k * 3 + 1] = p.anchors === 'cuatro' ? 0.12 : 0.32; X[k * 3 + 2] = (v - 0.5) * SIZE_H; }
   }
   const idx = (i: number, j: number) => j * nx + i;
@@ -62,6 +84,10 @@ export function create(cfg: ModelConfig): FieldModel {
     case 'mastil': for (let j = 0; j < ny; j++) pin(idx(0, j)); break;
     case 'cuatro': pin(idx(0, 0)); pin(idx(nx - 1, 0)); pin(idx(0, ny - 1)); pin(idx(nx - 1, ny - 1)); break;
     case 'centro': pin(idx(nx >> 1, ny >> 1)); break;
+    case 'perimetro':
+      for (let i = 0; i < nx; i++) { pin(idx(i, 0)); pin(idx(i, ny - 1)); }
+      for (let j = 0; j < ny; j++) { pin(idx(0, j)); pin(idx(nx - 1, j)); }
+      break;
     default: break;
   }
 
@@ -81,7 +107,7 @@ export function create(cfg: ModelConfig): FieldModel {
   const C = new Int32Array(cons), K = new Uint8Array(kinds), L = new Float32Array(nc);
   for (let c = 0; c < nc; c++) {
     const a = C[c * 2] * 3, b = C[c * 2 + 1] * 3;
-    L[c] = hyp3(X[a] - X[b], X[a + 1] - X[b + 1], X[a + 2] - X[b + 2]);
+    L[c] = hyp3(X[a] - X[b], X[a + 1] - X[b + 1], X[a + 2] - X[b + 2]) * (drum ? 1 - PRE : 1);
   }
   // rest shape flat; a faint, smooth seeded ripple across the sheet breaks the symmetry (smooth: a
   // particle-by-particle zig-zag is a mode distance constraints barely resist)
@@ -106,6 +132,36 @@ export function create(cfg: ModelConfig): FieldModel {
   const noise = (t: number) => {
     const i = Math.floor(t), f = t - i, a = NOISE[i & 255], b = NOISE[(i + 1) & 255];
     return a + (b - a) * f * f * (3 - 2 * f);
+  };
+
+  // «Golpes»: their own stream (a run without hits draws exactly what it drew), and the step of the next one
+  const kickRng = new SimRng(`${ID}|golpes|${cfg.seed}`);
+  let nextKick = -1;
+  /** A hit from a border chosen at random: the nodes near that point get a velocity into the sheet and out of it. */
+  const kickNow = () => {
+    const side = kickRng.int(4), s = kickRng.range(0.15, 0.85), out = kickRng.next() < 0.5 ? -1 : 1, jit = kickRng.next();
+    // the point of the border and the way into the sheet from it, in the sheet's own coordinates (across, down
+    // from its first row), measured on the grid at rest so a cloth that moved is hit where its border is
+    const hw = sizeW / 2, hh = SIZE_H / 2;
+    let ex: number, ey: number, ix: number, iy: number;
+    if (side === 0) { ex = -hw + s * sizeW; ey = hh; ix = 0; iy = -1; }
+    else if (side === 1) { ex = hw; ey = hh - s * SIZE_H; ix = -1; iy = 0; }
+    else if (side === 2) { ex = -hw + s * sizeW; ey = -hh; ix = 0; iy = 1; }
+    else { ex = -hw; ey = hh - s * SIZE_H; ix = 1; iy = 0; }
+    const R = 0.22 + 0.12 * jit, A = KICK * p.kick;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const k = idx(i, j);
+      if (W[k] === 0) continue;
+      const u = (i / (nx - 1) - 0.5) * sizeW, v = hh - (j / (ny - 1)) * SIZE_H, d = Math.hypot(u - ex, v - ey);
+      if (d >= R) continue;
+      // (the drumhead's springs carry a push into the sheet as a wave; a cloth, nearly inextensible, takes a hit
+      // across it)
+      const f = (1 - d / R) * (1 - d / R) * A, o = k * 3, fi = drum ? f : f * 0.3, fo = drum ? f * KICK_OUT : f;
+      // a hanging sheet (and the drumhead) lies in x–y and bulges along z; a flat one lies in x–z (its rows
+      // along z) and bulges along y
+      if (vertical) { Vel[o] += ix * fi; Vel[o + 1] += iy * fi; Vel[o + 2] += out * fo; }
+      else { Vel[o] += ix * fi; Vel[o + 2] -= iy * fi; Vel[o + 1] += out * fo; }
+    }
   };
 
   /** Sphere collider at simulated time t: centre and radius (none: r = 0). */
@@ -137,9 +193,16 @@ export function create(cfg: ModelConfig): FieldModel {
   };
   const step1 = () => {
     const t = steps * DT, S = p.substeps, hs = DT / S;
-    // compliance from «Rigidez» (log scale); shear and bending are softer than stretching
-    const alpha = Math.pow(10, -1 - 6 * p.stiff), ih2 = 1 / (hs * hs);
-    const comp = [alpha * ih2, (alpha * 8 + 1e-6) * ih2, (alpha * 40 + 1e-5) * ih2];
+    if (p.kick > 0) {
+      // every «Cada» seconds (the first hit soon after the start)
+      const every = Math.max(1, Math.round(p.every * RATE));
+      if (nextKick < 0 || nextKick > steps + every) nextKick = steps + Math.min(every, Math.round(0.4 * RATE));
+      if (steps >= nextKick) { kickNow(); nextKick = steps + every; }
+    }
+    // compliance from «Rigidez» (log scale); shear and bending are softer than stretching. The drumhead's
+    // springs are a spring grid's, not a cloth's threads: soft enough that a hit travels as a wave you see
+    const alpha = drum ? Math.pow(10, DRUM_A - DRUM_B * p.stiff) : Math.pow(10, -1 - 6 * p.stiff), ih2 = 1 / (hs * hs);
+    const comp = drum ? [alpha * ih2, alpha * 4 * ih2, alpha * 60 * ih2] : [alpha * ih2, (alpha * 8 + 1e-6) * ih2, (alpha * 40 + 1e-5) * ih2];
     const g = -9.8 * 0.35 * p.gravity;
     // wind: F = ((w_rel · n) n + c_t w_rel,tangential) · area
     F.fill(0);
@@ -210,11 +273,12 @@ export function create(cfg: ModelConfig): FieldModel {
 
   // ---- camera and raster
   const cam = new OrbitCamera();
-  const pitch = () => (vertical ? 0.16 : 0.62);
-  const baseYaw = vertical ? (p.anchors === 'mastil' ? 0.3 : 0.35) : 0.4;
+  const pitch = () => (drum ? 0 : vertical ? 0.16 : 0.62);
+  const baseYaw = drum ? 0 : vertical ? (p.anchors === 'mastil' ? 0.3 : 0.35) : 0.4;
   /** The camera's turn now: its base, «Ángulo de vista» and the slow orbit. */
   const yawNow = () => baseYaw + (p.angle * Math.PI) / 180 + yaw;
-  const setCam = () => { cam.fov = 4.6; cam.set(yawNow(), pitch(), 3.4); };
+  // (the drumhead, face on and close enough that its frame almost meets the domain's edges)
+  const setCam = () => { cam.fov = 4.6; cam.set(yawNow(), pitch(), drum ? 2.45 : 3.4); };
   const SX = new Float32Array(np), SY = new Float32Array(np), SZ = new Float32Array(np);
   const zbuf = new Float32Array(w * h), img = new Float32Array(w * h);
   const P3 = new Float64Array(3);
@@ -250,6 +314,23 @@ export function create(cfg: ModelConfig): FieldModel {
     }
   };
 
+  /** A segment between two projected particles with brightness v (the larger value wins where lines meet). */
+  const tensionLine = (a: number, b: number, v: number) => {
+    const ax = SX[a], ay = SY[a], bx = SX[b], by = SY[b], n = Math.max(1, Math.ceil(hyp(bx - ax, by - ay) * 1.5));
+    for (let s = 0; s <= n; s++) {
+      const t = s / n, fx = ax + (bx - ax) * t, fy = ay + (by - ay) * t;
+      // its pixel and, on a fine raster, softer, the four around it: a line about two pixels wide, so that a
+      // grid of characters coarser than the raster still meets every spring
+      const cx = Math.floor(fx), cy = Math.floor(fy);
+      for (let q = 0; q < (h >= 72 ? 5 : 1); q++) {
+        const x = cx + (q === 1 ? 1 : q === 2 ? -1 : 0), y = cy + (q === 3 ? 1 : q === 4 ? -1 : 0);
+        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const i = y * w + x, val = q ? v * 0.6 : v;
+        if (val > img[i]) img[i] = val;
+      }
+    }
+  };
+
   return {
     w, h,
     get steps() { return steps; },
@@ -263,7 +344,7 @@ export function create(cfg: ModelConfig): FieldModel {
       const Rx = cyw, Rz = syw;
       const Ux = sp * syw, Uy = cp, Uz = -sp * cyw;
       const Tx = -cp * syw, Ty = sp, Tz = cp * cyw;
-      const shade = p.view !== 'malla';
+      const shade = p.view === 'sombreado' || p.view === 'ambos';
       if (shade) {
         normals();
         for (let q = 0; q < ntri; q++) {
@@ -296,7 +377,20 @@ export function create(cfg: ModelConfig): FieldModel {
           }
         }
       }
-      if (p.view !== 'sombreado') {
+      if (p.view === 'tension') {
+        // «Tensión»: every structural spring, with the ink of how far it is from its resting stretch
+        // (its rest length, or the grid for the drumhead), over the dark
+        for (let c = 0; c < nc; c++) {
+          if (K[c] !== 0) continue;
+          const a = C[c * 2], b = C[c * 2 + 1];
+          if (Number.isNaN(SX[a] + SX[b])) continue;
+          const A3 = a * 3, B3 = b * 3;
+          const d = hyp3(X[A3] - X[B3], X[A3 + 1] - X[B3 + 1], X[A3 + 2] - X[B3 + 2]);
+          const rest = drum ? L[c] / (1 - PRE) : L[c];
+          const e = Math.abs(d / rest - 1) / TENSION_FULL;
+          tensionLine(a, b, 0.42 + 0.58 * (e >= 1 ? 1 : e * (2 - e)));
+        }
+      } else if (p.view !== 'sombreado') {
         // the mesh: structural edges, brighter in front (lines drawn over the shading)
         let zmin = Infinity, zmax = -Infinity;
         for (let k = 0; k < np; k++) if (SZ[k] < 1e8) { zmin = Math.min(zmin, SZ[k]); zmax = Math.max(zmax, SZ[k]); }
@@ -348,8 +442,9 @@ export function create(cfg: ModelConfig): FieldModel {
       }
     },
     snapshot(): ModelState {
-      const scalars: Record<string, number> = { yaw };
+      const scalars: Record<string, number> = { yaw, nextKick };
       rng.save(scalars);
+      kickRng.save(scalars, 'kick');
       return { id: ID, v: V, steps, res: h, scalars, arrays: { x: X.slice(), v: Vel.slice() } };
     },
     restore(s: ModelState) {
@@ -360,6 +455,9 @@ export function create(cfg: ModelConfig): FieldModel {
       yaw = s.scalars.yaw ?? 0;
       steps = s.steps;
       rng.load(s.scalars);
+      // (a state saved before «Golpes» existed keeps its fresh stream)
+      nextKick = s.scalars.nextKick ?? -1;
+      if (s.scalars.kickA !== undefined) kickRng.load(s.scalars, 'kick');
     },
   };
 }

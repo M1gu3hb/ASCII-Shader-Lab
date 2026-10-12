@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { create } from '../../src/families/sims/tela';
 import { META } from '../../src/families/meta/tela';
-import { defaultParams, timeContract } from '../../src/families/params';
+import { defaultParams, figureOf, timeContract } from '../../src/families/params';
 import type { FieldModel, Params } from '../../src/families/types';
 
 /** Cloth (XPBD): anchors hold, and the constraints are met better with more substeps or less compliance. */
@@ -98,4 +98,111 @@ describe('telas: presets continuos', { timeout: 60_000 }, () => {
       for (const r of [a, b]) { expect(lit(r), pr.id).toBeGreaterThan(0.02); expect(lit(r), pr.id).toBeLessThan(0.97); }
     });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* PR #10 close-out, I-04: the kinetic grid (drumhead pinned all round) */
+/* ------------------------------------------------------------------ */
+
+describe('telas: malla cinética (I-04)', () => {
+  const preset = () => ({ ...defaultParams(META), ...META.presets.find(p => p.id === 'malla_cinetica')!.params });
+  // «Todo el borde», low mesh: 33 × 17 particles over 2 × 1
+  const GX = 33, GY = 17;
+  const border = (i: number, j: number) => i === 0 || j === 0 || i === GX - 1 || j === GY - 1;
+  const make = (over: Params = {}, seed = 'malla') => create({ seed, params: { ...preset(), ...over }, res: 48 });
+
+  it('anclada por todo el borde, sin gravedad: sin golpes se queda quieta en su rejilla (y es una construcción)', () => {
+    const m = make({ kick: 0 });
+    const x0 = (m.snapshot().arrays.x as Float32Array).slice();
+    m.step(150);
+    const x = m.snapshot().arrays.x as Float32Array;
+    let moved = 0;
+    for (let k = 0; k < GX * GY; k++) for (let c = 0; c < 2; c++) moved = Math.max(moved, Math.abs(x[k * 3 + c] - x0[k * 3 + c]));
+    expect(moved).toBeLessThan(0.002);
+    expect(timeContract(META, { ...preset(), kick: 0 })).toBe('construccion');
+    expect(timeContract(META, preset())).toBe('continuo');
+  });
+
+  it('los golpes llegan cada «Un golpe cada» segundos desde bordes que elige la semilla, y el borde no se mueve', () => {
+    const m = make();
+    const x0 = (m.snapshot().arrays.x as Float32Array).slice();
+    const every = Math.round(Number(preset().every) * 30);
+    const sides = new Set<string>();
+    let prev = x0.slice();
+    for (let hit = 0; hit < 10; hit++) {
+      // one hit per period: just after it, the nodes that moved most this step lie near one border
+      m.step(hit === 0 ? 13 : every);
+      const x = m.snapshot().arrays.x as Float32Array;
+      let best = -1, bi = 0, bj = 0;
+      for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) {
+        const k = j * GX + i, d = Math.hypot(x[k * 3] - prev[k * 3], x[k * 3 + 1] - prev[k * 3 + 1], x[k * 3 + 2] - prev[k * 3 + 2]);
+        if (border(i, j)) { expect(x[k * 3]).toBe(x0[k * 3]); expect(x[k * 3 + 1]).toBe(x0[k * 3 + 1]); continue; }
+        if (d > best) { best = d; bi = i; bj = j; }
+      }
+      const near = Math.min(bi, GX - 1 - bi, bj * 2, (GY - 1 - bj) * 2);
+      expect(near, `golpe ${hit}`).toBeLessThanOrEqual(5);
+      sides.add(bi <= 5 ? 'izquierda' : bi >= GX - 6 ? 'derecha' : bj <= 3 ? 'arriba' : 'abajo');
+      prev = x.slice();
+    }
+    // from more than one border, at random
+    expect(sides.size).toBeGreaterThan(1);
+  });
+
+  it('la onda cruza la malla: tras el golpe, el estiramiento llega lejos del borde y luego se amortigua', () => {
+    const m = make();
+    const strainFar = () => {
+      const x = m.snapshot().arrays.x as Float32Array, sx = 2 / (GX - 1);
+      let e = 0;
+      // the middle third of the grid
+      for (let j = 6; j < 11; j++) for (let i = 11; i < 22; i++) {
+        const k = j * GX + i;
+        e = Math.max(e, Math.abs(Math.hypot(x[(k + 1) * 3] - x[k * 3], x[(k + 1) * 3 + 1] - x[k * 3 + 1], x[(k + 1) * 3 + 2] - x[k * 3 + 2]) / sx - 1));
+      }
+      return e;
+    };
+    m.step(12); const before = strainFar();
+    let peak = 0;
+    for (let s = 0; s < 30; s++) { m.step(1); peak = Math.max(peak, strainFar()); }
+    m.step(25); const after = strainFar();
+    expect(peak).toBeGreaterThan(10 * before + 0.01);
+    expect(after).toBeLessThan(peak);
+  });
+
+  it('vista «Tensión»: la tinta de cada muelle sigue su estiramiento', () => {
+    const m = make();
+    m.step(11);
+    const r = new Uint8Array(m.w * m.h);
+    m.render(r, 0);
+    const calm = Math.max(...r);
+    m.step(4);
+    m.render(r, 0);
+    // at rest every spring has the same faint ink; a hit lights the stretched ones
+    expect(calm).toBeLessThan(140);
+    expect(Math.max(...r)).toBeGreaterThan(200);
+    // another view of the same run draws something else
+    const s = make({ view: 'malla' }); s.step(15);
+    const r2 = new Uint8Array(s.w * s.h); s.render(r2, 0);
+    let d = 0; for (let i = 0; i < r.length; i++) d += Math.abs(r[i] - r2[i]);
+    expect(d / r.length).toBeGreaterThan(5);
+  });
+
+  it('determinista desde la semilla y restaurable a mitad de camino (con su corriente de golpes)', () => {
+    const a = make(), b = make();
+    a.step(70); b.step(70);
+    expect(a.snapshot().arrays.x).toEqual(b.snapshot().arrays.x);
+    const snap = a.snapshot();
+    a.step(80);
+    const c = make();
+    c.restore(snap);
+    c.step(80);
+    expect(c.snapshot().arrays.x).toEqual(a.snapshot().arrays.x);
+    // another seed: other borders
+    const o = make({}, 'otra'); o.step(150);
+    expect(o.snapshot().arrays.x).not.toEqual(a.snapshot().arrays.x);
+  });
+
+  it('llena el lienzo (no es una figura en el centro), a diferencia de las telas', () => {
+    expect(figureOf(META, preset())).toBe(false);
+    for (const p of META.presets.filter(x => x.id !== 'malla_cinetica')) expect(figureOf(META, { ...defaultParams(META), ...p.params }), p.id).toBe(true);
+  });
 });
