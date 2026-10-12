@@ -5,11 +5,11 @@ import type { FamilyIndexEntry } from './types';
  * (tests/unit/families-index.test.ts checks it). What every page knows of each family without its spec.
  */
 export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
-  {"id":"reaccion_difusion","name":"Reacción–difusión","group":"vida","kind":"simulation","v":1,"loop":false},
+  {"id":"reaccion_difusion","name":"Reacción–difusión","group":"vida","kind":"simulation","v":2,"loop":false},
   {"id":"physarum","name":"Physarum","group":"vida","kind":"simulation","v":1,"loop":false},
-  {"id":"lenia","name":"Lenia","group":"vida","kind":"simulation","v":1,"loop":false},
+  {"id":"lenia","name":"Lenia","group":"vida","kind":"simulation","v":2,"loop":false},
   {"id":"automata","name":"Autómatas celulares","group":"vida","kind":"simulation","v":1,"loop":false},
-  {"id":"kuramoto","name":"Osciladores acoplados","group":"vida","kind":"simulation","v":1,"loop":false},
+  {"id":"kuramoto","name":"Osciladores acoplados","group":"vida","kind":"simulation","v":2,"loop":false},
   {"id":"dla","name":"Agregación (DLA)","group":"vida","kind":"simulation","v":1,"loop":false},
   {"id":"crecimiento","name":"Crecimiento diferencial","group":"vida","kind":"simulation","v":1,"loop":false},
   {"id":"fluido","name":"Fluido 2D","group":"fisica","kind":"simulation","v":1,"loop":false},

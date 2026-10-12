@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { create, parseRule } from '../../src/families/sims/automata';
 import { META } from '../../src/families/meta/automata';
-import { defaultParams } from '../../src/families/params';
-import type { Params } from '../../src/families/types';
+import { defaultParams, timeContract } from '../../src/families/params';
+import type { FieldModel, Params } from '../../src/families/types';
 
 /** Life-like and Generations automata: the notation and the rules themselves. */
 
@@ -73,4 +73,60 @@ describe('autómatas celulares', () => {
     m.step(80);
     expect(live().some(c => c === '0,0' || c === '1,1')).toBe(false);
   });
+
+  it('renovación: la lluvia y la banda siguen cambiando un campo que sin ellas se queda quieto', () => {
+    const maze = { ...defaultParams(META), rule: 'laberinto', density: 0.4, seedShape: 'aleatoria', edges: 'toro', speed: 30, trail: 'ninguna' };
+    const S = (m: FieldModel) => m.snapshot().arrays.S as Uint8Array;
+    const changed = (a: Uint8Array, b: Uint8Array) => { let k = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) k++; return k / a.length; };
+    for (const renew of ['ninguna', 'lluvia', 'banda']) {
+      const m = create({ seed: 'r', params: { ...maze, renew }, res: 32 });
+      m.step(600);
+      const a = S(m).slice();
+      m.step(300);
+      const d = changed(a, S(m));
+      if (renew === 'ninguna') expect(d, renew).toBe(0);
+      else expect(d, renew).toBeGreaterThan(0.01);
+    }
+  });
+
+  it('guardar y restaurar con renovación continúa exactamente igual', () => {
+    for (const renew of ['lluvia', 'banda']) {
+      const p = { ...defaultParams(META), renew, renewRate: 1, speed: 30 };
+      const a = create({ seed: 'g', params: p, res: 32 });
+      a.step(457);
+      const snap = a.snapshot();
+      a.step(311);
+      const b = create({ seed: 'g', params: p, res: 32 });
+      b.restore(snap);
+      b.step(311);
+      expect(b.snapshot().arrays.S, renew).toEqual(a.snapshot().arrays.S);
+    }
+  });
+
+  it('el contrato temporal: sin renovación es una construcción; los fondos son continuos', () => {
+    expect(timeContract(META, defaultParams(META))).toBe('construccion');
+    for (const pr of META.presets) {
+      const c = timeContract(META, { ...defaultParams(META), ...pr.params });
+      if (pr.uses?.some(u => u.startsWith('fondos/'))) expect(c, pr.id).toBe('continuo');
+    }
+  });
+
+  // every continuous preset, at the smallest field: past its first minute it is neither empty nor full and keeps changing
+  for (const pr of META.presets) {
+    const p = { ...defaultParams(META), ...pr.params };
+    if (timeContract(META, p) !== 'continuo') continue;
+    it(`«${pr.name}» sigue cambiando y no se apaga`, () => {
+      const m = create({ seed: 'c', params: p, res: META.budget.res![0] });
+      m.step(META.budget.warmup! + 60 * META.budget.rate!);
+      const a = new Uint8Array(m.w * m.h), b = new Uint8Array(m.w * m.h);
+      m.render(a, 0);
+      m.step(2 * META.budget.rate!);
+      m.render(b, 0);
+      let lit = 0, d = 0;
+      for (let i = 0; i < b.length; i++) { if (b[i] > 24) lit++; d += Math.abs(a[i] - b[i]); }
+      expect(lit / b.length).toBeGreaterThan(0.02);
+      expect(lit / b.length).toBeLessThan(0.97);
+      expect(d / b.length).toBeGreaterThan(0.5);
+    });
+  }
 });

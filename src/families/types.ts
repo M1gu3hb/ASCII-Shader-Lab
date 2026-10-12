@@ -172,6 +172,8 @@ export interface FamilyBudget {
   rate?: number;
   /** Steps run from the seed before the first frame (the clip's defined warm-up). */
   warmup?: number;
+  /** What changing the rows does in this family, when it is not «more detail, more work» (the panel's hint). */
+  resNote?: string;
 }
 
 /** What the studio and the docs say about where the model comes from. */

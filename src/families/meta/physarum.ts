@@ -6,6 +6,7 @@ export const META: FamilyMeta = {
   group: 'vida',
   kind: 'simulation',
   version: 1,
+  aka: ['Physarum', 'moho mucilaginoso', 'slime mould', 'Jeff Jones', 'red de transporte'],
   params: [
     { key: 'sensorAngle', label: 'Ángulo de los sensores', type: 'number', min: 5, max: 90, def: 22.5, step: 0.5, unit: '°' },
     { key: 'sensorDist', label: 'Alcance', type: 'number', min: 1, max: 20, def: 5, step: 0.5, unit: 'celdas' },
@@ -18,12 +19,14 @@ export const META: FamilyMeta = {
     { key: 'layout', label: 'Inicio', type: 'choice', def: 'disco', rebuild: true, options: [
       { id: 'disco', label: 'Disco' }, { id: 'centro', label: 'Centro' }, { id: 'anillo', label: 'Anillo' }, { id: 'aleatorio', label: 'Aleatorio' },
     ] },
+    { key: 'renew', label: 'Renovación', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
   ],
   presets: [
-    { id: 'venacion', name: 'Venación', params: { sensorAngle: 22.5, sensorDist: 5, turn: 45, stepSize: 1, density: 6, deposit: 1, decay: 0.1, diffuse: 1, layout: 'disco' }, look: { stops: ['#0b0e06', '#e8f2a0'], bg: '#060804', charset: ' .:-=+*#%@' } },
-    { id: 'membrana', name: 'Membrana', params: { sensorAngle: 10, sensorDist: 4, turn: 60, stepSize: 1, density: 20, deposit: 1, decay: 0.1, diffuse: 1, layout: 'aleatorio' }, look: { stops: ['#120608', '#ffb8a8'], bg: '#090304', charset: ' .·:oO@' } },
-    { id: 'red', name: 'Red eléctrica', params: { sensorAngle: 20, sensorDist: 12, turn: 40, stepSize: 2, density: 4, deposit: 1.5, decay: 0.04, diffuse: 0.4, layout: 'aleatorio' }, look: { stops: ['#04081a', '#9fd8ff'], bg: '#020410', charset: ' .-:=+#' } },
-    { id: 'meandros', name: 'Meandros', params: { sensorAngle: 45, sensorDist: 3, turn: 45, stepSize: 0.7, density: 5, deposit: 1, decay: 0.1, diffuse: 1, layout: 'aleatorio' }, look: { stops: ['#100a14', '#e2c4ff'], bg: '#08050a', charset: ' .:;+*#' } },
+    { id: 'venacion', name: 'Venación', params: { sensorAngle: 22.5, sensorDist: 5, turn: 45, stepSize: 1, density: 6, deposit: 1, decay: 0.1, diffuse: 1, layout: 'disco' }, uses: ['fondos/organicas', 'arte/organicas'], look: { stops: ['#0b0e06', '#e8f2a0'], bg: '#060804', charset: ' .:-=+*#%@' } },
+    { id: 'membrana', name: 'Membrana', params: { sensorAngle: 10, sensorDist: 4, turn: 60, stepSize: 1, density: 20, deposit: 1, decay: 0.1, diffuse: 1, layout: 'aleatorio' }, uses: ['fondos/organicas'], aka: ['espuma'], look: { stops: ['#120608', '#ffb8a8'], bg: '#090304', charset: ' .·:oO@' } },
+    { id: 'red', name: 'Red eléctrica', params: { sensorAngle: 20, sensorDist: 12, turn: 40, stepSize: 2, density: 4, deposit: 1.5, decay: 0.04, diffuse: 0.4, layout: 'aleatorio' }, uses: ['fondos/geometricas', 'fondos/organicas'], look: { stops: ['#04081a', '#9fd8ff'], bg: '#020410', charset: ' .-:=+#' } },
+    { id: 'meandros', name: 'Meandros', params: { sensorAngle: 45, sensorDist: 3, turn: 45, stepSize: 0.7, density: 5, deposit: 1, decay: 0.1, diffuse: 1, layout: 'aleatorio', renew: 0.4 }, uses: ['fondos/organicas', 'tipo/texturas'], look: { stops: ['#100a14', '#e2c4ff'], bg: '#08050a', charset: ' .:;+*#' } },
+    { id: 'rehecha', name: 'Red que se rehace', params: { sensorAngle: 22.5, sensorDist: 5, turn: 45, stepSize: 1, density: 8, deposit: 1, decay: 0.1, diffuse: 1, layout: 'aleatorio', renew: 0.3 }, uses: ['fondos/organicas', 'tipo/texturas'], aka: ['red viva', 'red de transporte'], look: { stops: ['#06100e', '#a8f5e0'], bg: '#030807', charset: ' .:-=+*#' } },
   ],
   caps: {
     loop: false, time: 'continuo', basic: 'full', checkpoint: true,

@@ -150,7 +150,7 @@ export function FamilyControls({ i }: { i: number }) {
         <>
           <Sub>Simulación</Sub>
           <RunPanel i={i} meta={meta} fam={fam} />
-          {res && <Select f={F<number>(`layers.${i}.fam.res`)} label="Resolución de la simulación" opts={resOpts} help={{ hint: 'Más filas: más detalle y más trabajo. Cambiarla reinicia la simulación.' }} minWidth={220} />}
+          {res && <Select f={F<number>(`layers.${i}.fam.res`)} label="Resolución de la simulación" opts={resOpts} help={{ hint: `${meta.budget.resNote ?? 'Más filas: más detalle y más trabajo.'} Cambiarla reinicia la simulación.` }} minWidth={220} />}
           {meta.caps.brushes?.length ? (
             <Seg f={F<string>(`layers.${i}.fam.brush`)} label="Al tocar el escenario"
               opts={[['', 'Nada'] as [string, string], ...meta.caps.brushes.map(b => [b.id, b.label] as [string, string])]}

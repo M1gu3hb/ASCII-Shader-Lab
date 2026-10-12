@@ -10,9 +10,24 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * the kernel's transform is kept until R, the rings or the grid change. So the grid is a power of two: the
  * rows asked for round to the nearest one (64, 128, 256) and the columns are twice that. R is capped at
  * 0.4 × rows so the kernel never wraps onto itself.
+ *
+ * Version 2 (PR #10 review, A-05): R is measured on the 128-row grid and scales with the grid, so a rule and
+ * its seeding (sites three radii apart, noise blocks of a third of R) give the same picture at every size;
+ * the grid is 128 rows at least (asking for fewer still draws 128: at 64 rows the creatures would be half
+ * as many cells across, too coarse to live), 256 when asked for more. Recipes made with version 1 keep
+ * their path (R in cells of whatever grid the rows gave).
+ * In version 2 a school of creatures swims in formation: a lattice 4.5 R apart, all parallel, «Densidad» the
+ * share of its places taken (version 1: one to six creatures three radii apart, turned ± 14°).
+ * «Repoblar» (PR #10 review, A-04): every two seconds the run weighs its living matter; when it has fallen
+ * under half of the most it ever had (creatures that collided and died), a new creature, or a patch of
+ * noise without one, is sown at the emptiest site. Its own stream: without it the run is the earlier one.
  */
 
-const ID = 'lenia', V = 1;
+const ID = 'lenia', V = 2;
+/** Grid rows R is measured on from version 2. */
+export const LENIA_REF = 128;
+/** Steps between two weighings of «Repoblar» (two seconds at the family's rate). */
+const CHECK = 48;
 const TAU = Math.PI * 2;
 /**
  * Brightest byte of the raster: just under white, so a sample half-way between a full and an empty texel is no
@@ -181,7 +196,8 @@ export function nurseryCreature(mu: number, sigma: number, R: number, rings: str
   const conv = new Convolver(N, N), n = N * N;
   conv.setKernel(leniaKernel(N, N, r, beta));
   const A = new Float32Array(n), U = new Float64Array(n);
-  const rng = new SimRng(`${ID}|${V}|vivero`);
+  // (the key keeps version 1: a creature depends only on its rule)
+  const rng = new SimRng(`${ID}|1|vivero`);
   const k2 = 1 / (2 * sigma * sigma);
   let found: Creature | null = null, budget = N === 32 ? 3200 : 1000;
   for (let attempt = 0; attempt < 24 && budget > 0 && !found; attempt++) {
@@ -219,23 +235,30 @@ export function nurseryCreature(mu: number, sigma: number, R: number, rings: str
   return found;
 }
 
-interface P { mu: number; sigma: number; R: number; dt: number; rings: string; seedShape: string; density: number; view: string }
+interface P { mu: number; sigma: number; R: number; dt: number; rings: string; seedShape: string; density: number; view: string; renew: boolean }
 const read = (p: Params): P => ({
   mu: Number(p.mu ?? 0.15), sigma: Number(p.sigma ?? 0.015), R: Number(p.R ?? 13), dt: Number(p.dt ?? 0.1),
   rings: String(p.rings ?? 'uno'), seedShape: String(p.seedShape ?? 'manchas'), density: Number(p.density ?? 0.5),
-  view: String(p.view ?? 'materia'),
+  view: String(p.view ?? 'materia'), renew: p.renew === true,
 });
 
+/** Grid rows of a run: version 1, the rows asked for rounded to a power of two; version 2, 128 at least. */
+export const leniaGrid = (res: number, v = V) => (v >= 2 ? Math.max(LENIA_REF, leniaRows(res)) : leniaRows(res));
+
 export function create(cfg: ModelConfig): FieldModel {
-  const h = leniaRows(cfg.res), w = 2 * h, n = w * h;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  const v = cfg.v ?? V;
+  const h = leniaGrid(cfg.res, v), w = 2 * h, n = w * h;
+  // (the seeding stream keeps the version-1 key: at the default rows both versions seed the same field)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
+  const rngR = new SimRng(`${ID}|repoblar|${cfg.seed}`);
   let p = read(cfg.params);
   let steps = 0;
   const A = new Float32Array(n);
   const U = new Float64Array(n);
   let uFresh = false;
   const conv = new Convolver(w, h);
-  const radius = (R: number) => Math.max(2, Math.min(R, h * 0.4));
+  /** R in cells of this grid (version 2: measured on the 128-row grid), within 0.4 of the rows. */
+  const radius = (R: number) => Math.max(2, Math.min(v >= 2 ? (R * h) / LENIA_REF : R, h * 0.4));
   let kKey = '';
   const kernel = () => {
     const key = `${radius(p.R)}|${p.rings}`;
@@ -249,18 +272,19 @@ export function create(cfg: ModelConfig): FieldModel {
   // ---- seeding (deterministic from the seed)
   const R0 = radius(p.R);
   /** A square of block noise (blocks of a third of R: the kernel sees structure, not grain). */
-  const noise = (x0: number, y0: number, side: number, amp: number) => {
-    const blk = Math.max(1, Math.round(radius(p.R) / 3));
+  const noiseFrom = (r: SimRng, x0: number, y0: number, side: number, amp: number, R: number) => {
+    const blk = Math.max(1, Math.round(R / 3));
     for (let by = 0; by < side; by += blk) for (let bx = 0; bx < side; bx += blk) {
-      const v = amp * rng.next();
+      const v = amp * r.next();
       for (let y = by; y < Math.min(side, by + blk); y++) for (let x = bx; x < Math.min(side, bx + blk); x++) {
         A[((((y0 + y) | 0) % h) + h) % h * w + ((((x0 + x) | 0) % w) + w) % w] = v;
       }
     }
   };
+  const noise = (x0: number, y0: number, side: number, amp: number) => noiseFrom(rng, x0, y0, side, amp, radius(p.R));
   /** A creature from the nursery, scaled to R, turned by th and centred at (cx, cy). */
-  const stamp = (c: Creature, cx: number, cy: number, th: number) => {
-    const k = R0 / c.r, half = (c.n / 2) * k, co = Math.cos(th), si = Math.sin(th);
+  const stamp = (c: Creature, cx: number, cy: number, th: number, Rk = R0) => {
+    const k = Rk / c.r, half = (c.n / 2) * k, co = Math.cos(th), si = Math.sin(th);
     for (let y = Math.floor(cy - half); y <= Math.ceil(cy + half); y++) for (let x = Math.floor(cx - half); x <= Math.ceil(cx + half); x++) {
       const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
       const u = (co * dx + si * dy) / k + c.n / 2 - 0.5, v = (-si * dx + co * dy) / k + c.n / 2 - 0.5;
@@ -272,6 +296,8 @@ export function create(cfg: ModelConfig): FieldModel {
       if (val > A[i]) A[i] = val;
     }
   };
+  /** Heading of a school of creatures (repopulation joins it). */
+  let school = 0;
   // sites on a jittered grid, about three kernel radii apart
   const sites: Array<[number, number]> = [];
   {
@@ -285,7 +311,24 @@ export function create(cfg: ModelConfig): FieldModel {
       break;
     case 'criaturas': {
       const c = nurseryCreature(p.mu, p.sigma, R0, p.rings, p.dt);
-      // a school: all turned about the same way, so they swim side by side more than they collide
+      if (v >= 2) {
+        // a school in formation: a lattice four and a half radii apart, all parallel, so no two of them
+        // ever feel each other (closer, their kernels overlap and they merge or burst)
+        school = rng.next() * TAU;
+        const cs = R0 * 4.5, nx = Math.max(1, Math.floor(w / cs)), ny = Math.max(1, Math.floor(h / cs));
+        const cells: Array<[number, number]> = [];
+        for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) cells.push([((i + 0.5) * w) / nx, ((j + 0.5 + 0.5 * (i % 2)) * h) / ny]);
+        for (let i = cells.length - 1; i > 0; i--) { const j = rng.int(i + 1); const t = cells[i]; cells[i] = cells[j]; cells[j] = t; }
+        const k = Math.max(1, Math.round(p.density * cells.length));
+        for (let i = 0; i < k; i++) {
+          if (c) stamp(c, cells[i][0], cells[i][1], school);
+          else noise(cells[i][0] - R0 * 1.25, cells[i][1] - R0 * 1.25, Math.round(R0 * 2.5), 1);
+        }
+        sites.length = 0;
+        sites.push(...cells);
+        break;
+      }
+      // version 1: a school, all turned about the same way, so they swim side by side more than they collide
       const k = Math.min(sites.length, 1 + Math.round(p.density * 5)), th = rng.next() * TAU;
       for (let i = 0; i < k; i++) {
         const [sx, sy] = sites[i];
@@ -304,7 +347,35 @@ export function create(cfg: ModelConfig): FieldModel {
     }
   }
 
+  // ---- «Repoblar»: the most matter the run had, and a new creature at the emptiest site when it halves
+  let peak = 0;
+  const repopulate = () => {
+    let m = 0;
+    for (let i = 0; i < n; i++) m += A[i];
+    if (m > peak) peak = m;
+    if (m >= 0.5 * peak) return;
+    const R0n = radius(p.R), half = Math.round(R0n * 1.5);
+    // the emptiest site (mass in a box of three radii round it), ties to the first in the shuffled order
+    let best = 0, bestM = Infinity;
+    for (let k = 0; k < sites.length; k++) {
+      const [sx, sy] = sites[k];
+      let s = 0;
+      for (let y = Math.floor(sy) - half; y <= Math.floor(sy) + half; y += 2) {
+        const o = (((y % h) + h) % h) * w;
+        for (let x = Math.floor(sx) - half; x <= Math.floor(sx) + half; x += 2) s += A[o + (((x % w) + w) % w)];
+      }
+      if (s < bestM) { bestM = s; best = k; }
+    }
+    const [sx, sy] = sites[best];
+    const c = p.seedShape === 'criaturas' ? nurseryCreature(p.mu, p.sigma, R0n, p.rings, p.dt) : null;
+    const jx = R0n * (rngR.next() - 0.5), jy = R0n * (rngR.next() - 0.5), th = rngR.next() * TAU;
+    // a newcomer swims with the school (crossing it, it would collide and burst)
+    if (c) stamp(c, sx + jx, sy + jy, v >= 2 ? school : th, R0n);
+    else noiseFrom(rngR, sx + jx - R0n * 1.1, sy + jy - R0n * 1.1, Math.round(R0n * 2.2), 1, R0n);
+  };
+
   const step1 = () => {
+    if (p.renew && steps > 0 && steps % CHECK === 0) repopulate();
     kernel();
     conv.apply(A, U);
     const mu = p.mu, k2 = 1 / (2 * p.sigma * p.sigma), dt = p.dt;
@@ -365,9 +436,10 @@ export function create(cfg: ModelConfig): FieldModel {
       uFresh = false;
     },
     snapshot(): ModelState {
-      const scalars: Record<string, number> = {};
+      const scalars: Record<string, number> = { peak };
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { A: A.slice() } };
+      rngR.save(scalars, 'rr');
+      return { id: ID, v, steps, res: h, scalars, arrays: { A: A.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta simulación.');
@@ -376,6 +448,9 @@ export function create(cfg: ModelConfig): FieldModel {
       A.set(a);
       steps = s.steps;
       rng.load(s.scalars);
+      peak = s.scalars.peak ?? 0;
+      // (a state saved before «Repoblar» existed keeps its fresh stream)
+      if (s.scalars.rrA !== undefined) rngR.load(s.scalars, 'rr');
       uFresh = false;
     },
   };

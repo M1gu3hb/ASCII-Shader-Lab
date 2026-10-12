@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { agentCount, create } from '../../src/families/sims/physarum';
 import { META } from '../../src/families/meta/physarum';
 import { defaultParams } from '../../src/families/params';
+import { encodeCheckpoint, decodeCheckpoint } from '../../src/families/checkpoints';
 import type { Params } from '../../src/families/types';
 
 /** Physarum (Jones 2010): the mechanism, not only the picture. */
@@ -61,5 +62,35 @@ describe('physarum', () => {
       a.step(3); b.step(3);
     }
     expect(near(b)).toBeGreaterThan(near(a) * 1.3);
+  });
+
+  it('«Renovación»: agentes que vuelven a empezar al azar, sin romper una celda por agente ni la restauración', () => {
+    const p = base({ layout: 'aleatorio', density: 10, renew: 1 });
+    const a = create({ seed: 'n', params: p, res: 48 });
+    a.step(173);
+    const snap = a.snapshot();
+    const bytes = encodeCheckpoint({ family: 'physarum', fv: META.version, seed: 'n', res: a.h, state: snap });
+    a.step(91);
+    for (const st of [snap, decodeCheckpoint(bytes).state]) {
+      const b = create({ seed: 'n', params: p, res: 48 });
+      b.restore(st);
+      b.step(91);
+      expect(b.snapshot().arrays.X).toEqual(a.snapshot().arrays.X);
+      expect(b.snapshot().arrays.T).toEqual(a.snapshot().arrays.T);
+    }
+    const st = a.snapshot(), X = st.arrays.X as Float32Array, Y = st.arrays.Y as Float32Array;
+    const seen = new Set<number>();
+    for (let i = 0; i < X.length; i++) {
+      const c = Math.floor(Y[i]) * a.w + Math.floor(X[i]);
+      expect(seen.has(c)).toBe(false);
+      seen.add(c);
+    }
+    // with renewal a share of the agents jumped: the positions differ from a run without it
+    const c = create({ seed: 'n', params: base({ layout: 'aleatorio', density: 10 }), res: 48 });
+    c.step(264);
+    let moved = 0;
+    const Xc = c.snapshot().arrays.X as Float32Array;
+    for (let i = 0; i < X.length; i++) if (Math.abs(Xc[i] - X[i]) > 3) moved++;
+    expect(moved / X.length).toBeGreaterThan(0.2);
   });
 });
