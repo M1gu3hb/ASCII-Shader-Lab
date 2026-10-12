@@ -9,6 +9,12 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * cells count as neighbours. Neighbourhood: Moore (8 cells) or von Neumann (4). Edges: a torus, or dead cells
  * beyond the border. The run takes «Velocidad» generations per second: each step adds that many to a counter
  * and a generation runs every `rate` of them, so time stays a whole number of generations.
+ *
+ * Renewal (PR #10 review, A-04): most rules settle (Life into ash, the maze rule into a finished maze). With
+ * «Renovación» the run keeps changing: «Lluvia» drops small discs of random cells now and then (each sets off
+ * a local reaction that spreads and calms down); «Banda» sweeps a front across the field that sows a thin
+ * strip of random cells as it goes, so the rule rebuilds what lies behind it (a maze that remakes itself
+ * column by column). Both draw from their own seeded stream: without renewal the run is the earlier one.
  */
 
 const ID = 'automata', V = 1;
@@ -51,11 +57,15 @@ export function parseRule(text: string): Rule | null {
   return { birth, survive, states: Math.max(2, Math.min(16, Math.round(states))) };
 }
 
-interface P { rule: string; custom: string; neigh: string; density: number; seedShape: string; edges: string; speed: number; trail: string }
+interface P {
+  rule: string; custom: string; neigh: string; density: number; seedShape: string; edges: string; speed: number; trail: string;
+  renew: string; renewRate: number;
+}
 const read = (p: Params): P => ({
   rule: String(p.rule ?? 'conway'), custom: String(p.custom ?? 'B3/S23'), neigh: String(p.neigh ?? 'moore'),
   density: Number(p.density ?? 0.3), seedShape: String(p.seedShape ?? 'aleatoria'), edges: String(p.edges ?? 'toro'),
   speed: Math.round(Number(p.speed ?? 10)), trail: String(p.trail ?? 'corta'),
+  renew: String(p.renew ?? 'ninguna'), renewRate: Number(p.renewRate ?? 0.5),
 });
 const ruleOf = (p: P): Rule => parseRule(p.rule === 'propia' ? p.custom : RULES[p.rule] ?? RULES.conway) ?? parseRule(RULES.conway)!;
 const FADE: Record<string, number> = { ninguna: 0, corta: 0.62, larga: 0.88 };
@@ -76,6 +86,9 @@ export function create(cfg: ModelConfig): FieldModel {
   const age = new Uint8Array(n).fill(255);
   // live cells with a one-cell border (copies of the far side on a torus, dead when closed)
   const pw = w + 2, L = new Uint8Array(pw * (h + 2));
+  // renewal: its own stream, its clock in generations (drops due, the band's column)
+  const rngR = new SimRng(`${ID}|renovar|${cfg.seed}`);
+  let dropAcc = 0, band = 0;
 
   // ---- seeding (deterministic from the seed)
   const put = (x: number, y: number) => { if (x >= 0 && x < w && y >= 0 && y < h) { S[y * w + x] = 1; age[y * w + x] = 0; } };
@@ -123,6 +136,39 @@ export function create(cfg: ModelConfig): FieldModel {
       }
     }
     const t = S; S = S2; S2 = t;
+    renew();
+  };
+
+  /** A cell set alive or dead at random (density), as the brush and the seeding do. */
+  const sow = (x: number, y: number, dens: number) => {
+    const wrap = p.edges !== 'cerrado';
+    if (!wrap && (x < 0 || y < 0 || x >= w || y >= h)) return;
+    const i = (((y % h) + h) % h) * w + (((x % w) + w) % w);
+    if (rngR.next() < dens) { S[i] = 1; age[i] = 0; } else if (S[i] === 1) S[i] = rule.states > 2 ? 2 : 0;
+  };
+  /** After each generation: the renewal of the field, if any. */
+  const renew = () => {
+    const rate = Math.max(0.05, Math.min(1, p.renewRate));
+    const dens = Math.max(0.15, Math.min(0.6, p.density));
+    if (p.renew === 'lluvia') {
+      // drops per generation: from one every few seconds to a few per second (at 10 gen/s), more on a larger field
+      dropAcc += rate * 0.25 * (n / 8192);
+      while (dropAcc >= 1) {
+        dropAcc -= 1;
+        const cx = rngR.next() * w, cy = rngR.next() * h, R = 2 + rngR.next() * Math.max(2, h * 0.05);
+        for (let y = Math.floor(cy - R); y <= Math.ceil(cy + R); y++) for (let x = Math.floor(cx - R); x <= Math.ceil(cx + R); x++) {
+          if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R) sow(x, y, dens);
+        }
+      }
+    } else if (p.renew === 'banda') {
+      // a front that crosses the field in 400 generations at «Ritmo» 0.5 (40 s at 10 gen/s), sowing the
+      // columns it enters with a strip a few cells deep; the rule rebuilds behind it
+      const v = (w / 200) * rate, from = band;
+      band += v;
+      const x0 = Math.floor(from), x1 = Math.floor(band);
+      for (let x = x0 + 1; x <= x1; x++) for (let k = 0; k < 3; k++) for (let y = 0; y < h; y++) sow(x + k, y, dens);
+      if (band >= w) band -= w;
+    }
   };
 
   // brightness of a dead cell by its age («Estela»), cached per fade
@@ -175,8 +221,9 @@ export function create(cfg: ModelConfig): FieldModel {
       }
     },
     snapshot(): ModelState {
-      const scalars: Record<string, number> = { acc };
+      const scalars: Record<string, number> = { acc, dropAcc, band };
       rng.save(scalars);
+      rngR.save(scalars, 'rr');
       return { id: ID, v: V, steps, res: h, scalars, arrays: { S: S.slice(), age: age.slice() } };
     },
     restore(s: ModelState) {
@@ -187,6 +234,9 @@ export function create(cfg: ModelConfig): FieldModel {
       for (let i = 0; i < n; i++) if (S[i] >= rule.states) S[i] = 0;
       steps = s.steps; acc = s.scalars.acc ?? 0;
       rng.load(s.scalars);
+      dropAcc = s.scalars.dropAcc ?? 0; band = s.scalars.band ?? 0;
+      // (a state saved before renewal existed keeps its fresh stream)
+      if (s.scalars.rrA !== undefined) rngR.load(s.scalars, 'rr');
     },
   };
 }
