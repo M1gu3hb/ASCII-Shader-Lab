@@ -91,17 +91,19 @@ export function createSpiral(cfg: ModelConfig): FieldModel {
       X[i] = r * Math.cos(th); Y[i] = r * Math.sin(th);
       Z[i] = ZA[i] * Math.sin(ZP[i] + 2 * om * T);
       // young stars light up near the outer turn of their oval (cm ≈ 1), where the ovals crowd into the arm
-      L[i] = KIND[i] === 2 ? BR[i] * (0.15 + 0.85 * Math.pow(Math.max(0, 0.5 + 0.5 * cm), 6)) : BR[i];
+      if (KIND[i] === 2) { const q = 0.5 + 0.5 * cm, q3 = q * q * q; L[i] = BR[i] * (0.15 + 0.85 * q3 * q3); } else L[i] = BR[i];
     }
   };
 
   // camera: orthographic, yaw about the galaxy's axis, then tilt towards the viewer (as the N-body camera)
   const FIT = 0.95;
-  const P2 = [0, 0];
+  const P2 = [0, 0], CAM = [1, 0, 1, 0, 1];
+  /** The camera's sines and cosines, once per pass over the stars. */
+  const aim = () => { CAM[0] = Math.cos(yaw); CAM[1] = Math.sin(yaw); CAM[2] = Math.cos(p.tilt); CAM[3] = Math.sin(p.tilt); CAM[4] = (0.42 * p.zoom) / FIT; };
   const project = (x: number, y: number, z: number) => {
-    const c = Math.cos(yaw), s = Math.sin(yaw), ct = Math.cos(p.tilt), st = Math.sin(p.tilt), k = (0.42 * p.zoom) / FIT;
+    const c = CAM[0], s = CAM[1], k = CAM[4];
     const xr = x * c - y * s, yr = x * s + y * c;
-    P2[0] = xr * k; P2[1] = (yr * ct + z * st) * k;
+    P2[0] = xr * k; P2[1] = (yr * CAM[2] + z * CAM[3]) * k;
   };
 
   const step1 = () => {
@@ -113,6 +115,7 @@ export function createSpiral(cfg: ModelConfig): FieldModel {
       // the trail only needs the stars every other step (they move less than a cell)
       if (steps % 2 === 0) {
         place(tm);
+        aim();
         for (let i = 0; i < NS; i++) {
           project(X[i], Y[i], Z[i]);
           const fx = (P2[0] * 0.5 + 0.5) * w - 0.5, fy = (0.5 - P2[1]) * h - 0.5;
@@ -127,25 +130,36 @@ export function createSpiral(cfg: ModelConfig): FieldModel {
     steps++;
   };
 
-  const acc = new Accum(w, h);
+  const acc = new Accum(w, h), stars = new Accum(w, h), tmp = new Float32Array(w * h);
   return {
     w, h,
     get steps() { return steps; },
     setParams(np: Params) { p = { ...read(np), n: p.n }; },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
     render(out: Uint8Array) {
-      const d = acc.d;
-      for (let i = 0; i < d.length; i++) d[i] = 0.5 * (1 - Math.exp(-trail[i] * 1.5));
+      // stars as soft points: each one splatted bilinearly (thousands of them: a gaussian each would cost more than
+      // the rest of the frame), then the layer smoothed by (1 2 1) passes to about the width of a gaussian of σ;
+      // «Brillo por velocidad» lights the fast inner disc
+      const s = stars.d;
+      s.fill(0);
       place(tm);
-      // stars as soft points (wider at high resolution); «Brillo por velocidad» lights the fast inner disc
-      const sg = Math.max(0.5, h / 170);
+      aim();
+      const sg = Math.max(0.5, h / 170), amt = 0.42 * Math.PI * 2 * sg * sg;
       const vref = omega(0.5) * 0.5;
       for (let i = 0; i < NS; i++) {
         project(X[i], Y[i], Z[i]);
         let b = L[i];
         if (p.view === 'velocidad') b *= Math.min(1.8, 0.5 + 0.7 * (omega(A[i]) * hyp3(X[i], Y[i], 0)) / vref);
-        acc.blob(acc.px(P2[0]), acc.py(P2[1]), sg, 0.42 * b);
+        const fx = (P2[0] * 0.5 + 0.5) * w - 0.5, fy = (0.5 - P2[1]) * h - 0.5;
+        const x0 = Math.floor(fx), y0 = Math.floor(fy);
+        if (x0 < 0 || y0 < 0 || x0 >= w - 1 || y0 >= h - 1) continue;
+        const tx = fx - x0, ty = fy - y0, a = amt * b, o = y0 * w + x0;
+        s[o] += a * (1 - tx) * (1 - ty); s[o + 1] += a * tx * (1 - ty);
+        s[o + w] += a * (1 - tx) * ty; s[o + w + 1] += a * tx * ty;
       }
+      stars.blur(Math.max(1, Math.round((sg * sg - 0.17) / 0.5)), false, tmp);
+      const d = acc.d;
+      for (let i = 0; i < d.length; i++) d[i] = 0.5 * (1 - Math.exp(-trail[i] * 1.5)) + s[i];
       toBytes(d, out, 1.4, 1, 'log');
     },
     snapshot(): ModelState {
