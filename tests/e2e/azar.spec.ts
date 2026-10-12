@@ -2,7 +2,6 @@ import { GEN_VERSION } from '../../src/random/generator';
 import { expect, test, type Page } from '@playwright/test';
 import { diceWord5 } from '../../src/random/gen5';
 import { openStudio, seedText } from './helpers';
-import { GEN_VERSION } from '../../src/random/versions';
 
 /**
  * Seeds and generator versions: a seed with its version reproduces its piece, the seed sheet says which
@@ -42,7 +41,7 @@ test.describe('semillas y versiones del generador', () => {
 
   test('la misma semilla sin versión teje con la actual, igual en dos navegadores', async ({ browser }) => {
     const links: string[] = [];
-    // without a version a seed weaves with the current one (GEN_VERSION, 6)
+    // without a version a seed weaves with the current one (GEN_VERSION, 7)
     for (const hash of ['#seed=faro-lunar-417&space=terminal', `#seed=faro-lunar-417&space=terminal&gen=${GEN_VERSION}`, '#seed=faro-lunar-417&space=terminal&gen=4', '#seed=faro-lunar-417&space=terminal&gen=1']) {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();

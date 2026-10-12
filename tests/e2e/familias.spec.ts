@@ -57,7 +57,8 @@ for (const engine of ['webgl', 'basico'] as const) {
     test.use({ reducedMotion: 'reduce', viewport: { width: 1280, height: 800 } });
 
     test(`las ${FAMILIES.length} familias abren desde Recetas, dibujan y muestran su panel`, async ({ page }) => {
-      test.setTimeout(1_200_000);
+      // (a minute per family at most: SwiftShader on a shared machine compiles every family's shader)
+      test.setTimeout(60_000 * FAMILIES.length);
       const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=arte`);
       expect(await contextOf(page, '.stage canvas')).toBe(engine === 'basico' ? '2d' : 'webgl2');
       await hideStageOverlays(page);

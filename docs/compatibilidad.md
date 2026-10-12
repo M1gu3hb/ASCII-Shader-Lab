@@ -181,6 +181,20 @@ estable, teléfonos reales ni con una GPU real. Detalle en [cambios/FAMILIAS-Y-G
 Los teléfonos, Safari y las GPU reales siguen en la lista de abajo: nada de esta tabla dice que una simulación vaya fluida
 en un móvil.
 
+## Revisión del PR #10 (12 de octubre de 2026)
+
+Sólo en **Chromium 141 de Playwright con WebGL 2 por software (SwiftShader)**. En esta máquina no hay Firefox ni
+WebKit de Playwright instalados, ni GPU real ni teléfono: nada de esta revisión se probó en ellos. Detalle en
+[cambios/REVISION-PR10.md](cambios/REVISION-PR10.md).
+
+| Qué | Prueba automática | Abrí el resultado |
+|---|---|---|
+| 39 familias × 203 presets, WebGL 2 frente al motor básico | sí (`scripts/families-qa.mjs --compare`, por grupo) | sí: capturas grandes a 2, 20 y 120 s; raster r = 1; analíticas nuevas r ≥ 0,997 en brillo y en color |
+| Un preset de cada familia desde la biblioteca, en el espacio que lo ofrece, en los dos motores | sí (`tests/e2e/familias.spec.ts`) | — |
+| HTML exportado de las 39 familias, con WebGL 2 y sin WebGL | sí (comprobación de la sesión y `familias.spec.ts`) | — |
+| Memoria con una y cuatro capas de simulación durante minutos, dos motores | sí (`tests/e2e/recursos.spec.ts`, prueba dirigida fuera de CI) | — |
+| Primera vista del estudio con ahorro de datos | sí (`tests/e2e/perf.spec.ts`) | — |
+
 ## Lo que falta y por qué
 
 - **Safari de verdad (macOS, iOS).** Aquí sólo hay WebKit 26 de Playwright para Linux (GTK, con GStreamer para el video). Comparte el motor de páginas con Safari, pero no su reproductor de video, sus códecs, su WebGL (Metal) ni su gestión de permisos. Nada de esta tabla dice «funciona en Safari».
