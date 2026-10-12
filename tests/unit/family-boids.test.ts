@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { create, polarisation } from '../../src/families/sims/boids';
 import { META } from '../../src/families/meta/boids';
-import { defaultParams } from '../../src/families/params';
-import type { Params } from '../../src/families/types';
+import { defaultParams, timeContract } from '../../src/families/params';
+import type { FieldModel, Params } from '../../src/families/types';
 
 /** Boids: the three rules do what Reynolds's model says, and the brush scares the flock away. */
 
@@ -72,4 +72,25 @@ describe('bandadas (boids)', () => {
     // the nearest boid to a predator is farther than the typical spacing of the flock
     expect(toPred).toBeGreaterThan(nearest(pos) * 1.5);
   });
+});
+
+describe('boids: presets continuos', { timeout: 60_000 }, () => {
+  const rate = META.budget.rate!, warm = META.budget.warmup!;
+  const ras = (m: FieldModel, t: number) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };
+  const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+  const lit = (a: Uint8Array) => { let n = 0; for (const v of a) if (v > 24) n++; return n / a.length; };
+  for (const pr of META.presets) {
+    const p = { ...defaultParams(META), ...pr.params };
+    if (timeContract(META, p) !== 'continuo') continue;
+    it(`«${pr.name}» sigue cambiando y no se vacía ni se llena (resolución mínima)`, () => {
+      const m = create({ seed: 'continuo', params: p, res: META.budget.res![0] });
+      m.step(warm + 8 * rate);
+      // the state, with the camera held: the same t for both renders
+      const a = ras(m, 8);
+      m.step(rate);
+      const b = ras(m, 8);
+      expect(mad(a, b), pr.id).toBeGreaterThan(0.5);
+      for (const r of [a, b]) { expect(lit(r), pr.id).toBeGreaterThan(0.02); expect(lit(r), pr.id).toBeLessThan(0.97); }
+    });
+  }
 });

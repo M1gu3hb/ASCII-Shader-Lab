@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { create } from '../../src/families/sims/tela';
 import { META } from '../../src/families/meta/tela';
-import { defaultParams } from '../../src/families/params';
-import type { Params } from '../../src/families/types';
+import { defaultParams, timeContract } from '../../src/families/params';
+import type { FieldModel, Params } from '../../src/families/types';
 
 /** Cloth (XPBD): anchors hold, and the constraints are met better with more substeps or less compliance. */
 
@@ -63,4 +63,39 @@ describe('telas (XPBD)', () => {
     expect(minY).toBeGreaterThanOrEqual(-0.62 - 1e-6);
     expect(maxY).toBeLessThan(-0.5);
   });
+});
+
+describe('telas: ángulo de vista', () => {
+  it('«Ángulo de vista» gira el punto de vista sin tocar la tela', () => {
+    const make = (angle: number) => create({ seed: 'angulo', params: { ...defaultParams(META), anchors: 'mastil', mesh: 'baja', turn: 0, angle }, res: 48 });
+    const a = make(0), b = make(40);
+    a.step(60); b.step(60);
+    expect(b.snapshot().arrays.x).toEqual(a.snapshot().arrays.x);
+    const ra = new Uint8Array(a.w * a.h), rb = new Uint8Array(b.w * b.h);
+    a.render(ra, 0); b.render(rb, 0);
+    let s = 0;
+    for (let i = 0; i < ra.length; i++) s += Math.abs(ra[i] - rb[i]);
+    expect(s / ra.length).toBeGreaterThan(2);
+  });
+});
+
+describe('telas: presets continuos', { timeout: 60_000 }, () => {
+  const rate = META.budget.rate!, warm = META.budget.warmup!;
+  const ras = (m: FieldModel, t: number) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };
+  const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+  const lit = (a: Uint8Array) => { let n = 0; for (const v of a) if (v > 24) n++; return n / a.length; };
+  for (const pr of META.presets) {
+    const p = { ...defaultParams(META), ...pr.params };
+    if (timeContract(META, p) !== 'continuo') continue;
+    it(`«${pr.name}» sigue cambiando y no se vacía ni se llena (resolución mínima)`, () => {
+      const m = create({ seed: 'continuo', params: p, res: META.budget.res![0] });
+      m.step(warm + 8 * rate);
+      // the state, with the camera held: the same t for both renders
+      const a = ras(m, 8);
+      m.step(rate);
+      const b = ras(m, 8);
+      expect(mad(a, b), pr.id).toBeGreaterThan(0.5);
+      for (const r of [a, b]) { expect(lit(r), pr.id).toBeGreaterThan(0.02); expect(lit(r), pr.id).toBeLessThan(0.97); }
+    });
+  }
 });

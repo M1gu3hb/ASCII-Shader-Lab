@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { besselDerivZero, besselJ, create, modeField } from '../../src/families/sims/chladni';
 import { META } from '../../src/families/meta/chladni';
-import { defaultParams } from '../../src/families/params';
+import { defaultParams, timeContract } from '../../src/families/params';
+import type { FieldModel } from '../../src/families/types';
 
 /** Chladni: the mode functions and Bessel zeros are right, and the sand ends up where the plate is still. */
 
@@ -66,4 +67,52 @@ describe('Chladni y cimática', () => {
     for (let i = 0; i < before.length / 2; i++) if (Math.hypot(after[i * 2] - before[i * 2], after[i * 2 + 1] - before[i * 2 + 1]) > 0.05) moved++;
     expect(moved).toBeGreaterThan(50);
   });
+});
+
+describe('Chladni en todo el lienzo', () => {
+  it('la placa del lienzo es el doble de ancha y la arena se junta donde no se mueve', () => {
+    const f = modeField('lienzo', 3, 5, -1);
+    expect(f.length).toBe(2 * G * G);
+    const m = create({ seed: 'lienzo', params: { ...defaultParams(META), plate: 'lienzo', n: 3, m: 5, mix: -1, seq: 'fijo', count: 8000 }, res: 48 });
+    const at = (x: number, y: number) => Math.abs(f[Math.min(G - 1, Math.floor((y * 0.5 + 0.5) * G)) * 2 * G + Math.min(2 * G - 1, Math.floor((x * 0.5 + 0.5) * 2 * G))]);
+    const meanU = () => {
+      const pos = m.snapshot().arrays.pos as Float32Array;
+      let s = 0;
+      for (let i = 0; i < pos.length / 2; i++) s += at(pos[i * 2], pos[i * 2 + 1]);
+      return s / (pos.length / 2);
+    };
+    let plate = 0;
+    for (const v of f) plate += Math.abs(v);
+    plate /= f.length;
+    expect(meanU()).toBeGreaterThan(plate * 0.8);
+    m.step(300);
+    expect(meanU()).toBeLessThan(plate * 0.3);
+    // and it fills the canvas: sand on both sides and near the edges
+    const r = new Uint8Array(m.w * m.h);
+    m.render(r, 0);
+    const quarter = (x0: number) => { let s = 0; for (let y = 0; y < m.h; y++) for (let x = x0; x < x0 + m.w / 4; x++) s += r[y * m.w + x]; return s; };
+    expect(quarter(0)).toBeGreaterThan(0.5 * quarter(m.w / 4));
+    expect(quarter((3 * m.w) / 4)).toBeGreaterThan(0.5 * quarter(m.w / 4));
+  });
+});
+
+describe('Chladni: presets continuos', { timeout: 60_000 }, () => {
+  const rate = META.budget.rate!, warm = META.budget.warmup!;
+  const ras = (m: FieldModel, t: number) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };
+  const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+  const lit = (a: Uint8Array) => { let n = 0; for (const v of a) if (v > 24) n++; return n / a.length; };
+  for (const pr of META.presets) {
+    const p = { ...defaultParams(META), ...pr.params };
+    if (timeContract(META, p) !== 'continuo') continue;
+    it(`«${pr.name}» sigue cambiando y no se vacía ni se llena (resolución mínima)`, () => {
+      const m = create({ seed: 'continuo', params: p, res: META.budget.res![0] });
+      m.step(warm + 8 * rate);
+      // the state, with the camera held: the same t for both renders
+      const a = ras(m, 8);
+      m.step(rate);
+      const b = ras(m, 8);
+      expect(mad(a, b), pr.id).toBeGreaterThan(0.5);
+      for (const r of [a, b]) { expect(lit(r), pr.id).toBeGreaterThan(0.02); expect(lit(r), pr.id).toBeLessThan(0.97); }
+    });
+  }
 });
