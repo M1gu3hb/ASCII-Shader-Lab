@@ -63,6 +63,7 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   globo_puntos: () => import('./analytic/globo_puntos.cpu.ts'),
   arcos_parciales: () => import('./analytic/arcos_parciales.cpu.ts'),
   anillos_tronco: () => import('./analytic/anillos_tronco.cpu.ts'),
+  grabado: () => import('./sims/grabado.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */

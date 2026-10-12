@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { TIME_WORDS, checkedFam, defaultParams, formatParam, normParam, paramsAt, timeContract, type LayerFam } from '../../families/params';
+import { TIME_WORDS, checkedFam, defaultParams, famReads, formatParam, normParam, paramsAt, timeContract, type LayerFam } from '../../families/params';
 import type { FamilyMeta, ParamSpec, TextParam } from '../../families/types';
 import { F, Note, Select, Seg, Slider, Sub, Toggle, useField } from '../controls';
 import { edit, useRecipe, useStudio } from '../store';
@@ -83,6 +83,18 @@ function RunPanel({ i, meta, fam }: { i: number; meta: FamilyMeta; fam: LayerFam
   );
 }
 
+/**
+ * A raster family that reads the piece's words or picture (FamilyMeta.reads 'source') says when there is nothing
+ * to read, so its own shape is not taken for the person's content (PR #10 close-out, C-07).
+ */
+function SourceNote() {
+  const recipe = useRecipe();
+  if (!recipe) return null;
+  if (recipe.source === 'text' && !recipe.text.content.trim()) return <Note>La pieza no tiene texto: esta capa dibuja su propia forma hasta que escribas algo.</Note>;
+  if (recipe.source === 'pattern') return <Note>Esta capa puede leer tus palabras o tu foto; con un patrón como fuente dibuja su propia forma.</Note>;
+  return null;
+}
+
 /** What the layer's settings promise in time (A-04): continuous, an exact loop, or a construction that ends. */
 function TimeLine({ meta, fam }: { meta: FamilyMeta; fam: LayerFam }) {
   const tc = timeContract(meta, fam.p);
@@ -125,6 +137,7 @@ export function FamilyControls({ i }: { i: number }) {
       )}
       {doc && <p className="layer-desc">{doc.blurb}</p>}
       <TimeLine meta={meta} fam={f} />
+      {raster && famReads(meta, f.v, 'source') && <SourceNote />}
       {!meta.caps.loop && loop > 0 && <Note>«Bucle perfecto» no se aplica a esta capa: evoluciona con memoria y no vuelve a su inicio. El resto de la pieza sí lo usa.</Note>}
       <Sub>Presets</Sub>
       <div className="chips" role="group" aria-label={`Presets de ${meta.name}`}>

@@ -60,6 +60,7 @@ const DOCS: Record<string, () => Promise<{ DOC: FamilyDoc }>> = {
   globo_puntos: () => import('./meta/globo_puntos.doc.ts'),
   arcos_parciales: () => import('./meta/arcos_parciales.doc.ts'),
   anillos_tronco: () => import('./meta/anillos_tronco.doc.ts'),
+  grabado: () => import('./meta/grabado.doc.ts'),
 };
 
 const known = new Map<string, FamilyDoc>();

@@ -9,6 +9,7 @@ import { META as laceria } from './laceria';
 import { META as osciloscopio } from './osciloscopio';
 import { META as marco } from './marco';
 import { META as cuerdas } from './cuerdas';
+import { META as grabado } from './grabado';
 
 /** Form and geometry: grammars, constraints and chaos that build structures. */
-export const FORMA: FamilyMeta[] = [sistema_l, atractor, wfc, hiperbolico, orden_caos, mosaico, laceria, osciloscopio, marco, cuerdas];
+export const FORMA: FamilyMeta[] = [sistema_l, atractor, wfc, hiperbolico, orden_caos, mosaico, laceria, osciloscopio, marco, cuerdas, grabado];

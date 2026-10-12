@@ -24,6 +24,8 @@ export const isAnalytic = (id: string) => ENTRY.get(id)?.kind === 'analytic';
  * the version given in `colorSince` (see layerColours). The field shader reads such a layer as colour.
  */
 export const isColorFamily = (id: string) => !!ENTRY.get(id)?.color;
+/** Raster families that can give their cells colour: their raster goes up as rgb plus the luminance in alpha (famRasterC). */
+export const isColourRaster = (id: string) => { const e = ENTRY.get(id); return !!e && e.kind !== 'analytic' && !!e.color; };
 /** Whether a layer gives its cells colour: an analytic colour family, or a raster one made with a version that does. */
 export const layerColours = (l: { pattern: string; fam?: { v: number } }) => {
   const e = ENTRY.get(l.pattern);

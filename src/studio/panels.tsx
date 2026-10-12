@@ -32,7 +32,7 @@ import { TouchControls } from './ui/Touch';
 import { RampEditor } from './ui/RampEditor';
 import { FamilyControls } from './ui/FamilyControls';
 import { GlassControls } from './ui/Glass';
-import { FAMILIES, familyEntry } from '../families/registry';
+import { FAMILIES, familyEntry, isColourRaster } from '../families/registry';
 import { withPreset } from '../families/recipes';
 import { hasStateful, pickLayerPattern, setLayerPattern, useFamilySpec } from './families';
 import { hasColourFamily } from '../families/palette';
@@ -213,7 +213,9 @@ function ColorTab() {
     <>
       <Sub>Paleta</Sub>
 {isMedia && mode === 'source' && <p className="note">Los colores vienen de la imagen. Para cambiar su paleta y reparto, <button type="button" className="mini" onClick={() => edit(r => { r.color.mode = 'ramp'; }, 'color.mode')}>Usar tu paleta</button>.</p>}
-{famColour && mode === 'source' && <p className="note">La familia reparte los colores de tu paleta por el lienzo: cada celda lleva su color y el carácter sale de su brillo.</p>}
+{famColour && mode === 'source' && <p className="note">{recipe && recipe.layers.some(l => l.on && isColourRaster(l.pattern))
+  ? 'La familia da a cada celda su propio color; el carácter sale de su brillo.'
+  : 'La familia reparte los colores de tu paleta por el lienzo: cada celda lleva su color y el carácter sale de su brillo.'}</p>}
       <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><PaletteEditor isMedia={isMedia || famColour} /></fieldset>
       {isMedia && <Seg f={F('color.mode')} label="Colores de" opts={[['ramp', 'Tu paleta'], ['source', 'La imagen']]} />}
       {famColour && <Seg f={F('color.mode')} label="Colores de" opts={[['source', 'La familia'], ['ramp', 'Por brillo']]}

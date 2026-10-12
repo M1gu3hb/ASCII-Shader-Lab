@@ -6,7 +6,7 @@ import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
 import type { EngineOptions, EngineStats, FamilyCommand, GestureInput, GridSnapshot, MediaKind } from '../engine';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../../families/host';
-import { mediaSource, textSource } from '../../families/source';
+import { mediaSource, redOf, smallCopy, textSource } from '../../families/source';
 import { retryFamily } from '../../families/models';
 import { hasColourFamily } from '../../families/palette';
 import { opticsUniforms } from '../opticsU';
@@ -133,6 +133,7 @@ export class BasicEngine implements Renderer {
   /** The source as the families that read it last got it. */
   private famSrcKey = '';
   private famSrcVer = 0;
+  private famSrcCanvas: HTMLCanvasElement | null = null;
   private mediaCanvas: HTMLCanvasElement | null = null;
   private revealKey = '';
   private revealCanvas: HTMLCanvasElement | null = null;
@@ -811,7 +812,14 @@ export class BasicEngine implements Renderer {
     const tb = this.textBuf, mb = this.mediaBuf;
     if (r.source === 'text' && tb) {
       key = 't|' + this.textKey;
-      make = () => textSource(tb.data, tb.w, tb.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+      // the same small copy of the letters the WebGL engine hands over (families/source.ts SIDE): both engines'
+      // models read the same mask, so a family that follows the letters' outlines plans the same route
+      const tc = this.textCanvas;
+      make = () => {
+        if (!tc) return textSource(tb.data, tb.w, tb.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+        const m = smallCopy(tc, tc.width, tc.height, (this.famSrcCanvas ??= document.createElement('canvas')));
+        return textSource(redOf(m), m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+      };
     } else if (mb && this.mediaOK) {
       const m = r.media;
       key = `m|${this.mediaGen}|${Math.floor(this.mediaTime * 10)}|${m.fit}|${m.zoom}|${m.panX}|${m.panY}|${m.mirror}|${this.W}x${this.H}`;
