@@ -26,6 +26,7 @@ const LOAD: Record<string, () => Promise<string>> = {
   haces_luz: () => import('./haces').then(m => m.HACES_GLSL),
   mandala_capas: () => import('./mandala').then(m => m.MANDALA_GLSL),
   eclipse_total: () => import('./eclipse').then(m => m.ECLIPSE_GLSL),
+  talla_diamante: () => import('./diamante').then(m => m.DIAMANTE_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';

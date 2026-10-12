@@ -51,6 +51,7 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   haces_luz: () => import('./analytic/haces.cpu.ts'),
   mandala_capas: () => import('./analytic/mandala.cpu.ts'),
   eclipse_total: () => import('./analytic/eclipse.cpu.ts'),
+  talla_diamante: () => import('./analytic/diamante.cpu.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */
