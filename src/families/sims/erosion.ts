@@ -230,7 +230,8 @@ export function create(cfg: ModelConfig): FieldModel {
     const Kc = 0.05 + 0.6 * p.capacity, Ks = 0.02 + 0.4 * p.erode, Kd = 0.02 + 0.4 * p.deposit, ev = 0.005 + 0.08 * p.evap;
     // the flow map fades (a few seconds of memory)
     for (let k = 0; k < nn; k++) F[k] *= 0.96;
-    dropAcc += p.rain * MAX_DROPS;
+    // (on the canvas map the rain scales with its area, so a coarse map is not flooded: rivers keep their width)
+    dropAcc += p.rain * (wide ? MAX_DROPS * Math.min(1, nn / 16384) : MAX_DROPS);
     for (; dropAcc >= 1; dropAcc--) drop(Kc, Ks, Kd, ev);
     // thermal erosion: material above the talus slope slides to the lower neighbours (hard rock holds cliffs)
     const T0 = Math.tan((p.talus * Math.PI) / 180), Kt = 0.25;
@@ -257,7 +258,8 @@ export function create(cfg: ModelConfig): FieldModel {
   const render = (out: Uint8Array, t: number) => {
     out.fill(0);
     // light from a fixed sun over the map (not the camera), on the relief as drawn (heights × EX)
-    const Lx = -0.55, Ly = -0.45, Lz = 0.7, ll = Math.hypot(Lx, Ly, Lz);
+    // (the canvas map has a lower sun: flat land falls dark and the slopes facing it light up)
+    const Lx = -0.55, Ly = -0.45, Lz = wide && p.view === 'relieve' ? 0.42 : 0.7, ll = Math.hypot(Lx, Ly, Lz);
     let maxB = 1e-6;
     for (let k = 0; k < nn; k++) if (B[k] > maxB) maxB = B[k];
     for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
@@ -268,9 +270,9 @@ export function create(cfg: ModelConfig): FieldModel {
       const river = 1 - Math.exp(-F[k] * 0.08), sea = z < 0 ? Math.min(1, 0.55 - z * 0.4) : 0;
       if (wide && p.view !== 'alturas') {
         // the canvas map: dark water with lighter shallows, so the coast and the rivers carry the picture
-        const water = 0.04 + 0.2 * Math.exp(z / (0.05 * amp));
-        if (p.view === 'agua') shade[k] = z < 0 ? water : 0.03 + 0.16 * lam * lam + 0.85 * river;
-        else shade[k] = z < 0 ? water : (0.04 + 0.85 * lam * lam) * (1 - 0.4 * river) + 0.7 * river;
+        const water = 0.03 + 0.14 * Math.exp(z / (0.04 * amp));
+        if (p.view === 'agua') shade[k] = z < 0 ? water : 0.02 + 0.13 * lam * lam + 0.85 * river;
+        else shade[k] = z < 0 ? water : 0.95 * lam * lam * lam * (1 - 0.4 * river) + 0.7 * river;
       } else if (p.view === 'agua') shade[k] = Math.max(0.04 + 0.2 * lam + 0.85 * river, sea);
       else if (p.view === 'alturas') shade[k] = z < 0 ? 0.04 : 0.08 + 0.55 * (z / maxB) + 0.4 * (lam - 0.55);
       else shade[k] = z < 0 ? 0.3 + 0.25 * sea : (0.05 + 0.85 * lam * lam) * (1 - 0.4 * river) + 0.7 * river;

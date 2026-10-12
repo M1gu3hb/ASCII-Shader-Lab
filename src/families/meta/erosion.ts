@@ -39,7 +39,7 @@ export const META: FamilyMeta = {
     },
     {
       id: 'costa', name: 'Costa tallada', aka: ['Relieve sombreado', 'Erosión y levantamiento'], uses: ['fondos/materia'],
-      params: { shape: 'ladera', height: 0.6, scale: 2.5, rain: 0.8, erode: 0.7, deposit: 0.5, capacity: 0.7, evap: 0.1, talus: 40, strata: 0, uplift: 0.25, frame: 'lienzo', view: 'relieve', orbit: 0, pitch: 0.4 },
+      params: { shape: 'ladera', height: 0.6, scale: 2.5, rain: 0.8, erode: 0.7, deposit: 0.5, capacity: 0.7, evap: 0.1, talus: 40, strata: 0, uplift: 0.2, frame: 'lienzo', view: 'relieve', orbit: 0, pitch: 0.4 },
       look: { stops: ['#080706', '#d8c8a8', '#fff8ea'], bg: '#040302', charset: ' .:-=+*#%@' },
     },
     {
