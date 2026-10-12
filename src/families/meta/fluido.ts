@@ -5,7 +5,8 @@ export const META: FamilyMeta = {
   name: 'Fluido 2D',
   group: 'fisica',
   kind: 'simulation',
-  version: 1,
+  // 2 (PR #10 close-out): «Perturbación de cizalla» (since: 2); version-1 layers draw as they did
+  version: 2,
   extends: 'campo_flujo',
   aka: ['Fluidos estables de Stam', 'Navier–Stokes incompresible', 'Simulación de fluidos', 'Tinta', 'Humo'],
   params: [
@@ -36,7 +37,7 @@ export const META: FamilyMeta = {
       { id: 'tinta', label: 'Tinta' }, { id: 'velocidad', label: 'Velocidad' }, { id: 'vorticidad', label: 'Vorticidad' },
       { id: 'contornos', label: 'Curvas de nivel' },
     ] },
-    { key: 'shear', label: 'Perturbación de cizalla', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'shear', label: 'Perturbación de cizalla', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 2 },
   ],
   presets: [
     {

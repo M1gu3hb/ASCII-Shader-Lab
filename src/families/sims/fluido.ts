@@ -34,7 +34,8 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  *    drawn in two tones, so the rolled-up shear layers read apart from the core.
  */
 
-const ID = 'fluido', V = 1, RATE = 30;
+// 2 (PR #10 close-out): «Perturbación de cizalla» (ParamSpec.since); version-1 layers draw as they did
+const ID = 'fluido', V = 2, RATE = 30;
 const SIM_ROWS = 80, DYE_ROWS = 128;
 const MAX_JETS = 8, MAX_OBST = 6, MAX_ITERS = 40, VISC_SWEEPS = 4, MAX_BANDS = 12;
 /** Over-relaxation of the pressure sweeps. */
@@ -108,7 +109,8 @@ export function create(cfg: ModelConfig): FieldModel {
   const cu = new Float32Array(n), cv = new Float32Array(n), curl = new Float32Array(n), fxc = new Float32Array(n), fyc = new Float32Array(n);
   // solid cells; per face 0 free, 1 closed (no flow), 2 inflow; per cell the fluid neighbours (bits L R U D) and 1/count
   const solid = new Uint8Array(n), uFace = new Uint8Array(nu), vFace = new Uint8Array(nv), nb = new Uint8Array(n), nbInv = new Float32Array(n);
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  // (the stream keeps the version-1 key: both versions draw the same jets and obstacles)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
   let p = read(cfg.params);
   let steps = 0, phase = 0;
 
@@ -639,7 +641,7 @@ export function create(cfg: ModelConfig): FieldModel {
       rng.save(scalars);
       // (the second tracer only when a jet has used it: a run without one keeps the state it had)
       const usedB = jet || trB.some(x => x !== 0);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { u: u.slice(), v: v.slice(), p: pr.slice(), dye: dye.slice(), ...(usedB ? { dyeB: trB.slice() } : {}) } };
+      return { id: ID, v: cfg.v ?? V, steps, res: h, scalars, arrays: { u: u.slice(), v: v.slice(), p: pr.slice(), dye: dye.slice(), ...(usedB ? { dyeB: trB.slice() } : {}) } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a este fluido.');

@@ -28,7 +28,9 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * glyphs (and the palette) follow the tension.
  */
 
-const ID = 'tela', V = 1;
+// 2 (PR #10 close-out): «Golpes», «Un golpe cada», «Inflado» and «Respiración» (ParamSpec.since); version 1
+// layers do not carry them and draw as they did
+const ID = 'tela', V = 2;
 const hyp = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const hyp3 = (x: number, y: number, z: number) => Math.sqrt(x * x + y * y + z * z);
 const RATE = 30, DT = 1 / RATE;
@@ -69,7 +71,8 @@ const hangs = (a: string) => a === 'borde' || a === 'esquinas' || a === 'mastil'
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  // (the stream keeps the version-1 key: both versions seed the same cloth)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
   let p = read(cfg.params);
   const drum = p.anchors === 'perimetro', pillow = p.anchors === 'cojin';
   const [nx, ny] = (drum ? GRIDS[p.mesh] : MESHES[p.mesh]) ?? MESHES.media;
@@ -521,7 +524,7 @@ export function create(cfg: ModelConfig): FieldModel {
       const scalars: Record<string, number> = { yaw, nextKick };
       rng.save(scalars);
       kickRng.save(scalars, 'kick');
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { x: X.slice(), v: Vel.slice() } };
+      return { id: ID, v: cfg.v ?? V, steps, res: h, scalars, arrays: { x: X.slice(), v: Vel.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta tela.');

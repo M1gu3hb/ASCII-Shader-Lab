@@ -130,3 +130,25 @@ describe('compatibilidad de la versión 1 de dla, chladni y niebla en otras reso
     });
   }
 });
+
+/**
+ * Close-out of PR #10, group «física y pendientes»: the controls it added to existing families came with a new
+ * version (ParamSpec.since), so a layer of the earlier one neither carries them nor changes when normalised (the
+ * frozen dice make such layers).
+ */
+describe('controles nuevos de tela, fluido, erosión, Lenia, nubes y cámara de niebla sólo en su versión', () => {
+  const NEW: Record<string, [number, string[]]> = {
+    tela: [2, ['kick', 'every', 'inflate', 'breath']], fluido: [2, ['shear']], erosion: [2, ['cycle']],
+    lenia: [3, ['trail']], nubes_vol: [2, ['contrast']], niebla: [2, ['width']],
+  };
+  for (const [id, [since, keys]] of Object.entries(NEW)) {
+    it(`${id}: ${keys.join(', ')} desde la versión ${since}`, () => {
+      const meta = familyById(id)!;
+      expect(meta.version).toBe(since);
+      const old = normFam(meta, { v: since - 1, seed: 's', p: {} }), now = normFam(meta, { v: since, seed: 's', p: {} });
+      for (const k of keys) { expect(old.p, k).not.toHaveProperty(k); expect(now.p, k).toHaveProperty(k); }
+      // normalising an earlier layer again changes nothing
+      expect(normFam(meta, old)).toEqual(old);
+    });
+  }
+});

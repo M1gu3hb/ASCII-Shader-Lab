@@ -6,7 +6,8 @@ export const META: FamilyMeta = {
   aka: ['nubes', 'nube volumétrica', 'Beer–Lambert', 'Henyey–Greenstein', 'nebulosa', 'cielo'],
   group: 'ciencia',
   kind: 'analytic',
-  version: 1,
+  // 2 (PR #10 close-out): «Contraste» (since: 2; 0 is the earlier output); version-1 layers draw as they did
+  version: 2,
   extends: 'nube',
   params: [
     { key: 'cover', label: 'Cobertura', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
@@ -20,7 +21,7 @@ export const META: FamilyMeta = {
       { id: 'dentro', label: 'Dentro' }, { id: 'horizonte', label: 'Sobre el mar de nubes' }, { id: 'haces', label: 'Haces de luz' },
       { id: 'nebulosa', label: 'Nebulosa' },
     ] },
-    { key: 'contrast', label: 'Contraste', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'contrast', label: 'Contraste', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 2 },
   ],
   presets: [
     { id: 'banco', name: 'Mar de nubes', aka: ['Banco de nubes', 'nubes volumétricas'], uses: ['fondos/organicas'],

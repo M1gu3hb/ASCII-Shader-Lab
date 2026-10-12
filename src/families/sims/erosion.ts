@@ -31,7 +31,8 @@ import type { FieldModel, ModelConfig, ModelState, Params } from '../types';
  * shaded relief, the water or the heights), instead of a diorama in the middle.
  */
 
-const ID = 'erosion', V = 1;
+// 2 (PR #10 close-out): «Ciclo del levantamiento» (ParamSpec.since); version-1 layers draw as they did
+const ID = 'erosion', V = 2;
 /** Vertical exaggeration of the drawn relief. */
 const EX = 1.7;
 const MAX_N = 160, MAX_DROPS = 96, MAX_LIFE = 64, SEA_LIFE = 6;
@@ -90,7 +91,8 @@ export function create(cfg: ModelConfig): FieldModel {
   const NY = wide ? Math.max(24, Math.round(N * 0.71)) : N, NX = wide ? 2 * NY : N, nn = NX * NY;
   const B = new Float32Array(nn), F = new Float32Array(nn), dB = new Float32Array(nn);
   const shade = new Float32Array(nn), ybuf = new Float32Array(w);
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  // (the stream keeps the version-1 key: both versions grow the same terrain and rain)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
   let steps = 0, lost = 0, dropAcc = 0;
 
   // ---- the initial relief (structural: changing it rebuilds the model)
@@ -356,7 +358,7 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = { lost, dropAcc, upPhase0, upStep0, upCycle };
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { b: B.slice(), flow: F.slice() } };
+      return { id: ID, v: cfg.v ?? V, steps, res: h, scalars, arrays: { b: B.slice(), flow: F.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a este terreno.');

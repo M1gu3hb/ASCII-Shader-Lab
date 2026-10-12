@@ -21,7 +21,7 @@ export const META: FamilyMeta = {
     { key: 'energy', label: 'Energía', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
     { key: 'mist', label: 'Niebla de fondo', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
     { key: 'grain', label: 'Gotas', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01, advanced: true },
-    { key: 'width', label: 'Grosor de traza', type: 'number', min: 0.4, max: 2, def: 1, step: 0.05 },
+    { key: 'width', label: 'Grosor de traza', type: 'number', min: 0.4, max: 2, def: 1, step: 0.05, since: 2 },
   ],
   presets: [
     { id: 'burbujas', name: 'Cámara de burbujas', uses: ['terminal/consola', 'arte/curvas'], aka: ['espirales de electrones'],

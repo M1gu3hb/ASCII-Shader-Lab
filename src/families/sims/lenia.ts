@@ -27,7 +27,8 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * and the earlier drawing.
  */
 
-const ID = 'lenia', V = 2;
+// 3 (PR #10 close-out): «Estela» (ParamSpec.since); it draws as version 2 otherwise
+const ID = 'lenia', V = 3;
 /** Grid rows R is measured on from version 2. */
 export const LENIA_REF = 128;
 /** Steps between two weighings of «Repoblar» (two seconds at the family's rate). */

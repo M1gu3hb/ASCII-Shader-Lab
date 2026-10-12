@@ -5,7 +5,8 @@ export const META: FamilyMeta = {
   name: 'Telas y cuerpos blandos',
   group: 'fisica',
   kind: 'simulation',
-  version: 1,
+  // 2 (PR #10 close-out): hits and the cushion's controls (since: 2); version-1 layers draw as they did
+  version: 2,
   aka: ['XPBD', 'Dinámica basada en posiciones', 'Tela', 'Simulación de ropa'],
   params: [
     { key: 'anchors', label: 'Anclajes', type: 'choice', def: 'borde', rebuild: true, options: [
@@ -30,10 +31,10 @@ export const META: FamilyMeta = {
       { id: 'sombreado', label: 'Sombreado' }, { id: 'malla', label: 'Malla' }, { id: 'ambos', label: 'Sombreado y malla' },
       { id: 'tension', label: 'Tensión de la malla' },
     ] },
-    { key: 'kick', label: 'Golpes', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
-    { key: 'every', label: 'Un golpe cada', type: 'number', min: 0.5, max: 8, def: 2.5, step: 0.1, unit: 's' },
-    { key: 'inflate', label: 'Inflado', type: 'number', min: 0.2, max: 1.6, def: 1, step: 0.01 },
-    { key: 'breath', label: 'Respiración', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'kick', label: 'Golpes', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 2 },
+    { key: 'every', label: 'Un golpe cada', type: 'number', min: 0.5, max: 8, def: 2.5, step: 0.1, unit: 's', since: 2 },
+    { key: 'inflate', label: 'Inflado', type: 'number', min: 0.2, max: 1.6, def: 1, step: 0.01, since: 2 },
+    { key: 'breath', label: 'Respiración', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 2 },
   ],
   presets: [
     {

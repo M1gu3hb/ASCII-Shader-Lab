@@ -6,7 +6,8 @@ export const META: FamilyMeta = {
   group: 'vida',
   kind: 'simulation',
   // 2: R scales with the grid and the grid is 128 rows at least (A-05); version-1 recipes keep their path
-  version: 2,
+  // 3 (PR #10 close-out): «Estela» (since: 3); versions 1 and 2 draw as they did
+  version: 3,
   aka: ['Lenia', 'Bert Chan', 'autómata celular continuo', 'continuous cellular automaton', 'vida artificial'],
   params: [
     { key: 'mu', label: 'Crecimiento (μ)', type: 'number', min: 0.05, max: 0.45, def: 0.15, step: 0.001, digits: 3 },
@@ -24,7 +25,7 @@ export const META: FamilyMeta = {
       { id: 'materia', label: 'Materia' }, { id: 'crecimiento', label: 'Crecimiento' }, { id: 'contorno', label: 'Contorno' },
     ] },
     { key: 'renew', label: 'Repoblar', type: 'bool', def: false },
-    { key: 'trail', label: 'Estela', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'trail', label: 'Estela', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 3 },
   ],
   presets: [
     { id: 'orbium', name: 'Nadadores', params: { mu: 0.15, sigma: 0.0145, R: 13, dt: 0.1, rings: 'uno', seedShape: 'criaturas', density: 1, view: 'materia', renew: true, trail: 0.3 }, layer: { scale: 0.8 }, uses: ['arte/organicas'], aka: ['Orbium', 'banco de criaturas'], look: { stops: ['#04100f', '#9ff2de'], bg: '#020807', charset: ' .:-=+*#%@' } },
