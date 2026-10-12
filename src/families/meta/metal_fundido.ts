@@ -1,0 +1,43 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'metal_fundido',
+  name: 'Metal fundido',
+  group: 'materia',
+  kind: 'analytic',
+  version: 1,
+  color: true,
+  extends: 'marmol',
+  aka: ['oro líquido', 'metal líquido', 'relieve especular', 'Fresnel', 'domain warping', 'metabolas', 'mármol metálico'],
+  params: [
+    { key: 'metal', label: 'Metal', type: 'choice', def: 'oro', options: [
+      { id: 'oro', label: 'Oro' }, { id: 'plata', label: 'Plata' }, { id: 'cobre', label: 'Cobre' }, { id: 'paleta', label: 'El de la paleta' },
+    ] },
+    { key: 'scale', label: 'Escala', type: 'number', min: 0.3, max: 2.5, def: 0.8, step: 0.01 },
+    { key: 'warp', label: 'Torsión', type: 'number', min: 0, max: 1, def: 0.65, step: 0.01 },
+    { key: 'drops', label: 'Gotas', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'speed', label: 'Velocidad', type: 'number', min: 0.05, max: 1, def: 0.3, step: 0.01 },
+    { key: 'relief', label: 'Relieve', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
+    { key: 'shine', label: 'Brillo', type: 'number', min: 0, max: 1, def: 0.6, step: 0.01 },
+    { key: 'light', label: 'Luz', type: 'number', min: -160, max: 160, def: 0, step: 1, unit: '°' },
+  ],
+  presets: [
+    { id: 'oro', name: 'Oro fundido', aka: ['oro líquido', 'liquid gold'], uses: ['fondos/materia', 'arte/organicas'],
+      params: { metal: 'oro', scale: 0.75, warp: 0.7, drops: 0.45, speed: 0.3, relief: 0.6, shine: 0.65, light: 0 },
+      look: { stops: ['#0a0602', '#3b2207', '#a8711d', '#f3cf75', '#fff6dc'], bg: '#060301', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+    { id: 'plata', name: 'Plata líquida', aka: ['azogue', 'gotas de plata'], uses: ['fondos/materia', 'arte/organicas'],
+      params: { metal: 'plata', scale: 0.6, warp: 0.4, drops: 1, speed: 0.38, relief: 0.75, shine: 0.85, light: 35 },
+      look: { stops: ['#050608', '#24282f', '#7d8592', '#dfe4ec', '#ffffff'], bg: '#030405', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.1 } },
+    { id: 'cobre', name: 'Cobre batido', aka: ['cobre martillado'], uses: ['fondos/materia'],
+      params: { metal: 'cobre', scale: 1.9, warp: 0.3, drops: 0, speed: 0.18, relief: 1, shine: 0.45, light: -40 },
+      look: { stops: ['#0b0403', '#3d160b', '#a9502c', '#f0a27a', '#fff0e6'], bg: '#070302', charset: ' .,:;=+*#%', colorMode: 'source', vivid: 0.15 } },
+    { id: 'marea', name: 'Marea de oro lenta', aka: ['bronce que fluye'], uses: ['fondos/materia'],
+      params: { metal: 'oro', scale: 0.4, warp: 1, drops: 0, speed: 0.12, relief: 0.4, shine: 0.3, light: 120 },
+      look: { stops: ['#080501', '#3a2507', '#9c6c22', '#e9c56d', '#fff3d2'], bg: '#050300', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.12 } },
+    { id: 'iris', name: 'Metal de la paleta', aka: ['metal iridiscente', 'aceite sobre metal'], uses: ['arte/organicas', 'fondos/materia'],
+      params: { metal: 'paleta', scale: 0.9, warp: 0.85, drops: 0.6, speed: 0.26, relief: 0.65, shine: 0.7, light: 70 },
+      look: { stops: ['#07040f', '#30165c', '#1f7a8c', '#e05a9c', '#fff2c7'], bg: '#040209', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.3 } },
+  ],
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
+  budget: {},
+};
