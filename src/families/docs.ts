@@ -44,6 +44,7 @@ const DOCS: Record<string, () => Promise<{ DOC: FamilyDoc }>> = {
   mar: () => import('./meta/mar.doc.ts'),
   osciloscopio: () => import('./meta/osciloscopio.doc.ts'),
   marco: () => import('./meta/marco.doc.ts'),
+  burbujas: () => import('./meta/burbujas.doc.ts'),
 };
 
 const known = new Map<string, FamilyDoc>();

@@ -22,6 +22,7 @@ const LOAD: Record<string, () => Promise<string>> = {
   mar: () => import('./mar').then(m => m.MAR_GLSL),
   osciloscopio: () => import('./osciloscopio').then(m => m.OSCILOSCOPIO_GLSL),
   marco: () => import('./marco').then(m => m.MARCO_GLSL),
+  burbujas: () => import('./burbujas').then(m => m.BURBUJAS_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';
