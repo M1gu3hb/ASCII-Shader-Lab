@@ -23,6 +23,7 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"descargas","name":"Descargas eléctricas","group":"fisica","kind":"analytic","v":1,"loop":true},
   {"id":"mar","name":"Mar nocturno","group":"fisica","kind":"analytic","v":1,"loop":true},
   {"id":"burbujas","name":"Burbujas con nucleación","group":"fisica","kind":"analytic","v":1,"loop":true},
+  {"id":"calor_radiante","name":"Calor que irradia","group":"fisica","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"sistema_l","name":"Sistemas L","group":"forma","kind":"geometry","v":1,"loop":false},
   {"id":"atractor","name":"Atractores extraños","group":"forma","kind":"simulation","v":2,"loop":false},
   {"id":"wfc","name":"Arquitectura por restricciones","group":"forma","kind":"geometry","v":1,"loop":false},

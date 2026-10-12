@@ -10,6 +10,7 @@ import { META as humo } from './humo';
 import { META as descargas } from './descargas';
 import { META as mar } from './mar';
 import { META as burbujas } from './burbujas';
+import { META as calor_radiante } from './calor_radiante';
 
 /** Physics and motion: fluids, bodies, agents and surfaces that evolve by their model. */
-export const FISICA: FamilyMeta[] = [fluido, agua, erosion, boids, gravedad, tela, chladni, humo, descargas, mar, burbujas];
+export const FISICA: FamilyMeta[] = [fluido, agua, erosion, boids, gravedad, tela, chladni, humo, descargas, mar, burbujas, calor_radiante];
