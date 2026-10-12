@@ -19,7 +19,7 @@ export function ringOf(i: number, t: number, k: Float32Array, out: Float64Array,
   const n = k[0], m = k[10];
   const R = Ri + (Ro - Ri) * ((i + 0.5) / n);
   let w = ((k[2] * 0.6 * (Ro - Ri + 0.05)) / n) * (1 - 0.8 * k[3] * hash12(i, 3));
-  w = Math.max(w, (0.5 * PX) / ct);
+  w = Math.max(w, (0.6 * PX) / ct);
   const dir = hash12(i, 7) < 0.5 ? -1 : 1;
   const turns = dir * Math.floor(1 + hash12(i, 5) * k[7]);
   const seg = TAU / m;
@@ -50,7 +50,7 @@ export const impl: AnalyticImpl = {
       ringOf(i, t, k, RG, PX);
       const R = RG[0], w = RG[1], dir = RG[2];
       const d = Math.abs(r - R);
-      if (d > w + PX / ct) continue;
+      if (d > w + (0.8 * PX) / ct) continue;
       const seg = TAU / RG[6], span = RG[5];
       const u = mod(a - RG[4], seg);
       const soft = (1.2 * PX) / R;
@@ -58,7 +58,7 @@ export const impl: AnalyticImpl = {
       const s = Math.min(1, Math.max(0, u / span));
       const head = dir > 0 ? s : 1 - s;
       const b = (0.72 + 0.28 * hash12(i, 13)) * (1 - 0.8 * k[8] + 0.8 * k[8] * head);
-      const cov = 1 - smoothstep(w - (0.6 * PX) / ct, w + (0.4 * PX) / ct, d);
+      const cov = 1 - smoothstep(w, w + (0.8 * PX) / ct, d);
       v = Math.max(v, b * ends * cov * near);
     }
     return Math.min(1, Math.max(0, v));

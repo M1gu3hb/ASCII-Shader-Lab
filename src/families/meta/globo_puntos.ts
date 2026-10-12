@@ -25,7 +25,7 @@ export const META: FamilyMeta = {
   presets: [
     { id: 'red', name: 'Red alrededor del mundo', aka: ['globo de constelaciones'], uses: ['arte/figuras', 'terminal/figuras'], period: 40,
       params: { size: 0.36, bands: 10, jitter: 0.55, links: 0.7, dot: 0.5, lines: 0.55, arcs: 3, lift: 0.35, cycle: 40, tilt: 18, back: 0.35, pulses: 2 },
-      look: { stops: ['#03060c', '#14365a', '#3f8fd8', '#bfe4ff', '#ffffff'], bg: '#02040a', charset: ' .·:-=+*#' } },
+      look: { stops: ['#03060c', '#2a5f96', '#5fb0ff', '#d2edff', '#ffffff'], bg: '#02040a', charset: ' .·:-=+*#' } },
     { id: 'nodos', name: 'Esfera de nodos', aka: ['puntos sobre una esfera'], uses: ['arte/figuras', 'arte/geometricas'], period: 60,
       params: { size: 0.4, bands: 14, jitter: 0.2, links: 0.35, dot: 0.8, lines: 0.35, arcs: 0, lift: 0.2, cycle: 60, tilt: -12, back: 0.55, pulses: 1 },
       look: { stops: ['#050505', '#3a3a3a', '#a8a8a8', '#ffffff'], bg: '#030303', charset: ' .·oO@' } },
@@ -34,7 +34,7 @@ export const META: FamilyMeta = {
       look: { stops: ['#0a0503', '#4d2008', '#ff8a2a', '#ffe0a8', '#ffffff'], bg: '#060302', charset: ' .:-=+*#%' } },
     { id: 'malla', name: 'Malla de constelaciones', aka: ['red densa'], uses: ['arte/figuras', 'arte/geometricas'], period: 48,
       params: { size: 0.42, bands: 16, jitter: 0.9, links: 1, dot: 0.3, lines: 0.45, arcs: 2, lift: 0.15, cycle: 48, tilt: 0, back: 0.25, pulses: 2 },
-      look: { stops: ['#04030a', '#24164f', '#7d5cff', '#e3d9ff'], bg: '#030208', charset: ' .·:;+=*#' } },
+      look: { stops: ['#04030a', '#4a33a0', '#9d85ff', '#f0ebff'], bg: '#030208', charset: ' .·:;+=*#' } },
   ],
   caps: { loop: true, time: 'bucle', basic: 'full', checkpoint: false },
   budget: {},

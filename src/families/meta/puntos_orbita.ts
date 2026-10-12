@@ -33,7 +33,7 @@ export const META: FamilyMeta = {
       params: { size: 0.22, orbit: 0.45, speed: 0.25, dot: 0.85, vary: 0.8, steps: 6, fill: 0.85, jitter: 1, edges: 0.7, drift: 0.05, track: 0 },
       look: { stops: ['#120a1c', '#8a1f4f', '#e05a2b', '#f2c14e', '#3a9e8f', '#2b4fa0'], bg: '#0a0610', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
     { id: 'polvo', name: 'Polvo que gira', aka: ['nube de puntos finos'], uses: ['fondos/geometricas', 'fondos/espacio'],
-      params: { size: 0.07, orbit: 1, speed: 0.8, dot: 0.4, vary: 0.9, steps: 3, fill: 0, jitter: 0.9, edges: 0, drift: -0.2, track: 0.25 },
+      params: { size: 0.09, orbit: 1, speed: 0.8, dot: 0.75, vary: 0.9, steps: 3, fill: 0.1, jitter: 0.9, edges: 0, drift: -0.2, track: 0.45 },
       look: { stops: ['#03040a', '#2b3a6b', '#a9b8ff', '#ffffff'], bg: '#020308', charset: ' .·:*', colorMode: 'source', vivid: 0.15 } },
   ],
   caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },

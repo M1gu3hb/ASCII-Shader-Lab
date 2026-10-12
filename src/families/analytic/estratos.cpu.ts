@@ -30,6 +30,16 @@ export function depth(x: number, y: number, t: number, k: Float32Array): number 
   return z + k[7] * t * 0.03;
 }
 
+/** Fault f at time t: a point on it, its normal and its throw (the jump of the depth across it). */
+export function faultOf(f: number, t: number, k: Float32Array) {
+  const tc = t * k[9];
+  const a = (hash12(f, 17) - 0.5) * 1.1 + PI * 0.5;
+  return {
+    cx: hash12(f, 11) * 1.4 - 0.7, cy: hash12(f, 13) * 0.5 - 0.25, nx: Math.sin(a), ny: -Math.cos(a),
+    D: k[5] * 0.1 * (0.55 + 0.45 * hash12(f, 19)) * (1 + 0.35 * Math.sin(tc * 0.3 + f * 2.1)),
+  };
+}
+
 /** The layer index at a point (s in FC_estratos). */
 export function layerAt(x: number, y: number, t: number, k: Float32Array): number {
   const u = depth(x, y, t, k) * k[0];

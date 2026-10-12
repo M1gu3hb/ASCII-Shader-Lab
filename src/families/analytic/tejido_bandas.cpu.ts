@@ -24,7 +24,7 @@ export function base(i: number, j: number, wv: number, bw: number): number {
 /** The warp's signed height at crossing (i, j) at time t: +1 on top, −1 under. */
 export function heightAt(i: number, j: number, t: number, k: Float32Array): number {
   const a = (k[5] * PI) / 180;
-  const ph = t * k[4] * 0.35 - (i * Math.cos(a) + j * Math.sin(a)) * 0.09;
+  const ph = k[4] * (t * 0.35 - (i * Math.cos(a) + j * Math.sin(a)) * 0.09);
   return Math.cos(PI * (base(i, j, k[3], k[2]) + Math.floor(ph) + smoothstep(0.75, 1, fract(ph))));
 }
 

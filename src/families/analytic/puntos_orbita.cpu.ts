@@ -1,6 +1,11 @@
 import type { AnalyticImpl, Palette } from '../types';
 import { TAU, V2, hash13, hash22, mod, smoothstep } from '../../engine/basic/core';
+import { currentPX } from '../../engine/basic/px';
 import { PUNTOS_ORBITA_GLSL } from './puntos_orbita';
+
+// the layer's cell size, from prep (the engine's own; currentPX only where a test sets it directly)
+let PXc: number | null = null;
+const pxNow = () => PXc ?? currentPX();
 
 /** CPU twin of FC_puntos_orbita, line by line. The palette arrives with prep (the shader's uPal / uPalN). */
 const DEFAULT: Palette = { n: 4, rgb: new Float32Array([0.08, 0.1, 0.2, 0.2, 0.6, 0.9, 0.95, 0.5, 0.3, 0.95, 0.9, 0.7, 0, 0, 0, 0, 0, 0]) };
@@ -37,6 +42,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   lx = x; ly = y; lt = t;
   const ux = x / k[0] + k[9] * t * 0.07, uy = y / k[0] + k[9] * t * 0.03;
   const nx = Math.floor(ux), ny = Math.floor(uy);
+  const tw = Math.max(0.04, (0.6 * pxNow()) / k[0]);
   let d1 = 9, d2 = 9, dv = 0, tr = 0, c1x = nx, c1y = ny, cdx = nx, cdy = ny;
   for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
     const ix = nx + i, iy = ny + j;
@@ -47,7 +53,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
     const sz = O[5];
     const v = 1 - smoothstep(sz * 0.5, sz, Math.hypot(ux - O[2], uy - O[3]));
     if (v > dv) { dv = v; cdx = ix; cdy = iy; }
-    tr = Math.max(tr, 1 - smoothstep(0.02, 0.07, Math.abs(Math.sqrt(d) - O[4])));
+    tr = Math.max(tr, 1 - smoothstep(0.5 * tw, tw, Math.abs(Math.sqrt(d) - O[4])));
   }
   const steps = k[5];
   const a = Math.floor(mod(stepOf(c1x, c1y, steps), Math.max(pal.n, 1))) * 3, b = Math.floor(mod(stepOf(cdx, cdy, steps), Math.max(pal.n, 1))) * 3;
@@ -59,7 +65,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
 
 export const impl: AnalyticImpl = {
   glsl: PUNTOS_ORBITA_GLSL,
-  prep: (_t, _k, p) => { pal = p && p.n ? p : DEFAULT; lx = NaN; },
+  prep: (_t, _k, p, px) => { PXc = px ?? null; pal = p && p.n ? p : DEFAULT; lx = NaN; },
   cpu: (x, y, t, k) => { eval4(x, y, t, k); return C[3]; },
   cpuColor: (x, y, t, k, out) => { eval4(x, y, t, k); out[0] = C[0]; out[1] = C[1]; out[2] = C[2]; },
 };

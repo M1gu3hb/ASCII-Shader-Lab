@@ -14,6 +14,10 @@ function cfg(ci: number, sp: number) {
 }
 const on = (ci: number, j: number, dens: number) => step(hash12(ci + 0.5, j), dens);
 
+/** Column ci's streams (la_cfg): [seconds between streams, phase, fall speed]; and whether stream j falls. */
+export function columnOf(ci: number, sp: number): [number, number, number] { cfg(ci, sp); return [C3[0], C3[1], C3[2]]; }
+export const streamOn = (ci: number, j: number, dens: number) => on(ci, j, dens) > 0.5;
+
 function rain(px: number, py: number, t: number, colW: number, co: number, sp: number, dens: number, trail: number, yw: number, flick: number, PX: number): number {
   const ci = Math.floor(px / colW + co);
   cfg(ci, sp);

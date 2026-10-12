@@ -9,7 +9,7 @@
  *    twill shifts by one thread per row (diagonals), blocks alternate warp-faced and weft-faced squares of
  *    2·«Banda» threads (most crossings show the warp in one and the weft in the other).
  *  - The crossing state is a signed height h = cos(π·(s₀ + ⌊φ⌋ + smoothstep(.75, 1, fract φ))), with
- *    φ = t·speed − (i, j)·d a phase that runs across the cloth in direction d: each time a front passes, the
+ *    φ = «Cruce»·(0.35·t − 0.09·(i, j)·d) a phase that runs across the cloth in direction d: each time a front passes, the
  *    thread on top goes under (smoothly) and the other comes up. Between crossings a thread's height goes from
  *    one crossing's to the next.
  *  - The visible thread is shaded by its round profile and its height (the one going under darkens), with a
@@ -31,7 +31,8 @@ float tj_base(float i, float j, float wv, float bw){
 // the warp's signed height at crossing (i, j) at time t: +1 on top, −1 under
 float tj_h(float i, float j, float t, vec4 k0, vec4 k1){
   float a = radians(k1.y);
-  float ph = t * k1.x * .35 - dot(vec2(i, j), vec2(cos(a), sin(a))) * .09;
+  // the fronts run across the cloth; «Cruce» sets how many: none, the weave as laid
+  float ph = k1.x * (t * .35 - dot(vec2(i, j), vec2(cos(a), sin(a))) * .09);
   return cos(PI * (tj_base(i, j, k0.w, k0.z) + floor(ph) + smoothstep(.75, 1., fract(ph))));
 }
 vec4 FC_tejido_bandas(vec2 p, float t, vec4 k0, vec4 k1){

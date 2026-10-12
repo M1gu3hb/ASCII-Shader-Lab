@@ -31,7 +31,7 @@ export const META: FamilyMeta = {
       params: { spacing: 0.2, amp: 0.7, wavelen: 0.3, speed: 0.5, travel: 0, tilt: 0.85, dot: 0.7, fog: 0.15, ripple: 1, sway: 0 },
       look: { stops: ['#0a0503', '#4a1d0c', '#e0782e', '#ffe1b8'], bg: '#060302', charset: ' ·•●' } },
     { id: 'llanura', name: 'Llanura en calma', aka: ['puntos casi quietos'], uses: ['fondos/geometricas', 'fondos/espacio'],
-      params: { spacing: 0.3, amp: 0.2, wavelen: 1, speed: 0.2, travel: -0.4, tilt: 0.2, dot: 0.85, fog: 0.6, ripple: 0.15, sway: 0.6 },
+      params: { spacing: 0.3, amp: 0.25, wavelen: 1, speed: 0.25, travel: -0.4, tilt: 0.3, dot: 0.9, fog: 0.3, ripple: 0.15, sway: 0.6 },
       look: { stops: ['#06040c', '#2a1c4a', '#9b7fe0', '#efe6ff'], bg: '#040209', charset: ' .·•●' } },
   ],
   caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },

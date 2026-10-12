@@ -31,9 +31,9 @@ float F_arcos_parciales(vec2 p, float t, vec4 k0, vec4 k1){
     if (fi >= n) break;
     float R = mix(Ri, Ro, (fi + .5) / n);
     float w = k0.z * .6 * (Ro - Ri + .05) / n * (1. - .8 * k0.w * hash12(vec2(fi, 3.)));
-    w = max(w, .5 * PX / ct);
+    w = max(w, .6 * PX / ct);
     float d = abs(r - R);
-    if (d > w + PX / ct) continue;
+    if (d > w + .8 * PX / ct) continue;
     float dir = hash12(vec2(fi, 7.)) < .5 ? -1. : 1.;
     float turns = dir * floor(1. + hash12(vec2(fi, 5.)) * k1.w);
     float seg = TAU / m;
@@ -44,7 +44,7 @@ float F_arcos_parciales(vec2 p, float t, vec4 k0, vec4 k1){
     float s = clamp(u / span, 0., 1.);
     float head = dir > 0. ? s : 1. - s;
     float b = (.72 + .28 * hash12(vec2(fi, 13.))) * mix(1. - .8 * K2.x, 1., head);
-    float cov = 1. - smoothstep(w - .6 * PX / ct, w + .4 * PX / ct, d);
+    float cov = 1. - smoothstep(w, w + .8 * PX / ct, d);
     v = max(v, b * ends * cov * near);
   }
   return clamp(v, 0., 1.);

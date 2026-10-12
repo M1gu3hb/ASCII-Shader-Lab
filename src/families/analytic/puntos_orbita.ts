@@ -28,6 +28,8 @@ vec4 FC_puntos_orbita(vec2 p, float t, vec4 k0, vec4 k1){
   vec2 u = p / k0.x + K2.y * t * vec2(.07, .03);
   vec2 n = floor(u), f = fract(u);
   float d1 = 9., d2 = 9., dv = 0., tr = 0.;
+  // the track is drawn about a cell wide whatever the cell size
+  float tw = max(.04, .6 * PX / k0.x);
   vec2 c1 = n, cd = n;
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++){
     vec2 g = vec2(float(i), float(j));
@@ -46,7 +48,7 @@ vec4 FC_puntos_orbita(vec2 p, float t, vec4 k0, vec4 k1){
     float v = 1. - smoothstep(sz * .5, sz, length(f - dp));
     if (v > dv){ dv = v; cd = id; }
     // the orbit's track, faint
-    tr = max(tr, 1. - smoothstep(.02, .07, abs(sqrt(d) - R)));
+    tr = max(tr, 1. - smoothstep(.5 * tw, tw, abs(sqrt(d) - R)));
   }
   float steps = k1.y;
   vec3 cc = po_pal(po_step(c1, steps)), dc = po_pal(po_step(cd, steps));

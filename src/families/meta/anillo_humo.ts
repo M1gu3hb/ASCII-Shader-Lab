@@ -26,7 +26,7 @@ export const META: FamilyMeta = {
       params: { radius: 0.28, thick: 0.07, wobble: 0.5, detail: 1.4, wisps: 0.5, cycle: 16, core: 0.25, spread: 0.5, turns: 1, flow: 0.5 },
       look: { stops: ['#07060b', '#3b2a5c', '#9b5fa8', '#f0a6b8', '#fff1e6'], bg: '#050408', charset: ' .·:-=+*#%', colorMode: 'source', vivid: 0.2 } },
     { id: 'incienso', name: 'Incienso que se abre', aka: ['humo que se deshilacha'], uses: ['arte/organicas', 'fondos/organicas'], period: 24,
-      params: { radius: 0.2, thick: 0.05, wobble: 0.85, detail: 2.2, wisps: 1, cycle: 24, core: 0.1, spread: 0.8, turns: -1, flow: 0.9 },
+      params: { radius: 0.2, thick: 0.06, wobble: 0.7, detail: 1.6, wisps: 1, cycle: 24, core: 0.1, spread: 0.8, turns: -1, flow: 0.9 },
       look: { stops: ['#080706', '#3a3128', '#8a7a64', '#d8cdb8', '#fbf6ec'], bg: '#050403', charset: ' .`\'-~=+*#', colorMode: 'source', vivid: 0.1 } },
     { id: 'corona', name: 'Corona de fuego', aka: ['anillo incandescente'], uses: ['arte/figuras', 'arte/optica'], period: 12,
       params: { radius: 0.33, thick: 0.1, wobble: 0.35, detail: 1, wisps: 0.35, cycle: 12, core: 0, spread: 0.3, turns: 2, flow: 0.3 },
