@@ -10,6 +10,7 @@ import { FAMILIES, familiesGen } from '../../families/registry';
 import { familyRecipe } from '../../families/recipes';
 import type { FamilyMeta, FamilyPreset } from '../../families/types';
 import { usesOf } from '../../families/uses';
+import { famReads } from '../../families/params';
 
 /**
  * Every starting point of the lab in one catalogue: the recipes of each space (presets.ts), the composed
@@ -145,6 +146,9 @@ const TERMINAL_CHARS = ' .:-=+*#%@';
  * photo, video or camera (Imagen). The seed is the preset's, so the same entry gives the same piece everywhere.
  */
 function familyMake(space: SceneSpace, f: FamilyMeta, pr: FamilyPreset) {
+  // a family that reads the piece (FamilyMeta.reads) makes the whole picture from the photo or the words: the
+  // pattern is all there is on stage, not a layer mixed over the source
+  const reads = famReads(f, f.version, 'source');
   return (base?: Recipe): Recipe => {
     const r = familyRecipe(f.id, pr.id, undefined, `${f.id}-${pr.id}`);
     if (space === 'terminal') {
@@ -152,13 +156,14 @@ function familyMake(space: SceneSpace, f: FamilyMeta, pr: FamilyPreset) {
       if (!ASCII_ONLY.test(r.glyph.charset)) { r.glyph.charset = TERMINAL_CHARS; r.glyph.sort = true; }
     } else if (space === 'tipo') {
       r.source = 'text';
-      r.text = { ...r.text, content: 'GLYPHOS', font: 'martian', weight: 800, size: 0.95 };
-      r.media = { ...r.media, mix: 0.6, blend: 'multiply' };
+      // (a preset can ask for its words at another size: a tunnel of words leaves room around them)
+      r.text = { ...r.text, content: 'GLYPHOS', font: 'martian', weight: 800, size: pr.text?.size ?? 0.95 };
+      r.media = { ...r.media, mix: reads ? 1 : 0.6, blend: reads ? 'normal' : 'multiply' };
       r.tone.contrast = Math.max(r.tone.contrast, 1.3);
       if (base) keepText(base, r);
     } else if (space === 'media') {
       r.source = 'image';
-      r.media = { ...r.media, mix: 0.5, blend: 'screen' };
+      r.media = { ...r.media, mix: reads ? 1 : 0.5, blend: reads ? 'normal' : 'screen' };
       if (base) keepMedia(base, r);
     }
     return normalizeRecipe(r);

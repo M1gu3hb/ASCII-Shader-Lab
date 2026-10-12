@@ -8,6 +8,10 @@
  * light runs along the contour. Red and blue read the
  * band a little ahead and behind (dispersion), each channel through the palette (the tint). The glyph comes
  * from the band phase. Written from the published description of the effect, not from any shader's code.
+ * Version 2 (PR #10 close-out): the mask can be the piece itself (famSrc). Letters become chrome: the band
+ * bends along their outline (an edge field from the mask averaged at two radii) with a rim of light, and a
+ * halo hugs them outside. A picture is metal all over: its tones (averaged the same way) are the relief the
+ * bands follow. With patterns as the source there is nothing to read, and the drop is drawn.
  * Parameters: k0 = (mask, repetition, distortion, contour), k1 = (angle°, dispersion, speed, size).
  */
 export const CROMADO_GLSL = /* glsl */ `
@@ -60,11 +64,38 @@ float crom_prof(float x, float fw){
   v = max(v, .9 * crom_line(x, .68, .045, fw));
   return mix(v, .42, smoothstep(.35, .9, fw));
 }
+// the piece's picture or letters averaged around p (centre, four taps at D/2, four at D turned 45°)
+float crom_src(vec2 p, float D, out float s0){
+  s0 = famSrc(p).a;
+  float a = s0;
+  for (int j = 0; j < 4; j++){
+    vec2 o = vec2(cos(float(j) * 1.5707964), sin(float(j) * 1.5707964));
+    a += famSrc(p + o * D * .5).a + famSrc(p + rot2(o, .78539819) * D).a;
+  }
+  return a / 9.;
+}
 vec4 FC_cromado(vec2 p, float t, vec4 k0, vec4 k1){
   float m = floor(k0.x + .5), rep = k0.y, dis = k0.z, con = k0.w;
   float ang = k1.x * PI / 180., T = t * k1.z, R = k1.w;
   float d = -1., E, dE, cov = 1.;
-  if (m < .5){
+  // «Tu foto o tu texto» with nothing to read (patterns as the source): the drop
+  if (m > 5.5 && famSrcKind() < .5) m = 3.;
+  if (m > 5.5){
+    float D = .3 * R, s0;
+    float mb = crom_src(p, D, s0);
+    if (famSrcKind() > 1.5){
+      // letters: chrome inside them, the band bending along their outline
+      float u = clamp((mb - .5) * 2., 0., 1.);
+      E = (1. - u) * (1. - u);
+      dE = 2. * (1. - u) / D;
+      d = (.5 - mb) * 2. * D;
+      cov = smoothstep(.35, .65, s0);
+    } else {
+      // a picture: metal all over, its tones the relief the bands follow (enough to bend them by several bands)
+      E = mb * 2.2 / R;
+      dE = 4. / R;
+    }
+  } else if (m < .5){
     // no mask: the level lines of a slow field stand in for a contour, the whole canvas is metal
     float n = fbm(p * .9 / R + vec2(T * .05, -T * .04));
     E = smoothstep(.25, .75, n);
@@ -88,7 +119,7 @@ vec4 FC_cromado(vec2 p, float t, vec4 k0, vec4 k1){
   // outside: a thin halo that hugs the shape, lit by the band at the contour
   float halo = m < .5 ? 0. : .2 * exp(-max(d, 0.) / .016) * (.55 + .45 * g) * (1. - cov);
   // a rim of light along the contour, as on polished metal seen at a grazing angle
-  float rim = m < .5 ? 0. : .32 * E * E * E;
+  float rim = m < .5 ? 0. : .32 * min(E * E * E, 1.);
   vec3 col = vec3(crom_ramp(r).r, crom_ramp(g).g, crom_ramp(b).b);
   col = mix(crom_ramp(.25 + 1.8 * halo), col, cov);
   // the glyph follows the band's phase, through the same three channels (dispersion widens the bright lines)

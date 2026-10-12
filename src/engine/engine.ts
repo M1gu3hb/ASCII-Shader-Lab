@@ -20,7 +20,7 @@ import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec
 import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../families/host';
-import { mediaSource, redOf, smallCopy, textSource } from '../families/source';
+import { TEXT_SIDE, mediaSource, redOf, smallCopy, textSource } from '../families/source';
 import { retryFamily } from '../families/models';
 import { hasColourFamily, paletteOf } from '../families/palette';
 import { opticsUniforms } from './opticsU';
@@ -1415,7 +1415,7 @@ export class AsciiEngine implements Renderer {
     if (r.source === 'text' && this.textCanvas) {
       const tc = this.textCanvas;
       key = 't|' + this.textKey;
-      make = () => { const m = smallCopy(tc, tc.width, tc.height, cv()); return textSource(redOf(m), m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer); };
+      make = () => { const m = smallCopy(tc, tc.width, tc.height, cv(), TEXT_SIDE); return textSource(redOf(m), m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer); };
     } else {
       const el = this.currentMedia();
       if (el && this.mediaOK) {
@@ -1573,7 +1573,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
     // the cells carry a colour of their own: the picture's, or a colour family's (families/palette.ts)
-    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' || (src === 'pattern' && hasColourFamily(r)) ? 1 : 0);
+    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' || ((src === 'pattern' || src === 'text') && hasColourFamily(r)) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uEmptyField'), r.source === 'pattern' && !r.layers.some(l => l.on) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uShift'), r.color.shift);
     gl.uniform1f(loc(gl, p, 'uCycle'), r.color.cycle);

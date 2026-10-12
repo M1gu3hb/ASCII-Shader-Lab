@@ -22,6 +22,21 @@ const LOAD: Record<string, () => Promise<string>> = {
   mar: () => import('./mar').then(m => m.MAR_GLSL),
   osciloscopio: () => import('./osciloscopio').then(m => m.OSCILOSCOPIO_GLSL),
   marco: () => import('./marco').then(m => m.MARCO_GLSL),
+  metal_fundido: () => import('./metal_fundido').then(m => m.METAL_FUNDIDO_GLSL),
+  seda: () => import('./seda').then(m => m.SEDA_GLSL),
+  grietas_oro: () => import('./grietas_oro').then(m => m.GRIETAS_ORO_GLSL),
+  jade_ruido: () => import('./jade_ruido').then(m => m.JADE_RUIDO_GLSL),
+  cuerdas: () => import('./cuerdas').then(m => m.CUERDAS_GLSL),
+  lluvia_agua: () => import('./lluvia_agua').then(m => m.LLUVIA_AGUA_GLSL),
+  tejido_bandas: () => import('./tejido_bandas').then(m => m.TEJIDO_BANDAS_GLSL),
+  estatica_vhs: () => import('./estatica_vhs').then(m => m.ESTATICA_VHS_GLSL),
+  estratos: () => import('./estratos').then(m => m.ESTRATOS_GLSL),
+  puntos_orbita: () => import('./puntos_orbita').then(m => m.PUNTOS_ORBITA_GLSL),
+  anillo_humo: () => import('./anillo_humo').then(m => m.ANILLO_HUMO_GLSL),
+  rejilla_puntos: () => import('./rejilla_puntos').then(m => m.REJILLA_PUNTOS_GLSL),
+  globo_puntos: () => import('./globo_puntos').then(m => m.GLOBO_PUNTOS_GLSL),
+  arcos_parciales: () => import('./arcos_parciales').then(m => m.ARCOS_PARCIALES_GLSL),
+  anillos_tronco: () => import('./anillos_tronco').then(m => m.ANILLOS_TRONCO_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';

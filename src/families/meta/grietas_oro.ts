@@ -1,0 +1,46 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'grietas_oro',
+  name: 'Grietas de oro',
+  group: 'materia',
+  kind: 'analytic',
+  version: 1,
+  color: true,
+  extends: 'grietas',
+  aka: ['kintsugi', 'fractura dorada', 'grietas que crecen', 'oro fundido', 'Voronoi', 'gilded fracture'],
+  params: [
+    { key: 'metal', label: 'Metal', type: 'choice', def: 'oro', options: [
+      { id: 'oro', label: 'Oro' }, { id: 'cobre', label: 'Cobre' }, { id: 'plata', label: 'Plata' }, { id: 'lava', label: 'Lava' },
+    ] },
+    { key: 'scale', label: 'Placas', type: 'number', min: 1.5, max: 9, def: 3.4, step: 0.1 },
+    { key: 'warp', label: 'Sinuosidad', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'width', label: 'Ancho', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'period', label: 'Ciclo', type: 'number', min: 6, max: 40, def: 14, step: 0.5, unit: 's' },
+    { key: 'origin', label: 'Origen', type: 'choice', def: 'centro', options: [
+      { id: 'centro', label: 'El centro' }, { id: 'izquierda', label: 'La izquierda' }, { id: 'abajo', label: 'Abajo' }, { id: 'azar', label: 'Un punto al azar' },
+    ] },
+    { key: 'bleed', label: 'Sangrado', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
+    { key: 'dust', label: 'Polvo', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'fine', label: 'Grietas finas', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'jitter', label: 'Desorden', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'renew', label: 'Trazado nuevo cada ciclo', type: 'bool', def: false },
+    { key: 'heat', label: 'Calor', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
+  ],
+  presets: [
+    { id: 'kintsugi', name: 'Oro que sangra', aka: ['kintsugi', 'fractura dorada'], uses: ['fondos/organicas', 'arte/organicas'], period: 14,
+      params: { metal: 'oro', scale: 3.2, warp: 0.5, width: 0.5, period: 14, origin: 'centro', bleed: 0.6, dust: 0.55, fine: 0.5, jitter: 0.4, renew: false, heat: 0.55 },
+      look: { stops: ['#050403', '#17130f', '#3a332b', '#6d6458', '#b9b0a2'], bg: '#030202', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.5 } },
+    { id: 'brasa', name: 'Tierra en brasa', aka: ['grietas de lava', 'suelo volcánico'], uses: ['fondos/organicas'],
+      params: { metal: 'lava', scale: 4, warp: 0.8, width: 0.35, period: 18, origin: 'abajo', bleed: 0.9, dust: 0.85, fine: 0.45, jitter: 0.6, renew: true, heat: 0.9 },
+      look: { stops: ['#040101', '#1a0905', '#3b1a10', '#6b3a26', '#a8705a'], bg: '#020000', charset: ' .,:;=+*#%', colorMode: 'source', vivid: 0.5 } },
+    { id: 'porcelana', name: 'Porcelana rota', aka: ['loza agrietada', 'craquelado'], uses: ['arte/organicas', 'fondos/organicas'], period: 20,
+      params: { metal: 'plata', scale: 2.4, warp: 0.25, width: 0.2, period: 20, origin: 'izquierda', bleed: 0.2, dust: 0.2, fine: 0.95, jitter: 0.75, renew: false, heat: 0.3 },
+      look: { stops: ['#0a0c10', '#262b33', '#535b66', '#9aa3ae', '#e6ebf0'], bg: '#06080b', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.5 } },
+    { id: 'cobre', name: 'Grietas de cobre', aka: ['fisuras de cobre'], uses: ['fondos/organicas'],
+      params: { metal: 'cobre', scale: 6.5, warp: 1, width: 0.3, period: 10, origin: 'azar', bleed: 0.45, dust: 0.4, fine: 0.35, jitter: 0.3, renew: true, heat: 0.4 },
+      look: { stops: ['#060403', '#1e1410', '#3e2c22', '#6e5242', '#a88a76'], bg: '#030201', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.5 } },
+  ],
+  caps: { loop: true, time: { param: 'renew', values: { true: 'continuo' }, else: 'bucle' }, basic: 'full', checkpoint: false },
+  budget: {},
+};

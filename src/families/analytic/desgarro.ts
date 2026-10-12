@@ -10,6 +10,9 @@
  * other; the surface's own grain moves apart with the halves, under a slow light that drifts across it. «Quemado» burns holes instead (an fBm front
  * that grows from the impact, with an ember line and charred paper) and heals them back. Written from the
  * published description of the effect, not from any shader's code.
+ * Version 2 (PR #10 close-out): what is behind can also be the piece itself — its picture or its letters
+ * (famSrc, where the opening is: the picture stays put while the surface tears over it) or the layers under
+ * this one at that cell (VB, VC). With patterns as the source, «tu foto o tu texto» falls back to its own light.
  * Parameters: k0 = (kind, behind, tears, cycle s), k1 = (calm, width, glow, fibres).
  */
 export const DESGARRO_GLSL = /* glsl */ `
@@ -81,6 +84,8 @@ vec4 FC_desgarro(vec2 p, float t, vec4 k0, vec4 k1){
   vec3 scol = desg_ramp(.08 + .22 * tex) * (1. - .8 * chr);
   float bl = 0.;
   vec3 bcol = vec3(0.);
+  // the piece's picture or letters, with nothing to read (patterns as the source): its own light
+  if (beh > 2.5 && beh < 3.5 && famSrcKind() < .5) beh = 0.;
   if (hole > 0. || spill > .02){
     if (beh < .5){
       // its own light: a warped nebula, ridged veins and slow sparkles
@@ -101,6 +106,15 @@ vec4 FC_desgarro(vec2 p, float t, vec4 k0, vec4 k1){
       float hatch = max(smoothstep(.9 * v + .12, .9 * v - .12, l1), smoothstep(.5 * v + .1, .5 * v - .14, l2) * step(.55, v));
       bl = .22 + .7 * hatch;
       bcol = desg_ramp(.45 + .5 * v);
+    } else if (beh > 3.5){
+      // the layers under this one, as they are at this cell
+      bl = VB;
+      bcol = VC;
+    } else if (beh > 2.5){
+      // the piece's picture or letters, still behind the surface that opens over it
+      vec4 sc = famSrc(p);
+      bl = sc.a;
+      bcol = sc.rgb;
     } else {
       // colour currents: three spots of the palette's light colours, mixed by inverse distance
       vec3 acc = vec3(0.); float ws = 0.;

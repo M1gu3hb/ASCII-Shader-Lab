@@ -19,8 +19,17 @@ export const isFamily = (id: string) => ENTRY.has(id);
 /** Geometry and simulation families: drawn from a raster their model computes. */
 export const isRaster = (id: string) => { const e = ENTRY.get(id); return !!e && e.kind !== 'analytic'; };
 export const isAnalytic = (id: string) => ENTRY.get(id)?.kind === 'analytic';
-/** Analytic families that draw their own colour per cell (FamilyMeta.color). */
-export const isColorFamily = (id: string) => { const e = ENTRY.get(id); return !!e && e.kind === 'analytic' && !!e.color; };
+/**
+ * Families that may draw their own colour per cell (FamilyMeta.color): analytic ones always, raster ones from
+ * the version given in `colorSince` (see layerColours). The field shader reads such a layer as colour.
+ */
+export const isColorFamily = (id: string) => !!ENTRY.get(id)?.color;
+/** Whether a layer gives its cells colour: an analytic colour family, or a raster one made with a version that does. */
+export const layerColours = (l: { pattern: string; fam?: { v: number } }) => {
+  const e = ENTRY.get(l.pattern);
+  if (!e?.color) return false;
+  return e.kind === 'analytic' || (l.fam?.v ?? e.v) >= (e.colorSince ?? 1);
+};
 /** Families whose picture depends on what happened before (no perfect loop, state to copy for exports). */
 export const isStateful = isRaster;
 

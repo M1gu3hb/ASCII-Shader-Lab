@@ -13,9 +13,15 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * Drawn through a camera that orbits slowly (the render depends on t, the state does not): every particle is
  * a short streak along its motion, weighted by its depth (nearer is brighter), its age (it fades in and out)
  * and a self-shadow read from the projected density towards a light (relief: the far side of a puff is darker).
+ *
+ * Version 2 (PR #10 close-out) gives the smoke its own colour (FieldModel.renderColor): every particle carries
+ * a colour from its age (born warm, cooling and greying as it fades), its depth (near warm, far cool) or the
+ * emitter it came from, deposited with the same weight as its light at half resolution, softened once and
+ * read as a direction (the luminance still picks the glyph): puffs and filaments keep coherent tones instead
+ * of turning into multicoloured noise. The luminance of version 2 is that of version 1.
  */
 
-const ID = 'humo', V = 1, RATE = 30, DT = 1 / RATE;
+const ID = 'humo', V = 2, RATE = 30, DT = 1 / RATE;
 const MAX_PARTICLES = 12000;
 /** Camera distance (world units: one screen height ≈ two units at zoom 1). */
 const CAM_DIST = 3.2;
@@ -30,19 +36,29 @@ const byte = (v: number) => (v <= 0 ? 0 : v >= 1 ? 252 : ((v * 63 + 0.5) | 0) * 
 
 interface P {
   count: number; scale: number; speed: number; life: number; attract: number; radius: number; target: string; rise: number;
-  orbit: number; tilt: number; zoom: number; trail: number; shadow: number; gain: number;
+  orbit: number; tilt: number; zoom: number; trail: number; shadow: number; gain: number; color: string; hue: number; spread: number;
 }
 const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const read = (p: Params): P => ({
   count: Math.max(100, Math.min(MAX_PARTICLES, Math.round(num(p.count, 6000)))), scale: num(p.scale, 1), speed: num(p.speed, 0.35),
   life: num(p.life, 3), attract: num(p.attract, 0.5), radius: num(p.radius, 0.15), target: String(p.target ?? 'orbita'),
   rise: num(p.rise, 0), orbit: num(p.orbit, 0.15), tilt: num(p.tilt, 20), zoom: num(p.zoom, 1), trail: num(p.trail, 0.5),
-  shadow: num(p.shadow, 0.5), gain: num(p.gain, 1),
+  shadow: num(p.shadow, 0.5), gain: num(p.gain, 1), color: String(p.color ?? 'edad'), hue: num(p.hue, 0.06), spread: num(p.spread, -0.25),
 });
+
+/** Hue (turns) and saturation at full value → rgb 0..1 into out[o..o+2]. */
+function hsv(hh: number, sat: number, out: Float64Array, o = 0) {
+  const h6 = (hh - Math.floor(hh)) * 6;
+  const c = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+  out[o] = 1 - sat + sat * c(Math.abs(h6 - 3) - 1); out[o + 1] = 1 - sat + sat * c(2 - Math.abs(h6 - 2)); out[o + 2] = 1 - sat + sat * c(2 - Math.abs(h6 - 4));
+}
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h, n = w * h;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  // the random stream is the one version 1 had (its name kept the version it was born with)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
+  /** Version 2 and later: the smoke's own colour. */
+  const colourOn = (cfg.v ?? V) >= 2;
   let p = read(cfg.params);
   let steps = 0;
 
@@ -187,11 +203,32 @@ export function create(cfg: ModelConfig): FieldModel {
     const tx = fx - ix, ty = fy - iy, j = iy * fw + ix;
     return (f[j] * (1 - tx) + f[j + 1] * tx) * (1 - ty) + (f[j + fw] * (1 - tx) + f[j + fw + 1] * tx) * ty;
   };
+  // version 2: colour weighted by each particle's light, at half resolution (and its weight)
+  const cAcc = colourOn ? [new Accum(dw, dh), new Accum(dw, dh), new Accum(dw, dh), new Accum(dw, dh)] : null;
+  const cTmp = colourOn ? new Float32Array(dw * dh) : null;
+  const PC = new Float64Array(3);
+  const nearA = colourOn ? new Float32Array(MAX_PARTICLES) : null;
+  /** A particle's colour (into PC) from its age (life 1 → 0), its nearness and its index (emitter). */
+  const colourOf = (i: number, L: number, near: number) => {
+    const a = p.hue, b = p.hue + p.spread;
+    if (p.color === 'profundidad') {
+      const k = Math.max(0, Math.min(1, (near - 0.75) / 0.7));
+      hsv(b + (a - b) * k, 0.55 + 0.35 * k, PC);
+    } else if (p.color === 'emisores' && p.target === 'libre') {
+      const k = (i % EMIT) / (EMIT - 1);
+      hsv(a + p.spread * k, 0.85, PC);
+    } else {
+      // age: born at the first tone, cooling towards the second and greying as it fades out
+      const k = 1 - L;
+      hsv(a + (b - a) * Math.min(1, k * 1.4), 0.9 - 0.55 * k, PC);
+    }
+  };
   const render = (out: Uint8Array, t: number) => {
     const np = p.count;
     cam.set(0.35 + p.orbit * 0.25 * t, (p.tilt * Math.PI) / 180, CAM_DIST);
     cam.fov = CAM_DIST * p.zoom;
     dens.fill(0); acc.fill(0);
+    if (cAcc) for (const c of cAcc) c.d.fill(0);
     // projection (domain → raster pixels), depth weight and age fade
     const area = (h / 96) * (h / 96);
     for (let i = 0; i < np; i++) {
@@ -199,6 +236,7 @@ export function create(cfg: ModelConfig): FieldModel {
       if (!cam.project(pos[o], pos[o + 1], pos[o + 2], Q)) { wgt[i] = 0; continue; }
       const fx = (Q[0] * 0.5 + 0.5) * w, fy = (0.5 - Q[1]) * h;
       const near = CAM_DIST / Q[2], L = life[i];
+      if (nearA) nearA[i] = near;
       // fades in over the first 25 % of its life and out over the last 35 %
       const age = Math.min(1, (1 - L) / 0.25, L / 0.35);
       scrX[i] = fx; scrY[i] = fy; wgt[i] = near * near * age * area;
@@ -217,6 +255,12 @@ export function create(cfg: ModelConfig): FieldModel {
         lit = 1 - sh + sh * Math.exp(-occ * 0.35);
       }
       const v = wv * lit;
+      if (cAcc) {
+        colourOf(i, life[i], nearA![i]);
+        const hx = fx * 0.5 - 0.25, hy = fy * 0.5 - 0.25;
+        deposit(cAcc[0].d, dw, dh, hx, hy, v * PC[0]); deposit(cAcc[1].d, dw, dh, hx, hy, v * PC[1]);
+        deposit(cAcc[2].d, dw, dh, hx, hy, v * PC[2]); deposit(cAcc[3].d, dw, dh, hx, hy, v);
+      }
       if (streak > 0) {
         // a short streak back along the motion (projected by finite difference of the camera's scale)
         const o = i * 3;
@@ -243,12 +287,30 @@ export function create(cfg: ModelConfig): FieldModel {
     for (let i = 0; i < n; i++) out[i] = byte(Math.log(1 + acc[i] * g) * L);
   };
 
+  /** Version 2: each raster pixel's colour, from the half-resolution sums softened once (after `render`). */
+  const renderColour = (out: Uint8Array) => {
+    const [R, G, Bc, W] = cAcc!;
+    for (const c of cAcc!) c.blur(1, false, cTmp!);
+    for (let y = 0; y < h; y++) {
+      const fy = Math.max(0, Math.min(dh - 1.001, y * 0.5 - 0.25));
+      for (let x = 0; x < w; x++) {
+        const fx = Math.max(0, Math.min(dw - 1.001, x * 0.5 - 0.25));
+        const wt = sample(W.d, dw, dh, fx, fy), o = (y * w + x) * 3;
+        if (wt < 1e-6) { out[o] = out[o + 1] = out[o + 2] = 255; continue; }
+        const r = sample(R.d, dw, dh, fx, fy), g = sample(G.d, dw, dh, fx, fy), b = sample(Bc.d, dw, dh, fx, fy);
+        const m = Math.max(r, g, b, 1e-9);
+        out[o] = Math.round((255 * r) / m); out[o + 1] = Math.round((255 * g) / m); out[o + 2] = Math.round((255 * b) / m);
+      }
+    }
+  };
+
   return {
     w, h,
     get steps() { return steps; },
     setParams(np: Params) { p = read(np); },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
     render(out: Uint8Array, t: number) { render(out, t); },
+    ...(colourOn ? { renderColor(out: Uint8Array) { renderColour(out); } } : {}),
     stroke(s: Stroke) {
       // a puff: particles reborn along the stroke, around the plane through the origin
       const cnt = Math.min(p.count, Math.round(40 + 260 * Math.max(0, Math.min(1, s.strength))));
@@ -262,7 +324,7 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = {};
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { pos: pos.slice(), vel: vel.slice(), life: life.slice(), span: span.slice() } };
+      return { id: ID, v: cfg.v ?? V, steps, res: h, scalars, arrays: { pos: pos.slice(), vel: vel.slice(), life: life.slice(), span: span.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a este humo.');

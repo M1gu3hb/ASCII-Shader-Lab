@@ -4,7 +4,7 @@ import type { FamilyHost } from './host';
 import { currentPX } from '../engine/basic/px';
 import { analyticOf } from './models';
 import { checkedFam, famReads, packParams } from './params';
-import { familyById, isColorFamily, isFamily } from './registry';
+import { familyById, isColorFamily, isFamily, isRaster } from './registry';
 import { sampleRaster, sampleRasterC } from './sample';
 import type { Palette } from './types';
 
@@ -21,7 +21,7 @@ export function familyPattern(l: Layer, i: number, host: FamilyHost | null | und
   if (!l.fam || !isFamily(l.pattern)) return null;
   // a family whose spec has not arrived draws empty, like one whose code has not
   const meta = familyById(l.pattern);
-  if (!meta) return isColorFamily(l.pattern) ? EMPTY_COLOUR : EMPTY;
+  if (!meta) return isColorFamily(l.pattern) && !isRaster(l.pattern) ? EMPTY_COLOUR : EMPTY;
   if (meta.kind === 'analytic') {
     const impl = analyticOf(meta.id);
     if (!impl) return meta.color ? EMPTY_COLOUR : EMPTY;

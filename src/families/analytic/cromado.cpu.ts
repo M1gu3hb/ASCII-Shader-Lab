@@ -2,6 +2,7 @@ import type { AnalyticImpl, Palette } from '../types';
 import { fbm, fract, gnoise, sdSeg, smoothstep } from '../../engine/basic/core';
 import { currentPX } from '../../engine/basic/px';
 import { CROMADO_GLSL } from './cromado';
+import { famSrc, famSrcKind } from '../context';
 
 // the layer's cell size, from prep (the engine's own; currentPX only where a test sets it directly)
 let PXc: number | null = null;
@@ -66,6 +67,24 @@ export function cromadoProfile(x: number, fw: number): number {
   return v * (1 - k) + 0.42 * k;
 }
 
+const SRC = new Float64Array(4);
+const sa = (x: number, y: number) => { famSrc(x, y, SRC); return SRC[3]; };
+/** crom_src: the piece's picture or letters averaged around (x, y); the centre's value into S0[0]. */
+const S0 = new Float64Array(1);
+function cromadoSrc(x: number, y: number, D: number): number {
+  const s0 = sa(x, y);
+  S0[0] = s0;
+  let a = s0;
+  const c45 = Math.cos(0.78539819), s45 = Math.sin(0.78539819);
+  for (let j = 0; j < 4; j++) {
+    const ox = Math.cos(j * 1.5707964), oy = Math.sin(j * 1.5707964);
+    // GLSL rot2 = mat2(c, -s, s, c) * o: (c·x + s·y, −s·x + c·y)
+    const rx = c45 * ox + s45 * oy, ry = -s45 * ox + c45 * oy;
+    a += sa(x + ox * D * 0.5, y + oy * D * 0.5) + sa(x + rx * D, y + ry * D);
+  }
+  return a / 9;
+}
+
 // the last cell computed: the engine asks for its brightness and then its colour at the same point
 let lx = NaN, ly = NaN, lt = NaN;
 const C = new Float64Array(4);
@@ -73,11 +92,26 @@ const C = new Float64Array(4);
 function eval4(x: number, y: number, t: number, k: Float32Array) {
   if (x === lx && y === ly && t === lt) return;
   lx = x; ly = y; lt = t;
-  const m = Math.floor(k[0] + 0.5), rep = k[1], dis = k[2], con = k[3];
+  let m = Math.floor(k[0] + 0.5);
+  const rep = k[1], dis = k[2], con = k[3];
   const ang = (k[4] * Math.PI) / 180, T = t * k[6], R = k[7];
   const PX = pxNow();
   let d = -1, E: number, dE: number, cov = 1;
-  if (m < 0.5) {
+  if (m > 5.5 && famSrcKind() < 0.5) m = 3;
+  if (m > 5.5) {
+    const D = 0.3 * R;
+    const mb = cromadoSrc(x, y, D), s0 = S0[0];
+    if (famSrcKind() > 1.5) {
+      const u = Math.min(1, Math.max(0, (mb - 0.5) * 2));
+      E = (1 - u) * (1 - u);
+      dE = (2 * (1 - u)) / D;
+      d = (0.5 - mb) * 2 * D;
+      cov = smoothstep(0.35, 0.65, s0);
+    } else {
+      E = (mb * 2.2) / R;
+      dE = 4 / R;
+    }
+  } else if (m < 0.5) {
     const n = fbm((x * 0.9) / R + T * 0.05, (y * 0.9) / R - T * 0.04);
     E = smoothstep(0.25, 0.75, n);
     dE = 2.5 / R;
@@ -97,7 +131,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   const r = cromadoProfile(fract(ph + dl), fw);
   const b = cromadoProfile(fract(ph - dl), fw);
   const halo = m < 0.5 ? 0 : 0.2 * Math.exp(-Math.max(d, 0) / 0.016) * (0.55 + 0.45 * g) * (1 - cov);
-  const rim = m < 0.5 ? 0 : 0.32 * E * E * E;
+  const rim = m < 0.5 ? 0 : 0.32 * Math.min(E * E * E, 1);
   const hx = 0.25 + 1.8 * halo;
   C[0] = ramp(hx, 0) * (1 - cov) + ramp(r, 0) * cov;
   C[1] = ramp(hx, 1) * (1 - cov) + ramp(g, 1) * cov;
