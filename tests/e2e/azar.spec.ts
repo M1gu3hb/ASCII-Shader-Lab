@@ -2,6 +2,7 @@ import { GEN_VERSION } from '../../src/random/generator';
 import { expect, test, type Page } from '@playwright/test';
 import { diceWord5 } from '../../src/random/gen5';
 import { openStudio, seedText } from './helpers';
+import { GEN_VERSION } from '../../src/random/versions';
 
 /**
  * Seeds and generator versions: a seed with its version reproduces its piece, the seed sheet says which
@@ -29,7 +30,7 @@ test.describe('semillas y versiones del generador', () => {
     await expect(seedSheet.getByText(/salió de la versión 1 del generador/)).toBeVisible();
     // another seed: the current version, unless one is chosen
     await seedSheet.getByLabel('Semilla', { exact: true }).fill('marea-leve-001');
-    await expect(gen).toContainText('Versión 6 (actual)');
+    await expect(gen).toContainText(`Versión ${GEN_VERSION} (actual)`);
     await gen.click();
     await page.getByRole('option', { name: /Versión 1/ }).click();
     await expect(gen).toContainText('Versión 1');

@@ -12,6 +12,8 @@ const fixture34 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/ge
 /** Version 5 as published (the studio and the landing's contact sheet, whose 19 draws are in it). */
 const fixture5 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v5.json'), 'utf8')) as typeof fixture34;
 const fixture6 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v6.json'), 'utf8')) as typeof fixture34;
+/** Version 7 as published (PR #10 review): families by use and look, their own colour, glass in front. */
+const fixture7 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v7.json'), 'utf8')) as typeof fixture34;
 /** Recipes live as JSON (history, favourites, links): compare that form (it also folds -0 into 0). */
 const json = (r: Recipe) => JSON.parse(JSON.stringify(r)) as Recipe;
 
@@ -86,6 +88,18 @@ describe('generator versions', () => {
       const r = generate({ seed: c.seed, space: c.space, base: defaultRecipe(), gen: 6 });
       expect(json(r), `v6 ${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r), `v6 ${c.space}/${c.seed}`).toBe(c.fp);
+    }
+  });
+
+  it('version 7 keeps weaving exactly what it wove when it was published, families and glass included', () => {
+    expect(fixture7.gens).toEqual([7]);
+    expect(fixture7.cases.length).toBe(150);
+    expect(fixture7.cases.filter(c => c.recipe.layers[0].fam).length).toBeGreaterThan(10);
+    expect(fixture7.cases.filter(c => c.recipe.optics).length).toBeGreaterThan(3);
+    for (const c of fixture7.cases) {
+      const r = generate({ seed: c.seed, space: c.space, base: defaultRecipe(), gen: 7 });
+      expect(json(r), `v7 ${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r), `v7 ${c.space}/${c.seed}`).toBe(c.fp);
     }
   });
 
