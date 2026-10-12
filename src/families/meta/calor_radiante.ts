@@ -27,8 +27,8 @@ export const META: FamilyMeta = {
     { key: 'ambient', label: 'Calor ambiente', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
   ],
   presets: [
-    { id: 'rescoldo', name: 'Rescoldo que respira', uses: ['arte/organicas', 'fondos/organicas'], aka: ['smolder', 'ascuas'],
-      params: { sources: 1, heat: 0.85, reach: 0.55, turb: 0.6, shimmer: 0.5, flow: 0.4, flicker: 0.4, rise: 0.45, embers: 18, emberSpeed: 0.4, emberLife: 0.5, map: 'cuerpo', ambient: 0.4 },
+    { id: 'rescoldo', name: 'Rescoldo que respira', uses: ['arte/organicas'], aka: ['smolder', 'ascuas'],
+      params: { sources: 1, heat: 0.85, reach: 0.5, turb: 0.85, shimmer: 0.6, flow: 0.5, flicker: 0.4, rise: 0.45, embers: 18, emberSpeed: 0.4, emberLife: 0.5, map: 'cuerpo', ambient: 0.4 },
       look: { stops: ['#050100', '#3a0802', '#b8320a', '#ffb347', '#fff6dc'], bg: '#030000', charset: ' .·:;+=*#%@', colorMode: 'source', vivid: 0.55 } },
     { id: 'termografia', name: 'Cámara térmica', uses: ['arte/organicas', 'fondos/organicas'], aka: ['termografía', 'infrarrojo', 'mapa de calor'],
       params: { sources: 3, heat: 0.75, reach: 0.7, turb: 0.45, shimmer: 0.3, flow: 0.25, flicker: 0.2, rise: 0.25, embers: 6, emberSpeed: 0.3, emberLife: 0.4, map: 'termica', ambient: 0.85 },

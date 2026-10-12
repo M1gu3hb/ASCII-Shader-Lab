@@ -35,7 +35,7 @@ export const META: FamilyMeta = {
       params: { shape: 'corazon', hue: 0.95, hue2: 0.95, thick: 0.6, glow: 0.75, flicker: 0.8, cycle: 9, seq: 0.3, drip: 0.8, reflect: 0.75, wall: 0.7, fault: 0, size: 0.6 },
       look: { stops: ['#050103', '#2a0614', '#a01848', '#ff4f8a', '#fff0f5'], bg: '#040102', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.85 } },
     { id: 'estrella', name: 'Estrella de motel', uses: ['arte/geometricas'], period: 10, aka: ['estrella de neón'],
-      params: { shape: 'estrella', hue: 0.13, hue2: 0.13, thick: 0.35, glow: 0.5, flicker: 0.55, cycle: 10, seq: 0.5, drip: 0.45, reflect: 0.5, wall: 0.85, fault: 0.6, size: 0.55 },
+      params: { shape: 'estrella', hue: 0.13, hue2: 0.13, thick: 0.35, glow: 0.5, flicker: 0.55, cycle: 10, seq: 0.5, drip: 0.45, reflect: 0.5, wall: 0.85, fault: 0.3, size: 0.55 },
       look: { stops: ['#040301', '#2a1d04', '#a8780e', '#ffd34a', '#fffbe8'], bg: '#030200', charset: ' .·:;+=*#%@', colorMode: 'source', vivid: 0.75 } },
     { id: 'arcos', name: 'Arcoíris de tubos', uses: ['arte/geometricas'], period: 16, aka: ['arcos de neón'],
       params: { shape: 'arcos', hue: 0.55, hue2: 0.0, thick: 0.5, glow: 0.6, flicker: 0.3, cycle: 16, seq: 1, drip: 0.7, reflect: 0.65, wall: 0.4, fault: 0.8, size: 0.7 },
