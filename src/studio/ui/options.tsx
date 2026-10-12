@@ -5,7 +5,7 @@ import {
 import {
   DEFAULT_LAYER, cloneRecipe, defaultRecipe, syncVersion, type BlendMode, type ColorMap, type InteractMode, type LetterAnimKind, type MsgMode, type Recipe, type Xform, type XformKind,
 } from '../../engine/recipe';
-import { ARCHETYPES } from '../../random/archetypes';
+import { STYLES as ARCHETYPES } from '../../random/styles';
 import { FAMILIES, familyById } from '../../families/registry';
 import { familyLayer } from '../../families/recipes';
 import { FAMILY_GROUP_NAMES } from '../../families/types';

@@ -1,5 +1,5 @@
 import type { Recipe } from '../engine/recipe';
-import { STUDIO_WORDS } from '../random';
+import { STUDIO_WORDS } from '../random/words';
 import { PRESETS } from './presets';
 import { SCENES } from './scenes';
 

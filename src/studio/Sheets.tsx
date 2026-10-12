@@ -15,7 +15,7 @@ import { renderThumbs } from './offscreen';
 import { collectionMediaSize, exportProject, fmtSize, saveCollection, saveSession, sessionMediaSize, slug } from './packages';
 import { shareLink } from './ShareSheet';
 import {
-  applyRecipe, clearHistory, duplicateFavorite, openFavorite, removeFavorite, renameFavorite, rollDice, setArch, setUI,
+  applyRecipe, clearHistory, duplicateFavorite, loadGenerator, openFavorite, removeFavorite, renameFavorite, rollDice, setArch, setUI,
   useStudio, variations,
 } from './store';
 import { toast } from './toast';
@@ -221,9 +221,12 @@ export function ExploreSheet() {
   useEffect(() => {
     if (!open) return;
     const sig = { cancelled: false };
-    const list = variations(8, amount);
-    setCands(list.map(r => ({ r })));
-    void renderThumbs(list, 320, (i, url) => { if (!sig.cancelled) setCands(c => c.map((x, j) => (j === i ? { ...x, url } : x))); }, sig);
+    void loadGenerator().then(() => {
+      if (sig.cancelled) return;
+      const list = variations(8, amount);
+      setCands(list.map(r => ({ r })));
+      return renderThumbs(list, 320, (i, url) => { if (!sig.cancelled) setCands(c => c.map((x, j) => (j === i ? { ...x, url } : x))); }, sig);
+    }).catch(() => undefined);
     return () => { sig.cancelled = true; };
   }, [open, gen]);
   return (

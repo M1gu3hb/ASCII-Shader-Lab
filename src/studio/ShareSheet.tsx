@@ -2,7 +2,7 @@ import { FamilyHost } from '../families/host';
 import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { sameRecipe, type Recipe } from '../engine/recipe';
-import { archById } from '../random/archetypes';
+import { styleById as archById } from '../random/styles';
 import { spaceById, type SpaceId } from '../random/spaces';
 import { describeFrame, frameFor, frameRecipe, gridOf, reduceFrame, type Frame } from '../shared/frame';
 import { provideShareView, recipeFile, viewerUrl, type ShareView } from '../shared/share';

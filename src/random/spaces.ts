@@ -1,4 +1,4 @@
-import { SPACE_ARCHS_V5 } from './v5';
+import { SPACE_ARCHS_V5 } from './v5-spaces';
 
 export type SpaceId = 'fondos' | 'arte' | 'media' | 'tipo' | 'terminal' | 'componentes';
 

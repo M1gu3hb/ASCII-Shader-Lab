@@ -1,7 +1,7 @@
 import { sameRecipe } from '../engine/recipe';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
-import { archById } from '../random/archetypes';
+import { styleById as archById } from '../random/styles';
 import { LOCK_GROUPS, LOCK_NAMES, spaceById } from '../random/spaces';
 import {
   IDice, IDownload, IExplore, IGrid, ILink, ILock, IMore, INext, IPrev, IRedo, ISeed, ISliders, ISpark, IStar, IUndo, IUnlock, ITune as ISlidersH,

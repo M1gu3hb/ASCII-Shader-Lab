@@ -1,11 +1,10 @@
 import { CHARSETS, FONTS, PATTERNS, charsetById, charsetIdOf, fontById, nearestWeight, patternById } from '../engine/catalog';
 import { cloneRecipe, defaultRecipe, DEFAULT_LAYER, type Layer, type Recipe, type Xform, type XformKind } from '../engine/recipe';
-import { hexToOklch } from '../engine/color';
 import { ARCHETYPES, type Archetype } from './archetypes';
 import { generate5 } from './gen5';
 import { ensureContrast, makePalette, rotateHue, soften, type PaletteStyle } from './palettes';
 import { drawXforms, MSG_ANIM_W, TEXT_ANIM_W } from './xforms';
-import { Rng, hash53, round } from './prng';
+import { Rng, round } from './prng';
 import { copyGroup } from './locks';
 import type { LockGroup, SpaceId } from './spaces';
 import { ARCHETYPES_V1, SPACE_ARCHS_V1 } from './v1';
@@ -14,32 +13,9 @@ import { ARCHETYPES_V5, SPACE_ARCHS_V5 } from './v5';
 import { TIPO_WORDS_1 } from './words';
 
 export { copyGroup } from './locks';
-
-/**
- * Bump when the generator changes: stored recipes stay exact, only seeds re-roll differently. The previous
- * versions stay reachable (a seed plus its version always gives the same piece): see GEN_VERSIONS.
- *   1 — the first dice (12 styles, 3 solids).
- *   2 — 13 solids spread over the styles, «Grabado 3D», flatter weights; 3D objects only as the lead
- *       layer, framed, and not under a photo or inside letters (unless the chosen style has nothing else).
- *   3 — the same pieces as 2 (same seed, same streams), plus: transformations of the photo or the letters
- *       (Imagen, sometimes Tipo), letters that move (Tipo) and animated messages (Tipo, Terminal).
- *   4 — the same pieces as 3; only the brand word a «words» fill may pick is the new name (GLYPHOS),
- *       so a seed noted with version 3 still gives «MONOTRAMA ·» there.
- *   5 — new pieces (gen5.ts): the pattern library (fields, solids, particle motions, character sets, letter
- *       animations), nineteen styles (v5.ts: Partículas, Curvas, Calma, Cartel and Escenas are new), palettes
- *       that keep their colour (palettes5.ts: the gallery's forty by mood, vivid, duotone, poster, pastel, greys
- *       with an accent…), pieces that start from a composed scene, and words without the old name.
- *   6 — version 5's pieces from their own streams, plus visual families (src/families) as the lead layer now
- *       and then in Arte, Fondos and Terminal, with one of their presets (families6.ts).
- */
-export const GEN_VERSION = 6;
-/** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6];
-/** A version asked for by a link or a person: a known one, else the current one. */
-export const genOf = (v: unknown): number => {
-  const n = typeof v === 'string' ? Number(v) : v;
-  return typeof n === 'number' && GEN_VERSIONS.includes(n) ? n : GEN_VERSION;
-};
+export { GEN_VERSION, GEN_VERSIONS, genOf } from './versions';
+export { fingerprint } from './fingerprint';
+import { GEN_VERSION, genOf } from './versions';
 
 export interface GenInput {
   seed: string;
@@ -389,29 +365,4 @@ export function mutate(r: Recipe, amount: number, seed: string, locks: LockGroup
   }
   out.meta = { ...r.meta, name: undefined };
   return out;
-}
-
-/* ------------------------------------------------------------------ */
-/* Fingerprints: two recipes that look alike share a fingerprint.      */
-/* ------------------------------------------------------------------ */
-
-export function fingerprint(r: Recipe): string {
-  const q = (v: number, s: number) => Math.round(v / s);
-  const colour = (hex: string) => { const [L, C, h] = hexToOklch(hex); return C < 0.03 ? `n${q(L, 0.2)}` : `${q(h, 30) % 12}.${q(L, 0.25)}`; };
-  const parts = [
-    r.source,
-    r.layers.filter(l => l.on).map(l => `${l.pattern}:${l.blend}:${q(l.a, 0.34)}${q(l.b, 0.34)}:${q(Math.log2(l.scale), 0.5)}`).join('+'),
-    charsetIdOf(r.glyph.charset), r.glyph.font, r.glyph.mode, q(r.glyph.cell, 3), q(r.glyph.aspect, 0.3),
-    r.color.stops.map(colour).join('/'), colour(r.color.bg), r.color.map, r.color.mode,
-    Object.entries(r.fx).filter(([, v]) => v > 0.2).map(([k]) => k).join(','),
-    r.interact.mode, r.motion.hold > 0 ? 'h' : '', r.msg.on ? 'm' : '', r.tone.levels > 0 ? 'L' : '', r.glyph.edge > 0.2 ? 'e' : '',
-  ];
-  // a different local image or video makes a different piece (appended only then: other fingerprints stay as they were)
-  if ((r.source === 'image' || r.source === 'video') && r.media.ref?.id) parts.push(r.media.ref.id);
-  // transformations and letters that move change a piece as much as its effects (appended only when used)
-  const xf = r.source !== 'pattern' ? (r.media.xform ?? []).filter(x => x.on && x.amount > 0) : [];
-  if (xf.length) parts.push('x:' + xf.map(x => `${x.kind}${q(x.p, 0.34)}`).join('+'));
-  if (r.source === 'text' && r.text.anim) parts.push('t:' + r.text.anim.kind);
-  if (r.msg.on && (r.msg.anim || r.msg.mode === 'words')) parts.push('m:' + (r.msg.anim?.kind ?? '') + r.msg.mode);
-  return hash53(parts.join('|')).toString(36);
 }

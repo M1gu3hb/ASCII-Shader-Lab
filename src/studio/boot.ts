@@ -1,5 +1,5 @@
 import { decodeRecipe, readPieceHash } from '../shared/share';
-import { archesForGen, genOf } from '../random/generator';
+import { genOf } from '../random/versions';
 import { spaceById, type SpaceId } from '../random/spaces';
 import { parseCamino, withoutCamino } from './guide/paths';
 import { startPath } from './guide/state';
@@ -7,7 +7,7 @@ import { startMediaSync } from './media';
 import { startHistoryWarnings } from './packages';
 import { spaceAccepts } from './presets';
 import { rememberLinkFrame } from './ShareSheet';
-import { applyRecipe, currentRecipe, edit, rollDice, setSpace, useStudio } from './store';
+import { applyRecipe, currentRecipe, edit, loadGenerator, rollDice, setSpace, useStudio } from './store';
 import { toast } from './toast';
 import { retry } from './lazy';
 import { within } from './deadline';
@@ -106,6 +106,7 @@ export async function bootFromUrl(signal?: AbortSignal): Promise<BootOpened> {
       if (space) useStudio.setState({ space: spaceById(space).id });
       if (h.get('arch')) useStudio.setState({ arch: h.get('arch') });
       const gen = genOf(h.get('gen') ?? undefined);
+      const { archesForGen } = await loadGenerator();
       if (h.get('arch') && !archesForGen(gen).some(a => a.id === h.get('arch'))) toast(`Ese estilo no existe en la versión ${gen}; se eligió uno compatible.`, undefined, 6000);
       rollDice(h.get('seed')!, gen);
     } else if (space) {

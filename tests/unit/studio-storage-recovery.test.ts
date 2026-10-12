@@ -23,7 +23,7 @@ describe('recuperación del historial: nunca sobrescribir una lectura insegura',
   it.each(['versión futura', 'índice inválido', 'lectura fallida'])('%s: editar y guardar ★ no escribe ni limpia los datos anteriores', async kind => {
     if (kind === 'lectura fallida') db.read.mockRejectedValue(new Error('lectura interrumpida'));
     else db.read.mockResolvedValue([{ v: kind === 'versión futura' ? 4 : 3, ids: kind === 'versión futura' ? ['anterior'] : null }, undefined, [], []]);
-    const store = await import('../../src/studio/store');
+    const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
     expect(await store.hydrate()).toBe(false); // a failed read is never a first visit
     store.rollDice('recuperacion');
     store.saveFavorite();
@@ -37,7 +37,7 @@ describe('recuperación del historial: nunca sobrescribir una lectura insegura',
 
   it('una primera visita vacía sigue creando y guardando una pieza', async () => {
     db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
-    const store = await import('../../src/studio/store');
+    const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
     expect(await store.hydrate()).toBe(true);
     expect(store.useStudio.getState().entries).toHaveLength(1);
     expect(db.write).toHaveBeenCalled();
@@ -46,7 +46,7 @@ describe('recuperación del historial: nunca sobrescribir una lectura insegura',
 
   it('un índice legible con un cuerpo desaparecido tampoco se sobrescribe como primera visita', async () => {
     db.read.mockResolvedValueOnce([{ v: 3, ids: ['anterior'], cursor: 0 }, undefined, [], []]).mockResolvedValue([undefined]);
-    const store = await import('../../src/studio/store');
+    const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
     expect(await store.hydrate()).toBe(false);
     await store.persistNow(); await vi.advanceTimersByTimeAsync(20_000);
     expect(db.write).not.toHaveBeenCalled(); expect(db.gc).not.toHaveBeenCalled();
@@ -55,7 +55,7 @@ describe('recuperación del historial: nunca sobrescribir una lectura insegura',
   it('una lectura que no responde abre el estudio protegido; su respuesta tardía no habilita guardados', async () => {
     let finish!: (values: unknown[]) => void;
     db.read.mockReturnValue(new Promise<unknown[]>(r => { finish = r; }));
-    const store = await import('../../src/studio/store');
+    const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
     const loading = store.hydrate();
     await vi.advanceTimersByTimeAsync(8000);
     expect(await loading).toBe(false);
@@ -72,7 +72,7 @@ describe('recuperación del historial: nunca sobrescribir una lectura insegura',
     db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
     let finish!: (value: string) => void;
     db.write.mockReturnValue(new Promise<string>(r => { finish = r; }));
-    const store = await import('../../src/studio/store');
+    const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
     const loading = store.hydrate();
     await vi.advanceTimersByTimeAsync(0);
     expect(db.write).toHaveBeenCalledOnce();
@@ -87,7 +87,7 @@ describe('recuperación del historial: nunca sobrescribir una lectura insegura',
 
 it('collection backups deduplicate legacy items and skip invalid items individually', async () => {
   db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
-  const store = await import('../../src/studio/store');
+  const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
   await store.hydrate();
   const recipe = store.currentRecipe();
   const list = [null, {}, { name: 'A', recipe }];
@@ -100,7 +100,7 @@ it('collection backups deduplicate legacy items and skip invalid items individua
 
 it('automatic pruning retains edited entries even when the history is over its target', async () => {
   db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
-  const store = await import('../../src/studio/store');
+  const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
   await store.hydrate();
   store.useStudio.setState({ histLimit: 1 });
   store.edit(r => { r.color.bg = '#ff00ff'; });
@@ -113,7 +113,7 @@ it('un guardado que falla después de activar la protección mantiene el aviso p
   db.read.mockResolvedValue([undefined, undefined, undefined, undefined]);
   let fail!: (error: Error) => void;
   db.write.mockReturnValue(new Promise<string>((_resolve, reject) => { fail = reject; }));
-  const store = await import('../../src/studio/store');
+  const store = await import('../../src/studio/store'); await store.loadGenerator(); // the dice load on first use
   const loading = store.hydrate();
   await vi.advanceTimersByTimeAsync(0);
   store.protectStudio();

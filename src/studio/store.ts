@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { cloneRecipe, sameRecipe, syncVersion, type Recipe } from '../engine/recipe';
-import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type SpaceId } from '../random';
+import { fingerprint } from '../random/fingerprint';
+import { styleById as archById } from '../random/styles';
+import { spaceById, type LockGroup, type SpaceId } from '../random/spaces';
+import { loadDice } from './lazy';
+import { toast } from './toast';
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import { ownText } from './ownWords';
 import {
@@ -342,8 +346,21 @@ function recentIn(s: State, n = 10): Recipe[] {
   return out.reverse();
 }
 
+type Generator = Awaited<ReturnType<typeof loadDice>>;
+let generator: Generator | null = null;
+/**
+ * The dice (src/random: every generator version, its styles and tables) are not needed to show the first piece:
+ * they load on first use, or in idle time once the studio has settled (lazy.ts). Until then a roll waits for them.
+ */
+export function loadGenerator(): Promise<Generator> {
+  return generator ? Promise.resolve(generator) : loadDice().then(g => (generator = g));
+}
+const diceFailed = () => toast('No se pudo cargar el azar. Revisa la conexión y vuelve a intentarlo.');
+
 /** A new result from the dice; `seed` (and its generator version `gen`) reproduces a given one. */
-export function rollDice(seed?: string, gen?: number) {
+export function rollDice(seed?: string, gen?: number): Entry | undefined {
+  if (!generator) { loadGenerator().then(() => rollDice(seed, gen), diceFailed); return; }
+  const { roll } = generator;
   const s = S();
   const base = currentRecipe(s);
   // Texto: the person's words stay, a word nobody typed changes (ownWords.ts)
@@ -354,7 +371,9 @@ export function rollDice(seed?: string, gen?: number) {
 }
 
 let mutCounter = 0;
-export function vary(amount = S().amount) {
+export function vary(amount = S().amount): Entry | undefined {
+  if (!generator) { loadGenerator().then(() => vary(amount), diceFailed); return; }
+  const { mutate } = generator;
   const s = S();
   const e = currentEntry(s);
   if (!e) return;
@@ -363,10 +382,11 @@ export function vary(amount = S().amount) {
   return pushEntry({ recipe, kind: 'variación', seed: e.seed, arch: e.arch, space: s.space, label: 'Variación' });
 }
 
-/** Candidate variations for the explorer grid (not added to history until chosen). */
+/** Candidate variations for the explorer grid (not added to history until chosen); none before the dice load. */
 export function variations(n: number, amount: number): Recipe[] {
   const s = S(), e = currentEntry(s);
-  if (!e) return [];
+  if (!e || !generator) return [];
+  const { mutate } = generator;
   const t = Date.now().toString(36);
   return Array.from({ length: n }, (_, i) => mutate(e.recipe, amount, `${e.seed ?? e.id}~x${i}-${t}`, s.locks));
 }
