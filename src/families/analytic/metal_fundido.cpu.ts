@@ -1,6 +1,10 @@
 import type { AnalyticImpl, Palette } from '../types';
 import { gnoise, smoothstep } from '../../engine/basic/core';
+import { currentPX } from '../../engine/basic/px';
 import { METAL_FUNDIDO_GLSL } from './metal_fundido';
+
+// the layer's cell size, from prep (the engine's own; currentPX only where a test sets it directly)
+let PXc: number | null = null;
 
 /** CPU twin of FC_metal_fundido, line by line. The palette arrives with prep (the shader's uPal / uPalN). */
 const DEFAULT: Palette = { n: 4, rgb: new Float32Array([0.04, 0.03, 0.02, 0.4, 0.28, 0.12, 0.85, 0.66, 0.32, 1, 0.95, 0.82, 0, 0, 0, 0, 0, 0]) };
@@ -55,19 +59,19 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   lx = x; ly = y; lt = t;
   const metal = Math.floor(k[0] + 0.5), sc = k[1], wa = k[2], bl = k[3];
   const T = t * k[4], rel = k[5], sh = k[6], la = (k[7] * Math.PI) / 180;
-  const e = 0.004;
+  const e = Math.max(0.004, (PXc ?? currentPX()) * 0.9);
   const h0 = metalHeight(x, y, T, sc, wa, bl);
   const gx = (metalHeight(x + e, y, T, sc, wa, bl) - h0) / e, gy = (metalHeight(x, y + e, T, sc, wa, bl) - h0) / e;
-  const s = 0.012 + 0.07 * rel;
+  const s = 0.1 + 0.5 * rel;
   let nx = -gx * s, ny = -gy * s, nz = 1;
   const nl = Math.hypot(nx, ny, nz);
   nx /= nl; ny /= nl; nz /= nl;
   const rx = 2 * nz * nx, ry = 2 * nz * ny;
   const c = Math.cos(la), sn = Math.sin(la);
   const rrx = c * rx + sn * ry, rry = -sn * rx + c * ry;
-  const env = 0.04 + 0.26 * smoothstep(-0.15, 0.5, rry)
-    + 0.8 * Math.exp(-((rry + 0.06) * (rry + 0.06)) / 0.006)
-    + 1.1 * smoothstep(0.45, 0.8, rry) * (1 - smoothstep(0.2, 0.55, Math.abs(rrx)));
+  const env = 0.12 + 0.62 * smoothstep(0.04, 0.7, rry)
+    + 0.75 * Math.exp(-((rry + 0.38) * (rry + 0.38)) / 0.012)
+    + 0.9 * smoothstep(0.55, 0.85, rry) * (1 - smoothstep(0.2, 0.55, Math.abs(rrx)));
   let Lx = 0.55 * Math.sin(la) - 0.35, Ly = 0.55 * Math.cos(la) + 0.2, Lz = 0.75;
   const ll = Math.hypot(Lx, Ly, Lz);
   Lx /= ll; Ly /= ll; Lz /= ll;
@@ -90,12 +94,12 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   r = r / (1 + 0.35 * r); g = g / (1 + 0.35 * g); b = b / (1 + 0.35 * b);
   C[0] = Math.min(1, Math.max(0, r)); C[1] = Math.min(1, Math.max(0, g)); C[2] = Math.min(1, Math.max(0, b));
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  C[3] = Math.min(1, Math.max(0, lum * 1.35));
+  C[3] = Math.min(1, Math.max(0, (lum - 0.1) * 1.7));
 }
 
 export const impl: AnalyticImpl = {
   glsl: METAL_FUNDIDO_GLSL,
-  prep: (_t, _k, p) => { pal = p && p.n ? p : DEFAULT; lx = NaN; },
+  prep: (_t, _k, p, px) => { pal = p && p.n ? p : DEFAULT; PXc = px ?? null; lx = NaN; },
   cpu: (x, y, t, k) => { eval4(x, y, t, k); return C[3]; },
   cpuColor: (x, y, t, k, out) => { eval4(x, y, t, k); out[0] = C[0]; out[1] = C[1]; out[2] = C[2]; },
 };

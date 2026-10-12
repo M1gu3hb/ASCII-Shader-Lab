@@ -40,7 +40,7 @@ export function cuerdas(px: number, py: number, t: number, k: Float32Array): num
   const P = k[4], f1 = k[5], dec = k[6], pat = Math.floor(k[7] + 0.5);
   const ex = k[8], rosin = k[9], wd = k[10], B = k[11] * 0.03;
   const L0 = k[12], Wsp = k[13], tune = k[14];
-  const w = PX * (0.45 + 1.1 * wd), yb = -L0 * 0.5;
+  const w = PX * (0.05 + 0.75 * wd), yb = -L0 * 0.5;
   let v = 0;
   const last = Math.max(N - 1, 1);
   const reach = A * 1.4 + (rosin > 0 ? 0.3 : PX * 3);
@@ -61,7 +61,7 @@ export function cuerdas(px: number, py: number, t: number, k: Float32Array): num
     const inside = s < 0 || s > 1 ? 0 : 1;
     const d = Math.abs(dx0 - u) / Math.sqrt(1 + du * du);
     const energy = Math.max(Math.exp(-gam * tau), pull);
-    v = Math.max(v, (1 - smoothstep(w, w + PX * 1.2, d)) * inside * (0.6 + 0.4 * energy));
+    v = Math.max(v, (1 - smoothstep(w, w + PX * 0.9, d)) * inside * (0.6 + 0.4 * energy));
     if (env > PX * 0.8) {
       const r = dx0 / env;
       v = Math.max(v, ex * 0.42 * inside * (1 - smoothstep(0.9, 1.05, Math.abs(r))) * (0.3 + 0.7 * r * r) * Math.min(env / (PX * 4), 1));

@@ -18,7 +18,7 @@ float F_cuerdas(vec2 p, float t, vec4 k0, vec4 k1){
   float P = k1.x, f1 = k1.y, dec = k1.z, pat = floor(k1.w + .5);
   float ex = K2.x, rosin = K2.y, wd = K2.z, B = K2.w * .03;
   float L0 = K3.x, Wsp = K3.y, tune = K3.z;
-  float w = PX * (.45 + 1.1 * wd), yb = -L0 * .5, v = 0.;
+  float w = PX * (.05 + .75 * wd), yb = -L0 * .5, v = 0.;
   float last = max(N - 1., 1.);
   float pd = min(.35, P * .08);
   float reach = A * 1.4 + (rosin > 0. ? .3 : PX * 3.);
@@ -53,7 +53,7 @@ float F_cuerdas(vec2 p, float t, vec4 k0, vec4 k1){
     float dx = dx0 - u;
     float d = abs(dx) / sqrt(1. + du * du);
     float energy = max(exp(-gam * tau), pull);
-    v = max(v, (1. - smoothstep(w, w + PX * 1.2, d)) * inside * (.6 + .4 * energy));
+    v = max(v, (1. - smoothstep(w, w + PX * .9, d)) * inside * (.6 + .4 * energy));
     // long exposure: the band the string sweeps, brighter at its turning points
     if (env > PX * .8){
       float r = dx0 / env;

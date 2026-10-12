@@ -16,7 +16,7 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  */
 
 const ID = 'flujo_ruido', V = 1, RATE = 30, DT = 1 / RATE;
-const MAX_PARTICLES = 6000;
+const MAX_PARTICLES = 3000;
 
 /**
  * 0..1 → a byte in steps of 4 (64 levels): a sample halfway between two or four texels is then a whole level
@@ -30,9 +30,9 @@ interface P {
 }
 const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const read = (p: Params): P => ({
-  count: Math.max(100, Math.min(MAX_PARTICLES, Math.round(num(p.count, 2500)))), cells: Math.max(1, Math.min(8, Math.round(num(p.cells, 3)))),
-  tangle: num(p.tangle, 1), detail: num(p.detail, 0.4), speed: num(p.speed, 0.35), trail: Math.max(0.1, num(p.trail, 5)),
-  evolve: num(p.evolve, 0.3), life: Math.max(0.2, num(p.life, 6)), wind: num(p.wind, 0), width: num(p.width, 0.4), ink: num(p.ink, 1),
+  count: Math.max(50, Math.min(MAX_PARTICLES, Math.round(num(p.count, 600)))), cells: Math.max(1, Math.min(8, Math.round(num(p.cells, 3)))),
+  tangle: num(p.tangle, 1), detail: num(p.detail, 0.4), speed: num(p.speed, 0.35), trail: Math.max(0.1, num(p.trail, 3)),
+  evolve: num(p.evolve, 0.3), life: Math.max(0.2, num(p.life, 4)), wind: num(p.wind, 0), width: num(p.width, 0.4), ink: num(p.ink, 1),
 });
 
 /**
@@ -146,22 +146,24 @@ export function create(cfg: ModelConfig): FieldModel {
   };
 
   const render = (out: Uint8Array) => {
-    // soft passes for the view only (the state keeps its ink): a line reads at least a glyph wide, wider with «Grosor»
+    // soft passes for the view only (the state keeps its ink): wider lines with «Grosor»
     view.d.set(ink);
-    const passes = 1 + Math.round(2 * p.width);
-    view.blur(passes, true, tmp);
+    const passes = Math.round(2 * p.width);
+    if (passes > 0) view.blur(passes, true, tmp);
     // exposure against the mean ink where there is ink: a sparse field of lines and a dense tangle both read
-    // across the ramp (a lone line in the middle of it, crowded streamlines brighter); «Tinta» sets the exposure
+    // across the ramp; «Tinta» sets the exposure
     const d = view.d;
     let all = 0;
     for (let i = 0; i < n; i++) all += d[i];
     all /= n;
     let sum = 0, cnt = 0;
-    const lo = 0.1 * all;
+    const lo = 0.2 * all;
     for (let i = 0; i < n; i++) if (d[i] > lo) { sum += d[i]; cnt++; }
     if (!cnt || sum <= 0) { out.fill(0, 0, n); return; }
-    const g = (0.75 * p.ink * cnt) / sum;
-    for (let i = 0; i < n; i++) out[i] = byte(1 - Math.exp(-d[i] * g));
+    // the old, faint end of the trails is cut (θ): a trail reads as a line that ends, not as a haze; a crowded river
+    // of streamlines saturates softly
+    const m = sum / cnt, th = 0.25 * m, g = (1.4 * p.ink) / m;
+    for (let i = 0; i < n; i++) out[i] = byte(1 - Math.exp(-Math.max(0, d[i] - th) * g));
   };
 
   return {

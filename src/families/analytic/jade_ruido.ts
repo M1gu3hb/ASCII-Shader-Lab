@@ -77,7 +77,7 @@ vec4 FC_jade_ruido(vec2 p, float t, vec4 k0, vec4 k1){
   float fres = pow(1. - max(dot(n, V), 0.), 3.);
   vec3 base = jr_pal(pal, shf + hs * dsp);
   vec3 col = base * (.18 + .82 * diff) + spec + fres * (.15 + .4 * sh) * jr_pal(pal, shf + .5);
-  float lum = .1 + .62 * diff * (.55 + .45 * dot(base, vec3(.299, .587, .114))) + .55 * spec + (.12 + .36 * sh) * fres;
+  float lum = .08 + .95 * diff * (.6 + .4 * dot(base, vec3(.299, .587, .114))) + .6 * spec + (.12 + .36 * sh) * fres;
   return vec4(clamp(col, 0., 1.), clamp(lum, 0., 1.));
 }
 `;

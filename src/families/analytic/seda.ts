@@ -55,7 +55,7 @@ vec2 sd_grad(vec2 x, float g, float T, float mode, float sc, vec2 d, float det, 
     float hc = sd_h(a + vec2(0., g), T, mode, sc, d, det, wa, j);
     return vec2(hd - hc, hc - ha) / g;
   }
-  float e = .004, h0 = sd_h(x, T, mode, sc, d, det, wa, j);
+  float e = max(.004, PX * .9), h0 = sd_h(x, T, mode, sc, d, det, wa, j);
   return vec2(sd_h(x + vec2(e, 0.), T, mode, sc, d, det, wa, j) - h0, sd_h(x + vec2(0., e), T, mode, sc, d, det, wa, j) - h0) / e;
 }
 vec4 FC_seda(vec2 p, float t, vec4 k0, vec4 k1){
@@ -109,7 +109,7 @@ vec4 FC_seda(vec2 p, float t, vec4 k0, vec4 k1){
       hi = sh * (1.1 * pow(nh, gl) + .18 * pow(nh, gl * .12));
     } else {
       // threads across the folds (Kajiya–Kay), shifted along the normal by a fibre noise: streaks
-      float fib = gnoise(vec2(dot(x, d) * 55. * sc, dot(x, pd) * 1.5 * sc + j * 9.1)) - .5;
+      float fib = gnoise(vec2(dot(x, d) * 18. * sc, dot(x, pd) * 1.5 * sc + j * 9.1)) - .5;
       vec3 T0 = vec3(pd, 0.);
       vec3 Tn = normalize(T0 - n * dot(n, T0) + n * fib * (.06 + .3 * det));
       float th = dot(Tn, H);

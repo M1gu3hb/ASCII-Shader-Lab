@@ -59,11 +59,12 @@ vec4 FC_grietas_oro(vec2 p, float t, vec4 k0, vec4 k1){
   float e1 = (v1.y - v1.x) / k, e2 = (v2.y - v2.x) / (k * 2.3);
   // when the front reaches this point (phase), each edge a little early or late
   float dist = length(p - o);
-  float r1 = .03 + .5 * (dist + jit * .4 * hash12(v1.zw + j1 + 3.1)) / (dmax + .4 * jit);
+  // the front leaves the blow fast and slows down as it spreads (radius ∝ phase^0.62)
+  float r1 = .55 * pow((dist + jit * .4 * hash12(v1.zw + j1 + 3.1)) / (dmax + .4 * jit), 1.6);
   float r2 = r1 + .1 + .12 * jit * hash12(v2.zw + j2 + 7.3);
   float a1 = ph - r1, a2 = ph - r2;
-  float close = smoothstep(.8, .97, ph);
-  float W = PX * .45 + wd * .012;
+  float close = smoothstep(.8, 1., ph);
+  float W = PX * .6 + wd * .016;
   float o1 = smoothstep(0., .04, a1) * (1. - close), o2 = smoothstep(0., .04, a2) * (1. - close) * fine;
   float c1 = o1 * (1. - smoothstep(W * (.55 + .45 * smoothstep(0., .3, a1)), W + PX, e1));
   float c2 = o2 * (1. - smoothstep(W * .45, W * .55 + PX, e2));
@@ -78,8 +79,11 @@ vec4 FC_grietas_oro(vec2 p, float t, vec4 k0, vec4 k1){
   float reach = PX * .5 + bleed * .035 * (.3 + .7 * smoothstep(0., .45, a1));
   float glow = o1 * exp(-max(e1 - W, 0.) / reach) + .6 * o2 * exp(-max(e2 - W * .5, 0.) / (reach * .6));
   glow = min(glow, 1.) * (.5 + .5 * temp);
+  // the blow: a glow gathers at the origin over the last moments of the cycle and fades as the cracks leave it
+  float imp = (ph < .5 ? exp(-ph * 25.) : smoothstep(.9, 1., ph)) * exp(-dist * dist / .006);
+  glow = max(glow, imp);
   // the stone: a tone per plate and a fine grain
-  float sl = .07 + .09 * hash12(v1.zw + .5) + .07 * (fbm(p * 5. + sh) - .5);
+  float sl = .04 + .11 * hash12(v1.zw + .5) + .08 * (fbm(p * 5. + sh) - .5);
   sl *= .88 + .12 * smoothstep(0., .03, e1);
   // dust: sparks that rise from the hot seams, a whole number of cells per cycle
   vec2 dq = vec2(p.x * 22., p.y * 22. - ph * floor(P * 1.1 + 1.));
@@ -93,7 +97,7 @@ vec4 FC_grietas_oro(vec2 p, float t, vec4 k0, vec4 k1){
   vec3 col = mix(stone + go_metal(metal, .2 + .4 * temp) * glow * .7, mc, fill) + go_metal(metal, .85) * spark;
   // brighter metals take denser glyphs
   float ml = dot(mc, vec3(.299, .587, .114));
-  float lum = mix(sl + glow * .38, (.45 + .55 * ml) * sw, fill) + spark * .8;
+  float lum = mix(sl + glow * .5, (.55 + .5 * ml) * sw, fill) + spark * .8;
   return vec4(clamp(col, 0., 1.), clamp(lum, 0., 1.));
 }
 `;

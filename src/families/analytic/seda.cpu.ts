@@ -1,6 +1,10 @@
 import type { AnalyticImpl, Palette } from '../types';
 import { gnoise, smoothstep } from '../../engine/basic/core';
+import { currentPX } from '../../engine/basic/px';
 import { SEDA_GLSL } from './seda';
+
+// the layer's cell size, from prep (the engine's own; currentPX only where a test sets it directly)
+let PXc: number | null = null;
 
 /** CPU twin of FC_seda, line by line. The palette arrives with prep (the shader's uPal / uPalN). */
 const DEFAULT: Palette = { n: 4, rgb: new Float32Array([0.05, 0.02, 0.04, 0.4, 0.08, 0.16, 0.85, 0.35, 0.45, 1, 0.9, 0.9, 0, 0, 0, 0, 0, 0]) };
@@ -57,7 +61,7 @@ export function sedaGrad(x: number, y: number, g: number, T: number, mode: numbe
     G[0] = (hd - hc) / g; G[1] = (hc - ha) / g;
     return G;
   }
-  const e = 0.004, h0 = H(x, y);
+  const e = Math.max(0.004, (PXc ?? currentPX()) * 0.9), h0 = H(x, y);
   G[0] = (H(x + e, y) - h0) / e; G[1] = (H(x, y + e) - h0) / e;
   return G;
 }
@@ -125,7 +129,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
       const nh = Math.max(dot3(n, H), 0);
       hi = sh * (1.1 * Math.pow(nh, gl) + 0.18 * Math.pow(nh, gl * 0.12));
     } else {
-      const fib = gnoise((x * dx + y * dy) * 55 * sc, (x * pdx + y * pdy) * 1.5 * sc + j * 9.1) - 0.5;
+      const fib = gnoise((x * dx + y * dy) * 18 * sc, (x * pdx + y * pdy) * 1.5 * sc + j * 9.1) - 0.5;
       const T0 = [pdx, pdy, 0];
       const nT = dot3(n, T0), sh0 = fib * (0.06 + 0.3 * det);
       const Tn = norm3([T0[0] - n[0] * nT + n[0] * sh0, T0[1] - n[1] * nT + n[1] * sh0, T0[2] - n[2] * nT + n[2] * sh0]);
@@ -155,7 +159,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
 
 export const impl: AnalyticImpl = {
   glsl: SEDA_GLSL,
-  prep: (_t, _k, p) => { pal = p && p.n ? p : DEFAULT; lx = NaN; },
+  prep: (_t, _k, p, px) => { pal = p && p.n ? p : DEFAULT; PXc = px ?? null; lx = NaN; },
   cpu: (x, y, t, k) => { eval4(x, y, t, k); return C[3]; },
   cpuColor: (x, y, t, k, out) => { eval4(x, y, t, k); out[0] = C[0]; out[1] = C[1]; out[2] = C[2]; },
 };

@@ -72,11 +72,11 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
   const f1b = VO[0], f2b = VO[1], i2x = VO[2], i2y = VO[3], j2x = VO[4], j2y = VO[5];
   const e1 = (f2a - f1a) / sc, e2 = (f2b - f1b) / k2;
   const dist = Math.hypot(px - ox, py - oy);
-  const r1 = 0.03 + (0.5 * (dist + jit * 0.4 * hash12(i1x + j1x + 3.1, i1y + j1y + 3.1))) / (dmax + 0.4 * jit);
+  const r1 = 0.55 * Math.pow((dist + jit * 0.4 * hash12(i1x + j1x + 3.1, i1y + j1y + 3.1)) / (dmax + 0.4 * jit), 1.6);
   const r2 = r1 + 0.1 + 0.12 * jit * hash12(i2x + j2x + 7.3, i2y + j2y + 7.3);
   const a1 = ph - r1, a2 = ph - r2;
-  const close = smoothstep(0.8, 0.97, ph);
-  const W = PX * 0.45 + wd * 0.012;
+  const close = smoothstep(0.8, 1, ph);
+  const W = PX * 0.6 + wd * 0.016;
   const o1 = smoothstep(0, 0.04, a1) * (1 - close), o2 = smoothstep(0, 0.04, a2) * (1 - close) * fine;
   const c1 = o1 * (1 - smoothstep(W * (0.55 + 0.45 * smoothstep(0, 0.3, a1)), W + PX, e1));
   const c2 = o2 * (1 - smoothstep(W * 0.45, W * 0.55 + PX, e2));
@@ -88,7 +88,9 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
   const reach = PX * 0.5 + bleed * 0.035 * (0.3 + 0.7 * smoothstep(0, 0.45, a1));
   let glow = o1 * Math.exp(-Math.max(e1 - W, 0) / reach) + 0.6 * o2 * Math.exp(-Math.max(e2 - W * 0.5, 0) / (reach * 0.6));
   glow = Math.min(glow, 1) * (0.5 + 0.5 * temp);
-  let sl = 0.07 + 0.09 * hash12(i1x + 0.5, i1y + 0.5) + 0.07 * (fbm(px * 5 + shx, py * 5 + shy) - 0.5);
+  const imp = (ph < 0.5 ? Math.exp(-ph * 25) : smoothstep(0.9, 1, ph)) * Math.exp(-(dist * dist) / 0.006);
+  glow = Math.max(glow, imp);
+  let sl = 0.04 + 0.11 * hash12(i1x + 0.5, i1y + 0.5) + 0.08 * (fbm(px * 5 + shx, py * 5 + shy) - 0.5);
   sl *= 0.88 + 0.12 * smoothstep(0, 0.03, e1);
   const dqx = px * 22, dqy = py * 22 - ph * Math.floor(P * 1.1 + 1);
   const dcx = Math.floor(dqx), dcy = Math.floor(dqy);
@@ -105,7 +107,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
     ml += [0.299, 0.587, 0.114][c] * mc;
     C[c] = Math.min(1, Math.max(0, stone * (1 - fill) + mc * fill + grietasMetal(metal, 0.85, c) * spark));
   }
-  const lum = (sl + glow * 0.38) * (1 - fill) + (0.45 + 0.55 * ml) * sw * fill + spark * 0.8;
+  const lum = (sl + glow * 0.5) * (1 - fill) + (0.55 + 0.5 * ml) * sw * fill + spark * 0.8;
   C[3] = Math.min(1, Math.max(0, lum));
 }
 

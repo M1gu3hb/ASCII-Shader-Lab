@@ -97,7 +97,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
   C[0] = Math.min(1, Math.max(0, b0 * k2 + spec + fres * (0.15 + 0.4 * sh) * jadePal(pal4, shf + 0.5, 0)));
   C[1] = Math.min(1, Math.max(0, b1 * k2 + spec + fres * (0.15 + 0.4 * sh) * jadePal(pal4, shf + 0.5, 1)));
   C[2] = Math.min(1, Math.max(0, b2 * k2 + spec + fres * (0.15 + 0.4 * sh) * jadePal(pal4, shf + 0.5, 2)));
-  const lum = 0.1 + 0.62 * diff * (0.55 + 0.45 * (0.299 * b0 + 0.587 * b1 + 0.114 * b2)) + 0.55 * spec + (0.12 + 0.36 * sh) * fres;
+  const lum = 0.08 + 0.95 * diff * (0.6 + 0.4 * (0.299 * b0 + 0.587 * b1 + 0.114 * b2)) + 0.6 * spec + (0.12 + 0.36 * sh) * fres;
   C[3] = Math.min(1, Math.max(0, lum));
 }
 

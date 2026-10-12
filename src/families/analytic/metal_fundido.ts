@@ -46,16 +46,19 @@ float mf_h(vec2 p, float T, float sc, float wa, float bl){
 vec4 FC_metal_fundido(vec2 p, float t, vec4 k0, vec4 k1){
   float metal = floor(k0.x + .5), sc = k0.y, wa = k0.z, bl = k0.w;
   float T = t * k1.x, rel = k1.y, sh = k1.z, la = k1.w * PI / 180.;
-  float e = .004;
+  // the slope over about a cell: finer relief than a cell would only alias into noise
+  float e = max(.004, PX * .9);
   float h0 = mf_h(p, T, sc, wa, bl);
   vec2 g = vec2(mf_h(p + vec2(e, 0.), T, sc, wa, bl) - h0, mf_h(p + vec2(0., e), T, sc, wa, bl) - h0) / e;
-  vec3 n = normalize(vec3(-g * (.012 + .07 * rel), 1.));
+  vec3 n = normalize(vec3(-g * (.1 + .5 * rel), 1.));
   // the view (along -z) reflected by the surface, read in a studio turned by the light's angle
   vec3 r = vec3(2. * n.z * n.xy, 2. * n.z * n.z - 1.);
   vec2 rr = rot2(r.xy, la);
-  float env = .04 + .26 * smoothstep(-.15, .5, rr.y)
-    + .8 * exp(-(rr.y + .06) * (rr.y + .06) / .006)
-    + 1.1 * smoothstep(.45, .8, rr.y) * (1. - smoothstep(.2, .55, abs(rr.x)));
+  // a studio: what faces the viewer reflects the dark room, slopes towards the top the bright sky and a soft
+  // box, slopes towards the bottom a bright band on the floor
+  float env = .12 + .62 * smoothstep(.04, .7, rr.y)
+    + .75 * exp(-(rr.y + .38) * (rr.y + .38) / .012)
+    + .9 * smoothstep(.55, .85, rr.y) * (1. - smoothstep(.2, .55, abs(rr.x)));
   vec3 L = normalize(vec3(.55 * sin(la) - .35, .55 * cos(la) + .2, .75));
   vec3 H = normalize(L + vec3(0., 0., 1.));
   float spec = pow(max(dot(n, H), 0.), 24. + 200. * sh) * (.3 + 1.7 * sh);
@@ -70,6 +73,7 @@ vec4 FC_metal_fundido(vec2 p, float t, vec4 k0, vec4 k1){
   } else col = mf_ramp(clamp(.08 + .8 * E + .4 * fr, 0., 1.)) * (.55 + .45 * min(E + fr, 1.6));
   col = col / (1. + .35 * col);
   float lum = dot(col, vec3(.299, .587, .114));
-  return vec4(clamp(col, 0., 1.), clamp(lum * 1.35, 0., 1.));
+  // dark reflections give empty cells, the highlights the densest glyphs
+  return vec4(clamp(col, 0., 1.), clamp((lum - .1) * 1.7, 0., 1.));
 }
 `;
