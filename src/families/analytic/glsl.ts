@@ -37,6 +37,14 @@ const LOAD: Record<string, () => Promise<string>> = {
   globo_puntos: () => import('./globo_puntos').then(m => m.GLOBO_PUNTOS_GLSL),
   arcos_parciales: () => import('./arcos_parciales').then(m => m.ARCOS_PARCIALES_GLSL),
   anillos_tronco: () => import('./anillos_tronco').then(m => m.ANILLOS_TRONCO_GLSL),
+  burbujas: () => import('./burbujas').then(m => m.BURBUJAS_GLSL),
+  haces_luz: () => import('./haces').then(m => m.HACES_GLSL),
+  mandala_capas: () => import('./mandala').then(m => m.MANDALA_GLSL),
+  eclipse_total: () => import('./eclipse').then(m => m.ECLIPSE_GLSL),
+  talla_diamante: () => import('./diamante').then(m => m.DIAMANTE_GLSL),
+  calor_radiante: () => import('./calor').then(m => m.CALOR_GLSL),
+  neon_tubos: () => import('./neon').then(m => m.NEON_GLSL),
+  vinilo: () => import('./vinilo').then(m => m.VINILO_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';

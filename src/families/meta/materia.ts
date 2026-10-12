@@ -8,6 +8,9 @@ import { META as desgarro } from './desgarro';
 import { META as metal_fundido } from './metal_fundido';
 import { META as seda } from './seda';
 import { META as grietas_oro } from './grietas_oro';
+import { META as haces_luz } from './haces_luz';
+import { META as talla_diamante } from './talla_diamante';
+import { META as neon_tubos } from './neon_tubos';
 
 /** Colour, matter and optics: fields with their own colour, surfaces, refraction and feedback. */
-export const MATERIA: FamilyMeta[] = [corrientes, ecos, membrana, paneles, cromado, desgarro, metal_fundido, seda, grietas_oro];
+export const MATERIA: FamilyMeta[] = [corrientes, ecos, membrana, paneles, cromado, desgarro, metal_fundido, seda, grietas_oro, haces_luz, talla_diamante, neon_tubos];

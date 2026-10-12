@@ -64,6 +64,14 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   arcos_parciales: () => import('./analytic/arcos_parciales.cpu.ts'),
   anillos_tronco: () => import('./analytic/anillos_tronco.cpu.ts'),
   grabado: () => import('./sims/grabado.ts'),
+  burbujas: () => import('./analytic/burbujas.cpu.ts'),
+  haces_luz: () => import('./analytic/haces.cpu.ts'),
+  mandala_capas: () => import('./analytic/mandala.cpu.ts'),
+  eclipse_total: () => import('./analytic/eclipse.cpu.ts'),
+  talla_diamante: () => import('./analytic/diamante.cpu.ts'),
+  calor_radiante: () => import('./analytic/calor.cpu.ts'),
+  neon_tubos: () => import('./analytic/neon.cpu.ts'),
+  vinilo: () => import('./analytic/vinilo.cpu.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */
