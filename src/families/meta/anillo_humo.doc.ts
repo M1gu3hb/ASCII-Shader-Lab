@@ -26,6 +26,6 @@ export const DOC: FamilyDoc = {
     aro: 'Un aro mediano violeta y rosa que gira una vez por ciclo con jirones moderados.',
     incienso: 'Un anillo fino que se deshilacha en muchos jirones grises que fluyen deprisa hacia fuera.',
     corona: 'Un anillo ancho y casi liso de fuego, sin brillo dentro, que gira dos veces por ciclo.',
-    halo: 'Un anillo grande y difuso de niebla azul con brillo interior, sin giro.',
+    halo: 'Un anillo grande y difuso de niebla azul con brillo interior que gira despacio al revés.',
   },
 };

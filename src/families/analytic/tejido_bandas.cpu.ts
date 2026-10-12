@@ -35,7 +35,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   if (x === lx && y === ly && t === lt) return;
   lx = x; ly = y; lt = t;
   const n = k[0], tw = k[1], bw = k[2];
-  const ux = x * n + k[7] * t * 0.6, uy = y * n + k[7] * t * 0.22;
+  const ux = x * n + k[7] * t * 0.6 + 0.137, uy = y * n + k[7] * t * 0.22 + 0.291;
   const i = Math.floor(ux), j = Math.floor(uy);
   const fx = ux - i - 0.5, fy = uy - j - 0.5;
   const N = Math.max(pal.n - 1, 1), o = pal.n > 1.5 ? 1 : 0;

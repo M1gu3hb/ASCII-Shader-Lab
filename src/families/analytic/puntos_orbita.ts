@@ -42,7 +42,7 @@ vec4 FC_puntos_orbita(vec2 p, float t, vec4 k0, vec4 k1){
     float dir = hash13(vec3(id, 2.)) < .5 ? -1. : 1.;
     float w = dir * k0.z * (.5 + hash13(vec3(id, 3.))) * 1.6;
     float a = w * t + TAU * hash13(vec3(id, 4.));
-    float R = k0.y * .3 * (.55 + .45 * hash13(vec3(id, 5.)));
+    float R = k0.y * .42 * (.55 + .45 * hash13(vec3(id, 5.)));
     vec2 dp = site + R * vec2(cos(a), sin(a));
     float sz = k0.w * .34 * (1. - k1.x * .7 * hash13(vec3(id, 6.))) * (.88 + .12 * sin(t * 1.9 + TAU * hash13(vec3(id, 7.))));
     float v = 1. - smoothstep(sz * .5, sz, length(f - dp));

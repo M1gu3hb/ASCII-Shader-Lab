@@ -3,7 +3,7 @@
  * coordinates, its texture flowing outward, its colour taken from the palette by radius.
  *
  *  - Flow: the texture is a 3D value-noise fbm read at (direction θ, radius ρ): the direction as a point on a
- *    circle (no seam), ρ = 3(r − φ·L) + offset. As the phase φ grows the same texture is found farther out: it
+ *    circle (no seam), ρ = f(r − φ·L) + offset (f = 3 for the bend, 7 for the finer texture). As the phase φ grows the same texture is found farther out: it
  *    flows outward. Two layers half a cycle apart, each faded out where its phase wraps (a flow-map cross-fade),
  *    make the flow endless and exactly periodic; the directions turn «Giros» times per cycle.
  *  - Ring: the distance to the circle R₀ + A·(n − ½), n the flow noise, so the ring is bent differently at each
@@ -24,10 +24,10 @@ vec3 ah_grad(float g){
   return mix(uPal[int(i)], uPal[int(min(i + 1., N - 1.))], x - i);
 }
 // the flow noise at direction d and radius r, phase ph of the cycle (two layers cross-faded)
-float ah_flow(vec2 d, float r, float ph, float det, float L, float o){
+float ah_flow(vec2 d, float r, float ph, float det, float L, float o, float rf){
   float p1 = fract(ph), p2 = fract(ph + .5);
-  float a = fbm3(vec3(d * det, 3. * (r - p1 * L)) + vec3(o, 0., 0.));
-  float b = fbm3(vec3(d * det, 3. * (r - p2 * L)) + vec3(o + 5.3, 0., 0.));
+  float a = fbm3(vec3(d * det, rf * (r - p1 * L)) + vec3(o, 0., 0.));
+  float b = fbm3(vec3(d * det, rf * (r - p2 * L)) + vec3(o + 5.3, 0., 0.));
   float wa = 1. - abs(2. * p1 - 1.);
   return mix(b, a, wa);
 }
@@ -37,8 +37,8 @@ vec4 FC_anillo_humo(vec2 p, float t, vec4 k0, vec4 k1){
   float a = TAU * K2.x * ph;
   vec2 d = r > 1e-5 ? rot2(p / r, a) : vec2(1., 0.);
   float L = .15 + .5 * K2.y;
-  float n = ah_flow(d, r, ph, 1.3 * k0.w, L, 0.);
-  float n2 = ah_flow(d, r, ph, 3.1 * k0.w, L, 11.);
+  float n = ah_flow(d, r, ph, 1.3 * k0.w, L, 0., 3.);
+  float n2 = ah_flow(d, r, ph, 3.1 * k0.w, L, 11., 7.);
   float R0 = k0.x, w = k0.y;
   float dr = r - R0 - k0.z * .16 * (n - .5) * 2.;
   float we = w * (.55 + .9 * n2);

@@ -37,7 +37,8 @@ float tj_h(float i, float j, float t, vec4 k0, vec4 k1){
 }
 vec4 FC_tejido_bandas(vec2 p, float t, vec4 k0, vec4 k1){
   float n = k0.x, tw = k0.y, bw = k0.z;
-  vec2 u = p * n + k1.w * t * vec2(.6, .22);
+  // (offset so that round settings never put a thread's edge exactly on a row of cells)
+  vec2 u = p * n + k1.w * t * vec2(.6, .22) + vec2(.137, .291);
   vec2 c = floor(u), f = fract(u) - .5;
   float i = c.x, j = c.y;
   // the threads take the palette's colours after the first, which is the ground seen between them

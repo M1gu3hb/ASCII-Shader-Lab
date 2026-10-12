@@ -17,10 +17,10 @@ export function grad(g: number, out: Float64Array) {
 }
 
 /** The flow noise at direction (dx, dy) and radius r, phase ph of the cycle (ah_flow). */
-export function flow(dx: number, dy: number, r: number, ph: number, det: number, L: number, o: number): number {
+export function flow(dx: number, dy: number, r: number, ph: number, det: number, L: number, o: number, rf = 3): number {
   const p1 = fract(ph), p2 = fract(ph + 0.5);
-  const a = fbm3(dx * det + o, dy * det, 3 * (r - p1 * L));
-  const b = fbm3(dx * det + o + 5.3, dy * det, 3 * (r - p2 * L));
+  const a = fbm3(dx * det + o, dy * det, rf * (r - p1 * L));
+  const b = fbm3(dx * det + o + 5.3, dy * det, rf * (r - p2 * L));
   const wa = 1 - Math.abs(2 * p1 - 1);
   return b + (a - b) * wa;
 }
@@ -38,8 +38,8 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   // rot2(p / r, a) = (c·x + s·y, −s·x + c·y)
   if (r > 1e-5) { const ux = x / r, uy = y / r; dx = ca * ux + sa * uy; dy = -sa * ux + ca * uy; }
   const L = 0.15 + 0.5 * k[9];
-  const n = flow(dx, dy, r, ph, 1.3 * k[3], L, 0);
-  const n2 = flow(dx, dy, r, ph, 3.1 * k[3], L, 11);
+  const n = flow(dx, dy, r, ph, 1.3 * k[3], L, 0, 3);
+  const n2 = flow(dx, dy, r, ph, 3.1 * k[3], L, 11, 7);
   const R0 = k[0], w = k[1];
   const dr = r - R0 - k[2] * 0.16 * (n - 0.5) * 2;
   const we = w * (0.55 + 0.9 * n2);

@@ -12,6 +12,8 @@ const C = new Float64Array(3);
 const colour = (k: Float32Array, x: number, y: number, t: number) => { impl.prep!(t, k, PAL); impl.cpuColor!(x, y, t, k, C); return [C[0], C[1], C[2]]; };
 const hue = (c: number[]) => { const m = Math.max(...c, 1e-6); return c.map(v => v / m); };
 const same = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) < 0.02);
+// the lattice's offset (the shader's vec2(.137, .291)): crossing (i, j) is at ((i + ½ − OX)/n, (j + ½ − OY)/n)
+const OX = 0.137, OY = 0.291;
 
 describe('tejido de bandas', () => {
   it('en cada cruce un hilo va arriba y, al pasar la ola, el de abajo sube: el color del cruce cambia de la urdimbre a la trama', () => {
@@ -29,8 +31,8 @@ describe('tejido de bandas', () => {
       }
       expect(tw, `cruce ${i},${j}`).toBeGreaterThanOrEqual(0);
       expect(tf, `cruce ${i},${j}`).toBeGreaterThanOrEqual(0);
-      const x = (i + 0.5) / n, y = (j + 0.5) / n;
-      const warp = colour(k, x, (j + 0.5 + 0.45) / n, tw), weft = colour(k, (i + 0.5 + 0.45) / n, y, tf);
+      const x = (i + 0.5 - OX) / n, y = (j + 0.5 - OY) / n;
+      const warp = colour(k, x, (j + 0.5 + 0.45 - OY) / n, tw), weft = colour(k, (i + 0.5 + 0.45 - OX) / n, y, tf);
       if (same(hue(warp), hue(weft))) continue;
       expect(same(hue(colour(k, x, y, tw)), hue(warp))).toBe(true);
       expect(same(hue(colour(k, x, y, tf)), hue(weft))).toBe(true);
@@ -56,7 +58,7 @@ describe('tejido de bandas', () => {
     const k = packParams(META, p);
     const n = p.threads as number, bw = p.band as number;
     // a warp thread alone (between two weft threads)
-    const warpHue = (i: number) => hue(colour(k, (i + 0.5) / n, (0.5 + 0.47) / n, 0));
+    const warpHue = (i: number) => hue(colour(k, (i + 0.5 - OX) / n, (0.5 + 0.47 - OY) / n, 0));
     let inBand = 0, across = 0;
     for (let i = 0; i < 6 * bw; i++) {
       if (Math.floor(i / bw) === Math.floor((i + 1) / bw)) { expect(same(warpHue(i), warpHue(i + 1)), `hilo ${i}`).toBe(true); inBand++; }

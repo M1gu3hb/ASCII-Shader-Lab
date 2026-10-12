@@ -28,7 +28,7 @@ export function orbitOf(ix: number, iy: number, t: number, k: Float32Array, out:
   const dir = hash13(ix, iy, 2) < 0.5 ? -1 : 1;
   const w = dir * k[2] * (0.5 + hash13(ix, iy, 3)) * 1.6;
   const a = w * t + TAU * hash13(ix, iy, 4);
-  const R = k[1] * 0.3 * (0.55 + 0.45 * hash13(ix, iy, 5));
+  const R = k[1] * 0.42 * (0.55 + 0.45 * hash13(ix, iy, 5));
   out[0] = sx; out[1] = sy; out[2] = sx + R * Math.cos(a); out[3] = sy + R * Math.sin(a); out[4] = R;
   out[5] = k[3] * 0.34 * (1 - k[4] * 0.7 * hash13(ix, iy, 6)) * (0.88 + 0.12 * Math.sin(t * 1.9 + TAU * hash13(ix, iy, 7)));
   return out;
