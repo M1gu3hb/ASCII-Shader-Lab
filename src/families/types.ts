@@ -224,10 +224,11 @@ export interface FamilyMeta {
    */
   color?: boolean;
   /**
-   * Drawn around the centre (sized to the width on canvases taller than wide). A function when some settings
-   * draw a figure and others fill the canvas (a map seen from above, a plate that fills the frame).
+   * Drawn around the centre (sized to the width on canvases taller than wide). A function of the layer's
+   * settings and scale when some draw a figure and others fill the canvas (a map seen from above, a plate that
+   * fills the frame, a tiling seen from so close that its disc overflows it).
    */
-  figure?: boolean | ((p: Params) => boolean);
+  figure?: boolean | ((p: Params, scale: number) => boolean);
   /** Raster families: how the domain repeats outside itself. */
   wrap?: 'repeat' | 'clamp';
   /** The model draws nothing at random: another seed gives the same run (tests then skip that check). */

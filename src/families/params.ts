@@ -156,7 +156,7 @@ export const TIME_WORDS: Record<TimeContract, { label: string; mark: string; hin
   construccion: { label: 'Construcción', mark: '▣', hint: 'Un proceso que termina: construye y se queda quieto. Para mirarlo crecer, no como fondo.' },
 };
 
-/** Whether a family layer with these settings is a figure drawn around the centre (FamilyMeta.figure). */
-export function figureOf(meta: FamilyMeta, p: Params): boolean {
-  return typeof meta.figure === 'function' ? meta.figure(p) : !!meta.figure;
+/** Whether a family layer with these settings (and layer scale) is a figure drawn around the centre (FamilyMeta.figure). */
+export function figureOf(meta: FamilyMeta, p: Params, scale = 1): boolean {
+  return typeof meta.figure === 'function' ? meta.figure(p, scale) : !!meta.figure;
 }

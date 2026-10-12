@@ -197,7 +197,7 @@ describe('catálogo por uso y apariencia (revisión del PR #10, A-06)', () => {
       if (!usesOf(f, p).some(u => u.startsWith('fondos/'))) continue;
       const params = normParams(f, p.params);
       expect(timeContract(f, params), `${f.id}:${p.id}`).not.toBe('construccion');
-      expect(figureOf(f, params), `${f.id}:${p.id} es una figura centrada`).toBe(false);
+      expect(figureOf(f, params, p.layer?.scale ?? 1), `${f.id}:${p.id} es una figura centrada`).toBe(false);
     }
   });
 

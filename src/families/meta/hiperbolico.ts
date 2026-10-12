@@ -44,5 +44,6 @@ export const META: FamilyMeta = {
   // the two motions never meet again
   caps: { loop: true, time: { param: 'turn', values: { '0': 'bucle' }, else: 'continuo' }, basic: 'full', checkpoint: false },
   budget: { },
-  figure: true,
+  // the disc is a figure; seen from close (layer scale 0.7 and less) it overflows the frame and fills it
+  figure: (_p, scale) => scale > 0.7,
 };
