@@ -14,9 +14,10 @@ import { openStudio } from './helpers';
  * counted from its own calls: not a measurement of video memory (no web API gives one), and a driver may use
  * more or less. A lost context frees what it had (the counts of that context start again from zero).
  *
- * The bound: going through the same changes again (other sources, one to four layers, glass and effect shapes,
- * an export cancelled or finished, a lost and restored context) leaves the same live objects as the first time
- * round, so nothing piles up with use. A directed test (a few minutes): not part of the quick CI subset.
+ * The bound: going through the same changes again (other sources, one to four layers and their reordering, glass
+ * and effect shapes, an export cancelled or finished, a lost and restored context, a tab put away, a space without
+ * a stage) leaves the same live objects as the first time round, so nothing piles up with use. A directed test (a
+ * few minutes): not part of the quick CI subset.
  */
 
 declare global {
@@ -91,8 +92,6 @@ function countGpu() {
 
 const gpu = (page: Page) => page.evaluate(() => window.__gpu!());
 const fmt = (c: GpuCount) => `${c.contexts} ctx · ${c.tex} tex · ${c.fbo} fbo · ${c.rb} rb · ${c.prog} prog · ${c.sh} sh · ${c.buf} buf · ${c.vao} vao · ${(c.bytes / 2 ** 20).toFixed(1)} MiB pedidos`;
-/** The live objects, without the bytes (an export's sizes are its own). */
-const objects = ({ bytes: _b, ...rest }: GpuCount) => rest;
 
 function withLayers(r: Recipe, more: Array<[string, string]>) {
   more.forEach(([id, preset], i) => r.layers.push(familyLayer(familyById(id)!, `gpu-${i + 1}`, preset, { blend: 'screen', mix: 0.5 })));
@@ -107,6 +106,8 @@ const FOUR = () => {
   r.fx.bloom = 0.6; r.fxKind = { bloom: 'anamorfico' };
   return normalizeRecipe(r);
 };
+/** The same four layers in the opposite order (a reordering: each run keeps its layer's state). */
+const FOUR_REV = () => { const r = FOUR(); r.layers.reverse(); return normalizeRecipe(r); };
 /** Words as the source, a family made of them (chrome letters), on a sheet of folded paper. */
 const WORDS = () => {
   const r = familyRecipe('cromado', 'letras', undefined, 'gpu-0');
@@ -132,18 +133,21 @@ test.describe('recursos de GPU del estudio (WebGL 2)', () => {
   test('fuentes, capas, vidrio y acabados, exportaciones y un contexto perdido: lo vivo vuelve a lo mismo en cada vuelta', async ({ page }) => {
     test.setTimeout(600_000);
     await page.addInitScript(countGpu);
-    const [one, four, words] = await Promise.all([encodeRecipe(ONE()), encodeRecipe(FOUR()), encodeRecipe(WORDS())]);
+    const [one, four, fourRev, words] = await Promise.all([encodeRecipe(ONE()), encodeRecipe(FOUR()), encodeRecipe(FOUR_REV()), encodeRecipe(WORDS())]);
     const errors = await openStudio(page, `#r=${one}`);
     await expect.poll(async () => (await gpu(page)).contexts, { timeout: 20_000 }).toBeGreaterThan(0);
     await page.waitForTimeout(4000);
     const start = await gpu(page);
     const notes = [`inicio (una capa): ${fmt(start)}`];
 
-    // 1. the same round of pieces three times: one layer → four layers with glass and flare → words on paper → one layer
+    // 1. the same round of pieces three times: one layer → four layers with glass and flare → the same four
+    //    reordered → words on paper → one layer
     const rounds: GpuCount[] = [];
     for (let k = 0; k < 3; k++) {
       await show(page, four);
       if (k === 0) notes.push(`cuatro capas + vidrio + destello: ${fmt(await gpu(page))}`);
+      await show(page, fourRev);
+      if (k === 0) notes.push(`las cuatro capas en orden inverso: ${fmt(await gpu(page))}`);
       await show(page, words);
       if (k === 0) notes.push(`palabras de cromo en papel: ${fmt(await gpu(page))}`);
       await show(page, one);
@@ -152,9 +156,9 @@ test.describe('recursos de GPU del estudio (WebGL 2)', () => {
       console.log(notes.at(-1));
     }
     // what the first round made for the first time (programs of each layout, kept in the engine's cache) may stay;
-    // the later rounds add nothing
-    expect(objects(rounds[2]), notes.join('\n')).toEqual(objects(rounds[1]));
-    expect(rounds[2].bytes, notes.join('\n')).toBe(rounds[1].bytes);
+    // the later rounds add nothing (a buffer of a thumbnail being read back may be alive or not at that moment:
+    // fewer is fine, more would be piling up)
+    for (const k of ['contexts', 'tex', 'fbo', 'rb', 'prog', 'sh', 'buf', 'vao', 'bytes'] as const) expect(rounds[2][k], `${k}\n${notes.join('\n')}`).toBeLessThanOrEqual(rounds[1][k]);
     for (const k of ['tex', 'fbo', 'rb', 'buf', 'vao'] as const) expect(rounds[2][k], `${k}\n${notes.join('\n')}`).toBeLessThanOrEqual(rounds[0][k]);
 
     // 2. exports: a GIF cancelled and one finished, twice; what they made is freed with them
@@ -181,7 +185,7 @@ test.describe('recursos de GPU del estudio (WebGL 2)', () => {
     const ex1 = await exportRound();
     const ex2 = await exportRound();
     notes.push(`tras exportar (1): ${fmt(ex1)}`, `tras exportar (2): ${fmt(ex2)}`);
-    expect(objects(ex2), notes.join('\n')).toEqual(objects(ex1));
+    for (const k of ['tex', 'fbo', 'rb', 'prog', 'sh', 'buf', 'vao'] as const) expect(ex2[k], `${k}\n${notes.join('\n')}`).toBeLessThanOrEqual(ex1[k]);
     expect(ex2.contexts, notes.join('\n')).toBe(rounds[2].contexts);
 
     // 3. the stage's context lost and given back: it makes again what it needs, no more than it had
@@ -198,7 +202,44 @@ test.describe('recursos de GPU del estudio (WebGL 2)', () => {
     expect(await page.locator('.stage canvas').first().evaluate(c => (c as HTMLCanvasElement).getContext('webgl2')?.isContextLost())).toBe(false);
     for (const k of ['tex', 'fbo', 'rb', 'prog', 'buf', 'vao'] as const) expect(after[k], `${k}\n${notes.join('\n')}`).toBeLessThanOrEqual(before[k]);
     expect(after.tex, notes.join('\n')).toBeGreaterThan(0);
-    expect(after.contexts).toBe(before.contexts);
+    // (no more contexts than before: WebKit loses the studio's hidden renderer's context together with the stage's,
+    // and offscreen.ts makes that one again when it is next needed)
+    expect(after.contexts).toBeLessThanOrEqual(before.contexts);
+
+    // 4. a tab put away (Chromium: the page frozen as a background tab is, then active again): it comes back
+    //    drawing, with what it had (the loop stops while away and does not catch up: dt ≤ 0.1 s per frame)
+    if (test.info().project.use.browserName === 'chromium' || test.info().project.name === 'desktop') {
+      const away = await gpu(page);
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+      await new Promise(r => setTimeout(r, 5000));
+      await cdp.send('Page.setWebLifecycleState', { state: 'active' });
+      await cdp.detach();
+      await page.waitForTimeout(3000);
+      const back = await gpu(page);
+      notes.push(`pestaña congelada 5 s y de vuelta: ${fmt(back)}`);
+      for (const k of ['tex', 'fbo', 'rb', 'prog', 'sh', 'buf', 'vao'] as const) expect(back[k], `${k}\n${notes.join('\n')}`).toBeLessThanOrEqual(away[k]);
+      const a = await page.locator('.stage canvas').first().screenshot();
+      await page.waitForTimeout(1500);
+      const b = await page.locator('.stage canvas').first().screenshot();
+      expect(a.equals(b), 'el escenario sigue moviéndose al volver').toBe(false);
+    }
+
+    // 5. a space without a stage (Componentes) and back: there the stage's work stops; back, the piece is drawn again
+    //    with no more objects than it had
+    const here = await gpu(page);
+    const spaces = page.locator('.spaces button');
+    const was = await spaces.evaluateAll(bs => bs.findIndex(b => b.getAttribute('aria-pressed') === 'true'));
+    await spaces.nth(5).click();
+    await expect(spaces.nth(5)).toHaveAttribute('aria-pressed', 'true');
+    await page.waitForTimeout(3000);
+    const comps = await gpu(page);
+    await spaces.nth(was).click();
+    await expect(page.locator('.stage canvas').first()).toBeVisible();
+    await page.waitForTimeout(5000);
+    const again = await gpu(page);
+    notes.push(`en Componentes: ${fmt(comps)}`, `de vuelta a su espacio: ${fmt(again)}`);
+    for (const k of ['tex', 'fbo', 'rb', 'buf', 'vao'] as const) expect(again[k], `${k}\n${notes.join('\n')}`).toBeLessThanOrEqual(here[k]);
 
     const summary = notes.join('\n') + `\nmáximo pedido a la vez: ${(peak / 2 ** 20).toFixed(1)} MiB`;
     test.info().annotations.push({ type: 'gpu', description: summary });

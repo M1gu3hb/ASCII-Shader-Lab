@@ -37,6 +37,9 @@ function smallTargets(page: Page, selector: string, min = 44) {
       const r = hit.getBoundingClientRect();
       if (!r.width || !r.height || getComputedStyle(el).visibility === 'hidden') continue;
       if (el.closest('[inert], .vw-area .gh-pre')) continue;
+      // inside a closed <details> it is not shown (WebKit still gives it a box; Chromium gives it none)
+      const shut = el.closest('details:not([open])');
+      if (shut && !el.closest('summary')) continue;
       const modal = document.querySelector('dialog[open]');
       if (modal && !modal.contains(el)) continue;
       if (r.width < m || r.height < m) out.push(`${Math.round(r.width)}×${Math.round(r.height)} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 24)}`);
