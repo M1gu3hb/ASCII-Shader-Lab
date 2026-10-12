@@ -1,9 +1,10 @@
 /**
  * «Lacería» (C-01): interlaced star rosettes. Each rosette is a regular star polygon {N/k}: N chords of a
  * circle of radius R, chord j joining the vertices at angles rot + 2πj/N and rot + 2π(j + k)/N, so its line
- * has its normal at rot + (2j + k)π/N and lies at R·cos(πk/N) from the centre. One to three rosettes are
- * nested (radii R, R/φ, R/φ²) and turn in alternate senses; they sit alone (a rose window) or on a square or
- * hexagonal lattice, where neighbouring stars reach into each other.
+ * has its normal at rot + (2j + k)π/N and lies at R·cos(πk/N) from the centre. One to three stars are
+ * nested, each inner one a {N/2} that fits inside the central polygon of the one around it, turning in
+ * alternate senses. They sit alone (a rose window) or on a square or hexagonal lattice, where each star turns
+ * the other way from its neighbour, like gears.
  *
  * Over and under: the strands form closed curves, so the plane is two-coloured by the parity of how many
  * polygons contain the point (inside a regular star polygon, the winding number is k − the number of chord

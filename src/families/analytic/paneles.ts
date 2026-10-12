@@ -1,12 +1,14 @@
 /**
- * «Paneles prismáticos» (V-04): translucent sheets hinged on one horizontal axis, turning around it like the
- * blades of a paddle wheel (a second set can turn the other way). The camera looks along +z from the origin;
- * the axis is the line y = 0, z = z0. A panel at angle α holds the points (s, r·sin α, z0 + r·cos α), r in
- * [0, length], |s| < width. The ray through a cell, (x, y, f)·λ, meets its plane at λ = z0·sin α / (f·sin α −
- * y·cos α) (and r = z0·y / (f·sin α − y·cos α)); each panel the ray crosses inside its rectangle is a layer
- * with its depth, its colour (the piece's palette by panel, shading toward the next colour along the panel)
- * and its alpha. The layers are sorted far to near and composed with «over», so overlaps mix their colours as
- * glass would. Edges are one cell wide at any depth (PX scaled by the depth) and catch the light.
+ * «Paneles prismáticos» (V-04): translucent sheets hinged on one axis, turning around it like the blades
+ * of a paddle wheel (a second set can turn the other way). The camera looks along +z from the origin; the
+ * axis passes through (0, 0, z0), turned in depth (yaw, swaying once a minute) and seen a little from above
+ * (pitch); its tilt on screen is a parameter. In the axis frame a panel at angle α holds the points
+ * (s, r·sin α, r·cos α), r in [0, length], |s| < width: the ray through a cell, o + λd in that frame, meets
+ * its plane at λ = −(o.y·cos α − o.z·sin α) / (d.y·cos α − d.z·sin α). Each panel the ray crosses inside its
+ * rectangle is a layer with its depth, its colour (the piece's palette by panel, shading toward the next
+ * colour along the panel) and its alpha. The layers are sorted far to near and composed with «over», so
+ * overlaps mix their colours as glass would. Edges are lines about two cells wide at any depth (PX scaled by
+ * the depth); ribs across each panel crowd together with distance.
  *
  * Time: each set turns a whole number of times per minute and the axis sways once a minute, so the piece is
  * exactly periodic with a period of 60 s (state, colour and camera).

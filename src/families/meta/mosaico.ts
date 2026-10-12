@@ -27,7 +27,7 @@ export const META: FamilyMeta = {
     { id: 'anillos', name: 'Anillos que voltean', uses: ['fondos/geometricas', 'arte/geometricas'],
       params: { size: 2, dir: 'anillos', speed: 0.18, spacing: 0.2, flip: 0.5, scatter: 0.1, picture: 0.5, glints: 0.3 },
       look: { stops: ['#0a0612', '#3d2370', '#c07bff', '#fbefff'], bg: '#06030b', charset: ' .·:;+=#@' } },
-    { id: 'cartel', name: 'Cartel de estadio', uses: ['arte/geometricas'],
+    { id: 'cartel', name: 'Cartel de estadio', uses: ['arte/geometricas', 'fondos/geometricas'],
       params: { size: 4, dir: 'abajo', speed: 0.35, spacing: 0.6, flip: 0.3, scatter: 0.6, picture: 1, glints: 0.2 },
       look: { stops: ['#0b0606', '#5a1a14', '#f0643c', '#ffe9c4'], bg: '#070303', charset: ' .-=+*#%@' } },
     { id: 'dorado', name: 'Mosaico dorado', uses: ['fondos/geometricas', 'arte/geometricas'],
