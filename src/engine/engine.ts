@@ -24,7 +24,7 @@ import { retryFamily } from '../families/models';
 import { hasColourFamily, paletteOf } from '../families/palette';
 import { opticsUniforms } from './opticsU';
 import { familyById, isColorFamily } from '../families/registry';
-import { packParams } from '../families/params';
+import { checkedFam, packParams } from '../families/params';
 
 export type MediaKind = 'image' | 'video' | 'camera';
 type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
@@ -1404,7 +1404,7 @@ export class AsciiEngine implements Renderer {
       const meta = familyById(l.pattern);
       if (!meta || !l.fam) return;
       if (meta.kind === 'analytic') {
-        packParams(meta, l.fam.p, k);
+        packParams(meta, checkedFam(meta, l.fam).p, k);
         K0.set(k.subarray(0, 4), i * 4); K1.set(k.subarray(4, 8), i * 4);
       } else {
         const ras = this.fam.raster(i);

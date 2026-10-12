@@ -6,7 +6,7 @@
 import { PATTERNS } from '../catalog';
 import type { Recipe } from '../recipe';
 import { BASIC_APPROX, BASIC_PATTERNS } from './patterns';
-import { familyById } from '../../families/registry';
+import { familyById, isFamily } from '../../families/registry';
 
 export interface BasicGap { id: string; label: string }
 
@@ -26,6 +26,7 @@ export function unsupportedFeatures(r: Recipe): BasicGap[] {
     seen.add(l.pattern);
     // a visual family: the same model in both engines, or a lighter port that says what it leaves out
     const fam = familyById(l.pattern);
+    if (!fam && isFamily(l.pattern)) continue; // its spec has not arrived: said once it has
     if (fam) {
       if (fam.caps.basic === 'reduced') out.push({ id: 'family:' + fam.id, label: `${fam.name} (simplificado${fam.caps.basicNote ? ': ' + fam.caps.basicNote.replace(/^En el motor básico:\s*/i, '').replace(/\.$/, '') : ''})` });
       continue;

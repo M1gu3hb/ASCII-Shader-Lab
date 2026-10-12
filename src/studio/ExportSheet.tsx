@@ -33,6 +33,7 @@ import { InteractNote, withDemo } from './ui/Touch';
 import { studioRamp } from './ramp';
 import { FamilyHost } from '../families/host';
 import { familyById } from '../families/registry';
+import { useFamilySpecs } from './families';
 import { useFamilyStart, type FamilyStart } from './exporting';
 
 /**
@@ -41,6 +42,7 @@ import { useFamilyStart, type FamilyStart } from './exporting';
  */
 function FamilyClipNote({ r }: { r: Recipe }) {
   const start = useFamilyStart(s => s.start);
+  useFamilySpecs(FamilyHost.uses(r));
   if (!FamilyHost.uses(r)) return null;
   const metas = FamilyHost.layersOf(r).map(l => (l.fam ? familyById(l.pattern) : undefined)).filter(m => m && m.kind !== 'analytic');
   const names = [...new Set(metas.map(m => m!.name))].join(', ');

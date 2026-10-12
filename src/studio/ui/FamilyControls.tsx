@@ -1,10 +1,9 @@
 import { useId, useState } from 'react';
-import { familyById } from '../../families/registry';
-import { TIME_WORDS, defaultParams, formatParam, normParam, timeContract, type LayerFam } from '../../families/params';
+import { TIME_WORDS, checkedFam, defaultParams, formatParam, normParam, timeContract, type LayerFam } from '../../families/params';
 import type { FamilyMeta, ParamSpec, TextParam } from '../../families/types';
 import { F, Note, Select, Seg, Slider, Sub, Toggle, useField } from '../controls';
 import { edit, useRecipe, useStudio } from '../store';
-import { applyFamilyPreset, engineLayer, newFamilySeed, resetFamily, retryFamilyLoad, stepFamily, useFamilyInfo, useFamilyLoadError } from '../families';
+import { applyFamilyPreset, engineLayer, newFamilySeed, resetFamily, retryFamilyLoad, stepFamily, useFamilyInfo, useFamilyLoadError, useFamilySpec } from '../families';
 import { saveFamilyState, dropFamilyState, useCheckpointNote } from '../familyState';
 import { useFamilyDoc } from '../familyDoc';
 import '../css/families.css';
@@ -102,11 +101,14 @@ export function FamilyControls({ i }: { i: number }) {
   const loop = useField(F<number>('motion.loop')) ?? 0;
   const [more, setMore] = useState(false);
   const [withLook, setWithLook] = useState(false);
-  const meta = pat ? familyById(pat) : undefined;
-  // its words (how it works, the hints) come in their own chunk: the controls work before they arrive
+  // its spec (parameters, presets) and its words (how it works, the hints) come in their own chunks
+  const meta = useFamilySpec(pat);
   const doc = useFamilyDoc(meta?.id);
   const loadError = useFamilyLoadError(meta?.id);
-  if (!meta || !fam) return null;
+  if (!fam) return null;
+  if (!meta) return <p className="fam-status" role="status">Cargando la familia…</p>;
+  // (settings read before the spec arrived are checked against it here, as the engines do)
+  const f = checkedFam(meta, fam);
   const raster = meta.kind !== 'analytic';
   const basic = meta.params.filter(s => !s.advanced), adv = meta.params.filter(s => s.advanced);
   const res = meta.budget.res;
@@ -120,7 +122,7 @@ export function FamilyControls({ i }: { i: number }) {
         </div>
       )}
       {doc && <p className="layer-desc">{doc.blurb}</p>}
-      <TimeLine meta={meta} fam={fam} />
+      <TimeLine meta={meta} fam={f} />
       {!meta.caps.loop && loop > 0 && <Note>«Bucle perfecto» no se aplica a esta capa: evoluciona con memoria y no vuelve a su inicio. El resto de la pieza sí lo usa.</Note>}
       <Sub>Presets</Sub>
       <div className="chips" role="group" aria-label={`Presets de ${meta.name}`}>

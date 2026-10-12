@@ -1,5 +1,5 @@
 import type { Recipe } from '../engine/recipe';
-import { familyById } from './registry';
+import { isAnalytic, isFamily, isRaster } from './registry';
 
 /**
  * What exported code needs from the visual families (pure: the exporter and its tests use it).
@@ -9,8 +9,7 @@ import { familyById } from './registry';
 export function familyIds(r: Recipe, basic: boolean, available: (id: string) => boolean = () => true): string[] {
   const ids = new Set<string>();
   for (const l of r.layers.filter(x => x.on).slice(0, 4)) {
-    const m = familyById(l.pattern);
-    if (m && l.fam && (m.kind !== 'analytic' || basic) && available(m.id)) ids.add(m.id);
+    if (isFamily(l.pattern) && l.fam && (isRaster(l.pattern) || (basic && isAnalytic(l.pattern))) && available(l.pattern)) ids.add(l.pattern);
   }
   return [...ids];
 }
@@ -25,6 +24,6 @@ export function familyExportNotes(x: Recipe): string[] {
     for (const l of x.layers) if (l.fam) delete l.fam.ck;
     notes.push('La simulación empieza desde su semilla: el estado que guardaste no viaja en el código.');
   }
-  if (x.layers.some(l => l.on && l.fam && familyById(l.pattern)?.kind !== 'analytic')) notes.push('Esta pieza lleva una simulación: corre en el navegador de quien visita y evoluciona desde su semilla.');
+  if (x.layers.some(l => l.on && l.fam && isRaster(l.pattern))) notes.push('Esta pieza lleva una simulación: corre en el navegador de quien visita y evoluciona desde su semilla.');
   return notes;
 }

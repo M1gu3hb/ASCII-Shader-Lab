@@ -6,7 +6,7 @@ import { normalizeRecipe } from '../../engine/recipe';
 import { PRESETS, keepMedia, keepText } from '../presets';
 import { SCENES, makeScene, type SceneSpace, type SceneSpec } from '../scenes';
 import { fold } from './search';
-import { FAMILIES } from '../../families/registry';
+import { FAMILIES, familiesGen } from '../../families/registry';
 import { familyRecipe } from '../../families/recipes';
 import type { FamilyMeta, FamilyPreset } from '../../families/types';
 import { usesOf } from '../../families/uses';
@@ -250,9 +250,14 @@ function build(): RecipeItem[] {
 }
 
 let all: RecipeItem[] | null = null;
-/** The whole catalogue (built once, on first use). */
+let builtWith = -1;
+/**
+ * The whole catalogue (built on first use, and again when the families' specs arrive: until then it lists the
+ * recipes and scenes, and the browser asks for the specs when it opens).
+ */
 export function allItems(): RecipeItem[] {
-  return (all ??= build());
+  if (!all || builtWith !== familiesGen()) { builtWith = familiesGen(); all = build(); }
+  return all;
 }
 
 /** The recipes and scenes of a space, by section and then in their own order (Componentes shows those of Fondos). */

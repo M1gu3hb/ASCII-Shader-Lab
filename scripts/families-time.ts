@@ -16,7 +16,7 @@
  * rate on a real device. A window of little change can be a deliberate pause; read it with the preset's contract.
  */
 import { writeFileSync } from 'node:fs';
-import { FAMILIES } from '../src/families/registry.ts';
+import { FAMILIES } from '../src/families/all.ts';
 import { loadFamilyNow } from '../src/families/load.ts';
 import { analyticOf, modelOf } from '../src/families/models.ts';
 import { famFor, packParams } from '../src/families/params.ts';

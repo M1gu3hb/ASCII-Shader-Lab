@@ -1,4 +1,4 @@
-import type { FamilyMeta, ParamSpec, ParamValue, Params, TimeContract } from './types';
+import type { FamilyIndexEntry, FamilyMeta, ParamSpec, ParamValue, Params, TimeContract } from './types';
 
 /**
  * A layer's family settings, as the recipe keeps them (layer.fam). Absent on every other layer, so recipes
@@ -96,6 +96,45 @@ export function normFam(meta: FamilyMeta, v: unknown): LayerFam {
     ...(brush ? { brush } : {}),
     ...(ck ? { ck } : {}),
   };
+}
+
+/**
+ * A layer's family settings while the family's spec is not loaded (registry.ts): bounded in shape and size, and
+ * refused when newer than this studio knows. normFam finishes the job against the spec: the host does before it
+ * builds a run, so no unchecked value ever reaches a model.
+ */
+export function normFamLoose(e: FamilyIndexEntry, v: unknown): LayerFam {
+  const o = v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  const ver = numOf(o.v);
+  if (Number.isFinite(ver) && ver > e.v) throw new Error(FUTURE_FAMILY);
+  const p: Params = {};
+  const raw = o.p && typeof o.p === 'object' && !Array.isArray(o.p) ? Object.entries(o.p as Record<string, unknown>).slice(0, 64) : [];
+  for (const [k, x] of raw) {
+    if (!/^\w{1,40}$/.test(k)) continue;
+    if ((typeof x === 'number' && Number.isFinite(x)) || typeof x === 'boolean' || (typeof x === 'string' && x.length <= 2000)) p[k] = x;
+  }
+  const res = typeof o.res === 'number' && Number.isFinite(o.res) && o.res >= 8 && o.res <= 1024 ? Math.round(o.res) : undefined;
+  const brush = typeof o.brush === 'string' && /^\w{1,40}$/.test(o.brush) ? o.brush : undefined;
+  const ck = typeof o.ck === 'string' && CK.test(o.ck) ? o.ck : undefined;
+  return {
+    v: Number.isFinite(ver) && ver >= 1 ? Math.floor(ver) : e.v,
+    seed: normSeed(o.seed),
+    ...(res !== undefined ? { res } : {}),
+    p,
+    ...(brush ? { brush } : {}),
+    ...(ck ? { ck } : {}),
+  };
+}
+
+const checked = new WeakMap<LayerFam, LayerFam>();
+/**
+ * A layer's family settings checked against the family's spec, once per settings object: what the engines hand
+ * to a model or a shader (a recipe read before the specs arrived carries them only bounded in shape).
+ */
+export function checkedFam(meta: FamilyMeta, f: LayerFam): LayerFam {
+  let s = checked.get(f);
+  if (!s) { s = normFam(meta, f); checked.set(f, s); checked.set(s, s); }
+  return s;
 }
 
 /** A new layer's family settings: defaults, or a preset's values. */

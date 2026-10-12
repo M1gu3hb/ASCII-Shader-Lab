@@ -1,5 +1,5 @@
 import type { BlendMode, ColorMap, GlyphMode, InteractMode, LetterAnimKind, MsgMode, SourceKind, XformKind } from './recipe';
-import { FAMILIES, FAMILY_IDS, familyById } from '../families/registry';
+import { FAMILY_IDS, familyById, familyEntry } from '../families/registry';
 
 export type PatternFamily = 'organico' | 'geometrico' | 'ondas' | 'espacio' | 'solidos' | 'matematico' | 'formas' | 'señal' | 'particulas';
 
@@ -145,8 +145,7 @@ export const PATTERNS: PatternInfo[] = [
  */
 export const PATTERN_IDS = new Set([...PATTERNS.map(p => p.id), ...FAMILY_IDS]);
 /** Name of a pattern or of a visual family. */
-export const patternName = (id: string) => familyById(id)?.name ?? PATTERNS.find(p => p.id === id)?.name ?? id;
-export { FAMILIES };
+export const patternName = (id: string) => familyEntry(id)?.name ?? PATTERNS.find(p => p.id === id)?.name ?? id;
 
 /**
  * Figures drawn around the centre (the 3D objects, the shapes, the centred curves and the particle figures).
@@ -157,19 +156,21 @@ export { FAMILIES };
  */
 export const FIGURES: ReadonlySet<string> = new Set([
   ...PATTERNS.filter(p => p.family === 'solidos' || p.family === 'formas').map(p => p.id),
-  ...FAMILIES.filter(f => f.figure === true).map(f => f.id),
   'lissajous', 'estrella_mar', 'respiracion', 'radar', 'galaxia',
   'rosa', 'espirografo', 'lemniscata', 'superformula', 'armonografo', 'apolonio', 'flor_armonica', 'filotaxis',
   'corazon_particulas', 'enjambre_vivo', 'mariposa_puntos', 'orbitas_gemelas', 'vortice_polvo', 'floracion_luz', 'ondas_estelares',
 ]);
-/** Families that are a figure with some settings and fill the canvas with others (FamilyMeta.figure as a function). */
-const FIGURE_RULES = new Map(FAMILIES.flatMap(f => (typeof f.figure === 'function' ? [[f.id, f.figure] as const] : [])));
+/** Whether a visual family layer is a figure (FamilyMeta.figure: always, or for some settings and scales). */
+function familyFigure(id: string, p: Record<string, number | string | boolean> | undefined, scale: number): boolean {
+  const f = familyById(id)?.figure;
+  return typeof f === 'function' ? !!p && f(p, scale) : !!f;
+}
 /**
  * How much a layer's scale grows so its figure fits a W×H canvas (1 unless it is a figure on a canvas taller than
- * wide). `p` and `scale`: a family layer's settings and scale, for the families whose figure depends on them.
+ * wide). `p` and `scale`: a family layer's settings and scale (a family is drawn once its spec is here).
  */
 export const figureFit = (id: string, W: number, H: number, p?: Record<string, number | string | boolean>, scale = 1) =>
-  (H > W && W > 0 && (FIGURES.has(id) || (!!p && !!FIGURE_RULES.get(id)?.(p, scale))) ? H / W : 1);
+  (H > W && W > 0 && (FIGURES.has(id) || familyFigure(id, p, scale)) ? H / W : 1);
 
 /**
  * What the library ported from the pattern-library branch added (ids), for QA pages, tests and the next generator

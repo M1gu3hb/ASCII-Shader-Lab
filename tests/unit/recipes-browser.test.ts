@@ -3,7 +3,7 @@ import { defaultRecipe, type Recipe } from '../../src/engine/recipe';
 import type { Entry } from '../../src/studio/history';
 import { PRESETS, spaceAccepts } from '../../src/studio/presets';
 import { SCENES } from '../../src/studio/scenes';
-import { FAMILIES } from '../../src/families/registry';
+import { FAMILIES } from '../../src/families/all';
 import { CATEGORIES, allItems, filtersOf, itemNamed, itemsOf, moodOf, sectionOf, sectionsOf, usesOf } from '../../src/studio/recipes/catalog';
 import { figureOf, normParams, timeContract } from '../../src/families/params';
 import { fold, search, tokens } from '../../src/studio/recipes/search';

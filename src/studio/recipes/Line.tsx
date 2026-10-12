@@ -8,6 +8,7 @@ import { itemsOf, lookOf } from './catalog';
 import { BROWSER_ID } from './Browser';
 import { RecipePic } from './Pic';
 import { itemOfEntry, setBrowserOpen, useRecipesUI } from './state';
+import { useFamilySpecs } from '../families';
 
 /**
  * The recipe line: which recipe the piece comes from (its picture and name, «editada» once changed), and
@@ -19,6 +20,8 @@ export function RecipesLine({ compact }: { compact?: boolean }) {
   const space = useStudio(s => s.space);
   const entry = useStudio(s => s.entries[s.cursor]);
   const open = useRecipesUI(s => s.open);
+  // a piece from a family preset is named once the families' specs are here (the stage brings them)
+  useFamilySpecs(false);
   const count = itemsOf(space).length;
   const item = itemOfEntry(entry);
   const edited = !!item && !!entry?.edited;

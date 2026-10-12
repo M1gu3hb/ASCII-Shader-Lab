@@ -235,6 +235,24 @@ export interface FamilyMeta {
   seedless?: boolean;
 }
 
+/**
+ * What every page knows of a family without loading its spec (registry.ts, generated in index-data.ts): enough to
+ * tell a family from a pattern, to build the field shader, to name it and to group it. The spec (parameters,
+ * presets, budgets) loads when a piece, the library or the dice need it.
+ */
+export interface FamilyIndexEntry {
+  id: string;
+  name: string;
+  group: FamilyGroup;
+  kind: FamilyKind;
+  /** Algorithm version (a recipe made with a newer one is refused). */
+  v: number;
+  /** «Bucle perfecto» keeps continuity. */
+  loop: boolean;
+  /** Draws its own colour per cell (FamilyMeta.color). */
+  color?: true;
+}
+
 /* ------------------------------------------------------------------ */
 /* Models (geometry and simulation families)                           */
 /* ------------------------------------------------------------------ */

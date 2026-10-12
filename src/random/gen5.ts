@@ -1,6 +1,8 @@
 import { CHARSETS, FONTS, charsetById, fontById, nearestWeight, patternById, PATTERNS } from '../engine/catalog';
 import { defaultRecipe, DEFAULT_LAYER, syncVersion, type Layer, type LetterAnimKind, type Recipe } from '../engine/recipe';
 import { familyById } from '../families/registry';
+// the dice read the families' specs (their own chunk on the site): they come with the dice
+import '../families/all';
 import { families6 } from './families6';
 import { familyLoops7, families7, glass7, settleFamily7 } from './families7';
 import type { Archetype } from './archetypes';

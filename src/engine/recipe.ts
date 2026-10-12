@@ -1,6 +1,6 @@
 import { PATTERN_IDS } from './catalog';
-import { familyById } from '../families/registry';
-import { normFam, type LayerFam } from '../families/params';
+import { familyById, familyEntry, isFamily } from '../families/registry';
+import { normFam, normFamLoose, type LayerFam } from '../families/params';
 /**
  * Recipe: the complete, serialisable description of a creation.
  * Everything the engine draws comes from a Recipe (plus optional media the user loads locally).
@@ -380,8 +380,9 @@ export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS, 
     if (strict) throw new Error(FUTURE_RECIPE);
     pattern = d.pattern;
   }
-  const meta = familyById(pattern);
-  const fam = meta ? normFam(meta, o.fam) : undefined;
+  // a family's settings: against its spec once loaded, else bounded in shape (the host checks them against the spec)
+  const meta = familyById(pattern), entry = meta ? undefined : familyEntry(pattern);
+  const fam = meta ? normFam(meta, o.fam) : entry ? normFamLoose(entry, o.fam) : undefined;
   return {
     on: bool(o.on, true),
     pattern,
@@ -444,7 +445,7 @@ export function normOptics(v: unknown): Optics | undefined {
 
 /** Whether a recipe needs the v3 format (it uses a visual family, a glyph set or glass in front). */
 export function needsV3(r: Pick<Recipe, 'layers'> & { glyph?: Pick<Recipe['glyph'], 'set'>; optics?: Optics }): boolean {
-  return r.layers.some(l => !!l.fam && !!familyById(l.pattern)) || !!r.glyph?.set || !!r.optics;
+  return r.layers.some(l => !!l.fam && isFamily(l.pattern)) || !!r.glyph?.set || !!r.optics;
 }
 
 /** Sets a recipe's format to what it uses (an edit that adds or removes a family changes it). */

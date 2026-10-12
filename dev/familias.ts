@@ -9,7 +9,7 @@
 import '@fontsource/jetbrains-mono/latin-400.css';
 import '@fontsource/jetbrains-mono/latin-500.css';
 import { AsciiEngine, BasicEngine, PATTERN_GLSL, createFontLoader, defaultRecipe, type Recipe, type Renderer } from '../src/engine';
-import { FAMILIES } from '../src/families/registry';
+import { FAMILIES } from '../src/families/all';
 import { familyRecipe } from '../src/families/recipes';
 import { normOptics } from '../src/engine/recipe';
 import { FAMILY_GROUP_NAMES } from '../src/families/types';

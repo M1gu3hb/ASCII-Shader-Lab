@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { SlotInfo } from '../families/host';
 import { FamilyHost } from '../families/host';
-import { familyById, isStateful } from '../families/registry';
+import { familiesReady, familyById, isFamily, isStateful, loadFamilyMetas, onFamiliesReady } from '../families/registry';
+import type { FamilyMeta } from '../families/types';
 import { familyLoadError } from '../families/models';
 import { familyLayer, withPreset, applyLook } from '../families/recipes';
 import type { Layer, Recipe } from '../engine/recipe';
@@ -90,4 +91,34 @@ export function engineLayer(r: Recipe | undefined, i: number): number {
   return k < 4 ? k : -1;
 }
 
-export const isFamilyLayer = (l: Layer | undefined) => !!l && !!l.fam && !!familyById(l.pattern);
+export const isFamilyLayer = (l: Layer | undefined) => !!l && !!l.fam && isFamily(l.pattern);
+
+/**
+ * The families' specs (parameters, presets: registry.ts), which are their own chunk: `want` loads them; either
+ * way the component draws again when they arrive (a piece on stage, the library or the dice may bring them).
+ */
+export function useFamilySpecs(want = true): boolean {
+  const [ready, setReady] = useState(familiesReady);
+  useEffect(() => {
+    if (ready) return;
+    const off = onFamiliesReady(() => setReady(true));
+    if (familiesReady()) setReady(true);
+    else if (want) void loadFamilyMetas().catch(() => undefined);
+    return off;
+  }, [want, ready]);
+  return ready;
+}
+
+/** A family's spec for a panel (loaded on first use); undefined for a pattern, or while it is on its way. */
+export function useFamilySpec(id: string | undefined): FamilyMeta | undefined {
+  const fam = !!id && isFamily(id);
+  useFamilySpecs(fam);
+  return fam ? familyById(id!) : undefined;
+}
+
+/** Switches layer i to pattern `id` in an edit, once the spec is here when it is a family. */
+export function pickLayerPattern(i: number, id: string) {
+  const go = () => edit(r => setLayerPattern(r, i, id), `layers.${i}.pattern`);
+  if (isFamily(id) && !familiesReady()) void loadFamilyMetas().then(go, () => undefined);
+  else go();
+}

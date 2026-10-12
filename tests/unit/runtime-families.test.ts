@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildRuntimes } from '../../scripts/runtime-plugin';
 import { LOADABLE, loadFamilyNow } from '../../src/families/load';
-import { FAMILIES } from '../../src/families/registry';
+import { FAMILIES } from '../../src/families/all';
 import { analyticOf, modelOf } from '../../src/families/models';
 import { defaultParams, packParams } from '../../src/families/params';
 import { familyRecipe } from '../../src/families/recipes';

@@ -1,25 +1,61 @@
-import type { FamilyMeta } from './types';
-import { VIDA } from './meta/vida';
-import { FISICA } from './meta/fisica';
-import { FORMA } from './meta/forma';
-import { CIENCIA } from './meta/ciencia';
-import { MATERIA } from './meta/materia';
+import { importChunk } from '../shared/chunks';
+import { FAMILY_INDEX } from './index-data';
+import type { FamilyIndexEntry, FamilyMeta } from './types';
 
-/**
- * Every visual family, in library order. Metadata only (parameters, presets, texts, budgets): the models
- * and the CPU twins of analytic families load when a piece needs them (load.ts).
+/*
+ * The visual families. What every page needs at once is the index (index-data.ts, generated from the specs:
+ * id, name, group, kind, version, loop, colour): enough to tell a family from a pattern, build the field
+ * shader and name it. The specs themselves (parameters, presets, budgets) are their own chunk (all.ts), loaded
+ * when a piece draws a family (the host waits for them as it waits for a family's code), when the library or
+ * a family's panel opens, or when the dice load; so the first view of a page never carries them.
  */
-export const FAMILIES: readonly FamilyMeta[] = [...VIDA, ...FISICA, ...FORMA, ...CIENCIA, ...MATERIA];
 
-export const FAMILY_IDS: ReadonlySet<string> = new Set(FAMILIES.map(f => f.id));
-const BY_ID = new Map(FAMILIES.map(f => [f.id, f]));
+const ENTRY = new Map<string, FamilyIndexEntry>(FAMILY_INDEX.map(e => [e.id, e]));
 
-export const familyById = (id: string): FamilyMeta | undefined => BY_ID.get(id);
-export const isFamily = (id: string) => BY_ID.has(id);
+export const FAMILY_IDS: ReadonlySet<string> = new Set(ENTRY.keys());
+/** What the index says of a family (always there, spec loaded or not). */
+export const familyEntry = (id: string): FamilyIndexEntry | undefined => ENTRY.get(id);
+export const isFamily = (id: string) => ENTRY.has(id);
 /** Geometry and simulation families: drawn from a raster their model computes. */
-export const isRaster = (id: string) => { const f = BY_ID.get(id); return !!f && f.kind !== 'analytic'; };
-export const isAnalytic = (id: string) => BY_ID.get(id)?.kind === 'analytic';
+export const isRaster = (id: string) => { const e = ENTRY.get(id); return !!e && e.kind !== 'analytic'; };
+export const isAnalytic = (id: string) => ENTRY.get(id)?.kind === 'analytic';
 /** Analytic families that draw their own colour per cell (FamilyMeta.color). */
-export const isColorFamily = (id: string) => { const f = BY_ID.get(id); return !!f && f.kind === 'analytic' && !!f.color; };
+export const isColorFamily = (id: string) => { const e = ENTRY.get(id); return !!e && e.kind === 'analytic' && !!e.color; };
 /** Families whose picture depends on what happened before (no perfect loop, state to copy for exports). */
 export const isStateful = isRaster;
+
+/** Every family's spec, in library order, once loaded (empty before: see loadFamilyMetas). */
+export let FAMILIES: readonly FamilyMeta[] = [];
+const BY_ID = new Map<string, FamilyMeta>();
+const listeners = new Set<() => void>();
+let gen = 0;
+
+/** A family's spec, once the specs are loaded (undefined before, as for an unknown id). */
+export const familyById = (id: string): FamilyMeta | undefined => BY_ID.get(id);
+/** Whether the specs are here. */
+export const familiesReady = () => FAMILIES.length > 0;
+/** Changes when the specs arrive (for caches built from them). */
+export const familiesGen = () => gen;
+
+/** all.ts registers the specs when it is imported. */
+export function registerFamilies(list: readonly FamilyMeta[]) {
+  if (FAMILIES === list) return;
+  FAMILIES = list;
+  BY_ID.clear();
+  for (const f of list) BY_ID.set(f.id, f);
+  gen++;
+  for (const fn of [...listeners]) fn();
+}
+
+/** Calls `fn` whenever the specs arrive; returns the way to stop. */
+export function onFamiliesReady(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+let loading: Promise<void> | null = null;
+/** Loads the specs (once; a failed load can be asked again). */
+export function loadFamilyMetas(): Promise<void> {
+  if (familiesReady()) return Promise.resolve();
+  return (loading ??= importChunk('familias:fichas', () => import('./all')).then(() => undefined, e => { loading = null; throw e; }));
+}

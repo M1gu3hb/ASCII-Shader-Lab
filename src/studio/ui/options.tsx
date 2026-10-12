@@ -6,7 +6,9 @@ import {
   DEFAULT_LAYER, cloneRecipe, defaultRecipe, syncVersion, type BlendMode, type ColorMap, type InteractMode, type LetterAnimKind, type MsgMode, type Recipe, type Xform, type XformKind,
 } from '../../engine/recipe';
 import { STYLES as ARCHETYPES } from '../../random/styles';
-import { FAMILIES, familyById } from '../../families/registry';
+import { familyById, familyEntry } from '../../families/registry';
+import { FAMILY_INDEX } from '../../families/index-data';
+import { normFamLoose } from '../../families/params';
 import { familyLayer } from '../../families/recipes';
 import { FAMILY_GROUP_NAMES } from '../../families/types';
 import { renderCrops, type CropSpec, type Signal } from '../guide/thumbs';
@@ -210,7 +212,7 @@ export function patternOptions(): PickOpt<string>[] {
   // the visual families (src/families) after the patterns: simulations, structures and 3D science
   // (their prose loads with their panel: here, what kind of family each is)
   const KIND: Record<string, string> = { simulation: 'Simulación con memoria: evoluciona sin bucle perfecto.', geometry: 'Estructura que se construye y se mueve.', analytic: 'Calculada en cada instante: admite bucle perfecto.' };
-  const families = FAMILIES.map(f => ({ value: f.id, label: f.name, group: 'Familias · ' + FAMILY_GROUP_NAMES[f.group], desc: KIND[f.kind] }));
+  const families = FAMILY_INDEX.map(f => ({ value: f.id, label: f.name, group: 'Familias · ' + FAMILY_GROUP_NAMES[f.group], desc: KIND[f.kind] }));
   return [...classic, ...families];
 }
 
@@ -220,9 +222,11 @@ export function patternOptions(): PickOpt<string>[] {
  */
 export function patternThumbRecipe(base: Recipe, pattern: string): Recipe {
   const d = defaultRecipe();
-  const fam = familyById(pattern);
+  const fam = familyById(pattern), entry = familyEntry(pattern);
   // a 3D object is drawn smaller, so the thumbnail's centre crop shows all of it; a family shows its first preset
-  d.layers = [fam ? familyLayer(fam, 'muestra') : { ...DEFAULT_LAYER, pattern, scale: patternById(pattern).family === 'solidos' ? 1.6 : 1 }];
+  // (before its spec arrives, its defaults: the thumbnail's engine waits for the spec like the stage)
+  d.layers = [fam ? familyLayer(fam, 'muestra') : entry ? { ...DEFAULT_LAYER, pattern, fam: normFamLoose(entry, { seed: 'muestra' }) }
+    : { ...DEFAULT_LAYER, pattern, scale: patternById(pattern).family === 'solidos' ? 1.6 : 1 }];
   syncVersion(d);
   d.color = { ...base.color, mode: 'ramp', cycle: 0 };
   d.glyph = { ...base.glyph, cell: 14, mode: 'density', edge: 0, dither: 0 };

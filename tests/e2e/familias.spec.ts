@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { FAMILIES } from '../../src/families/registry';
+import { FAMILIES } from '../../src/families/all';
 import type { FamilyMeta } from '../../src/families/types';
 import { usesOf } from '../../src/studio/recipes/catalog';
 import { contextOf } from './canvas';

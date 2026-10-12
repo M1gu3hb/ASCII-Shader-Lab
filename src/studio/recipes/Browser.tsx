@@ -11,6 +11,7 @@ import { RecipePic } from './Pic';
 import { search } from './search';
 import { applyItem, applySaved, itemOfEntry, recentItems, savedIn, setBrowserOpen, setFilter, setQuery, useRecipesUI } from './state';
 import './recipes.css';
+import { useFamilySpecs } from '../families';
 
 /**
  * The recipe browser: every recipe and composed scene of the space as pictures, found by section, mood,
@@ -53,8 +54,10 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
   const input = useRef<HTMLInputElement>(null);
   const uid = useId();
   const spaceName = spaceById(space).name;
-  const items = useMemo(() => itemsOf(space), [space]);
-  const filters = useMemo(() => filtersOf(space), [space]);
+  // the families' presets join the list when their specs arrive (asked for when the browser opens)
+  const specs = useFamilySpecs(true);
+  const items = useMemo(() => itemsOf(space), [space, specs]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filters = useMemo(() => filtersOf(space), [space, specs]); // eslint-disable-line react-hooks/exhaustive-deps
   const recents = useMemo(() => recentItems(entries, space), [entries, space]);
   const saved = useMemo(() => savedIn(favorites, space), [favorites, space]);
   const shownItem = itemOfEntry(entry);

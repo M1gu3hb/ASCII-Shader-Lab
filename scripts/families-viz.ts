@@ -9,7 +9,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
-import { FAMILIES } from '../src/families/registry.ts';
+import { FAMILIES } from '../src/families/all.ts';
 import { loadFamilyNow } from '../src/families/load.ts';
 import { analyticOf, modelOf } from '../src/families/models.ts';
 import { defaultParams, packParams } from '../src/families/params.ts';

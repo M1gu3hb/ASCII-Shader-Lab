@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { normalizeRecipe, type Recipe } from '../../src/engine/recipe';
 import { familyLayer, familyRecipe } from '../../src/families/recipes';
+import '../../src/families/all';
 import { familyById } from '../../src/families/registry';
 import { encodeRecipe } from '../../src/shared/share';
 import { openStudio } from './helpers';

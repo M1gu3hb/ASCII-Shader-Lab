@@ -1,3 +1,4 @@
+import { loadFamilyMetas } from '../families/registry';
 /**
  * Parts of the studio that are not needed to show the first piece load on demand: the export sheet,
  * the collection/explore/seed/shortcut sheets, the Componentes space and the guides. Once the studio has settled they
@@ -14,6 +15,8 @@ export const loadComponents = retry(() => import('./ComponentsSpace'));
 export const loadGuide = retry(() => import('./guide/Guide'));
 /** The dice: every generator version (store.ts loadGenerator). */
 export const loadDice = retry(() => import('../random'));
+/** The families' specs (registry.ts): with the dice, a family's panel, the library or a piece that draws one. */
+const loadSpecs = () => loadFamilyMetas();
 
 /**
  * The code exporter (HTML, Web Component, React, with the engine runtime inside) is the largest part of the
@@ -34,7 +37,7 @@ export function prefetchLater() {
   prefetched = true;
   const go = () => setTimeout(() => idle(() => {
     // one after the other: never several chunks competing with the stage for the network at once
-    void loadDice().then(loadExportSheet).then(loadSheets).then(loadComponents).then(loadGuide).catch(() => undefined);
+    void loadSpecs().then(loadDice).then(loadExportSheet).then(loadSheets).then(loadComponents).then(loadGuide).catch(() => undefined);
   }, 4000), 1500);
   if (document.readyState === 'complete') go();
   else addEventListener('load', go, { once: true });

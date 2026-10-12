@@ -6,7 +6,7 @@
  *   npx esbuild scripts/azar7-data.ts --bundle --platform=node --format=esm --outfile=.cache/azar7-data.mjs && node .cache/azar7-data.mjs
  */
 import { writeFileSync } from 'node:fs';
-import { FAMILIES } from '../src/families/registry';
+import { FAMILIES } from '../src/families/all';
 import { famFor } from '../src/families/params';
 import { usesOf } from '../src/families/uses';
 

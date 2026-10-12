@@ -1,9 +1,9 @@
 import type { Layer, Recipe } from '../engine/recipe';
 import { checkpointGen, getCheckpoint } from './checkpoints';
 import { analyticOf, modelOf, modelsGen, ensureFamily, familyLoadError } from './models';
-import { familyById } from './registry';
+import { familiesReady, familyById, isAnalytic, isFamily, isRaster, loadFamilyMetas } from './registry';
 import { familyGlsl, loadFamilyGlsl } from './analytic/glsl';
-import type { LayerFam } from './params';
+import { checkedFam, type LayerFam } from './params';
 import type { FamilyMeta, FieldModel, ModelState, Params, Stroke } from './types';
 
 /**
@@ -119,7 +119,8 @@ const keyOf = (l: Layer, f: LayerFam) => {
   return `${l.pattern}|${f.v}|${f.seed}|${f.res ?? 0}|${f.ck ?? ''}|${built}`;
 };
 /** A layer's settings outside its run key: two layers with the same run key still tell apart by these. */
-const fpOf = (l: Layer) => JSON.stringify([l.blend, l.mix, l.scale, l.speed, l.rot, l.x, l.y, l.a, l.b, l.invert, l.phase, l.fam?.p, l.fam?.brush]);
+const fpOf = (l: Layer, f: LayerFam) => JSON.stringify([l.blend, l.mix, l.scale, l.speed, l.rot, l.x, l.y, l.a, l.b, l.invert, l.phase, f.p, f.brush]);
+
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 /**
  * Raster versions are unique across every run of the page: an engine uploads a layer's raster when its version
@@ -156,27 +157,31 @@ export class FamilyHost {
   static layersOf(r: Recipe): Layer[] { return r.layers.filter(l => l.on).slice(0, 4); }
 
   /** Whether a recipe has a raster family on (the engines then keep the host busy). */
-  static uses(r: Recipe): boolean { return FamilyHost.layersOf(r).some(l => !!l.fam && familyById(l.pattern)?.kind !== 'analytic' && !!familyById(l.pattern)); }
+  static uses(r: Recipe): boolean { return FamilyHost.layersOf(r).some(l => !!l.fam && isRaster(l.pattern)); }
 
   /** The families whose code this engine needs: raster ones always, analytic ones only on the CPU. */
   private needs(r: Recipe): string[] {
-    return FamilyHost.layersOf(r).map(l => familyById(l.pattern)).filter((m): m is FamilyMeta => !!m && (m.kind !== 'analytic' || !!this.o.cpu)).map(m => m.id);
+    return FamilyHost.layersOf(r).map(l => l.pattern).filter(id => isRaster(id) || (!!this.o.cpu && isAnalytic(id)));
   }
 
   /** The analytic families whose GLSL the WebGL engine needs (the basic engine draws them on the CPU). */
   private glslNeeds(r: Recipe): string[] {
     if (this.o.cpu) return [];
-    return FamilyHost.layersOf(r).map(l => familyById(l.pattern)).filter((m): m is FamilyMeta => !!m && m.kind === 'analytic').map(m => m.id);
+    return FamilyHost.layersOf(r).map(l => l.pattern).filter(isAnalytic);
   }
 
-  /** Loads the code of every family the recipe uses (and, for WebGL, the GLSL of its analytic ones). */
+  /** Loads the specs and the code of every family the recipe uses (and, for WebGL, the GLSL of its analytic ones). */
   ready(r: Recipe): Promise<void> {
-    return Promise.all([...this.needs(r).map(ensureFamily), ...this.glslNeeds(r).map(loadFamilyGlsl)]).then(() => undefined);
+    const ids = this.needs(r), gl = this.glslNeeds(r);
+    const specs = ids.length || gl.length || FamilyHost.layersOf(r).some(l => isFamily(l.pattern)) ? loadFamilyMetas().catch(() => undefined) : undefined;
+    return Promise.all([specs, ...ids.map(ensureFamily), ...gl.map(loadFamilyGlsl)]).then(() => undefined);
   }
 
-  /** Whether the code of every family the recipe uses is here already. */
+  /** Whether the specs and the code of every family the recipe uses are here already. */
   loaded(r: Recipe): boolean {
-    return this.needs(r).every(id => !!modelOf(id) || !!analyticOf(id)) && this.glslNeeds(r).every(id => !!familyGlsl(id));
+    const ids = this.needs(r), gl = this.glslNeeds(r);
+    return (familiesReady() || !FamilyHost.layersOf(r).some(l => isFamily(l.pattern)))
+      && ids.every(id => !!modelOf(id) || !!analyticOf(id)) && gl.every(id => !!familyGlsl(id));
   }
 
   /**
@@ -209,8 +214,11 @@ export class FamilyHost {
       }
     }
     const want = layers.map((l, i) => {
-      const meta = familyById(l.pattern), f = l.fam;
-      return meta && meta.kind !== 'analytic' && f ? { i, l, f, meta, key: keyOf(l, f), src: r.layers.indexOf(l), fp: fpOf(l) } : null;
+      const meta = familyById(l.pattern);
+      // a raster family whose spec has not arrived: nothing to run yet, but the frame is not finished
+      if (!meta) { if (l.fam && isRaster(l.pattern)) { busy = true; void loadFamilyMetas().catch(() => undefined); } return null; }
+      const f = l.fam ? checkedFam(meta, l.fam) : undefined;
+      return meta.kind !== 'analytic' && f ? { i, l, f, meta, key: keyOf(l, f), src: r.layers.indexOf(l), fp: fpOf(l, f) } : null;
     });
     const got = this.match(want);
     const next: Array<Slot | Pending | null> = [null, null, null, null];

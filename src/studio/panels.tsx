@@ -32,9 +32,9 @@ import { TouchControls } from './ui/Touch';
 import { RampEditor } from './ui/RampEditor';
 import { FamilyControls } from './ui/FamilyControls';
 import { GlassControls } from './ui/Glass';
-import { FAMILIES, familyById } from '../families/registry';
+import { FAMILIES, familyEntry } from '../families/registry';
 import { withPreset } from '../families/recipes';
-import { hasStateful, setLayerPattern } from './families';
+import { hasStateful, pickLayerPattern, setLayerPattern, useFamilySpec } from './families';
 import { hasColourFamily } from '../families/palette';
 import { PaletteEditor } from './ui/color/PaletteEditor';
 import { useRamps } from './ui/ramps';
@@ -122,7 +122,9 @@ function LayerCard({ i, n }: { i: number; n: number }) {
   const on = useField(P('on')) as boolean;
   const pat = useField(P('pattern')) as string;
   const info = patternById(pat);
-  const fam = familyById(pat);
+  const fam = useFamilySpec(pat);
+  // a family layer (its spec may still be on its way: its panel says so)
+  const isFam = !!familyEntry(pat);
   const move = (d: number) => edit(r => { const l = r.layers.splice(i, 1)[0]; r.layers.splice(i + d, 0, l); if (r.layers[0]) r.layers[0].blend = 'normal'; }, 'move' + Date.now());
   const recipe = useRecipe();
   const h = useHelp('layers.*.pattern');
@@ -130,7 +132,8 @@ function LayerCard({ i, n }: { i: number; n: number }) {
   const onOpen = useCallback((o: boolean) => { if (o) openThumbSession(); else closeThumbSession(); }, []);
   const reroll = () => edit(r => {
     const rng = new Rng(`reroll${i}${Date.now()}`);
-    if (fam) {
+    if (familyEntry(pat)) {
+      if (!fam) return; // its spec is on its way: the dice wait for it
       // a family: another one (half the time of the same group) with one of its presets
       const same = FAMILIES.filter(f => f.group === fam.group && f.id !== pat);
       const next = rng.chance(0.5) && same.length ? rng.pick(same) : rng.pick(FAMILIES);
@@ -157,18 +160,18 @@ function LayerCard({ i, n }: { i: number; n: number }) {
               <span className="pk-main"><span className="pk-name">{o.label}</span>{o.desc && <span className="pk-desc">{o.desc}</span>}</span>
             </>
           )}
-          onChange={v => edit(r => setLayerPattern(r, i, v), `layers.${i}.pattern`)} />
-        <button type="button" className="icon-btn" title={fam ? 'Otra familia al azar' : 'Otro patrón al azar'} aria-label={fam ? 'Otra familia al azar' : 'Otro patrón al azar'} onClick={reroll}><IDice /></button>
+          onChange={v => pickLayerPattern(i, v)} />
+        <button type="button" className="icon-btn" title={isFam ? 'Otra familia al azar' : 'Otro patrón al azar'} aria-label={isFam ? 'Otra familia al azar' : 'Otro patrón al azar'} onClick={reroll}><IDice /></button>
         <button type="button" className="icon-btn" aria-pressed={!on} title={on ? 'Ocultar capa' : 'Oculta: pulsa para mostrarla'} aria-label={`Ocultar la capa ${i + 1}`}
           onClick={() => edit(r => { r.layers[i].on = !r.layers[i].on; }, 'toggle' + Date.now())}>{on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={`Patrón de la capa ${i + 1}`} />}
       </div>
       <HintText h={h} />
       <HelpMore h={h} />
-      {!fam && <p className="layer-desc">{PATTERN_OPTS.find(o => o.value === pat)?.desc}</p>}
+      {!isFam && <p className="layer-desc">{PATTERN_OPTS.find(o => o.value === pat)?.desc}</p>}
       {i > 0 && <Select f={P('blend')} label="Mezcla con la capa de abajo" opts={BLEND_OPTS} minWidth={300} />}
       <Slider f={P('mix')} label={i === 0 ? 'Intensidad' : 'Fuerza de la mezcla'} min={0} max={1} />
-      {fam ? <FamilyControls i={i} /> : (
+      {isFam ? <FamilyControls i={i} /> : (
         <>
           <Slider f={P('a')} label={info.a} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.a.toLowerCase()}.` }} />
           <Slider f={P('b')} label={info.b} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.b.toLowerCase()}.` }} />

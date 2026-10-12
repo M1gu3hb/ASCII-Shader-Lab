@@ -3,8 +3,8 @@ import type { BasicPattern } from '../engine/basic/patterns';
 import type { FamilyHost } from './host';
 import { currentPX } from '../engine/basic/px';
 import { analyticOf } from './models';
-import { packParams } from './params';
-import { familyById } from './registry';
+import { checkedFam, packParams } from './params';
+import { familyById, isColorFamily, isFamily } from './registry';
 import { sampleRaster } from './sample';
 import type { Palette } from './types';
 
@@ -18,12 +18,14 @@ const EMPTY_COLOUR: BasicPattern = { f: () => 0, col: (_x, _y, _t, out) => { out
  * parameters. Null for layers that are not families. A family whose code has not arrived draws empty.
  */
 export function familyPattern(l: Layer, i: number, host: FamilyHost | null | undefined, pal?: Palette): BasicPattern | null {
+  if (!l.fam || !isFamily(l.pattern)) return null;
+  // a family whose spec has not arrived draws empty, like one whose code has not
   const meta = familyById(l.pattern);
-  if (!meta || !l.fam) return null;
+  if (!meta) return isColorFamily(l.pattern) ? EMPTY_COLOUR : EMPTY;
   if (meta.kind === 'analytic') {
     const impl = analyticOf(meta.id);
     if (!impl) return meta.color ? EMPTY_COLOUR : EMPTY;
-    const k = packParams(meta, l.fam.p);
+    const k = packParams(meta, checkedFam(meta, l.fam).p);
     const cpuColor = impl.cpuColor;
     return {
       f: (x, y, t) => impl.cpu(x, y, t, k),
