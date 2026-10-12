@@ -226,3 +226,35 @@ describe('el presupuesto del cuadro cubre también el dibujo del raster (A-10)',
     } finally { spy.mockRestore(); }
   });
 });
+
+describe('recursos: pasar muchas veces de una a cuatro capas no acumula ejecuciones (A-07)', () => {
+  beforeAll(async () => { for (const id of ['reaccion_difusion', 'physarum', 'boids', 'fluido']) await loadFamilyNow(id); });
+
+  it('las ejecuciones vivas y las retiradas tienen un tope, digan lo que digan los cambios', () => {
+    const h = new FamilyHost({ live: true, frameBudget: 1e9 });
+    const ids = ['reaccion_difusion', 'physarum', 'boids', 'fluido'];
+    // at their smallest rows: the bound is about how many runs exist, not about their size
+    const small = (r: Recipe) => { for (const l of r.layers) if (l.fam) l.fam.res = familyById(l.pattern)!.budget.res[0]; return r; };
+    const four = (k: number) => {
+      const r = familyRecipe(ids[0], undefined, undefined, `ciclo-${k}-0`);
+      for (let i = 1; i < 4; i++) r.layers.push(familyLayer(familyById(ids[i])!, `ciclo-${k}-${i}`));
+      return small(r);
+    };
+    const one = (k: number) => small(familyRecipe(ids[k % 4], undefined, undefined, `uno-${k}`));
+    const live = () => (h as unknown as { slots: unknown[] }).slots.filter(Boolean).length;
+    const retired = () => (h as unknown as { retired: unknown[] }).retired.length;
+    let most = 0;
+    for (let k = 0; k < 16; k++) {
+      // every cycle new seeds: nothing can be reused, so every run is new and the old ones must go
+      h.update(four(k), k); h.stepNow(2, k);
+      expect(live()).toBe(4);
+      h.update(one(k), k + 0.5);
+      expect(live()).toBe(1);
+      most = Math.max(most, retired());
+    }
+    expect(most).toBeLessThanOrEqual(3);
+    h.dispose();
+    expect(live()).toBe(0);
+    expect(retired()).toBe(0);
+  }, 180_000);
+});
