@@ -6,6 +6,8 @@ import { META as boids } from './boids';
 import { META as gravedad } from './gravedad';
 import { META as tela } from './tela';
 import { META as chladni } from './chladni';
+import { META as descargas } from './descargas';
+import { META as mar } from './mar';
 
 /** Physics and motion: fluids, bodies, agents and surfaces that evolve by their model. */
-export const FISICA: FamilyMeta[] = [fluido, agua, erosion, boids, gravedad, tela, chladni];
+export const FISICA: FamilyMeta[] = [fluido, agua, erosion, boids, gravedad, tela, chladni, descargas, mar];

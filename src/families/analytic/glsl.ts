@@ -11,6 +11,12 @@ const LOAD: Record<string, () => Promise<string>> = {
   orbitales: () => import('./orbitales').then(m => m.ORBITALES_GLSL),
   lente_gravitacional: () => import('./lente').then(m => m.LENTE_GLSL),
   corrientes: () => import('./corrientes').then(m => m.CORRIENTES_GLSL),
+  cromado: () => import('./cromado').then(m => m.CROMADO_GLSL),
+  desgarro: () => import('./desgarro').then(m => m.DESGARRO_GLSL),
+  descargas: () => import('./descargas').then(m => m.DESCARGAS_GLSL),
+  mar: () => import('./mar').then(m => m.MAR_GLSL),
+  osciloscopio: () => import('./osciloscopio').then(m => m.OSCILOSCOPIO_GLSL),
+  marco: () => import('./marco').then(m => m.MARCO_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';

@@ -3,6 +3,8 @@ import { META as sistema_l } from './sistema_l';
 import { META as hiperbolico } from './hiperbolico';
 import { META as atractor } from './atractor';
 import { META as wfc } from './wfc';
+import { META as osciloscopio } from './osciloscopio';
+import { META as marco } from './marco';
 
 /** Form and geometry: grammars, constraints and chaos that build structures. */
-export const FORMA: FamilyMeta[] = [sistema_l, atractor, wfc, hiperbolico];
+export const FORMA: FamilyMeta[] = [sistema_l, atractor, wfc, hiperbolico, osciloscopio, marco];

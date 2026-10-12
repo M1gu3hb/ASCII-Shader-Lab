@@ -32,6 +32,12 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   agua: () => import('./sims/agua.ts'),
   erosion: () => import('./sims/erosion.ts'),
   corrientes: () => import('./analytic/corrientes.cpu.ts'),
+  cromado: () => import('./analytic/cromado.cpu.ts'),
+  desgarro: () => import('./analytic/desgarro.cpu.ts'),
+  descargas: () => import('./analytic/descargas.cpu.ts'),
+  mar: () => import('./analytic/mar.cpu.ts'),
+  osciloscopio: () => import('./analytic/osciloscopio.cpu.ts'),
+  marco: () => import('./analytic/marco.cpu.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */

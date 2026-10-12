@@ -1,0 +1,44 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'desgarro',
+  name: 'Superficie que se abre',
+  group: 'materia',
+  kind: 'analytic',
+  version: 1,
+  color: true,
+  aka: ['papel rasgado', 'desgarro', 'quemado', 'máscara de desgarro', 'fBm anisótropo'],
+  params: [
+    { key: 'kind', label: 'Cómo se abre', type: 'choice', def: 'desgarro', options: [
+      { id: 'desgarro', label: 'Se rasga' }, { id: 'quemado', label: 'Se quema' },
+    ] },
+    { key: 'behind', label: 'Detrás', type: 'choice', def: 'luz', options: [
+      { id: 'luz', label: 'Su propia luz' }, { id: 'trama', label: 'Una trama' }, { id: 'corrientes', label: 'Corrientes de color' },
+    ] },
+    { key: 'tears', label: 'Aberturas', type: 'int', min: 1, max: 3, def: 2 },
+    { key: 'cycle', label: 'Ciclo', type: 'number', min: 4, max: 20, def: 9, step: 0.5, unit: 's' },
+    { key: 'calm', label: 'Calma', type: 'number', min: 0, max: 1, def: 0.2, step: 0.01 },
+    { key: 'width', label: 'Abertura', type: 'number', min: 0.2, max: 1, def: 0.6, step: 0.01 },
+    { key: 'glow', label: 'Brillo del borde', type: 'number', min: 0, max: 1, def: 0.7, step: 0.01 },
+    { key: 'fibres', label: 'Fibras', type: 'number', min: 0, max: 1, def: 0.6, step: 0.01 },
+  ],
+  presets: [
+    { id: 'grietas', name: 'Grietas de luz', aka: ['desgarros desfasados'], uses: ['fondos/materia', 'arte/organicas'],
+      params: { kind: 'desgarro', behind: 'luz', tears: 3, cycle: 10, calm: 0, width: 0.55, glow: 0.75, fibres: 0.65 },
+      look: { stops: ['#050407', '#1c1720', '#3d2a5c', '#9b3d78', '#f08a5d', '#fff1d6'], bg: '#040306', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+    { id: 'rasgado', name: 'Papel rasgado', aka: ['torn paper'], uses: ['arte/organicas', 'arte/optica'],
+      params: { kind: 'desgarro', behind: 'luz', tears: 1, cycle: 8, calm: 0.6, width: 0.8, glow: 0.8, fibres: 0.85 },
+      look: { stops: ['#0a0908', '#2a2622', '#5a4a3a', '#d0663a', '#ffc46b', '#fffaf0'], bg: '#070605', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.1 } },
+    { id: 'quemado', name: 'Película que arde', aka: ['burning film', 'quemado'], uses: ['fondos/materia', 'arte/organicas'],
+      params: { kind: 'quemado', behind: 'luz', tears: 2, cycle: 11, calm: 0.15, width: 0.5, glow: 0.85, fibres: 0.7 },
+      look: { stops: ['#040302', '#24180f', '#4a2a12', '#c2410c', '#fb923c', '#fff3c4'], bg: '#030201', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.2 } },
+    { id: 'trama', name: 'Trama descubierta', aka: ['revelado de trama'], uses: ['fondos/materia', 'arte/optica'],
+      params: { kind: 'desgarro', behind: 'trama', tears: 2, cycle: 9, calm: 0.05, width: 0.9, glow: 0.45, fibres: 0.5 },
+      look: { stops: ['#06080a', '#18222a', '#2f5b6b', '#7cc6c9', '#e8fbf6'], bg: '#04060a', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+    { id: 'velo', name: 'Velo de color', aka: ['corrientes detrás'], uses: ['fondos/color', 'fondos/materia'],
+      params: { kind: 'quemado', behind: 'corrientes', tears: 3, cycle: 14, calm: 0, width: 0.75, glow: 0.5, fibres: 0.35 },
+      look: { stops: ['#07060b', '#1b1626', '#6d2e8f', '#e0457b', '#38bdf8', '#fde68a'], bg: '#050409', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
+  ],
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
+  budget: {},
+};
