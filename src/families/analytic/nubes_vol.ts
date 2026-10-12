@@ -49,10 +49,11 @@ float NV_nebula(vec2 p, float t, vec4 k0, vec4 k1){
     vec3 sq = q * sc + off;
     float e = max(fbm3(sq) - th, 0.) * gain;
     if (e > 0.) e *= 1. - ero * .85 * smoothstep(.3, .7, noise3(sq * 3.3));
-    float du = max(fbm3(sq * 1.7 + vec3(7.1, 3.3, 5.9)) - .5, 0.);
+    vec3 uq = sq * 1.7 + vec3(7.1, 3.3, 5.9);
+    float du = max((noise3(uq) + .5 * noise3(uq * 2.03 + vec3(17.1, 3.7, 9.3))) / 1.5 - .5, 0.);
     vec3 g = q - S;
     float glow = .3 + 2.4 / (1. + 5. * dot(g, g));
-    acc += T * e * (.4 + .6 * e) * glow * dt * .7;
+    acc += T * e * (.4 + .6 * e) * glow * dt * 1.6;
     T *= exp(-(du * 12. * sig + e * .1) * dt);
   }
   // behind: stars, and the star itself with a halo
@@ -63,7 +64,7 @@ float NV_nebula(vec2 p, float t, vec4 k0, vec4 k1){
   float cs = max(dot(rd, U), 0.);
   float sun = pow(cs, 900.) * 3. + pow(cs, 40.) * .25;
   // (a black point: the faintest gas stays black, so the voids read as space and not as grain)
-  return sat(1. - exp(-2. * max(acc + T * (star + sun) - .05, 0.)));
+  return sat(1. - exp(-2. * max(acc + T * (star + sun) - .12, 0.)));
 }
 float F_nubes_vol(vec2 p, float t, vec4 k0, vec4 k1){
   if (k1.w > 2.5) return NV_nebula(p, t, k0, k1);

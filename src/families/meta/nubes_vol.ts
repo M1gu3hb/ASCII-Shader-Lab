@@ -38,7 +38,7 @@ export const META: FamilyMeta = {
   // with no wind nothing moves (a loop of any length); with it the noise drifts on and never comes back
   caps: {
     loop: true, time: { param: 'wind', values: { '0': 'bucle' }, else: 'continuo' }, basic: 'reduced',
-    basicNote: 'En el motor básico: como mucho 32 pasos de rayo, 3 hacia el sol y 10 en la bruma.', checkpoint: false,
+    basicNote: 'En el motor básico: como mucho 32 pasos de rayo (24 en la nebulosa), 3 hacia el sol y 10 en la bruma.', checkpoint: false,
   },
   budget: { },
 };

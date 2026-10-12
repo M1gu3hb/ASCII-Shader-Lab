@@ -32,14 +32,14 @@ const hg = (c: number, g: number) => { const k = 1 + g * g - 2 * g * c; return (
 
 /**
  * «Nebulosa»: glowing gas (fbm3 over the coverage, carved into filaments by «Erosión») that a star lights more
- * the closer it is, crossed by dark dust lanes (a second fbm3 that only absorbs, «Absorción»), in front of a
- * star field. Emission and absorption along the view ray: no march toward a light, so it costs far less than
- * a sunlit cloud. Same samples as the shader (STEPS) unless the basic engine's budget says fewer.
+ * the closer it is, crossed by dark dust lanes (two octaves of noise that only absorb, «Absorción»), in front
+ * of a star field. Emission and absorption along the view ray, with no march toward a light; every step reads
+ * the gas, though (it is everywhere, faint), so the basic engine takes three quarters of its view budget.
  */
 function nebula(px: number, py: number): number {
   let dx = px, dy = py * upy + 1.1 * fwy, dz = py * upz + 1.1 * fwz;
   const l = Math.hypot(dx, dy, dz); dx /= l; dy /= l; dz /= l;
-  const n = Math.min(N, BUDGET.steps), dt = 3.9 / n;
+  const n = Math.min(N, Math.round(BUDGET.steps * 0.75)), dt = 3.9 / n;
   let T = 1, acc = 0;
   for (let i = 0; i < n; i++) {
     if (T < 0.02) break;
@@ -48,10 +48,11 @@ function nebula(px: number, py: number): number {
     const sx = qx * sc + ox, sy = qy * sc + oy, sz = qz * sc + oz;
     let e = Math.max(fbm3(sx, sy, sz) - th, 0) * gain;
     if (e > 0) e *= 1 - ero * 0.85 * smoothstep(0.3, 0.7, noise3(sx * 3.3, sy * 3.3, sz * 3.3));
-    const du = Math.max(fbm3(sx * 1.7 + 7.1, sy * 1.7 + 3.3, sz * 1.7 + 5.9) - 0.5, 0);
+    const ux = sx * 1.7 + 7.1, uy = sy * 1.7 + 3.3, uz = sz * 1.7 + 5.9;
+    const du = Math.max((noise3(ux, uy, uz) + 0.5 * noise3(ux * 2.03 + 17.1, uy * 2.03 + 3.7, uz * 2.03 + 9.3)) / 1.5 - 0.5, 0);
     const gx = qx - Sx, gy = qy - Sy, gz = qz - Sz;
     const glow = 0.3 + 2.4 / (1 + 5 * (gx * gx + gy * gy + gz * gz));
-    acc += T * e * (0.4 + 0.6 * e) * glow * dt * 0.7;
+    acc += T * e * (0.4 + 0.6 * e) * glow * dt * 1.6;
     T *= Math.exp(-(du * 12 * sig + e * 0.1) * dt);
   }
   // behind: stars, and the star itself with a halo
@@ -63,7 +64,7 @@ function nebula(px: number, py: number): number {
   const sun = Math.pow(c, 900) * 3 + Math.pow(c, 40) * 0.25;
   const v = acc + T * (star + sun);
   // (a black point: the faintest gas stays black, so the voids read as space and not as grain)
-  return sat(1 - Math.exp(-2 * Math.max(v - 0.05, 0)));
+  return sat(1 - Math.exp(-2 * Math.max(v - 0.12, 0)));
 }
 
 // per frame (prep)
