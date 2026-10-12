@@ -25,8 +25,13 @@ const INERT: Record<string, Record<string, string>> = {
     rules: 'sólo cuenta con «Mi gramática»',
     turn: 'sólo gira los modelos 3D; el helecho por defecto es 2D',
   },
-  reaccion_difusion: { edges: 'los bordes sólo cambian lo que cruza el límite; con pocas iteraciones puede no notarse' },
-  automata: { custom: 'sólo cuenta con «Regla propia»' },
+  reaccion_difusion: {
+    edges: 'los bordes sólo cambian lo que cruza el límite; con pocas iteraciones puede no notarse',
+    amp: 'sólo cuenta con un mapa vivo (heridas, mareas, franjas, isla); el mapa por defecto es uniforme',
+    drift: 'sólo cuenta con un mapa vivo (heridas, mareas, franjas, isla); el mapa por defecto es uniforme',
+  },
+  automata: { custom: 'sólo cuenta con «Regla propia»', renewRate: 'sólo cuenta con «Lluvia» o «Banda»; por defecto no hay renovación' },
+  lenia: { renew: 'sólo actúa cuando la materia viva cae a la mitad de su máximo; en la prueba corta no llega a pasar' },
   crecimiento: { bound: 'el límite sólo actúa cuando la curva llega a él; en la prueba corta todavía no llega' },
   wfc: { hold: 'la espera sólo cuenta con el tablero terminado; en la prueba corta todavía se construye' },
 };
