@@ -40,7 +40,7 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"fractal_3d","name":"Fractales 3D","group":"ciencia","kind":"analytic","v":1,"loop":true},
   {"id":"nubes_vol","name":"Nubes volumétricas","group":"ciencia","kind":"analytic","v":1,"loop":true},
   {"id":"orbitales","name":"Orbitales y superposiciones","group":"ciencia","kind":"analytic","v":1,"loop":true},
-  {"id":"lente_gravitacional","name":"Agujero negro","group":"ciencia","kind":"analytic","v":1,"loop":true},
+  {"id":"lente_gravitacional","name":"Agujero negro","group":"ciencia","kind":"analytic","v":2,"loop":true},
   {"id":"campos_em","name":"Líneas de campo","group":"ciencia","kind":"geometry","v":1,"loop":false},
   {"id":"niebla","name":"Cámara de niebla","group":"ciencia","kind":"simulation","v":1,"loop":false},
   {"id":"hipercubo","name":"Hipercubo","group":"ciencia","kind":"analytic","v":1,"loop":true},

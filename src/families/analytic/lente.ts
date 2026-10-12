@@ -33,6 +33,22 @@ float BH_bg(vec3 d, float mode){
   }
   return v;
 }
+// version 2 (PR #10 close-out): the disk turns at the rate of a reference orbit, and the shear between rings (the
+// difference with that rate) only builds up over a cycle of BH_SHEAR seconds: two textures, half a cycle apart,
+// each restarting from a fresh noise when its weight is zero (a triangle that sums to one with the other's).
+// The streaks never wind tighter than one cycle's worth, so after ten minutes the disk still reads as streaks.
+#define BH_SHEAR 40.
+float BH_tex(float th, float r, float om, float t, float spin){
+  float omr = .04811, f = t / BH_SHEAR, acc = 0.;
+  for (int j = 0; j < 2; j++){
+    float fj = f + .5 * float(j), c = floor(fj), a = fj - c;
+    float tha = th - spin * 5.8 * (omr * t + (om - omr) * a * BH_SHEAR);
+    acc += (1. - abs(2. * a - 1.)) * noise3(vec3(cos(tha) * 2.2, sin(tha) * 2.2, log(r) * 7. + c * 3.17 + float(j) * 11.3));
+  }
+  // two noises averaged lose contrast: a little back
+  return .4 + .6 * clamp(.5 + (acc - .5) * 1.35, 0., 1.);
+}
+
 float F_lente_gravitacional(vec2 p, float t, vec4 k0, vec4 k1){
   float D = k0.x, inc = k0.y * PI / 180., az = t * k0.z * TAU / 60., rout = k0.w;
   vec3 C = D * vec3(cos(inc) * sin(az), sin(inc), cos(inc) * cos(az));
@@ -63,9 +79,13 @@ float F_lente_gravitacional(vec2 p, float t, vec4 k0, vec4 k1){
       if (r > 3. && r < rout && k1.x > 0. && T > .01){
         vec3 er = cos(pc) * e1 + sin(pc) * e2, P = r * er;
         float th = atan(P.z, P.x), om = sqrt(.5 / (r * r * r));
-        float tha = th - k1.w * t * 5.8 * om;
         float q = 3. / r, I = 14. * q * q * q * (1. - sqrt(q));
-        float tex = .4 + .6 * noise3(vec3(cos(tha) * 2.2, sin(tha) * 2.2, log(r) * 7.));
+        float tex;
+        if (FV < 1.5){
+          // version 1: the shear grows for ever (after minutes the streaks are finer than a cell: grain)
+          float tha = th - k1.w * t * 5.8 * om;
+          tex = .4 + .6 * noise3(vec3(cos(tha) * 2.2, sin(tha) * 2.2, log(r) * 7.));
+        } else tex = BH_tex(th, r, om, t, k1.w);
         // Doppler beaming (artistic): orbital speed from a static observer, photon toward the camera
         float v = sqrt(.5 / (r - 1.));
         vec3 tg = (-wc / (uc * uc)) * er + r * (-sin(pc) * e1 + cos(pc) * e2);

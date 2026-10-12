@@ -6,7 +6,8 @@ export const META: FamilyMeta = {
   aka: ['lente gravitacional', 'Schwarzschild', 'disco de acreción', 'horizonte de sucesos', 'Gargantua'],
   group: 'ciencia',
   kind: 'analytic',
-  version: 1,
+  // 2: the shear between the disk's rings is bounded (after ten minutes it still reads as streaks, not grain)
+  version: 2,
   params: [
     { key: 'dist', label: 'Distancia', type: 'number', min: 6, max: 30, def: 14, step: 0.1, unit: 'r_s' },
     { key: 'incl', label: 'Inclinación', type: 'number', min: 1.5, max: 80, def: 12, step: 0.5, unit: '°' },

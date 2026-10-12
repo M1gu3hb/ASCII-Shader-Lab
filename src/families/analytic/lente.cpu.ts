@@ -60,6 +60,19 @@ let D = 14, rout = 12, T0 = 0;
 let C = [0, 0, 14], fw = [0, 0, -1], rt = [1, 0, 0], up = [0, 1, 0];
 const norm = (v: number[]) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 
+/** BH_tex (version 2): the disk's texture with the shear between rings bounded to one cycle (see the shader). */
+const BH_SHEAR = 40;
+function bhTex(th: number, r: number, om: number, t: number, spin: number): number {
+  const omr = 0.04811, f = t / BH_SHEAR;
+  let acc = 0;
+  for (let j = 0; j < 2; j++) {
+    const fj = f + 0.5 * j, c = Math.floor(fj), a = fj - c;
+    const tha = th - spin * 5.8 * (omr * t + (om - omr) * a * BH_SHEAR);
+    acc += (1 - Math.abs(2 * a - 1)) * noise3(Math.cos(tha) * 2.2, Math.sin(tha) * 2.2, Math.log(r) * 7 + c * 3.17 + j * 11.3);
+  }
+  return 0.4 + 0.6 * Math.min(1, Math.max(0, 0.5 + (acc - 0.5) * 1.35));
+}
+
 export const impl: AnalyticImpl = {
   glsl: LENTE_GLSL,
   prep(t, k) {
@@ -98,9 +111,12 @@ export const impl: AnalyticImpl = {
           const c = Math.cos(pc), s = Math.sin(pc);
           const erx = c * e1x + s * e2x, ery = c * e1y + s * e2y, erz = c * e1z + s * e2z;
           const th = Math.atan2(r * erz, r * erx), om = Math.sqrt(0.5 / (r * r * r));
-          const tha = th - K[7] * T0 * 5.8 * om;
           const q = 3 / r, I = 14 * q * q * q * (1 - Math.sqrt(q));
-          const tex = 0.4 + 0.6 * noise3(Math.cos(tha) * 2.2, Math.sin(tha) * 2.2, Math.log(r) * 7);
+          let tex: number;
+          if (!(K[16] > 1.5)) {
+            const tha = th - K[7] * T0 * 5.8 * om;
+            tex = 0.4 + 0.6 * noise3(Math.cos(tha) * 2.2, Math.sin(tha) * 2.2, Math.log(r) * 7);
+          } else tex = bhTex(th, r, om, T0, K[7]);
           const v = Math.sqrt(0.5 / (r - 1));
           const dr = -wc / (uc * uc);
           const tx = dr * erx + r * (-s * e1x + c * e2x), ty = dr * ery + r * (-s * e1y + c * e2y), tz = dr * erz + r * (-s * e1z + c * e2z);
