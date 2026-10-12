@@ -8,6 +8,9 @@
  * sample reads the layer's optical depth toward the sun: light shafts. The wind carries the noise.
  * Output: the light accumulated plus the sky seen through, with distance haze over the sea of clouds.
  *
+ * 'nebulosa' is another scene: glowing gas and dark dust lanes in front of stars, emission and absorption
+ * only (NV_nebula).
+ *
  * k0 = (coverage, scale, erosion, wind), k1 = (sun angle, absorption, steps, camera).
  * Bounds: at most NV_STEPS view steps, NV_LIGHT sun steps per lit sample, 3 per haze sample.
  */
@@ -30,7 +33,40 @@ float NV_dens(vec3 q, vec3 off, float sc, float th, float ero, float layer, floa
   return max(d, 0.) * gain;
 }
 float NV_hg(float c, float g){ float k = 1. + g * g - 2. * g * c; return (1. - g * g) / (k * sqrt(k)); }
+// the nebula: glowing gas carved into filaments, lit more near a star, crossed by dust lanes that only absorb,
+// in front of a star field (emission and absorption along the view: no march toward a light)
+float NV_nebula(vec2 p, float t, vec4 k0, vec4 k1){
+  float th = mix(.66, .36, k0.x), sc = 1.6 / k0.y, ero = k0.z, sig = k1.y, gain = 12. * smoothstep(0., .12, k0.x);
+  vec3 off = k0.w * t * vec3(.04, .015, .16);
+  vec3 fw = vec3(0., sin(.04), cos(.04)), up = vec3(0., cos(.04), -sin(.04));
+  vec3 rd = normalize(p.x * vec3(1., 0., 0.) + p.y * up + 1.1 * fw);
+  vec3 S = vec3(1.4 * k1.x - .7, .62, 1.9), U = normalize(S - vec3(0., .5, 0.));
+  float N = clamp(floor(k1.z + .5), 8., float(NV_STEPS)), dt = 3.9 / N;
+  float T = 1., acc = 0.;
+  for (int i = 0; i < NV_STEPS; i++){
+    if (float(i) >= N || T < .02) break;
+    vec3 q = vec3(0., .5, 0.) + rd * (.05 + dt * (float(i) + .5));
+    vec3 sq = q * sc + off;
+    float e = max(fbm3(sq) - th, 0.) * gain;
+    if (e > 0.) e *= 1. - ero * .85 * smoothstep(.3, .7, noise3(sq * 3.3));
+    float du = max(fbm3(sq * 1.7 + vec3(7.1, 3.3, 5.9)) - .5, 0.);
+    vec3 g = q - S;
+    float glow = .3 + 2.4 / (1. + 5. * dot(g, g));
+    acc += T * e * (.4 + .6 * e) * glow * dt * .7;
+    T *= exp(-(du * 12. * sig + e * .1) * dt);
+  }
+  // behind: stars, and the star itself with a halo
+  vec3 qq = rd * 34., c = floor(qq);
+  float h = hash13(c);
+  vec3 o = vec3(hash13(c + 17.31), hash13(c + 41.7), hash13(c + 73.1)) * .6 + .2;
+  float star = smoothstep(.45, 0., length(qq - c - o)) * step(.88, h) * (.4 + 5. * (h - .88));
+  float cs = max(dot(rd, U), 0.);
+  float sun = pow(cs, 900.) * 3. + pow(cs, 40.) * .25;
+  // (a black point: the faintest gas stays black, so the voids read as space and not as grain)
+  return sat(1. - exp(-2. * max(acc + T * (star + sun) - .05, 0.)));
+}
 float F_nubes_vol(vec2 p, float t, vec4 k0, vec4 k1){
+  if (k1.w > 2.5) return NV_nebula(p, t, k0, k1);
   float cam = k1.w, layer = cam > .5 ? 1. : 0.;
   // (no coverage, no cloud: the density fades in over the first 12 %)
   float th = mix(.66, .36, k0.x), sc = 1.6 / k0.y, ero = k0.z, sig = k1.y, gain = 12. * smoothstep(0., .12, k0.x);

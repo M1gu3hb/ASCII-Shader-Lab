@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { BUDGET, impl } from '../../src/families/analytic/nubes_vol.cpu';
 import { META } from '../../src/families/meta/nubes_vol';
-import { defaultParams, packParams } from '../../src/families/params';
+import { defaultParams, packParams, timeContract } from '../../src/families/params';
 import type { Params } from '../../src/families/types';
 
 /** Mechanism checks of «Nubes volumétricas» and of its reduced CPU twin. */
@@ -53,5 +53,33 @@ describe('nubes volumétricas', () => {
       Object.assign(BUDGET, REDUCED);
       expect(pearson(full, img(pr.params, 6)), pr.id).toBeGreaterThan(0.98);
     }
+  });
+
+  const lit = (a: number[]) => a.filter(v => v > 24 / 255).length / a.length;
+
+  it('contrato: continuo con viento (el ruido no vuelve a su sitio); sin viento, quieto', () => {
+    for (const pr of META.presets) expect(timeContract(META, { ...defaultParams(META), ...pr.params }), pr.id).toBe('continuo');
+    const still = { ...META.presets[0].params, wind: 0 };
+    expect(timeContract(META, { ...defaultParams(META), ...still })).toBe('bucle');
+    expect(mad(img(still, 0), img(still, 37))).toBe(0);
+  });
+
+  it('ningún preset se queda quieto ni vacío, tampoco a los diez minutos; la nebulosa deja huecos negros', () => {
+    for (const pr of META.presets) for (const t of [1, 61, 600]) {
+      const a = img(pr.params, t), b = img(pr.params, t + 2);
+      expect(mad(a, b), `${pr.id} t=${t}`).toBeGreaterThan(0.002);
+      expect(lit(b), `${pr.id} t=${t}`).toBeGreaterThan(0.02);
+    }
+    const neb = META.presets.find(p => p.id === 'nebulosa')!;
+    for (const t of [1, 61, 600]) expect(lit(img(neb.params, t)), `nebulosa t=${t}`).toBeLessThan(0.9);
+  });
+
+  it('nebulosa: el polvo oscurece con «Absorción» y la estrella se mueve con «Luz»', () => {
+    const base = { cover: 0.6, scale: 0.8, erosion: 0.8, wind: 0.6, sun: 0.4, absorb: 1.6, steps: 40, camera: 'nebulosa' };
+    const mean = (o: number[]) => o.reduce((s, v) => s + v, 0) / o.length;
+    expect(mean(img({ ...base, absorb: 3 }, 5))).toBeLessThan(mean(img({ ...base, absorb: 0.2 }, 5)));
+    // the star: the brightest cell sits left with «Luz» low and right with it high (no gas, no dust in front)
+    const peak = (sun: number) => { const o = img({ ...base, cover: 0, sun }, 5); return o.indexOf(Math.max(...o)) % 48; };
+    expect(peak(0.1)).toBeLessThan(peak(0.9));
   });
 });
