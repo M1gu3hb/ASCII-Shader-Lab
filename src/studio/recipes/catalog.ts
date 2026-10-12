@@ -118,9 +118,12 @@ const BY_FAMILY: Record<PatternFamily, string> = {
 export function sectionOf(space: SceneSpace, id: string, r: Recipe): string {
   const named = SECTION_OF[`${space}/${id}`];
   if (named) return named;
-  if (space === 'media') return r.media.xform?.some(x => x.on) || r.optics ? 'efectos' : 'clasicas';
+  // (a transformation, glass in front or the shape of an effect: the anamorphic flare, the paper)
+  if (space === 'media') return r.media.xform?.some(x => x.on) || r.optics || r.fxKind ? 'efectos' : 'clasicas';
   // glass in front of a background (recipe.optics): rain on the window, fluted glass
   if (space === 'fondos' && r.optics) return 'materia';
+  // a sphere or a polyhedron of glass is a figure in the middle, whatever it refracts
+  if (space === 'arte' && (r.optics?.kind === 'esfera' || r.optics?.kind === 'poliedro')) return 'figuras';
   if (space === 'tipo') {
     if (r.source === 'text' && r.text.anim) return 'letras';
     if (r.msg.on) return 'mensajes';
