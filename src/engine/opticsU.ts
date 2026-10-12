@@ -86,8 +86,8 @@ export function solidUniforms(o: Optics, t: number, loop: number): SolidU {
   };
   if (o.kind === 'esfera') {
     // a ball drifts along a slow figure of eight around its place
-    u.c[0] += 0.09 * Math.sin(ph);
-    u.c[1] += 0.05 * Math.sin(2 * ph);
+    u.c[0] += 0.14 * Math.sin(ph);
+    u.c[1] += 0.07 * Math.sin(2 * ph);
     return u;
   }
   const shape = SHAPES[Math.max(0, Math.min(SHAPES.length - 1, Math.round(o.profile)))];

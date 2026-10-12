@@ -20,7 +20,7 @@ import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } f
 import { fold, loopTime, morphPeriod, ondularTimes, pieceTime } from '../loop';
 import { activeXforms, trailDecay, trailStage, xformStages } from '../xform';
 import { XformState } from './xform';
-import { blurGrid, blurGridAnamorphic, grainPass, needsPixelPost, paperField, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
+import { PaperSheet, blurGrid, blurGridAnamorphic, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
 import { drawOverlays, hasOverlays, type OverlayCache } from './overlays';
 import {
   FieldBuffers, MediaMap, fieldLayers, pulseAt, runField,
@@ -96,6 +96,8 @@ export class BasicEngine implements Renderer {
   private out32 = new Uint32Array(1);
   private flat: Uint32Array | null = null;
   private bloomBuf = new Float32Array(3);
+  /** «Papel» (recipe.fxKind.grain): this engine's still sheet. */
+  private paperSheet = new PaperSheet();
   private bloomTmp = new Float32Array(3);
   private sim = new SimGrid();
   private simMode = '';
@@ -977,7 +979,7 @@ export class BasicEngine implements Renderer {
       touchTile: isMarkMode(it.mode) && td ? { data: td, k: TOUCH_TILE } : null,
       mediaPx: hasMedia ? mediaPx : null, bloom: bloom ? this.bloomBuf : null,
       // «Papel» (recipe.fxKind.grain): the still sheet instead of the film grain
-      paper: fx.grain > 0 && r.fxKind?.grain === 'papel' && !this.transparent ? paperField(this.W, this.H, this.cw, foldIndex(r.fxKind.fold)) : null,
+      paper: fx.grain > 0 && r.fxKind?.grain === 'papel' && !this.transparent ? this.paperSheet.get(this.W, this.H, this.cw, foldIndex(r.fxKind.fold)) : (this.paperSheet.drop(), null),
       // (flicker and grain: the piece's time, or with a loop the loop's time, as COMPOSE_FS's uFxTime)
       realT: loop > 0 ? fold(this.t, loop) : this.t,
     };

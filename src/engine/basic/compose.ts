@@ -438,8 +438,21 @@ let lightBuf = new Float32Array(0);
 /* «Papel»: the still sheet (PAPER_FS)                                */
 /* ---------------------------------------------------------------- */
 
-let paperKey = '';
-let paperBuf = new Int16Array(0);
+/**
+ * One engine's still sheet (paperField), kept while the size, the cell and the fold stay; let go when its piece
+ * has no paper. Each engine has its own: a stage with paper and a preview without it never redraw each other's.
+ */
+export class PaperSheet {
+  key = '';
+  buf: Int16Array = new Int16Array(0);
+  get(W: number, H: number, cw: number, fold: number): Int16Array {
+    const key = `${W}x${H}:${cw}:${fold}`;
+    if (key !== this.key) { this.key = key; this.buf = drawPaper(W, H, cw, fold); }
+    return this.buf;
+  }
+  drop() { if (this.key) { this.key = ''; this.buf = new Int16Array(0); } }
+}
+const SHEET = new PaperSheet();
 
 /** One crease of the paper (PAPER_FS crease): a thin dark line, the side facing the light lighter, the other darker. */
 function crease(px: number, py: number, ax: number, ay: number, nx: number, ny: number, k: number, facet: number) {
@@ -453,10 +466,11 @@ function crease(px: number, py: number, ax: number, ay: number, nx: number, ny: 
  * fold stay. P is quantised as the shader's 8-bit texture keeps it (P · 0.4 + 0.5).
  */
 export function paperField(W: number, H: number, cw: number, fold: number): Int16Array {
-  const key = `${W}x${H}:${cw}:${fold}`;
-  if (key === paperKey) return paperBuf;
-  paperKey = key;
-  paperBuf = new Int16Array(W * H);
+  return SHEET.get(W, H, cw, fold);
+}
+
+function drawPaper(W: number, H: number, cw: number, fold: number): Int16Array {
+  const paperBuf = new Int16Array(W * H);
   // the fibres of each square of three cells (two each), worked out once
   const gw = Math.ceil(W / cw / 3) + 3, gh = Math.ceil(H / cw / 3) + 3;
   const F = new Float64Array(gw * gh * 2 * 6);

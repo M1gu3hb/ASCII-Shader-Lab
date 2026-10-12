@@ -1191,6 +1191,10 @@ export class AsciiEngine implements Renderer {
     this.runSelect(src);
     if (this.r.fx.bloom > 0) this.runBloom();
     if (this.r.fx.grain > 0 && this.r.fxKind?.grain === 'papel') this.ensurePaper();
+    else if (this.paper) {
+      // no paper any more: its sheet (a texture the size of the canvas) goes
+      this.gl.deleteTexture(this.paper.t.tex); this.gl.deleteFramebuffer(this.paper.fb); this.paper = null;
+    }
     this.compose(null, this.trans);
     this.ptr.impulse = 0;
   }
