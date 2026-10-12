@@ -1,0 +1,48 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'humo',
+  name: 'Humo rizado',
+  group: 'fisica',
+  kind: 'simulation',
+  version: 1,
+  aka: ['curl noise', 'ruido rizado', 'rotacional de ruido', 'partículas de humo'],
+  params: [
+    { key: 'count', label: 'Partículas', type: 'int', min: 500, max: 12000, def: 6000 },
+    { key: 'target', label: 'Objetivo', type: 'choice', def: 'orbita', options: [
+      { id: 'orbita', label: 'Orbita despacio' }, { id: 'fijo', label: 'Fijo abajo' }, { id: 'libre', label: 'Sin objetivo (llena el volumen)' },
+    ] },
+    { key: 'scale', label: 'Tamaño del rizo', type: 'number', min: 0.3, max: 3, def: 1, step: 0.01 },
+    { key: 'speed', label: 'Velocidad', type: 'number', min: 0.05, max: 1, def: 0.35, step: 0.01 },
+    { key: 'life', label: 'Vida', type: 'number', min: 0.5, max: 12, def: 3, step: 0.1, unit: 's' },
+    { key: 'attract', label: 'Atracción', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'radius', label: 'Radio de emisión', type: 'number', min: 0.03, max: 1, def: 0.15, step: 0.01 },
+    { key: 'rise', label: 'Ascenso', type: 'number', min: -1, max: 1, def: 0, step: 0.01 },
+    { key: 'orbit', label: 'Órbita de cámara', type: 'number', min: -1, max: 1, def: 0.15, step: 0.01 },
+    { key: 'tilt', label: 'Inclinación', type: 'number', min: -60, max: 60, def: 20, step: 1, unit: '°' },
+    { key: 'zoom', label: 'Zoom', type: 'number', min: 0.5, max: 2.5, def: 1, step: 0.01 },
+    { key: 'trail', label: 'Filamentos', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'shadow', label: 'Relieve', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'gain', label: 'Exposición', type: 'number', min: 0.3, max: 3, def: 1, step: 0.01, advanced: true },
+  ],
+  presets: [
+    { id: 'espiritu', name: 'Espíritu', uses: ['arte/figuras', 'arte/organicas'], aka: ['espíritu de partículas'],
+      params: { count: 7000, target: 'orbita', scale: 0.45, speed: 0.6, life: 4.5, attract: 0, radius: 0.15, rise: 0.05, orbit: 0.12, tilt: 18, zoom: 1.15, trail: 1, shadow: 0.6, gain: 1 },
+      look: { stops: ['#0c0503', '#5a1e0c', '#ff8a3a', '#ffe7c4'], bg: '#070302', charset: ' .`\'^:;+*#' } },
+    { id: 'fumarola', name: 'Fumarola', uses: ['arte/organicas', 'arte/figuras'], aka: ['columna de humo'],
+      params: { count: 9000, target: 'fijo', scale: 0.6, speed: 0.45, life: 6, attract: 0, radius: 0.14, rise: 0.8, orbit: 0.06, tilt: 8, zoom: 1, trail: 0.7, shadow: 0.75, gain: 1.1 },
+      look: { stops: ['#08090a', '#3a3f45', '#c9ced4', '#ffffff'], bg: '#050607', charset: ' .,:;=+*#%' } },
+    { id: 'nebulosa', name: 'Nebulosa rizada', uses: ['fondos/espacio', 'arte/organicas'], aka: ['nebulosa de ruido rizado'],
+      params: { count: 12000, target: 'libre', scale: 1.4, speed: 0.2, life: 10, attract: 0.35, radius: 0.6, rise: 0, orbit: 0.05, tilt: 12, zoom: 1.45, trail: 0.35, shadow: 0.85, gain: 0.9 },
+      look: { stops: ['#04030c', '#24124a', '#8a4ad8', '#9fe8ff', '#f4f8ff'], bg: '#020108', charset: ' .·:-=+*#' } },
+    { id: 'seda', name: 'Hilos de seda', uses: ['arte/organicas', 'fondos/organicas'], aka: ['filamentos de ruido rizado'],
+      params: { count: 9000, target: 'libre', scale: 0.6, speed: 0.6, life: 5, attract: 0.3, radius: 0.3, rise: 0, orbit: -0.08, tilt: 30, zoom: 1.3, trail: 1, shadow: 0.3, gain: 0.8 },
+      look: { stops: ['#05080a', '#123a3a', '#4fd6c0', '#effffa'], bg: '#030506', charset: " .'-~=+*#" } },
+  ],
+  caps: {
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
+    brushes: [{ id: 'bocanada', label: 'Bocanada', hint: 'Suelta humo nuevo a lo largo de tu trazo.' }],
+  },
+  budget: { res: [48, 160, 96], rate: 30, warmup: 60 },
+  wrap: 'clamp',
+};
