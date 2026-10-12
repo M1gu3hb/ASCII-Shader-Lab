@@ -4,7 +4,8 @@ import type { Entry } from '../../src/studio/history';
 import { PRESETS, spaceAccepts } from '../../src/studio/presets';
 import { SCENES } from '../../src/studio/scenes';
 import { FAMILIES } from '../../src/families/registry';
-import { CATEGORIES, allItems, filtersOf, itemNamed, itemsOf, moodOf, sectionOf, sectionsOf } from '../../src/studio/recipes/catalog';
+import { CATEGORIES, allItems, filtersOf, itemNamed, itemsOf, moodOf, sectionOf, sectionsOf, usesOf } from '../../src/studio/recipes/catalog';
+import { normParams, timeContract } from '../../src/families/params';
 import { fold, search, tokens } from '../../src/studio/recipes/search';
 import { itemOfEntry, isShown, recentItems } from '../../src/studio/recipes/used';
 import { keptKey } from '../../src/studio/recipes/kept';
@@ -25,10 +26,14 @@ const entry = (label: string, space: Entry['space'], kind: Entry['kind'] = 'rece
 describe('catálogo', () => {
   it('cada receta, cada escena y cada preset de familia aparece una vez, en su espacio', () => {
     const all = allItems();
-    const families = FAMILIES.reduce((a, f) => a + f.presets.length, 0);
+    // a family preset is listed once in each space its uses name, under the same id everywhere
+    let families = 0;
+    for (const f of FAMILIES) for (const p of f.presets) {
+      const spaces = new Set(usesOf(f, p).map(u => u.split('/')[0]));
+      families += spaces.size;
+      for (const sp of SPACES) expect(all.filter(i => i.space === sp && i.kind === 'familia' && i.id === `${f.id}:${p.id}`), `${sp} ${f.id}:${p.id}`).toHaveLength(spaces.has(sp) ? 1 : 0);
+    }
     const n = SPACES.reduce((a, sp) => a + PRESETS[sp].length, 0) + SCENES.length + families;
-    // the visual families' presets are listed in Arte, each once
-    for (const f of FAMILIES) for (const p of f.presets) expect(all.filter(i => i.space === 'arte' && i.kind === 'familia' && i.id === `${f.id}:${p.id}`)).toHaveLength(1);
     expect(all).toHaveLength(n);
     expect(new Set(all.map(i => i.key)).size).toBe(n);
     for (const sp of SPACES) {
@@ -169,5 +174,43 @@ describe('imágenes guardadas', () => {
     expect(a).not.toBe(keptKey('webgl|0.8|{"a":2}'));
     expect(a).not.toBe(keptKey('basic|0.8|{"a":1}'));
     expect(a.length).toBeLessThan(40);
+  });
+});
+
+describe('catálogo por uso y apariencia (revisión del PR #10, A-06)', () => {
+  it('no hay un cajón por mecanismo: ni «Ciencia» ni secciones de familia', () => {
+    for (const id of Object.keys(CATEGORIES)) expect(id).not.toMatch(/^fam-|ciencia/);
+    for (const c of Object.values(CATEGORIES)) expect(c.label).not.toMatch(/ciencia/i);
+    for (const it of allItems()) expect(CATEGORIES[it.section], it.key).toBeTruthy();
+  });
+
+  it('cada uso de un preset nombra una sección que existe en ese espacio', () => {
+    for (const f of FAMILIES) for (const p of f.presets) for (const u of usesOf(f, p)) {
+      const [sp, sec] = u.split('/');
+      expect(SPACES as readonly string[], u).toContain(sp);
+      expect(CATEGORIES[sec], u).toBeTruthy();
+    }
+  });
+
+  it('Fondos sólo ofrece presets que siguen cambiando (o empalman) y llenan el lienzo', () => {
+    for (const f of FAMILIES) for (const p of f.presets) {
+      if (!usesOf(f, p).some(u => u.startsWith('fondos/'))) continue;
+      const tc = timeContract(f, normParams(f, p.params));
+      expect(tc, `${f.id}:${p.id}`).not.toBe('construccion');
+      expect(f.figure ?? false, `${f.id}:${p.id} es una figura centrada`).toBe(false);
+    }
+  });
+
+  it('Saturno y el agujero negro están juntos, en Figuras 3D y espacio de Arte', () => {
+    expect(itemsOf('arte').find(i => i.kind === 'receta' && i.id === 'saturno')?.section).toBe('figuras');
+    const holes = itemsOf('arte').filter(i => i.kind === 'familia' && i.id.startsWith('lente_gravitacional:'));
+    expect(holes.length).toBeGreaterThan(0);
+    for (const h of holes) expect(h.cats, h.key).toContain('figuras');
+  });
+
+  it('la búsqueda encuentra un preset por su nombre científico (aka) sin mostrarlo como nombre', () => {
+    for (const f of FAMILIES) for (const p of f.presets) for (const a of [...(p.aka ?? []), ...(f.aka ?? [])]) {
+      for (const it of allItems().filter(i => i.kind === 'familia' && i.id === `${f.id}:${p.id}`)) expect(it.words, it.key).toContain(fold(a));
+    }
   });
 });

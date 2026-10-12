@@ -2,22 +2,24 @@ import { FAMILY_NAMES, charsetById, charsetIdOf, patternById, type PatternFamily
 import type { Recipe } from '../../engine/recipe';
 import { PALETTE_MOODS, galleryPalette } from '../../random/palette-gallery';
 import { SPACES, spaceById, type SpaceId } from '../../random/spaces';
-import { PRESETS } from '../presets';
+import { normalizeRecipe } from '../../engine/recipe';
+import { PRESETS, keepMedia, keepText } from '../presets';
 import { SCENES, makeScene, type SceneSpace, type SceneSpec } from '../scenes';
 import { fold } from './search';
 import { FAMILIES } from '../../families/registry';
 import { familyRecipe } from '../../families/recipes';
-import { FAMILY_GROUP_NAMES, type FamilyGroup } from '../../families/types';
+import type { FamilyGroup, FamilyMeta, FamilyPreset, PresetUse } from '../../families/types';
 
 /**
- * Every starting point of the lab in one catalogue: the recipes of each space (presets.ts) and the composed
- * scenes (scenes.ts), each with the section it is listed under in its space, the moods it belongs to, the
+ * Every starting point of the lab in one catalogue: the recipes of each space (presets.ts), the composed
+ * scenes (scenes.ts) and the presets of the visual families (src/families), each with the section it is listed under in its space, the moods it belongs to, the
  * words it is found by and its own colours (while its picture is on its way). Pure data: the browser
  * (Browser.tsx) shows it, the tests check it.
  *
  * Sections come from what a recipe draws (the family of its first layer's pattern, the kind of text or
  * photo treatment), so a new recipe finds its place by itself; SECTION_OF names the few whose pattern says
- * less than the picture does. The lists in presets.ts and scenes.ts keep their order (the first recipe of a
+ * less than the picture does. A family preset is listed where its `uses` say (by use and look, never by
+ * mechanism: there is no «science» section), under one id in every space it is offered. The lists in presets.ts and scenes.ts keep their order (the first recipe of a
  * space is the one a space opens with; the landing page uses their ids): only the listing order is decided
  * here.
  */
@@ -25,7 +27,10 @@ import { FAMILY_GROUP_NAMES, type FamilyGroup } from '../../families/types';
 export type ItemKind = 'receta' | 'escena' | 'familia';
 
 export interface RecipeItem {
-  /** Unique in the whole catalogue: `${space}/${id}` for recipes, `${space}/escena:${id}` for scenes. */
+  /**
+   * Unique in the whole catalogue: `${space}/${id}` for recipes, `${space}/escena:${id}` for scenes,
+   * `${space}/familia:${family}:${preset}` for family presets (whose `id`, `${family}:${preset}`, is the same in every space).
+   */
   key: string;
   id: string;
   name: string;
@@ -60,35 +65,31 @@ export interface Category {
 
 /** The sections and moods, with the words that find them. */
 export const CATEGORIES: Record<string, Category> = {
-  figuras: { id: 'figuras', label: 'Figuras 3D', hint: 'Objetos que giran, dibujados con caracteres.', words: '3d tres dimensiones objeto objetos solido solidos volumen figura gira' },
+  figuras: { id: 'figuras', label: 'Figuras 3D y espacio', hint: 'Objetos que giran, planetas y agujeros negros, dibujados con caracteres.', words: '3d tres dimensiones objeto objetos solido solidos volumen figura gira espacio planeta saturno agujero negro cosmos' },
   curvas: { id: 'curvas', label: 'Curvas y fractales', hint: 'Matemáticas que se dibujan solas: curvas, espirales y fractales.', words: 'matematicas matematica fractal fractales curva espiral geometria' },
-  organicas: { id: 'organicas', label: 'Orgánicas', hint: 'Nubes, fuego, dunas, bambú: formas de la naturaleza.', words: 'organico naturaleza natural' },
+  organicas: { id: 'organicas', label: 'Orgánicas', hint: 'Nubes, fuego, tinta, moho, agua: formas de la naturaleza que se mueven.', words: 'organico naturaleza natural vida tinta' },
   ondas: { id: 'ondas', label: 'Ondas y mareas', hint: 'Superficies que ondulan despacio: agua, aire, relieves.', words: 'ondas agua mar marea ola' },
-  geometricas: { id: 'geometricas', label: 'Geométricas', hint: 'Tramas, retículas, tejidos y circuitos.', words: 'geometria patron trama reticula' },
+  color: { id: 'color', label: 'Color que fluye', hint: 'Corrientes, velos y membranas con un color propio en cada celda.', words: 'color colores degradado gradiente corriente corrientes iridiscente arcoiris neon' },
+  vivas: { id: 'vivas', label: 'Vivas', hint: 'Fondos que se organizan solos y no se detienen: tinta, células, moho, bandadas.', words: 'vida viva vivo organismo celula celulas moho tinta crecimiento bandada simulacion' },
+  materia: { id: 'materia', label: 'Materia y vidrio', hint: 'Relieves, metal, vidrio y superficies que se abren.', words: 'materia vidrio cromo metal relieve superficie textura lluvia' },
+  geometricas: { id: 'geometricas', label: 'Geométricas', hint: 'Tramas, retículas, mosaicos, tejidos y circuitos.', words: 'geometria patron trama reticula mosaico teselacion' },
   espacio: { id: 'espacio', label: 'Espacio', hint: 'Estrellas, planetas y órbitas.', words: 'cosmos estrellas cielo planeta galaxia' },
-  optica: { id: 'optica', label: 'Óptica y espacio', hint: 'Moiré, túneles de estrellas, rejillas retro y glitch.', words: 'optica moire glitch retro tunel hiperespacio espacio' },
+  optica: { id: 'optica', label: 'Óptica', hint: 'Moiré, túneles de estrellas, rejillas retro, prismas y glitch.', words: 'optica moire glitch retro tunel hiperespacio prisma ilusion' },
   consola: { id: 'consola', label: 'Clásicos de consola', hint: 'Lluvia de código, radar, ecualizador y fósforo.', words: 'consola terminal codigo retro fosforo' },
   clasicas: { id: 'clasicas', label: 'Clásicas', hint: 'Tu foto en caracteres, sin transformarla.', words: 'foto retrato imagen clasico' },
-  efectos: { id: 'efectos', label: 'Con efectos', hint: 'Tu foto transformada: serigrafía, neón, caleidoscopio…', words: 'efecto efectos transformar foto imagen' },
+  efectos: { id: 'efectos', label: 'Con efectos', hint: 'Tu foto transformada: serigrafía, neón, caleidoscopio, vidrio…', words: 'efecto efectos transformar foto imagen' },
   letras: { id: 'letras', label: 'Letras animadas', hint: 'Tus palabras se mueven: olas, estallidos, órbitas, cascadas.', words: 'letras animadas animacion palabras texto movimiento' },
   texturas: { id: 'texturas', label: 'Letras con textura', hint: 'Tus palabras rellenas de un patrón que se mueve.', words: 'letras textura relleno texto palabras' },
   mensajes: { id: 'mensajes', label: 'Mensajes', hint: 'Un mensaje que se escribe o se descifra sobre la pieza.', words: 'mensaje escribir maquina descifrar texto' },
   escenas: { id: 'escenas', label: 'Escenas compuestas', hint: 'Varias capas que se mueven a su ritmo; después puedes cambiar cada una.', words: 'escena escenas compuesta compuestas capas' },
   tranquilas: { id: 'tranquilas', label: 'Tranquilas', hint: 'Lentas y suaves: buenas de fondo o para mirar un rato.', words: 'tranquila tranquilo calma calmada lenta suave relajante' },
   expresivas: { id: 'expresivas', label: 'Expresivas', hint: 'Rápidas, brillantes, con mucho carácter.', words: 'expresiva energia energica rapida intensa brillante vibrante' },
-  // the visual families (src/families): one section per group, in Arte
-  'fam-vida': { id: 'fam-vida', label: FAMILY_GROUP_NAMES.vida, hint: 'Simulaciones que se organizan solas: reacción–difusión, moho, vida artificial, autómatas.', words: 'simulacion familia vida quimica organismo celula moho automata' },
-  'fam-fisica': { id: 'fam-fisica', label: FAMILY_GROUP_NAMES.fisica, hint: 'Fluidos, agua, bandadas, gravedad, telas y terrenos que evolucionan por su modelo.', words: 'simulacion familia fisica fluido agua gravedad tela bandada particulas' },
-  'fam-forma': { id: 'fam-forma', label: FAMILY_GROUP_NAMES.forma, hint: 'Gramáticas, restricciones y caos que construyen estructuras.', words: 'simulacion familia geometria gramatica caos estructura fractal' },
-  'fam-ciencia': { id: 'fam-ciencia', label: FAMILY_GROUP_NAMES.ciencia, hint: 'Volúmenes y espacios trazados rayo a rayo: fractales, nubes, orbitales, agujeros negros.', words: 'simulacion familia ciencia 3d volumen fractal nube orbital agujero negro' },
 };
-
-const FAMILY_SECTION: Record<FamilyGroup, string> = { vida: 'fam-vida', fisica: 'fam-fisica', forma: 'fam-forma', ciencia: 'fam-ciencia', materia: 'fam-ciencia' };
 
 /** The order sections are listed in, per space (a section not listed goes after these). */
 const SECTION_ORDER: Record<SceneSpace, string[]> = {
-  fondos: ['ondas', 'organicas', 'geometricas', 'espacio', 'escenas'],
-  arte: ['figuras', 'curvas', 'organicas', 'optica', 'fam-vida', 'fam-fisica', 'fam-forma', 'fam-ciencia', 'escenas'],
+  fondos: ['ondas', 'organicas', 'color', 'vivas', 'materia', 'geometricas', 'espacio', 'escenas'],
+  arte: ['figuras', 'organicas', 'curvas', 'geometricas', 'optica', 'escenas'],
   media: ['clasicas', 'efectos', 'escenas'],
   tipo: ['letras', 'texturas', 'mensajes', 'escenas'],
   terminal: ['figuras', 'consola', 'curvas', 'escenas'],
@@ -101,6 +102,8 @@ const MOOD_SPACES: SceneSpace[] = ['fondos', 'arte', 'terminal'];
 const SECTION_OF: Record<string, string> = {
   'fondos/orbita': 'espacio',
   'fondos/relieve': 'geometricas',
+  // Saturn goes with the black hole and the 3D figures
+  'arte/saturno': 'figuras',
   'arte/optica': 'optica', 'arte/cinco-ejes': 'optica', 'arte/hiperespacio': 'optica', 'arte/vapor': 'optica',
   'terminal/consola': 'consola', 'terminal/radar': 'consola', 'terminal/ecualizador': 'consola', 'terminal/ambar': 'consola',
 };
@@ -114,7 +117,9 @@ const BY_FAMILY: Record<PatternFamily, string> = {
 export function sectionOf(space: SceneSpace, id: string, r: Recipe): string {
   const named = SECTION_OF[`${space}/${id}`];
   if (named) return named;
-  if (space === 'media') return r.media.xform?.some(x => x.on) ? 'efectos' : 'clasicas';
+  if (space === 'media') return r.media.xform?.some(x => x.on) || r.optics ? 'efectos' : 'clasicas';
+  // glass in front of a background (recipe.optics): rain on the window, fluted glass
+  if (space === 'fondos' && r.optics) return 'materia';
   if (space === 'tipo') {
     if (r.source === 'text' && r.text.anim) return 'letras';
     if (r.msg.on) return 'mensajes';
@@ -124,7 +129,43 @@ export function sectionOf(space: SceneSpace, id: string, r: Recipe): string {
   const sec = BY_FAMILY[patternById(lead?.pattern ?? '').family] ?? 'geometricas';
   // a space that has no such section lists it with its patterns' kin
   if (space === 'terminal' && (sec === 'ondas' || sec === 'optica')) return 'consola';
+  if (space === 'arte' && sec === 'espacio') return 'figuras';
   return sec;
+}
+
+/** Where a family preset is offered: its `uses`; a preset that names none goes where its family's group suggests. */
+const GROUP_USE: Record<FamilyGroup, PresetUse> = {
+  vida: 'arte/organicas', fisica: 'arte/organicas', forma: 'arte/geometricas', ciencia: 'arte/figuras', materia: 'fondos/color',
+};
+export const usesOf = (f: FamilyMeta, pr: FamilyPreset): readonly PresetUse[] => (pr.uses?.length ? pr.uses : [GROUP_USE[f.group]]);
+
+const ASCII_ONLY = /^[\x20-\x7e]*$/;
+const TERMINAL_CHARS = ' .:-=+*#%@';
+
+/**
+ * A family preset as a recipe of a space: alone on the pattern source with its look (Fondos, Arte; Terminal at
+ * the terminal's proportion and in plain ASCII), as the texture inside the person's words (Texto) or over their
+ * photo, video or camera (Imagen). The seed is the preset's, so the same entry gives the same piece everywhere.
+ */
+function familyMake(space: SceneSpace, f: FamilyMeta, pr: FamilyPreset) {
+  return (base?: Recipe): Recipe => {
+    const r = familyRecipe(f.id, pr.id, undefined, `${f.id}-${pr.id}`);
+    if (space === 'terminal') {
+      r.glyph.aspect = 2;
+      if (!ASCII_ONLY.test(r.glyph.charset)) { r.glyph.charset = TERMINAL_CHARS; r.glyph.sort = true; }
+    } else if (space === 'tipo') {
+      r.source = 'text';
+      r.text = { ...r.text, content: 'GLYPHOS', font: 'martian', weight: 800, size: 0.95 };
+      r.media = { ...r.media, mix: 0.6, blend: 'multiply' };
+      r.tone.contrast = Math.max(r.tone.contrast, 1.3);
+      if (base) keepText(base, r);
+    } else if (space === 'media') {
+      r.source = 'image';
+      r.media = { ...r.media, mix: 0.5, blend: 'screen' };
+      if (base) keepMedia(base, r);
+    }
+    return normalizeRecipe(r);
+  };
 }
 
 const GLITCH = new Set(['glitch', 'ruido']);
@@ -182,18 +223,18 @@ function build(): RecipeItem[] {
         line: CATEGORIES[section].label, words: wordsOf(space, r, cats, [p.name]), folded: fold(p.name), look: lookOf(r), order: order++,
       });
     }
-    // the presets of the visual families: in Arte, after its recipes and scenes (moods say nothing of them)
-    if (space === 'arte') {
-      for (const f of FAMILIES) for (const pr of f.presets) {
-        const make = () => familyRecipe(f.id, pr.id, undefined, `${f.id}-${pr.id}`);
-        const r = make();
-        const section = FAMILY_SECTION[f.group];
-        out.push({
-          key: `${space}/familia:${f.id}:${pr.id}`, id: `${f.id}:${pr.id}`, name: pr.name, space, kind: 'familia', section, cats: [section], make,
-          line: f.name, words: fold([pr.name, f.name, CATEGORIES[section].label, CATEGORIES[section].words ?? '', 'familia simulacion'].join(' ')),
-          folded: fold(pr.name), look: lookOf(r), order: order++,
-        });
-      }
+    // the presets of the visual families, where their uses say (after the space's own recipes; moods say nothing of them)
+    for (const f of FAMILIES) for (const pr of f.presets) {
+      const here = usesOf(f, pr).filter(u => u.startsWith(space + '/')).map(u => u.slice(space.length + 1));
+      if (!here.length) continue;
+      const make = familyMake(space, f, pr);
+      const section = here[0];
+      out.push({
+        key: `${space}/familia:${f.id}:${pr.id}`, id: `${f.id}:${pr.id}`, name: pr.name, space, kind: 'familia', section, cats: [...new Set(here)], make,
+        line: f.name,
+        words: fold([pr.name, f.name, ...(pr.aka ?? []), ...(f.aka ?? []), ...here.flatMap(c => [CATEGORIES[c].label, CATEGORIES[c].words ?? ''])].join(' ')),
+        folded: fold(pr.name), look: lookOf(make()), order: order++,
+      });
     }
     for (const s of SCENES.filter(x => x.space === space)) {
       const r = makeScene(s);
