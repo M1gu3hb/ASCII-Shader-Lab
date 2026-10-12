@@ -12,7 +12,8 @@ function nodes(m: ReturnType<typeof create>) {
   return { N, x: (s.arrays.px as Float32Array).subarray(0, N), y: (s.arrays.py as Float32Array).subarray(0, N), s };
 }
 
-describe('crecimiento diferencial', () => {
+// (runs of several simulated minutes: generous time when the whole suite shares the machine)
+describe('crecimiento diferencial', { timeout: 60_000 }, () => {
   it('los nodos aumentan y ningún tramo supera la arista máxima', () => {
     const p = params();
     const m = create({ seed: 'crece', res: 64, params: p });

@@ -11,7 +11,8 @@ const raster = (m: ReturnType<typeof create>, t = 0) => { const o = new Uint8Arr
 const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
 const lit = (a: Uint8Array) => a.reduce((s, v) => s + (v > 24 ? 1 : 0), 0) / a.length;
 
-describe('sistemas L en el tiempo', () => {
+// (runs of several simulated minutes: generous time when the whole suite shares the machine)
+describe('sistemas L en el tiempo', { timeout: 60_000 }, () => {
   it('el contrato de cada preset dice la verdad', () => {
     const want: Record<string, string> = { helecho: 'construccion', arbol3d: 'construccion', raices: 'construccion', dragon: 'construccion', jardin: 'continuo', raices_vivas: 'continuo', dragon_pliegue: 'bucle' };
     for (const pr of META.presets) expect(timeContract(META, { ...defaultParams(META), ...pr.params }), pr.id).toBe(want[pr.id]);

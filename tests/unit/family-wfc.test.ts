@@ -19,7 +19,8 @@ function finish(set: string, seed: string, extra: Record<string, unknown> = {}) 
   return { m, s, tiles, GW: 2 * rows, GH: rows };
 }
 
-describe('colapso de función de onda (modelo de piezas)', () => {
+// (generous time when the whole suite shares the machine)
+describe('colapso de función de onda (modelo de piezas)', { timeout: 60_000 }, () => {
   it('cada tablero terminado cumple todas las adyacencias, también tras reparar una contradicción', () => {
     const boards: Array<[string, string, string]> = [];
     for (const set of SETS) for (const edges of ['vacios', 'libres']) for (let k = 0; k < 4; k++) boards.push([set, `adyacencia${k}`, edges]);

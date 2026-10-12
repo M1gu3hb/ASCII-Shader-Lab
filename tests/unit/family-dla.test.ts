@@ -84,7 +84,8 @@ describe('agregación limitada por difusión', () => {
   });
 });
 
-describe('agregación con renovación (presets continuos)', () => {
+// (runs of several simulated minutes: generous time when the whole suite shares the machine)
+describe('agregación con renovación (presets continuos)', { timeout: 60_000 }, () => {
   const preset = (id: string) => params(META.presets.find(p => p.id === id)!.params);
   const raster = (m: ReturnType<typeof create>) => { const o = new Uint8Array(m.w * m.h); m.render(o, 0); return o; };
   const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };

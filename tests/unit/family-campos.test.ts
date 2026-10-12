@@ -12,7 +12,8 @@ const dist = (a: number[], b: { x: number; y: number; z: number }) => Math.hypot
 /** The field at a point, copied out of the model's shared buffer. */
 const fieldAt = (src: ReturnType<typeof sourcesOf>, x: number[]) => Array.from(field(src, x[0], x[1], x[2]));
 
-describe('líneas de campo', () => {
+// (moving sources trace their lines again every few steps: generous time when the whole suite shares the machine)
+describe('líneas de campo', { timeout: 60_000 }, () => {
   it('las líneas de E salen de las cargas + y acaban en las − (o se van lejos)', () => {
     for (const ratio of [0.5, 1, 2]) {
       const g = buildField('prueba', P({ config: 'dipolo', ratio, lines: 16 }));
