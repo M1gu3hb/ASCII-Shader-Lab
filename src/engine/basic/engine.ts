@@ -6,7 +6,7 @@ import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
 import type { EngineOptions, EngineStats, FamilyCommand, GestureInput, GridSnapshot, MediaKind } from '../engine';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../../families/host';
-import { mediaSource, redOf, smallCopy, textSource } from '../../families/source';
+import { mediaSource, TEXT_SIDE, textSource } from '../../families/source';
 import { retryFamily } from '../../families/models';
 import { hasColourFamily } from '../../families/palette';
 import { glassColourMode, opticsUniforms } from '../opticsU';
@@ -15,7 +15,7 @@ import { PointerHub, SIM_MODES, brushDry, brushGhost, brushWidth, isCalligraphy,
 import type { PatternLibrary } from '../glsl/patterns';
 import type { MediaEl, PreviewQuality, Renderer } from '../renderer';
 import { DEFAULT_TRANSITION, transitionOf, type TransitionSpec } from '../transitions';
-import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from '../text';
+import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, textMask, type MsgLayout } from '../text';
 import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } from '../letters';
 import { fold, loopTime, morphPeriod, ondularTimes, pieceTime } from '../loop';
 import { activeXforms, trailDecay, trailStage, xformStages } from '../xform';
@@ -110,6 +110,7 @@ export class BasicEngine implements Renderer {
   private textCanvas: HTMLCanvasElement | null = null;
   private textKey = '';
   private textBuf: TextBuffer | null = null;
+  private textAnim: { time: number; cols: number; loop?: number } | undefined;
   private msg: MsgLayout | null = null;
   private msgKey = '';
   /** The message's grid as the select pass reads it (its letters moved, when they move). */
@@ -641,6 +642,7 @@ export class BasicEngine implements Renderer {
     const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}|${anim.loop}` : '');
     if (key === this.textKey && this.textBuf) return;
     this.textKey = key;
+    this.textAnim = anim;
     this.textCanvas ??= document.createElement('canvas');
     drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font), anim);
     const { width: w, height: h } = this.textCanvas;
@@ -830,13 +832,12 @@ export class BasicEngine implements Renderer {
     const tb = this.textBuf, mb = this.mediaBuf;
     if (r.source === 'text' && tb) {
       key = 't|' + this.textKey;
-      // the same small copy of the letters the WebGL engine hands over (families/source.ts SIDE): both engines'
-      // models read the same mask, so a family that follows the letters' outlines plans the same route
-      const tc = this.textCanvas;
+      // the same mask of the letters the WebGL engine hands over (engine/text.ts textMask, TEXT_SIDE): both
+      // engines' models read the same letters, so a family that follows their outlines plans the same route
+      const anim = this.textAnim;
       make = () => {
-        if (!tc) return textSource(tb.data, tb.w, tb.h, this.W, this.H, r.text.content, ++this.famSrcVer);
-        const m = smallCopy(tc, tc.width, tc.height, (this.famSrcCanvas ??= document.createElement('canvas')));
-        return textSource(redOf(m), m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+        const m = textMask((this.famSrcCanvas ??= document.createElement('canvas')), this.W, this.H, r.text, this.fonts.stack(r.text.font), anim, TEXT_SIDE);
+        return textSource(m.data, m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer);
       };
     } else if (mb && this.mediaOK) {
       const m = r.media;

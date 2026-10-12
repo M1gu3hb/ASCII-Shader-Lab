@@ -10,7 +10,7 @@ import {
 } from './gl';
 import { ANAMORPHIC_FS, BLUR_FS, COMPOSE_FS, PAPER_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
 import type { PatternLibrary } from './glsl/patterns';
-import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from './text';
+import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, textMask, type MsgLayout } from './text';
 import { XFORM_FS } from './glsl/xform';
 import { XF_COPY, XF_MEDIA, XF_TEXT, XF_TRAIL, activeXforms, needsPattern, trailDecay, trailStage, xformStages, type XformStage } from './xform';
 import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } from './letters';
@@ -20,7 +20,7 @@ import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec
 import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
 import { PointerHub, SIM_MODES, brushDry, brushGhost, brushWidth, isCalligraphy, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../families/host';
-import { TEXT_SIDE, mediaSource, redOf, smallCopy, textSource } from '../families/source';
+import { SIDE, TEXT_SIDE, mediaSource, textSource, type SmallMedia } from '../families/source';
 import { retryFamily } from '../families/models';
 import { hasColourFamily, paletteOf } from '../families/palette';
 import { fieldOptics, glassColourMode, opticsUniforms } from './opticsU';
@@ -236,7 +236,11 @@ export class AsciiEngine implements Renderer {
   /** The source as the families that read it last got it, and the canvas its small copies are made on. */
   private famSrcKey = '';
   private famSrcVer = 0;
-  private famSrcCanvas: HTMLCanvasElement | null = null;
+  private famTextCanvas: HTMLCanvasElement | null = null;
+  /** Where the picture is scaled down on the GPU for the families that read it (mediaCopy). */
+  private famBlit: { read: WebGLFramebuffer; draw: WebGLFramebuffer; t: Tex } | null = null;
+  /** The moment the letters were last drawn at (letters that move), for the families' copy of them. */
+  private textAnim: { time: number; cols: number; loop?: number } | undefined;
   private famBusy = false;
   /** Where the last brush stroke on each family layer ended (domain coordinates), while the pointer is down. */
   private famStroke: Array<[number, number] | null> = [null, null, null, null];
@@ -737,6 +741,8 @@ export class AsciiEngine implements Renderer {
     this.tAtlas = createTex(gl, 1, 1);
     this.tGrad = createTex(gl, 256, 1, { filter: gl.LINEAR });
     this.tMedia = createTex(gl, 1, 1, { filter: gl.LINEAR });
+    // (a restored context starts without the families' scaling buffers: they belonged to the lost one)
+    this.famBlit = null;
     this.tText = createTex(gl, 1, 1, { filter: gl.LINEAR });
     this.tMsg = createTex(gl, 1, 1);
     this.tWords = createTex(gl, 1, 1);
@@ -982,6 +988,7 @@ export class AsciiEngine implements Renderer {
     const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}|${anim.loop}` : '');
     if (key === this.textKey) return;
     this.textKey = key;
+    this.textAnim = anim;
     this.textCanvas ??= document.createElement('canvas');
     drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font), anim);
     const gl = this.gl;
@@ -1444,29 +1451,64 @@ export class AsciiEngine implements Renderer {
 
   /**
    * The piece's source for the families that read it (FamilyMeta.reads 'source'): a small CPU copy of the
-   * picture, the video frame (ten times a second) or the letters, made only when it changes.
+   * picture or the video frame (ten times a second) or the letters, made only when it changes.
    */
   private familySource() {
     const r = this.r;
     if (!FamilyHost.readsSource(r)) { if (this.famSrcKey) { this.famSrcKey = ''; this.fam.setSource(null); } return; }
     let key = '-', make: (() => HostSource) | null = null;
-    const cv = () => (this.famSrcCanvas ??= document.createElement('canvas'));
     if (r.source === 'text' && this.textCanvas) {
-      const tc = this.textCanvas;
       key = 't|' + this.textKey;
-      make = () => { const m = smallCopy(tc, tc.width, tc.height, cv(), TEXT_SIDE); return textSource(redOf(m), m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer); };
+      // the letters drawn again for them, small (never read back from the canvas given to WebGL)
+      const anim = this.textAnim;
+      make = () => {
+        const m = textMask((this.famTextCanvas ??= document.createElement('canvas')), this.W, this.H, r.text, this.fonts.stack(r.text.font), anim, TEXT_SIDE);
+        return textSource(m.data, m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+      };
     } else {
       const el = this.currentMedia();
-      if (el && this.mediaOK) {
-        const t = typeof HTMLVideoElement !== 'undefined' && el instanceof HTMLVideoElement ? Math.floor(el.currentTime * 10) : 0;
+      if (el && this.mediaOK && this.mediaUploaded === el) {
+        const t = typeof HTMLVideoElement !== 'undefined' && el instanceof HTMLVideoElement ? Math.floor(this.mediaTime * 10) : 0;
         const m = r.media;
         key = `m|${this.mediaGen}|${t}|${m.fit}|${m.zoom}|${m.panX}|${m.panY}|${m.mirror}|${this.W}x${this.H}`;
-        make = () => mediaSource(smallCopy(el as CanvasImageSource, this.mediaW, this.mediaH, cv()), this.W, this.H, m, ++this.famSrcVer);
+        make = () => {
+          const c = this.mediaCopy();
+          if (!c) throw new Error('copia');
+          return mediaSource(c, this.W, this.H, m, ++this.famSrcVer);
+        };
       }
     }
     if (key === this.famSrcKey) return;
     this.famSrcKey = key;
     try { this.fam.setSource(make ? make() : null); } catch { this.fam.setSource(null); }
+  }
+
+  /**
+   * A small CPU copy (at most SIDE px on its long side) of the picture just uploaded to tMedia, for the families
+   * that read it: scaled down on the GPU and read back. Never a 2D-canvas copy of the picture: WebKit draws a
+   * picture (an ImageBitmap) that WebGL has read as another one, or black.
+   */
+  private mediaCopy(): SmallMedia | null {
+    const gl = this.gl, mw = this.mediaW, mh = this.mediaH;
+    const k = Math.min(1, SIDE / Math.max(mw, mh, 1));
+    const w = Math.max(1, Math.round(mw * k)), h = Math.max(1, Math.round(mh * k));
+    const B = (this.famBlit ??= { read: gl.createFramebuffer()!, draw: gl.createFramebuffer()!, t: createTex(gl, w, h) });
+    if (B.t.w !== w || B.t.h !== h) resizeTex(gl, B.t, w, h);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, B.read);
+    gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tMedia.tex, 0);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, B.draw);
+    gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, B.t.tex, 0);
+    let data: Uint8Array | null = null;
+    if (gl.checkFramebufferStatus(gl.READ_FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE && gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+      gl.blitFramebuffer(0, 0, mw, mh, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, B.draw);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      data = new Uint8Array(w * h * 4);
+      // (rows come out as the picture was uploaded, top first: the same order as a 2D canvas's getImageData)
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return data && { data, w, h, natW: mw, natH: mh };
   }
 
   /** Strokes of a family brush (layer.fam.brush) while the pointer is pressed on a live canvas. */

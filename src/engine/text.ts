@@ -4,13 +4,29 @@ import { letterPose, textAnimated, type LetterSlot } from './letters';
 export { textAnimated };
 
 /**
+ * The letters as the families that read them see them (families/source.ts textSource): drawTextSource's
+ * layout at most `side` px wide, on a canvas of their own, and its red channel. Never a copy of the canvas
+ * the WebGL engine uploads: WebKit reads a canvas already given to WebGL back as empty.
+ */
+export function textMask(cv: HTMLCanvasElement, W: number, H: number, t: Recipe['text'], stack: string, anim: { time: number; cols: number; loop?: number } | undefined, side: number) {
+  cv.getContext('2d', { willReadFrequently: true });
+  drawTextSource(cv, W, H, t, stack, anim, side);
+  const w = cv.width, h = cv.height;
+  const d = cv.getContext('2d')!.getImageData(0, 0, w, h).data;
+  const data = new Uint8Array(w * h);
+  for (let i = 0; i < data.length; i++) data[i] = d[i * 4];
+  return { data, w, h };
+}
+
+/**
  * Rasterises the big text source (white on black) at the canvas aspect ratio. With `anim` (the text has
  * letters that move, see letters.ts), each letter is drawn where it is at `anim.time`, at a resolution
  * the cells need (three pixels per column): it is drawn again at every frame. `anim.loop`: the piece's
- * «Bucle perfecto» (the letters make a whole number of their cycles in it).
+ * «Bucle perfecto» (the letters make a whole number of their cycles in it). `side`: at most that many pixels
+ * wide (the same layout, smaller).
  */
-export function drawTextSource(cv: HTMLCanvasElement, W: number, H: number, t: Recipe['text'], stack: string, anim?: { time: number; cols: number; loop?: number }) {
-  const w = Math.round(Math.max(256, Math.min(1600, W * 0.75, anim && t.anim ? anim.cols * 3 : Infinity)));
+export function drawTextSource(cv: HTMLCanvasElement, W: number, H: number, t: Recipe['text'], stack: string, anim?: { time: number; cols: number; loop?: number }, side = Infinity) {
+  const w = Math.round(Math.min(side, Math.max(256, Math.min(1600, W * 0.75, anim && t.anim ? anim.cols * 3 : Infinity))));
   const h = Math.max(64, Math.round((w * H) / Math.max(W, 1)));
   cv.width = w; cv.height = h;
   const c = cv.getContext('2d')!;
