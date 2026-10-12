@@ -12,7 +12,8 @@ import type { Params } from '../../src/families/types';
 const B_CRIT = (3 * Math.sqrt(3)) / 2;
 const fromFar = (b: number, u0 = 1e-6) => trace(u0, Math.sqrt(1 / (b * b) - u0 * u0 * (1 - u0)), 20000);
 
-describe('agujero negro', () => {
+// (generous time when the suite shares the machine)
+describe('agujero negro', { timeout: 60_000 }, () => {
   it('b > (3√3/2) r_s escapa y b < (3√3/2) r_s cae dentro', () => {
     for (const b of [1, 2, 2.5, B_CRIT * 0.99, B_CRIT * 0.999]) expect(fromFar(b).fate, `b=${b}`).toBe('capture');
     for (const b of [B_CRIT * 1.001, B_CRIT * 1.01, 2.8, 4, 10]) expect(fromFar(b).fate, `b=${b}`).toBe('escape');

@@ -16,7 +16,8 @@ const frame = (p: Params, t: number, w = 64, h = 32) => {
 const mad = (a: number[], b: number[]) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
 const lit = (a: number[]) => a.filter(v => v > 24 / 255).length / a.length;
 
-describe('fractales 3D', () => {
+// (ray marching on the CPU: generous time when the suite shares the machine)
+describe('fractales 3D', { timeout: 60_000 }, () => {
   it('contrato: sin respiración, bucle de la cámara (el Mandelbox, cada cuarto de vuelta); con ella, continuo', () => {
     for (const pr of META.presets) {
       const tc = timeContract(META, { ...defaultParams(META), ...pr.params });

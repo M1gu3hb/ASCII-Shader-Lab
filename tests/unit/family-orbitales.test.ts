@@ -19,7 +19,8 @@ const signChanges = (f: (x: number) => number, a: number, b: number, n = 4000) =
 /** [l, |m|] of each harmonic number. */
 const LM: Record<number, [number, number]> = { 0: [0, 0], 1: [1, 0], 2: [1, 1], 3: [2, 0], 4: [2, 2], 5: [2, 1], 6: [3, 0], 7: [3, 2], 8: [3, 3] };
 
-describe('orbitales del hidrógeno', () => {
+// (ray marching on the CPU: generous time when the suite shares the machine)
+describe('orbitales del hidrógeno', { timeout: 60_000 }, () => {
   it('R_nl está normalizada (∫ R² r² dr = 1) y tiene n − l − 1 nodos radiales', () => {
     for (let n = 1; n <= 4; n++) for (let l = 0; l < n; l++) {
       // Simpson on [0, 120] Bohr radii

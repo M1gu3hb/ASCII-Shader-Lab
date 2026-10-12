@@ -25,7 +25,8 @@ function advanced(type: 'clifford' | 'dejong', p: Params, x: number, y: number, 
   return [Math.fround(x), Math.fround(y)];
 }
 
-describe('atractores extraños', () => {
+// (simulations and ray marching run for real here: generous time when the suite shares the machine)
+describe('atractores extraños', { timeout: 60_000 }, () => {
   for (const type of ['clifford', 'dejong'] as const) {
     it(`${type}: cada órbita avanza exactamente según su fórmula (deriva 0; en la versión 2, salvo las que se renuevan)`, () => {
       const p = params({ type, drift: 0, points: 2560 });

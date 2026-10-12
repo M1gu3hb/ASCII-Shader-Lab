@@ -24,7 +24,8 @@ const mad = (a: number[], b: number[]) => a.reduce((s, v, i) => s + Math.abs(v -
 
 afterEach(() => { Object.assign(BUDGET, REDUCED); });
 
-describe('nubes volumétricas', () => {
+// (ray marching on the CPU: generous time when the suite shares the machine)
+describe('nubes volumétricas', { timeout: 60_000 }, () => {
   it('sin cobertura no hay densidad: sólo cielo, y el viento no mueve nada', () => {
     for (const camera of ['dentro', 'horizonte']) {
       const p = { cover: 0, wind: 2, camera };

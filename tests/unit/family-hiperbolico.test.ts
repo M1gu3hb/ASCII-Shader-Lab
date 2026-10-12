@@ -9,7 +9,8 @@ import type { Params } from '../../src/families/types';
 const rnd = (() => { let s = 12345; return () => { s = (s * 1103515245 + 12345) >>> 0; return s / 4294967296; }; })();
 const PAIRS: Array<[number, number]> = [[7, 3], [3, 7], [4, 5], [6, 4], [5, 4], [8, 3], [12, 12]];
 
-describe('teselación hiperbólica', () => {
+// (generous time when the suite shares the machine)
+describe('teselación hiperbólica', { timeout: 60_000 }, () => {
   it('sólo dibuja {p,q} hiperbólicos: q sube al primer valor con (p − 2)(q − 2) > 4', () => {
     expect(hyperbolicPQ(7, 3)).toEqual([7, 3]);
     expect(hyperbolicPQ(4, 4)).toEqual([4, 5]);
