@@ -139,8 +139,15 @@ export interface FamilyPreset {
   };
   /** Layer transform the preset is designed for. */
   layer?: { scale?: number; speed?: number };
+  /**
+   * A layer drawn under the family's (an ordinary pattern: `pattern` plus its usual settings), for presets of
+   * families that read the layers below (FamilyMeta.reads 'below'): the composition comes with the preset.
+   */
+  below?: { pattern: string; scale?: number; speed?: number; a?: number; b?: number; mix?: number; /** A family below: its preset. */ preset?: string };
   /** Simulation rows (raster families). */
   res?: number;
+  /** In Texto: the size the person's words are set at (default 0.95; a family that echoes them wants room). */
+  text?: { size?: number };
 }
 
 /** A brush a person can use on the stage with this family (raster families). */

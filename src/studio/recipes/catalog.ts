@@ -156,8 +156,8 @@ function familyMake(space: SceneSpace, f: FamilyMeta, pr: FamilyPreset) {
       if (!ASCII_ONLY.test(r.glyph.charset)) { r.glyph.charset = TERMINAL_CHARS; r.glyph.sort = true; }
     } else if (space === 'tipo') {
       r.source = 'text';
-      // (a family that reads the letters leaves room around them: they are its material, not a mask)
-      r.text = { ...r.text, content: 'GLYPHOS', font: 'martian', weight: 800, size: reads ? 0.7 : 0.95 };
+      // (a preset can ask for its words at another size: a tunnel of words leaves room around them)
+      r.text = { ...r.text, content: 'GLYPHOS', font: 'martian', weight: 800, size: pr.text?.size ?? 0.95 };
       r.media = { ...r.media, mix: reads ? 1 : 0.6, blend: reads ? 'normal' : 'multiply' };
       r.tone.contrast = Math.max(r.tone.contrast, 1.3);
       if (base) keepText(base, r);

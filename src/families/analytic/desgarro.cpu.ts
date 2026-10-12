@@ -2,6 +2,7 @@ import type { AnalyticImpl, Palette } from '../types';
 import { V2, fbm, fract, gnoise, hash22, smoothstep } from '../../engine/basic/core';
 import { currentPX } from '../../engine/basic/px';
 import { DESGARRO_GLSL } from './desgarro';
+import { FAM, famSrc, famSrcKind } from '../context';
 
 // the layer's cell size, from prep (the engine's own; currentPX only where a test sets it directly)
 let PXc: number | null = null;
@@ -42,11 +43,15 @@ let lx = NaN, ly = NaN, lt = NaN;
 const C = new Float64Array(4);
 const S = new Float64Array(3), B = new Float64Array(3), H = new Float64Array(3);
 
+const SRC = new Float64Array(4);
+
 function eval4(x: number, y: number, t: number, k: Float32Array) {
   if (x === lx && y === ly && t === lt) return;
   lx = x; ly = y; lt = t;
   const PX = pxNow();
-  const kind = Math.floor(k[0] + 0.5), beh = Math.floor(k[1] + 0.5), n = Math.min(3, Math.max(1, Math.floor(k[2] + 0.5))), cyc = k[3];
+  const kind = Math.floor(k[0] + 0.5);
+  let beh = Math.floor(k[1] + 0.5);
+  const n = Math.min(3, Math.max(1, Math.floor(k[2] + 0.5))), cyc = k[3];
   const q = k[4] * 0.45, W = k[5], glow = k[6], fib = k[7];
   let hole = 0, rim = 0, spill = 0, lip = 0, crack = 0, chr = 0, shx = 0, shy = 0;
   for (let i = 0; i < n; i++) {
@@ -103,6 +108,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   for (let j = 0; j < 3; j++) S[j] *= 1 - 0.8 * chr;
   let bl = 0;
   B[0] = B[1] = B[2] = 0;
+  if (beh > 2.5 && beh < 3.5 && famSrcKind() < 0.5) beh = 0;
   if (hole > 0 || spill > 0.02) {
     if (beh < 0.5) {
       const wx = x * 1.6 + t * 0.03, wy = y * 1.6 - t * 0.02;
@@ -120,6 +126,13 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
       const hatch = Math.max(smoothstep(0.9 * v + 0.12, 0.9 * v - 0.12, l1), smoothstep(0.5 * v + 0.1, 0.5 * v - 0.14, l2) * (v < 0.55 ? 0 : 1));
       bl = 0.22 + 0.7 * hatch;
       ramp(0.45 + 0.5 * v, B);
+    } else if (beh > 3.5) {
+      bl = FAM.below;
+      B[0] = FAM.belowC[0]; B[1] = FAM.belowC[1]; B[2] = FAM.belowC[2];
+    } else if (beh > 2.5) {
+      famSrc(x, y, SRC);
+      bl = SRC[3];
+      B[0] = SRC[0]; B[1] = SRC[1]; B[2] = SRC[2];
     } else {
       let ws = 0;
       for (let j = 0; j < 3; j++) {

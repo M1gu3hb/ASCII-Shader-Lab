@@ -3,15 +3,15 @@ import type { FamilyDoc } from '../types';
 /** What the studio says about this family (loaded with its panel, not with the first view). */
 export const DOC: FamilyDoc = {
   blurb: 'Bandas de metal pulido que se curvan siguiendo el borde de una forma, con reflejos que se separan en colores.',
-  mechanism: 'Cada forma (círculo, anillo, gota, rombo, metabolas o ninguna) da una distancia con signo a su contorno. De ella sale un campo de borde: vale 1 en el contorno y baja hacia dentro con un perfil parabólico, el de una solución de Poisson con borde fijo. Ese campo dobla la coordenada de las bandas (una diagonal girada, más el campo de borde y un ruido), así que junto al contorno las bandas giran y se aprietan siguiéndolo. Cada periodo de banda es un reflejo: un degradado que acaba en un horizonte nítido y una línea en la zona oscura, filtrado por lo que cabe en una celda; un filo de luz recorre el contorno. El rojo y el azul leen la banda un poco adelantada y atrasada (dispersión) y cada canal pasa por tu paleta. El carácter sale de la fase de la banda.',
+  mechanism: 'Cada forma (círculo, anillo, gota, rombo, metabolas o ninguna) da una distancia con signo a su contorno. De ella sale un campo de borde: vale 1 en el contorno y baja hacia dentro con un perfil parabólico, el de una solución de Poisson con borde fijo. Ese campo dobla la coordenada de las bandas (una diagonal girada, más el campo de borde y un ruido), así que junto al contorno las bandas giran y se aprietan siguiéndolo. Cada periodo de banda es un reflejo: un degradado que acaba en un horizonte nítido y una línea en la zona oscura, filtrado por lo que cabe en una celda; un filo de luz recorre el contorno. El rojo y el azul leen la banda un poco adelantada y atrasada (dispersión) y cada canal pasa por tu paleta. El carácter sale de la fase de la banda. Desde la versión 2 la forma puede ser la pieza misma («Tu foto o tu texto»): con texto, las letras son de cromo y las bandas se doblan siguiendo su contorno (un campo de borde que sale de la máscara promediada a dos radios), con un filo de luz y un halo por fuera; con una foto, todo es metal y sus tonos son el relieve que siguen las bandas. Sin foto ni texto dibuja la gota.',
   time: 'Una función del tiempo: las bandas corren, el ruido se desplaza y las metabolas siguen trayectorias con frecuencias que no se repiten juntas. Sigue cambiando sin reinicio y no es periódica. «Bucle perfecto» la funde con su inicio, como cualquier patrón.',
-  limits: 'Seis formas propias (o ninguna). Todavía no puede llenar de metal la imagen ni el texto de tu pieza.',
+  limits: 'Seis formas propias, ninguna, o la pieza misma: con tu foto o tu texto, nueve lecturas de la fuente por celda (centro y dos anillos de cuatro) para el borde; sin foto ni texto, la gota.',
   sources: [
     { label: 'Paper Shaders: Liquid Metal (Apache-2.0; referencia de la idea, no se copió código)', url: 'https://shaders.paper.design/liquid-metal' },
     { label: 'Ecuación de Poisson (perfil del campo de borde)', url: 'https://es.wikipedia.org/wiki/Ecuaci%C3%B3n_de_Poisson' },
   ],
   hints: {
-    mask: 'La forma que se llena de metal; «Sin forma» cubre todo el lienzo.',
+    mask: 'La forma que se llena de metal; «Sin forma» cubre todo el lienzo; «Tu foto o tu texto» usa tus letras o los tonos de tu foto (sin ellas, la gota).',
     rep: 'Cuántas bandas cruzan la forma.',
     distortion: 'Ondulación de las bandas, como metal líquido que se mueve.',
     contour: 'Cuánto se doblan y se aprietan las bandas siguiendo el borde.',
@@ -26,5 +26,7 @@ export const DOC: FamilyDoc = {
     mercurio: 'Cuatro gotas que se funden y se separan, con bandas apretadas en cada cuello.',
     anillo: 'Un anillo de oro con muchas bandas finas que siguen su curva.',
     prisma: 'Un rombo con la dispersión al máximo: cada reflejo se abre en rojo y azul.',
+    letras: 'Tus letras convertidas en cromo: las bandas se curvan siguiendo cada trazo y un filo de luz recorre su borde.',
+    foto: 'Tu foto como relieve de oro: las bandas siguen sus tonos, así que se reconocen sus formas en el metal.',
   },
 };

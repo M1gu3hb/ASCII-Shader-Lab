@@ -5,8 +5,11 @@ export const META: FamilyMeta = {
   name: 'Superficie que se abre',
   group: 'materia',
   kind: 'analytic',
-  version: 1,
+  // 2: behind can be the piece's picture or letters, or the layers under it
+  version: 2,
   color: true,
+  reads: ['source', 'below'],
+  readsSince: 2,
   aka: ['papel rasgado', 'desgarro', 'quemado', 'máscara de desgarro', 'fBm anisótropo'],
   params: [
     { key: 'kind', label: 'Cómo se abre', type: 'choice', def: 'desgarro', options: [
@@ -14,6 +17,7 @@ export const META: FamilyMeta = {
     ] },
     { key: 'behind', label: 'Detrás', type: 'choice', def: 'luz', options: [
       { id: 'luz', label: 'Su propia luz' }, { id: 'trama', label: 'Una trama' }, { id: 'corrientes', label: 'Corrientes de color' },
+      { id: 'fuente', label: 'Tu foto o tu texto' }, { id: 'abajo', label: 'Las capas de abajo' },
     ] },
     { key: 'tears', label: 'Aberturas', type: 'int', min: 1, max: 3, def: 2 },
     { key: 'cycle', label: 'Ciclo', type: 'number', min: 4, max: 20, def: 9, step: 0.5, unit: 's' },
@@ -38,6 +42,17 @@ export const META: FamilyMeta = {
     { id: 'velo', name: 'Velo de color', aka: ['corrientes detrás'], uses: ['fondos/color', 'fondos/materia'],
       params: { kind: 'quemado', behind: 'corrientes', tears: 3, cycle: 14, calm: 0, width: 0.5, glow: 0.5, fibres: 0.35 },
       look: { stops: ['#07060b', '#1b1626', '#6d2e8f', '#e0457b', '#38bdf8', '#fde68a'], bg: '#050409', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
+    // the piece behind the surface (version 2)
+    { id: 'foto', name: 'Tu foto tras el papel', aka: ['revelado de imagen', 'papel rasgado sobre la foto'], uses: ['media/efectos'],
+      params: { kind: 'desgarro', behind: 'fuente', tears: 3, cycle: 9, calm: 0.05, width: 1, glow: 0.6, fibres: 0.7 },
+      look: { stops: ['#0a0908', '#2a2622', '#5a4a3a', '#d0663a', '#ffc46b', '#fffaf0'], bg: '#070605', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.6 } },
+    { id: 'palabras', name: 'Tus palabras bajo la ceniza', aka: ['texto que se revela al quemarse'], uses: ['tipo/texturas'],
+      params: { kind: 'quemado', behind: 'fuente', tears: 3, cycle: 10, calm: 0.05, width: 0.9, glow: 0.85, fibres: 0.7 },
+      look: { stops: ['#040302', '#24180f', '#4a2a12', '#c2410c', '#fb923c', '#fff3c4'], bg: '#030201', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.3 } },
+    { id: 'capas', name: 'Se abre y deja ver otra capa', aka: ['desgarro sobre una capa'], uses: ['arte/optica', 'fondos/materia'],
+      params: { kind: 'desgarro', behind: 'abajo', tears: 3, cycle: 10, calm: 0, width: 0.9, glow: 0.6, fibres: 0.6 },
+      below: { pattern: 'corrientes', preset: 'neon' },
+      look: { stops: ['#050407', '#1c1720', '#3d2a5c', '#9b3d78', '#f08a5d', '#fff1d6'], bg: '#040306', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.2 } },
   ],
   caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
   budget: {},

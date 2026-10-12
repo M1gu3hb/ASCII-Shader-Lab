@@ -5,13 +5,17 @@ export const META: FamilyMeta = {
   name: 'Cromado en tramas',
   group: 'materia',
   kind: 'analytic',
-  version: 1,
+  // 2: the mask can be the piece's picture or letters
+  version: 2,
   color: true,
+  reads: ['source'],
+  readsSince: 2,
   aka: ['bandas cromadas', 'reflejo metálico', 'campo de borde', 'dispersión cromática'],
   params: [
     { key: 'mask', label: 'Forma', type: 'choice', def: 'gota', options: [
       { id: 'campo', label: 'Sin forma (todo el lienzo)' }, { id: 'circulo', label: 'Círculo' }, { id: 'anillo', label: 'Anillo' },
       { id: 'gota', label: 'Gota' }, { id: 'rombo', label: 'Rombo' }, { id: 'metabolas', label: 'Metabolas' },
+      { id: 'fuente', label: 'Tu foto o tu texto' },
     ] },
     { key: 'rep', label: 'Bandas', type: 'number', min: 1, max: 10, def: 4, step: 0.1 },
     { key: 'distortion', label: 'Deformación', type: 'number', min: 0, max: 1, def: 0.35, step: 0.01 },
@@ -37,9 +41,16 @@ export const META: FamilyMeta = {
     { id: 'prisma', name: 'Rombo prismático', aka: ['aberración cromática'], uses: ['arte/geometricas', 'arte/optica'],
       params: { mask: 'rombo', rep: 3, distortion: 0.4, contour: 0.55, angle: 90, dispersion: 1, speed: 0.28, size: 0.42 },
       look: { stops: ['#050507', '#2b2b33', '#8a8a99', '#ededf5', '#ffffff'], bg: '#040405', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.35 } },
+    // the piece itself as the shape (version 2)
+    { id: 'letras', name: 'Tus letras de cromo', aka: ['texto cromado', 'letras metálicas'], uses: ['tipo/texturas'],
+      params: { mask: 'fuente', rep: 9, distortion: 0.2, contour: 1, angle: 70, dispersion: 0.45, speed: 0.3, size: 0.15 },
+      look: { stops: ['#04050a', '#1d2433', '#6c7a93', '#cfd8e6', '#ffffff'], bg: '#030407', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+    { id: 'foto', name: 'Tu foto en cromo', aka: ['foto cromada', 'relieve metálico de la imagen'], uses: ['media/efectos'],
+      params: { mask: 'fuente', rep: 4, distortion: 0.15, contour: 1, angle: 40, dispersion: 0.06, speed: 0.25, size: 0.2 },
+      look: { stops: ['#090502', '#3d2207', '#a8701c', '#f0cd72', '#fff7dc'], bg: '#060301', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
   ],
   caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
   budget: {},
-  // a drop, a ring or a rhombus is a figure; «Sin forma» covers the whole canvas
-  figure: p => p.mask !== 'campo',
+  // a drop, a ring or a rhombus is a figure; «Sin forma» covers the whole canvas, and so does the piece itself
+  figure: p => p.mask !== 'campo' && p.mask !== 'fuente',
 };

@@ -42,6 +42,6 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"ecos","name":"Ecos y realimentación","group":"materia","kind":"simulation","v":2,"loop":false,"color":true,"colorSince":2},
   {"id":"membrana","name":"Membrana iridiscente","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"paneles","name":"Paneles prismáticos","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
-  {"id":"cromado","name":"Cromado en tramas","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
-  {"id":"desgarro","name":"Superficie que se abre","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
+  {"id":"cromado","name":"Cromado en tramas","group":"materia","kind":"analytic","v":2,"loop":true,"color":true},
+  {"id":"desgarro","name":"Superficie que se abre","group":"materia","kind":"analytic","v":2,"loop":true,"color":true},
 ];

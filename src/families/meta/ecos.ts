@@ -78,7 +78,7 @@ export const META: FamilyMeta = {
       look: { stops: ['#000000', '#3a3a3a', '#c4c4c4', '#ffffff'], bg: '#030304', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.75 } },
     { id: 'tus_palabras', name: 'Ecos de tus palabras', uses: ['tipo/texturas'], aka: ['túnel de letras', 'texto en realimentación'],
       params: { seed: 'fuente', amount: 1, sides: 4, strobe: 0.55, zoom: 0.5, curve: 0.35, rot: 0.03, swirl: 0, wander: 0.1, drift: 0, warp: 0, mirror: 'no', memory: 0.86, ink: 0, pulse: 0.4, tempo: 2.2, echo: 'no', contrast: 0.7, color: 'arcoiris', hue: 0.5 },
-      layer: { scale: 1 }, look: { stops: ['#000000', '#3a3a3a', '#c4c4c4', '#ffffff'], bg: '#020204', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.85 } },
+      layer: { scale: 1 }, text: { size: 0.7 }, look: { stops: ['#000000', '#3a3a3a', '#c4c4c4', '#ffffff'], bg: '#020204', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.85 } },
   ],
   caps: {
     loop: false, time: 'continuo', basic: 'full', checkpoint: true,

@@ -38,8 +38,8 @@ async function drop(page: Page, file: Buffer, name: string) {
   await expect(page.locator('.toast').filter({ hasText: /cargad/ }).first()).toBeAttached();
 }
 
-/** The stage's inked pixels: how many, and their mean colour (screenshot of its canvas). */
-async function ink(page: Page): Promise<{ share: number; r: number; g: number; b: number }> {
+/** The stage's inked pixels: how many, their mean colour, and how much of the width has any (screenshot of its canvas). */
+async function ink(page: Page): Promise<{ share: number; r: number; g: number; b: number; span: number }> {
   const shot = await page.locator('.stage canvas').first().screenshot();
   return page.evaluate(async src => {
     const img = new Image();
@@ -51,11 +51,14 @@ async function ink(page: Page): Promise<{ share: number; r: number; g: number; b
     x.drawImage(img, 0, 0, 320, 200);
     const d = x.getImageData(0, 0, 320, 200).data;
     let n = 0, r = 0, g = 0, b = 0;
+    const cols = new Uint8Array(320);
     for (let i = 0; i < d.length; i += 4) {
       if (d[i] + d[i + 1] + d[i + 2] < 90) continue;
       n++; r += d[i]; g += d[i + 1]; b += d[i + 2];
+      cols[(i / 4) % 320] = 1;
     }
-    return { share: n / (d.length / 4), r: n ? r / n : 0, g: n ? g / n : 0, b: n ? b / n : 0 };
+    const span = cols.reduce((a, v) => a + v, 0) / 320;
+    return { share: n / (d.length / 4), r: n ? r / n : 0, g: n ? g / n : 0, b: n ? b / n : 0, span };
   }, 'data:image/png;base64,' + shot.toString('base64'));
 }
 
@@ -93,6 +96,38 @@ for (const engine of ['webgl', 'basico'] as const) {
       await field.fill('MMMMM\nWWWWW');
       // wide, heavy letters feed far more ink into the loop than a single thin one
       await expect.poll(async () => (await ink(page)).share, { timeout: 60_000 }).toBeGreaterThan(thin * 1.6 + 0.02);
+      expect(errors).toEqual([]);
+    });
+
+    test('«Tus letras de cromo»: el cromo tiene la forma de tus letras', async ({ page }) => {
+      test.setTimeout(240_000);
+      const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=tipo`);
+      await hideStageOverlays(page);
+      await chooseRecipe(page, 'Tus letras de cromo');
+      await page.getByRole('tab', { name: 'Tu texto', exact: true }).click();
+      const field = page.getByRole('textbox', { name: /^Texto \(Enter para otra línea\)/ });
+      await field.fill('I');
+      await page.waitForTimeout(2500);
+      // one letter: the metal is a narrow column (its rim and halo included, under a third of the width); four
+      // wide ones, set at the same size, span about half of it
+      const one = await ink(page);
+      expect(one.span, JSON.stringify(one)).toBeLessThan(0.33);
+      await field.fill('MMMM');
+      await expect.poll(async () => (await ink(page)).span, { timeout: 60_000 }).toBeGreaterThan(one.span + 0.15);
+      expect(errors).toEqual([]);
+    });
+
+    test('«Tu foto tras el papel»: por las aberturas se ve tu foto, con sus colores', async ({ page }) => {
+      test.setTimeout(240_000);
+      const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=media`);
+      await hideStageOverlays(page);
+      await drop(page, COOL, 'fria.png');
+      await chooseRecipe(page, 'Tu foto tras el papel');
+      // the paper is warm (its palette); the openings show the cool photo: blue shows up within a cycle
+      await expect.poll(async () => { const c = await ink(page); return c.b - c.r; }, { timeout: 60_000 }).toBeGreaterThan(-5);
+      const cool = await ink(page);
+      await drop(page, WARM, 'calida.png');
+      await expect.poll(async () => { const c = await ink(page); return c.r - c.b; }, { timeout: 60_000 }).toBeGreaterThan(cool.r - cool.b + 25);
       expect(errors).toEqual([]);
     });
   });

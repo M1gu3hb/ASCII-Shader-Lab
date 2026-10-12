@@ -39,7 +39,11 @@ export function familyRecipe(id: string, presetId?: string, base: Recipe = defau
   const r = cloneRecipe(base);
   const pr = presetId ? meta.presets.find(p => p.id === presetId) : meta.presets[0];
   r.source = 'pattern';
-  r.layers = [familyLayer(meta, seed, pr?.id)];
+  // a preset that shows what is under it brings that layer (FamilyPreset.below): a pattern or another family
+  const b = pr?.below, bm = b ? familyById(b.pattern) : undefined;
+  const under: Layer[] = !b ? [] : bm ? [familyLayer(bm, `${seed}-abajo`, b.preset, { ...(b.mix !== undefined ? { mix: b.mix } : {}) })]
+    : [{ ...DEFAULT_LAYER, pattern: b.pattern, scale: b.scale ?? 1, speed: b.speed ?? 1, a: b.a ?? DEFAULT_LAYER.a, b: b.b ?? DEFAULT_LAYER.b, mix: b.mix ?? 1 }];
+  r.layers = [...under, familyLayer(meta, seed, pr?.id)];
   applyLook(r, pr);
   if (!meta.caps.loop) r.motion.loop = 0;
   r.motion.warp = 0;
