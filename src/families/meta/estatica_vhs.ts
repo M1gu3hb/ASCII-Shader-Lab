@@ -1,0 +1,41 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'estatica_vhs',
+  name: 'Estática de barras',
+  group: 'materia',
+  kind: 'analytic',
+  version: 1,
+  color: true,
+  extends: 'glitch',
+  aka: ['barras de color', 'carta de ajuste', 'VHS', 'error de seguimiento', 'tracking', 'líneas de barrido', 'estática'],
+  params: [
+    { key: 'cycle', label: 'Ciclo', type: 'number', min: 6, max: 30, def: 12, step: 1, unit: 's' },
+    { key: 'melt', label: 'Derretido', type: 'number', min: 0, max: 1, def: 0.65, step: 0.01 },
+    { key: 'drip', label: 'Ancho de gota', type: 'number', min: 0.01, max: 0.08, def: 0.03, step: 0.001, digits: 3 },
+    { key: 'cuts', label: 'Cortes', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'scan', label: 'Líneas de barrido', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'snow', label: 'Estática', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
+    { key: 'bleed', label: 'Corrimiento de color', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'roll', label: 'Salto de imagen', type: 'number', min: 0, max: 1, def: 0.6, step: 0.01 },
+    { key: 'bars', label: 'Barras', type: 'choice', def: 'clasicas', options: [
+      { id: 'clasicas', label: 'Las de siempre (siete colores)' }, { id: 'paleta', label: 'Los colores de la paleta' },
+    ] },
+  ],
+  presets: [
+    { id: 'carta', name: 'Carta de ajuste que se derrite', aka: ['barras de color', 'carta de ajuste'], uses: ['terminal/consola', 'arte/geometricas', 'fondos/color'], period: 12,
+      params: { cycle: 12, melt: 0.65, drip: 0.03, cuts: 0.45, scan: 0.5, snow: 0.3, bleed: 0.4, roll: 0.6, bars: 'clasicas' },
+      look: { stops: ['#000000', '#3a3a3a', '#9a9a9a', '#ffffff'], bg: '#020202', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.35 } },
+    { id: 'cinta', name: 'Cinta gastada', aka: ['VHS gastado', 'error de seguimiento'], uses: ['terminal/consola', 'fondos/color'], period: 8,
+      params: { cycle: 8, melt: 0.3, drip: 0.05, cuts: 0.95, scan: 0.75, snow: 0.6, bleed: 0.85, roll: 1, bars: 'clasicas' },
+      look: { stops: ['#000000', '#303030', '#909090', '#ffffff'], bg: '#020203', charset: ' .,:;=+*#%', colorMode: 'source', vivid: 0.3 } },
+    { id: 'deshielo', name: 'Deshielo de color', aka: ['barras que gotean'], uses: ['arte/geometricas', 'fondos/color'], period: 20,
+      params: { cycle: 20, melt: 1, drip: 0.016, cuts: 0.12, scan: 0.3, snow: 0.1, bleed: 0.2, roll: 0.3, bars: 'clasicas' },
+      look: { stops: ['#000000', '#404040', '#a0a0a0', '#ffffff'], bg: '#030303', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.45 } },
+    { id: 'paleta', name: 'Barras de neón', aka: ['barras de tu paleta'], uses: ['fondos/color', 'arte/geometricas'], period: 16,
+      params: { cycle: 16, melt: 0.55, drip: 0.04, cuts: 0.35, scan: 0.6, snow: 0.2, bleed: 0.6, roll: 0.5, bars: 'paleta' },
+      look: { stops: ['#ff2fb3', '#ffe14a', '#2ff3ff', '#7cff6b', '#9b5cff', '#ff5a3c'], bg: '#05030a', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.2 } },
+  ],
+  caps: { loop: true, time: 'bucle', basic: 'full', checkpoint: false },
+  budget: {},
+};

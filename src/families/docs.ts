@@ -50,6 +50,16 @@ const DOCS: Record<string, () => Promise<{ DOC: FamilyDoc }>> = {
   jade_ruido: () => import('./meta/jade_ruido.doc.ts'),
   cuerdas: () => import('./meta/cuerdas.doc.ts'),
   flujo_ruido: () => import('./meta/flujo_ruido.doc.ts'),
+  lluvia_agua: () => import('./meta/lluvia_agua.doc.ts'),
+  tejido_bandas: () => import('./meta/tejido_bandas.doc.ts'),
+  estatica_vhs: () => import('./meta/estatica_vhs.doc.ts'),
+  estratos: () => import('./meta/estratos.doc.ts'),
+  puntos_orbita: () => import('./meta/puntos_orbita.doc.ts'),
+  anillo_humo: () => import('./meta/anillo_humo.doc.ts'),
+  rejilla_puntos: () => import('./meta/rejilla_puntos.doc.ts'),
+  globo_puntos: () => import('./meta/globo_puntos.doc.ts'),
+  arcos_parciales: () => import('./meta/arcos_parciales.doc.ts'),
+  anillos_tronco: () => import('./meta/anillos_tronco.doc.ts'),
 };
 
 const known = new Map<string, FamilyDoc>();
