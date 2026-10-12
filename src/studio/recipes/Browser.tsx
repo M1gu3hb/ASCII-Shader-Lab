@@ -157,7 +157,8 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
       <p className="sr-only" id={uid + 'n'} aria-live="polite">
         {query.trim() ? (view.count ? `${view.count} ${view.count === 1 ? 'resultado' : 'resultados'}` : 'Ningún resultado') : ''}
       </p>
-      <div className="rx-scroll" ref={scroller}>
+      {/* (out of the Tab order: Firefox stops on a scrolling box; the pictures have their own stop) */}
+      <div className="rx-scroll" ref={scroller} tabIndex={-1}>
         {view.kind === 'saved' ? (
           <SavedGrid list={saved} activeKey={activeKey} root={scroller} onFocusKey={setActive} entryFav={entry?.edited ? undefined : entry?.favId} />
         ) : view.groups.length ? view.groups.map(g => (

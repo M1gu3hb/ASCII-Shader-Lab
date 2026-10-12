@@ -42,7 +42,7 @@ for (const f of FAMILIES) {
   }
 }
 
-const head = `# Matriz de familias y presets (revisión del PR #10)
+const head = `# Matriz de familias y presets (revisión del PR #10 y su cierre)
 
 Generada por \`scripts/families-matrix.ts\` desde las fichas de las familias (\`src/families/meta/*.ts\`), la referencia de los 86 presets publicados antes de esta revisión (\`tests/unit/fixtures/families-v1.json\`) y una ejecución de la sonda temporal (\`scripts/families-time.ts --seeds=1 --res=def --times=0,30,60,120 --long=600\`, Node, sin navegador). No se edita a mano.
 
@@ -50,7 +50,7 @@ Generada por \`scripts/families-matrix.ts\` desde las fichas de las familias (\`
 - Contrato temporal: ${contracts.continuo} continuos (∞), ${contracts.bucle} en bucle exacto (↻) y ${contracts.construccion} construcciones (▣).
 - **Actividad**: por cada momento, el % medio de cambio del campo en el medio segundo siguiente (para las simulaciones, con la cámara quieta: el estado) y el % del campo con tinta. Una construcción termina quieta por definición (cambio 0 al final); un fondo lento está bien si sigue cambiando. Mide cambio y ocupación del campo que los motores convierten en glifos: no mide belleza ni fotogramas por segundo en un dispositivo real. Las analíticas se muestrean en 96 × 48 con la escala de su capa.
 - **Usos**: dónde lo ofrece la biblioteca (\`espacio/sección\`); el mismo preset puede estar en varios espacios con el mismo id. **Figura**: se dibuja en el centro (en lienzos verticales se ajusta al ancho); Fondos sólo ofrece lo que no lo es.
-- Las decisiones, el antes y el después y lo que quedó sin resolver de cada grupo están en \`docs/cambios/revision-familias/\`.
+- Las decisiones, el antes y el después y lo que quedó sin resolver de cada grupo están en \`docs/cambios/revision-familias/\` (revisión) y \`docs/cambios/cierre-pr10/\` (cierre).
 `;
 writeFileSync('docs/cambios/revision-pr10/MATRIZ-PRESETS.md', head + lines.join('\n') + '\n');
 console.log(`${FAMILIES.length} familias, ${n} presets (${fresh} nuevos)`, contracts);

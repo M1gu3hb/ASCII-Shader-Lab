@@ -152,6 +152,9 @@ export function ScrollRow({ children, role = 'group', roving, activate = 'auto',
   return (
     <div className={'srow' + (edge.prev ? ' at-prev' : '') + (edge.next ? ' at-next' : '') + (boxClassName ? ' ' + boxClassName : '')} data-scrollrow="">
       <div
+        // out of the Tab order (Firefox stops on a scrolling box even when its items take the focus): the items are
+        // reached on their own, and the arrows move between them
+        tabIndex={-1}
         {...rest}
         ref={ref}
         role={role}
