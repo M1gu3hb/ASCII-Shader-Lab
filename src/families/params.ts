@@ -51,11 +51,14 @@ export function normParam(s: ParamSpec, v: unknown): ParamValue {
   }
 }
 
-/** Every parameter of a family, in its declared order (unknown keys are dropped). */
-export function normParams(meta: FamilyMeta, v: unknown): Params {
+/** The controls a layer made with algorithm version `v` has (ParamSpec.since). */
+export const paramsAt = (meta: FamilyMeta, v = meta.version) => meta.params.filter(s => (s.since ?? 1) <= v);
+
+/** Every parameter of a family (in version `v`), in its declared order (unknown keys are dropped). */
+export function normParams(meta: FamilyMeta, v: unknown, ver = meta.version): Params {
   const o = v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
   const out: Params = {};
-  for (const s of meta.params) out[s.key] = normParam(s, o[s.key]);
+  for (const s of paramsAt(meta, ver)) out[s.key] = normParam(s, o[s.key]);
   return out;
 }
 
@@ -88,11 +91,12 @@ export function normFam(meta: FamilyMeta, v: unknown): LayerFam {
   const res = normRes(meta, o.res);
   const brush = typeof o.brush === 'string' && meta.caps.brushes?.some(b => b.id === o.brush) ? o.brush : undefined;
   const ck = meta.caps.checkpoint && typeof o.ck === 'string' && CK.test(o.ck) ? o.ck : undefined;
+  const made = Number.isFinite(ver) && ver >= 1 ? Math.floor(ver) : meta.version;
   return {
-    v: Number.isFinite(ver) && ver >= 1 ? Math.floor(ver) : meta.version,
+    v: made,
     seed: normSeed(o.seed),
     ...(res !== undefined ? { res } : {}),
-    p: normParams(meta, o.p),
+    p: normParams(meta, o.p, made),
     ...(brush ? { brush } : {}),
     ...(ck ? { ck } : {}),
   };

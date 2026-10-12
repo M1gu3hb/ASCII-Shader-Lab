@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { TIME_WORDS, checkedFam, defaultParams, formatParam, normParam, timeContract, type LayerFam } from '../../families/params';
+import { TIME_WORDS, checkedFam, defaultParams, formatParam, normParam, paramsAt, timeContract, type LayerFam } from '../../families/params';
 import type { FamilyMeta, ParamSpec, TextParam } from '../../families/types';
 import { F, Note, Select, Seg, Slider, Sub, Toggle, useField } from '../controls';
 import { edit, useRecipe, useStudio } from '../store';
@@ -110,7 +110,9 @@ export function FamilyControls({ i }: { i: number }) {
   // (settings read before the spec arrived are checked against it here, as the engines do)
   const f = checkedFam(meta, fam);
   const raster = meta.kind !== 'analytic';
-  const basic = meta.params.filter(s => !s.advanced), adv = meta.params.filter(s => s.advanced);
+  // (the controls of the layer's version: a piece made before a control existed does not show it)
+  const own = paramsAt(meta, fam.v);
+  const basic = own.filter(s => !s.advanced), adv = own.filter(s => s.advanced);
   const res = meta.budget.res;
   const resOpts: Array<[number, string]> = res ? [...new Set([res[0], Math.round((res[0] + res[2]) / 2), res[2], Math.round((res[2] + res[1]) / 2), res[1]])].map(v => [v, `${v} filas${v === res[2] ? ' (por defecto)' : ''}`]) : [];
   return (

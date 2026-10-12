@@ -40,11 +40,11 @@ export const META: FamilyMeta = {
       { id: 'no', label: 'Sin eco' }, { id: 'h', label: 'Volteado a los lados' }, { id: 'v', label: 'Volteado arriba y abajo' }, { id: 'hv', label: 'Volteado en los dos' },
     ] },
     { key: 'contrast', label: 'Contraste', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01, advanced: true },
-    { key: 'color', label: 'Color de los ecos', type: 'choice', def: 'arcoiris', options: [
+    { since: 2, key: 'color', label: 'Color de los ecos', type: 'choice', def: 'arcoiris', options: [
       { id: 'arcoiris', label: 'Arcoíris con el tiempo' }, { id: 'deriva', label: 'Cambia en cada eco' },
       { id: 'dos', label: 'Dos tonos al compás' }, { id: 'fuente', label: 'Los de tu foto' },
     ] },
-    { key: 'hue', label: 'Tono', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
+    { since: 2, key: 'hue', label: 'Tono', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
   ],
   presets: [
     { id: 'tinta', name: 'Tinta recursiva', uses: ['fondos/organicas', 'arte/optica'], aka: ['laberintos de Turing por realimentación'],

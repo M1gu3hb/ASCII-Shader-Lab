@@ -42,6 +42,11 @@ interface ParamBase {
   rebuild?: boolean;
   /** Shown only in the «Más» section of the panel. */
   advanced?: boolean;
+  /**
+   * The algorithm version that brought this control (absent: every version). A layer made with an earlier one
+   * neither shows it nor carries it in its recipe: its model would not read it.
+   */
+  since?: number;
 }
 
 export interface NumberParam extends ParamBase {

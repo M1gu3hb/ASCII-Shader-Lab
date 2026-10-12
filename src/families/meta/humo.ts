@@ -27,12 +27,12 @@ export const META: FamilyMeta = {
     { key: 'trail', label: 'Filamentos', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
     { key: 'shadow', label: 'Relieve', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
     { key: 'gain', label: 'Exposición', type: 'number', min: 0.3, max: 3, def: 1, step: 0.01, advanced: true },
-    { key: 'color', label: 'Color del humo', type: 'choice', def: 'edad', options: [
+    { since: 2, key: 'color', label: 'Color del humo', type: 'choice', def: 'edad', options: [
       { id: 'edad', label: 'Por edad: nace cálido y se enfría' }, { id: 'profundidad', label: 'Por profundidad: cerca cálido, lejos frío' },
       { id: 'emisores', label: 'Un tono por foco (sin objetivo)' },
     ] },
-    { key: 'hue', label: 'Tono', type: 'number', min: 0, max: 1, def: 0.06, step: 0.01 },
-    { key: 'spread', label: 'Hacia qué tono va', type: 'number', min: -0.5, max: 0.5, def: -0.25, step: 0.01 },
+    { since: 2, key: 'hue', label: 'Tono', type: 'number', min: 0, max: 1, def: 0.06, step: 0.01 },
+    { since: 2, key: 'spread', label: 'Hacia qué tono va', type: 'number', min: -0.5, max: 0.5, def: -0.25, step: 0.01 },
   ],
   presets: [
     { id: 'espiritu', name: 'Espíritu', uses: ['arte/figuras', 'arte/organicas'], aka: ['espíritu de partículas'],
