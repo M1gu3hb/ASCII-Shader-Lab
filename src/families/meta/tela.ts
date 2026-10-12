@@ -59,7 +59,7 @@ export const META: FamilyMeta = {
     {
       id: 'cojin', name: 'Cojín que respira', aka: ['Cuerpo blando por presión', 'Soft body', 'Restricción de volumen'], uses: ['arte/figuras'],
       params: { anchors: 'cojin', mesh: 'baja', stiff: 0.5, gravity: 0.7, wind: 0, substeps: 10, damping: 0.2, sphere: 'ninguna', turn: 0.15, angle: 0, view: 'sombreado', kick: 0.9, every: 2.6, inflate: 1.3, breath: 0.5 },
-      look: { stops: ['#0d0806', '#7a4a36', '#ffd9bd'], bg: '#070403', charset: ' .:-=+*#%@' },
+      look: { stops: ['#0d0806', '#b0704e', '#ffe8d2'], bg: '#070403', charset: ' .:-=+*#%@' },
     },
   ],
   caps: {

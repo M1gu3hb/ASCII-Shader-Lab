@@ -30,7 +30,7 @@ export const META: FamilyMeta = {
       params: { cover: 0.6, scale: 0.8, erosion: 0.8, wind: 0.6, sun: 0.4, absorb: 1.6, steps: 40, camera: 'nebulosa' },
       look: { stops: ['#05020a', '#a0489a', '#ffd8f2'], bg: '#030106', charset: ' .·:;+*#@' } },
     { id: 'haces', name: 'Haces de luz', aka: ['rayos crepusculares', 'dispersión de Mie'], uses: ['fondos/organicas'],
-      params: { cover: 0.84, scale: 1.6, erosion: 0.3, wind: 0.3, sun: 0.85, absorb: 2.6, steps: 40, camera: 'haces', contrast: 0.45 },
+      params: { cover: 0.84, scale: 1.6, erosion: 0.3, wind: 0.3, sun: 0.95, absorb: 2, steps: 40, camera: 'haces', contrast: 0.3 },
       look: { stops: ['#100c06', '#a08050', '#fff0cc'], bg: '#080603', charset: ' .:;|!#' } },
     { id: 'dentro', name: 'Vuelo entre nubes', aka: ['Nebulosa (dentro de la nube)'], uses: ['fondos/organicas', 'tipo/texturas'],
       params: { cover: 0.34, scale: 1.1, erosion: 1, wind: 0.6, sun: 0.6, absorb: 2.2, steps: 36, camera: 'dentro', contrast: 0.3 },

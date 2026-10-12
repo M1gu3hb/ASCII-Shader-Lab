@@ -637,7 +637,9 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = { phase };
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { u: u.slice(), v: v.slice(), p: pr.slice(), dye: dye.slice(), dyeB: trB.slice() } };
+      // (the second tracer only when a jet has used it: a run without one keeps the state it had)
+      const usedB = jet || trB.some(x => x !== 0);
+      return { id: ID, v: V, steps, res: h, scalars, arrays: { u: u.slice(), v: v.slice(), p: pr.slice(), dye: dye.slice(), ...(usedB ? { dyeB: trB.slice() } : {}) } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a este fluido.');
