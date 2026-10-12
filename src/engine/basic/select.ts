@@ -40,6 +40,8 @@ export interface SelectFrame {
   touch?: { data: Uint8Array; mark: number; ink: number } | null;
   /** Cell height / width. */
   aspect: number;
+  /** A glass solid in front (../opticsU.ts glassColourMode 2): the palette's colour times the field's rgb (128 = 1). */
+  glassCol?: boolean;
 }
 
 export class SelectBuffers {
@@ -100,7 +102,7 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
   const ditherK = gl.dither / Math.max(N - 1, 1), bayer = gl.ditherKind === 'bayer';
   const edge = gl.edge, jitter = gl.jitter;
   const cmap = ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(co.map);
-  const shade = co.shade, useSource = co.mode === 'source' && s.isMedia;
+  const shade = co.shade, useSource = co.mode === 'source' && s.isMedia, glassCol = !useSource && !!s.glassCol;
   const shift = co.shift + co.cycle * T;
   const hue = co.hue * TAU, ch = Math.cos(hue), sh = Math.sin(hue), sat = co.sat, vivid = co.vivid;
   const ax = cols / (rows * s.aspect);
@@ -194,6 +196,10 @@ export function runSelect(s: SelectFrame, out: SelectBuffers) {
           const g1 = cmap === 5 ? smooth(0.25, 0.75, fbm(ux * ax * 2.2 + (T - loop) * 0.03, uy * 2.2 + (T - loop) * 0.03)) : g0;
           const c1 = gradAt(s.grad, tri(g1 + shift0));
           br += (c1[0] - br) * fadeW; bg += (c1[1] - bg) * fadeW; bb += (c1[2] - bb) * fadeW;
+        }
+        if (glassCol) {
+          // a glass solid in front: the cell carries what it does to the palette's colour (128 = ×1)
+          br = Math.min(1, br * s.fr[i] / 128); bg = Math.min(1, bg * s.fg[i] / 128); bb = Math.min(1, bb * s.fb[i] / 128);
         }
       }
       if (hue > 0) {

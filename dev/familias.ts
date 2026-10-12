@@ -3,7 +3,8 @@
  * same size and moment. Not part of the production build.
  *   ?motor=basico | ?motor=webgl   one engine only;  ?ids=a,b   only these families;  ?t=6   the moment
  *   ?presets=a,b   only these presets;  ?big=1   a 1280 × 720 canvas per tile (cell ?cell=10) to judge the look
- *   ?vidrio=lluvia|acanalado   glass in front of each preset (recipe.optics), to check it in both engines
+ *   ?vidrio=lluvia|acanalado|esfera|poliedro   glass in front of each preset (recipe.optics), to check it in both engines
+ *     (the solids with a dispersion and their shine: a rainbow at the edges of what each family draws)
  * window.__fam drives scripts that compare the engines and take screenshots (compare, snap).
  */
 import '@fontsource/jetbrains-mono/latin-400.css';
@@ -38,6 +39,7 @@ for (const f of FAMILIES) {
     items.push({ family: f.id, preset: p.id, title: `${f.name} · ${p.name}`, recipe: () => {
       const r = familyRecipe(f.id, p.id, defaultRecipe(), 'qa'); r.glyph.cell = CELL; r.interact.mode = 'none';
       if (glass === 'lluvia' || glass === 'acanalado') { r.optics = normOptics({ kind: glass, amount: 0.8, profile: glass === 'lluvia' ? 0.6 : 1, shine: 0.8 })!; r.v = 3; }
+      else if (glass === 'esfera' || glass === 'poliedro') { r.optics = normOptics({ kind: glass, scale: 1.2, speed: 0.6, shine: 0.85, disp: 0.6 })!; r.v = 3; }
       return r;
     } });
   }

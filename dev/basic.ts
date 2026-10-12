@@ -629,6 +629,18 @@ window.__basic = {
     IMAGE = img;
     for (const p of pairs.values()) for (const e of [p.gl, p.basic] as Renderer[]) e.setMedia('image', img);
   },
+  /**
+   * Both engines' canvases after `frames` frames 1/30 s apart ending at t (the ghost pointer plays when frames
+   * follow each other), as PNG data URLs, with the cells' comparison of the last frame.
+   */
+  playSnap: async (r: Recipe, o: { w?: number; h?: number; t?: number; frames?: number } = {}) => {
+    const p = pairFor(o.w ?? 640, o.h ?? 360);
+    p.gl.set(r); p.basic.set(r);
+    await Promise.all([p.gl.ready(), p.basic.ready()]);
+    const t = o.t ?? T, n = o.frames ?? 60;
+    for (let k = n; k >= 0; k--) { const tk = t - k / 30; p.gl.renderAt(tk); p.basic.renderAt(tk); }
+    return [p.gl.canvas.toDataURL('image/png'), p.basic.canvas.toDataURL('image/png')];
+  },
   /** Both engines' canvases for a recipe, as PNG data URLs (to look at them). */
   snap: async (r: Recipe, o: { w?: number; h?: number; t?: number } = {}) => {
     const p = pairFor(o.w ?? 640, o.h ?? 360);

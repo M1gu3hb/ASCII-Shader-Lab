@@ -1,6 +1,6 @@
 import { buildAtlas, uniqueChars, type Atlas } from './atlas';
 import { getGlyphSet, watchGlyphSets, whenGlyphSet } from '../glyphset/registry';
-import { BLENDS, INTERACT, cloneRecipe, type Recipe } from './recipe';
+import { BLENDS, INTERACT, cloneRecipe, foldIndex, type Recipe } from './recipe';
 import { figureFit, fontById } from './catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from './color';
 import { createFontLoader, type FontLoader } from './fonts';
@@ -8,7 +8,7 @@ import {
   compileProgram, createTex, dropProgram, fboFor, finishProgram, halfFloatRenderable, loc, programDone, resizeTex, startProgram,
   type PendingProgram, type Program, type Tex,
 } from './gl';
-import { BLUR_FS, COMPOSE_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
+import { ANAMORPHIC_FS, BLUR_FS, COMPOSE_FS, PAPER_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
 import type { PatternLibrary } from './glsl/patterns';
 import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from './text';
 import { XFORM_FS } from './glsl/xform';
@@ -18,12 +18,12 @@ import { fold, morphPeriod, loopTime, ondularTimes, pieceTime, wordsRate } from 
 import type { PreviewQuality, Renderer } from './renderer';
 import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
 import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
-import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
+import { PointerHub, SIM_MODES, brushDry, brushGhost, brushWidth, isCalligraphy, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
 import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../families/host';
 import { mediaSource, redOf, smallCopy, textSource } from '../families/source';
 import { retryFamily } from '../families/models';
 import { hasColourFamily, paletteOf } from '../families/palette';
-import { opticsUniforms } from './opticsU';
+import { fieldOptics, glassColourMode, opticsUniforms } from './opticsU';
 import { familyById, isColorFamily } from '../families/registry';
 import { PARAM_SLOTS, checkedFam, famReads, packParams } from '../families/params';
 
@@ -149,6 +149,11 @@ export class AsciiEngine implements Renderer {
    * two grids they write in turn, the pattern's values (Desplazar) and Estela's trail and last input.
    */
   private pXf: Program | null = null;
+  /** «Destello anamórfico» (recipe.fxKind.bloom): its program, compiled the first time a piece asks for it. */
+  private pAna: Program | null = null;
+  /** «Papel» (recipe.fxKind.grain): its program and the still sheet it drew, for this size, cell and fold. */
+  private pPaper: Program | null = null;
+  private paper: { key: string; t: Tex; fb: WebGLFramebuffer } | null = null;
   private xf: { size: string; grid: Tex[]; fbGrid: WebGLFramebuffer[]; pat: Tex; fbPat: WebGLFramebuffer; trail: Tex[]; fbTrail: WebGLFramebuffer[]; prev: Tex[]; fbPrev: WebGLFramebuffer[] } | null = null;
   /** Estela's state: which trail and input buffers are current, whether they hold a frame yet, and when. */
   private trail = { i: 0, have: false, t: 0, key: '' };
@@ -211,7 +216,9 @@ export class AsciiEngine implements Renderer {
   private frames = 0; private fps = 0; private fpsT = 0; private ema = 16; private slow = 0; private fast = 0;
   private fontGen = 0;
 
-  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1 };
+  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1,
+    // «Pincel caligráfico» (pointer.ts): the ghost lifts its brush between strokes; the brush's width now and a frame ago
+    lift: false, wf: 1, wf0: 1 };
   /** The gesture modes' field (engine/touch.ts), shared code with the basic engine. */
   private touch = new TouchField();
   private tTouch!: Tex;
@@ -598,7 +605,7 @@ export class AsciiEngine implements Renderer {
     if (!(dt > 0 && dt <= 0.5)) {
       if (it.auto) {
         this.touch.reset(); this.resetSim();
-        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false });
+        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false, lift: false, wf: 1, wf0: 1 });
         this.stepPointer(0, true);
         this.ptr.on = 1;
       }
@@ -744,6 +751,7 @@ export class AsciiEngine implements Renderer {
     this.trans = -1;
     // (a restored context lost them all: made again when a piece needs them)
     this.pXf = null; this.xf = null; this.xfBroken = false; this.trail.have = false;
+    this.pAna = null; this.pPaper = null; this.paper = null;
   }
 
   private invalidate() {
@@ -859,10 +867,13 @@ export class AsciiEngine implements Renderer {
     const P = this.ptr, it = this.r.interact;
     if (it.mode === 'none' || isTouchMode(it.mode)) return false;
     if (it.auto && (demo || this.realT - P.lastReal > 2.5)) {
-      const [gx, gy] = legacyGhost(this.realT);
+      // the calligraphic brush's ghost writes strokes and lifts the brush between them
+      const g = isCalligraphy(it) ? brushGhost(this.realT) : null;
+      const [gx, gy] = g ? [g.x, g.y] : legacyGhost(this.realT);
       P.tx = this.W * gx; P.ty = this.H * gy;
       P.targetOn = 1;
-    }
+      P.lift = !!g && !g.down;
+    } else P.lift = false;
     const sim = SIM_MODES.includes(it.mode);
     P.px = P.x; P.py = P.y;
     if (sim || P.on < 0.01) { P.x = P.tx; P.y = P.ty; }
@@ -1061,12 +1072,12 @@ export class AsciiEngine implements Renderer {
    */
   private fieldKeyOf(r: Recipe, src?: FieldSource): string {
     const s = src ?? SRC_OF(r, r.source === this.r.source && this.mediaOK ? true : !!this.currentMediaOf(r));
-    return fieldKey(AsciiEngine.patternsOf(r), s, fieldLoops(r), !!r.optics);
+    return fieldKey(AsciiEngine.patternsOf(r), s, fieldLoops(r), fieldOptics(r.optics));
   }
 
   private fieldSource(r: Recipe, key: string): string {
     const src = key.split('|')[0] as FieldSource;
-    return buildFieldShader(AsciiEngine.patternsOf(r), src, fieldLoops(r), this.lib, !!r.optics);
+    return buildFieldShader(AsciiEngine.patternsOf(r), src, fieldLoops(r), this.lib, fieldOptics(r.optics));
   }
 
   private cacheProgram(key: string, p: Program) {
@@ -1179,6 +1190,7 @@ export class AsciiEngine implements Renderer {
     if (fp) this.runField(fp, src, grid);
     this.runSelect(src);
     if (this.r.fx.bloom > 0) this.runBloom();
+    if (this.r.fx.grain > 0 && this.r.fxKind?.grain === 'papel') this.ensurePaper();
     this.compose(null, this.trans);
     this.ptr.impulse = 0;
   }
@@ -1197,8 +1209,18 @@ export class AsciiEngine implements Renderer {
     const P = this.ptr, it = this.r.interact, p = this.pSim;
     const auto = it.auto && this.realT - P.lastReal > 2.5;
     // a pen presses harder or softer (engine/pointer.ts); mouse and fingers as always
-    const active = P.on > 0.2 ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0;
+    const cal = isCalligraphy(it);
+    // (the calligraphic ghost's brush is lifted between strokes: it does not ink as it moves to the next)
+    const active = P.on > 0.2 && !(cal && auto && P.lift) ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0;
     const impulse = P.impulse * (P.on > 0.2 ? 1 : 0);
+    // the calligraphic brush: its width (now and a frame ago) and how dry it runs follow the stroke's speed
+    let dry = 0;
+    if (cal) {
+      const v = dt > 0 ? P.moved / dt / this.H : 0;
+      P.wf0 = P.wf;
+      if (dt > 0) P.wf += (brushWidth(v) - P.wf) * Math.min(1, dt * 14);
+      dry = brushDry(v);
+    }
     if (active > 0 || impulse > 0) this.simLast = this.realT;
     // one step per 1/60 s, as the basic engine does (the same waves at 30 fps, in exports and on 120 Hz screens)
     const steps = dt > 0 ? Math.max(1, Math.min(4, Math.round(dt * 60))) : 1;
@@ -1209,7 +1231,12 @@ export class AsciiEngine implements Renderer {
     gl.uniform2f(loc(gl, p, 'uGrid'), this.cols, this.rows);
     gl.uniform2f(loc(gl, p, 'uCell'), this.cw, this.ch);
     gl.uniform4f(loc(gl, p, 'uSeg'), P.px, P.py, P.x, P.y);
-    gl.uniform1f(loc(gl, p, 'uBrushR'), Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure));
+    const brushR = Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure);
+    gl.uniform1f(loc(gl, p, 'uBrushR'), brushR * (cal ? P.wf : 1));
+    gl.uniform1f(loc(gl, p, 'uBrushR0'), brushR * (cal ? P.wf0 : 1));
+    gl.uniform1i(loc(gl, p, 'uStroke'), cal ? 1 : 0);
+    gl.uniform1f(loc(gl, p, 'uDry'), dry);
+    gl.uniform1f(loc(gl, p, 'uBleed'), it.bleed ?? 0.5);
     gl.uniform1f(loc(gl, p, 'uStr'), it.strength);
     gl.uniform1f(loc(gl, p, 'uEnc'), this.halfFloat ? 0 : 1);
     gl.uniform1f(loc(gl, p, 'uDt'), sdt);
@@ -1257,9 +1284,17 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uWarp'), r.motion.warp);
     gl.uniform1f(loc(gl, p, 'uWarpScale'), r.motion.warpScale);
     if (r.optics) {
-      const u = opticsUniforms(r.optics);
+      const u = opticsUniforms(r.optics, tq, r.motion.loop);
       gl.uniform4fv(loc(gl, p, 'uOpA'), u.a);
       gl.uniform4fv(loc(gl, p, 'uOpB'), u.b);
+      if (u.s) {
+        // a glass solid: where it is and how it is turned at this moment (opticsU.ts)
+        gl.uniform4fv(loc(gl, p, 'uOpC'), u.s.c);
+        gl.uniform4fv(loc(gl, p, 'uOpD'), u.s.d);
+        gl.uniform4fv(loc(gl, p, 'uOpT'), u.s.t);
+        gl.uniform4fv(loc(gl, p, 'uOpN'), u.s.n);
+        gl.uniform1f(loc(gl, p, 'uOpCol'), glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)));
+      }
     }
     gl.uniform1f(loc(gl, p, 'uPulse'), this.pulse(tq));
     gl.uniform1f(loc(gl, p, 'uMediaMix'), r.media.mix);
@@ -1622,10 +1657,54 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uTouch'), 4);
     gl.uniform1i(loc(gl, p, 'uTouchMark'), isMarkMode(it.mode) ? (ts.glyphs === 'piece' ? 2 : 1) : 0);
     gl.uniform1f(loc(gl, p, 'uTouchInk'), ts.ink);
+    // a glass solid colours the palette's colours through a factor the field pass leaves in each cell
+    gl.uniform1i(loc(gl, p, 'uGlassCol'), glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)) === 2 ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  /** «Destello anamórfico»: the lights spread sideways, then a long streak with red and blue apart and a bokeh ring (ANAMORPHIC_FS). */
+  private runAnamorphic() {
+    const gl = this.gl;
+    const p = (this.pAna ??= compileProgram(gl, VERT, ANAMORPHIC_FS));
+    gl.useProgram(p.prog);
+    gl.viewport(0, 0, this.cols, this.rows);
+    gl.uniform1f(loc(gl, p, 'uStep'), 1 + Math.round(this.r.fx.bloom));
+    gl.uniform1f(loc(gl, p, 'uAspect'), this.ch / this.cw);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.tSelC.tex);
+    gl.uniform1i(loc(gl, p, 'uSel'), 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbBloomA);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tSelC.tex);
+    gl.uniform1i(loc(gl, p, 'uSrc'), 0);
+    gl.uniform1i(loc(gl, p, 'uPass'), 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbBloomB);
+    gl.bindTexture(gl.TEXTURE_2D, this.tBloomA.tex);
+    gl.uniform1i(loc(gl, p, 'uPass'), 1);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  /** «Papel»: the still sheet (PAPER_FS), drawn again only when the size, the cell or the fold change. */
+  private ensurePaper() {
+    const gl = this.gl, fold = this.r.fxKind?.fold;
+    const key = `${this.W}x${this.H}:${this.cw}:${fold ?? ''}`;
+    if (this.paper?.key === key) return;
+    let P = this.paper;
+    if (!P) { const t = createTex(gl, this.W, this.H); P = { key: '', t, fb: fboFor(gl, t) }; }
+    else if (P.t.w !== this.W || P.t.h !== this.H) resizeTex(gl, P.t, this.W, this.H);
+    const p = (this.pPaper ??= compileProgram(gl, VERT, PAPER_FS));
+    gl.useProgram(p.prog);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, P.fb);
+    gl.viewport(0, 0, this.W, this.H);
+    gl.uniform2f(loc(gl, p, 'uRes'), this.W, this.H);
+    gl.uniform1f(loc(gl, p, 'uCellW'), this.cw);
+    gl.uniform1i(loc(gl, p, 'uFold'), foldIndex(fold));
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    P.key = key;
+    this.paper = P;
+  }
+
   private runBloom() {
+    if (this.r.fxKind?.bloom === 'anamorfico') { this.runAnamorphic(); return; }
     const gl = this.gl, p = this.pBlur;
     const step = 1 + Math.round(this.r.fx.bloom);
     gl.useProgram(p.prog);
@@ -1689,6 +1768,11 @@ export class AsciiEngine implements Renderer {
     // grain and flicker follow the piece's clock (with a loop, its time in the loop): a paused moment, a
     // link to it and an export of it are the very same picture
     gl.uniform1f(loc(gl, p, 'uFxTime'), r.motion.loop > 0 ? fold(this.t, r.motion.loop) : this.t);
+    // «Papel»: the still sheet instead of the film grain (ensurePaper drew it)
+    const paper = fx.grain > 0 && r.fxKind?.grain === 'papel' && this.paper ? this.paper : null;
+    gl.uniform1f(loc(gl, p, 'uPaper'), paper ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, paper ? paper.t.tex : this.tGrad.tex);
+    gl.uniform1i(loc(gl, p, 'uPaperT'), 8);
     gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, this.tTouch.tex);
     gl.uniform1i(loc(gl, p, 'uTouch'), 7);
     gl.uniform1f(loc(gl, p, 'uTouchReveal'), r.interact.mode === 'reveal' ? 1 : 0);

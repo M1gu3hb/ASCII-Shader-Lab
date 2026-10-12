@@ -1,10 +1,11 @@
 import { GLSL_BLEND, GLSL_CORE } from './core';
 import { DISP_MAX } from '../touch';
+import { INK_DRY } from '../pointer';
 import type { PatternLibrary } from './patterns';
 import { isAnalytic, isColorFamily, isFamily, isRaster } from '../../families/registry';
 import { FAMILY_SAMPLE_GLSL } from '../../families/sample';
 import { familyGlsl } from '../../families/analytic/glsl';
-import { GLSL_OPTICS } from './optics';
+import { GLSL_OPTICS, GLSL_OPTICS_SOLID } from './optics';
 
 export const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n';
 
@@ -14,12 +15,18 @@ void main(){ gl_Position = vec4(aPos, 0., 1.); }`;
 
 export type FieldSource = 'pattern' | 'media' | 'text';
 
+/**
+ * Which glass is in front (recipe.optics): none, rain or fluted glass (true), or a glass solid ('solido':
+ * the sphere and the polyhedron, whose program also colours the cells: dispersion, tint).
+ */
+export type FieldOptics = boolean | 'solido';
+
 /** Program cache key for the field pass. */
-export function fieldKey(patterns: string[], src: FieldSource, loop: boolean, optics = false): string {
+export function fieldKey(patterns: string[], src: FieldSource, loop: boolean, optics: FieldOptics = false): string {
   // an analytic family whose chunk has not arrived yet draws nothing: that program is another key, so it is
   // never kept in place of the real one
   const waiting = patterns.some(id => isAnalytic(id) && !familyGlsl(id));
-  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}${waiting ? '|sin-glsl' : ''}${optics ? '|vidrio' : ''}`;
+  return `${src}|${loop ? 'L' : '-'}|${patterns.join(',')}${waiting ? '|sin-glsl' : ''}${optics === 'solido' ? '|vidrio3d' : optics ? '|vidrio' : ''}`;
 }
 
 /** Media sampling with fit/zoom/pan/mirror; shared by field and compose passes. */
@@ -46,7 +53,8 @@ vec4 media(vec2 s){
 }
 `;
 
-export function buildFieldShader(patterns: string[], src: FieldSource, loop: boolean, lib: PatternLibrary, optics = false): string {
+export function buildFieldShader(patterns: string[], src: FieldSource, loop: boolean, lib: PatternLibrary, optics: FieldOptics = false): string {
+  const solid = optics === 'solido';
   const used = [...new Set(patterns)];
   // raster families (geometry, simulation) need no chunk: their layer reads the raster their model computed
   const chunks = used.filter(id => !isRaster(id)).map(id => {
@@ -141,7 +149,7 @@ ${GLSL_BLEND}
 ${src === 'media' ? GLSL_MEDIA : ''}
 ${families ? FAMILY_SAMPLE_GLSL : ''}
 ${famSrc}
-${optics ? GLSL_OPTICS : ''}
+${solid ? GLSL_OPTICS_SOLID : optics ? GLSL_OPTICS : ''}
 ${chunks}
 float stack(vec2 p, float t){
   float v = 0.;${colour ? '\n  SC = vec3(1.); SCN = 0.;' : ''}${families ? '\n  SRCC = 0.;' : ''}
@@ -200,7 +208,20 @@ void main(){
   pv = clamp(.5 + (pv - .5) * (1. + .41 * sin(PI * w)), 0., 1.);` : `
   pv = stack(q, uTime);`}
   // the pattern alone, for a transformation that reads it (Desplazar, see glsl/xform.ts)
-  if (uPatOnly == 1){ o = vec4(pv, 0., 0., 1.); return; }
+  if (uPatOnly == 1){ o = vec4(pv, 0., 0., 1.); return; }${solid && src === 'pattern' ? `
+  // a glass solid with a dispersion: the red and the blue rays read the layers where they land (optics.ts)
+  vec3 GL3 = vec3(pv);
+  if (OPX.x > .5 && uOpD.z > 0.){${colour ? `
+    vec3 scg = SC;
+    float scn = SCN;` : ''}${loop ? `
+    GL3.r = clamp(.5 + (mix(stack(q + OPD.xy, tl), stack(q2 + OPD.xy, tl - uLoop), w) - .5) * (1. + .41 * sin(PI * w)), 0., 1.);
+    GL3.b = clamp(.5 + (mix(stack(q + OPD.zw, tl), stack(q2 + OPD.zw, tl - uLoop), w) - .5) * (1. + .41 * sin(PI * w)), 0., 1.);` : `
+    GL3.r = stack(q + OPD.xy, uTime);
+    GL3.b = stack(q + OPD.zw, uTime);`}${colour ? `
+    SC = scg;
+    SCN = scn;` : ''}
+    pv = dot(GL3, vec3(.299, .587, .114));
+  }` : ''}
   vec3 col = ${colour && src === 'pattern' ? 'SC' : 'vec3(1.)'};
   float l = pv;
   vec2 s = vec2(pp.x * uRes.y + .5 * uRes.x, .5 * uRes.y - pp.y * uRes.y) / uRes;
@@ -214,7 +235,19 @@ void main(){
   else {
     vec2 m0 = clamp(s - cs, 0., 1.), m1 = clamp(s + cs, 0., 1.);
     c4 = (media(m0) + media(vec2(m1.x, m0.y)) + media(vec2(m0.x, m1.y)) + media(m1)) * .25;
-  }
+  }${solid ? `
+  // a glass solid with a dispersion: red and blue from where their own rays land (optics.ts)
+  if (OPX.x > .5 && uOpD.z > 0.){
+    vec2 sR = s + OPD.xy * vec2(uRes.y / uRes.x, -1.), sB = s + OPD.zw * vec2(uRes.y / uRes.x, -1.);
+    if (uXOn == 1){
+      c4.r = texelFetch(uXGrid, clamp(ivec2(floor(sR * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0).r;
+      c4.b = texelFetch(uXGrid, clamp(ivec2(floor(sB * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0).b;
+    } else {
+      vec2 a0 = clamp(sR - cs, 0., 1.), a1 = clamp(sR + cs, 0., 1.), b0 = clamp(sB - cs, 0., 1.), b1 = clamp(sB + cs, 0., 1.);
+      c4.r = (media(a0).r + media(vec2(a1.x, a0.y)).r + media(vec2(a0.x, a1.y)).r + media(a1).r) * .25;
+      c4.b = (media(b0).b + media(vec2(b1.x, b0.y)).b + media(vec2(b0.x, b1.y)).b + media(b1).b) * .25;
+    }
+  }` : ''}
   col = c4.rgb;
   float ml = dot(col, vec3(.299, .587, .114));
   l = uMediaMix > 0. ? blendf(ml, pv, uMediaBlend, uMediaMix) : ml;${colour ? `
@@ -225,7 +258,22 @@ void main(){
   float tm = uXOn == 1
     ? dot(texelFetch(uXGrid, clamp(ivec2(floor(s * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0).rgb, vec3(.299, .587, .114))
     : (texture(uText, s + vec2(-cs.x, -cs.y)).r + texture(uText, s + vec2(cs.x, -cs.y)).r
-      + texture(uText, s + vec2(-cs.x, cs.y)).r + texture(uText, s + cs).r) * .25;
+      + texture(uText, s + vec2(-cs.x, cs.y)).r + texture(uText, s + cs).r) * .25;${solid ? `
+  // a glass solid with a dispersion: the red and the blue rays read the letters where they land (optics.ts)
+  vec3 TX3 = vec3(tm);
+  if (OPX.x > .5 && uOpD.z > 0.){
+    vec2 sR = s + OPD.xy * vec2(uRes.y / uRes.x, -1.), sB = s + OPD.zw * vec2(uRes.y / uRes.x, -1.);
+    if (uXOn == 1){
+      TX3.r = dot(texelFetch(uXGrid, clamp(ivec2(floor(sR * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0).rgb, vec3(.299, .587, .114));
+      TX3.b = dot(texelFetch(uXGrid, clamp(ivec2(floor(sB * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0).rgb, vec3(.299, .587, .114));
+    } else {
+      TX3.r = (texture(uText, sR + vec2(-cs.x, -cs.y)).r + texture(uText, sR + vec2(cs.x, -cs.y)).r
+        + texture(uText, sR + vec2(-cs.x, cs.y)).r + texture(uText, sR + cs).r) * .25;
+      TX3.b = (texture(uText, sB + vec2(-cs.x, -cs.y)).r + texture(uText, sB + vec2(cs.x, -cs.y)).r
+        + texture(uText, sB + vec2(-cs.x, cs.y)).r + texture(uText, sB + cs).r) * .25;
+    }
+    tm = dot(TX3, vec3(.299, .587, .114));
+  }` : ''}
   l = uMediaMix > 0. ? blendf(tm, pv, uMediaBlend, uMediaMix) : tm;
   if (uMorph > 0.){
     float env = .5 - .5 * cos(TAU * uTime / uMorph);
@@ -237,7 +285,23 @@ void main(){
   else if (uIMode == 2) l += simH(cell) * .3 * uIStr;
   else if (uIMode == 6) l *= 1. - clamp(sim.b, 0., 1.);
   else if (uIMode == 7) l += sim.b * .85;
-  ${optics ? `// the glass's own light, and fog that dims what is behind it outside the drops
+  ${solid ? `// a glass solid (optics.ts): its tint deepens with the path inside it, its body shows by its opacity,
+  // and a dispersion's channels colour the cell. uOpCol 1: the cell's colour is its own (the photo, a colour
+  // family), tinted here; 2: the palette's, and the cell carries a factor the select pass multiplies it by (128 = ×1)
+  if (uOpCol > 1.5) col = vec3(128. / 255.);
+  if (OPX.x > .5){
+    vec3 LW = vec3(.299, .587, .114);
+    vec3 T = pow(max(uOpT.rgb, vec3(.02)), vec3(OPX.y * .8));
+    float tlum = max(dot(T, LW), .02);
+    vec3 own = uOpT.rgb * OPX.z;
+    // what gets through: less where Fresnel reflects more (the rim), and tinted
+    l = mix(l * tlum * (1. - .85 * OPX.w), dot(own, LW), uOpT.a);
+    vec3 c3 = ${src === 'pattern' ? 'GL3' : src === 'text' ? 'TX3' : 'vec3(1.)'};
+    vec3 dc = (c3 + .02) / (dot(c3, LW) + .02);
+    if (uOpCol > 1.5) col = clamp(mix(dc * T / tlum, uOpT.rgb / max(dot(uOpT.rgb, LW), .02), uOpT.a) * (128. / 255.), 0., 1.);
+    else if (uOpCol > .5) col = mix(col * ${src === 'media' ? '' : 'dc * '}T, own, uOpT.a);
+  }
+  ` : ''}${optics ? `// the glass's own light, and fog that dims what is behind it outside the drops
   l = mix(l, l * .55 + .06, OP.w);
   l += uOpB.z * OP.z * .6;` : ''}
   l += uPulse * .22;
@@ -252,7 +316,12 @@ uniform vec2 uCell;
 uniform vec4 uSeg;
 uniform float uBrushR, uStr, uActive, uImpulse, uEnc, uDt, uEraseRate, uPaintRate;
 uniform int uMode;
+// «Pincel caligráfico» (pointer.ts): the brush's radius where the segment starts, how dry it runs, how far the ink bleeds
+uniform int uStroke;
+uniform float uBrushR0, uDry, uBleed;
 out vec4 o;
+float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float Tr(ivec2 c){ ivec2 G = ivec2(uGrid) - 1; return texelFetch(uPrev, clamp(c, ivec2(0), G), 0).b; }
 float sdSeg(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0., 1.); return length(pa - ba * h); }
 float dec(float v){ return uEnc > .5 ? (v - .5) * 4. : v; }
 float enc(float h){ return uEnc > .5 ? h * .25 + .5 : h; }
@@ -271,6 +340,25 @@ void main(){
   float tr = s.b;
   if (uMode == 2) nh += brush * uStr * (uActive * .35 + uImpulse * 1.6);
   if (uMode == 6) tr = max(tr - uDt * uEraseRate, brush * uActive);
+  else if (uMode == 7 && uStroke == 1){
+    // the calligraphic brush: its width goes from uBrushR0 to uBrushR along the segment (the speed changed it),
+    // and running fast it goes dry: across the stroke its hairs leave gaps
+    vec2 pa = px - uSeg.xy, ba = uSeg.zw - uSeg.xy;
+    float bb = max(dot(ba, ba), 1e-6);
+    float h = clamp(dot(pa, ba) / bb, 0., 1.);
+    vec2 e = pa - ba * h;
+    float r = max(mix(uBrushR0, uBrushR, h), 1.);
+    float d = length(e) / r;
+    float across = (e.x * ba.y - e.y * ba.x) / sqrt(bb) / r;
+    float hair = .5 + .5 * sin(across * 11. + 1.7) * sin(across * 4.3 + .4);
+    float ink = exp(-d * d * 3.2) * mix(1., smoothstep(.25, .75, hair), uDry);
+    // (ink on paper stays: it fades at INK_DRY of Pincel's rate, pointer.ts)
+    tr = max(tr * exp(-uDt * uPaintRate * ${INK_DRY.toFixed(2)}), ink * uActive * (.4 + uStr * .8));
+    // the ink bleeds into the paper: a cell soaks up part of its wettest neighbour's, more along its fibres
+    float nb = max(max(Tr(c + ivec2(1, 0)), Tr(c - ivec2(1, 0))), max(Tr(c + ivec2(0, 1)), Tr(c - ivec2(0, 1))));
+    float soak = nb * uBleed * (.35 + .4 * hash12(vec2(c) * .73 + 3.1));
+    if (soak > tr) tr += (soak - tr) * min(1., uDt * 4.);
+  }
   else if (uMode == 7) tr = max(tr * exp(-uDt * uPaintRate), brush * uActive * (.4 + uStr * .8));
   else tr = 0.;
   if (uMode != 2) nh = 0.;
@@ -307,6 +395,7 @@ uniform float uPtrOn, uIStr, uIRadCells;
 uniform sampler2D uTouch;
 uniform int uTouchMark;
 uniform float uTouchInk;
+uniform int uGlassCol;
 layout(location = 0) out vec4 oC;
 layout(location = 1) out vec4 oG;
 ${GLSL_CORE}
@@ -396,6 +485,8 @@ void main(){
     float mx = max(max(base.r, base.g), base.b);
     base = mix(base, base / max(mx, .04), uVivid);
   }
+  // a glass solid in front (optics.ts): the cell carries what it does to the palette's colour (128 = ×1)
+  else if (uGlassCol == 1) base = clamp(base * f.rgb * (255. / 128.), 0., 1.);
   if (uHue > 0.) base = hueShift(base, uHue * TAU);
   float gr = dot(base, vec3(.299, .587, .114));
   base = clamp(mix(vec3(gr), base, uSat), 0., 1.);
@@ -449,6 +540,116 @@ void main(){
   o = vec4(acc, 1.);
 }`;
 
+/**
+ * «Destello anamórfico» (recipe.fxKind.bloom 'anamorfico'; closing of PR #10, row I-22): the halo of fx.bloom
+ * as an anamorphic lens draws it, written from the published description of the effect. Two passes on the
+ * cell grid, into the same targets as BLUR_FS (the compose pass adds them alike):
+ *   0. the lights (what the select pass drew, only where it is bright) spread sideways;
+ *   1. that spread three times as far again, a long horizontal streak, with its red pulled to the right and
+ *      its blue to the left of each light, slightly cool; plus a bokeh ring around each light (24 taps
+ *      on a circle, round in pixels: the cells are taller than wide).
+ * Ported to basic/compose.ts (blurGridAnamorphic).
+ */
+export const ANAMORPHIC_FS = HEAD + `
+uniform sampler2D uSrc;
+uniform sampler2D uSel;
+uniform int uPass;
+uniform float uStep;
+uniform float uAspect;
+out vec4 o;
+float GW(int k){ return k == 0 ? .227027 : k == 1 ? .1945946 : k == 2 ? .1216216 : k == 3 ? .054054 : .016216; }
+// a light: what the select pass drew at a cell, only where it is bright
+vec3 light(ivec2 c){
+  ivec2 G = textureSize(uSel, 0) - 1;
+  vec4 v = texelFetch(uSel, clamp(c, ivec2(0), G), 0);
+  vec3 s = v.rgb * v.a;
+  return s * (max(dot(s, vec3(.299, .587, .114)) - .3, 0.) / .7);
+}
+vec3 A(ivec2 c){ ivec2 G = textureSize(uSrc, 0) - 1; return texelFetch(uSrc, clamp(c, ivec2(0), G), 0).rgb; }
+void main(){
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  int s = int(uStep + .5);
+  if (uPass == 0){
+    vec3 acc = light(c) * GW(0);
+    for (int k = 1; k < 5; k++) acc += (light(c + ivec2(k * s, 0)) + light(c - ivec2(k * s, 0))) * GW(k);
+    o = vec4(acc, 1.);
+    return;
+  }
+  int s3 = 3 * s, off = s + 1;
+  vec3 acc = vec3(0.);
+  for (int k = -4; k <= 4; k++){
+    float w = GW(k < 0 ? -k : k);
+    acc.r += A(c + ivec2(k * s3 - off, 0)).r * w;
+    acc.g += A(c + ivec2(k * s3, 0)).g * w;
+    acc.b += A(c + ivec2(k * s3 + off, 0)).b * w;
+  }
+  vec3 ring = vec3(0.);
+  float R = 2. + 2. * uStep;
+  for (int k = 0; k < 24; k++){
+    float a = float(k) * .2617994;
+    ring += light(c + ivec2(floor(vec2(cos(a) * R, sin(a) * R / uAspect) + .5)));
+  }
+  o = vec4(acc * vec3(.85, .95, 1.2) * 1.6 + ring * .05, 1.);
+}`;
+
+/**
+ * «Papel» (recipe.fxKind.grain 'papel'; closing of PR #10, row I-27): fx.grain as a still sheet of paper, written
+ * from the published description of the effect (grain, fibres, folds). Drawn once per size into a texture
+ * the compose pass reads (R: the relief P as P · 0.4 + 0.5), never per frame: it does not move.
+ *   - fine grain per pixel, and a soft mottling a few cells wide;
+ *   - fibres: short thin strands (two per square of three cells), lighter or darker than the sheet;
+ *   - folds (uFold 1 in four, 2 a letter in three, 3 the diagonals, 4 crumpled): along each crease, a thin dark
+ *     line, the side that faces the light (up and to the left) lighter and the other darker; crumpled paper
+ *     also tilts every facet between its creases.
+ * Ported to basic/compose.ts (paperField).
+ */
+export const PAPER_FS = HEAD + `
+uniform vec2 uRes;
+uniform float uCellW;
+uniform int uFold;
+out vec4 o;
+${GLSL_CORE}
+float crease(vec2 p, vec2 a, vec2 n, float k, float facet){
+  float d = dot(p - a, n);
+  float side = (d < 0. ? -1. : 1.) * dot(n, vec2(-.6, .8));
+  return k * (side * (.45 * exp(-abs(d) / .06) + facet) - .9 * exp(-d * d / 4.84e-6));
+}
+void main(){
+  vec2 fc = gl_FragCoord.xy;
+  vec2 q = fc / uCellW;
+  float P = (hash12(floor(fc)) - .5) * .5 + (vnoise(q * .22) + .6 * vnoise(q * .55 + 7.3) - .8) * .55;
+  vec2 g = floor(q / 3.);
+  float fib = 0.;
+  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++){
+    vec2 id = g + vec2(float(i), float(j));
+    for (int f = 0; f < 2; f++){
+      float ff = float(f);
+      vec2 c = (id + hash22(id * 1.7 + ff * 13.1)) * 3.;
+      float a = hash12(id + ff * 7.3) * PI;
+      vec2 dir = vec2(cos(a), sin(a));
+      float len = .3 + .8 * hash12(id * 2.3 + ff);
+      vec2 pa = q - c;
+      float t = clamp(dot(pa, dir), -len, len);
+      vec2 e = pa - dir * t;
+      fib += (hash12(id * 3.1 + ff * 5.) < .5 ? -1. : 1.) * exp(-dot(e, e) / .004);
+    }
+  }
+  P += clamp(fib, -1., 1.) * .45;
+  vec2 p = (fc - .5 * uRes) / uRes.y;
+  if (uFold == 1) P += crease(p, vec2(0.), vec2(1., 0.), 1., 0.) + crease(p, vec2(0.), vec2(0., 1.), 1., 0.);
+  else if (uFold == 2) P += crease(p, vec2(0., 1. / 6.), vec2(0., 1.), 1., 0.) + crease(p, vec2(0., -1. / 6.), vec2(0., 1.), 1., 0.);
+  else if (uFold == 3) P += crease(p, vec2(0.), vec2(.7071068, .7071068), 1., 0.) + crease(p, vec2(0.), vec2(.7071068, -.7071068), 1., 0.);
+  else if (uFold == 4){
+    for (int k = 0; k < 9; k++){
+      float fk = float(k);
+      vec2 a = (vec2(hash12(vec2(fk, 1.7)), hash12(vec2(fk, 4.3))) - .5) * vec2(1.4, .9);
+      float an = hash12(vec2(fk, 8.9)) * PI;
+      P += crease(p, a, vec2(cos(an), sin(an)), .45 + .35 * hash12(vec2(fk, 2.1)), .14);
+    }
+  }
+  o = vec4(clamp(P * .4 + .5, 0., 1.), 0., 0., 1.);
+}`;
+
 export const COMPOSE_FS = HEAD + `
 uniform sampler2D uC;
 uniform sampler2D uG;
@@ -470,6 +671,9 @@ uniform float uTransDir, uTransSeed;
 // the old frame's size over the canvas's: the stage may change size during a transition (a new view, a new window)
 uniform vec2 uPrevScale;
 uniform float uFxTime;
+// «Papel» (PAPER_FS): the still sheet's relief, and whether fx.grain is that instead of the film grain
+uniform sampler2D uPaperT;
+uniform float uPaper;
 uniform sampler2D uTouch;
 uniform float uTouchReveal, uTouchTile;
 ${GLSL_MEDIA}
@@ -620,7 +824,13 @@ void main(){
   if (uVig > 0.){ vec2 vv = fc / uRes - .5; col *= 1. - uVig * dot(vv, vv) * 2.2; }
   // (uFxTime: the real time, or with a loop the loop's time, so flicker and grain repeat with it)
   if (uFlicker > 0.) col *= 1. - uFlicker * .12 * (.5 + .5 * sin(uFxTime * 53.)) * hash12(vec2(floor(uFxTime * 12.), 3.));
-  if (uGrain > 0. && uTransparent < .5) col += (hash12(fc + fract(uFxTime * 13.7) * 311.) - .5) * uGrain * .16;
+  if (uGrain > 0. && uTransparent < .5){
+    if (uPaper > .5){
+      // a still sheet of paper: lighter and darker by its relief, more so where the frame is light
+      float P = (texelFetch(uPaperT, ivec2(fc), 0).r - .5) / .4;
+      col += P * uGrain * (.04 + .3 * col);
+    } else col += (hash12(fc + fract(uFxTime * 13.7) * 311.) - .5) * uGrain * .16;
+  }
   col *= edgeMask;
   if (uTrans >= 0.){
     vec2 st = transCell(tc, uTrans);

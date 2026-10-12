@@ -1,6 +1,6 @@
 import { buildAtlas, uniqueChars, type Atlas } from '../atlas';
 import { getGlyphSet, watchGlyphSets, whenGlyphSet } from '../../glyphset/registry';
-import { BLENDS, INTERACT, cloneRecipe, type Recipe } from '../recipe';
+import { BLENDS, INTERACT, cloneRecipe, foldIndex, type Recipe } from '../recipe';
 import { figureFit, fontById } from '../catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
@@ -9,9 +9,9 @@ import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource,
 import { mediaSource, textSource } from '../../families/source';
 import { retryFamily } from '../../families/models';
 import { hasColourFamily } from '../../families/palette';
-import { opticsUniforms } from '../opticsU';
+import { glassColourMode, opticsUniforms } from '../opticsU';
 import { TOUCH_TILE, VIEW_MODES, TouchField, isMarkMode, isTouchMode, touchSettings } from '../touch';
-import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
+import { PointerHub, SIM_MODES, brushDry, brushGhost, brushWidth, isCalligraphy, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
 import type { PatternLibrary } from '../glsl/patterns';
 import type { MediaEl, PreviewQuality, Renderer } from '../renderer';
 import { DEFAULT_TRANSITION, transitionOf, type TransitionSpec } from '../transitions';
@@ -20,7 +20,7 @@ import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } f
 import { fold, loopTime, morphPeriod, ondularTimes, pieceTime } from '../loop';
 import { activeXforms, trailDecay, trailStage, xformStages } from '../xform';
 import { XformState } from './xform';
-import { blurGrid, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
+import { blurGrid, blurGridAnamorphic, grainPass, needsPixelPost, paperField, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
 import { drawOverlays, hasOverlays, type OverlayCache } from './overlays';
 import {
   FieldBuffers, MediaMap, fieldLayers, pulseAt, runField,
@@ -167,7 +167,9 @@ export class BasicEngine implements Renderer {
   /** Cost of the last frame in ms, per pass (dev tools). */
   timings: BasicTimings = { field: 0, select: 0, compose: 0, total: 0 };
 
-  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1 };
+  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1,
+    // «Pincel caligráfico» (pointer.ts): the ghost lifts its brush between strokes; the brush's width now and a frame ago
+    lift: false, wf: 1, wf0: 1 };
   /** The gesture modes' field (../touch.ts): the same code, and the same bytes, as the WebGL engine. */
   private touch = new TouchField();
   private hub: PointerHub | null = null;
@@ -342,7 +344,7 @@ export class BasicEngine implements Renderer {
     if (!(dt > 0 && dt <= 0.5)) {
       if (it.auto) {
         this.touch.reset(); this.sim.reset();
-        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false });
+        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false, lift: false, wf: 1, wf0: 1 });
         this.stepPointer(0, true);
         this.ptr.on = 1;
       }
@@ -523,10 +525,13 @@ export class BasicEngine implements Renderer {
     const P = this.ptr, it = this.r.interact;
     if (it.mode === 'none' || isTouchMode(it.mode)) return false;
     if (it.auto && (demo || this.realT - P.lastReal > 2.5)) {
-      const [gx, gy] = legacyGhost(this.realT);
+      // the calligraphic brush's ghost writes strokes and lifts the brush between them
+      const g = isCalligraphy(it) ? brushGhost(this.realT) : null;
+      const [gx, gy] = g ? [g.x, g.y] : legacyGhost(this.realT);
       P.tx = this.W * gx; P.ty = this.H * gy;
       P.targetOn = 1;
-    }
+      P.lift = !!g && !g.down;
+    } else P.lift = false;
     const sim = SIM_MODES.includes(it.mode);
     P.px = P.x; P.py = P.y;
     if (sim || P.on < 0.01) { P.x = P.tx; P.y = P.ty; }
@@ -790,16 +795,27 @@ export class BasicEngine implements Renderer {
     const P = this.ptr, it = this.r.interact;
     const m = INTERACT.indexOf(mode);
     const auto = it.auto && this.realT - P.lastReal > 2.5;
-    const active = Math.min(1.2, P.on > 0.2 ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0);
+    const cal = isCalligraphy(it);
+    // (the calligraphic ghost's brush is lifted between strokes: it does not ink as it moves to the next)
+    const active = Math.min(1.2, P.on > 0.2 && !(cal && auto && P.lift) ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0);
     const impulse = P.impulse * (P.on > 0.2 ? 1 : 0);
     if (active > 0 || impulse > 0) this.simLast = this.realT;
     const brushR = Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure);
+    // the calligraphic brush: its width (now and a frame ago) and how dry it runs follow the stroke's speed
+    let dry = 0;
+    if (cal) {
+      const v = dt > 0 ? P.moved / dt / this.H : 0;
+      P.wf0 = P.wf;
+      if (dt > 0) P.wf += (brushWidth(v) - P.wf) * Math.min(1, dt * 14);
+      dry = brushDry(v);
+    }
+    const stroke = cal ? { r0: brushR * P.wf0, dry, bleed: it.bleed ?? 0.5 } : null;
     // the GPU steps once per 1/60 s too (see AsciiEngine.runSim)
     const steps = dt > 0 ? Math.max(1, Math.min(4, Math.round(dt * 60))) : 1;
     const sdt = (dt || 1 / 60) / steps;
     const d = it.decay ?? 0.5;
     for (let s = 0; s < steps; s++) {
-      this.sim.step(m, this.cw, this.ch, [P.px, P.py, P.x, P.y], brushR, it.strength, s === 0 ? active : 0, s === 0 ? impulse : 0, sdt, d);
+      this.sim.step(m, this.cw, this.ch, [P.px, P.py, P.x, P.y], brushR * (cal ? P.wf : 1), it.strength, s === 0 ? active : 0, s === 0 ? impulse : 0, sdt, d, stroke);
     }
   }
 
@@ -898,7 +914,8 @@ export class BasicEngine implements Renderer {
       // (a family with memory never claims a perfect loop: its layers are drawn as they are, see fieldLoops)
       time: tq, loop: fieldLoops(r) ? r.motion.loop : 0, layers: fieldLayers(r, this.W, this.H, this.fam),
       warp: r.motion.warp, warpScale: r.motion.warpScale, pulse,
-      optics: r.optics ? opticsUniforms(r.optics) : null,
+      optics: r.optics ? opticsUniforms(r.optics, tq, r.motion.loop) : null,
+      opCol: glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)),
       src, mediaMix: r.media.mix, mediaBlend: Math.max(0, BLENDS.indexOf(r.media.blend)), morph: morphPeriod(r.text.morph, loop),
       media: this.mediaBuf, fit: r.media.fit === 'cover' ? 0 : r.media.fit === 'contain' ? 1 : 2,
       zoom: r.media.zoom, panX: r.media.panX, panY: r.media.panY, mirror: r.media.mirror,
@@ -938,13 +955,16 @@ export class BasicEngine implements Renderer {
       imode, ptrCellX: P.x / this.cw, ptrCellY: P.y / this.ch, ptrOn: P.on, istr: it.strength, iradCells: (it.radius * this.H) / this.cw,
       touch: isMarkMode(it.mode) && td ? { data: td, mark: ts.glyphs === 'piece' ? 2 : 1, ink: ts.ink } : null,
       aspect: this.ch / this.cw,
+      glassCol: glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)) === 2,
     }, this.sel);
     const T2 = performance.now();
 
     // simplified preview (quality «Ligera»): none of the effects that cost a pass over every pixel
     const fx = this.q.simplify && !this.o.fixedSize ? { ...r.fx, curve: 0, chroma: 0, bloom: 0, grain: 0 } : r.fx;
     const bloom = fx.bloom > 0 && !this.transparent;
-    if (bloom) blurGrid(this.sel, this.cols, this.rows, fx.bloom, this.bloomBuf, this.bloomTmp);
+    // «Destello anamórfico» (recipe.fxKind.bloom): the streak, its colours apart and the bokeh ring
+    if (bloom && r.fxKind?.bloom === 'anamorfico') blurGridAnamorphic(this.sel, this.cols, this.rows, fx.bloom, this.ch / this.cw, this.bloomBuf, this.bloomTmp);
+    else if (bloom) blurGrid(this.sel, this.cols, this.rows, fx.bloom, this.bloomBuf, this.bloomTmp);
     const mediaPx = this.updateReveal();
     const hasMedia = this.mediaOK && ['image', 'video', 'camera'].includes(r.source);
     const ac = sampleGradient(this.grad, 1);
@@ -956,6 +976,8 @@ export class BasicEngine implements Renderer {
       touchReveal: it.mode === 'reveal' && td ? td : null, hasMedia,
       touchTile: isMarkMode(it.mode) && td ? { data: td, k: TOUCH_TILE } : null,
       mediaPx: hasMedia ? mediaPx : null, bloom: bloom ? this.bloomBuf : null,
+      // «Papel» (recipe.fxKind.grain): the still sheet instead of the film grain
+      paper: fx.grain > 0 && r.fxKind?.grain === 'papel' && !this.transparent ? paperField(this.W, this.H, this.cw, foldIndex(r.fxKind.fold)) : null,
       // (flicker and grain: the piece's time, or with a loop the loop's time, as COMPOSE_FS's uFxTime)
       realT: loop > 0 ? fold(this.t, loop) : this.t,
     };
@@ -967,7 +989,7 @@ export class BasicEngine implements Renderer {
       postPass(frame, this.flat, this.out32);
     } else {
       shadePass(frame, this.out32);
-      if (fx.grain > 0) grainPass(frame, this.out32);
+      if (fx.grain > 0) grainPass(frame, this.out32, frame.paper ?? null);
     }
     const tf = this.trans >= 0 && this.transLayer.ready ? {
       W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows, n: a.n,
