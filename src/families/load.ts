@@ -47,6 +47,16 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   mar: () => import('./analytic/mar.cpu.ts'),
   osciloscopio: () => import('./analytic/osciloscopio.cpu.ts'),
   marco: () => import('./analytic/marco.cpu.ts'),
+  lluvia_agua: () => import('./analytic/lluvia_agua.cpu.ts'),
+  tejido_bandas: () => import('./analytic/tejido_bandas.cpu.ts'),
+  estatica_vhs: () => import('./analytic/estatica_vhs.cpu.ts'),
+  estratos: () => import('./analytic/estratos.cpu.ts'),
+  puntos_orbita: () => import('./analytic/puntos_orbita.cpu.ts'),
+  anillo_humo: () => import('./analytic/anillo_humo.cpu.ts'),
+  rejilla_puntos: () => import('./analytic/rejilla_puntos.cpu.ts'),
+  globo_puntos: () => import('./analytic/globo_puntos.cpu.ts'),
+  arcos_parciales: () => import('./analytic/arcos_parciales.cpu.ts'),
+  anillos_tronco: () => import('./analytic/anillos_tronco.cpu.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */

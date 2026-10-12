@@ -1,0 +1,40 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'tejido_bandas',
+  name: 'Tejido de bandas',
+  group: 'forma',
+  kind: 'analytic',
+  version: 1,
+  color: true,
+  extends: 'entrelazado',
+  aka: ['tejido', 'telar', 'urdimbre y trama', 'ligamento', 'tafetán', 'sarga', 'weave'],
+  params: [
+    { key: 'threads', label: 'Hilos', type: 'int', min: 6, max: 40, def: 14 },
+    { key: 'width', label: 'Grosor', type: 'number', min: 0.5, max: 0.95, def: 0.8, step: 0.01 },
+    { key: 'band', label: 'Banda', type: 'int', min: 1, max: 8, def: 3, unit: 'hilos' },
+    { key: 'weave', label: 'Ligamento', type: 'choice', def: 'bloques', options: [
+      { id: 'llano', label: 'Llano (uno arriba, uno abajo)' }, { id: 'sarga', label: 'Sarga (en diagonal)' }, { id: 'bloques', label: 'Bloques de urdimbre y trama' },
+    ] },
+    { key: 'flip', label: 'Cruce', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'angle', label: 'Dirección del cruce', type: 'number', min: 0, max: 180, def: 30, step: 1, unit: '°' },
+    { key: 'sheen', label: 'Brillo', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'drift', label: 'Deriva', type: 'number', min: -1, max: 1, def: 0.1, step: 0.01 },
+  ],
+  presets: [
+    { id: 'oro_verde', name: 'Bandas de oro y verde', aka: ['tejido en bloques', 'franjas de colores'], uses: ['fondos/geometricas', 'arte/geometricas'],
+      params: { threads: 14, width: 0.8, band: 3, weave: 'bloques', flip: 0.35, angle: 30, sheen: 0.4, drift: 0.08 },
+      look: { stops: ['#0b0806', '#d9a21b', '#1f7a3a', '#b5261e', '#1a1412', '#f0d27a'], bg: '#070504', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
+    { id: 'sarga', name: 'Sarga en diagonal', aka: ['tela vaquera', 'twill'], uses: ['fondos/geometricas', 'fondos/materia'],
+      params: { threads: 22, width: 0.78, band: 2, weave: 'sarga', flip: 0.25, angle: 45, sheen: 0.3, drift: 0.15 },
+      look: { stops: ['#05070d', '#1b2b55', '#3d5a9e', '#6f8cc4', '#c9d3e6'], bg: '#03050a', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+    { id: 'cuadros', name: 'Cuadros que se cruzan', aka: ['tafetán a cuadros', 'tela escocesa'], uses: ['fondos/geometricas', 'arte/geometricas'],
+      params: { threads: 12, width: 0.84, band: 4, weave: 'llano', flip: 0.6, angle: 0, sheen: 0.25, drift: -0.05 },
+      look: { stops: ['#120606', '#8e1b1b', '#e9dcc0', '#1d3b2a', '#d9b44a'], bg: '#0a0303', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.2 } },
+    { id: 'seda', name: 'Cinta de seda', aka: ['raso', 'cintas entrelazadas'], uses: ['arte/geometricas', 'fondos/materia'],
+      params: { threads: 7, width: 0.9, band: 1, weave: 'llano', flip: 0.3, angle: 90, sheen: 0.9, drift: 0.05 },
+      look: { stops: ['#0d0a12', '#e6a3c4', '#a3c4e6', '#f2e6b3', '#b8e6c9'], bg: '#08060c', charset: ' .·:-=+*#%', colorMode: 'source', vivid: 0.1 } },
+  ],
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
+  budget: {},
+};
