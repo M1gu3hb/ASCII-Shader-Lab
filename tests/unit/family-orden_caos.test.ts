@@ -8,13 +8,13 @@ import type { FieldModel, Params } from '../../src/families/types';
 
 const base = (p: Params = {}): Params => ({ ...defaultParams(META), ...p });
 
-/** Mean distance from the lattice site, in spacings, for the particles whose site is right / left of x = 0. */
+/** Mean distance from the lattice site, in spacings, for the particles whose site is at x > 0.3 (right) or x ∈ [−0.7, −0.3] (left). */
 function offsets(m: FieldModel, a: number, home: { x: Float32Array; y: Float32Array }) {
   const A = m.snapshot().arrays, x = A.x as Float32Array, y = A.y as Float32Array;
   let r = 0, nr = 0, l = 0, nl = 0;
   for (let i = 0; i < x.length; i++) {
     const d = Math.hypot(x[i] - home.x[i], y[i] - home.y[i]) / a;
-    if (home.x[i] > 0.3) { r += d; nr++; } else if (home.x[i] < -0.3) { l += d; nl++; }
+    if (home.x[i] > 0.3) { r += d; nr++; } else if (home.x[i] < -0.3 && home.x[i] > -0.7) { l += d; nl++; }
   }
   return { right: r / nr, left: l / nl };
 }
@@ -33,9 +33,7 @@ describe('orden y caos: mecanismo', () => {
     expect(mid.right).toBeLessThan(0.25);
     m.step(30 * 16);
     const back = offsets(m, a, home);
-    // (the front never quite leaves: the last column at the very left edge stays warm)
-    expect(back.left).toBeLessThan(0.8);
-    expect(back.left).toBeLessThan(mid.left / 4);
+    expect(back.left).toBeLessThan(0.3);
     expect(back.right).toBeLessThan(0.3);
   });
 

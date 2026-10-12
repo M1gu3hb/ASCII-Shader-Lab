@@ -35,7 +35,7 @@ export const META: FamilyMeta = {
     { id: 'nebulosa', name: 'Nebulosa rizada', uses: ['fondos/espacio', 'arte/organicas'], aka: ['nebulosa de ruido rizado'],
       params: { count: 12000, target: 'libre', scale: 1.4, speed: 0.2, life: 10, attract: 0.35, radius: 0.6, rise: 0, orbit: 0.05, tilt: 12, zoom: 1.45, trail: 0.35, shadow: 0.85, gain: 0.9 },
       look: { stops: ['#04030c', '#24124a', '#8a4ad8', '#9fe8ff', '#f4f8ff'], bg: '#020108', charset: ' .·:-=+*#' } },
-    { id: 'seda', name: 'Hilos de seda', uses: ['arte/organicas', 'fondos/organicas'], aka: ['filamentos de ruido rizado'],
+    { id: 'seda', name: 'Hilos de seda', uses: ['arte/organicas'], aka: ['filamentos de ruido rizado'],
       params: { count: 9000, target: 'libre', scale: 0.6, speed: 0.6, life: 5, attract: 0.3, radius: 0.3, rise: 0, orbit: -0.08, tilt: 30, zoom: 1.3, trail: 1, shadow: 0.3, gain: 0.8 },
       look: { stops: ['#05080a', '#123a3a', '#4fd6c0', '#effffa'], bg: '#030506', charset: " .'-~=+*#" } },
   ],

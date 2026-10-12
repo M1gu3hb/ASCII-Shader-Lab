@@ -139,30 +139,39 @@ export function create(cfg: ModelConfig): FieldModel {
     return sstep(-wd, wd, f - u);
   };
 
+  const FV = new Float64Array(2);
+  /**
+   * The molten flow at (px, py): v = (∂ψ'/∂y, −∂ψ'/∂x) with ψ' = ψ · b, b going to 0 at the walls, so the flow
+   * runs along them instead of piling particles there. Into FV.
+   */
+  const flowAt = (px: number, py: number, tau: number, flow: number) => {
+    noiseGrad(px * 2.6 + 3.1, py * 2.6 + 7.7, tau * 0.18);
+    const dxw = 1 - Math.abs(px), dyw = 0.5 - Math.abs(py);
+    const bx = sstep(0, WALL, dxw), by = sstep(0, WALL, dyw), b = bx * by;
+    const dbx = dxw < WALL ? -Math.sign(px) * dsstep(dxw) * by : 0, dby = dyw < WALL ? -Math.sign(py) * dsstep(dyw) * bx : 0;
+    const psx = 2.6 * ND[0] * b + ND[2] * dbx, psy = 2.6 * ND[1] * b + ND[2] * dby;
+    FV[0] = psy * flow; FV[1] = -psx * flow;
+  };
+
   const step1 = () => {
     const tau = steps * DT;
     const K = 40 * (0.25 + p.stiff), C = 2 * Math.sqrt(K) * 0.55;
-    const flow = 0.3 * p.turb, kf = 7, trem = 0.9 * p.jitter;
+    const flow = 0.3 * p.turb, trem = 0.9 * p.jitter;
     for (let i = 0; i < N; i++) {
       const m = (melt[i] += (heat(hx[i], hy[i], tau) - melt[i]) * Math.min(1, 3.5 * DT));
-      let ax = 0, ay = 0;
+      // order: a damped spring to its site and a thermal tremor
+      let nvx = vx[i], nvy = vy[i];
       if (m < 0.999) {
-        // order: a damped spring to its site and a thermal tremor
-        const o = 1 - m;
-        ax += o * (-K * (x[i] - hx[i]) - C * vx[i] + trem * rng.gauss());
-        ay += o * (-K * (y[i] - hy[i]) - C * vy[i] + trem * rng.gauss());
+        nvx += (-K * (x[i] - hx[i]) - C * vx[i] + trem * rng.gauss()) * DT;
+        nvy += (-K * (y[i] - hy[i]) - C * vy[i] + trem * rng.gauss()) * DT;
       }
       if (m > 0.001) {
-        // ψ' = ψ · b, b going to 0 at the walls: the flow runs along them instead of piling particles there
-        noiseGrad(x[i] * 2.6 + 3.1, y[i] * 2.6 + 7.7, tau * 0.18);
-        const dxw = 1 - Math.abs(x[i]), dyw = 0.5 - Math.abs(y[i]);
-        const bx = sstep(0, WALL, dxw), by = sstep(0, WALL, dyw), b = bx * by;
-        const dbx = dxw < WALL ? -Math.sign(x[i]) * dsstep(dxw) * by : 0, dby = dyw < WALL ? -Math.sign(y[i]) * dsstep(dyw) * bx : 0;
-        const psx = 2.6 * ND[0] * b + ND[2] * dbx, psy = 2.6 * ND[1] * b + ND[2] * dby;
-        const fx = psy * flow, fy = -psx * flow;
-        ax += m * kf * (fx - vx[i]); ay += m * kf * (fy - vy[i]);
+        // chaos: carried by the flow itself (midpoint step: a plain Euler step would gather the particles in the
+        // strain regions and leave holes where the flow turns)
+        flowAt(x[i], y[i], tau, flow);
+        flowAt(x[i] + 0.5 * DT * FV[0], y[i] + 0.5 * DT * FV[1], tau + 0.5 * DT, flow);
+        nvx += m * (FV[0] - nvx); nvy += m * (FV[1] - nvy);
       }
-      let nvx = vx[i] + ax * DT, nvy = vy[i] + ay * DT;
       const sp = Math.sqrt(nvx * nvx + nvy * nvy);
       if (sp > VMAX) { nvx *= VMAX / sp; nvy *= VMAX / sp; }
       let nx = x[i] + nvx * DT, ny = y[i] + nvy * DT;
@@ -193,8 +202,8 @@ export function create(cfg: ModelConfig): FieldModel {
     for (let i = 0; i < N; i++) {
       const sp = Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);
       const b = 0.62 + 0.38 * (1 - Math.exp(-sp * 4 * p.glow));
-      // a streak back along the velocity: a dot when still, a dash when it flows
-      const tl = 0.07;
+      // a streak back along the velocity: a dot when still, a dash (longer when molten) when it flows
+      const tl = 0.07 + 0.13 * melt[i];
       acc.line(cx + x[i] * s, cy - y[i] * s, cx + (x[i] - vx[i] * tl) * s, cy - (y[i] - vy[i] * tl) * s, wd * 1.7, b);
     }
     for (let i = 0; i < n; i++) { const v = A[i]; out[i] = byte(v >= 1 ? 1 : Math.pow(v, 0.8)); }
