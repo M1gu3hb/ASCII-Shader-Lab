@@ -7,7 +7,7 @@
  */
 import { BLENDS, type Recipe } from '../recipe';
 import { figureFit } from '../catalog';
-import { PI, TAU, blendf, clamp, fbm, hash12 } from './core';
+import { PI, TAU, blendf, clamp, fbm, gpow, hash12 } from './core';
 
 const fr = Math.fround;
 import { basicPattern, setPX, type BasicPattern } from './patterns';
@@ -15,7 +15,7 @@ import { DISP_MAX } from '../touch';
 import { XformState, runStage, updateTrail, type StageEnv } from './xform';
 import { familyPattern } from '../../families/basic';
 import { paletteOf } from '../../families/palette';
-import { OP, opticsAt, opticsLoop, type OpticsU } from './optics';
+import { OP, OPD, OPX, opticsAt, opticsLoop, type OpticsU } from './optics';
 import type { FamilyHost } from '../../families/host';
 import { FAM } from '../../families/context';
 import type { XformStage } from '../xform';
@@ -61,6 +61,8 @@ export interface FieldFrame {
   xform?: { stages: XformStage[]; state: XformState; decay: number; times?: [number, number] } | null;
   /** Glass in front of the piece (recipe.optics, ../opticsU.ts), null: none. */
   optics?: OpticsU | null;
+  /** A glass solid's colour (../opticsU.ts glassColourMode): 1 the cells' own colour tinted, 2 a factor on the palette's. */
+  opCol?: number;
 }
 
 export { INTERACT as INTERACT_MODES } from '../recipe';
@@ -75,6 +77,14 @@ export class FieldBuffers {
   c0: Float64Array | null = null; c1: Float64Array | null = null;
   /** The glass's light and fog per cell (recipe.optics), allocated the first time there is glass. */
   oz: Float64Array | null = null; ow: Float64Array | null = null;
+  /**
+   * A glass solid per cell (the shader's OPD and OPX): where its red and blue rays land (4), and inside, path
+   * inside, lit body, Fresnel's share (4); the red and blue channels' stacks of a dispersion (and their loop's second time),
+   * and which cells they are needed in. Allocated the first time there is a solid.
+   */
+  od: Float64Array | null = null; ox: Float64Array | null = null;
+  vr0: Float64Array | null = null; vb0: Float64Array | null = null; vr1: Float64Array | null = null; vb1: Float64Array | null = null;
+  inGlass: Uint8Array | null = null;
   constructor(n: number) {
     this.n = n;
     this.a = new Uint8Array(n); this.r = new Uint8Array(n); this.g = new Uint8Array(n); this.b = new Uint8Array(n);
@@ -190,7 +200,7 @@ const COL = new Float64Array(3);
  * The layers' stack at time t into `out`; with colour families also each cell's colour into `cout` (as the
  * shader's SC: white with none, the first colour family's colour, the next ones mixed in by their layer's mix).
  */
-function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array, cout: Float64Array | null = null) {
+function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array, cout: Float64Array | null = null, only: Uint8Array | null = null) {
   const { cols, rows } = f;
   if (!f.layers.length) out.fill(0);
   if (cout) cout.fill(1);
@@ -214,6 +224,7 @@ function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array, cou
     for (let col = 0; col < cols; col++) {
       for (let row = 0; row < rows; row++) {
         const i = row * cols + col;
+        if (only && !only[i]) continue;
         const dx = fr(qxs[i] - ox), dy = fr(qys[i] - oy);
         const lx = fr(fr(fr(c * dx) + fr(s * dy)) * sc), ly = fr(fr(fr(-s * dx) + fr(c * dy)) * sc);
         if (reads) {
@@ -257,6 +268,11 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const V = f.view, disp = f.disp, down = f.ptrDown ?? 0;
   const glass = f.optics ?? null;
   if (glass && (!B.oz || B.oz.length !== B.n)) { B.oz = new Float64Array(B.n); B.ow = new Float64Array(B.n); }
+  const solid = glass?.s ?? null;
+  if (solid && (!B.od || B.od.length !== B.n * 4)) {
+    B.od = new Float64Array(B.n * 4); B.ox = new Float64Array(B.n * 4); B.inGlass = new Uint8Array(B.n);
+    B.vr0 = new Float64Array(B.n); B.vb0 = new Float64Array(B.n); B.vr1 = new Float64Array(B.n); B.vb1 = new Float64Array(B.n);
+  }
   const gtl = glass && f.loop > 0 ? T - f.loop * Math.floor(T / f.loop) : T;
 
   // 1. warped sample positions (pointer distortion, pulse zoom, domain warp)
@@ -298,6 +314,13 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
         if (f.loop > 0) opticsLoop(fr(ppx), fr(ppy), gtl, f.loop, glass); else opticsAt(fr(ppx), fr(ppy), T, glass);
         ppx = fr(ppx + OP[0]); ppy = fr(ppy + OP[1]);
         B.oz![i] = OP[2]; B.ow![i] = OP[3];
+        if (solid) {
+          const o4 = i * 4;
+          B.od![o4] = OPD[0]; B.od![o4 + 1] = OPD[1]; B.od![o4 + 2] = OPD[2]; B.od![o4 + 3] = OPD[3];
+          B.ox![o4] = OPX[0]; B.ox![o4 + 1] = OPX[1]; B.ox![o4 + 2] = OPX[2]; B.ox![o4 + 3] = OPX[3];
+          // a dispersion needs the red and blue rays' stacks in these cells
+          B.inGlass![i] = OPX[0] > 0.5 && solid.d[2] > 0 ? 1 : 0;
+        }
       }
       if (pulseK !== 1) { ppx = fr(ppx * pulseK); ppy = fr(ppy * pulseK); }
       let qx = ppx, qy = ppy;
@@ -326,14 +349,21 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const srcColour = (media || text) && f.layers.some(L => !!L.pat.srcColour);
   const colour = (f.src === 'pattern' || !!srcColour) && f.layers.some(L => !!L.pat.col);
   if (colour && (!B.c0 || B.c0.length !== B.n * 3)) { B.c0 = new Float64Array(B.n * 3); B.c1 = new Float64Array(B.n * 3); }
+  // a glass solid with a dispersion over the layers: the red and blue rays' own stacks, where they land
+  const dispStacks = !!solid && solid.d[2] > 0 && f.src === 'pattern';
   let tl = T, w = 0;
   if (loop) {
     tl = T - f.loop * Math.floor(T / f.loop); w = tl / f.loop; stack(f, B, tl, B.v0, colour ? B.c0 : null);
+    if (dispStacks) channelStacks(f, B, tl, B.vr0!, B.vb0!);
     // the warp drifts too: the second stack reads it as it was one loop earlier (as the field shader)
     if (f.warp > 0) warpInto(f, B, tl - f.loop);
     stack(f, B, tl - f.loop, B.v1, colour ? B.c1 : null);
+    if (dispStacks) channelStacks(f, B, tl - f.loop, B.vr1!, B.vb1!);
   }
-  else stack(f, B, T, B.v0, colour ? B.c0 : null);
+  else {
+    stack(f, B, T, B.v0, colour ? B.c0 : null);
+    if (dispStacks) channelStacks(f, B, T, B.vr0!, B.vb0!);
+  }
   const loopK = 1 + 0.41 * Math.sin(PI * w);
 
   // 3. source, pointer light / ripples / trails, pulse; quantise like an RGBA8 target
@@ -350,7 +380,21 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       const i = row * cols + col;
-      const pv = pvOf(i);
+      let pv = pvOf(i);
+      const inSolid = !!solid && B.ox![i * 4] > 0.5;
+      const dispHere = inSolid && solid!.d[2] > 0;
+      // a glass solid with a dispersion: the three rays' values (the shader's GL3 / TX3)
+      let c3r = 1, c3g = 1, c3b = 1;
+      if (solid) {
+        if (dispHere && f.src === 'pattern') {
+          if (loop) {
+            c3r = clamp(0.5 + (B.vr0![i] * (1 - w) + B.vr1![i] * w - 0.5) * loopK, 0, 1);
+            c3b = clamp(0.5 + (B.vb0![i] * (1 - w) + B.vb1![i] * w - 0.5) * loopK, 0, 1);
+          } else { c3r = B.vr0![i]; c3b = B.vb0![i]; }
+          c3g = pv;
+          pv = c3r * 0.299 + c3g * 0.587 + c3b * 0.114;
+        } else c3r = c3g = c3b = pv;
+      }
       let l = pv, cr = 1, cg = 1, cb = 1;
       if (colour) {
         const o = i * 3, c0 = B.c0!;
@@ -375,14 +419,47 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
             mediaTap(media, x0, y1); mediaTap(media, x1, y1);
             cr = ACC[0] * 0.25; cg = ACC[1] * 0.25; cb = ACC[2] * 0.25;
           }
+          if (dispHere) {
+            // red and blue from where their own rays land
+            const o4 = i * 4, kx = H / W;
+            const rx = sx + B.od![o4] * kx, ry = sy - B.od![o4 + 1], bx = sx + B.od![o4 + 2] * kx, by = sy - B.od![o4 + 3];
+            if (grid) { cr = grid[gridIdx(rx, ry, f) * 3] / 255; cb = grid[gridIdx(bx, by, f) * 3 + 2] / 255; }
+            else {
+              ACC[0] = ACC[1] = ACC[2] = 0;
+              mediaTap(media, clamp(rx - csx, 0, 1), clamp(ry - csy, 0, 1)); mediaTap(media, clamp(rx + csx, 0, 1), clamp(ry - csy, 0, 1));
+              mediaTap(media, clamp(rx - csx, 0, 1), clamp(ry + csy, 0, 1)); mediaTap(media, clamp(rx + csx, 0, 1), clamp(ry + csy, 0, 1));
+              cr = ACC[0] * 0.25;
+              ACC[0] = ACC[1] = ACC[2] = 0;
+              mediaTap(media, clamp(bx - csx, 0, 1), clamp(by - csy, 0, 1)); mediaTap(media, clamp(bx + csx, 0, 1), clamp(by - csy, 0, 1));
+              mediaTap(media, clamp(bx - csx, 0, 1), clamp(by + csy, 0, 1)); mediaTap(media, clamp(bx + csx, 0, 1), clamp(by + csy, 0, 1));
+              cb = ACC[2] * 0.25;
+            }
+          }
           const ml = cr * 0.299 + cg * 0.587 + cb * 0.114;
           l = f.mediaMix > 0 ? blendf(ml, pv, f.mediaBlend, f.mediaMix) : ml;
           if (srcColour) { const o = i * 3, c0 = B.c0!, k = f.mediaMix; cr += (fc(c0, B.c1, o, w, loop) - cr) * k; cg += (fc(c0, B.c1, o + 1, w, loop) - cg) * k; cb += (fc(c0, B.c1, o + 2, w, loop) - cb) * k; }
         } else if (text) {
-          const tm = grid
+          let tm = grid
             ? (grid[gi] * 0.299 + grid[gi + 1] * 0.587 + grid[gi + 2] * 0.114) / 255
             : (sampleRed(text, sx - csx, sy - csy) + sampleRed(text, sx + csx, sy - csy)
               + sampleRed(text, sx - csx, sy + csy) + sampleRed(text, sx + csx, sy + csy)) * 0.25;
+          if (solid) {
+            c3r = c3g = c3b = tm;
+            if (dispHere) {
+              // the red and the blue rays read the letters where they land
+              const o4 = i * 4, kx = H / W;
+              const rx = sx + B.od![o4] * kx, ry = sy - B.od![o4 + 1], bx = sx + B.od![o4 + 2] * kx, by = sy - B.od![o4 + 3];
+              if (grid) {
+                const a = gridIdx(rx, ry, f) * 3, b = gridIdx(bx, by, f) * 3;
+                c3r = (grid[a] * 0.299 + grid[a + 1] * 0.587 + grid[a + 2] * 0.114) / 255;
+                c3b = (grid[b] * 0.299 + grid[b + 1] * 0.587 + grid[b + 2] * 0.114) / 255;
+              } else {
+                c3r = (sampleRed(text, rx - csx, ry - csy) + sampleRed(text, rx + csx, ry - csy) + sampleRed(text, rx - csx, ry + csy) + sampleRed(text, rx + csx, ry + csy)) * 0.25;
+                c3b = (sampleRed(text, bx - csx, by - csy) + sampleRed(text, bx + csx, by - csy) + sampleRed(text, bx - csx, by + csy) + sampleRed(text, bx + csx, by + csy)) * 0.25;
+              }
+              tm = c3r * 0.299 + c3g * 0.587 + c3b * 0.114;
+            }
+          }
           l = f.mediaMix > 0 ? blendf(tm, pv, f.mediaBlend, f.mediaMix) : tm;
           if (f.morph > 0) l = hash12(col * 1.37, row * 1.37) < morphK ? pv : l;
           if (srcColour) { const o = i * 3, c0 = B.c0!; cr = fc(c0, B.c1, o, w, loop); cg = fc(c0, B.c1, o + 1, w, loop); cb = fc(c0, B.c1, o + 2, w, loop); }
@@ -396,6 +473,32 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
       } else if (im === 2 && sim) l += sim.h[i] * 0.3 * str;
       else if (im === 6 && sim) l *= 1 - clamp(sim.tr[i], 0, 1);
       else if (im === 7 && sim) l += sim.tr[i] * 0.85;
+      if (solid) {
+        // a glass solid: tint by the path inside, body by its opacity, the dispersion's colour (as the shader)
+        const mode = f.opCol ?? 0;
+        if (mode === 2) { cr = cg = cb = 128 / 255; }
+        if (inSolid) {
+          const st = solid.t, path = B.ox![i * 4 + 1] * 0.8, lit = B.ox![i * 4 + 2], fres = B.ox![i * 4 + 3];
+          const Tr = gpow(Math.max(st[0], 0.02), path), Tg = gpow(Math.max(st[1], 0.02), path), Tb = gpow(Math.max(st[2], 0.02), path);
+          const tlum = Math.max(Tr * 0.299 + Tg * 0.587 + Tb * 0.114, 0.02);
+          const owr = st[0] * lit, owg = st[1] * lit, owb = st[2] * lit, a = st[3];
+          // what gets through: less where Fresnel reflects more (the rim), and tinted
+          const lt = l * tlum * (1 - 0.85 * fres);
+          l = lt + ((owr * 0.299 + owg * 0.587 + owb * 0.114) - lt) * a;
+          const ml = c3r * 0.299 + c3g * 0.587 + c3b * 0.114 + 0.02;
+          const dr = f.src === 'media' ? 1 : (c3r + 0.02) / ml, dg = f.src === 'media' ? 1 : (c3g + 0.02) / ml, db = f.src === 'media' ? 1 : (c3b + 0.02) / ml;
+          if (mode === 2) {
+            const tl2 = Math.max(st[0] * 0.299 + st[1] * 0.587 + st[2] * 0.114, 0.02);
+            const kr = dr * Tr / tlum, kg = dg * Tg / tlum, kb = db * Tb / tlum;
+            cr = clamp((kr + (st[0] / tl2 - kr) * a) * (128 / 255), 0, 1);
+            cg = clamp((kg + (st[1] / tl2 - kg) * a) * (128 / 255), 0, 1);
+            cb = clamp((kb + (st[2] / tl2 - kb) * a) * (128 / 255), 0, 1);
+          } else if (mode === 1) {
+            const kr = cr * dr * Tr, kg = cg * dg * Tg, kb = cb * db * Tb;
+            cr = kr + (owr - kr) * a; cg = kg + (owg - kg) * a; cb = kb + (owb - kb) * a;
+          }
+        }
+      }
       if (glass) { l = l + (l * 0.55 + 0.06 - l) * B.ow![i]; l += glass.b[2] * B.oz![i] * 0.6; }
       l += f.pulse * 0.22;
       l = l > 0 ? (l < 1 ? l : 1) : 0;
@@ -449,6 +552,28 @@ function runXforms(f: FieldFrame, X: NonNullable<FieldFrame['xform']>, media: Me
     const t = cur; cur = other; other = t;
   }
   return cur;
+}
+
+/** The cell of the transformations' grid a screen point (0..1) falls in (the shader's clamped texelFetch). */
+function gridIdx(sx: number, sy: number, f: FieldFrame) {
+  let gx = Math.floor((sx * f.W) / f.cw), gy = Math.floor((sy * f.H) / f.ch);
+  gx = gx < 0 ? 0 : gx >= f.cols ? f.cols - 1 : gx; gy = gy < 0 ? 0 : gy >= f.rows ? f.rows - 1 : gy;
+  return gy * f.cols + gx;
+}
+
+/**
+ * The red and blue rays of a glass solid's dispersion read the layers where they land (the shader's
+ * stack(q + OPD.xy) and stack(q + OPD.zw)): the stack at time t with the sample points moved, only in the
+ * cells inside the solid (q is moved and put back around each channel).
+ */
+function channelStacks(f: FieldFrame, B: FieldBuffers, t: number, outR: Float64Array, outB: Float64Array) {
+  const n = f.cols * f.rows, od = B.od!, only = B.inGlass!;
+  const qx0 = Float64Array.from(B.qx), qy0 = Float64Array.from(B.qy);
+  for (const [k, out] of [[0, outR], [2, outB]] as const) {
+    for (let i = 0; i < n; i++) if (only[i]) { B.qx[i] = qx0[i] + od[i * 4 + k]; B.qy[i] = qy0[i] + od[i * 4 + k + 1]; }
+    stack(f, B, t, out, null, only);
+    B.qx.set(qx0); B.qy.set(qy0);
+  }
 }
 
 /** A family colour channel of the stack, crossfaded like the shader's SC when looping. */

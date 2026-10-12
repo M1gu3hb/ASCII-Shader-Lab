@@ -12,7 +12,7 @@
  *    the host said the canvas never scrolls (wheelZoom): a page with the piece in it keeps its wheel.
  */
 import type { InteractMode, Recipe } from './recipe';
-import { TouchField, eraseRate, isTouchMode, paintRate, wander, type PointerType, type TouchKind } from './touch';
+import { TouchField, eraseRate, hashU, isTouchMode, paintRate, wander, type PointerType, type TouchKind } from './touch';
 
 /** The modes run by the pointer simulation of the engines (ripples and trails on the GPU / in sim.ts). */
 export const SIM_MODES: readonly InteractMode[] = ['ripple', 'erase', 'paint'];
@@ -21,13 +21,69 @@ export const SIM_MODES: readonly InteractMode[] = ['ripple', 'erase', 'paint'];
 export const legacyGhost = (realT: number) => wander(realT * 0.35);
 
 /**
+ * «Pincel caligráfico» (recipe.interact.stroke 'caligrafia'; closing of PR #10, row I-20): Pincel with an ink
+ * brush, written from the published description of the effect. Its width follows the stroke's speed (slow:
+ * wide, fast: thin, and dry above a speed: the brush's hairs leave gaps), its ink bleeds into the paper
+ * (interact.bleed) and its ghost writes strokes, lifting the brush between them.
+ */
+export const isCalligraphy = (it: Recipe['interact']) => it.mode === 'paint' && it.stroke === 'caligrafia';
+/** Ink on paper stays: the calligraphic trail fades at this share of Pincel's rate (SIM_FS, basic/sim.ts). */
+export const INK_DRY = 0.4;
+
+/** The brush's width (× its radius) at a speed v in screen heights per second: 1.35 still, 0.3 at full speed. */
+export function brushWidth(v: number): number {
+  let t = (v - 0.1) / 1.5;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return 1.35 - 1.05 * t * t * (3 - 2 * t);
+}
+/** How dry the brush runs at a speed v (0..1): its hairs leave gaps across the stroke. */
+export function brushDry(v: number): number {
+  let t = (v - 0.8) / 1.4;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return t * t * (3 - 2 * t);
+}
+
+/** Where a calligraphic stroke starts and ends (fractions of the canvas, away from the edges). */
+function strokeOf(k: number): [number, number, number, number, number, number, number, number] {
+  const ax = 0.14 + 0.72 * hashU(k, 41), ay = 0.16 + 0.68 * hashU(k, 43);
+  // writing-like: mostly across or slanting down, now and then a downstroke
+  const ang = hashU(k, 47) < 0.7 ? -0.35 + 0.9 * (hashU(k, 53) - 0.5) : Math.PI / 2 + 0.6 * (hashU(k, 59) - 0.5);
+  const len = 0.26 + 0.26 * hashU(k, 61), dir = hashU(k, 67) < 0.5 ? 1 : -1;
+  const bx = Math.min(0.9, Math.max(0.1, ax + dir * Math.cos(ang) * len)), by = Math.min(0.88, Math.max(0.12, ay + Math.sin(ang) * len));
+  // the curve bends to one side, sometimes into an S
+  const nx = -(by - ay), ny = bx - ax, bend = 0.25 + 0.5 * hashU(k, 71), s = hashU(k, 73) < 0.35 ? -0.8 : 1;
+  return [ax, ay, ax + (bx - ax) / 3 + nx * bend, ay + (by - ay) / 3 + ny * bend, ax + (2 * (bx - ax)) / 3 + nx * bend * s, ay + (2 * (by - ay)) / 3 + ny * bend * s, bx, by];
+}
+
+/**
+ * The calligraphic ghost at real time s (seconds): strokes of 1.15 s that start and end slowly and run fast in
+ * between (wide at their ends, thin in the middle), the brush lifted 0.45 s between them while it moves on
+ * to the next. Fractions of the canvas, and whether the brush touches the paper.
+ */
+export function brushGhost(s: number): { x: number; y: number; down: boolean } {
+  const D = 1.15, G = 0.45, P = D + G;
+  const k = Math.floor(s / P), u = s - k * P;
+  const [ax, ay, c1x, c1y, c2x, c2y, bx, by] = strokeOf(k);
+  if (u < D) {
+    const t0 = u / D, e = t0 * t0 * (3 - 2 * t0), m = 1 - e;
+    // a cubic Bézier through the stroke's controls
+    const x = m * m * m * ax + 3 * m * m * e * c1x + 3 * m * e * e * c2x + e * e * e * bx;
+    const y = m * m * m * ay + 3 * m * m * e * c1y + 3 * m * e * e * c2y + e * e * e * by;
+    return { x, y, down: true };
+  }
+  const [nx, ny] = strokeOf(k + 1);
+  const t1 = (u - D) / G, e = t1 * t1 * (3 - 2 * t1);
+  return { x: bx + (nx - bx) * e, y: by + (ny - by) * e, down: false };
+}
+
+/**
  * Seconds the pointer simulation keeps changing after its last input: the ripples fade under one level
  * in 255 after 6 s (×0.985 per step), Pincel's trail after 5.6 time constants, Borrador's after its ramp.
  */
 export function simSettle(it: Recipe['interact']): number {
   const d = it.decay ?? 0.5;
   if (it.mode === 'ripple') return 6;
-  if (it.mode === 'paint') return 5.6 / paintRate(d) + 0.2;
+  if (it.mode === 'paint') return 5.6 / (paintRate(d) * (it.stroke === 'caligrafia' ? INK_DRY : 1)) + 0.2;
   if (it.mode === 'erase') return 1 / eraseRate(d) + 0.2;
   return 0;
 }

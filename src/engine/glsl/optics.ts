@@ -95,3 +95,147 @@ vec4 optics(vec2 p, float t){
   return uOpA.x < 1.5 ? opRain(p, t) : opFluted(p, t);
 }
 `;
+
+/**
+ * The glass solids (recipe.optics kind 'esfera' or 'poliedro'; closing of PR #10, rows I-36…I-43), written
+ * from the physics (Snell's law, Schlick's Fresnel term, Beer–Lambert's tint), no code taken from elsewhere.
+ * Ported line by line to ../basic/optics.ts. Units: the solid's radius, the view looking down −z, the piece
+ * behind on the plane z = −2.7.
+ *
+ *   uOpC = (centre x, y in screen heights, radius, 0 sphere / 1 polyhedron)
+ *   uOpD = (index of refraction, thickness: the z scale, dispersion, number of planes)
+ *   uOpT = (tint rgb, opacity of the tinted body)        uOpN[i] = the polyhedron's planes (normal, distance)
+ *
+ * A ray from the cell enters the solid (refracted by the normal where it enters), crosses it, bounces inside
+ * while it cannot leave (total internal reflection, up to three times), leaves refracted again and lands on
+ * the piece behind: optics() returns where that is (xy, screen heights, as the other kinds), z = the light the
+ * glass reflects (Fresnel on the way in, a window up and to the left, a glint where two facets meet), w = 0
+ * inside; outside, w = its soft shadow on the piece (the light comes from up and to the left).
+ * Besides, OPX = (1 inside the solid, the path inside it, its lit body 0.35..1, the share Fresnel reflects: what
+ * gets through is darker by it) and, with a dispersion, OPD =
+ * where the red and the blue rays land, relative to the green one (each channel has its own index).
+ */
+export const GLSL_OPTICS_SOLID = /* glsl */ `
+uniform vec4 uOpA;
+uniform vec4 uOpB;
+uniform vec4 uOpC;
+uniform vec4 uOpD;
+uniform vec4 uOpT;
+uniform vec4 uOpN[20];
+// 1: the cell keeps its own colour (the photo, a colour family); 2: the palette's, times a factor (programs.ts)
+uniform float uOpCol;
+vec4 OPD;
+vec4 OPX;
+// what the glass reflects: a dim room, brighter above, and a bright window up and to the left
+float opEnv(vec3 rf){
+  vec3 L = normalize(vec3(-.48, .62, .62));
+  return .3 + .45 * max(rf.y, 0.) + 12. * pow(max(dot(rf, L), 0.), 40.);
+}
+vec3 opSphereN(vec3 P){ return normalize(vec3(P.xy, P.z / (uOpD.y * uOpD.y))); }
+// how far a ray inside the ball goes before it reaches the surface again
+float opSphereExit(vec3 P, vec3 r){
+  float s2 = uOpD.y * uOpD.y;
+  float A = r.x * r.x + r.y * r.y + r.z * r.z / s2;
+  float B = 2. * (P.x * r.x + P.y * r.y + P.z * r.z / s2);
+  return max(-B / A, 0.);
+}
+// how far a ray inside the polyhedron goes before it reaches a face, and that face's normal
+float opPolyExit(vec3 P, vec3 r, out vec3 n){
+  float te = 1e4;
+  n = vec3(0., 0., -1.);
+  for (int i = 0; i < 20; i++){
+    if (float(i) >= uOpD.w) break;
+    vec4 pl = uOpN[i];
+    float den = dot(pl.xyz, r);
+    if (den > 1e-5){
+      float tt = (pl.w - dot(pl.xyz, P)) / den;
+      if (tt < te){ te = tt; n = pl.xyz; }
+    }
+  }
+  return max(te, 0.);
+}
+// one ray at index eta, entering at P through a surface of normal n1: where it lands behind (xy), its path inside (z)
+vec3 opTrace(vec3 P, vec3 n1, float eta){
+  vec3 r = refract(vec3(0., 0., -1.), n1, 1. / eta);
+  float path = 0.;
+  for (int k = 0; k < 3; k++){
+    vec3 n2;
+    float te;
+    if (uOpC.w > .5) te = opPolyExit(P, r, n2);
+    else { te = opSphereExit(P, r); n2 = opSphereN(P + r * te); }
+    P += r * te;
+    path += te;
+    vec3 o2 = refract(r, -n2, eta);
+    if (dot(o2, o2) > 0.){ r = o2; break; }
+    // it cannot leave here: it bounces back inside
+    r = reflect(r, n2);
+  }
+  float rz = min(r.z, -.08);
+  return vec3(P.xy + r.xy * ((-2.7 - P.z) / rz), path);
+}
+// outside the solid: its soft shadow on the piece behind it, down and to the right
+vec4 opShadow(vec2 d){
+  float rs = uOpC.w > .5 ? .85 : 1.;
+  float sh = 1. - smoothstep(.6 * rs, 1.15 * rs, length(d - vec2(.42, -.5) * rs));
+  return vec4(0., 0., 0., sh * .7 * uOpB.z);
+}
+vec4 opSolid(vec2 p){
+  OPD = vec4(0.);
+  OPX = vec4(0.);
+  float R = uOpC.z;
+  vec2 d = (p - uOpC.xy) / R;
+  vec3 P, n1;
+  float edge = 0., rim;
+  if (uOpC.w > .5){
+    // the polyhedron: the ray (d, 3) going down −z enters through the face it crosses last
+    vec3 o = vec3(d, 3.);
+    float tin = -1e4, tin2 = -1e4, tout = 1e4;
+    vec3 nin = vec3(0., 0., 1.);
+    for (int i = 0; i < 20; i++){
+      if (float(i) >= uOpD.w) break;
+      vec4 pl = uOpN[i];
+      float den = -pl.z, num = pl.w - dot(pl.xyz, o);
+      if (abs(den) < 1e-5){ if (num < 0.) return opShadow(d); continue; }
+      float tt = num / den;
+      if (den < 0.){
+        if (tt > tin){ tin2 = tin; tin = tt; nin = pl.xyz; }
+        else if (tt > tin2) tin2 = tt;
+      } else tout = min(tout, tt);
+    }
+    if (tin >= tout) return opShadow(d);
+    P = vec3(d, 3. - tin);
+    n1 = nin;
+    // where two faces meet: a glint
+    edge = 1. - smoothstep(0., .08, tin - tin2);
+    // near the silhouette, where the path inside is short
+    rim = 1. - smoothstep(.05, .35, tout - tin);
+  } else {
+    float k = dot(d, d);
+    if (k >= 1.) return opShadow(d);
+    P = vec3(d, uOpD.y * sqrt(1. - k));
+    n1 = opSphereN(P);
+    rim = smoothstep(.8, 1., sqrt(k));
+  }
+  float eta = uOpD.x;
+  vec3 g = opTrace(P, n1, eta);
+  float k = R * uOpA.y;
+  if (uOpD.z > 0.){
+    // dispersion: red bends less, blue more
+    float dn = .06 * uOpD.z;
+    vec3 rr = opTrace(P, n1, eta * (1. - dn)), bb = opTrace(P, n1, eta * (1. + dn));
+    OPD = vec4((rr.xy - g.xy) * k, (bb.xy - g.xy) * k);
+  }
+  // Fresnel (Schlick) where the ray comes in, with what the glass reflects there
+  float f0 = (eta - 1.) / (eta + 1.);
+  f0 *= f0;
+  float fres = f0 + (1. - f0) * pow(1. - max(n1.z, 0.), 5.);
+  vec3 rf = reflect(vec3(0., 0., -1.), n1);
+  // the rim: more reflected, less let through
+  float refl = min(1., fres + .4 * rim);
+  OPX = vec4(1., g.z, .35 + .65 * max(dot(n1, normalize(vec3(-.48, .62, .62))), 0.), refl);
+  return vec4((g.xy - d) * k, refl * opEnv(rf) * 1.8 + edge * .7, 0.);
+}
+vec4 optics(vec2 p, float t){
+  return opSolid(p);
+}
+`;

@@ -29,6 +29,7 @@ import {
 } from './ui/options';
 import { XformTab } from './ui/Xforms';
 import { TouchControls } from './ui/Touch';
+import { BloomShapeControl, GrainKindControls } from './ui/FxShape';
 import { RampEditor } from './ui/RampEditor';
 import { FamilyControls } from './ui/FamilyControls';
 import { GlassControls } from './ui/Glass';
@@ -365,6 +366,7 @@ function FxTab() {
       <Slider f={F('fx.glow')} label="Resplandor en la celda" min={0} max={1.5} />
       <Slider f={F('fx.bloom')} label="Halo de luz (bloom)" min={0} max={1.5}
         compare={<CompareStrip path="fx.bloom" choices={BLOOM} fmt={v => v.toFixed(1)} zoom={0.7} label="Halos de luz" />} />
+      <BloomShapeControl />
       <Slider f={F('fx.cellBg')} label="Relleno de celda" min={0} max={1} />
       <Sub>Pantalla</Sub>
       <Slider f={F('fx.scan')} label="Líneas de monitor" min={0} max={1} />
@@ -373,6 +375,7 @@ function FxTab() {
       <Slider f={F('fx.chroma')} label="Separación de color" min={0} max={1} />
       <Slider f={F('fx.flicker')} label="Parpadeo" min={0} max={1} />
       <Slider f={F('fx.grain')} label="Grano" min={0} max={1} />
+      <GrainKindControls />
       <Slider f={F('fx.grid')} label="Rejilla de celdas" min={0} max={1} />
       <BasicFxHint />
     </>

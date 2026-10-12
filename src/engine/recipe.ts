@@ -26,6 +26,8 @@ export type InteractMode = 'none' | 'light' | 'ripple' | 'lens' | 'repel' | 'swi
   | 'trail' | 'blossom' | 'rings' | 'sparks' | 'stretch' | 'reveal' | 'zoom' | 'magnet' | 'follow';
 /** Which characters a touch leaves (Rastro, Florecer, Anillos, Chispas): dense ones, random ones, or the piece's own. */
 export type TouchGlyphs = 'dense' | 'random' | 'piece';
+/** Pincel's stroke (interact.stroke): the calligraphic ink brush. */
+export type BrushStroke = 'caligrafia';
 export type MsgMode = 'static' | 'type' | 'decode' | 'marquee' | 'words';
 
 /**
@@ -144,6 +146,14 @@ export interface Recipe {
     ink?: number;
     /** Which characters a touch leaves (absent: 'dense'). */
     glyphs?: TouchGlyphs;
+    /**
+     * Pincel's stroke (I-20): absent, the round brush it always was; 'caligrafia', an ink brush whose width
+     * follows the stroke's speed (slow: wide, fast: thin and dry) and whose ghost writes strokes and lifts
+     * the brush between them. Absent until someone sets it: older recipes stay as they were.
+     */
+    stroke?: BrushStroke;
+    /** How far the ink bleeds into the paper along its fibres, 0..1 (absent: 0.5; only with stroke 'caligrafia'). */
+    bleed?: number;
   };
   glyph: {
     cell: number;      // css px
@@ -201,6 +211,11 @@ export interface Recipe {
   };
   /** Glass in front of the piece (absent: none; recipes without it stay as they were). See Optics. */
   optics?: Optics;
+  /**
+   * The shape of two effects of `fx` (absent: the round halo and the film grain they always were). Kept apart
+   * from `fx`, whose keys are all numbers that other code walks through. See FxKind.
+   */
+  fxKind?: FxKind;
   msg: {
     on: boolean;
     text: string;
@@ -342,7 +357,7 @@ export function normXforms(v: unknown): Xform[] {
 }
 
 /**
- * Validates the pointer settings. The optional keys (decay, ink, glyphs) come out only when given, after
+ * Validates the pointer settings. The optional keys (decay, ink, glyphs, stroke, bleed) come out only when given, after
  * the four that are always there and always in this order: an edited recipe and its normalised copy
  * compare equal (the studio writes them through this too).
  */
@@ -357,6 +372,8 @@ export function normInteract(v: unknown): Recipe['interact'] {
     ...(given(it.decay) ? { decay: num(it.decay, 0.5, 0, 1) } : {}),
     ...(given(it.ink) ? { ink: num(it.ink, 0.6, 0, 1) } : {}),
     ...((TOUCH_GLYPHS as string[]).includes(it.glyphs as string) ? { glyphs: it.glyphs as TouchGlyphs } : {}),
+    ...(it.stroke === 'caligrafia' ? { stroke: 'caligrafia' as const } : {}),
+    ...(given(it.bleed) ? { bleed: num(it.bleed, 0.5, 0, 1) } : {}),
   };
 }
 
@@ -405,25 +422,51 @@ export function normLayer(v: unknown, knownPatterns: Set<string> = PATTERN_IDS, 
  * Glass in front of the piece (PR #10 review: V-06 «Lluvia sobre vidrio», V-10 «Vidrio acanalado»): before
  * the grid is formed, every cell reads the source from where the glass moves it (engine/glsl/optics.ts).
  * Works on patterns, pictures and text alike.
+ *
+ * The glass solids (closing of PR #10, rows I-36…I-43): a sphere or a polyhedron of glass in front of the
+ * piece. A ray from each cell is refracted into the solid by its surface's normal and the index of
+ * refraction, crosses it (bouncing inside when it cannot leave), comes out refracted again and lands on the
+ * piece behind: the cell shows what is there, upside down through a ball, sliced by facets through a gem.
+ * Fresnel reflection lights the rim; a dispersion gives each colour channel its own index (a rainbow at the
+ * edges); a tint darkens with the path inside the glass and an opacity lets its own body show.
  */
-export type OpticsKind = 'lluvia' | 'acanalado';
-export const OPTICS_KINDS: OpticsKind[] = ['lluvia', 'acanalado'];
+export type OpticsKind = 'lluvia' | 'acanalado' | 'esfera' | 'poliedro';
+export const OPTICS_KINDS: OpticsKind[] = ['lluvia', 'acanalado', 'esfera', 'poliedro'];
+/** The glass solids among the kinds (they have a position, an index of refraction, a thickness…). */
+export const SOLID_KINDS: OpticsKind[] = ['esfera', 'poliedro'];
+export const isSolidGlass = (o: Optics | undefined | null): boolean => !!o && (o.kind === 'esfera' || o.kind === 'poliedro');
+/** The polyhedra of «poliedro» (Optics.profile): a triangular prism, a cube, an octahedron, a dodecahedron, an icosahedron. */
+export const POLY_SHAPES = ['prisma', 'cubo', 'octaedro', 'dodecaedro', 'icosaedro'] as const;
 export interface Optics {
   kind: OpticsKind;
   /** How strongly it refracts (0..1). */
   amount: number;
-  /** Size of the drops or flutes (0.4..3). */
+  /** Size of the drops or flutes (0.4..3); of a solid: its radius (0.3 × scale screen heights). */
   scale: number;
-  /** How fast the drops slide or the glass moves (0..2). */
+  /** How fast the drops slide or the glass moves (0..2); a sphere drifts, a polyhedron turns. */
   speed: number;
-  /** Slant of the rain or direction of the flutes (degrees, −90..90). */
+  /** Slant of the rain or direction of the flutes (degrees, −90..90); the tilt of a polyhedron's axis. */
   angle: number;
-  /** Rain: how many small drops (0..1). Fluted: the flute's shape (0 prism, 1 lens, 2 contour, 3 cascade, 4 waves). */
+  /**
+   * Rain: how many small drops (0..1). Fluted: the flute's shape (0 prism, 1 lens, 2 contour, 3 cascade,
+   * 4 waves). Polyhedron: which one (POLY_SHAPES). Sphere: 0.
+   */
   profile: number;
-  /** Light on the glass: highlights and shadows of the drops or flutes (0..1). */
+  /** Light on the glass: highlights and shadows of the drops or flutes, a solid's Fresnel reflection (0..1). */
   shine: number;
-  /** Rain: fogged glass that dims what is behind outside the drops (0..1). */
+  /** Rain: fogged glass that dims what is behind outside the drops (0..1). A solid: how opaque its tinted body is. */
   fog: number;
+  /** Solids only: centre (screen heights from the middle, x −1.2..1.2, y −0.6..0.6). */
+  x?: number;
+  y?: number;
+  /** Solids only: index of refraction (1.05..2.4). */
+  ior?: number;
+  /** Solids only: thickness along the view, 0.15 (a thin lens) .. 1 (a whole ball or gem). */
+  thick?: number;
+  /** Solids only: dispersion, how much the index differs per colour channel (0..1). */
+  disp?: number;
+  /** Solids only: the glass's tint (white: clear glass). */
+  tint?: string;
 }
 
 export function normOptics(v: unknown): Optics | undefined {
@@ -431,21 +474,81 @@ export function normOptics(v: unknown): Optics | undefined {
   const o = v as Record<string, unknown>;
   if (!(OPTICS_KINDS as string[]).includes(o.kind as string)) return undefined;
   const kind = o.kind as OpticsKind;
+  const solid = kind === 'esfera' || kind === 'poliedro';
   return {
     kind,
-    amount: num(o.amount, 0.6, 0, 1),
+    amount: num(o.amount, solid ? 1 : 0.6, 0, 1),
     scale: num(o.scale, 1, 0.4, 3),
-    speed: num(o.speed, 0.6, 0, 2),
+    speed: num(o.speed, solid ? 0.5 : 0.6, 0, 2),
     angle: num(o.angle, kind === 'lluvia' ? 0 : 0, -90, 90),
-    profile: kind === 'acanalado' ? Math.round(num(o.profile, 1, 0, 4)) : num(o.profile, 0.5, 0, 1),
+    profile: kind === 'acanalado' ? Math.round(num(o.profile, 1, 0, 4))
+      : kind === 'poliedro' ? Math.round(num(o.profile, 4, 0, POLY_SHAPES.length - 1))
+        : kind === 'esfera' ? 0 : num(o.profile, 0.5, 0, 1),
     shine: num(o.shine, 0.5, 0, 1),
     fog: num(o.fog, kind === 'lluvia' ? 0.6 : 0, 0, 1),
+    // (solids only, after the eight every kind has: rain and fluted glass stay exactly what they were)
+    ...(solid ? {
+      x: num(o.x, 0, -1.2, 1.2),
+      y: num(o.y, 0, -0.6, 0.6),
+      ior: num(o.ior, 1.5, 1.05, 2.4),
+      thick: num(o.thick, 1, 0.15, 1),
+      disp: num(o.disp, 0, 0, 1),
+      tint: normHex(o.tint, '#ffffff'),
+    } : {}),
   };
 }
 
-/** Whether a recipe needs the v3 format (it uses a visual family, a glyph set or glass in front). */
-export function needsV3(r: Pick<Recipe, 'layers'> & { glyph?: Pick<Recipe['glyph'], 'set'>; optics?: Optics }): boolean {
-  return r.layers.some(l => !!l.fam && isFamily(l.pattern)) || !!r.glyph?.set || !!r.optics;
+/**
+ * The shape of two effects (recipe.fxKind; closing of PR #10, rows I-22 and I-27). Each key is absent until
+ * chosen: older recipes keep the round halo and the moving film grain.
+ *  - bloom 'anamorfico': the halo of fx.bloom becomes an anamorphic flare: a long horizontal streak from
+ *    each light, a bokeh ring around it, and its red and blue pulled apart sideways.
+ *  - grain 'papel': fx.grain becomes a still sheet of paper: fine grain, fibres and, with `fold`, creases.
+ */
+export type BloomShape = 'anamorfico';
+export type GrainKind = 'papel';
+/** The paper's folds: in four, a letter folded in three, the two diagonals, or crumpled. */
+export type FoldKind = 'cuartos' | 'carta' | 'diagonal' | 'arrugado';
+export const FOLD_KINDS: FoldKind[] = ['cuartos', 'carta', 'diagonal', 'arrugado'];
+/** A fold's number in the paper's shader (glsl/programs.ts PAPER_FS, basic/compose.ts paperField): 0 none. */
+export const foldIndex = (f: FoldKind | undefined) => (f ? FOLD_KINDS.indexOf(f) + 1 : 0);
+export interface FxKind {
+  bloom?: BloomShape;
+  grain?: GrainKind;
+  /** Only with grain 'papel'. */
+  fold?: FoldKind;
+}
+
+/** Validates fxKind: only the keys it knows, in a fixed order; undefined when none is left. */
+export function normFxKind(v: unknown): FxKind | undefined {
+  const o = obj(v);
+  const paper = o.grain === 'papel';
+  const k: FxKind = {
+    ...(o.bloom === 'anamorfico' ? { bloom: 'anamorfico' as const } : {}),
+    ...(paper ? { grain: 'papel' as const } : {}),
+    ...(paper && (FOLD_KINDS as string[]).includes(o.fold as string) ? { fold: o.fold as FoldKind } : {}),
+  };
+  return Object.keys(k).length ? k : undefined;
+}
+
+/**
+ * The optional keys at the end of a recipe (optics, fxKind) in their one order, as normalizeRecipe writes
+ * them: an edit that adds one after the other keeps an edited recipe and its normalised copy equal.
+ */
+export function tidyTail(r: Recipe): Recipe {
+  const { optics, fxKind } = r;
+  delete r.optics; delete r.fxKind;
+  if (optics) r.optics = optics;
+  if (fxKind) r.fxKind = fxKind;
+  return r;
+}
+
+/**
+ * Whether a recipe needs the v3 format (it uses a visual family, a glyph set, glass in front, the shape of
+ * an effect or the calligraphic brush: a v2 studio would draw something else without saying so).
+ */
+export function needsV3(r: Pick<Recipe, 'layers'> & { glyph?: Pick<Recipe['glyph'], 'set'>; optics?: Optics; fxKind?: FxKind; interact?: { stroke?: BrushStroke } }): boolean {
+  return r.layers.some(l => !!l.fam && isFamily(l.pattern)) || !!r.glyph?.set || !!r.optics || !!r.fxKind || !!r.interact?.stroke;
 }
 
 /** Sets a recipe's format to what it uses (an edit that adds or removes a family changes it). */
@@ -470,8 +573,10 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
   const xform = normXforms(me.xform);
   const textAnim = normAnim(tx.anim, TEXT_ANIMS), msgAnim = normAnim(ms.anim, MSG_ANIMS);
   const optics = normOptics(o.optics);
+  const fxKind = normFxKind(o.fxKind);
+  const interact = normInteract(it);
   const r: Recipe = {
-    v: needsV3({ layers, glyph: { set: typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set) ? g.set : undefined }, optics }) ? 3 : 2,
+    v: needsV3({ layers, glyph: { set: typeof g.set === 'string' && /^[0-9a-f]{16}$/.test(g.set) ? g.set : undefined }, optics, fxKind, interact }) ? 3 : 2,
     source: oneOf(o.source, SOURCES, d.source),
     layers,
     motion: {
@@ -509,7 +614,7 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
       morph: num(tx.morph, 0, 0, 60),
       ...(textAnim ? { anim: textAnim } : {}),
     },
-    interact: normInteract(it),
+    interact,
     glyph: {
       cell: num(g.cell, d.glyph.cell, 3, 96),
       aspect: num(g.aspect, d.glyph.aspect, 0.5, 3),
@@ -574,8 +679,9 @@ export function normalizeRecipe(input: unknown, knownPatterns: Set<string> = PAT
       space: typeof meta.space === 'string' ? meta.space.slice(0, 40) : undefined,
       gen: typeof meta.gen === 'number' ? meta.gen : undefined,
     },
-    // (last, where an edit appends it: an edited recipe and its normalised copy keep one key order)
+    // (last, where an edit appends it: an edited recipe and its normalised copy keep one key order; see tidyTail)
     ...(optics ? { optics } : {}),
+    ...(fxKind ? { fxKind } : {}),
   };
   return r;
 }

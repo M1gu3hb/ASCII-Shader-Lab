@@ -119,9 +119,12 @@ const BY_FAMILY: Record<PatternFamily, string> = {
 export function sectionOf(space: SceneSpace, id: string, r: Recipe): string {
   const named = SECTION_OF[`${space}/${id}`];
   if (named) return named;
-  if (space === 'media') return r.media.xform?.some(x => x.on) || r.optics ? 'efectos' : 'clasicas';
+  // (a transformation, glass in front or the shape of an effect: the anamorphic flare, the paper)
+  if (space === 'media') return r.media.xform?.some(x => x.on) || r.optics || r.fxKind ? 'efectos' : 'clasicas';
   // glass in front of a background (recipe.optics): rain on the window, fluted glass
   if (space === 'fondos' && r.optics) return 'materia';
+  // a sphere or a polyhedron of glass is a figure in the middle, whatever it refracts
+  if (space === 'arte' && (r.optics?.kind === 'esfera' || r.optics?.kind === 'poliedro')) return 'figuras';
   if (space === 'tipo') {
     if (r.source === 'text' && r.text.anim) return 'letras';
     if (r.msg.on) return 'mensajes';
@@ -206,6 +209,12 @@ function wordsOf(space: SceneSpace, r: Recipe, cats: string[], extra: string[]):
   if (cs) parts.push(cs.name);
   if (r.text.anim) parts.push(r.text.anim.kind);
   if (r.msg.on) parts.push('mensaje');
+  // what a recipe does besides its layers, in the words people look for it with: glass in front (a solid of
+  // glass: lens, refraction, rainbow), the anamorphic halo, the paper, the ink brush
+  if (r.optics) parts.push('vidrio cristal', r.optics.kind, r.optics.kind === 'esfera' || r.optics.kind === 'poliedro' ? 'lente refraccion dispersion arcoiris solido' : '');
+  if (r.fxKind?.bloom) parts.push('destello anamorfico lente cine halo');
+  if (r.fxKind?.grain) parts.push('papel hoja impreso fibras pliegues');
+  if (r.interact.stroke) parts.push('caligrafia pincel tinta trazo');
   return fold(parts.join(' '));
 }
 
