@@ -58,7 +58,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   const steps = k[5];
   const a = Math.floor(mod(stepOf(c1x, c1y, steps), Math.max(pal.n, 1))) * 3, b = Math.floor(mod(stepOf(cdx, cdy, steps), Math.max(pal.n, 1))) * 3;
   const e = 1 - smoothstep(0, 0.07, Math.sqrt(d2) - Math.sqrt(d1));
-  const bgl = Math.max(k[6] * (0.22 + 0.3 * levelOf(c1x, c1y, steps)) + k[8] * 0.4 * e, k[10] * 0.38 * tr);
+  const bgl = Math.max(k[6] * (0.22 + 0.3 * levelOf(c1x, c1y, steps)) + k[8] * 0.4 * e, k[10] * 0.5 * tr);
   for (let c = 0; c < 3; c++) { const cc = pal.rgb[a + c] * (0.35 + 0.65 * k[6]); C[c] = cc + (pal.rgb[b + c] - cc) * dv; }
   C[3] = Math.min(1, Math.max(0, Math.max(bgl, dv * (0.7 + 0.3 * hash13(cdx, cdy, 8)))));
 }

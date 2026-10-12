@@ -54,7 +54,7 @@ vec4 FC_puntos_orbita(vec2 p, float t, vec4 k0, vec4 k1){
   vec3 cc = po_pal(po_step(c1, steps)), dc = po_pal(po_step(cd, steps));
   float e = 1. - smoothstep(0., .07, sqrt(d2) - sqrt(d1));
   // the fill's brightness follows the cell's colour step too: the steps show in the glyphs
-  float bgl = max(k1.z * (.22 + .3 * po_q(c1, steps)) + K2.x * .4 * e, K2.z * .38 * tr);
+  float bgl = max(k1.z * (.22 + .3 * po_q(c1, steps)) + K2.x * .4 * e, K2.z * .5 * tr);
   vec3 col = mix(cc * (.35 + .65 * k1.z), dc, dv);
   float lum = max(bgl, dv * (.7 + .3 * hash13(vec3(cd, 8.))));
   return vec4(col, clamp(lum, 0., 1.));

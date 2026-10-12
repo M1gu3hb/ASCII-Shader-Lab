@@ -26,7 +26,7 @@ export const DOC: FamilyDoc = {
   presets: {
     orbitas: 'Seis arcos azules y naranjas en un plano inclinado, cada uno a su ritmo.',
     barrido: 'Plano de frente, nueve anillos finos con dos arcos cada uno y colas largas, en verde.',
-    saturnal: 'Pocos anillos anchos casi de canto, arcos largos que giran despacio en ocre.',
+    saturnal: 'Pocos anillos anchos casi de canto, arcos largos que giran a dos ritmos en ocre.',
     engranaje: 'Siete anillos con tres arcos cada uno que giran a cuatro ritmos, en violeta.',
   },
 };
