@@ -5,7 +5,10 @@ export const META: FamilyMeta = {
   name: 'Humo rizado',
   group: 'fisica',
   kind: 'simulation',
-  version: 1,
+  // 2: the smoke's own colour (by age, depth or emitter)
+  version: 2,
+  color: true,
+  colorSince: 2,
   aka: ['curl noise', 'ruido rizado', 'rotacional de ruido', 'partículas de humo'],
   params: [
     { key: 'count', label: 'Partículas', type: 'int', min: 500, max: 12000, def: 6000 },
@@ -24,6 +27,12 @@ export const META: FamilyMeta = {
     { key: 'trail', label: 'Filamentos', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
     { key: 'shadow', label: 'Relieve', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
     { key: 'gain', label: 'Exposición', type: 'number', min: 0.3, max: 3, def: 1, step: 0.01, advanced: true },
+    { key: 'color', label: 'Color del humo', type: 'choice', def: 'edad', options: [
+      { id: 'edad', label: 'Por edad: nace cálido y se enfría' }, { id: 'profundidad', label: 'Por profundidad: cerca cálido, lejos frío' },
+      { id: 'emisores', label: 'Un tono por foco (sin objetivo)' },
+    ] },
+    { key: 'hue', label: 'Tono', type: 'number', min: 0, max: 1, def: 0.06, step: 0.01 },
+    { key: 'spread', label: 'Hacia qué tono va', type: 'number', min: -0.5, max: 0.5, def: -0.25, step: 0.01 },
   ],
   presets: [
     { id: 'espiritu', name: 'Espíritu', uses: ['arte/figuras', 'arte/organicas'], aka: ['espíritu de partículas'],
@@ -38,6 +47,16 @@ export const META: FamilyMeta = {
     { id: 'seda', name: 'Hilos de seda', uses: ['arte/organicas'], aka: ['filamentos de ruido rizado'],
       params: { count: 9000, target: 'libre', scale: 0.6, speed: 0.6, life: 5, attract: 0.3, radius: 0.3, rise: 0, orbit: -0.08, tilt: 30, zoom: 1.3, trail: 1, shadow: 0.3, gain: 0.8 },
       look: { stops: ['#05080a', '#123a3a', '#4fd6c0', '#effffa'], bg: '#030506', charset: " .'-~=+*#" } },
+    // the smoke's own colour (version 2)
+    { id: 'incienso', name: 'Incienso que se enfría', uses: ['arte/organicas', 'arte/figuras'], aka: ['humo coloreado por edad'],
+      params: { count: 9000, target: 'fijo', scale: 0.55, speed: 0.4, life: 7, attract: 0, radius: 0.1, rise: 0.75, orbit: 0.05, tilt: 10, zoom: 1.05, trail: 0.8, shadow: 0.6, gain: 1.05, color: 'edad', hue: 0.09, spread: -0.27 },
+      look: { stops: ['#000000', '#383838', '#bdbdbd', '#ffffff'], bg: '#050304', charset: " .`'^:;+*#", colorMode: 'source', vivid: 0.75 } },
+    { id: 'aurora', name: 'Aurora de humo', uses: ['fondos/color', 'arte/organicas'], aka: ['humo coloreado por profundidad'],
+      params: { count: 12000, target: 'libre', scale: 1.2, speed: 0.25, life: 9, attract: 0.35, radius: 0.55, rise: 0.05, orbit: 0.08, tilt: 14, zoom: 1.4, trail: 0.5, shadow: 0.7, gain: 0.95, color: 'profundidad', hue: 0.42, spread: 0.35 },
+      look: { stops: ['#000000', '#343434', '#bcbcbc', '#ffffff'], bg: '#020306', charset: ' .·:-=+*#', colorMode: 'source', vivid: 0.8 } },
+    { id: 'focos', name: 'Humo de varios focos', uses: ['fondos/color', 'arte/organicas'], aka: ['humo coloreado por emisor'],
+      params: { count: 11000, target: 'libre', scale: 0.7, speed: 0.5, life: 5, attract: 0.3, radius: 0.35, rise: 0, orbit: -0.06, tilt: 24, zoom: 1.3, trail: 0.9, shadow: 0.4, gain: 0.85, color: 'emisores', hue: 0.86, spread: 0.26 },
+      look: { stops: ['#000000', '#363636', '#bebebe', '#ffffff'], bg: '#040305', charset: " .'-~=+*#", colorMode: 'source', vivid: 0.8 } },
   ],
   caps: {
     loop: false, time: 'continuo', basic: 'full', checkpoint: true,

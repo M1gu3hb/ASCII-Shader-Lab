@@ -270,6 +270,8 @@ export interface FamilyIndexEntry {
   loop: boolean;
   /** Draws its own colour per cell (FamilyMeta.color). */
   color?: true;
+  /** Raster colour families: the first version whose run gives colour (FamilyMeta.colorSince). */
+  colorSince?: number;
 }
 
 /* ------------------------------------------------------------------ */

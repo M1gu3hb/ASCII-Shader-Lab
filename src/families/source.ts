@@ -5,10 +5,12 @@ import type { HostSource } from './host';
  * The piece's source for the raster families that read it (FamilyMeta.reads 'source', FieldModel.feed): small
  * CPU copies of the picture or the letters, sampled at a point of the canvas with the same fit, zoom, pan and
  * mirror as the field pass (engine/glsl/programs.ts mediaUV, basic/field.ts MediaMap). Models read a coarse
- * raster (a few hundred cells across), so a copy of at most `SIDE` px on its long side is enough.
+ * raster (a few hundred cells across), so a copy of at most `SIDE` px on its long side is enough for a picture;
+ * letters, whose outlines matter, are copied at TEXT_SIDE.
  */
 
 export const SIDE = 256;
+export const TEXT_SIDE = 640;
 
 /** RGBA copy of a picture or video frame and the picture's real size (its aspect). */
 export interface SmallMedia { data: Uint8Array | Uint8ClampedArray; w: number; h: number; natW: number; natH: number }
@@ -60,8 +62,8 @@ export function textSource(mask: Uint8Array, w: number, h: number, W: number, H:
 }
 
 /** A small copy of an image, video frame or canvas (DOM): RGBA, at most SIDE px on its long side. */
-export function smallCopy(el: CanvasImageSource, natW: number, natH: number, cv: HTMLCanvasElement): SmallMedia {
-  const k = Math.min(1, SIDE / Math.max(natW, natH, 1));
+export function smallCopy(el: CanvasImageSource, natW: number, natH: number, cv: HTMLCanvasElement, side = SIDE): SmallMedia {
+  const k = Math.min(1, side / Math.max(natW, natH, 1));
   const w = Math.max(1, Math.round(natW * k)), h = Math.max(1, Math.round(natH * k));
   if (cv.width !== w) cv.width = w;
   if (cv.height !== h) cv.height = h;

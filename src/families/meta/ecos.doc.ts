@@ -40,7 +40,7 @@ export const DOC: FamilyDoc = {
     huracan: 'Una línea de señal que cruza el centro y un giro que crece hacia dentro la enrollan en una espiral de brazos nítidos.',
     marea: 'Una trama de cinco direcciones inyectada con poca opacidad, arrastrada por corriente y ondulación: bandas que se pliegan sin parar.',
     tunel_arcoiris: 'El túnel de anillos, cada uno del color del momento en que nació: el arcoíris viaja hacia los bordes.',
-    espejos_deriva: 'Polígonos que copian el fotograma en un caleidoscopio de 6 gajos; cada copia gira un poco el color, así que la profundidad se ve como un degradado de tonos.',
+    espejos_deriva: 'Hexágonos que salen hacia los bordes en un caleidoscopio de 6 gajos; en cada pasada el color gira un poco, así que la profundidad se ve como un degradado de tonos.',
     pulso_dos: 'Una línea de señal enrollada por el remolino, con el color alternando en cada golpe: anillos de dos tonos.',
     tu_foto: 'Tu foto entra al bucle en cada paso y sale hacia los bordes girando, con sus propios colores: un túnel hecho de tu imagen.',
     tus_palabras: 'Tus letras entran al bucle y se repiten hacia fuera en anillos de colores: un túnel de palabras.',

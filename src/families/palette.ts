@@ -1,6 +1,7 @@
 import { hexToRgb } from '../engine/color';
 import type { Recipe } from '../engine/recipe';
-import { isColorFamily } from './registry';
+import { famReads } from './params';
+import { familyById, layerColours } from './registry';
 import type { Palette } from './types';
 
 /**
@@ -16,5 +17,14 @@ export function paletteOf(stops: readonly string[], out?: Palette): Palette {
   return p;
 }
 
-/** Whether a piece's cells carry their own colour from a colour family (its pattern source has one on). */
-export const hasColourFamily = (r: Recipe) => r.source === 'pattern' && r.layers.filter(l => l.on).slice(0, 4).some(l => isColorFamily(l.pattern));
+/**
+ * Whether a piece's cells carry their own colour from a colour family: a pattern source with one on, or text with
+ * one that reads the letters (FamilyMeta.reads: it gives the cells their colour). A picture keeps its own
+ * colours unless such a family mixes in (the engines' field pass).
+ */
+export const hasColourFamily = (r: Recipe) => {
+  const on = r.layers.filter(l => l.on).slice(0, 4);
+  if (r.source === 'pattern') return on.some(layerColours);
+  if (r.source === 'text') return on.some(l => { const m = familyById(l.pattern); return layerColours(l) && !!m && !!l.fam && famReads(m, l.fam.v, 'source'); });
+  return false;
+};

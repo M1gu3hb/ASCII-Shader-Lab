@@ -5,6 +5,7 @@ export function indexEntry(f: FamilyMeta): FamilyIndexEntry {
   return {
     id: f.id, name: f.name, group: f.group, kind: f.kind, v: f.version, loop: f.caps.loop,
     ...(f.color ? { color: true as const } : {}),
+    ...(f.color && f.kind !== 'analytic' ? { colorSince: f.colorSince ?? 1 } : {}),
   };
 }
 

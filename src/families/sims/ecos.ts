@@ -131,15 +131,27 @@ export function create(cfg: ModelConfig): FieldModel {
 
   // ---- the piece's source (seed «Fuente», colour «De la fuente»): sampled on the trama's quarter grid and per raster pixel
   let src: SourceFeed | null = null;
-  const srcL = new Float32Array(qw * qh);
+  /** The source's luminance at the buffer's resolution (letters: their outline), what «Fuente» injects. */
+  const srcL = colourOn ? new Float32Array(nb) : new Float32Array(0);
   const srcRGB = new Float32Array(nc * 3);
   const SO = new Float64Array(4);
   const takeFeed = (f: SourceFeed | null) => {
     src = f;
+    if (!colourOn) return;
     if (!f) { srcL.fill(0); srcRGB.fill(0); return; }
-    for (let y = 0; y < qh; y++) for (let x = 0; x < qw; x++) {
-      f.at(((x + 0.5) / qw) * 2 - 1, 0.5 - (y + 0.5) / qh, SO);
-      srcL[y * qw + x] = SO[3];
+    for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
+      f.at(((x + 0.5) / bw) * 2 - 1, 0.5 - (y + 0.5) / bh, SO);
+      srcL[y * bw + x] = SO[3];
+    }
+    // letters go in as their outline: rings of words travel out of the loop instead of solid blocks
+    if (f.kind === 2) {
+      const e = new Float32Array(nb);
+      const at = (i: number, j: number) => srcL[Math.min(bh - 1, Math.max(0, j)) * bw + Math.min(bw - 1, Math.max(0, i))];
+      for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
+        const gx = at(x + 1, y) - at(x - 1, y), gy = at(x, y + 1) - at(x, y - 1);
+        e[y * bw + x] = Math.min(1, 1.6 * Math.sqrt(gx * gx + gy * gy));
+      }
+      srcL.set(e);
     }
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       f.at(((x + 0.5) / w) * 2 - 1, 0.5 - (y + 0.5) / h, SO);
@@ -268,9 +280,12 @@ export function create(cfg: ModelConfig): FieldModel {
     // the injected lattice (seed «Trama») or the piece's picture or letters (seed «Fuente», version 2) is added in
     // the same pass
     const fed = colourOn && p.seed === 'fuente' && !!src;
-    const op = p.seed === 'trama' ? tramaPattern(tau, beat) : fed ? 0.05 * p.amount * (1 - p.pulse * 0.6 + 1.6 * beat) : 0;
-    const inj = fed ? srcL : pat;
-    const keep = colourOn && op > 0 ? before! : null;
+    // the source goes in every few steps («Intermitencia»: separate copies, up to three quarters of a second
+    // apart so the zoom draws them out as rings) and stronger on the beat
+    const every = 1 + Math.round(p.strobe * 22);
+    const op = p.seed === 'trama' ? tramaPattern(tau, beat) : 0;
+    const fop = fed && steps % every === 0 ? Math.min(1, (0.05 + 0.05 * (every - 1)) * p.amount * (1 - p.pulse * 0.6 + 1.6 * beat)) : 0;
+    const keep = colourOn && (op > 0 || fop > 0) ? before! : null;
     const MX1 = MESH_X + 1;
     for (let y = 0; y < bh; y++) {
       // the mesh row at this pixel row, then each pixel between two of its vertices
@@ -281,7 +296,7 @@ export function create(cfg: ModelConfig): FieldModel {
       }
       if (op > 0) {
         const q0 = qrowJ[y] * qw, q1 = q0 + qw, qt = qrowT[y];
-        for (let i = 0; i < qw; i++) patRow[i] = op * (inj[q0 + i] + (inj[q1 + i] - inj[q0 + i]) * qt);
+        for (let i = 0; i < qw; i++) patRow[i] = op * (pat[q0 + i] + (pat[q1 + i] - pat[q0 + i]) * qt);
       }
       const o = y * bw;
       for (let x = 0; x < bw; x++) {
@@ -292,6 +307,7 @@ export function create(cfg: ModelConfig): FieldModel {
         c = c * decay - FADE;
         if (keep) keep[o + x] = c < 0 ? 0 : c > 1 ? 1 : c;
         if (op > 0) { const q = qcolI[x]; c += patRow[q] + (patRow[q + 1] - patRow[q]) * qcolT[x]; }
+        if (fop > 0) c += fop * srcL[o + x];
         tmp[o + x] = c < 0 ? 0 : c > 1 ? 1 : c;
       }
     }
@@ -337,10 +353,10 @@ export function create(cfg: ModelConfig): FieldModel {
     const T = cTmp!, R = CR!, G = CG!, Bc = CB!;
     for (let i = 0; i < nc; i++) { T[i * 3] = R[i]; T[i * 3 + 1] = G[i]; T[i * 3 + 2] = Bc[i]; }
     const MX1 = MESH_X + 1;
-    // «Deriva»: a rotation about (1, 1, 1) of 0.04 turns a second (Rodrigues), else none
+    // «Deriva»: a rotation about (1, 1, 1) of 0.09 turns a second (Rodrigues), else none
     let m00 = 1, m01 = 0, m02 = 0, m10 = 0, m11 = 1, m12 = 0, m20 = 0, m21 = 0, m22 = 1;
     if (p.color === 'deriva') {
-      const a = (2 * Math.PI * 0.04) / RATE, c = Math.cos(a), sn = Math.sin(a), k = (1 - c) / 3, q = sn / Math.sqrt(3);
+      const a = (2 * Math.PI * 0.09) / RATE, c = Math.cos(a), sn = Math.sin(a), k = (1 - c) / 3, q = sn / Math.sqrt(3);
       m00 = c + k; m01 = k - q; m02 = k + q; m10 = k + q; m11 = c + k; m12 = k - q; m20 = k - q; m21 = k + q; m22 = c + k;
     }
     void tau;
@@ -365,7 +381,7 @@ export function create(cfg: ModelConfig): FieldModel {
     const fromSrc = p.color === 'fuente' && !!src;
     if (!fromSrc) {
       const beatN = Math.floor(tau / p.tempo);
-      const hh = p.color === 'arcoiris' ? p.hue + tau / (p.tempo * 8) : p.color === 'dos' ? p.hue + (beatN % 2) * 0.5 : p.hue;
+      const hh = p.color === 'arcoiris' ? p.hue + tau / (p.tempo * 3) : p.color === 'dos' ? p.hue + (beatN % 2) * 0.5 : p.hue;
       hueRGB(hh, SEEDC, 0.85);
     }
     for (let y = 0; y < h; y++) {

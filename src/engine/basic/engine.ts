@@ -927,7 +927,7 @@ export class BasicEngine implements Renderer {
     runSelect({
       cols: this.cols, rows: this.rows, time: tq, loop, r,
       // the cells carry a colour of their own: the picture's, or a colour family's (families/palette.ts)
-      fa: this.field.a, fr: this.field.r, fg: this.field.g, fb: this.field.b, isMedia: src === 'media' || (src === 'pattern' && hasColourFamily(r)),
+      fa: this.field.a, fr: this.field.r, fg: this.field.g, fb: this.field.b, isMedia: src === 'media' || ((src === 'pattern' || src === 'text') && hasColourFamily(r)),
       grad: this.grad, n: a.n, edgeBase: a.edgeBase, blockIdx: a.blockIdx, words: this.words,
       msg: {
         on: !!(m.on && lay), mode: ['static', 'type', 'decode', 'marquee', 'words'].indexOf(m.mode), prog, win: 6, shift,
