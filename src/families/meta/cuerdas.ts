@@ -28,7 +28,7 @@ export const META: FamilyMeta = {
     { key: 'tune', label: 'Afinación', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
   ],
   presets: [
-    { id: 'arpa', name: 'Arpa en arpegio', aka: ['arpa', 'arpegio'], uses: ['arte/geometricas', 'fondos/geometricas'], period: 6,
+    { id: 'arpa', name: 'Arpa en arpegio', aka: ['arpa', 'arpegio'], uses: ['arte/geometricas'], period: 6,
       params: { strings: 9, modes: 3, pluck: 0.3, amp: 0.07, period: 6, freq: 1.4, decay: 0.45, pattern: 'arpegio', exposure: 0.5, rosin: 0.4, width: 0.4, stiff: 0.2, length: 0.82, spread: 1.4, tune: 0.6 },
       look: { stops: ['#05040a', '#2b2140', '#7d6aa8', '#d8cdf2', '#fffaf0'], bg: '#030207', charset: ' .:-=+*#%@' } },
     { id: 'acorde', name: 'Acorde rasgueado', aka: ['rasgueo'], uses: ['arte/geometricas'], period: 4,
@@ -43,4 +43,6 @@ export const META: FamilyMeta = {
   ],
   caps: { loop: true, time: 'bucle', basic: 'full', checkpoint: false },
   budget: {},
+  // a few strings are an instrument in the middle; spread across the canvas they fill it
+  figure: p => (p.spread as number) < 1.6,
 };
