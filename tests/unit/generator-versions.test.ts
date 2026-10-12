@@ -14,6 +14,7 @@ const fixture5 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/gen
 const fixture6 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v6.json'), 'utf8')) as typeof fixture34;
 /** Version 7 as published (PR #10 review): families by use and look, their own colour, glass in front. */
 const fixture7 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v7.json'), 'utf8')) as typeof fixture34;
+const fixture8 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures/generator-v8.json'), 'utf8')) as { gens: number[]; cases: Array<(typeof fixture34)['cases'][number] & { baseSeed?: string; locks?: LockGroup[] }> };
 /** Recipes live as JSON (history, favourites, links): compare that form (it also folds -0 into 0). */
 const json = (r: Recipe) => JSON.parse(JSON.stringify(r)) as Recipe;
 
@@ -100,6 +101,21 @@ describe('generator versions', () => {
       const r = generate({ seed: c.seed, space: c.space, base: defaultRecipe(), gen: 7 });
       expect(json(r), `v7 ${c.space}/${c.seed}`).toEqual(c.recipe);
       expect(fingerprint(r), `v7 ${c.space}/${c.seed}`).toBe(c.fp);
+    }
+  });
+
+  it('version 8 keeps weaving exactly what it wove when it was published: reading families, the layer below, solids of glass, effect shapes, locks', () => {
+    expect(fixture8.gens).toEqual([8]);
+    expect(fixture8.cases.length).toBe(202);
+    expect(fixture8.cases.filter(c => c.recipe.layers.some(l => l.fam)).length).toBeGreaterThan(30);
+    expect(fixture8.cases.filter(c => c.recipe.optics && ['esfera', 'poliedro'].includes(c.recipe.optics.kind)).length).toBeGreaterThan(10);
+    expect(fixture8.cases.filter(c => c.recipe.fxKind).length).toBeGreaterThan(10);
+    expect(fixture8.cases.filter(c => c.locks).length).toBe(4);
+    for (const c of fixture8.cases) {
+      const base = c.baseSeed ? generate({ seed: c.baseSeed, space: c.space, base: defaultRecipe(), gen: 8 }) : defaultRecipe();
+      const r = generate({ seed: c.seed, space: c.space, base, gen: 8, ...(c.locks ? { locks: c.locks } : {}) });
+      expect(json(r), `v8 ${c.space}/${c.seed}`).toEqual(c.recipe);
+      expect(fingerprint(r), `v8 ${c.space}/${c.seed}`).toBe(c.fp);
     }
   });
 

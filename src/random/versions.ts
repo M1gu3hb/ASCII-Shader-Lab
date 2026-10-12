@@ -22,10 +22,14 @@
  *       in every space that has them (Fondos, Arte, Terminal, Texto inside the words, Imagen over the photo),
  *       with the families and presets of PR #10's review, colour families in their own colour, and now and then
  *       glass in front of the piece (rain on the window, fluted glass).
+ *   8 — version 7's way of choosing over the families and presets of PR #10's closing (families8.ts): those that
+ *       read the photo or the words are made of them (drawn alone over the photo, inside the words at their
+ *       preset's size), a preset that shows the layer under it brings it, the glass can be a ball or a gem, and
+ *       now and then a glow becomes an anamorphic flare or a grain a sheet of paper.
  */
-export const GEN_VERSION = 7;
+export const GEN_VERSION = 8;
 /** Every version generate() can still reproduce, oldest first. */
-export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
+export const GEN_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8];
 /** A version asked for by a link or a person: a known one, else the current one. */
 export const genOf = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : v;

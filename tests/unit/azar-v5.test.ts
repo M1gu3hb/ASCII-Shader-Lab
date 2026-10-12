@@ -34,8 +34,8 @@ function colourOf(r: Recipe) {
 }
 
 describe('generator version 5', () => {
-  it('stays reproducible (version 7 is the current one, from the same styles), and every id its styles use exists', () => {
-    expect(GEN_VERSION).toBe(7);
+  it('stays reproducible (version 8 is the current one, from the same styles), and every id its styles use exists', () => {
+    expect(GEN_VERSION).toBe(8);
     expect(GEN_VERSIONS).toContain(5);
     const palettes = new Set([...Object.keys(PALETTE5_NAMES), ...Object.keys(PALETTE_STYLE_NAMES)]);
     for (const a of ARCHETYPES) {
