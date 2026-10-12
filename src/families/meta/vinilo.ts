@@ -1,0 +1,48 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'vinilo',
+  name: 'Disco de vinilo',
+  group: 'ciencia',
+  kind: 'analytic',
+  version: 1,
+  color: true,
+  extends: 'anillos',
+  aka: ['vinilo', 'tocadiscos', 'surcos', 'LP', 'disco', 'difracción', 'red de difracción', 'vinyl grooves'],
+  params: [
+    { key: 'speed', label: 'Velocidad', type: 'choice', def: 'r33', options: [
+      { id: 'lento', label: 'Lenta (8 rpm)' }, { id: 'r33', label: '33⅓ rpm' }, { id: 'r45', label: '45 rpm' }, { id: 'r78', label: '78 rpm' },
+    ] },
+    { key: 'size', label: 'Tamaño', type: 'number', min: 0, max: 1, def: 0.7, step: 0.01 },
+    { key: 'tilt', label: 'Inclinación', type: 'number', min: 0, max: 1, def: 0.35, step: 0.01 },
+    { key: 'grooves', label: 'Surcos', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'signal', label: 'Música en los surcos', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'tracks', label: 'Pistas', type: 'int', min: 1, max: 8, def: 5 },
+    { key: 'shine', label: 'Reflejo', type: 'number', min: 0, max: 1, def: 0.75, step: 0.01 },
+    { key: 'iris', label: 'Irisación', type: 'number', min: 0, max: 1, def: 0.7, step: 0.01 },
+    { key: 'light', label: 'Luz', type: 'number', min: 0, max: 0.95, def: 0.12, step: 0.01 },
+    { key: 'turn', label: 'Giro del reflejo', type: 'int', min: 0, max: 2, def: 1, unit: 'vueltas' },
+    { key: 'arm', label: 'Brazo', type: 'number', min: 0, max: 1, def: 1, step: 0.01 },
+    { key: 'label', label: 'Etiqueta', type: 'choice', def: 'roja', options: [
+      { id: 'roja', label: 'Roja' }, { id: 'amarilla', label: 'Amarilla' }, { id: 'azul', label: 'Azul' }, { id: 'verde', label: 'Verde' }, { id: 'blanca', label: 'Blanca' },
+    ] },
+    { key: 'cycle', label: 'Ciclo', type: 'number', min: 12, max: 72, def: 36, step: 1, unit: 's' },
+  ],
+  presets: [
+    { id: 'tocadiscos', name: 'Tocadiscos', uses: ['arte/figuras'], period: 36, aka: ['vinyl grooves', 'LP'],
+      params: { speed: 'r33', size: 0.7, tilt: 0.35, grooves: 0.45, signal: 0.5, tracks: 5, shine: 0.75, iris: 0.7, light: 0.12, turn: 1, arm: 1, label: 'roja', cycle: 36 },
+      look: { stops: ['#030303', '#1d1d22', '#6d6d78', '#d8dae4', '#ffffff'], bg: '#020203', charset: ' .·:;=+*#%@', colorMode: 'source', vivid: 0.55 } },
+    { id: 'arcoiris', name: 'Surcos de arcoíris', uses: ['arte/figuras', 'arte/optica'], period: 24, aka: ['difracción', 'red de difracción'],
+      params: { speed: 'lento', size: 0.85, tilt: 0, grooves: 0.8, signal: 0.25, tracks: 3, shine: 1, iris: 1, light: 0.3, turn: 2, arm: 0, label: 'azul', cycle: 24 },
+      look: { stops: ['#020205', '#18182a', '#6a5aa0', '#e6dcff', '#ffffff'], bg: '#010103', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.8 } },
+    { id: 'single', name: 'Single de 45', uses: ['arte/figuras'], period: 20, aka: ['sencillo', 'single'],
+      params: { speed: 'r45', size: 0.5, tilt: 0.6, grooves: 0.3, signal: 0.85, tracks: 1, shine: 0.6, iris: 0.4, light: 0.6, turn: 1, arm: 1, label: 'amarilla', cycle: 20 },
+      look: { stops: ['#040302', '#231c14', '#7a6a52', '#efe2c8', '#fffaf0'], bg: '#030201', charset: ' .,:;=+*#%@', colorMode: 'source', vivid: 0.5 } },
+    { id: 'pizarra', name: 'Disco de pizarra', uses: ['arte/figuras'], period: 30, aka: ['78 rpm', 'gramófono'],
+      params: { speed: 'r78', size: 0.75, tilt: 0.2, grooves: 1, signal: 0.7, tracks: 2, shine: 0.55, iris: 0.15, light: 0.85, turn: 0, arm: 0.8, label: 'verde', cycle: 30 },
+      look: { stops: ['#030303', '#1a1a1a', '#5e5e5e', '#cfcfcf', '#ffffff'], bg: '#020202', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.35 } },
+  ],
+  caps: { loop: true, time: 'bucle', basic: 'full', checkpoint: false },
+  budget: {},
+  figure: true,
+};

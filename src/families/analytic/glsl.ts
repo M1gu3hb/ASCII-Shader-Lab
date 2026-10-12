@@ -29,6 +29,7 @@ const LOAD: Record<string, () => Promise<string>> = {
   talla_diamante: () => import('./diamante').then(m => m.DIAMANTE_GLSL),
   calor_radiante: () => import('./calor').then(m => m.CALOR_GLSL),
   neon_tubos: () => import('./neon').then(m => m.NEON_GLSL),
+  vinilo: () => import('./vinilo').then(m => m.VINILO_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';

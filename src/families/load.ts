@@ -54,6 +54,7 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   talla_diamante: () => import('./analytic/diamante.cpu.ts'),
   calor_radiante: () => import('./analytic/calor.cpu.ts'),
   neon_tubos: () => import('./analytic/neon.cpu.ts'),
+  vinilo: () => import('./analytic/vinilo.cpu.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */
