@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SIGN, impl, neonBase, neonOn, neonSign } from '../../src/families/analytic/neon.cpu';
+import { SIGN, impl, neonBase, neonOn, neonSign, neonTau } from '../../src/families/analytic/neon.cpu';
 import { META } from '../../src/families/meta/neon_tubos';
 import { defaultParams, packParams } from '../../src/families/params';
 import type { Params } from '../../src/families/types';
@@ -45,11 +45,11 @@ describe('letrero de neón', { timeout: 60_000 }, () => {
       const w = PX * (0.3 + 1.1 * (p.thick as number)) / s;
       let lit = 0;
       for (let y = -0.48; y <= 0.48; y += 0.008) for (let x = -0.85; x <= 0.85; x += 0.008) {
-        // lit: 10 s into a 12 s cycle (shape presets differ, the default cycle is 12 s)
-        const v = f(x, y, 10);
+        // lit: at 70 % of the default 12 s cycle (t = 6 s), dark at 95 % (t = 9 s)
+        const v = f(x, y, 6);
         if (v > 0.9) { lit++; expect(neonSign(x / s, y / s, ['corazon', 'estrella', 'arcos', 'palabra', 'letrero'].indexOf(shape)), shape).toBeLessThan(1.6 * w); }
         // dark phase: at most the faint glass on the tubes
-        expect(f(x, y, 11.5), shape).toBeLessThan(0.15);
+        expect(f(x, y, 9), shape).toBeLessThan(0.15);
       }
       expect(lit, shape).toBeGreaterThan(20);
     }
@@ -60,7 +60,8 @@ describe('letrero de neón', { timeout: 60_000 }, () => {
       const f = lumOf({ ...defaultParams(META), ...pr.params });
       expect(pr.period).toBe(pr.params.cycle);
       let worst = 0;
-      for (const t0 of [0.3, 2.7, 5.1]) for (let y = -0.48; y <= 0.48; y += 0.04) for (let x = -0.85; x <= 0.85; x += 0.04) worst = Math.max(worst, Math.abs(f(x, y, t0) - f(x, y, t0 + pr.period!)));
+      // (away from the instants a drop ends and the next one starts, where rounding may pick either)
+      for (const t0 of [0.37, 2.71, 5.13]) for (let y = -0.48; y <= 0.48; y += 0.04) for (let x = -0.85; x <= 0.85; x += 0.04) worst = Math.max(worst, Math.abs(f(x, y, t0) - f(x, y, t0 + pr.period!)));
       expect(worst, pr.id).toBeLessThan(1e-3);
     }
   });
@@ -75,7 +76,10 @@ describe('letrero de neón', { timeout: 60_000 }, () => {
       for (let y = -0.5; y < -0.27 * s; y += 0.002) { const d = f1(0, y, t) - f0(0, y, t); if (d > best) { best = d; at = y; } }
       return { best, at };
     };
-    const a = yOf(5.15), b = yOf(5.35);
+    // a moment when the middle drop (point 1) has just left the tube, the tube being lit
+    let t0 = 0;
+    for (let t = 0; t < 12; t += 0.002) { const tau = neonTau(t, 12); if (Math.abs(((tau + 0.37 * 3) % 3) - 0.26) < 0.003 && neonOn(0, tau, 12, 0.6, 0, 0) > 0.5) { t0 = t; break; } }
+    const a = yOf(t0), b = yOf(t0 + 0.2);
     expect(a.best).toBeGreaterThan(0.2);
     expect(b.best).toBeGreaterThan(0.1);
     expect(b.at).toBeLessThan(a.at);

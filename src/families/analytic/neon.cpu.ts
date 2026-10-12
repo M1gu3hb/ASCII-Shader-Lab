@@ -69,20 +69,23 @@ export function neonSign(qx: number, qy: number, shape: number): number {
   return best;
 }
 
+/** The moment of the cycle at layer time t: the cycle starts with the sign igniting. */
+export const neonTau = (t: number, P: number) => mod(t + 0.2 * P, P);
+
 /** The floor line under each shape (sign units): just under its lowest tube. */
 export const neonBase = (shape: number) => shape < 0.5 ? -0.31 : shape < 1.5 ? -0.335 : shape < 2.5 ? -0.22 : shape < 3.5 ? -0.19 : -0.24;
 
-/** How lit tube group g is at time τ of the cycle P (ignition with stutter, hum and dropouts, the faulty tube, the dark end). */
-export function neonOn(g: number, tau: number, P: number, seq: number, fli: number, fault: number): number {
-  const tg = P * (0.04 + seq * 0.07 * g);
+/** How lit tube group g is at time τ of the cycle P (ignition with stutter, hum and dropouts, the faulty tube fg, the dark end). */
+export function neonOn(g: number, tau: number, P: number, seq: number, fli: number, fault: number, fg = 1): number {
+  const tg = P * (0.04 + seq * 0.11 * g);
   const x = tau - tg;
   if (x < 0 || tau > P * 0.88) return 0;
   let on = 1;
   if (x < 0.6) on = step(0.45, hash12(Math.floor(x * 18), g + 1)) * (0.6 + 0.4 * x / 0.6);
   const m = Math.floor(9 * P + 0.5);
-  on *= 1 - fli * 0.12 * (0.5 + 0.5 * Math.sin(TAU * m * tau / P + g));
-  on *= 1 - 0.75 * step(1 - fli * 0.06, hash12(Math.floor(tau * 15), g + 3));
-  if (g > 0.5 && g < 1.5) on *= 1 - 0.9 * step(1 - fault * 0.45, hash12(Math.floor(tau * 11), 7));
+  on *= 1 - fli * 0.22 * (0.5 + 0.5 * Math.sin(TAU * m * tau / P + g));
+  on *= 1 - 0.75 * step(1 - fli * 0.1, hash12(Math.floor(tau * 15), g + 3));
+  if (Math.abs(g - fg) < 0.5) on *= 1 - 0.9 * step(1 - fault * 0.45, hash12(Math.floor(tau * 11), 7));
   return on;
 }
 
@@ -110,10 +113,11 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
   const w = PX * (0.3 + 1.1 * k[3]) / S;
   const glo = k[4], fli = k[5], P = Math.max(k[6], 2), seq = k[7];
   const dripP = k[8], refl = k[9], wall = k[10], fault = k[11];
-  const tau = mod(t, P);
+  const tau = neonTau(t, P);
   const d = neonSign(px / S, py / S, shape);
   const g = SIGN.g;
-  const on = neonOn(g, tau, P, seq, fli, fault);
+  const fg = shape < 1.5 ? 0 : 1;
+  const on = neonOn(g, tau, P, seq, fli, fault, fg);
   const hh = mod(g, 2) < 0.5 ? h1 : h2;
   const hr = hue(hh, 0), hg = hue(hh, 0.333), hb = hue(hh, 0.667);
   const core = 1 - smoothstep(0.4 * w, w, d);
@@ -140,7 +144,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
     const fall = 0.45 * a * a;
     const dx = SP[0] * S, dy = SP[1] * S - fall;
     const dd = sdSeg(px, py, dx, dy, dx, dy + 0.012 + Math.min(0.07, 0.12 * a));
-    const dv = dripP * neonOn(gj, tau, P, seq, fli, fault) * (Math.exp(-dd * dd / (PX * PX * 0.5)) + 0.35 * Math.exp(-dd / 0.018)) * (1 - a / Pd);
+    const dv = dripP * neonOn(gj, tau, P, seq, fli, fault, fg) * (Math.exp(-dd * dd / (PX * PX * 0.5)) + 0.35 * Math.exp(-dd / 0.018)) * (1 - a / Pd);
     const hj = mod(gj, 2) < 0.5 ? h1 : h2;
     ar += dv * hue(hj, 0); ag += dv * hue(hj, 0.333); ab += dv * hue(hj, 0.667);
     lum += dv;
@@ -151,7 +155,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
     const prx = (px + 0.008 * Math.sin(py * 90 + TAU * m2 * tau / P)) / S, pry = (2 * yb - py) / S;
     const dr = neonSign(prx, pry, shape);
     const gr = SIGN.g;
-    const onr = neonOn(gr, tau, P, seq, fli, fault);
+    const onr = neonOn(gr, tau, P, seq, fli, fault, fg);
     const rv = refl * 0.45 * onr * (1 - smoothstep(0.4 * w, w * 1.6, dr) + 0.5 * Math.exp(-dr / gw)) * Math.exp(-(yb - py) / 0.22);
     const hq = mod(gr, 2) < 0.5 ? h1 : h2;
     ar += rv * hue(hq, 0); ag += rv * hue(hq, 0.333); ab += rv * hue(hq, 0.667);

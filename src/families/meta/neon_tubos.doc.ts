@@ -23,7 +23,7 @@ export const DOC: FamilyDoc = {
     drip: 'La luz que gotea de los puntos bajos de los tubos.',
     reflect: 'El reflejo del letrero en el suelo mojado.',
     wall: 'La pared de ladrillo que ilumina el neón.',
-    fault: 'Cuánto falla el tubo averiado.',
+    fault: 'Cuánto falla el tubo averiado (el segundo; en un corazón o una estrella, el único).',
     size: 'El tamaño del letrero.',
   },
   presets: {
@@ -31,6 +31,6 @@ export const DOC: FamilyDoc = {
     corazon: 'Un corazón rosa grueso que zumba mucho, gotea y se refleja en el suelo.',
     estrella: 'Una estrella amarilla de motel sobre la pared de ladrillo, con un tubo que falla.',
     arcos: 'Tres arcos turquesa y rojo que se encienden despacio, con el arco del medio averiado.',
-    luz: 'La palabra LUZ en verde, grande y nerviosa, en un ciclo corto.',
+    luz: 'La palabra LUZ en verde y azul, grande y nerviosa, con un tubo que falla.',
   },
 };

@@ -44,7 +44,7 @@ vec4 FC_eclipse_total(vec2 p, float t, vec4 k0, vec4 k1){
   // the corona: a power law of the height over the limb, stretched along the axis, broken into rays that drift out
   float rho = max(r - Rs, 0.) / Rs;
   float E = 1. + .8 * asym * cos(2. * (phi - axis));
-  float st = fbm3(vec3(dir * nst, log(max(r, 1e-3) / Rs) * 1.6 - t * wind * .3));
+  float st = fbm3(vec3(dir * nst, log(max(r, 1e-3) / Rs) * 1.6 - t * wind * .6));
   float pl = gnoise(dir * nst * 5. + vec2(0., t * .02));
   float streak = mix(st, pl, .3);
   float I = 2. * pow(1. + rho / (.3 * ext * E), -2.2);

@@ -79,17 +79,18 @@ float neo_sign(vec2 q, float shape){
   }
   return best;
 }
-// how lit group g is at time τ of the cycle P: ignition with stutter, hum and dropouts, the faulty tube, dark end
-float neo_on(float g, float tau, float P, float seq, float fli, float fault){
-  float tg = P * (.04 + seq * .07 * g);
+// how lit group g is at time τ of the cycle P: ignition with stutter, hum and dropouts, the faulty tube fg, dark end
+float neo_on(float g, float tau, float P, float seq, float fli, float fault, float fg){
+  float tg = P * (.04 + seq * .11 * g);
   float x = tau - tg;
   if (x < 0. || tau > P * .88) return 0.;
   float on = 1.;
   if (x < .6) on = step(.45, hash12(vec2(floor(x * 18.), g + 1.))) * (.6 + .4 * x / .6);
   float m = floor(9. * P + .5);
-  on *= 1. - fli * .12 * (.5 + .5 * sin(TAU * m * tau / P + g));
-  on *= 1. - .75 * step(1. - fli * .06, hash12(vec2(floor(tau * 15.), g + 3.)));
-  if (g > .5 && g < 1.5) on *= 1. - .9 * step(1. - fault * .45, hash12(vec2(floor(tau * 11.), 7.)));
+  on *= 1. - fli * .22 * (.5 + .5 * sin(TAU * m * tau / P + g));
+  on *= 1. - .75 * step(1. - fli * .1, hash12(vec2(floor(tau * 15.), g + 3.)));
+  // the faulty tube (the second one; the only one in a heart or a star)
+  if (abs(g - fg) < .5) on *= 1. - .9 * step(1. - fault * .45, hash12(vec2(floor(tau * 11.), 7.)));
   return on;
 }
 // the lowest points of the tubes, where light drips (and the tube each one hangs from)
@@ -108,11 +109,13 @@ vec4 FC_neon_tubos(vec2 p, float t, vec4 k0, vec4 k1){
   float w = PX * (.3 + 1.1 * k0.w) / S;
   float glo = k1.x, fli = k1.y, P = max(k1.z, 2.), seq = k1.w;
   float drip = K2.x, refl = K2.y, wall = K2.z, fault = K2.w;
-  float tau = mod(t, P);
+  // the cycle starts with the sign igniting (a thumbnail at t = 0 shows part of it lit); it goes dark and re-ignites later
+  float tau = mod(t + .2 * P, P);
   vec2 q = p / S;
   float d = neo_sign(q, shape);
   float g = NEO_G;
-  float on = neo_on(g, tau, P, seq, fli, fault);
+  float fg = shape < 1.5 ? 0. : 1.;
+  float on = neo_on(g, tau, P, seq, fli, fault, fg);
   vec3 hc = neo_hue(mod(g, 2.) < .5 ? h1 : h2);
   // the tube: a white-hot core, a coloured glow around it, faint glass when it is off
   float core = 1. - smoothstep(.4 * w, w, d);
@@ -140,7 +143,7 @@ vec4 FC_neon_tubos(vec2 p, float t, vec4 k0, vec4 k1){
     float fall = .45 * a * a;
     vec2 dp = sp * S + vec2(0., -fall);
     float dd = sdSeg(p, dp, dp + vec2(0., .012 + min(.07, .12 * a)));
-    float dv = drip * neo_on(gj, tau, P, seq, fli, fault) * (exp(-dd * dd / (PX * PX * .5)) + .35 * exp(-dd / .018)) * (1. - a / Pd);
+    float dv = drip * neo_on(gj, tau, P, seq, fli, fault, fg) * (exp(-dd * dd / (PX * PX * .5)) + .35 * exp(-dd / .018)) * (1. - a / Pd);
     acc += dv * neo_hue(mod(gj, 2.) < .5 ? h1 : h2);
     lum += dv;
   }
@@ -152,7 +155,7 @@ vec4 FC_neon_tubos(vec2 p, float t, vec4 k0, vec4 k1){
     vec2 pr = vec2(p.x + .008 * sin(p.y * 90. + TAU * m2 * tau / P), 2. * yb - p.y) / S;
     float dr = neo_sign(pr, shape);
     float gr = NEO_G;
-    float onr = neo_on(gr, tau, P, seq, fli, fault);
+    float onr = neo_on(gr, tau, P, seq, fli, fault, fg);
     float rv = refl * .45 * onr * (1. - smoothstep(.4 * w, w * 1.6, dr) + .5 * exp(-dr / gw)) * exp(-(yb - p.y) / .22);
     acc += rv * neo_hue(mod(gr, 2.) < .5 ? h1 : h2);
     lum += rv;

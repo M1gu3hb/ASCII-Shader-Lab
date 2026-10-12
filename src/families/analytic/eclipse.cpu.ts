@@ -44,7 +44,7 @@ function eval4(px: number, py: number, t: number, k: Float32Array) {
     + 0.55 * Math.exp(-dq * 5) * (Math.exp(-Math.abs(qy) / (0.4 * PX)) + Math.exp(-Math.abs(qx) / (0.4 * PX))));
   const rho = Math.max(r - Rs, 0) / Rs;
   const E = 1 + 0.8 * asym * Math.cos(2 * (phi - axis));
-  const st = fbm3(dx * nst, dy * nst, Math.log(Math.max(r, 1e-3) / Rs) * 1.6 - t * wind * 0.3);
+  const st = fbm3(dx * nst, dy * nst, Math.log(Math.max(r, 1e-3) / Rs) * 1.6 - t * wind * 0.6);
   const pl = gnoise(dx * nst * 5, dy * nst * 5 + t * 0.02);
   const streak = st + (pl - st) * 0.3;
   const I = 2 * Math.pow(1 + rho / (0.3 * ext * E), -2.2);
