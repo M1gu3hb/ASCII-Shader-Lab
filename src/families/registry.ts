@@ -21,6 +21,12 @@ export const isRaster = (id: string) => { const e = ENTRY.get(id); return !!e &&
 export const isAnalytic = (id: string) => ENTRY.get(id)?.kind === 'analytic';
 /** Analytic families that draw their own colour per cell (FamilyMeta.color). */
 export const isColorFamily = (id: string) => { const e = ENTRY.get(id); return !!e && e.kind === 'analytic' && !!e.color; };
+/**
+ * Raster families that can give their cells colour (FamilyMeta.color): their raster goes up as rgb plus the
+ * luminance in alpha, and the field pass reads it with famRasterC (whether a run gives colour depends on its
+ * version: FamilyMeta.colorSince, uLV.y in the shader).
+ */
+export const isColourRaster = (id: string) => { const e = ENTRY.get(id); return !!e && e.kind !== 'analytic' && !!e.color; };
 /** Families whose picture depends on what happened before (no perfect loop, state to copy for exports). */
 export const isStateful = isRaster;
 

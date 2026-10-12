@@ -98,6 +98,10 @@ interface Slot {
   version: number;
   /** What the run was last handed of the piece's source (FieldModel.feed): its version and the layer's place. */
   feedKey: string;
+  /** The source last handed to the run (undefined: never), for the run rebuilt from its base (rebase). */
+  fed?: SourceFeed | null;
+  /** What the words handed to the run say, and where (text sources): other words are another run in a fixed engine. */
+  wordsKey?: string;
   renderedSteps: number;
   renderedT: number;
   modified: boolean;
@@ -465,7 +469,11 @@ export class FamilyHost {
   /** Brings a run to time t. Returns whether it still has work to do. */
   private advance(s: Slot, l: Layer, f: LayerFam, t: number, dt: number, budget0: number, budget: number): boolean {
     if (s.failed) return false;
+    const words = s.wordsKey;
     this.feed(s, l, f);
+    // fixed engines: the state is a function of the recipe and its words, so other words start over (a thumbnail
+    // or an export engine draws many pieces with the same family and seed); live engines hand them to the run
+    if (!this.o.live && words !== undefined && s.wordsKey !== words) this.rebase(s, s.params);
     const pk = JSON.stringify(f.p);
     if (pk !== s.paramsKey) {
       if (this.o.live) {
@@ -505,7 +513,9 @@ export class FamilyHost {
     const key = src ? `${src.kind}|${src.version}|${src.W}x${src.H}|${l.scale}|${l.rot}|${l.x}|${l.y}` : '-';
     if (key === s.feedKey) return;
     s.feedKey = key;
-    s.model.feed(src ? feedFor(src, l) : null);
+    s.wordsKey = src?.kind === 2 ? `${src.text ?? ''}|${src.W}x${src.H}|${l.scale}|${l.rot}|${l.x}|${l.y}` : '';
+    s.fed = src ? feedFor(src, l) : null;
+    s.model.feed(s.fed);
     s.renderedSteps = -1;
   }
 
@@ -536,9 +546,12 @@ export class FamilyHost {
     if (!factory) return;
     const res = s.model.h;
     s.model = factory({ seed: this.seedOf(s.key), params: p, res, v: Number(s.key.split('|')[1]) || s.meta.version });
-    s.feedKey = '';
     if (s.baseState) s.model.restore(s.baseState);
     if (s.baseState && p !== s.params) s.model.setParams(p);
+    // the rebuilt run reads the same source before its first step (the steps run right after this, before the next
+    // frame would hand it over again)
+    if (s.fed !== undefined && s.model.feed) s.model.feed(s.fed);
+    else s.feedKey = '';
     s.params = p; s.paramsKey = JSON.stringify(p);
     s.renderedSteps = -1;
   }

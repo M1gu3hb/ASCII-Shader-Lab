@@ -1573,7 +1573,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
     // the cells carry a colour of their own: the picture's, or a colour family's (families/palette.ts)
-    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' || (src === 'pattern' && hasColourFamily(r)) ? 1 : 0);
+    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' || hasColourFamily(r) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uEmptyField'), r.source === 'pattern' && !r.layers.some(l => l.on) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uShift'), r.color.shift);
     gl.uniform1f(loc(gl, p, 'uCycle'), r.color.cycle);

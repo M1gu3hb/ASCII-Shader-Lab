@@ -1,7 +1,7 @@
 import { GLSL_BLEND, GLSL_CORE } from './core';
 import { DISP_MAX } from '../touch';
 import type { PatternLibrary } from './patterns';
-import { isAnalytic, isColorFamily, isFamily, isRaster } from '../../families/registry';
+import { isAnalytic, isColorFamily, isColourRaster, isFamily, isRaster } from '../../families/registry';
 import { FAMILY_SAMPLE_GLSL } from '../../families/sample';
 import { familyGlsl } from '../../families/analytic/glsl';
 import { GLSL_OPTICS } from './optics';
@@ -58,11 +58,13 @@ export function buildFieldShader(patterns: string[], src: FieldSource, loop: boo
   const families = used.some(isFamily);
   // colour families (FamilyMeta.color) give each cell a colour besides its luminance: SC carries it through
   // the stack (the first one sets it, the next ones mix theirs in by their layer's mix) to the pattern's col
-  const colour = used.some(isColorFamily);
+  // (raster colour families too: their raster carries rgb and, in alpha, the luminance that picks the glyph)
+  const tinted = (id: string) => isColorFamily(id) || isColourRaster(id);
+  const colour = used.some(tinted);
 
   // a family layer: analytic ones read their typed parameters (uLF0/uLF1 as arguments, K2/K3 and the version
   // FV as globals), raster ones their raster (colour ones rgb and luminance)
-  const call = (id: string, i: number) => isRaster(id) ? (isColorFamily(id) ? `famRasterC(${i}, q)` : `famRaster(${i}, q)`)
+  const call = (id: string, i: number) => isRaster(id) ? (isColourRaster(id) ? `famRasterC(${i}, q)` : `famRaster(${i}, q)`)
     : isColorFamily(id) ? `FC_${id}(q, t * B.w + C.y, uLF0[${i}], uLF1[${i}])`
     : isAnalytic(id) ? `F_${id}(q, t * B.w + C.y, uLF0[${i}], uLF1[${i}])`
     : `P_${id}(q, t * B.w + C.y, B.x, B.y)`;
@@ -73,7 +75,7 @@ export function buildFieldShader(patterns: string[], src: FieldSource, loop: boo
   // a raster colour family whose run gives no colour (a piece made before it did) leaves SC as it was
   const tint = (id: string, i: number) => isRaster(id) ? `if (uLV[${i}].y > .5){ SC = SCN > .5 ? mix(SC, c4.rgb, B.z) : c4.rgb; SCN = 1.; }`
     : 'SC = SCN > .5 ? mix(SC, c4.rgb, B.z) : c4.rgb; SCN = 1.;';
-  const layerCode = patterns.map((id, i) => isColorFamily(id) ? `
+  const layerCode = patterns.map((id, i) => tinted(id) ? `
   {
     vec4 A = uLA[${i}], B = uLB[${i}], C = uLC[${i}];
     vec2 q = rot2(p - A.zw, A.y) * A.x;
@@ -83,7 +85,7 @@ export function buildFieldShader(patterns: string[], src: FieldSource, loop: boo
     x = mix(x, 1. - x, C.x);
     ${i === 0 ? 'v = x * B.z;' : 'v = blendf(v, x, int(C.z), B.z);'}
     ${tint(id, i)}${families ? `
-    if (uLV[${i}].z > .5) SRCC = 1.;` : ''}
+    if (uLV[${i}].z > .5${isRaster(id) ? ` && uLV[${i}].y > .5` : ''}) SRCC = 1.;` : ''}
   }` : `
   {
     vec4 A = uLA[${i}], B = uLB[${i}], C = uLC[${i}];

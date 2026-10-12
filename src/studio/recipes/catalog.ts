@@ -153,7 +153,10 @@ function familyMake(space: SceneSpace, f: FamilyMeta, pr: FamilyPreset) {
     } else if (space === 'tipo') {
       r.source = 'text';
       r.text = { ...r.text, content: 'GLYPHOS', font: 'martian', weight: 800, size: 0.95 };
-      r.media = { ...r.media, mix: 0.6, blend: 'multiply' };
+      // a raster family that reads the words draws them itself (its strokes go over their edges): the letters do
+      // not cut it; any other family is the texture inside the letters
+      const draws = f.kind !== 'analytic' && !!f.reads?.includes('source');
+      r.media = { ...r.media, mix: draws ? 1 : 0.6, blend: draws ? 'normal' : 'multiply' };
       r.tone.contrast = Math.max(r.tone.contrast, 1.3);
       if (base) keepText(base, r);
     } else if (space === 'media') {

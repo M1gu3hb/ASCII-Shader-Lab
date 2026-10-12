@@ -37,7 +37,11 @@ export function familyPattern(l: Layer, i: number, host: FamilyHost | null | und
   }
   const R = host?.raster(i);
   if (!R) return EMPTY;
-  // a colour family's raster: the cell's colour where its run gives it (and, like the shader, nothing of SC otherwise)
-  if (meta.color && R.rgb) return { f: (x, y) => sampleRaster(R, x, y), col: (x, y, _t, out) => { sampleRasterC(R, x, y, out); } };
+  // a colour family's raster: the cell's colour where its run gives it (and, like the shader, nothing of SC otherwise);
+  // one that reads the piece gives the picture's or the letters' cells its colour (SRCC in the shader)
+  if (meta.color && R.rgb) {
+    const reads = famReads(meta, checkedFam(meta, l.fam).v, 'source');
+    return { f: (x, y) => sampleRaster(R, x, y), col: (x, y, _t, out) => { sampleRasterC(R, x, y, out); }, ...(reads ? { reads: true, srcColour: true } : {}) };
+  }
   return { f: (x, y) => sampleRaster(R, x, y) };
 }
