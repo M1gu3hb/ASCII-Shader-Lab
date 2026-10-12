@@ -1,0 +1,111 @@
+[
+  {
+    "repo": "pbakaus/radiant",
+    "url": "https://github.com/pbakaus/radiant",
+    "sha": "59e9f48c0ad9a3db2fbeb8898b4390d5a1eabb40",
+    "date": "2026-09-10T16:16:27-07:00",
+    "licenseFile": "LICENSE",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2025 Paul Bakaus",
+    "notice": "Sin cabeceras de licencia por archivo ni assets externos en static/*.html. static/rain-on-glass.html y static/rain-umbrella.html derivan de codrops/RainEffect (licencia Codrops: no republicar/redistribuir 'as-is'); no copiar su código. artpop-iridescence.html e ink-dissolve.html embeben simplex de Ashima Arts sin su cabecera. El README anuncia 94 shaders; el registro src/lib/shaders.ts tiene 88 (+ static/video-outro.html)."
+  },
+  {
+    "repo": "paper-design/shaders",
+    "url": "https://github.com/paper-design/shaders",
+    "sha": "43cd68db79fa0b1759f72ffc941b3238e2a3954c",
+    "date": "2026-09-17T12:44:42+03:00",
+    "licenseFile": "LICENSE",
+    "license": "Apache-2.0",
+    "copyright": "Copyright Lost Coast Labs, Inc. (http://paper.design) (según README; el apéndice de LICENSE queda sin rellenar)",
+    "notice": "NOTICE: 'Powered by Paper Shaders: https://shaders.paper.design' (raíz y packages/shaders/NOTICE). Historial: CHANGELOG 0.0.47 cambió a PolyForm Shield License 1.0.0; 0.0.77 cambió a Apache-2.0. Los assets de docs/public (fotos y logos de marcas de terceros) no declaran licencia. Créditos por archivo sin licencia de origen: perlin-noise (Shadertoy NlSGDz), voronoi (Shadertoy ldl3W8), neuro-noise (x.com/zozuar)."
+  },
+  {
+    "repo": "jberg/butterchurn",
+    "url": "https://github.com/jberg/butterchurn",
+    "sha": "fbac2f6bab62fd9c6a50ebbeb29359c5eb05903e",
+    "date": "2026-04-19T18:09:52-07:00",
+    "licenseFile": "LICENSE",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2013-2018 Jordan Berg",
+    "notice": "src/image/imageTextures.js embebe un JPEG 'clouds2' en base64 sin procedencia declarada. Reimplementación de MilkDrop (Ryan Geiss); la licencia de MilkDrop no se verificó."
+  },
+  {
+    "repo": "jberg/butterchurn-presets",
+    "url": "https://github.com/jberg/butterchurn-presets",
+    "sha": "c10e2616762f262de898e5d4c1f162a3e01340c1",
+    "date": "2021-03-06T20:21:58-08:00",
+    "licenseFile": "LICENSE",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2013-2018 Jordan Berg",
+    "notice": "Los presets son obra de autores de la comunidad MilkDrop (Geiss, Flexi, Martin, Rovastar…) sin términos individuales documentados. imageData.js embebe 6 JPEG (cells, seaweed, smalltiled_lizard_scales, prayerwheel, lichen, cloudsImage) sin procedencia; 19 presets usan samplers de imagen. Usar sólo como referencia del mecanismo."
+  },
+  {
+    "repo": "ruucm/shadergradient",
+    "url": "https://github.com/ruucm/shadergradient",
+    "sha": "68bdd740037a11c639f8b91fd775949c71d718d0",
+    "date": "2026-09-23T12:14:32+09:00",
+    "licenseFile": null,
+    "license": "MIT (sólo declarada en README y package.json; no hay archivo LICENSE)",
+    "copyright": "MIT © ruucm, stone-skipper (README)",
+    "notice": "Las HDRI de entorno se cargan desde ruucm.github.io/shadergradient/ui@0.0.0/assets/hdr/ (nombres de Poly Haven); el repositorio no declara su licencia. apps/examples/example-nextjs/LICENSE (MIT, Scott Chacon) es de una plantilla ajena."
+  },
+  {
+    "repo": "mrdoob/three.js",
+    "url": "https://github.com/mrdoob/three.js",
+    "sha": "11738a9d55e502fb484cefffcea3a66dc44e9fe9",
+    "date": "2026-10-10T15:52:35+02:00",
+    "licenseFile": "LICENSE",
+    "license": "MIT",
+    "copyright": "Copyright © 2010-2026 three.js authors",
+    "notice": "Clon disperso (blob:none): sólo LICENSE y algunos ejemplos/shader chunks. Las licencias de los assets de ejemplo (modelos glTF de Khronos, Lucy100k.ply, duck.glb, texturas de OpenGameArt, HDR) no se verificaron y no se necesitan."
+  },
+  {
+    "repo": "edankwan/The-Spirit",
+    "url": "https://github.com/edankwan/The-Spirit",
+    "sha": "c2ed239be0d7ed4ba28acf42dae42de994d37b8a",
+    "date": "2016-07-12T17:27:41+01:00",
+    "licenseFile": "LICENSE.md",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2015 Edan Kwan",
+    "notice": "Incluye app/js/three.r74.min.js (three.js, MIT) e imágenes propias. Créditos de idea: 'the new particles' (Simo Santavirta) y Flow (David Li)."
+  },
+  {
+    "repo": "tengbao/vanta",
+    "url": "https://github.com/tengbao/vanta",
+    "sha": "f8b351906688b56f0fc744e53bde81fc3c56f150",
+    "date": "2023-01-12T10:31:31+08:00",
+    "licenseFile": "LICENSE.md",
+    "license": "MIT (texto MIT sin título; package.json: MIT)",
+    "copyright": "Copyright 2020 Teng Bao",
+    "notice": "Terceros: birds (ejemplos de three.js de zz85, MIT); fog (Book of Shaders cap. 13 de Patricio Gonzalez Vivo + ruido de Morgan McGuire, Shadertoy 4dS3Wd: licencias no indicadas); clouds (Inigo Quilez, Shadertoy XslGRr: licencia no indicada ni verificada); clouds2 (Rune Stubbe, Shadertoy lsBfDz: no indicada; necesita ./gallery/noise.png, ausente); trunk y topology (kgolid/p5ycho, MIT verificado). vendor/FilmGrain_v1.1.frag es CC BY 3.0 (Martins Upitis), no se usa en src/. vendor/p5.min.js v0.6.1 no lleva cabecera de licencia."
+  },
+  {
+    "repo": "codrops/WebGLBlobs",
+    "url": "https://github.com/codrops/WebGLBlobs",
+    "sha": "613a5baea7c2169ab42e5a335887d5475ad96079",
+    "date": "2021-01-25T16:17:15+00:00",
+    "licenseFile": "LICENSE",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2009 - 2020 [Codrops](https://tympanus.net/codrops)",
+    "notice": "Discrepancia: package.json declara ISC. Fuente 'termina' de Adobe Typekit (remota, licencia de Adobe). img/noise.png sin licencia indicada."
+  },
+  {
+    "repo": "codrops/RainEffect (origen comprobado de Radiant rain-on-glass; fuera de los ocho)",
+    "url": "https://github.com/codrops/RainEffect",
+    "sha": "5270be663903883ae585858216b656120d8d4cd5",
+    "date": "2017-02-11T14:19:40+08:00",
+    "licenseFile": null,
+    "license": "Licencia Codrops (no MIT): README 'Integrate or build upon it for free in your personal or commercial projects. Don't republish, redistribute or sell \"as-is\".'; package.json 'SEE LICENSE IN http://tympanus.net/codrops/licensing/'",
+    "copyright": "Lucas Bebber / Codrops (según README; sin línea de copyright)",
+    "notice": "No adaptar código. V-06 se implementa desde cero."
+  },
+  {
+    "repo": "kgolid/p5ycho (origen comprobado de Vanta trunk/topology; fuera de los ocho)",
+    "url": "https://github.com/kgolid/p5ycho",
+    "sha": "9fb448de863f0c5255d8b8b8660bc2be77771ad5",
+    "date": "2020-07-31T15:38:53+02:00",
+    "licenseFile": "LICENSE",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2017 Kjetil Midtgarden Golid"
+  }
+]
