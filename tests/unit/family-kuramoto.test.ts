@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create, offsets } from '../../src/families/sims/kuramoto';
+import { KU_ROWS, create, offsets } from '../../src/families/sims/kuramoto';
 import { META } from '../../src/families/meta/kuramoto';
 import { defaultParams } from '../../src/families/params';
 import type { Params } from '../../src/families/types';
@@ -64,4 +64,35 @@ describe('osciladores acoplados', () => {
     };
     expect(loc(run({ ...p, noise: 0 }, 300))).toBeGreaterThan(loc(run({ ...p, noise: 1 }, 300)) + 0.05);
   });
+
+  it('versión 2: la misma rejilla de osciladores con cualquier número de filas (A-05); la versión 1 usa media resolución', () => {
+    const p = { ...defaultParams(META), init: 'espirales' };
+    const a = create({ seed: 'v', params: p, res: 48 }), b = create({ seed: 'v', params: p, res: 192 }), c = create({ seed: 'v', params: p, res: 2 * KU_ROWS });
+    for (const m of [a, b, c]) m.step(120);
+    expect(phases(a)).toEqual(phases(c));
+    expect(phases(b)).toEqual(phases(c));
+    expect([a.w, a.h, b.w, b.h]).toEqual([96, 48, 384, 192]);
+    expect(phases(create({ seed: 'v', params: p, res: 48, v: 1 })).length).toBe(48 * 24);
+    // at the default rows both versions are the same run
+    const v1 = create({ seed: 'v', params: p, res: 2 * KU_ROWS, v: 1 });
+    v1.step(120);
+    expect(phases(v1)).toEqual(phases(c));
+  });
+
+  // every preset is continuous: past its first minute, at the smallest canvas, it keeps changing, neither empty nor full
+  for (const pr of META.presets) {
+    it(`«${pr.name}» sigue cambiando y no se apaga ni se satura`, () => {
+      const m = create({ seed: 'c', params: { ...defaultParams(META), ...pr.params }, res: META.budget.res![0] });
+      m.step(META.budget.warmup! + 60 * META.budget.rate!);
+      const a = new Uint8Array(m.w * m.h), b = new Uint8Array(m.w * m.h);
+      m.render(a, 0);
+      m.step(Math.round(0.5 * META.budget.rate!));
+      m.render(b, 0);
+      let lit = 0, d = 0;
+      for (let i = 0; i < b.length; i++) { if (b[i] > 24) lit++; d += Math.abs(a[i] - b[i]); }
+      expect(lit / b.length).toBeGreaterThan(0.02);
+      expect(lit / b.length).toBeLessThan(0.97);
+      expect(d / b.length).toBeGreaterThan(0.5);
+    });
+  }
 });

@@ -5,7 +5,9 @@ export const META: FamilyMeta = {
   name: 'Osciladores acoplados',
   group: 'vida',
   kind: 'simulation',
-  version: 1,
+  // 2: the lattice has a fixed size whatever the rows (A-05); version-1 recipes keep their path
+  version: 2,
+  aka: ['Kuramoto', 'Sakaguchi', 'osciladores de fase', 'sincronización', 'ondas espirales'],
   params: [
     { key: 'K', label: 'Acoplamiento', type: 'number', min: 0, max: 6, def: 3, step: 0.05 },
     { key: 'spread', label: 'Diversidad', type: 'number', min: 0, max: 0.5, def: 0.02, step: 0.005, digits: 3, unit: 'Hz' },
@@ -20,13 +22,15 @@ export const META: FamilyMeta = {
     ] },
     { key: 'view', label: 'Vista', type: 'choice', def: 'fase', options: [
       { id: 'fase', label: 'Fase' }, { id: 'sincronia', label: 'Sincronía' }, { id: 'vortices', label: 'Vórtices' }, { id: 'destellos', label: 'Destellos' },
+      { id: 'frentes', label: 'Frentes' },
     ] },
   ],
   presets: [
-    { id: 'remolinos', name: 'Remolinos de fase', params: { K: 3, spread: 0.02, freq: 0.45, neigh: 'r2', lag: 0.8, noise: 0, init: 'espirales', view: 'fase' }, look: { stops: ['#060a14', '#cfe2ff'], bg: '#03050a', charset: ' .:-=+*#%@' } },
-    { id: 'sincronizado', name: 'Campo sincronizado', params: { K: 3, spread: 0.02, freq: 0.4, neigh: 'r2', lag: 0.3, noise: 0, init: 'ondas', view: 'fase' }, look: { stops: ['#0a0c06', '#e8f0b0'], bg: '#050603', charset: ' .-~=≈#' } },
-    { id: 'destellos', name: 'Destellos', params: { K: 4, spread: 0.06, freq: 0.6, neigh: 'r3', lag: 0.5, noise: 0, init: 'aleatoria', view: 'destellos' }, look: { stops: ['#0c0804', '#ffd890'], bg: '#060402', charset: ' .·:*#@' } },
-    { id: 'turbulencia', name: 'Turbulencia', params: { K: 4, spread: 0.05, freq: 0.5, neigh: 'r3', lag: 1, noise: 0, init: 'aleatoria', view: 'vortices' }, look: { stops: ['#100608', '#ffb0c0'], bg: '#080304', charset: ' .:o@' } },
+    { id: 'remolinos', name: 'Remolinos de fase', params: { K: 3, spread: 0.02, freq: 0.45, neigh: 'r2', lag: 0.8, noise: 0, init: 'espirales', view: 'fase' }, uses: ['fondos/ondas'], aka: ['espirales de fase'], look: { stops: ['#060a14', '#cfe2ff'], bg: '#03050a', charset: ' .:-=+*#%@' } },
+    { id: 'sincronizado', name: 'Campo sincronizado', params: { K: 3, spread: 0.02, freq: 0.4, neigh: 'r2', lag: 0.3, noise: 0, init: 'ondas', view: 'fase' }, uses: ['fondos/ondas'], aka: ['ondas viajeras'], look: { stops: ['#0a0c06', '#e8f0b0'], bg: '#050603', charset: ' .-~=≈#' } },
+    { id: 'destellos', name: 'Destellos', params: { K: 4, spread: 0.06, freq: 0.6, neigh: 'r3', lag: 0.5, noise: 0, init: 'aleatoria', view: 'destellos' }, uses: ['fondos/vivas'], aka: ['luciérnagas'], look: { stops: ['#0c0804', '#ffd890'], bg: '#060402', charset: ' .·:*#@' } },
+    { id: 'turbulencia', name: 'Turbulencia', params: { K: 4, spread: 0.05, freq: 0.5, neigh: 'r3', lag: 1, noise: 0, init: 'aleatoria', view: 'vortices' }, uses: ['fondos/vivas'], aka: ['vórtices', 'defectos de fase'], look: { stops: ['#100608', '#ffb0c0'], bg: '#080304', charset: ' .:o@' } },
+    { id: 'espirales', name: 'Espirales de luz', params: { K: 3, spread: 0.02, freq: 0.45, neigh: 'r2', lag: 0.8, noise: 0, init: 'espirales', view: 'frentes' }, uses: ['fondos/ondas', 'arte/curvas', 'terminal/consola'], aka: ['ondas espirales', 'frentes de onda'], look: { stops: ['#04080c', '#bdf0ff'], bg: '#020406', charset: ' .:-=+*#' } },
   ],
   caps: {
     loop: false, time: 'continuo', basic: 'full', checkpoint: true,

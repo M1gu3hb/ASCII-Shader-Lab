@@ -8,11 +8,20 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  *   dθᵢ/dt = ωᵢ + (K / Nᵢ) Σⱼ sin(θⱼ − θᵢ − α) + D ξᵢ(t)
  * over its Nᵢ neighbours (4, 8 or a disc of radius 2 or 3), with seeded gaussian noise ξ, integrated with
  * Euler–Maruyama at dt = 0.05 (one unit of model time per second at the family's rate). The neighbour sums
- * use sin(θⱼ − θᵢ) = sin θⱼ cos θᵢ − cos θⱼ sin θᵢ, so each step costs two sines per node. The lattice is half
- * the raster's resolution and is drawn upsampled (bilinear).
+ * use sin(θⱼ − θᵢ) = sin θⱼ cos θᵢ − cos θⱼ sin θᵢ, so each step costs two sines per node. The lattice is
+ * drawn resampled (bilinear) onto the raster.
+ *
+ * Version 2 (PR #10 review, A-05): the lattice has a fixed size (KU_ROWS rows, twice as many columns) whatever
+ * the raster rows, so the neighbourhood, the waves and the spirals keep their size against the canvas (with
+ * half the raster's rows, a small canvas made the coupling reach a large share of it and the whole field fell
+ * into one synchronous flash). Version 1 recipes keep their path: a lattice of half the raster's rows.
+ * Also in version 2: «Vórtices» marks each phase singularity with a disc of about three nodes (two by two
+ * nodes were a speck at the default rows), and the view «Frentes» draws one thin front per turn.
  */
 
-const ID = 'kuramoto', V = 1;
+const ID = 'kuramoto', V = 2;
+/** Lattice rows from version 2 (half the default raster rows: there both versions coincide). */
+export const KU_ROWS = 48;
 const TAU = Math.PI * 2, DT = 0.05;
 /** Phase over which a flash fades (radians). */
 const FLASH = 1.4;
@@ -44,9 +53,11 @@ const read = (p: Params): P => ({
 const wrapPi = (d: number) => (d > Math.PI ? d - TAU : d < -Math.PI ? d + TAU : d);
 
 export function create(cfg: ModelConfig): FieldModel {
+  const ver = cfg.v ?? V;
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
-  const gh = Math.max(8, Math.round(h / 2)), gw = 2 * gh, gn = gw * gh;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  const gh = ver >= 2 ? KU_ROWS : Math.max(8, Math.round(h / 2)), gw = 2 * gh, gn = gw * gh;
+  // (the stream keeps the version-1 key: at the default rows both versions draw the same lattice)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
   let p = read(cfg.params);
   let steps = 0;
   const th = new Float32Array(gn), z = new Float32Array(gn);
@@ -135,6 +146,11 @@ export function create(cfg: ModelConfig): FieldModel {
       }
       return;
     }
+    if (p.view === 'frentes') {
+      // one thin bright front per turn, where the phase passes zero: spirals and waves drawn as lines
+      for (let i = 0; i < gn; i++) { const c = 0.5 + 0.5 * Math.cos(th[i]), c2 = c * c; val[i] = c2 * c2 * c2; }
+      return;
+    }
     for (let i = 0; i < gn; i++) val[i] = 0.5 + 0.5 * Math.cos(th[i]);
     if (p.view !== 'vortices') return;
     // phase singularities: the winding of the phase round each 2 × 2 plaquette, drawn over a dim phase
@@ -145,7 +161,14 @@ export function create(cfg: ModelConfig): FieldModel {
       const wind = wrapPi(b - a) + wrapPi(c - b) + wrapPi(d - c) + wrapPi(a - d);
       if (Math.abs(wind) < Math.PI) continue;
       const v = wind > 0 ? 1 : 0.75;
-      for (const j of [y * gw + x, y * gw + x1, y1 * gw + x1, y1 * gw + x]) if (val[j] < v) val[j] = v;
+      if (ver >= 2) {
+        // (version 2: a disc of a node and a half round the plaquette, so a vortex reads as a glyph or two)
+        for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) {
+          const ex = dx - 0.5, ey = dy - 0.5, k = 1.15 - 0.3 * Math.sqrt(ex * ex + ey * ey);
+          const j = ((y + dy + gh) % gh) * gw + ((x + dx + gw) % gw), u = v * Math.min(1, k);
+          if (val[j] < u) val[j] = u;
+        }
+      } else for (const j of [y * gw + x, y * gw + x1, y1 * gw + x1, y1 * gw + x]) if (val[j] < v) val[j] = v;
     }
   };
 
@@ -187,7 +210,7 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = {};
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { th: th.slice(), z: z.slice() } };
+      return { id: ID, v: ver, steps, res: h, scalars, arrays: { th: th.slice(), z: z.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta simulación.');
