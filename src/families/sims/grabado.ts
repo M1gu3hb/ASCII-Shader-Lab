@@ -80,13 +80,13 @@ interface Mat {
 }
 const MATS: Record<P['material'], Mat> = {
   // brushed steel: a dark plate, the cut bright and cold
-  acero: { plate: 0, amp: 0.075, plateC: [0.30, 0.33, 0.38], cut: 0.74, cutC: [0.70, 0.76, 0.84], litC: [0.94, 0.97, 1], temperC: [1, 0.72, 0.38], smokeC: [0.62, 0.66, 0.72],
+  acero: { plate: 0, amp: 0.06, plateC: [0.30, 0.33, 0.38], cut: 0.74, cutC: [0.70, 0.76, 0.84], litC: [0.94, 0.97, 1], temperC: [1, 0.72, 0.38], smokeC: [0.62, 0.66, 0.72],
     coreC: [1, 0.97, 0.9], haloC: [1, 0.55, 0.16], sparkC: [1, 0.82, 0.45], heatCap: 2.2 },
   // brass: warm plate, golden cut
-  laton: { plate: 0, amp: 0.07, plateC: [0.42, 0.29, 0.10], cut: 0.76, cutC: [0.96, 0.74, 0.34], litC: [1, 0.93, 0.66], temperC: [1, 0.55, 0.3], smokeC: [0.6, 0.58, 0.55],
+  laton: { plate: 0, amp: 0.055, plateC: [0.42, 0.29, 0.10], cut: 0.76, cutC: [0.96, 0.74, 0.34], litC: [1, 0.93, 0.66], temperC: [1, 0.55, 0.3], smokeC: [0.6, 0.58, 0.55],
     coreC: [1, 0.97, 0.88], haloC: [1, 0.6, 0.18], sparkC: [1, 0.85, 0.5], heatCap: 2.2 },
   // wood: the grain in a few strokes and the burn in dark browns, for a light background (pyrography)
-  madera: { plate: 0, amp: 0.1, plateC: [0.52, 0.33, 0.17], cut: 0.78, cutC: [0.17, 0.07, 0.025], litC: [0.34, 0.16, 0.06], temperC: [0.62, 0.2, 0.04], smokeC: [0.42, 0.38, 0.36],
+  madera: { plate: 0, amp: 0.085, plateC: [0.52, 0.33, 0.17], cut: 0.78, cutC: [0.17, 0.07, 0.025], litC: [0.34, 0.16, 0.06], temperC: [0.62, 0.2, 0.04], smokeC: [0.42, 0.38, 0.36],
     coreC: [1, 0.48, 0.08], haloC: [0.86, 0.24, 0.04], sparkC: [0.95, 0.4, 0.06], heatCap: 1 },
 };
 

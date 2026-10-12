@@ -1,11 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { contextOf } from './canvas';
-import { openStudio } from './helpers';
+import { download, openStudio } from './helpers';
 import { chooseRecipe, hideStageOverlays } from './recipes';
 
 /**
  * «Grabado láser» (C-07) in the Texto space: the recipe engraves the person's words. Writing other words changes
- * the drawing: what was engraved dissolves and the tip starts on the new letters, in both engines.
+ * the drawing: what was engraved dissolves and the tip starts on the new letters, in both engines. Its exported
+ * image and page carry the engraving of the words.
  */
 
 /** Share of bright pixels of the stage in a horizontal band (x0..x1 as fractions of its width). */
@@ -29,6 +31,47 @@ async function ink(page: Page, x0: number, x1: number): Promise<number> {
     return lit / all;
   }, ['data:image/png;base64,' + png.toString('base64'), x0, x1] as const);
 }
+
+test('grabado láser en Texto: la imagen y la página exportadas llevan el grabado de las palabras', async ({ page, context }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const errors = await openStudio(page, '#space=tipo');
+  await hideStageOverlays(page);
+  await chooseRecipe(page, 'Grabado láser');
+  await page.getByRole('tab', { name: 'Tu texto', exact: true }).click();
+  await page.getByRole('textbox', { name: /^Texto \(Enter para otra línea\)/ }).fill('OB');
+  await expect.poll(() => ink(page, 0.25, 0.75), { message: 'se graban la O y la B', timeout: 90_000, intervals: [1000] }).toBeGreaterThan(0.01);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('e');
+  await page.getByRole('tab', { name: 'Imagen' }).click();
+  const png = await download(page, () => page.getByRole('button', { name: 'Descargar imagen' }).click());
+  expect(readFileSync(png.path).subarray(1, 4).toString()).toBe('PNG');
+  // the page as code: it runs the family on its own, reading the same words
+  await page.getByRole('tab', { name: 'Código' }).click();
+  const [d] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Descargar página/ }).click()]);
+  const file = test.info().outputPath('grabado.html');
+  await d.saveAs(file);
+  expect(readFileSync(file, 'utf8')).toContain('"OB"');
+  const other = await context.newPage();
+  const otherErrors: string[] = [];
+  other.on('pageerror', e => otherErrors.push(e.message));
+  await other.setViewportSize({ width: 960, height: 540 });
+  await other.goto('file://' + file);
+  // the code page draws with its own clock: the tip engraves the O and the B in the middle of its canvas
+  await expect.poll(async () => {
+    const shot = await other.locator('canvas').first().screenshot();
+    return other.evaluate(async src => {
+      const img = new Image(); img.src = src; await img.decode();
+      const c = document.createElement('canvas'); c.width = 160; c.height = 90;
+      const x = c.getContext('2d', { willReadFrequently: true })!; x.drawImage(img, 0, 0, 160, 90);
+      const px = x.getImageData(40, 0, 80, 90).data;
+      let lit = 0; for (let i = 0; i < px.length; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 150) lit++;
+      return lit / (px.length / 4);
+    }, 'data:image/png;base64,' + shot.toString('base64'));
+  }, { message: 'la página exportada graba', timeout: 90_000, intervals: [1000] }).toBeGreaterThan(0.01);
+  expect(otherErrors).toEqual([]);
+  expect(errors).toEqual([]);
+});
 
 for (const engine of ['webgl', 'basico'] as const) {
   test(`grabado láser en Texto (${engine}): escribir otro texto cambia el grabado`, async ({ page }) => {
