@@ -11,8 +11,8 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  *  - «Onda de calor»: a hot band crosses the crystal and leaves it whole behind.
  * Its acceleration mixes two regimes by m:
  *  - order: a damped spring towards its site, a ≈ −K (x − h) − C v, plus a thermal tremor;
- *  - chaos: the velocity is pulled towards a divergence-free flow, v = (∂ψ/∂y, −∂ψ/∂x) of a 3D gradient noise
- *    ψ(x, y, t) (a 2D curl-noise flow that changes in time).
+ *  - chaos: carried by a divergence-free flow, v = (∂ψ'/∂y, −∂ψ'/∂x) with ψ' = ψ · b, ψ a 3D gradient noise
+ *    ψ(x, y, t) and b going to 0 at the walls (a 2D curl-noise flow that changes in time, midpoint steps).
  * Picture: every particle as a short streak along its velocity, brighter the faster it goes (cold crystal dim,
  * molten flow bright), and the lattice bonds between neighbours that are both ordered and close (they break as
  * the crystal melts and close again when it re-forms).
