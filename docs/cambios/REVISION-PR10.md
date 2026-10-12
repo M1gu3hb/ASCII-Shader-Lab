@@ -148,18 +148,22 @@ Todas sobre el build de producción (`vite preview`), proyecto `desktop` de Play
   - **Código exportado:** el de corrientes, el plano hiperbólico y reacción–difusión dibuja en los dos motores.
   - **Recetas:** las 130 recetas y escenas de los cinco espacios abren en su espacio y dibujan, en los dos motores (los
     presets de familia los cubre `familias`, uno por familia).
-  - **Memoria:** la de la página se estabiliza con 1 y con 4 capas de simulación, en los dos motores (cifras abajo).
+  - **Memoria:** la de la página se estabiliza con 1 y con 4 capas de simulación, en los dos motores.
+    - Es el montón de JS que da Chromium tras recoger la basura, a los 30 s, 2 min y 3,5 min. La memoria de la GPU no
+      se mide.
+    - Cifras de una segunda ejecución, también verde: una capa 6,9 → 7,3 → 7,4 MB en WebGL y 7,3 → 7,6 → 7,6 en el
+      básico; cuatro capas 8,9 → 9,1 → 9,0 MB en WebGL y 10,1 → 9,4 → 9,4 en el básico.
 - **Fallo de la propia prueba, corregido.** La primera ejecución larga agotó su tiempo (39 min) en la familia 17, «mar».
   - Es la primera familia sin preset en Arte, así que la prueba pasaba a Fondos y pulsaba la pestaña «Capas», que allí
     se llama «Forma». La espera no tenía límite propio.
   - La prueba usa ahora el nombre de cada espacio y falla en 15 s si la pestaña no aparece. No era un fallo del estudio:
-    medida paso a paso, cada familia tarda entre 7 y 18 s en abrir y dibujar.
+    medidas paso a paso, las 16 primeras tardaron entre 11 y 19 s cada una en abrir y dibujar.
 - **Preview de Vercel de `48c6925`** (no es producción): 7 pasan, con el mismo build que el local (mismo hash del
   fragmento del estudio).
   - El presupuesto de la primera vista, tres pruebas del azar y las tres del código exportado.
   - `0f426b0` sólo cambia una prueba.
 - **CI** (`check.yml`: auditoría de dependencias, tipos, unitarias, build y nueve pruebas de navegador): sin fallos en
-  `48c6925` y en `0f426b0`. El presupuesto de la primera vista no está en la CI: lo comprueba `perf`, corrida aquí y
+  `48c6925`, `0f426b0` y `9a8f34c`. El presupuesto de la primera vista no está en la CI: lo comprueba `perf`, corrida aquí y
   contra el preview.
 
 ## 9. Lo que no quedó resuelto
