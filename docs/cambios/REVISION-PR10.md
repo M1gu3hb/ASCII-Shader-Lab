@@ -31,6 +31,20 @@ Este registro dice qué había, qué se cambió, con qué pruebas y con qué res
 | A-11 | Una exportación podía salir de un estado a medias. | El motor fijo daba un cuadro aunque la simulación no hubiera alcanzado su momento. | `renderComplete()` repite el cuadro hasta que ninguna familia queda a medias, con progreso, cancelación y un límite que dice qué familia no llegó (`src/studio/exporting.ts`); lo usan imagen, video, GIF, rejilla y fotogramas. | `export-complete.test.ts`; `family-host.test.ts` (repetir el cuadro llega exactamente al estado de una reconstrucción completa). | Resuelto |
 | A-12 | La vista previa del estudio de glifos registraba juegos temporales y nunca los retiraba. | Cada edición creaba un juego nuevo en el registro y en las cachés del atlas. | `TempGlyphSets` (usar, asentar, liberar) y `retireGlyphSet`, que vacía las cachés de tinta y densidad del atlas (`src/glyphset/registry.ts`). | `glyphset-temp.test.ts`. | Resuelto |
 
+### Otros fallos encontrados y corregidos durante la revisión
+
+- **Familias analíticas vacías en el código exportado con WebGL 2** (existía antes de la revisión): el motor sólo pedía
+  su GLSL al cambiar de receta y la página exportada monta su pieza al crear el motor. Ahora los dos motores piden las
+  fichas, el código y el GLSL de la pieza inicial (`fcea515`); comprobado con las 39 familias y cubierto por
+  `familias.spec.ts`.
+- **Azar v6 leía los presets vivos**: cambiar un preset cambiaba tiradas publicadas. Quedó congelado
+  (`families6-data.ts`) antes de tocar ningún preset.
+- **Tamaño de celda en el motor básico del código exportado**: los gemelos de CPU que trabajan por celda leían una
+  copia propia del tamaño y dibujaban con otra celda; ahora lo reciben del motor.
+- **Introducidos y corregidos aquí mismo**: con el azar cargado a demanda, «Azar» y enseguida «Guardar» guardaba la pieza
+  anterior (ahora las acciones esperan su turno); con las fichas cargadas a demanda, el motor básico del código exportado
+  no las pedía (resuelto con lo anterior).
+
 ## 3. Familias y presets
 
 - **Antes**: 23 familias, 86 presets. **Ahora**: 39 familias (16 nuevas), 203 presets (86 de antes con su id intacto y 117 nuevos): 146 continuos, 20 bucles exactos y 37 construcciones (que lo dicen).
@@ -91,11 +105,35 @@ Candidatos nuevos del inventario (efectos que no había ni en GLYPHOS ni en V-01
 
 ## 8. Pruebas y resultados
 
-Se completa con los números finales de la verificación (unitarias, e2e de las rutas tocadas, presupuesto, sonda temporal) en §8.1.
+Entorno: Linux, Node 22, Chromium 141 de Playwright con WebGL 2 por software (SwiftShader). Con varias tareas a la vez
+en una máquina de 4 núcleos: las cifras de coste son cotas altas.
 
-### 8.1 Resultados
+- **Unitarias** (`npx vitest run tests/unit`): 153 archivos y 2646 pruebas, todas pasan (al empezar la revisión: 126 y
+  2251). Incluyen la batería genérica de las 39 familias (contrato, usos, periodo de los bucles, estado exacto,
+  determinismo), la compatibilidad de los 86 presets publicados, una prueba de mecanismo por familia y una prueba corta
+  por preset continuo, las versiones 1 a 7 del azar con sus tiradas de referencia, el catálogo por uso, el índice de
+  familias, los recursos del anfitrión, el código exportado, el orden de las acciones mientras el azar llega y los
+  hallazgos A-01…A-12.
+- **Tipos**: `tsc --noEmit` sin errores.
+- **Sonda temporal sobre la rama final** (`scripts/families-time.ts`, una semilla por preset a la resolución por
+  defecto, 0/30/60/120 s y 10 minutos; los grupos la corrieron además con tres semillas y en las resoluciones mínima y
+  máxima): los 166 presets continuos o en bucle siguen cambiando en todos los momentos medidos desde los 30 s y ninguno
+  queda vacío (tinta ≥ 2 %). Pasan del 97 % de tinta los campos de color que llenan el cuadro a propósito (Corrientes de
+  color, «Nácar en tus colores», «Lámina de cromo», «Mosaico dorado») y «Dentro de la nube» (§9). Resultados por preset en
+  [MATRIZ-PRESETS.md](revision-pr10/MATRIZ-PRESETS.md).
+- **Coste** (Node, la misma ejecución, con otras tres tareas en la máquina): pasan de 250 ms por segundo simulado en su
+  pico cinco presets nuevos de reacción–difusión (257–444), tres de fluido (263–307) y «Espiras que laten» (279). En vivo,
+  el presupuesto por cuadro (A-10) los hace ir más despacio en lugar de bloquear la página; en una máquina libre los
+  grupos midieron menos (reacción–difusión a 256 filas, 160 ms). No se repitió con la máquina libre.
+- **Código exportado**: el HTML de un preset de cada una de las 39 familias, abierto en Chromium con WebGL 2 y en
+  Chromium sin WebGL (motor básico): las 78 páginas dibujan y no dan errores.
+- **Primera vista del estudio** con ahorro de datos (límite sin tocar): 1 009 964 bytes de JS y 170 396 de CSS
+  (al empezar: 1 092 200 de JS).
+- **Pruebas de navegador** sobre el build de producción: ver §8.1.
 
-(pendiente de la verificación final)
+### 8.1 Pruebas de navegador
+
+(se completa con la última ejecución)
 
 ## 9. Lo que no quedó resuelto
 
@@ -104,5 +142,6 @@ Se completa con los números finales de la verificación (unitarias, e2e de las 
 - **Familias raster con color propio**: `ecos` y `humo` usan luminancia y la paleta de la pieza; dar color por celda a un raster pide un raster RGB en los dos motores.
 - **Leer la fuente de la pieza desde una familia** (que el cromado llene de metal la foto o el texto, que el desgarro revele otra capa): no se hizo; usan formas propias. Por eso ningún preset declara Imagen.
 - **Ocho de ocho parámetros en las analíticas** y el shader no recibe la versión de la familia: corregir el grano del disco del agujero negro a los 10 minutos pide un tercer bloque de parámetros.
+- **Coste en máquina libre**: los picos de §8 se midieron con la máquina ocupada y no se repitieron en limpio.
 - **Mejoras de patrones clásicos y recetas compuestas** del inventario («Mejora de…», «Preset nuevo de…», 43 filas): propuestas, no hechas en esta revisión.
 - **Por familia** (evidencia en cada informe de grupo): DLA de construcción a 160 filas crece despacio; «Continentes» depende de la semilla y queda como construcción; «Nadadores» y «Anillos que nadan» ocupan poco (van como figuras); «Montaña viva» y «Coral que respira» son fondos lentos; nubes que en algunos momentos pasan de ~0,97 de tinta; «Mandala de arena» con un disco gris central en algunos modos; las trazas de la cámara de niebla se leen mejor con celdas de 16 px; picos de coste de `ecos` y `humo` medidos con la máquina cargada.
