@@ -22,6 +22,13 @@ import type { FieldModel, ModelConfig, ModelState, Params } from '../types';
  * Drawing (does not touch the state): voxel-space ray casting, column by column front to back with a height
  * buffer (Comanche style), Lambert shading with exaggerated relief, rivers and sea brighter, distance fog and
  * the diorama's walls.
+ *
+ * Uplift («Levantamiento»): the crust rises under a slowly shifting pattern (three seeded fields blended in a
+ * cycle of a few minutes, each rising where it is positive and sinking where it is negative, eased off near a
+ * ceiling and a floor), so the rain never finishes its work: ranges grow where the uplift is and the rivers
+ * that cut them move with it, a landscape in dynamic balance (the steady state of uplift against erosion). The
+ * frame «Lienzo entero» makes the map twice as wide as tall and draws it from above over the whole canvas (the
+ * shaded relief, the water or the heights), instead of a diorama in the middle.
  */
 
 const ID = 'erosion', V = 1;
@@ -29,24 +36,27 @@ const ID = 'erosion', V = 1;
 const EX = 1.7;
 const MAX_N = 160, MAX_DROPS = 96, MAX_LIFE = 64, SEA_LIFE = 6;
 const INERTIA = 0.1, GRAV = 1, MIN_SLOPE = 0.01, BRUSH = 1.6, MAX_SPEED = 4;
+const RATE = 30;
+/** Seconds of the uplift's cycle through its three patterns. */
+const UP_PERIOD = 150;
 
 interface P {
   rain: number; erode: number; deposit: number; capacity: number; evap: number; talus: number; strata: number;
-  height: number; scale: number; shape: string; view: string; orbit: number; pitch: number;
+  height: number; scale: number; shape: string; view: string; orbit: number; pitch: number; uplift: number; frame: string;
 }
 const read = (p: Params): P => ({
   rain: Number(p.rain ?? 0.5), erode: Number(p.erode ?? 0.5), deposit: Number(p.deposit ?? 0.5), capacity: Number(p.capacity ?? 0.5),
   evap: Number(p.evap ?? 0.3), talus: Number(p.talus ?? 40), strata: Number(p.strata ?? 0), height: Number(p.height ?? 0.6),
   scale: Number(p.scale ?? 3), shape: String(p.shape ?? 'cordillera'), view: String(p.view ?? 'relieve'), orbit: Number(p.orbit ?? 0.5),
-  pitch: Number(p.pitch ?? 0.4),
+  pitch: Number(p.pitch ?? 0.4), uplift: Number(p.uplift ?? 0), frame: String(p.frame ?? 'maqueta'),
 });
 
-/** Bilinear sample of an n × n field at index coordinates (fx, fy), clamped at its edges. */
-function bil(f: Float32Array, n: number, fx: number, fy: number): number {
-  fx = fx < 0 ? 0 : fx > n - 1 ? n - 1 : fx;
-  fy = fy < 0 ? 0 : fy > n - 1 ? n - 1 : fy;
+/** Bilinear sample of an nx × ny field at index coordinates (fx, fy), clamped at its edges. */
+function bil(f: Float32Array, nx: number, ny: number, fx: number, fy: number): number {
+  fx = fx < 0 ? 0 : fx > nx - 1 ? nx - 1 : fx;
+  fy = fy < 0 ? 0 : fy > ny - 1 ? ny - 1 : fy;
   const ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy;
-  const o = iy * n + ix, dx = ix < n - 1 ? 1 : 0, dy = iy < n - 1 ? n : 0;
+  const o = iy * nx + ix, dx = ix < nx - 1 ? 1 : 0, dy = iy < ny - 1 ? nx : 0;
   const a = f[o] + (f[o + dx] - f[o]) * tx, b = f[o + dy] + (f[o + dy + dx] - f[o + dy]) * tx;
   return a + (b - a) * ty;
 }
@@ -72,18 +82,20 @@ function noise(rng: SimRng) {
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
-  const N = Math.max(32, Math.min(MAX_N, Math.round(h * 1.15))), nn = N * N;
+  let p = read(cfg.params);
+  // the map: N × N cells in the diorama; twice as wide as tall (as many cells) over the whole canvas
+  const N = Math.max(32, Math.min(MAX_N, Math.round(h * 1.15))), wide = p.frame === 'lienzo';
+  const NY = wide ? Math.max(24, Math.round(N * 0.71)) : N, NX = wide ? 2 * NY : N, nn = NX * NY;
   const B = new Float32Array(nn), F = new Float32Array(nn), dB = new Float32Array(nn);
   const shade = new Float32Array(nn), ybuf = new Float32Array(w);
   const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
-  let p = read(cfg.params);
   let steps = 0, lost = 0, dropAcc = 0;
 
   // ---- the initial relief (structural: changing it rebuilds the model)
   const nz = noise(rng);
   const amp = p.height * N * 0.14, fq = p.scale / N;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const u = x / (N - 1), v = y / (N - 1);
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const u = x / (NX - 1), v = y / (NY - 1);
     let e: number;
     if (p.shape === 'ladera') {
       // high at the back, under the sea at the front, with valleys from the noise
@@ -97,7 +109,7 @@ export function create(cfg: ModelConfig): FieldModel {
       const r = Math.hypot(u - 0.5, v - 0.5) * 2;
       e = (0.75 * nz.ridged(x * fq, y * fq) + 0.35 * nz.fbm(x * fq * 0.5, y * fq * 0.5)) * Math.max(0, 1.1 - r * r * 0.75) - 0.05;
     }
-    B[y * N + x] = Math.max(-0.12, e) * amp;
+    B[y * NX + x] = Math.max(-0.12, e) * amp;
   }
   let top0 = 1;
   for (let k = 0; k < nn; k++) if (B[k] > top0) top0 = B[k];
@@ -115,43 +127,71 @@ export function create(cfg: ModelConfig): FieldModel {
   const bo: number[] = [], bx: number[] = [], by: number[] = [], bw: number[] = [];
   for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) {
     const d = Math.hypot(i, j);
-    if (d < BRUSH) { bx.push(i); by.push(j); bo.push(j * N + i); bw.push(BRUSH - d); }
+    if (d < BRUSH) { bx.push(i); by.push(j); bo.push(j * NX + i); bw.push(BRUSH - d); }
   }
   const HG = new Float64Array(3);
   /** Height and gradient at (x, y) by bilinear interpolation of the four corners. */
   const heightGrad = (x: number, y: number) => {
-    const ix = x | 0, iy = y | 0, u = x - ix, v = y - iy, k = iy * N + ix;
-    const a = B[k], b = B[k + 1], c = B[k + N], d = B[k + N + 1];
+    const ix = x | 0, iy = y | 0, u = x - ix, v = y - iy, k = iy * NX + ix;
+    const a = B[k], b = B[k + 1], c = B[k + NX], d = B[k + NX + 1];
     HG[0] = a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
     HG[1] = (b - a) * (1 - v) + (d - c) * v;
     HG[2] = (c - a) * (1 - u) + (d - b) * u;
   };
   /** Lays `amount` on the four corners of the cell under (x, y). */
   const lay = (x: number, y: number, amount: number) => {
-    const ix = x | 0, iy = y | 0, u = x - ix, v = y - iy, k = iy * N + ix;
+    const ix = x | 0, iy = y | 0, u = x - ix, v = y - iy, k = iy * NX + ix;
     B[k] += amount * (1 - u) * (1 - v); B[k + 1] += amount * u * (1 - v);
-    B[k + N] += amount * (1 - u) * v; B[k + N + 1] += amount * u * v;
+    B[k + NX] += amount * (1 - u) * v; B[k + NX + 1] += amount * u * v;
   };
   /** Takes up to `amount` from the brush around (x, y); returns what it took. */
   const dig = (x: number, y: number, amount: number) => {
-    const ix = Math.round(x), iy = Math.round(y), k = iy * N + ix;
+    const ix = Math.round(x), iy = Math.round(y), k = iy * NX + ix;
     let ws = 0;
     for (let i = 0; i < bo.length; i++) {
       const xx = ix + bx[i], yy = iy + by[i];
-      if (xx >= 0 && yy >= 0 && xx < N && yy < N) ws += bw[i];
+      if (xx >= 0 && yy >= 0 && xx < NX && yy < NY) ws += bw[i];
     }
     let took = 0;
     for (let i = 0; i < bo.length; i++) {
       const xx = ix + bx[i], yy = iy + by[i];
-      if (xx < 0 || yy < 0 || xx >= N || yy >= N) continue;
+      if (xx < 0 || yy < 0 || xx >= NX || yy >= NY) continue;
       const q = k + bo[i], e = (amount * bw[i]) / ws * (1 - hard(B[q]));
       B[q] -= e; took += e;
     }
     return took;
   };
 
+  // ---- uplift: three seeded patterns (their own generator: the terrain and the rain draw what they drew)
+  let upF: Float32Array[] | null = null;
+  const upFields = () => {
+    const urng = new SimRng(`${ID}|levantamiento|${cfg.seed}`), un = noise(urng), fu = 2.4 / N;
+    upF = [0, 1, 2].map(i => {
+      const f = new Float32Array(nn), ox = urng.range(0, 200), oy = urng.range(0, 200);
+      for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+        // rises in ridges and blobs, sinks between them; the diorama keeps its edges low
+        let e = 1.5 * un.fbm(x * fu + ox + i * 37, y * fu + oy, 4) - 0.62;
+        if (!wide) { const r = Math.hypot(x / (N - 1) - 0.5, y / (N - 1) - 0.5) * 2; e = (e + 0.2) * Math.max(0, 1 - r * r * 0.8); }
+        else { const r = Math.abs(y / (NY - 1) - 0.5) * 2; e -= 0.25 * r * r * r; }
+        f[y * NX + x] = Math.max(-0.4, Math.min(1, e));
+      }
+      return f;
+    });
+  };
+  /** One step of uplift (and subsidence), eased off towards a ceiling and a floor so the relief stays bounded. */
+  const uplift = () => {
+    if (!upF) upFields();
+    const [f0, f1, f2] = upF!, T = steps / RATE, a = (Math.PI * 2 * T) / UP_PERIOD;
+    const w0 = (1 + Math.cos(a)) / 3, w1 = (1 + Math.cos(a + 2.0944)) / 3, w2 = (1 + Math.cos(a + 4.1888)) / 3;
+    const rate = (p.uplift * amp) / 900, top = amp * 1.15, bottom = -amp * 0.3;
+    for (let k = 0; k < nn; k++) {
+      const u = w0 * f0[k] + w1 * f1[k] + w2 * f2[k], z = B[k];
+      B[k] = z + rate * u * (u > 0 ? Math.max(0, 1 - z / top) : Math.max(0, 1 - z / bottom));
+    }
+  };
+
   const drop = (Kc: number, Ks: number, Kd: number, ev: number) => {
-    let x = rng.next() * (N - 1), y = rng.next() * (N - 1);
+    let x = rng.next() * (NX - 1), y = rng.next() * (NY - 1);
     let dx = 0, dy = 0, speed = 1, water = 1, sed = 0, sea = 0;
     heightGrad(x, y);
     if (HG[0] < 0) return; // rain on the sea
@@ -163,8 +203,8 @@ export function create(cfg: ModelConfig): FieldModel {
       dx /= len; dy /= len;
       const ox = x, oy = y;
       x += dx; y += dy;
-      F[(oy | 0) * N + (ox | 0)] += water;
-      if (x < 0 || y < 0 || x >= N - 1 || y >= N - 1) { lost += sed; sed = 0; break; }
+      F[(oy | 0) * NX + (ox | 0)] += water;
+      if (x < 0 || y < 0 || x >= NX - 1 || y >= NY - 1) { lost += sed; sed = 0; break; }
       heightGrad(x, y);
       const dh = HG[0] - h0;
       if (HG[0] < 0) { speed *= 0.5; sea++; }
@@ -181,7 +221,7 @@ export function create(cfg: ModelConfig): FieldModel {
       if (sea > SEA_LIFE || water < 0.01) break;
     }
     if (sed > 0) {
-      if (x < 0 || y < 0 || x >= N - 1 || y >= N - 1) lost += sed;
+      if (x < 0 || y < 0 || x >= NX - 1 || y >= NY - 1) lost += sed;
       else lay(x, y, sed);
     }
   };
@@ -190,25 +230,27 @@ export function create(cfg: ModelConfig): FieldModel {
     const Kc = 0.05 + 0.6 * p.capacity, Ks = 0.02 + 0.4 * p.erode, Kd = 0.02 + 0.4 * p.deposit, ev = 0.005 + 0.08 * p.evap;
     // the flow map fades (a few seconds of memory)
     for (let k = 0; k < nn; k++) F[k] *= 0.96;
-    dropAcc += p.rain * MAX_DROPS;
+    // (on the canvas map the rain scales with its area, so a coarse map is not flooded: rivers keep their width)
+    dropAcc += p.rain * (wide ? MAX_DROPS * Math.min(1, nn / 16384) : MAX_DROPS);
     for (; dropAcc >= 1; dropAcc--) drop(Kc, Ks, Kd, ev);
     // thermal erosion: material above the talus slope slides to the lower neighbours (hard rock holds cliffs)
     const T0 = Math.tan((p.talus * Math.PI) / 180), Kt = 0.25;
     dB.fill(0);
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const k = y * N + x, z = B[k], hz = hard(z), T = T0 + 8 * hz;
-      const a = x > 0 ? z - B[k - 1] - T : 0, b = x < N - 1 ? z - B[k + 1] - T : 0;
-      const c = y > 0 ? z - B[k - N] - T : 0, d = y < N - 1 ? z - B[k + N] - T : 0;
+    for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+      const k = y * NX + x, z = B[k], hz = hard(z), T = T0 + 8 * hz;
+      const a = x > 0 ? z - B[k - 1] - T : 0, b = x < NX - 1 ? z - B[k + 1] - T : 0;
+      const c = y > 0 ? z - B[k - NX] - T : 0, d = y < NY - 1 ? z - B[k + NX] - T : 0;
       const ea = a > 0 ? a : 0, eb = b > 0 ? b : 0, ec = c > 0 ? c : 0, ed = d > 0 ? d : 0, tot = ea + eb + ec + ed;
       if (tot <= 0) continue;
       const m = Kt * Math.max(ea, eb, ec, ed) * 0.5 * (1 - hz), r = m / tot;
       dB[k] -= m;
       if (ea > 0) dB[k - 1] += r * ea;
       if (eb > 0) dB[k + 1] += r * eb;
-      if (ec > 0) dB[k - N] += r * ec;
-      if (ed > 0) dB[k + N] += r * ed;
+      if (ec > 0) dB[k - NX] += r * ec;
+      if (ed > 0) dB[k + NX] += r * ed;
     }
     for (let k = 0; k < nn; k++) B[k] += dB[k];
+    if (p.uplift > 0) uplift();
     steps++;
   };
 
@@ -216,24 +258,41 @@ export function create(cfg: ModelConfig): FieldModel {
   const render = (out: Uint8Array, t: number) => {
     out.fill(0);
     // light from a fixed sun over the map (not the camera), on the relief as drawn (heights × EX)
-    const Lx = -0.55, Ly = -0.45, Lz = 0.7, ll = Math.hypot(Lx, Ly, Lz);
+    // (the canvas map has a lower sun: flat land falls dark and the slopes facing it light up)
+    const Lx = -0.55, Ly = -0.45, Lz = wide && p.view === 'relieve' ? 0.42 : 0.7, ll = Math.hypot(Lx, Ly, Lz);
     let maxB = 1e-6;
     for (let k = 0; k < nn; k++) if (B[k] > maxB) maxB = B[k];
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const k = y * N + x, z = B[k];
-      const gx = 0.5 * EX * ((x < N - 1 ? Math.max(0, B[k + 1]) : z) - (x > 0 ? Math.max(0, B[k - 1]) : z));
-      const gy = 0.5 * EX * ((y < N - 1 ? Math.max(0, B[k + N]) : z) - (y > 0 ? Math.max(0, B[k - N]) : z));
+    for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+      const k = y * NX + x, z = B[k];
+      const gx = 0.5 * EX * ((x < NX - 1 ? Math.max(0, B[k + 1]) : z) - (x > 0 ? Math.max(0, B[k - 1]) : z));
+      const gy = 0.5 * EX * ((y < NY - 1 ? Math.max(0, B[k + NX]) : z) - (y > 0 ? Math.max(0, B[k - NX]) : z));
       const lam = Math.max(0, (-gx * Lx - gy * Ly + Lz) / (ll * Math.sqrt(gx * gx + gy * gy + 1)));
       const river = 1 - Math.exp(-F[k] * 0.08), sea = z < 0 ? Math.min(1, 0.55 - z * 0.4) : 0;
-      if (p.view === 'agua') shade[k] = Math.max(0.04 + 0.2 * lam + 0.85 * river, sea);
+      if (wide && p.view !== 'alturas') {
+        // the canvas map: dark water with lighter shallows, so the coast and the rivers carry the picture
+        const water = 0.03 + 0.14 * Math.exp(z / (0.04 * amp));
+        if (p.view === 'agua') shade[k] = z < 0 ? water : 0.02 + 0.13 * lam * lam + 0.85 * river;
+        else shade[k] = z < 0 ? water : 0.95 * lam * lam * lam * (1 - 0.4 * river) + 0.7 * river;
+      } else if (p.view === 'agua') shade[k] = Math.max(0.04 + 0.2 * lam + 0.85 * river, sea);
       else if (p.view === 'alturas') shade[k] = z < 0 ? 0.04 : 0.08 + 0.55 * (z / maxB) + 0.4 * (lam - 0.55);
       else shade[k] = z < 0 ? 0.3 + 0.25 * sea : (0.05 + 0.85 * lam * lam) * (1 - 0.4 * river) + 0.7 * river;
+    }
+    if (wide) {
+      // the whole canvas: the map from above (the relief shaded by the same sun)
+      for (let y = 0; y < h; y++) {
+        const fy = ((y + 0.5) * NY) / h - 0.5;
+        for (let x = 0; x < w; x++) {
+          const v = bil(shade, NX, NY, ((x + 0.5) * NX) / w - 0.5, fy);
+          out[y * w + x] = v <= 0 ? 0 : v >= 1 ? 255 : (v * 255 + 0.5) | 0;
+        }
+      }
+      return;
     }
     if (p.view !== 'relieve') {
       // top-down map in the centre of the raster
       const o = (w - h) / 2;
       for (let y = 0; y < h; y++) for (let x = 0; x < h; x++) {
-        const v = bil(shade, N, ((x + 0.5) * N) / h - 0.5, ((y + 0.5) * N) / h - 0.5);
+        const v = bil(shade, N, N, ((x + 0.5) * N) / h - 0.5, ((y + 0.5) * N) / h - 0.5);
         out[y * w + o + x] = v <= 0 ? 0 : v >= 1 ? 255 : (v * 255 + 0.5) | 0;
       }
       return;
@@ -258,7 +317,7 @@ export function create(cfg: ModelConfig): FieldModel {
         const px = cx + rx * z, py = cy + ry * z;
         if (px < 0 || py < 0 || px > N - 1 || py > N - 1) { if (inside) break; z += 0.5; continue; }
         // the sea is a flat surface at height 0
-        const top = Math.max(0, bil(B, N, px, py)) * EX;
+        const top = Math.max(0, bil(B, N, N, px, py)) * EX;
         const ys = horizon + ((camH - top) * focal) / z;
         const fog = Math.min(1, Math.max(0, (z - (R - N * 0.6)) / (N * 1.5)));
         if (!inside) {
@@ -270,7 +329,7 @@ export function create(cfg: ModelConfig): FieldModel {
           for (let y = Math.max(0, Math.ceil(ys)); y < ybuf[sx]; y++) out[y * w + sx] = wall;
           if (ys < ybuf[sx]) ybuf[sx] = Math.max(0, ys);
         } else if (ys < ybuf[sx]) {
-          const v = bil(shade, N, px, py) * (1 - 0.55 * fog);
+          const v = bil(shade, N, N, px, py) * (1 - 0.55 * fog);
           const b = v <= 0 ? 0 : v >= 1 ? 255 : (v * 255 + 0.5) | 0;
           for (let y = Math.max(0, Math.ceil(ys)); y < ybuf[sx]; y++) out[y * w + sx] = b;
           ybuf[sx] = Math.max(0, ys);
@@ -284,7 +343,7 @@ export function create(cfg: ModelConfig): FieldModel {
   return {
     w, h,
     get steps() { return steps; },
-    setParams(np: Params) { p = read(np); },
+    setParams(np: Params) { p = { ...read(np), frame: p.frame }; },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
     render,
     snapshot(): ModelState {

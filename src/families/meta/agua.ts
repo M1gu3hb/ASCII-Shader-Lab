@@ -5,8 +5,9 @@ export const META: FamilyMeta = {
   name: 'Agua interactiva',
   group: 'fisica',
   kind: 'simulation',
-  version: 1,
+  version: 2,
   extends: 'causticas',
+  aka: ['Ecuación de ondas', 'Cáusticas', 'Refracción', 'Agua'],
   params: [
     { key: 'rain', label: 'Lluvia', type: 'number', min: 0, max: 40, def: 4, step: 0.5, unit: 'gotas/s' },
     { key: 'drop', label: 'Tamaño de gota', type: 'number', min: 0.7, max: 3, def: 1.2, step: 0.05 },
@@ -23,9 +24,26 @@ export const META: FamilyMeta = {
     ] },
   ],
   presets: [
-    { id: 'piscina', name: 'Piscina con cáusticas', params: { rain: 5, drop: 2.2, damp: 0.55, speed: 0.5, paddle: 0, obst: 'ninguno', depth: 0.8, light: 135, view: 'suelo' }, look: { stops: ['#03141c', '#5fd3e6', '#f2fdff'], bg: '#020c11', charset: ' .:-=+*#%' } },
-    { id: 'lluvia', name: 'Lluvia sobre el estanque', params: { rain: 14, drop: 1.6, damp: 0.5, speed: 0.4, paddle: 0, obst: 'rocas', depth: 0.4, light: 120, view: 'superficie' }, look: { stops: ['#060a0c', '#b7d3dc'], bg: '#030607', charset: ' .·:;oO' } },
-    { id: 'canal', name: 'Ondas en un canal', params: { rain: 0, drop: 1.2, damp: 0.05, speed: 0.6, paddle: 0.55, obst: 'rendijas', depth: 0.6, light: 180, view: 'causticas' }, look: { stops: ['#0a0816', '#c6b6ff'], bg: '#05040c', charset: ' .-=+#' } },
+    {
+      id: 'piscina', name: 'Piscina con cáusticas', aka: ['Cáusticas sobre baldosas'], uses: ['fondos/ondas'],
+      params: { rain: 12, drop: 1.6, damp: 0.3, speed: 0.5, paddle: 0, obst: 'ninguno', depth: 1, light: 135, view: 'suelo' },
+      look: { stops: ['#03141c', '#5fd3e6', '#f2fdff'], bg: '#020c11', charset: ' .:-=+*#%' },
+    },
+    {
+      id: 'destellos', name: 'Luz bajo el agua', aka: ['Cáusticas', 'Red de luz'], uses: ['fondos/ondas', 'tipo/texturas'],
+      params: { rain: 8, drop: 2.2, damp: 0.15, speed: 0.4, paddle: 0, obst: 'ninguno', depth: 1, light: 150, view: 'causticas' },
+      look: { stops: ['#020a12', '#3fb8d8', '#eafcff'], bg: '#01060a', charset: ' .:-=+*#' },
+    },
+    {
+      id: 'lluvia', name: 'Lluvia sobre el estanque', aka: ['Anillos de lluvia'], uses: ['fondos/ondas'],
+      params: { rain: 14, drop: 1.6, damp: 0.5, speed: 0.4, paddle: 0, obst: 'rocas', depth: 0.4, light: 120, view: 'superficie' },
+      look: { stops: ['#060a0c', '#b7d3dc'], bg: '#030607', charset: ' .·:;oO' },
+    },
+    {
+      id: 'canal', name: 'Ondas en un canal', aka: ['Doble rendija', 'Interferencia', 'Difracción'], uses: ['fondos/ondas', 'arte/optica'],
+      params: { rain: 0, drop: 1.2, damp: 0.05, speed: 0.6, paddle: 0.55, obst: 'rendijas', depth: 0.6, light: 180, view: 'causticas' },
+      look: { stops: ['#0a0816', '#c6b6ff'], bg: '#05040c', charset: ' .-=+#' },
+    },
   ],
   caps: {
     loop: false, time: 'continuo', basic: 'full', checkpoint: true,

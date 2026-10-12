@@ -4,7 +4,7 @@ import type { FamilyDoc } from '../types';
 export const DOC: FamilyDoc = {
   blurb: 'Cientos de agentes que se separan, se alinean y se juntan: bandadas, cardúmenes y grupos sueltos.',
   mechanism: 'Modelo de Reynolds: cada agente sólo mira a sus vecinos cercanos y combina tres reglas (separarse de los muy próximos, copiar su rumbo, ir hacia su centro). Nadie dirige: la bandada sale de esas reglas locales. Los depredadores persiguen al más cercano y la bandada huye de ellos.',
-  time: 'Evoluciona con memoria: cada paso depende del anterior. Se puede pausar, avanzar paso a paso y guardar su estado; no repite un bucle perfecto.',
+  time: 'Evoluciona con memoria: cada paso depende del anterior. Es continuo: los agentes no se paran nunca (una pizca de inquietud y los depredadores parten y rehacen los grupos), así que la bandada cambia de forma sin repetirse. Se puede pausar, avanzar paso a paso y guardar su estado; no repite un bucle perfecto.',
   limits: 'Hasta 3000 agentes, 6 depredadores y 6 obstáculos; vecinos por rejilla uniforme, como mucho 80 candidatos por agente y paso; un búfer de estela de 2 × filas × filas.',
   sources: [
     { label: 'Craig Reynolds (1987): Flocks, Herds, and Schools', url: 'https://www.red3d.com/cwr/papers/1987/boids.html' },
@@ -26,6 +26,7 @@ export const DOC: FamilyDoc = {
   },
   presets: {
     'murmuracion': 'Una bandada enorme y muy alineada que se curva en eses y remolinos; un halcón le abre huecos.',
+    'estelas': 'Pocos agentes con estelas muy largas: cintas de luz que se cruzan y se curvan detrás de la bandada.',
     'cardumen': 'Bancos alargados y apretados que se parten y se cierran para esquivar a tres depredadores entre rocas.',
     'dispersion': 'Poca cohesión: muchos grupos pequeños que se cruzan y se deshacen.',
   },

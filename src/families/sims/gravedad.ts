@@ -1,5 +1,6 @@
 import { Accum, toBytes } from '../draw';
 import { SimRng } from '../rng';
+import { createSpiral } from './gravedad-espiral';
 import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../types';
 
 /**
@@ -50,6 +51,8 @@ export function energy(pos: Float64Array, vel: Float64Array, mass: Float64Array,
 const words = (a: Float64Array) => new Int32Array(a.buffer.slice(a.byteOffset, a.byteOffset + a.byteLength));
 
 export function create(cfg: ModelConfig): FieldModel {
+  // «Galaxia de brazos»: orbits in the galaxy's potential, not a pairwise sum (gravedad-espiral.ts)
+  if (String(cfg.params.init) === 'espiral') return createSpiral(cfg);
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
   const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
   let p = read(cfg.params);

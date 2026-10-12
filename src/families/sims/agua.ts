@@ -17,7 +17,9 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * or the lit surface.
  */
 
-const ID = 'agua', V = 1, RATE = 60;
+const ID = 'agua', RATE = 60;
+/** The water itself (waves, rain, paddle) is the same in every version: its seed key keeps version 1. */
+const V1 = 1;
 const MAX_DROPS_STEP = 8, MAX_STROKE_DROPS = 48;
 const ETA = 1 / 1.33;
 
@@ -46,7 +48,10 @@ export function create(cfg: ModelConfig): FieldModel {
   const caus = new Float32Array(n), tmp = new Float32Array(n), V0 = new Float32Array(n);
   // inside a rock: the offset from its centre over its radius (a dome to shade); 0 on walls
   const rockX = new Float32Array(n), rockY = new Float32Array(n);
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  const rng = new SimRng(`${ID}|${V1}|${cfg.seed}`);
+  // version 1 recipes keep the drawing they were made with (four light samples per cell); version 2 draws the
+  // same picture for a quarter of the cost (see renderFast)
+  const ver = cfg.v === 1 ? 1 : 2;
   let p = read(cfg.params);
   let steps = 0, rainAcc = 0, phase = 0;
 
@@ -236,7 +241,8 @@ export function create(cfg: ModelConfig): FieldModel {
       } else {
         const nx = -gx[k], ny = -gy[k], il = 1 / Math.sqrt(nx * nx + ny * ny + 1);
         const Nx = nx * il, Ny = ny * il, Nz = il;
-        const nh = Nx * Hx + Ny * Hy + Nz * Hz, spec = nh > 0.85 ? Math.max(0, Math.pow(nh, 50) - spec0) / (1 - spec0) : 0;
+        // (nh ≤ Hz gives nh⁵⁰ ≤ spec0 and so no glint: the costly power is only taken where it counts)
+        const nh = Nx * Hx + Ny * Hy + Nz * Hz, spec = nh > 0.85 && nh > Hz ? Math.max(0, Math.pow(nh, 50) - spec0) / (1 - spec0) : 0;
         if (p.view === 'superficie') {
           v = 0.05 + Math.sqrt(Math.max(0, Nx * Lx + Ny * Ly + Nz * Lz - Lz) * 5) + spec;
         } else {
@@ -253,12 +259,89 @@ export function create(cfg: ModelConfig): FieldModel {
     }
   };
 
+  /**
+   * Version 2 of the drawing: the same light, for a quarter of the cost. The light refracted at each cell is
+   * splatted once (at the cell's centre, not at four quarter-cell samples) and the caustics are smoothed twice
+   * instead of once; the glint's power is taken by squaring. Same look; the bytes differ slightly from version 1.
+   */
+  const renderFast = (out: Uint8Array) => {
+    const S = 1.6;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = y * w + x, c = H[k];
+      const l = x > 0 && !solid[k - 1] ? H[k - 1] : c, r = x < w - 1 && !solid[k + 1] ? H[k + 1] : c;
+      const u = y > 0 && !solid[k - w] ? H[k - w] : c, d = y < h - 1 && !solid[k + w] ? H[k + w] : c;
+      gx[k] = 0.5 * (r - l) * S; gy[k] = 0.5 * (d - u) * S;
+    }
+    const az = (p.light * Math.PI) / 180, el = Math.PI / 3;
+    const Lx = Math.cos(az) * Math.cos(el), Ly = -Math.sin(az) * Math.cos(el), Lz = Math.sin(el);
+    const Hn = Math.hypot(Lx, Ly, Lz + 1), Hx = Lx / Hn, Hy = Ly / Hn, Hz = (Lz + 1) / Hn;
+    const h2 = Hz * Hz, h4 = h2 * h2, h8 = h4 * h4, h16 = h8 * h8, spec0 = h16 * h16 * h16 * h2, ispec = 1 / (1 - spec0);
+    const D = p.depth * h, E2 = ETA * ETA;
+    // the incoming light refracted by a flat surface: where it lands, the reference for every cell
+    const fk = 1 - E2 * (1 - Lz * Lz), ff = ETA * Lz - Math.sqrt(Math.max(0, fk)), ftz = -ETA * Lz + ff;
+    const fs = D / Math.max(0.05, -ftz), ox = (-ETA * Lx) * fs, oy = (-ETA * Ly) * fs;
+    if (p.view !== 'superficie') {
+      caus.fill(0);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const k = y * w + x;
+        if (solid[k]) continue;
+        const nx = -gx[k], ny = -gy[k], il = 1 / Math.sqrt(nx * nx + ny * ny + 1), Nx = nx * il, Ny = ny * il;
+        const cos = Nx * Lx + Ny * Ly + il * Lz, kk = 1 - E2 * (1 - cos * cos);
+        const f = ETA * cos - Math.sqrt(kk > 0 ? kk : 0);
+        const tz = -ETA * Lz + f * il, s = D / Math.max(0.05, -tz);
+        const fx = x + (-ETA * Lx + f * Nx) * s - ox, fy = y + (-ETA * Ly + f * Ny) * s - oy;
+        if (fx < 0 || fy < 0 || fx >= w - 1 || fy >= h - 1) continue;
+        const ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy, o = iy * w + ix;
+        caus[o] += (1 - tx) * (1 - ty); caus[o + 1] += tx * (1 - ty);
+        caus[o + w] += (1 - tx) * ty; caus[o + w + 1] += tx * ty;
+      }
+      for (let pass = 0; pass < 2; pass++) {
+        for (let y = 0; y < h; y++) {
+          const o = y * w;
+          tmp[o] = (3 * caus[o] + caus[o + 1]) * 0.25;
+          for (let x = 1; x < w - 1; x++) tmp[o + x] = (caus[o + x - 1] + 2 * caus[o + x] + caus[o + x + 1]) * 0.25;
+          tmp[o + w - 1] = (caus[o + w - 2] + 3 * caus[o + w - 1]) * 0.25;
+        }
+        for (let y = 0; y < h; y++) {
+          const o = y * w, ou = y > 0 ? o - w : o, od = y < h - 1 ? o + w : o;
+          for (let x = 0; x < w; x++) caus[o + x] = (tmp[ou + x] + 2 * tmp[o + x] + tmp[od + x]) * 0.25;
+        }
+      }
+    }
+    const view = p.view === 'superficie' ? 0 : p.view === 'causticas' ? 1 : 2;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const k = y * w + x;
+      let v: number;
+      if (solid[k]) {
+        const rx = rockX[k], ry = rockY[k], rz = Math.sqrt(Math.max(0, 1 - rx * rx - ry * ry));
+        v = 0.12 + 0.6 * Math.max(0, rx * Lx + ry * Ly + rz * Lz);
+      } else {
+        const nx = -gx[k], ny = -gy[k], il = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+        const Nx = nx * il, Ny = ny * il, Nz = il;
+        const nh = Nx * Hx + Ny * Hy + Nz * Hz;
+        let spec = 0;
+        if (nh > Hz && nh > 0.85) { const n2 = nh * nh, n4 = n2 * n2, n8 = n4 * n4, n16 = n8 * n8; spec = (n16 * n16 * n16 * n2 - spec0) * ispec; }
+        if (view === 0) {
+          v = 0.05 + Math.sqrt(Math.max(0, Nx * Lx + Ny * Ly + Nz * Lz - Lz) * 5) + spec;
+        } else {
+          const kk = 1 - E2 * (1 - Nz * Nz), f = ETA * Nz - Math.sqrt(kk > 0 ? kk : 0);
+          const s = D / Math.max(0.05, ETA - f * Nz);
+          const fx = x + 0.5 + f * Nx * s, fy = y + 0.5 + f * Ny * s;
+          const C = bil(caus, w, h, fx - 0.5, fy - 0.5);
+          if (view === 1) v = 1 - Math.exp(-Math.max(0, C - 0.95) * 1.6);
+          else v = floorTone(fx, fy) * (0.03 + 0.22 * C + 0.12 * C * C) + 0.8 * spec;
+        }
+      }
+      out[k] = v <= 0 ? 0 : v >= 1 ? 255 : (v * 255 + 0.5) | 0;
+    }
+  };
+
   return {
     w, h,
     get steps() { return steps; },
     setParams(np: Params) { p = read(np); },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
-    render(out: Uint8Array) { render(out); },
+    render(out: Uint8Array) { if (ver === 1) render(out); else renderFast(out); },
     stroke(s: Stroke) {
       // a trail of small drops along the segment
       const ax = (s.x0 * 0.5 + 0.5) * w, ay = (0.5 - s.y0) * h, bx = (s.x1 * 0.5 + 0.5) * w, by = (0.5 - s.y1) * h;
@@ -275,7 +358,7 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = { rainAcc, phase };
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { h: H.slice(), v: Vl.slice() } };
+      return { id: ID, v: ver, steps, res: h, scalars, arrays: { h: H.slice(), v: Vl.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta agua.');

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { create } from '../../src/families/sims/agua';
 import { META } from '../../src/families/meta/agua';
-import { defaultParams } from '../../src/families/params';
+import { defaultParams, timeContract } from '../../src/families/params';
 import type { FieldModel, Params } from '../../src/families/types';
 
 /** Mechanism checks of the damped wave equation under the pool. */
@@ -80,4 +80,49 @@ describe('agua: mecanismo', () => {
     expect(slits.contrast).toBeGreaterThan(0.6);
     expect(slits.contrast).toBeGreaterThan(open.contrast + 0.15);
   });
+});
+
+describe('agua: dibujo de la versión 2', () => {
+  it('dibuja lo mismo que la versión 1 salvo matices (una muestra de luz por celda en vez de cuatro)', () => {
+    for (const id of ['piscina', 'lluvia', 'canal']) {
+      const p = { ...defaultParams(META), ...META.presets.find(x => x.id === id)!.params };
+      const a = create({ seed: 'v2', params: p, res: 64, v: 1 }), b = create({ seed: 'v2', params: p, res: 64, v: 2 });
+      a.step(240); b.step(240);
+      const ra = new Uint8Array(a.w * a.h), rb = new Uint8Array(b.w * b.h);
+      a.render(ra, 0); b.render(rb, 0);
+      let s = 0, big = 0;
+      for (let i = 0; i < ra.length; i++) { const d = Math.abs(ra[i] - rb[i]); s += d; if (d > 64) big++; }
+      // the water is the same state; only the light's sampling differs (piscina: ≈ 9 / 255 on average, under 0,3 % of cells by more than a quarter)
+      expect(s / ra.length, id).toBeLessThan(12);
+      expect(big / ra.length, id).toBeLessThan(0.03);
+    }
+  });
+  it('el estado del agua es el mismo en las dos versiones (sólo cambia el dibujo)', () => {
+    const p = { ...defaultParams(META), rain: 20 };
+    const a = create({ seed: 'v2', params: p, res: 48, v: 1 }), b = create({ seed: 'v2', params: p, res: 48, v: 2 });
+    a.step(120); b.step(120);
+    expect(b.snapshot().arrays.h).toEqual(a.snapshot().arrays.h);
+    expect(b.snapshot().v).toBe(2);
+  });
+});
+
+describe('agua: presets continuos', { timeout: 60_000 }, () => {
+  const rate = META.budget.rate!, warm = META.budget.warmup!;
+  const ras = (m: FieldModel, t: number) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };
+  const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+  const lit = (a: Uint8Array) => { let n = 0; for (const v of a) if (v > 24) n++; return n / a.length; };
+  for (const pr of META.presets) {
+    const p = { ...defaultParams(META), ...pr.params };
+    if (timeContract(META, p) !== 'continuo') continue;
+    it(`«${pr.name}» sigue cambiando y no se vacía ni se llena (resolución mínima)`, () => {
+      const m = create({ seed: 'continuo', params: p, res: META.budget.res![0] });
+      m.step(warm + 20 * rate);
+      // the state, with the camera held: the same t for both renders
+      const a = ras(m, 20);
+      m.step(rate);
+      const b = ras(m, 20);
+      expect(mad(a, b), pr.id).toBeGreaterThan(0.5);
+      for (const r of [a, b]) { expect(lit(r), pr.id).toBeGreaterThan(0.02); expect(lit(r), pr.id).toBeLessThan(0.97); }
+    });
+  }
 });

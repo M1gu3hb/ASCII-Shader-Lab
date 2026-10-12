@@ -7,6 +7,7 @@ export const META: FamilyMeta = {
   kind: 'simulation',
   version: 1,
   extends: 'cardumen_luz',
+  aka: ['Boids', 'Reynolds', 'Bandada', 'Cardumen', 'Enjambre'],
   params: [
     { key: 'count', label: 'Cantidad', type: 'int', min: 100, max: 3000, def: 400, rebuild: true },
     { key: 'vision', label: 'Radio de visión', type: 'number', min: 0.03, max: 0.2, def: 0.08, step: 0.005, digits: 3 },
@@ -21,9 +22,26 @@ export const META: FamilyMeta = {
     { key: 'trail', label: 'Estela', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
   ],
   presets: [
-    { id: 'murmuracion', name: 'Murmuración', params: { count: 1500, vision: 0.1, sep: 0.03, wSep: 1.5, wAli: 2.2, wCoh: 1, speed: 0.32, force: 1, predators: 1, obstacles: 0, trail: 0.35 }, look: { stops: ['#0a0c12', '#dfe6f2'], bg: '#05060a', charset: ' .`\'-~=+*#' } },
-    { id: 'cardumen', name: 'Cardumen', params: { count: 1000, vision: 0.07, sep: 0.028, wSep: 1.8, wAli: 1.8, wCoh: 1.2, speed: 0.26, force: 1.6, predators: 3, obstacles: 2, trail: 0.2 }, look: { stops: ['#03121a', '#8fe3ff'], bg: '#020a0f', charset: ' .:-=+<>#' } },
-    { id: 'dispersion', name: 'Dispersión', params: { count: 800, vision: 0.045, sep: 0.025, wSep: 1, wAli: 1, wCoh: 0.35, speed: 0.2, force: 0.8, predators: 0, obstacles: 4, trail: 0.5 }, look: { stops: ['#120d06', '#f2cf8a'], bg: '#090603', charset: ' .,:;!|' } },
+    {
+      id: 'murmuracion', name: 'Murmuración', aka: ['Bandada de estorninos'], uses: ['fondos/vivas', 'fondos/organicas'],
+      params: { count: 1500, vision: 0.1, sep: 0.03, wSep: 1.5, wAli: 2.2, wCoh: 1, speed: 0.32, force: 1, predators: 1, obstacles: 0, trail: 0.35 },
+      look: { stops: ['#0a0c12', '#dfe6f2'], bg: '#05060a', charset: ' .`\'-~=+*#' },
+    },
+    {
+      id: 'estelas', name: 'Estelas de bandada', aka: ['Rastros de boids'], uses: ['fondos/vivas', 'fondos/organicas', 'arte/curvas'],
+      params: { count: 350, vision: 0.12, sep: 0.04, wSep: 1.5, wAli: 2, wCoh: 0.6, speed: 0.3, force: 0.7, predators: 1, obstacles: 0, trail: 0.95 },
+      look: { stops: ['#06070d', '#a9b8ff', '#f4f6ff'], bg: '#030408', charset: ' .·:-=+*#' },
+    },
+    {
+      id: 'cardumen', name: 'Cardumen', aka: ['Banco de peces', 'Depredador y presa'], uses: ['fondos/vivas'],
+      params: { count: 1000, vision: 0.07, sep: 0.028, wSep: 1.8, wAli: 1.8, wCoh: 1.2, speed: 0.26, force: 1.6, predators: 3, obstacles: 2, trail: 0.2 },
+      look: { stops: ['#03121a', '#8fe3ff'], bg: '#020a0f', charset: ' .:-=+<>#' },
+    },
+    {
+      id: 'dispersion', name: 'Dispersión', aka: ['Poca cohesión'], uses: ['fondos/vivas', 'tipo/texturas'],
+      params: { count: 800, vision: 0.045, sep: 0.025, wSep: 1, wAli: 1, wCoh: 0.35, speed: 0.2, force: 0.8, predators: 0, obstacles: 4, trail: 0.5 },
+      look: { stops: ['#120d06', '#f2cf8a'], bg: '#090603', charset: ' .,:;!|' },
+    },
   ],
   caps: {
     loop: false, time: 'continuo', basic: 'full', checkpoint: true,

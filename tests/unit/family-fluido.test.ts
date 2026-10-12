@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { create } from '../../src/families/sims/fluido';
 import { META } from '../../src/families/meta/fluido';
-import { defaultParams } from '../../src/families/params';
+import { defaultParams, timeContract } from '../../src/families/params';
 import type { FieldModel, Params } from '../../src/families/types';
 
 /** Mechanism checks of the stable-fluids model (MAC grid: u on vertical faces, v on horizontal ones). */
@@ -83,4 +83,64 @@ describe('fluido: mecanismo', () => {
     expect(left).toBeGreaterThan(0);
     expect(Math.abs(right - left) / left).toBeLessThan(0.1);
   });
+});
+
+const raster = (m: FieldModel) => { const o = new Uint8Array(m.w * m.h); m.render(o, 0); return o; };
+const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+const lit = (a: Uint8Array) => { let n = 0; for (const v of a) if (v > 24) n++; return n / a.length; };
+
+describe('fluido: franjas, bordes nítidos y continuidad', () => {
+  it('«Bordes nítidos» no crea ni pierde tinta: sólo la disipación se la lleva', () => {
+    const m = create({ seed: 'nitidos', params: base({ jets: 0, vort: 0.5, dyeDiss: 0.3, sharp: 1 }), res: 64 });
+    m.stroke!({ brush: 'tinta', x0: -0.6, y0: 0.1, x1: 0.4, y1: -0.1, r: 0.12, strength: 0.7 });
+    const mass = () => grid(m).dye.reduce((a, b) => a + b, 0);
+    const m0 = mass();
+    m.step(60);
+    expect(mass() / m0).toBeCloseTo(Math.exp(-0.3 * 60 / 30), 2);
+    // and the ink stays ink: most of it in cells above 0.7, where without it everything mixes into a faint grey
+    const held = (mm: FieldModel) => { let all = 0, hi = 0; for (const v of grid(mm).dye) { all += v; if (v > 0.7) hi += v; } return hi / all; };
+    const plain = create({ seed: 'nitidos', params: base({ jets: 0, vort: 0.5, dyeDiss: 0.3, sharp: 0 }), res: 64 });
+    plain.stroke!({ brush: 'tinta', x0: -0.6, y0: 0.1, x1: 0.4, y1: -0.1, r: 0.12, strength: 0.7 });
+    plain.step(60);
+    expect(held(m)).toBeGreaterThan(0.5);
+    expect(held(plain)).toBeLessThan(0.05);
+  });
+
+  it('las franjas se renuevan: con la corriente quieta, la tinta vuelve a sus bandas', () => {
+    // (no vorticity and a thick fluid: the push of the stroke dies out and the water calms)
+    const make = () => create({ seed: 'franjas', params: base({ jets: 0, bands: 6, renew: 1, dyeDiss: 0.02, vort: 0, visc: 1 }), res: 64 });
+    const m = make(), calm = make();
+    // a stroke messes them up; seconds later, with no jets, they are back where the bands are now (they drift)
+    m.stroke!({ brush: 'tinta', x0: -0.8, y0: 0, x1: 0.8, y1: 0, r: 0.3, strength: 1 });
+    const diff = (a: Float32Array, b: Float32Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+    const messed = diff(grid(m).dye, grid(calm).dye);
+    m.step(150); calm.step(150);
+    expect(diff(grid(m).dye, grid(calm).dye)).toBeLessThan(0.2 * messed);
+  });
+
+  it('guardar y restaurar con franjas y bordes nítidos continúa exactamente igual', () => {
+    const p = META.presets.find(x => x.id === 'marmol')!.params;
+    const a = create({ seed: 'marmol', params: base(p), res: 48 });
+    a.step(40);
+    const snap = a.snapshot();
+    a.step(25);
+    const b = create({ seed: 'marmol', params: base(p), res: 48 });
+    b.restore(snap);
+    b.step(25);
+    expect(mad(raster(a), raster(b))).toBe(0);
+  });
+
+  for (const pr of META.presets) {
+    const p = base(pr.params);
+    if (timeContract(META, p) !== 'continuo') continue;
+    it(`«${pr.name}» sigue cambiando y no se vacía ni se llena (resolución mínima)`, () => {
+      const m = create({ seed: 'continuo', params: p, res: META.budget.res![0] });
+      m.step(30 + 20 * 30);
+      const a = raster(m);
+      m.step(30);
+      const b = raster(m);
+      expect(mad(a, b), pr.id).toBeGreaterThan(0.5);
+      for (const r of [a, b]) { expect(lit(r), pr.id).toBeGreaterThan(0.02); expect(lit(r), pr.id).toBeLessThan(0.97); }
+    });
+  }
 });

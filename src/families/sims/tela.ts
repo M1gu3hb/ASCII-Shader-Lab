@@ -25,12 +25,12 @@ const FLOOR = -0.62;
 /** Skin drag along the surface, relative to the pressure along the normal. */
 const SKIN = 0.3;
 
-interface P { stiff: number; gravity: number; wind: number; anchors: string; mesh: string; substeps: number; damping: number; turn: number; sphere: string; view: string }
+interface P { stiff: number; gravity: number; wind: number; anchors: string; mesh: string; substeps: number; damping: number; turn: number; sphere: string; view: string; angle: number }
 const read = (p: Params): P => ({
   stiff: Number(p.stiff ?? 0.6), gravity: Number(p.gravity ?? 1), wind: Number(p.wind ?? 0.5),
   anchors: String(p.anchors ?? 'borde'), mesh: String(p.mesh ?? 'baja'),
   substeps: Math.max(1, Math.min(24, Math.round(Number(p.substeps ?? 6)))), damping: Number(p.damping ?? 0.2),
-  turn: Number(p.turn ?? 0.1), sphere: String(p.sphere ?? 'ninguna'), view: String(p.view ?? 'sombreado'),
+  turn: Number(p.turn ?? 0.1), sphere: String(p.sphere ?? 'ninguna'), view: String(p.view ?? 'sombreado'), angle: Number(p.angle ?? 0),
 });
 
 /** Whether a layout hangs from above (vertical cloth) or lies flat (horizontal). */
@@ -212,7 +212,9 @@ export function create(cfg: ModelConfig): FieldModel {
   const cam = new OrbitCamera();
   const pitch = () => (vertical ? 0.16 : 0.62);
   const baseYaw = vertical ? (p.anchors === 'mastil' ? 0.3 : 0.35) : 0.4;
-  const setCam = () => { cam.fov = 4.6; cam.set(baseYaw + yaw, pitch(), 3.4); };
+  /** The camera's turn now: its base, «Ángulo de vista» and the slow orbit. */
+  const yawNow = () => baseYaw + (p.angle * Math.PI) / 180 + yaw;
+  const setCam = () => { cam.fov = 4.6; cam.set(yawNow(), pitch(), 3.4); };
   const SX = new Float32Array(np), SY = new Float32Array(np), SZ = new Float32Array(np);
   const zbuf = new Float32Array(w * h), img = new Float32Array(w * h);
   const P3 = new Float64Array(3);
@@ -256,7 +258,7 @@ export function create(cfg: ModelConfig): FieldModel {
     render(out: Uint8Array) {
       projectAll();
       zbuf.fill(1e9); img.fill(0);
-      const cyw = Math.cos(baseYaw + yaw), syw = Math.sin(baseYaw + yaw), cp = Math.cos(pitch()), sp = Math.sin(pitch());
+      const cyw = Math.cos(yawNow()), syw = Math.sin(yawNow()), cp = Math.cos(pitch()), sp = Math.sin(pitch());
       // camera basis in world coordinates
       const Rx = cyw, Rz = syw;
       const Ux = sp * syw, Uy = cp, Uz = -sp * cyw;
@@ -328,7 +330,7 @@ export function create(cfg: ModelConfig): FieldModel {
       // «Empujar»: the particles that appear under the touch (as the camera sees them now) move with the
       // stroke, across the screen; a touch that does not move pokes them away from you
       projectAll();
-      const cyw = Math.cos(baseYaw + yaw), syw = Math.sin(baseYaw + yaw), cp = Math.cos(pitch()), sp = Math.sin(pitch());
+      const cyw = Math.cos(yawNow()), syw = Math.sin(yawNow()), cp = Math.cos(pitch()), sp = Math.sin(pitch());
       const mx = s.x1 - s.x0, my = s.y1 - s.y0, ml = hyp(mx, my);
       const R = Math.max(0.05, s.r), k0 = s.strength;
       const px = (s.x1 * 0.5 + 0.5) * w, py = (0.5 - s.y1) * h, Rp = R * h;
