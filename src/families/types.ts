@@ -296,8 +296,13 @@ export interface AnalyticImpl {
   /** GLSL chunk defining `float F_<id>(vec2 p, float t, vec4 k0, vec4 k1)` (colour families: `vec4 FC_<id>`). */
   glsl: string;
   cpu: AnalyticFn;
-  /** Optional per-frame CPU work that does not depend on the cell (as basic patterns' prep). `pal`: the palette. */
-  prep?: (t: number, k: Float32Array, pal?: Palette) => void;
+  /**
+   * Optional per-frame CPU work that does not depend on the cell (as basic patterns' prep). `pal`: the palette;
+   * `px`: the layer's cell size (the shader's PX), for twins that work per cell. A twin reads its cell size from
+   * here, not from a module of its own: in exported code each family script carries its own copy of the engine's
+   * modules, and only the engine's knows the size.
+   */
+  prep?: (t: number, k: Float32Array, pal?: Palette, px?: number) => void;
   /** Colour families: the cell's colour (0..1 rgb) written into out[0..2]; `cpu` gives its luminance. */
   cpuColor?: (x: number, y: number, t: number, k: Float32Array, out: Float64Array) => void;
 }

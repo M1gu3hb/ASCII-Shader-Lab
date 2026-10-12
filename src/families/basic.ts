@@ -1,6 +1,7 @@
 import type { Layer } from '../engine/recipe';
 import type { BasicPattern } from '../engine/basic/patterns';
 import type { FamilyHost } from './host';
+import { currentPX } from '../engine/basic/px';
 import { analyticOf } from './models';
 import { packParams } from './params';
 import { familyById } from './registry';
@@ -26,7 +27,7 @@ export function familyPattern(l: Layer, i: number, host: FamilyHost | null | und
     const cpuColor = impl.cpuColor;
     return {
       f: (x, y, t) => impl.cpu(x, y, t, k),
-      prep: impl.prep ? t => impl.prep!(t, k, pal) : undefined,
+      prep: impl.prep ? t => impl.prep!(t, k, pal, currentPX()) : undefined,
       ...(meta.color && cpuColor ? { col: (x: number, y: number, t: number, out: Float64Array) => cpuColor(x, y, t, k, out) } : {}),
     };
   }

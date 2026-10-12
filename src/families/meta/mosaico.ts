@@ -1,0 +1,42 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'mosaico',
+  name: 'Mosaico cinético',
+  group: 'forma',
+  kind: 'analytic',
+  version: 1,
+  aka: ['teselas que voltean', 'mosaico en ola', 'pared cinética', 'kinetic mosaic', 'split-flap'],
+  params: [
+    { key: 'size', label: 'Tamaño', type: 'int', min: 2, max: 6, def: 3, unit: 'filas' },
+    { key: 'dir', label: 'Dirección', type: 'choice', def: 'derecha', options: [
+      { id: 'derecha', label: 'De izquierda a derecha' }, { id: 'abajo', label: 'De arriba abajo' }, { id: 'diagonal', label: 'En diagonal' },
+      { id: 'anillos', label: 'Anillos desde el centro' }, { id: 'barrido', label: 'Barrido que gira' },
+    ] },
+    { key: 'speed', label: 'Velocidad', type: 'number', min: 0.05, max: 1, def: 0.3, step: 0.01 },
+    { key: 'spacing', label: 'Separación de olas', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'flip', label: 'Volteo', type: 'number', min: 0.15, max: 0.9, def: 0.4, step: 0.01 },
+    { key: 'scatter', label: 'Desorden', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
+    { key: 'picture', label: 'Imagen', type: 'number', min: 0, max: 1, def: 0.7, step: 0.01 },
+    { key: 'glints', label: 'Destellos', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+  ],
+  presets: [
+    { id: 'ola', name: 'Ola de teselas', uses: ['fondos/geometricas', 'arte/geometricas'],
+      params: { size: 3, dir: 'derecha', speed: 0.25, spacing: 0.35, flip: 0.4, scatter: 0.25, picture: 0.75, glints: 0.5 },
+      look: { stops: ['#07080b', '#2a3550', '#9fb3d8', '#f4f7ff'], bg: '#040509', charset: ' .:-=+*#%@' } },
+    { id: 'anillos', name: 'Anillos que voltean', uses: ['fondos/geometricas', 'arte/geometricas'],
+      params: { size: 2, dir: 'anillos', speed: 0.18, spacing: 0.2, flip: 0.5, scatter: 0.1, picture: 0.5, glints: 0.3 },
+      look: { stops: ['#0a0612', '#3d2370', '#c07bff', '#fbefff'], bg: '#06030b', charset: ' .·:;+=#@' } },
+    { id: 'cartel', name: 'Cartel de estadio', uses: ['arte/geometricas', 'fondos/geometricas'],
+      params: { size: 4, dir: 'abajo', speed: 0.35, spacing: 0.6, flip: 0.3, scatter: 0.6, picture: 1, glints: 0.2 },
+      look: { stops: ['#0b0606', '#5a1a14', '#f0643c', '#ffe9c4'], bg: '#070303', charset: ' .-=+*#%@' } },
+    { id: 'dorado', name: 'Mosaico dorado', uses: ['fondos/geometricas', 'arte/geometricas'],
+      params: { size: 2, dir: 'diagonal', speed: 0.14, spacing: 0.75, flip: 0.25, scatter: 0.85, picture: 0.3, glints: 1 },
+      look: { stops: ['#0b0904', '#5c3f10', '#e2ad45', '#fff4d6'], bg: '#060502', charset: ' .`:;+*#%@' } },
+    { id: 'barrido', name: 'Barrido de radar', uses: ['arte/geometricas', 'fondos/geometricas'],
+      params: { size: 3, dir: 'barrido', speed: 0.3, spacing: 0.5, flip: 0.35, scatter: 0.1, picture: 0.85, glints: 0.4 },
+      look: { stops: ['#020a06', '#0d4a2c', '#3ddc84', '#e6ffef'], bg: '#010603', charset: ' .:-=+*#%' } },
+  ],
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
+  budget: {},
+};

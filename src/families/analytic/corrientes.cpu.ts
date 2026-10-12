@@ -3,6 +3,10 @@ import { V2, gnoise, hash22, smoothstep } from '../../engine/basic/core';
 import { currentPX } from '../../engine/basic/px';
 import { CORRIENTES_GLSL } from './corrientes';
 
+// the layer's cell size, from prep (the engine's own; currentPX only where a test sets it directly)
+let PXc: number | null = null;
+const pxNow = () => PXc ?? currentPX();
+
 /** CPU twin of FC_corrientes, line by line. The palette arrives with prep (the shader's uPal / uPalN). */
 const DEFAULT: Palette = { n: 3, rgb: new Float32Array([0.05, 0.09, 0.2, 0.9, 0.3, 0.6, 0.35, 0.9, 0.95, 0, 0, 0, 0, 0, 0, 0, 0, 0]) };
 let pal: Palette = DEFAULT;
@@ -18,7 +22,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   const n = Math.min(8, Math.max(2, Math.floor(k[0] + 0.5))), sw = k[1], wa = k[2], T = t * k[3];
   let ux = x / k[4], uy = y / k[4];
   // grain is per cell: the cell size the engine draws this layer at (the shader's PX)
-  const px = Math.max(currentPX(), 1e-4);
+  const px = Math.max(pxNow(), 1e-4);
   hash22(Math.floor(x / px) + 17, Math.floor(y / px) + 17);
   ux += k[6] * 0.045 * (V2[0] - 0.5); uy += k[6] * 0.045 * (V2[1] - 0.5);
   const fall = 1 / (1 + 1.5 * (ux * ux + uy * uy));
@@ -51,7 +55,8 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
 
 export const impl: AnalyticImpl = {
   glsl: CORRIENTES_GLSL,
-  prep: (_t, _k, p) => {
+  prep: (_t, _k, p, px) => {
+    PXc = px ?? null;
     pal = p && p.n ? p : DEFAULT;
     lo = 1; hi = 0;
     for (let i = 0; i < pal.n; i++) { const l = pal.rgb[i * 3] * 0.299 + pal.rgb[i * 3 + 1] * 0.587 + pal.rgb[i * 3 + 2] * 0.114; lo = Math.min(lo, l); hi = Math.max(hi, l); }

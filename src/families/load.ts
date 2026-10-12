@@ -36,6 +36,11 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   humo: () => import('./sims/humo.ts'),
   niebla: () => import('./sims/niebla.ts'),
   orden_caos: () => import('./sims/orden_caos.ts'),
+  membrana: () => import('./analytic/membrana.cpu.ts'),
+  paneles: () => import('./analytic/paneles.cpu.ts'),
+  mosaico: () => import('./analytic/mosaico.cpu.ts'),
+  laceria: () => import('./analytic/laceria.cpu.ts'),
+  hipercubo: () => import('./analytic/hipercubo.cpu.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */

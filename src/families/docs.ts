@@ -33,6 +33,11 @@ const DOCS: Record<string, () => Promise<{ DOC: FamilyDoc }>> = {
   humo: () => import('./meta/humo.doc.ts'),
   niebla: () => import('./meta/niebla.doc.ts'),
   orden_caos: () => import('./meta/orden_caos.doc.ts'),
+  membrana: () => import('./meta/membrana.doc.ts'),
+  paneles: () => import('./meta/paneles.doc.ts'),
+  mosaico: () => import('./meta/mosaico.doc.ts'),
+  laceria: () => import('./meta/laceria.doc.ts'),
+  hipercubo: () => import('./meta/hipercubo.doc.ts'),
 };
 
 const known = new Map<string, FamilyDoc>();
