@@ -8,13 +8,14 @@
 import { writeFileSync } from 'node:fs';
 import { FAMILIES } from '../src/families/registry';
 import { famFor } from '../src/families/params';
+import { usesOf } from '../src/families/uses';
 
 type V = number | string | boolean;
 const rows = FAMILIES.map(f => {
   const keys = f.params.map(p => p.key);
   const presets = f.presets.map(pr => {
     const fam = famFor(f, 'x', pr.id);
-    const uses = (pr.uses ?? []).join(',');
+    const uses = usesOf(f, pr).join(',');
     const colour = f.color && pr.look?.colorMode === 'source' ? pr.look.vivid ?? 0.8 : 0;
     return [pr.id, pr.layer?.scale ?? 1, pr.layer?.speed ?? 1, fam.v, fam.res ?? null, uses, colour, ...keys.map(k => fam.p[k] as V)];
   });

@@ -8,7 +8,8 @@ import { SCENES, makeScene, type SceneSpace, type SceneSpec } from '../scenes';
 import { fold } from './search';
 import { FAMILIES } from '../../families/registry';
 import { familyRecipe } from '../../families/recipes';
-import type { FamilyGroup, FamilyMeta, FamilyPreset, PresetUse } from '../../families/types';
+import type { FamilyMeta, FamilyPreset } from '../../families/types';
+import { usesOf } from '../../families/uses';
 
 /**
  * Every starting point of the lab in one catalogue: the recipes of each space (presets.ts), the composed
@@ -133,11 +134,7 @@ export function sectionOf(space: SceneSpace, id: string, r: Recipe): string {
   return sec;
 }
 
-/** Where a family preset is offered: its `uses`; a preset that names none goes where its family's group suggests. */
-const GROUP_USE: Record<FamilyGroup, PresetUse> = {
-  vida: 'arte/organicas', fisica: 'arte/organicas', forma: 'arte/geometricas', ciencia: 'arte/figuras', materia: 'fondos/color',
-};
-export const usesOf = (f: FamilyMeta, pr: FamilyPreset): readonly PresetUse[] => (pr.uses?.length ? pr.uses : [GROUP_USE[f.group]]);
+export { usesOf };
 
 const ASCII_ONLY = /^[\x20-\x7e]*$/;
 const TERMINAL_CHARS = ' .:-=+*#%@';

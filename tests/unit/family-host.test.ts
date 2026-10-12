@@ -234,7 +234,7 @@ describe('recursos: pasar muchas veces de una a cuatro capas no acumula ejecucio
     const h = new FamilyHost({ live: true, frameBudget: 1e9 });
     const ids = ['reaccion_difusion', 'physarum', 'boids', 'fluido'];
     // at their smallest rows: the bound is about how many runs exist, not about their size
-    const small = (r: Recipe) => { for (const l of r.layers) if (l.fam) l.fam.res = familyById(l.pattern)!.budget.res[0]; return r; };
+    const small = (r: Recipe) => { for (const l of r.layers) if (l.fam) l.fam.res = familyById(l.pattern)!.budget.res![0]; return r; };
     const four = (k: number) => {
       const r = familyRecipe(ids[0], undefined, undefined, `ciclo-${k}-0`);
       for (let i = 1; i < 4; i++) r.layers.push(familyLayer(familyById(ids[i])!, `ciclo-${k}-${i}`));
