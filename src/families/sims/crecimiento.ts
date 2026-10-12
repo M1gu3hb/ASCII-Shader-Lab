@@ -15,6 +15,14 @@ import type { FieldModel, ModelConfig, ModelState, Params } from '../types';
  * splitting lengthens it, and the crowding folds it. Growth stops when the curve is long enough to cover its
  * container at one separation between folds (at most MAX_NODES nodes); the curve then settles for SETTLE
  * steps and freezes. Every HIST_EVERY steps the outline is added to a fading history (the «Historia» view).
+ *
+ * «Renovación» (renew = 'si') never freezes: the curves are a population. Once the container is full, the
+ * oldest curve that has lived «Vida» seconds is cut at a seeded node and unravels (full: the share of curve
+ * the container holds, or no room left for a new ring): it no longer grows, its
+ * ends are free, and it loses one node at each end per step until it is gone (removing nodes never crosses
+ * a curve). No curve grows beyond SHARE of what the container holds, so a ring is born wherever a space about
+ * three folds wide opens (once the first curves are grown), and grows into it with its neighbours. One curve
+ * unravels at a time; at most MAX_CURVES curves; sprouts only where the curve is not crowded.
  */
 
 const ID = 'crecimiento', V = 1;
@@ -30,13 +38,21 @@ const MAX_CURVES = 12;
 const SETTLE = 240;
 const MIN_SEP = 0.03;
 const HIST_EVERY = 30;
+/** Steps per second of layer time (the family's rate). */
+const RATE = 30;
+/**
+ * Renewal: the share of the container's curve one curve may grow to (so that no single one empties it as it
+ * goes); a line, anchored across the frame, keeps a larger one.
+ */
+const SHARE = 0.22, SHARE_LINE = 0.5;
 /** Time step of the relaxation, and the repulsion's strength relative to the other two forces. */
 const DT = 0.12, REP = 0.5;
 
-interface P { sep: number; att: number; ali: number; edge: number; sprout: number; shape: string; bound: string; view: string }
+interface P { sep: number; att: number; ali: number; edge: number; sprout: number; shape: string; bound: string; view: string; renew: string; life: number }
 const read = (p: Params): P => ({
   sep: Math.max(MIN_SEP, Number(p.sep ?? 0.07)), att: Number(p.att ?? 0.5), ali: Number(p.ali ?? 0.5), edge: Number(p.edge ?? 0.55),
   sprout: Number(p.sprout ?? 0.5), shape: String(p.shape ?? 'circulo'), bound: String(p.bound ?? 'circulo'), view: String(p.view ?? 'trazo'),
+  renew: String(p.renew ?? 'no'), life: Number(p.life ?? 30),
 });
 
 export function create(cfg: ModelConfig): FieldModel {
@@ -49,6 +65,11 @@ export function create(cfg: ModelConfig): FieldModel {
   const fx = new Float64Array(MAX_NODES), fy = new Float64Array(MAX_NODES);
   const cStart = new Int32Array(MAX_CURVES), cLen = new Int32Array(MAX_CURVES), cClosed = new Uint8Array(MAX_CURVES);
   let N = 0, nc = 0, steps = 0, settle = 0, frozen = 0;
+  // renewal: curves unravelling (they retract and go), each curve's birth step, and the wait before the next event
+  const renew = p.renew === 'si';
+  const die = new Uint8Array(MAX_CURVES), born = new Int32Array(MAX_CURVES);
+  let cool = 0, filled = 0, barren = 0;
+  const UNRAVEL_AGE = Math.round(p.life * RATE);
   // older outlines, fading (the «Historia» view; kept up in every view so switching shows it at once)
   const hist = new Accum(w, h);
   const draw = new Accum(w, h);
@@ -151,8 +172,8 @@ export function create(cfg: ModelConfig): FieldModel {
         }
         const m = Math.sqrt(dx * dx + dy * dy);
         if (m > maxStep) { dx *= maxStep / m; dy *= maxStep / m; }
-        // the ends of an open line are anchored
-        if (!hasL || !hasR) { dx = 0; dy = 0; }
+        // the ends of an open line are anchored (an unravelling curve's are free)
+        if ((!hasL || !hasR) && !die[c]) { dx = 0; dy = 0; }
         fx[i] = x + dx; fy[i] = y + dy;
       }
     }
@@ -161,7 +182,7 @@ export function create(cfg: ModelConfig): FieldModel {
 
   /** Splits long edges (and «Brotes» random ones) by rebuilding the node arrays curve by curve. */
   const grow = () => {
-    const Lmax = p.edge * p.sep;
+    const Lmax = p.edge * p.sep, L0 = restLen(), share = renew ? budget() * shareOf() : Infinity;
     // random sprouts: edge indices (global, by start node) chosen from the seed
     const extra: number[] = [];
     let k = Math.floor(p.sprout);
@@ -176,7 +197,9 @@ export function create(cfg: ModelConfig): FieldModel {
         if (!closed && k2 === L - 1) break;
         const j = s + (k2 < L - 1 ? k2 + 1 : 0);
         const ex = px[j] - px[i], ey = py[j] - py[i], d = Math.sqrt(ex * ex + ey * ey);
-        if ((d > Lmax || extra.includes(i)) && M + (N - i) < MAX_NODES) {
+        // (renewal: a sprout only where the curve is not crowded already, or crowded stretches end up packed;
+        // and no curve beyond its share of the container)
+        if (!die[c] && !(renew && L >= share) && (d > Lmax || (extra.includes(i) && (!renew || d > L0))) && M + (N - i) < MAX_NODES) {
           qx[M] = (px[i] + px[j]) * 0.5; qy[M] = (py[i] + py[j]) * 0.5; M++;
         }
       }
@@ -189,14 +212,15 @@ export function create(cfg: ModelConfig): FieldModel {
 
   const strokeInto = (a: Accum, wd: number, amount: number) => {
     for (let c = 0; c < nc; c++) {
-      const s = cStart[c], L = cLen[c], closed = cClosed[c] === 1;
+      const s = cStart[c], L = cLen[c], closed = cClosed[c] === 1, v = die[c] ? amount * 0.6 : amount;
       for (let k = 0; k < (closed ? L : L - 1); k++) {
         const i = s + k, j = s + (k < L - 1 ? k + 1 : 0);
-        a.line(a.px(px[i]), a.py(py[i]), a.px(px[j]), a.py(py[j]), wd, amount);
+        a.line(a.px(px[i]), a.py(py[i]), a.px(px[j]), a.py(py[j]), wd, v);
       }
     }
   };
   const lineW = () => Math.max(1, 1.6 * (h / 96));
+  const shareOf = () => (p.shape === 'linea' ? SHARE_LINE : SHARE);
   /** Nodes the container holds: enough curve to cover its area at one separation between folds. */
   const budget = () => {
     const area = p.bound === 'rect' ? 1.94 * 0.94 : Math.PI * 0.47 * 0.47;
@@ -207,9 +231,119 @@ export function create(cfg: ModelConfig): FieldModel {
     steps++;
     if (frozen) return;
     relax();
-    if (N < budget()) grow();
+    if (renew) renewStep();
+    else if (N < budget()) grow();
     else if (++settle >= SETTLE) frozen = 1;
     if (steps % HIST_EVERY === 0) { hist.scale(0.95); strokeInto(hist, lineW() * 0.7, 0.45); }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Renewal                                                             */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Renewal: the curves grow while the container has room; once it is full, the oldest curve (old enough)
+   * unravels, and rings are born wherever a wide enough space opens. One curve unravels at a time.
+   */
+  const renewStep = () => {
+    const B = budget();
+    if (N < B) grow();
+    let dying = false;
+    for (let c = 0; c < nc; c++) if (die[c]) dying = true;
+    if (dying) retract();
+    if (N >= B * 0.97) filled = 1;
+    for (let c = 0; c < nc; c++) if (cLen[c] >= B * shareOf()) filled = 1;
+    if (cool > 0) { cool--; return; }
+    // full: the container's share of curve, or no room for a ring three times running
+    if (!dying && (N >= B * 0.97 || barren >= 3)) { barren = 0; unravel(); return; }
+    // (new rings only once the first curves are grown: the first growth is the shape's own)
+    if (filled) barren = sow() ? 0 : barren + 1;
+  };
+
+  /** The node indices of each curve, in order, with its kind (closed, unravelling) and birth step. */
+  const curveLists = () => {
+    const lists: number[][] = [], closed: number[] = [], dies: number[] = [], borns: number[] = [];
+    for (let c = 0; c < nc; c++) {
+      const l: number[] = [];
+      for (let k = 0; k < cLen[c]; k++) l.push(cStart[c] + k);
+      lists.push(l); closed.push(cClosed[c]); dies.push(die[c]); borns.push(born[c]);
+    }
+    return { lists, closed, dies, borns };
+  };
+  /** Rebuilds the node arrays from per-curve lists of node indices (a list of fewer than two nodes goes). */
+  const relayout = (lists: number[][], closed: number[], dies: number[], borns: number[], extra?: number[]) => {
+    let M = 0;
+    nc = 0;
+    for (let c = 0; c < lists.length && nc < MAX_CURVES; c++) {
+      const l = lists[c];
+      if (l.length < 2) continue;
+      cStart[nc] = M; cLen[nc] = l.length; cClosed[nc] = closed[c]; die[nc] = dies[c]; born[nc] = borns[c];
+      for (const i of l) { qx[M] = px[i]; qy[M] = py[i]; M++; }
+      nc++;
+    }
+    // a new ring, from its points
+    if (extra && nc < MAX_CURVES && M + extra.length / 2 <= MAX_NODES) {
+      cStart[nc] = M; cLen[nc] = extra.length / 2; cClosed[nc] = 1; die[nc] = 0; born[nc] = steps;
+      for (let i = 0; i < extra.length; i += 2) { qx[M] = extra[i]; qy[M] = extra[i + 1]; M++; }
+      nc++;
+    }
+    for (let c = nc; c < MAX_CURVES; c++) { cStart[c] = M; cLen[c] = 0; cClosed[c] = 0; die[c] = 0; born[c] = 0; }
+    let t = px; px = qx; qx = t;
+    t = py; py = qy; qy = t;
+    N = M;
+  };
+
+  /** Unravelling curves lose a node at each end every step; one of four nodes or fewer goes. */
+  const retract = () => {
+    const { lists, closed, dies, borns } = curveLists();
+    for (let c = 0; c < lists.length; c++) if (dies[c]) lists[c] = lists[c].length > 4 ? lists[c].slice(1, -1) : [];
+    relayout(lists, closed, dies, borns);
+  };
+
+  /** The oldest curve that has lived UNRAVEL_AGE steps is cut at a seeded node and begins to unravel. */
+  const unravel = () => {
+    let c = -1;
+    for (let k = 0; k < nc; k++) if (!die[k] && steps - born[k] >= UNRAVEL_AGE && (c < 0 || born[k] < born[c])) c = k;
+    if (c < 0) { cool = 30; return; }
+    const { lists, closed, dies, borns } = curveLists();
+    const l = lists[c], k0 = rng.int(l.length);
+    // a closed curve opens at the cut; a line is cut there in two
+    if (closed[c]) { lists[c] = [...l.slice(k0), ...l.slice(0, k0)]; dies[c] = 1; closed[c] = 0; }
+    else { lists[c] = l.slice(0, k0); dies[c] = 1; lists.push(l.slice(k0 + 1)); closed.push(0); dies.push(1); borns.push(borns[c]); }
+    relayout(lists, closed, dies, borns);
+    cool = 60 + rng.int(90);
+  };
+
+  /** A ring is born in the widest empty space, when there is one about three folds wide (true: it was). */
+  const sow = (): boolean => {
+    cool = 15 + rng.int(30);
+    if (nc >= MAX_CURVES - 2) return false;
+    const R = p.sep, gw = Math.ceil(2 / R) + 2, gh = Math.ceil(1 / R) + 2;
+    head.fill(-1, 0, gw * gh);
+    const cellX = (x: number) => Math.min(gw - 1, Math.max(0, Math.floor((x + 1) / R) + 1));
+    const cellY = (y: number) => Math.min(gh - 1, Math.max(0, Math.floor((y + 0.5) / R) + 1));
+    for (let i = 0; i < N; i++) { const c = cellY(py[i]) * gw + cellX(px[i]); nxt[i] = head[c]; head[c] = i; }
+    const need = 1.6 * R;
+    let best = 0, bx = 0, by = 0;
+    for (let k = 0; k < 16; k++) {
+      let x: number, y: number;
+      if (p.bound === 'rect') { x = rng.range(-0.9, 0.9); y = rng.range(-0.4, 0.4); }
+      else { const a = rng.next() * Math.PI * 2, r = 0.4 * Math.sqrt(rng.next()); x = r * Math.cos(a); y = r * Math.sin(a); }
+      // the room around it: the nearest node, looked for within two cells
+      let room = 2 * R;
+      const gx = cellX(x), gy = cellY(y);
+      for (let yy = gy - 2; yy <= gy + 2; yy++) for (let xx = gx - 2; xx <= gx + 2; xx++) {
+        if (xx < 0 || yy < 0 || xx >= gw || yy >= gh) continue;
+        for (let j = head[yy * gw + xx]; j >= 0; j = nxt[j]) room = Math.min(room, Math.hypot(px[j] - x, py[j] - y));
+      }
+      if (room > best) { best = room; bx = x; by = y; }
+    }
+    if (best < need) return false;
+    const { lists, closed, dies, borns } = curveLists();
+    const pts = ring(bx, by, Math.min(0.045, R * 0.55));
+    for (let i = 0; i < pts.length; i++) pts[i] += (rng.next() - 0.5) * 0.002;
+    relayout(lists, closed, dies, borns, pts);
+    return true;
   };
 
   // even-odd fill of the closed curves (open ones closed by their chord), scanline by scanline
@@ -254,7 +388,7 @@ export function create(cfg: ModelConfig): FieldModel {
   return {
     w, h,
     get steps() { return steps; },
-    setParams(np: Params) { p = { ...read(np), shape: p.shape }; },
+    setParams(np: Params) { p = { ...read(np), shape: p.shape, renew: p.renew }; },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
     render(out: Uint8Array) {
       draw.clear();
@@ -267,21 +401,22 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = { N, nc, settle, frozen };
       rng.save(scalars);
-      return {
-        id: ID, v: V, steps, res: h, scalars,
-        arrays: { px: px.slice(), py: py.slice(), cStart: cStart.slice(), cLen: cLen.slice(), cClosed: cClosed.slice(), hist: hist.d.slice() },
-      };
+      const arrays: ModelState['arrays'] = { px: px.slice(), py: py.slice(), cStart: cStart.slice(), cLen: cLen.slice(), cClosed: cClosed.slice(), hist: hist.d.slice() };
+      if (renew) { Object.assign(scalars, { cool, filled, barren }); arrays.die = die.slice(); arrays.born = born.slice(); }
+      return { id: ID, v: V, steps, res: h, scalars, arrays };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a este crecimiento.');
       const A = s.arrays;
       const ok = A.px instanceof Float32Array && A.px.length === MAX_NODES && A.py instanceof Float32Array && A.py.length === MAX_NODES
         && A.cStart instanceof Int32Array && A.cStart.length === MAX_CURVES && A.cLen instanceof Int32Array && A.cLen.length === MAX_CURVES
-        && A.cClosed instanceof Uint8Array && A.cClosed.length === MAX_CURVES && A.hist instanceof Float32Array && A.hist.length === w * h;
+        && A.cClosed instanceof Uint8Array && A.cClosed.length === MAX_CURVES && A.hist instanceof Float32Array && A.hist.length === w * h
+        && (!renew || (A.die instanceof Uint8Array && A.die.length === MAX_CURVES && A.born instanceof Int32Array && A.born.length === MAX_CURVES));
       if (!ok) throw new Error('El estado guardado está incompleto.');
       px.set(A.px); py.set(A.py); cStart.set(A.cStart); cLen.set(A.cLen); cClosed.set(A.cClosed); hist.d.set(A.hist);
       const c = s.scalars;
       N = Math.min(MAX_NODES, c.N ?? 0); nc = Math.min(MAX_CURVES, c.nc ?? 0); settle = c.settle ?? 0; frozen = c.frozen ?? 0;
+      if (renew) { die.set(A.die); born.set(A.born); cool = c.cool ?? 0; filled = c.filled ?? 0; barren = c.barren ?? 0; }
       steps = s.steps;
       rng.load(c);
     },

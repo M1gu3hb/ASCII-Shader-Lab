@@ -5,6 +5,7 @@ export const META: FamilyMeta = {
   name: 'Crecimiento diferencial',
   group: 'vida',
   kind: 'simulation',
+  aka: ['crecimiento diferencial', 'differential growth', 'differential line', 'inconvergent'],
   version: 1,
   params: [
     { key: 'sep', label: 'Separación', type: 'number', min: 0.03, max: 0.12, def: 0.07, step: 0.001, digits: 3 },
@@ -19,14 +20,21 @@ export const META: FamilyMeta = {
     { key: 'view', label: 'Vista', type: 'choice', def: 'trazo', options: [
       { id: 'trazo', label: 'Trazo' }, { id: 'relleno', label: 'Relleno' }, { id: 'historia', label: 'Historia' },
     ] },
+    { key: 'renew', label: 'Renovación', type: 'choice', def: 'no', rebuild: true, options: [
+      { id: 'no', label: 'No: crece y se queda' }, { id: 'si', label: 'Sí: las curvas viejas se deshacen y nacen otras' },
+    ] },
+    { key: 'life', label: 'Vida', type: 'number', min: 8, max: 120, def: 30, step: 1, unit: 's' },
   ],
   presets: [
-    { id: 'coral', name: 'Coral plegado', params: { sep: 0.07, att: 0.5, ali: 0.5, edge: 0.55, sprout: 0.5, shape: 'circulo', bound: 'circulo', view: 'relleno' }, look: { stops: ['#160807', '#ffb3a0'], bg: '#0b0403', charset: ' .:-=+*#' } },
-    { id: 'corteza', name: 'Corteza', params: { sep: 0.07, att: 0.8, ali: 0.6, edge: 0.55, sprout: 0.3, shape: 'linea', bound: 'rect', view: 'historia' }, look: { stops: ['#0d0a05', '#e9d3a5'], bg: '#070502', charset: ' .,:;!|' } },
-    { id: 'colonia', name: 'Colonia de pliegues', params: { sep: 0.075, att: 0.6, ali: 0.7, edge: 0.5, sprout: 0.4, shape: 'varias', bound: 'rect', view: 'trazo' }, look: { stops: ['#04100a', '#a8f0c6'], bg: '#020805', charset: ' .·:oO@' } },
-    { id: 'medusa', name: 'Tentáculos radiales', params: { sep: 0.085, att: 0.6, ali: 0.4, edge: 0.4, sprout: 0.3, shape: 'estrella', bound: 'circulo', view: 'trazo' }, look: { stops: ['#0a0716', '#d3c4ff'], bg: '#05030c', charset: ' .:-=+#' } },
+    { id: 'coral', name: 'Coral plegado', uses: ['arte/organicas'], params: { sep: 0.07, att: 0.5, ali: 0.5, edge: 0.55, sprout: 0.5, shape: 'circulo', bound: 'circulo', view: 'relleno' }, look: { stops: ['#160807', '#ffb3a0'], bg: '#0b0403', charset: ' .:-=+*#' } },
+    { id: 'corteza', name: 'Corteza', uses: ['arte/organicas', 'tipo/texturas'], params: { sep: 0.07, att: 0.8, ali: 0.6, edge: 0.55, sprout: 0.3, shape: 'linea', bound: 'rect', view: 'historia' }, look: { stops: ['#0d0a05', '#e9d3a5'], bg: '#070502', charset: ' .,:;!|' } },
+    { id: 'colonia', name: 'Colonia de pliegues', uses: ['arte/organicas', 'tipo/texturas'], params: { sep: 0.075, att: 0.6, ali: 0.7, edge: 0.5, sprout: 0.4, shape: 'varias', bound: 'rect', view: 'trazo' }, look: { stops: ['#04100a', '#a8f0c6'], bg: '#020805', charset: ' .·:oO@' } },
+    { id: 'medusa', name: 'Tentáculos radiales', uses: ['arte/organicas'], params: { sep: 0.085, att: 0.6, ali: 0.4, edge: 0.4, sprout: 0.3, shape: 'estrella', bound: 'circulo', view: 'trazo' }, look: { stops: ['#0a0716', '#d3c4ff'], bg: '#05030c', charset: ' .:-=+#' } },
+    { id: 'coral_vivo', name: 'Arrecife que se renueva', uses: ['fondos/organicas', 'tipo/texturas'], aka: ['crecimiento diferencial con renovación', 'coral plegado'], params: { sep: 0.085, att: 0.5, ali: 0.5, edge: 0.55, sprout: 0.5, shape: 'circulo', bound: 'rect', view: 'relleno', renew: 'si', life: 30 }, look: { stops: ['#160807', '#ffb3a0'], bg: '#0b0403', charset: ' .:-=+*#' } },
+    { id: 'meandros', name: 'Meandros sin fin', uses: ['fondos/organicas', 'arte/organicas'], aka: ['crecimiento diferencial con historia', 'corteza'], params: { sep: 0.07, att: 0.8, ali: 0.6, edge: 0.55, sprout: 0.3, shape: 'linea', bound: 'rect', view: 'historia', renew: 'si', life: 30 }, look: { stops: ['#0d0a05', '#e9d3a5'], bg: '#070502', charset: ' .,:;!|' } },
+    { id: 'colonia_viva', name: 'Pliegues que se relevan', uses: ['fondos/organicas', 'arte/organicas'], aka: ['crecimiento diferencial con renovación', 'colonia de pliegues'], params: { sep: 0.06, att: 0.6, ali: 0.7, edge: 0.5, sprout: 0.6, shape: 'varias', bound: 'rect', view: 'trazo', renew: 'si', life: 25 }, look: { stops: ['#04100a', '#a8f0c6'], bg: '#020805', charset: ' .·:oO@' } },
   ],
-  caps: { loop: false, time: 'construccion', basic: 'full', checkpoint: true },
+  caps: { loop: false, time: { param: 'renew', values: { si: 'continuo' }, else: 'construccion' }, basic: 'full', checkpoint: true },
   budget: { res: [48, 256, 96], rate: 30, warmup: 150 },
   wrap: 'clamp',
 };
