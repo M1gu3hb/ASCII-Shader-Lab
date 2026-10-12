@@ -20,6 +20,8 @@ async function settle(page: Page) {
 
 const SPACE_NAMES = { arte: 'Arte', fondos: 'Fondos', terminal: 'Terminal' } as const;
 type Shown = keyof typeof SPACE_NAMES;
+/** The settings group with the layer cards has its own name in each space (src/studio/panels.tsx, TABS). */
+const LAYERS_TAB: Record<Shown, string> = { arte: 'Capas', fondos: 'Forma', terminal: 'Forma' };
 
 /**
  * A preset of a family the recipe browser offers without a photo or words of the person (the catalogue lists
@@ -39,17 +41,18 @@ async function toSpace(page: Page, space: Shown) {
   await expect(btn).toHaveAttribute('aria-pressed', 'true');
 }
 
-async function applyPreset(page: Page, name: string, space?: Shown) {
-  if (space) { await closeRecipes(page); await toSpace(page, space); }
+async function applyPreset(page: Page, name: string, space: Shown) {
+  await closeRecipes(page);
+  await toSpace(page, space);
   await openRecipes(page);
   const card = recipeCard(page, name);
   await card.scrollIntoViewIfNeeded();
   await card.click();
   await expect(card).toHaveAttribute('aria-pressed', 'true');
   await settle(page);
-  // the family's panel is in the layer card («Capas»)
+  // the family's panel is in the layer card («Capas» in Arte, «Forma» in Fondos and Terminal)
   await closeRecipes(page);
-  await page.getByRole('tab', { name: 'Capas' }).click();
+  await page.getByRole('tab', { name: LAYERS_TAB[space], exact: true }).click({ timeout: 15_000 });
 }
 
 for (const engine of ['webgl', 'basico'] as const) {
