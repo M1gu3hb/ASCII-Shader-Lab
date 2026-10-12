@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildField, field, sourcesOf } from '../../src/families/sims/campos';
+import { buildField, create, field, sourcesAt, sourcesOf } from '../../src/families/sims/campos';
 import { META } from '../../src/families/meta/campos_em';
 import { defaultParams } from '../../src/families/params';
 import type { Params } from '../../src/families/types';
@@ -79,6 +79,42 @@ describe('líneas de campo', () => {
       expect(dist(b, m)).toBeLessThan(0.09);
       expect(b[1]).toBeLessThan(m.y);
     }
+  });
+
+  it('con movimiento, las fuentes se mueven, las líneas se retrazan y el estado se restaura exacto', () => {
+    const raster = (m: ReturnType<typeof create>, t: number) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };
+    const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+    for (const id of ['dipolo_vivo', 'espiras_vivas', 'imanes']) {
+      const p = P(META.presets.find(q => q.id === id)!.params);
+      const m = create({ seed: 'mueve', res: 48, params: p });
+      m.step(30 * 5);
+      for (let k = 0; k < 3; k++) {
+        // the camera held still: what changes is the field itself
+        const a = raster(m, 0);
+        m.step(30 * 3);
+        expect(mad(a, raster(m, 0)), `${id} ventana ${k}`).toBeGreaterThan(0.3);
+      }
+      const snap = m.snapshot();
+      m.step(23);
+      const r = create({ seed: 'mueve', res: 48, params: p });
+      r.restore(snap);
+      r.step(23);
+      expect(mad(raster(m, 4), raster(r, 4)), id).toBe(0);
+    }
+    // the paths: the charges keep apart as they orbit; the second loop's current reverses on its cycle
+    const src = sourcesAt('dipolo', 0.9, 1, 0.6, 7.3);
+    expect(Math.hypot(src[0].x - src[1].x, src[0].z - src[1].z)).toBeGreaterThan(0.5);
+    expect(sourcesAt('espira', 0.5, 1, 0.5, 0)[1].s).toBeCloseTo(1, 9);
+    expect(sourcesAt('espira', 0.5, 1, 0.5, 14)[1].s).toBeCloseTo(Math.cos(Math.PI), 9);
+  });
+
+  it('sin movimiento, las líneas sólo crecen al principio y después el campo no cambia', () => {
+    const raster = (m: ReturnType<typeof create>) => { const o = new Uint8Array(m.w * m.h); m.render(o, 3); return o; };
+    const m = create({ seed: 'quieto', res: 48, params: P({}) });
+    m.step(30 * 10);
+    const a = raster(m);
+    m.step(30 * 10);
+    expect(raster(m)).toEqual(a);
   });
 
   it('la semilla gira los puntos de partida; la misma semilla da las mismas líneas', () => {
