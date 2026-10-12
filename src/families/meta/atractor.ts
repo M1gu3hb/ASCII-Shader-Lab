@@ -45,7 +45,8 @@ export const META: FamilyMeta = {
       look: { stops: ['#0c0507', '#7a2f45', '#ffc2d0'], bg: '#070304', charset: ' .,:;+*#' } },
   ],
   // with no drift the maps settle into a still figure (the flows' particles keep moving, but the rule reads one parameter)
-  caps: { loop: false, time: { param: 'drift', values: { '0': 'construccion' }, else: 'continuo' }, basic: 'full', checkpoint: true },
+  // a 2D map without drift settles into its finished picture; a 3D flow keeps its particles moving along the attractor
+  caps: { loop: false, time: p => (Number(p.drift) > 0 || ['lorenz', 'thomas', 'aizawa', 'halvorsen'].includes(String(p.type)) ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true },
   budget: { res: [48, 256, 96], rate: 30, warmup: 30 },
   wrap: 'clamp',
   figure: true,
