@@ -5,7 +5,9 @@ export const META: FamilyMeta = {
   name: 'Lenia',
   group: 'vida',
   kind: 'simulation',
-  version: 1,
+  // 2: R scales with the grid and the grid is 128 rows at least (A-05); version-1 recipes keep their path
+  version: 2,
+  aka: ['Lenia', 'Bert Chan', 'autómata celular continuo', 'continuous cellular automaton', 'vida artificial'],
   params: [
     { key: 'mu', label: 'Crecimiento (μ)', type: 'number', min: 0.05, max: 0.45, def: 0.15, step: 0.001, digits: 3 },
     { key: 'sigma', label: 'Tolerancia (σ)', type: 'number', min: 0.004, max: 0.08, def: 0.015, step: 0.0005, digits: 4 },
@@ -21,15 +23,20 @@ export const META: FamilyMeta = {
     { key: 'view', label: 'Vista', type: 'choice', def: 'materia', options: [
       { id: 'materia', label: 'Materia' }, { id: 'crecimiento', label: 'Crecimiento' }, { id: 'contorno', label: 'Contorno' },
     ] },
+    { key: 'renew', label: 'Repoblar', type: 'bool', def: false },
   ],
   presets: [
-    { id: 'orbium', name: 'Orbium', params: { mu: 0.15, sigma: 0.015, R: 18, dt: 0.1, rings: 'uno', seedShape: 'criaturas', density: 0.5, view: 'materia' }, look: { stops: ['#04100f', '#9ff2de'], bg: '#020807', charset: ' .:-=+*#%@' } },
-    { id: 'colonia', name: 'Colonia', params: { mu: 0.12, sigma: 0.0145, R: 16, dt: 0.1, rings: 'uno', seedShape: 'manchas', density: 0.35, view: 'materia' }, look: { stops: ['#100a06', '#ffd8a0'], bg: '#080503', charset: ' .·:oO@' } },
-    { id: 'anulares', name: 'Organismos anulares', params: { mu: 0.19, sigma: 0.02, R: 24, dt: 0.1, rings: 'tres', seedShape: 'criaturas', density: 0.4, view: 'materia' }, look: { stops: ['#0a0816', '#c6b6ff'], bg: '#05040c', charset: ' .:;+*#' } },
-    { id: 'sopa', name: 'Sopa primordial', params: { mu: 0.15, sigma: 0.015, R: 13, dt: 0.1, rings: 'uno', seedShape: 'sopa', density: 0.5, view: 'contorno' }, look: { stops: ['#0e0a04', '#f0e0a0'], bg: '#070502', charset: ' .-~=+#' } },
+    { id: 'orbium', name: 'Nadadores', params: { mu: 0.15, sigma: 0.0145, R: 13, dt: 0.1, rings: 'uno', seedShape: 'criaturas', density: 1, view: 'materia', renew: true }, uses: ['arte/organicas'], aka: ['Orbium', 'banco de criaturas'], look: { stops: ['#04100f', '#9ff2de'], bg: '#020807', charset: ' .:-=+*#%@' } },
+    { id: 'colonia', name: 'Colonia', params: { mu: 0.12, sigma: 0.0145, R: 16, dt: 0.1, rings: 'uno', seedShape: 'manchas', density: 0.35, view: 'materia' }, uses: ['arte/organicas'], look: { stops: ['#100a06', '#ffd8a0'], bg: '#080503', charset: ' .·:oO@' } },
+    { id: 'anulares', name: 'Anillos que nadan', params: { mu: 0.19, sigma: 0.02, R: 12, dt: 0.1, rings: 'tres', seedShape: 'criaturas', density: 1, view: 'materia', renew: true }, uses: ['arte/organicas'], aka: ['Organismos anulares'], look: { stops: ['#0a0816', '#c6b6ff'], bg: '#05040c', charset: ' .:;+*#' } },
+    { id: 'sopa', name: 'Sopa primordial', params: { mu: 0.15, sigma: 0.015, R: 13, dt: 0.1, rings: 'uno', seedShape: 'sopa', density: 0.5, view: 'contorno', renew: true }, uses: ['fondos/organicas', 'tipo/texturas'], aka: ['gusanos'], look: { stops: ['#0e0a04', '#f0e0a0'], bg: '#070502', charset: ' .-~=+#' } },
+    { id: 'enjambre', name: 'Enjambre', params: { mu: 0.12, sigma: 0.012, R: 13, dt: 0.1, rings: 'uno', seedShape: 'manchas', density: 0.6, view: 'materia', renew: true }, uses: ['fondos/vivas', 'fondos/organicas'], aka: ['bacilos', 'bacterias'], look: { stops: ['#06100a', '#c4f7c8'], bg: '#030805', charset: ' .:-=+*#' } },
   ],
   caps: {
-    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
+    loop: false,
+    // creatures collide and die, colonies fill the field and settle: «Repoblar» keeps a run alive
+    time: { param: 'renew', values: { true: 'continuo' }, else: 'construccion' },
+    basic: 'full', checkpoint: true,
     brushes: [{ id: 'sembrar', label: 'Sembrar', hint: 'Echa una mancha de materia: a veces nace una criatura.' }, { id: 'borrar', label: 'Borrar', hint: 'Vacía la zona.' }],
   },
   budget: { res: [64, 256, 128], rate: 24, warmup: 48 },
