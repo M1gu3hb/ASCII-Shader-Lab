@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { FAMILIES, FAMILY_IDS, familyById } from '../../src/families/registry';
 import { LOADABLE, loadFamilyNow } from '../../src/families/load';
 import { analyticOf, modelOf } from '../../src/families/models';
-import { defaultParams, normFam, normParam, normParams, packParams, timeContract } from '../../src/families/params';
+import { PARAM_SLOTS, defaultParams, normFam, normParam, normParams, packParams, timeContract } from '../../src/families/params';
 import { FAMILY_GLSL_IDS, familyGlsl, loadFamilyGlsl } from '../../src/families/analytic/glsl';
 import { DOC_IDS, loadFamilyDoc } from '../../src/families/docs';
 import { decodeCheckpoint, encodeCheckpoint } from '../../src/families/checkpoints';
@@ -117,7 +117,7 @@ for (const meta of FAMILIES) {
       }
       if (meta.kind === 'analytic') {
         expect(meta.caps.loop).toBe(true);
-        expect(meta.params.length).toBeLessThanOrEqual(8);
+        expect(meta.params.length).toBeLessThanOrEqual(PARAM_SLOTS);
         await loadFamilyGlsl(meta.id);
         expect(FAMILY_GLSL_IDS).toContain(meta.id);
         // colour families give each cell its colour and the luminance that picks its glyph (FamilyMeta.color)

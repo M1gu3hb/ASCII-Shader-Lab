@@ -32,6 +32,10 @@ export interface BasicPattern {
   prep?: (t: number, a: number, b: number) => void;
   /** Colour families: the cell's own colour (0..1 rgb) into out[0..2], at the same point and time as f. */
   col?: (x: number, y: number, t: number, out: Float64Array) => void;
+  /** Families that read the layers below or the piece's source (families/context.ts): the field pass sets FAM for them. */
+  reads?: boolean;
+  /** A colour family that reads the source: it gives a picture's or text's cells their colour (SRCC in the shader). */
+  srcColour?: boolean;
 }
 
 let PX = 0.02;

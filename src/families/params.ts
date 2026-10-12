@@ -154,13 +154,32 @@ export function paramNumbers(meta: FamilyMeta, p: Params): number[] {
   });
 }
 
-/** Analytic families: the first eight parameters packed for the shader (k0, k1) and its CPU twin. */
-export function packParams(meta: FamilyMeta, p: Params, out = new Float32Array(8)): Float32Array {
+/**
+ * Typed parameters an analytic family reads: sixteen slots, k0…k3 in the shader (k0 and k1 are the chunk's
+ * arguments, K2 and K3 globals the field pass sets for each layer) and k[0..15] in its CPU twin. Until the
+ * close-out of PR #10 there were eight (k0, k1): chunks written then read only those and stay valid.
+ */
+export const PARAM_SLOTS = 16;
+/** Where the packed array carries the algorithm version the layer was made with (FV in the shader). */
+export const VERSION_SLOT = 16;
+
+/**
+ * Analytic families: the parameters packed for the shader and its CPU twin, plus the algorithm version the
+ * layer was made with (`v`; the family's current one when absent), so a chunk whose drawing changed keeps the
+ * earlier path for older pieces.
+ */
+export function packParams(meta: FamilyMeta, p: Params, out = new Float32Array(PARAM_SLOTS + 1), v = meta.version): Float32Array {
   const n = paramNumbers(meta, p);
   out.fill(0);
-  for (let i = 0; i < Math.min(8, n.length); i++) out[i] = Math.fround(n[i]);
+  for (let i = 0; i < Math.min(PARAM_SLOTS, n.length, out.length); i++) out[i] = Math.fround(n[i]);
+  if (out.length > VERSION_SLOT) out[VERSION_SLOT] = v;
   return out;
 }
+
+/** Whether a layer of this family made with algorithm version `v` reads the piece's source or the layers below. */
+export const famReads = (meta: FamilyMeta, v: number, what: 'source' | 'below') => !!meta.reads?.includes(what) && v >= (meta.readsSince ?? 1);
+/** Whether a raster colour family's run made with version `v` gives its cells colour (FamilyMeta.colorSince). */
+export const famColours = (meta: FamilyMeta, v: number) => !!meta.color && v >= (meta.colorSince ?? 1);
 
 /** A parameter's value as people read it. */
 export function formatParam(s: ParamSpec, v: ParamValue): string {

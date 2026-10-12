@@ -231,6 +231,23 @@ export interface FamilyMeta {
    * fills the frame, a tiling seen from so close that its disc overflows it).
    */
   figure?: boolean | ((p: Params, scale: number) => boolean);
+  /**
+   * What the family reads from the piece besides its own parameters (PR #10 close-out):
+   *  - 'source': the piece's picture or text (analytic chunks call `famSrc(q)`, their CPU twins `famSrc` from
+   *    families/context.ts; raster models get a SourceFeed through `feed`). With patterns as the source there
+   *    is nothing to read: the family draws its own shape (`famSrcKind()` / `FAM.kind` say which).
+   *  - 'below': the stack of the layers under it at the same cell (`VB`, `VC` in the shader; `FAM.below`,
+   *    `FAM.belowC` on the CPU), so it can reveal, refract or tint what is behind.
+   * Only the versions from `readsSince` on read (older pieces keep drawing as they did).
+   */
+  reads?: Array<'source' | 'below'>;
+  /** First algorithm version that reads (absent: every version). */
+  readsSince?: number;
+  /**
+   * Raster families with `color`: the first algorithm version whose model gives each cell its colour
+   * (FieldModel.renderColor). Older pieces stay by brightness, exactly as they were drawn.
+   */
+  colorSince?: number;
   /** Raster families: how the domain repeats outside itself. */
   wrap?: 'repeat' | 'clamp';
   /** The model draws nothing at random: another seed gives the same run (tests then skip that check). */
@@ -303,17 +320,52 @@ export interface FieldModel {
   /** Writes the raster (w × h, row 0 at the top, 0..255) as the layer shows it at layer time t. */
   render(out: Uint8Array, t: number): void;
   stroke?(s: Stroke): void;
+  /**
+   * Colour families (FamilyMeta.color, from `colorSince`): each cell's colour as the layer shows it at layer
+   * time t, w × h × 3 bytes (rgb, row 0 at the top), after `render` (whose bytes stay the luminance that picks
+   * the glyph). The engines tint the glyph with it when the piece's colours come from the family.
+   */
+  renderColor?(out: Uint8Array, t: number): void;
+  /**
+   * Families that read the piece (FamilyMeta.reads 'source'): the source as this layer sees it, handed over
+   * whenever it changes (another picture, a video frame, other words, the layer moved). Null: there is none
+   * (patterns as the source), and the model draws its own shape. Part of the run's input, like its parameters:
+   * the same source gives the same run.
+   */
+  feed?(src: SourceFeed | null): void;
   snapshot(): ModelState;
   restore(s: ModelState): void;
 }
 
+/** The piece's source as a raster family reads it (FieldModel.feed). */
+export interface SourceFeed {
+  /** 1: a picture or video frame, 2: text. */
+  kind: 1 | 2;
+  /** Changes when what the source shows changes. */
+  version: number;
+  /**
+   * The source at a point of the model's domain (x ∈ [−1, 1], y ∈ [−0.5, 0.5], y up, in layer coordinates):
+   * rgb 0..1 into out[0..2] and its luminance into out[3] (0 outside the picture; text: the letters' mask).
+   */
+  at(x: number, y: number, out: Float64Array): void;
+  /** Text sources: the words as written (line breaks included). */
+  text?: string;
+}
+
 export type ModelFactory = (cfg: ModelConfig) => FieldModel;
 
-/** Analytic families: the CPU twin of the GLSL chunk, reading the eight packed parameters. */
+/**
+ * Analytic families: the CPU twin of the GLSL chunk, reading the packed parameters (k[0..15], see
+ * params.ts PARAM_SLOTS) and the algorithm version the layer was made with (k[16], FV in the shader).
+ */
 export type AnalyticFn = (x: number, y: number, t: number, k: Float32Array) => number;
 
 export interface AnalyticImpl {
-  /** GLSL chunk defining `float F_<id>(vec2 p, float t, vec4 k0, vec4 k1)` (colour families: `vec4 FC_<id>`). */
+  /**
+   * GLSL chunk defining `float F_<id>(vec2 p, float t, vec4 k0, vec4 k1)` (colour families: `vec4 FC_<id>`).
+   * Parameters 9–16 are the globals `K2` and `K3`, the layer's algorithm version `FV`; families that read
+   * the piece (FamilyMeta.reads) call `famSrc(q)`, `famSrcKind()` and read `VB` / `VC` (families/sample.ts).
+   */
   glsl: string;
   cpu: AnalyticFn;
   /**

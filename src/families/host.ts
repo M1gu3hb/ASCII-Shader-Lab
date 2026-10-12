@@ -3,8 +3,9 @@ import { checkpointGen, getCheckpoint } from './checkpoints';
 import { analyticOf, modelOf, modelsGen, ensureFamily, familyLoadError } from './models';
 import { familiesReady, familyById, isAnalytic, isFamily, isRaster, loadFamilyMetas } from './registry';
 import { familyGlsl, loadFamilyGlsl } from './analytic/glsl';
-import { checkedFam, type LayerFam } from './params';
-import type { FamilyMeta, FieldModel, ModelState, Params, Stroke } from './types';
+import { checkedFam, famColours, famReads, type LayerFam } from './params';
+import type { FamilyMeta, FieldModel, ModelState, Params, SourceFeed, Stroke } from './types';
+import { figureFit } from '../engine/catalog';
 
 /**
  * Runs the models of a piece's raster families (geometry and simulation) for one engine and hands it each
@@ -20,8 +21,16 @@ import type { FamilyMeta, FieldModel, ModelState, Params, Stroke } from './types
  *    from that base. A change of parameters starts again too: a thumbnail engine renders many recipes.
  */
 
-/** Raster of a layer as the engines upload or sample it: w × h bytes, row 0 at the top of the domain. */
-export interface RasterView { data: Uint8Array; w: number; h: number; version: number; wrap: boolean }
+/**
+ * Raster of a layer as the engines upload or sample it: w × h bytes, row 0 at the top of the domain; colour
+ * families also each cell's colour (`rgb`, w × h × 3 bytes) when their run gives it (FamilyMeta.colorSince).
+ */
+export interface RasterView {
+  data: Uint8Array; w: number; h: number; version: number; wrap: boolean;
+  /** A colour family's raster (uploaded and sampled as rgb + luminance), whether or not this run gives colour. */
+  colour?: boolean;
+  rgb?: Uint8Array | null;
+}
 
 export interface SlotState {
   /** Family, version, seed, rows and checkpoint the state belongs to. */
@@ -84,7 +93,11 @@ interface Slot {
   simT: number;
   debt: number;
   raster: Uint8Array;
+  /** Colour families whose run gives colour (FamilyMeta.colorSince): each cell's rgb. */
+  rgb: Uint8Array | null;
   version: number;
+  /** What the run was last handed of the piece's source (FieldModel.feed): its version and the layer's place. */
+  feedKey: string;
   renderedSteps: number;
   renderedT: number;
   modified: boolean;
@@ -140,8 +153,37 @@ export interface HostOptions {
   onError?: (msg: string) => void;
 }
 
+/**
+ * The piece's source as an engine hands it to the host (setSource), for the families that read it
+ * (FamilyMeta.reads 'source'): sampled at a point of the canvas in screen heights (origin at the centre, y up).
+ */
+export interface HostSource {
+  kind: 1 | 2;
+  /** Changes when what the source shows changes (another picture, a video frame, other words). */
+  version: number;
+  /** The canvas the points are on. */
+  W: number; H: number;
+  /** rgb 0..1 into out[0..2], luminance into out[3] (0 outside the picture; text: the letters' mask). */
+  at(px: number, py: number, out: Float64Array): void;
+  text?: string;
+}
+
+/** The source as one layer's model reads it: its domain mapped back to the canvas through the layer's transform. */
+function feedFor(src: HostSource, l: Layer): SourceFeed {
+  const sc = Math.max(1e-6, l.scale * figureFit(l.pattern, src.W, src.H, l.fam?.p, l.scale)), a = (l.rot * Math.PI) / 180;
+  const c = Math.cos(a), sn = Math.sin(a), ox = l.x, oy = l.y;
+  return {
+    kind: src.kind, version: src.version, text: src.text,
+    at(x, y, out) {
+      const qx = x / sc, qy = y / sc;
+      src.at(c * qx - sn * qy + ox, sn * qx + c * qy + oy, out);
+    },
+  };
+}
+
 export class FamilyHost {
   private slots: Array<Slot | Pending | null> = [null, null, null, null];
+  private source: HostSource | null = null;
   /** Live: runs that left the stage a moment ago (an undo brings them back as they were). */
   private retired: Slot[] = [];
   private lastT = NaN;
@@ -152,6 +194,20 @@ export class FamilyHost {
   private reported = new Set<string>();
 
   constructor(o: HostOptions) { this.o = o; }
+
+  /**
+   * The piece's source for the families that read it (null: patterns, or none yet). Engines call it when the
+   * source changes; the runs that read it get it on their next step.
+   */
+  setSource(src: HostSource | null) { this.source = src; }
+
+  /** Whether a recipe has an on-layer whose family (in its version) reads the piece's source. */
+  static readsSource(r: Recipe): boolean {
+    return FamilyHost.layersOf(r).some(l => {
+      const meta = l.fam ? familyById(l.pattern) : undefined;
+      return !!meta && meta.kind !== 'analytic' && famReads(meta, l.fam!.v, 'source');
+    });
+  }
 
   /** On-layers in the order the field pass reads them (at most four). */
   static layersOf(r: Recipe): Layer[] { return r.layers.filter(l => l.on).slice(0, 4); }
@@ -285,7 +341,7 @@ export class FamilyHost {
   raster(i: number): RasterView | null {
     const s = this.slots[i];
     if (!s || !('model' in s) || s.failed) return null;
-    return { data: s.raster, w: s.model.w, h: s.model.h, version: s.version, wrap: s.meta.wrap !== 'clamp' };
+    return { data: s.raster, w: s.model.w, h: s.model.h, version: s.version, wrap: s.meta.wrap !== 'clamp', colour: !!s.meta.color, rgb: s.rgb };
   }
 
   /** A stroke on layer i (live engines). */
@@ -399,6 +455,7 @@ export class FamilyHost {
     const s: Slot = {
       key, src, fp, meta, model, params: f.p, paramsKey: JSON.stringify(f.p), rate, base, baseState, baseSimT, simT: baseSimT,
       debt: baseState ? 0 : base, raster: new Uint8Array(model.w * model.h), version: nextVersion(), renderedSteps: -1, renderedT: NaN,
+      rgb: famColours(meta, f.v) && model.renderColor ? new Uint8Array(model.w * model.h * 3) : null, feedKey: '',
       modified, lag: false, partial: false, fromCheckpoint, ckMissing, failed: false, ms: 0, rms: 0,
     };
     if (params !== f.p && this.o.live) { s.params = params; s.paramsKey = JSON.stringify(params); }
@@ -408,6 +465,7 @@ export class FamilyHost {
   /** Brings a run to time t. Returns whether it still has work to do. */
   private advance(s: Slot, l: Layer, f: LayerFam, t: number, dt: number, budget0: number, budget: number): boolean {
     if (s.failed) return false;
+    this.feed(s, l, f);
     const pk = JSON.stringify(f.p);
     if (pk !== s.paramsKey) {
       if (this.o.live) {
@@ -440,6 +498,17 @@ export class FamilyHost {
     return busy;
   }
 
+  /** Hands a run that reads the piece its source when the source or the layer's place changed. */
+  private feed(s: Slot, l: Layer, f: LayerFam) {
+    if (!s.model.feed || !famReads(s.meta, f.v, 'source')) return;
+    const src = this.source;
+    const key = src ? `${src.kind}|${src.version}|${src.W}x${src.H}|${l.scale}|${l.rot}|${l.x}|${l.y}` : '-';
+    if (key === s.feedKey) return;
+    s.feedKey = key;
+    s.model.feed(src ? feedFor(src, l) : null);
+    s.renderedSteps = -1;
+  }
+
   /** Runs whole steps of the debt within the budget. */
   private run(s: Slot, budget0: number, budget: number): boolean {
     let n = Math.floor(s.debt);
@@ -467,6 +536,7 @@ export class FamilyHost {
     if (!factory) return;
     const res = s.model.h;
     s.model = factory({ seed: this.seedOf(s.key), params: p, res, v: Number(s.key.split('|')[1]) || s.meta.version });
+    s.feedKey = '';
     if (s.baseState) s.model.restore(s.baseState);
     if (s.baseState && p !== s.params) s.model.setParams(p);
     s.params = p; s.paramsKey = JSON.stringify(p);
@@ -479,6 +549,7 @@ export class FamilyHost {
     if (s.renderedSteps === s.model.steps && s.renderedT === t) return;
     const a = now();
     s.model.render(s.raster, t);
+    if (s.rgb) s.model.renderColor?.(s.rgb, t);
     const ms = now() - a;
     s.rms = s.rms > 0 ? s.rms * 0.8 + ms * 0.2 : ms;
     s.renderedSteps = s.model.steps;

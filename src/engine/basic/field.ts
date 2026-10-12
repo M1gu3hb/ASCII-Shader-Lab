@@ -17,6 +17,7 @@ import { familyPattern } from '../../families/basic';
 import { paletteOf } from '../../families/palette';
 import { OP, opticsAt, opticsLoop, type OpticsU } from './optics';
 import type { FamilyHost } from '../../families/host';
+import { FAM } from '../../families/context';
 import type { XformStage } from '../xform';
 
 export type FieldSource = 'pattern' | 'media' | 'text';
@@ -206,12 +207,20 @@ function stack(f: FieldFrame, B: FieldBuffers, t: number, out: Float64Array, cou
     const c = fr(Math.cos(fr(L.rot))), s = fr(Math.sin(fr(L.rot))), sc = fr(L.scale), ox = fr(L.x), oy = fr(L.y), a = L.a, b = L.b;
     const inv = L.invert, mixK = L.mix, blend = L.blend, first = li === 0;
     const cf = cout ? L.pat.col : undefined, mixC = coloured;
+    // a family that reads the piece or the layers below (families/context.ts): its transform, and per cell the stack so far
+    const reads = !!L.pat.reads;
+    if (reads) { FAM.c = c; FAM.s = s; FAM.sc = sc; FAM.ox = ox; FAM.oy = oy; }
     // column-major, so patterns that only depend on x (per column) can reuse work between cells
     for (let col = 0; col < cols; col++) {
       for (let row = 0; row < rows; row++) {
         const i = row * cols + col;
         const dx = fr(qxs[i] - ox), dy = fr(qys[i] - oy);
         const lx = fr(fr(fr(c * dx) + fr(s * dy)) * sc), ly = fr(fr(fr(-s * dx) + fr(c * dy)) * sc);
+        if (reads) {
+          FAM.below = first ? 0 : out[i];
+          const bc = FAM.belowC;
+          if (cout && coloured) { const o = i * 3; bc[0] = cout[o]; bc[1] = cout[o + 1]; bc[2] = cout[o + 2]; } else bc[0] = bc[1] = bc[2] = 1;
+        }
         let x = fn(lx, ly, lt, a, b);
         if (inv) x = 1 - x;
         out[i] = first ? x * mixK : blendf(out[i], x, blend, mixK);
@@ -301,10 +310,21 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
     }
   }
 
+  // what a family that reads the piece sees of its source (families/context.ts, the shader's famSrc)
+  const media = f.src === 'media' ? f.media : null;
+  const text = f.src === 'text' ? f.text : null;
+  if (media) MAP.set(W, H, media.natW, media.natH, f.fit, f.zoom, f.panX, f.panY, f.mirror);
+  FAM.kind = media ? 1 : text ? 2 : 0;
+  FAM.src = media ? (px, py, o) => mediaAt(media, px * (H / W) + 0.5, 0.5 - py, o)
+    : text ? (px, py, o) => { const m = sampleRed(text, px * (H / W) + 0.5, 0.5 - py); o[0] = o[1] = o[2] = o[3] = m; }
+    : null;
+
   // 2. pattern stack (twice when looping, to crossfade the end of the loop into its start); colour families
-  // also give each cell its colour (pattern source only: a picture or text keeps its own)
+  // also give each cell its colour (pattern source only: a picture or text keeps its own, unless a colour
+  // family that reads it gives it its colour: SRCC in the shader)
   const loop = f.loop > 0;
-  const colour = f.src === 'pattern' && f.layers.some(L => !!L.pat.col);
+  const srcColour = (media || text) && f.layers.some(L => !!L.pat.srcColour);
+  const colour = (f.src === 'pattern' || !!srcColour) && f.layers.some(L => !!L.pat.col);
   if (colour && (!B.c0 || B.c0.length !== B.n * 3)) { B.c0 = new Float64Array(B.n * 3); B.c1 = new Float64Array(B.n * 3); }
   let tl = T, w = 0;
   if (loop) {
@@ -317,9 +337,6 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
   const loopK = 1 + 0.41 * Math.sin(PI * w);
 
   // 3. source, pointer light / ripples / trails, pulse; quantise like an RGBA8 target
-  const media = f.src === 'media' ? f.media : null;
-  const text = f.src === 'text' ? f.text : null;
-  if (media) MAP.set(W, H, media.natW, media.natH, f.fit, f.zoom, f.panX, f.panY, f.mirror);
   const csx = (cw / W) * 0.25, csy = (ch / H) * 0.25;
   const env = f.morph > 0 ? 0.5 - 0.5 * Math.cos((TAU * T) / f.morph) : 0;
   const morphK = f.morph > 0 ? smooth01(env) : 0;
@@ -360,6 +377,7 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
           }
           const ml = cr * 0.299 + cg * 0.587 + cb * 0.114;
           l = f.mediaMix > 0 ? blendf(ml, pv, f.mediaBlend, f.mediaMix) : ml;
+          if (srcColour) { const o = i * 3, c0 = B.c0!, k = f.mediaMix; cr += (fc(c0, B.c1, o, w, loop) - cr) * k; cg += (fc(c0, B.c1, o + 1, w, loop) - cg) * k; cb += (fc(c0, B.c1, o + 2, w, loop) - cb) * k; }
         } else if (text) {
           const tm = grid
             ? (grid[gi] * 0.299 + grid[gi + 1] * 0.587 + grid[gi + 2] * 0.114) / 255
@@ -367,6 +385,7 @@ export function runField(f: FieldFrame, B: FieldBuffers) {
               + sampleRed(text, sx - csx, sy + csy) + sampleRed(text, sx + csx, sy + csy)) * 0.25;
           l = f.mediaMix > 0 ? blendf(tm, pv, f.mediaBlend, f.mediaMix) : tm;
           if (f.morph > 0) l = hash12(col * 1.37, row * 1.37) < morphK ? pv : l;
+          if (srcColour) { const o = i * 3, c0 = B.c0!; cr = fc(c0, B.c1, o, w, loop); cg = fc(c0, B.c1, o + 1, w, loop); cb = fc(c0, B.c1, o + 2, w, loop); }
         }
       }
       if (im === 1) {
@@ -430,6 +449,19 @@ function runXforms(f: FieldFrame, X: NonNullable<FieldFrame['xform']>, media: Me
     const t = cur; cur = other; other = t;
   }
   return cur;
+}
+
+/** A family colour channel of the stack, crossfaded like the shader's SC when looping. */
+const fc = (c0: Float64Array, c1: Float64Array | null, o: number, w: number, loop: boolean) => (loop && c1 ? c0[o] + (c1[o] - c0[o]) * w : c0[o]);
+
+/** media(s) at one point (the shader's famSrc): premultiplied rgb and its luminance, 0 outside the picture. */
+function mediaAt(m: MediaBuffer, sx: number, sy: number, out: Float64Array) {
+  const u = MAP.u(sx), v = MAP.v(sy);
+  if (u < 0 || v < 0 || u > 1 || v > 1) { out[0] = out[1] = out[2] = out[3] = 0; return; }
+  sampleRGBA(m, u, v);
+  const a = S4[3];
+  out[0] = S4[0] * a; out[1] = S4[1] * a; out[2] = S4[2] * a;
+  out[3] = (S4[0] * 0.299 + S4[1] * 0.587 + S4[2] * 0.114) * a;
 }
 
 /** smoothstep(.1, .9, x) */

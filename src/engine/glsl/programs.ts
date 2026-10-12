@@ -60,30 +60,50 @@ export function buildFieldShader(patterns: string[], src: FieldSource, loop: boo
   // the stack (the first one sets it, the next ones mix theirs in by their layer's mix) to the pattern's col
   const colour = used.some(isColorFamily);
 
-  // a family layer: analytic ones read their eight typed parameters (uLF0/uLF1), raster ones their raster
-  const call = (id: string, i: number) => isRaster(id) ? `famRaster(${i}, q)`
+  // a family layer: analytic ones read their typed parameters (uLF0/uLF1 as arguments, K2/K3 and the version
+  // FV as globals), raster ones their raster (colour ones rgb and luminance)
+  const call = (id: string, i: number) => isRaster(id) ? (isColorFamily(id) ? `famRasterC(${i}, q)` : `famRaster(${i}, q)`)
     : isColorFamily(id) ? `FC_${id}(q, t * B.w + C.y, uLF0[${i}], uLF1[${i}])`
     : isAnalytic(id) ? `F_${id}(q, t * B.w + C.y, uLF0[${i}], uLF1[${i}])`
     : `P_${id}(q, t * B.w + C.y, B.x, B.y)`;
+  // before a family layer: its extra parameters and version, its transform (famSrc maps back to the canvas) and
+  // the stack below it at this cell (FamilyMeta.reads)
+  const pre = (id: string, i: number) => !isFamily(id) ? '' : `
+    K2 = uLF2[${i}]; K3 = uLF3[${i}]; FV = uLV[${i}].x; LA = A; VB = ${i === 0 ? '0.' : 'v'};${colour ? ` VC = SCN > .5 ? SC : vec3(1.);` : ''}`;
+  // a raster colour family whose run gives no colour (a piece made before it did) leaves SC as it was
+  const tint = (id: string, i: number) => isRaster(id) ? `if (uLV[${i}].y > .5){ SC = SCN > .5 ? mix(SC, c4.rgb, B.z) : c4.rgb; SCN = 1.; }`
+    : 'SC = SCN > .5 ? mix(SC, c4.rgb, B.z) : c4.rgb; SCN = 1.;';
   const layerCode = patterns.map((id, i) => isColorFamily(id) ? `
   {
     vec4 A = uLA[${i}], B = uLB[${i}], C = uLC[${i}];
     vec2 q = rot2(p - A.zw, A.y) * A.x;
-    PX = uCellP * A.x;
+    PX = uCellP * A.x;${pre(id, i)}
     vec4 c4 = ${call(id, i)};
     float x = c4.a;
     x = mix(x, 1. - x, C.x);
     ${i === 0 ? 'v = x * B.z;' : 'v = blendf(v, x, int(C.z), B.z);'}
-    SC = SCN > .5 ? mix(SC, c4.rgb, B.z) : c4.rgb; SCN = 1.;
+    ${tint(id, i)}${families ? `
+    if (uLV[${i}].z > .5) SRCC = 1.;` : ''}
   }` : `
   {
     vec4 A = uLA[${i}], B = uLB[${i}], C = uLC[${i}];
     vec2 q = rot2(p - A.zw, A.y) * A.x;
-    PX = uCellP * A.x;
+    PX = uCellP * A.x;${pre(id, i)}
     float x = ${call(id, i)};
     x = mix(x, 1. - x, C.x);
     ${i === 0 ? 'v = x * B.z;' : 'v = blendf(v, x, int(C.z), B.z);'}
   }`).join('');
+  // what a family that reads the piece sees of its source (FamilyMeta.reads): the picture or the letters at a
+  // point of its layer, mapped back to the canvas through the layer's transform; nothing with patterns
+  const famSrc = !families ? '' : `
+float famSrcKind(){ return ${src === 'media' ? '1.' : src === 'text' ? '2.' : '0.'}; }
+vec4 famSrc(vec2 q){
+  vec2 p = rot2(q / LA.x, -LA.y) + LA.zw;
+  vec2 s = vec2(p.x * uRes.y + .5 * uRes.x, .5 * uRes.y - p.y * uRes.y) / uRes;
+  ${src === 'media' ? 'vec4 c = media(s); return vec4(c.rgb * c.a, dot(c.rgb, vec3(.299, .587, .114)) * c.a);'
+    : src === 'text' ? 'float m = texture(uText, s).r; return vec4(vec3(m), m);'
+    : 'return vec4(0.);'}
+}`;
 
   return HEAD + `
 uniform vec2 uRes;
@@ -115,14 +135,16 @@ float PX;
 ${colour ? `uniform vec3 uPal[6];
 uniform float uPalN;
 vec3 SC; float SCN;` : ''}
+${families ? 'float SRCC;' : ''}
 ${GLSL_CORE}
 ${GLSL_BLEND}
 ${src === 'media' ? GLSL_MEDIA : ''}
 ${families ? FAMILY_SAMPLE_GLSL : ''}
+${famSrc}
 ${optics ? GLSL_OPTICS : ''}
 ${chunks}
 float stack(vec2 p, float t){
-  float v = 0.;${colour ? '\n  SC = vec3(1.); SCN = 0.;' : ''}
+  float v = 0.;${colour ? '\n  SC = vec3(1.); SCN = 0.;' : ''}${families ? '\n  SRCC = 0.;' : ''}
   ${layerCode}
   return v;
 }
@@ -195,7 +217,10 @@ void main(){
   }
   col = c4.rgb;
   float ml = dot(col, vec3(.299, .587, .114));
-  l = uMediaMix > 0. ? blendf(ml, pv, uMediaBlend, uMediaMix) : ml;` : ''}
+  l = uMediaMix > 0. ? blendf(ml, pv, uMediaBlend, uMediaMix) : ml;${colour ? `
+  // a colour family that reads the picture (FamilyMeta.reads) gives the cells their colour, the picture's
+  // own where it shows it, by the pattern's amount
+  if (SRCC > .5) col = mix(col, SC, uMediaMix);` : ''}` : ''}
   ${src === 'text' ? `
   float tm = uXOn == 1
     ? dot(texelFetch(uXGrid, clamp(ivec2(floor(s * uRes / uCell)), ivec2(0), ivec2(uGrid) - 1), 0).rgb, vec3(.299, .587, .114))
@@ -205,7 +230,9 @@ void main(){
   if (uMorph > 0.){
     float env = .5 - .5 * cos(TAU * uTime / uMorph);
     l = hash12(cell * 1.37) < smoothstep(.1, .9, env) ? pv : l;
-  }` : ''}
+  }${colour ? `
+  // a colour family that reads the letters (FamilyMeta.reads) gives the cells their colour
+  if (SRCC > .5) col = SC;` : ''}` : ''}
   if (uIMode == 1) l += uIStr * fall * (.75 + .25 * sin(dist * 40. - uTime * 6.));
   else if (uIMode == 2) l += simH(cell) * .3 * uIStr;
   else if (uIMode == 6) l *= 1. - clamp(sim.b, 0., 1.);

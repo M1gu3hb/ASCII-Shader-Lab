@@ -3,9 +3,9 @@ import type { BasicPattern } from '../engine/basic/patterns';
 import type { FamilyHost } from './host';
 import { currentPX } from '../engine/basic/px';
 import { analyticOf } from './models';
-import { checkedFam, packParams } from './params';
+import { checkedFam, famReads, packParams } from './params';
 import { familyById, isColorFamily, isFamily } from './registry';
-import { sampleRaster } from './sample';
+import { sampleRaster, sampleRasterC } from './sample';
 import type { Palette } from './types';
 
 const EMPTY: BasicPattern = { f: () => 0 };
@@ -25,15 +25,19 @@ export function familyPattern(l: Layer, i: number, host: FamilyHost | null | und
   if (meta.kind === 'analytic') {
     const impl = analyticOf(meta.id);
     if (!impl) return meta.color ? EMPTY_COLOUR : EMPTY;
-    const k = packParams(meta, checkedFam(meta, l.fam).p);
+    const fam = checkedFam(meta, l.fam);
+    const k = packParams(meta, fam.p, undefined, fam.v);
     const cpuColor = impl.cpuColor;
     return {
       f: (x, y, t) => impl.cpu(x, y, t, k),
       prep: impl.prep ? t => impl.prep!(t, k, pal, currentPX()) : undefined,
       ...(meta.color && cpuColor ? { col: (x: number, y: number, t: number, out: Float64Array) => cpuColor(x, y, t, k, out) } : {}),
+      ...(famReads(meta, fam.v, 'source') || famReads(meta, fam.v, 'below') ? { reads: true, srcColour: meta.color && famReads(meta, fam.v, 'source') } : {}),
     };
   }
   const R = host?.raster(i);
   if (!R) return EMPTY;
+  // a colour family's raster: the cell's colour where its run gives it (and, like the shader, nothing of SC otherwise)
+  if (meta.color && R.rgb) return { f: (x, y) => sampleRaster(R, x, y), col: (x, y, _t, out) => { sampleRasterC(R, x, y, out); } };
   return { f: (x, y) => sampleRaster(R, x, y) };
 }

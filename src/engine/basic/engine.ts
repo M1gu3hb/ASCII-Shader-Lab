@@ -5,7 +5,8 @@ import { figureFit, fontById } from '../catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
 import type { EngineOptions, EngineStats, FamilyCommand, GestureInput, GridSnapshot, MediaKind } from '../engine';
-import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../../families/host';
+import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../../families/host';
+import { mediaSource, textSource } from '../../families/source';
 import { retryFamily } from '../../families/models';
 import { hasColourFamily } from '../../families/palette';
 import { opticsUniforms } from '../opticsU';
@@ -129,6 +130,9 @@ export class BasicEngine implements Renderer {
   private mediaKey = '';
   private mediaOK = false;
   private mediaBuf: MediaBuffer | null = null;
+  /** The source as the families that read it last got it. */
+  private famSrcKey = '';
+  private famSrcVer = 0;
   private mediaCanvas: HTMLCanvasElement | null = null;
   private revealKey = '';
   private revealCanvas: HTMLCanvasElement | null = null;
@@ -799,6 +803,25 @@ export class BasicEngine implements Renderer {
     }
   }
 
+  /** The piece's source for the families that read it (see AsciiEngine.familySource): the copies this engine keeps. */
+  private familySource() {
+    const r = this.r;
+    if (!FamilyHost.readsSource(r)) { if (this.famSrcKey) { this.famSrcKey = ''; this.fam.setSource(null); } return; }
+    let key = '-', make: (() => HostSource) | null = null;
+    const tb = this.textBuf, mb = this.mediaBuf;
+    if (r.source === 'text' && tb) {
+      key = 't|' + this.textKey;
+      make = () => textSource(tb.data, tb.w, tb.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+    } else if (mb && this.mediaOK) {
+      const m = r.media;
+      key = `m|${this.mediaGen}|${Math.floor(this.mediaTime * 10)}|${m.fit}|${m.zoom}|${m.panX}|${m.panY}|${m.mirror}|${this.W}x${this.H}`;
+      make = () => mediaSource(mb, this.W, this.H, m, ++this.famSrcVer);
+    }
+    if (key === this.famSrcKey) return;
+    this.famSrcKey = key;
+    this.fam.setSource(make ? make() : null);
+  }
+
   /** Brings the piece's family runs to the current moment and applies brush strokes (see AsciiEngine). */
   private updateFamilies() {
     const r = this.r;
@@ -816,6 +839,7 @@ export class BasicEngine implements Renderer {
       this.fam.stroke(i, { brush, x0: prev[0], y0: prev[1], x1: qx, y1: qy, r: Math.max(0.01, r.interact.radius * 0.5 * sc), strength: Math.max(0.2, r.interact.strength) });
       this.famStroke[i] = [qx, qy];
     }
+    this.familySource();
     this.famBusy = this.fam.update(r, familyTime(this.t, r.motion.hold));
   }
 

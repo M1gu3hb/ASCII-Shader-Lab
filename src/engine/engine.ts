@@ -19,12 +19,13 @@ import type { PreviewQuality, Renderer } from './renderer';
 import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
 import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
 import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
-import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type SlotInfo } from '../families/host';
+import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../families/host';
+import { mediaSource, redOf, smallCopy, textSource } from '../families/source';
 import { retryFamily } from '../families/models';
 import { hasColourFamily, paletteOf } from '../families/palette';
 import { opticsUniforms } from './opticsU';
 import { familyById, isColorFamily } from '../families/registry';
-import { checkedFam, packParams } from '../families/params';
+import { PARAM_SLOTS, checkedFam, famReads, packParams } from '../families/params';
 
 export type MediaKind = 'image' | 'video' | 'camera';
 type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
@@ -223,6 +224,12 @@ export class AsciiEngine implements Renderer {
   private fam: FamilyHost;
   private tFam: Tex[] = [];
   private famVer = [-1, -1, -1, -1];
+  /** Staging for colour rasters (rgb + luminance per cell). */
+  private famRGBA: Array<Uint8Array | null> = [null, null, null, null];
+  /** The source as the families that read it last got it, and the canvas its small copies are made on. */
+  private famSrcKey = '';
+  private famSrcVer = 0;
+  private famSrcCanvas: HTMLCanvasElement | null = null;
   private famBusy = false;
   /** Where the last brush stroke on each family layer ended (domain coordinates), while the pointer is down. */
   private famStroke: Array<[number, number] | null> = [null, null, null, null];
@@ -1367,6 +1374,7 @@ export class AsciiEngine implements Renderer {
     const r = this.r;
     if (!r.layers.some(l => l.on && l.fam)) { this.famBusy = false; return; }
     this.famStrokes();
+    this.familySource();
     this.famBusy = this.fam.update(r, familyTime(this.t, r.motion.hold));
     const gl = this.gl;
     for (let i = 0; i < 4; i++) {
@@ -1374,10 +1382,52 @@ export class AsciiEngine implements Renderer {
       if (!R || R.version === this.famVer[i]) continue;
       this.famVer[i] = R.version;
       const T = this.tFam[i];
+      // a colour family's raster goes up as rgb and, in alpha, the luminance (grey where its run gives no colour)
+      const rgba = R.colour === true;
+      const internal = rgba ? gl.RGBA8 : gl.R8, format = rgba ? gl.RGBA : gl.RED;
+      let data: Uint8Array = R.data;
+      if (rgba) {
+        const n = R.w * R.h;
+        const buf = this.famRGBA[i] && this.famRGBA[i]!.length === n * 4 ? this.famRGBA[i]! : (this.famRGBA[i] = new Uint8Array(n * 4));
+        const c = R.rgb, l = R.data;
+        for (let j = 0; j < n; j++) {
+          const o = j * 4;
+          if (c) { buf[o] = c[j * 3]; buf[o + 1] = c[j * 3 + 1]; buf[o + 2] = c[j * 3 + 2]; } else buf[o] = buf[o + 1] = buf[o + 2] = l[j];
+          buf[o + 3] = l[j];
+        }
+        data = buf;
+      }
       gl.bindTexture(gl.TEXTURE_2D, T.tex);
-      if (T.w === R.w && T.h === R.h) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, R.w, R.h, gl.RED, gl.UNSIGNED_BYTE, R.data);
-      else resizeTex(gl, T, R.w, R.h, R.data);
+      if (T.w === R.w && T.h === R.h && T.internal === internal) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, R.w, R.h, format, gl.UNSIGNED_BYTE, data);
+      else { T.internal = internal; T.format = format; resizeTex(gl, T, R.w, R.h, data); }
     }
+  }
+
+  /**
+   * The piece's source for the families that read it (FamilyMeta.reads 'source'): a small CPU copy of the
+   * picture, the video frame (ten times a second) or the letters, made only when it changes.
+   */
+  private familySource() {
+    const r = this.r;
+    if (!FamilyHost.readsSource(r)) { if (this.famSrcKey) { this.famSrcKey = ''; this.fam.setSource(null); } return; }
+    let key = '-', make: (() => HostSource) | null = null;
+    const cv = () => (this.famSrcCanvas ??= document.createElement('canvas'));
+    if (r.source === 'text' && this.textCanvas) {
+      const tc = this.textCanvas;
+      key = 't|' + this.textKey;
+      make = () => { const m = smallCopy(tc, tc.width, tc.height, cv()); return textSource(redOf(m), m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer); };
+    } else {
+      const el = this.currentMedia();
+      if (el && this.mediaOK) {
+        const t = typeof HTMLVideoElement !== 'undefined' && el instanceof HTMLVideoElement ? Math.floor(el.currentTime * 10) : 0;
+        const m = r.media;
+        key = `m|${this.mediaGen}|${t}|${m.fit}|${m.zoom}|${m.panX}|${m.panY}|${m.mirror}|${this.W}x${this.H}`;
+        make = () => mediaSource(smallCopy(el as CanvasImageSource, this.mediaW, this.mediaH, cv()), this.W, this.H, m, ++this.famSrcVer);
+      }
+    }
+    if (key === this.famSrcKey) return;
+    this.famSrcKey = key;
+    try { this.fam.setSource(make ? make() : null); } catch { this.fam.setSource(null); }
   }
 
   /** Strokes of a family brush (layer.fam.brush) while the pointer is pressed on a live canvas. */
@@ -1402,21 +1452,29 @@ export class AsciiEngine implements Renderer {
   private bindFamilyUniforms(p: Program, layers: Recipe['layers']) {
     if (!layers.some(l => l.fam)) return;
     const gl = this.gl;
-    const R = new Float32Array(16), K0 = new Float32Array(16), K1 = new Float32Array(16), k = new Float32Array(8);
+    const R = new Float32Array(16), K0 = new Float32Array(16), K1 = new Float32Array(16), K2 = new Float32Array(16), K3 = new Float32Array(16);
+    const LV = new Float32Array(16), k = new Float32Array(PARAM_SLOTS + 1);
     layers.forEach((l, i) => {
       const meta = familyById(l.pattern);
       if (!meta || !l.fam) return;
+      const fam = checkedFam(meta, l.fam);
       if (meta.kind === 'analytic') {
-        packParams(meta, checkedFam(meta, l.fam).p, k);
-        K0.set(k.subarray(0, 4), i * 4); K1.set(k.subarray(4, 8), i * 4);
+        packParams(meta, fam.p, k, fam.v);
+        K0.set(k.subarray(0, 4), i * 4); K1.set(k.subarray(4, 8), i * 4); K2.set(k.subarray(8, 12), i * 4); K3.set(k.subarray(12, 16), i * 4);
       } else {
         const ras = this.fam.raster(i);
         if (ras) R.set([ras.w, ras.h, ras.wrap ? 1 : 0, 1], i * 4);
+        LV[i * 4 + 1] = ras?.rgb ? 1 : 0;
       }
+      LV[i * 4] = fam.v;
+      LV[i * 4 + 2] = famReads(meta, fam.v, 'source') ? 1 : 0;
     });
     gl.uniform4fv(loc(gl, p, 'uLR'), R);
     gl.uniform4fv(loc(gl, p, 'uLF0'), K0);
     gl.uniform4fv(loc(gl, p, 'uLF1'), K1);
+    gl.uniform4fv(loc(gl, p, 'uLF2'), K2);
+    gl.uniform4fv(loc(gl, p, 'uLF3'), K3);
+    gl.uniform4fv(loc(gl, p, 'uLV'), LV);
     if (layers.some(l => isColorFamily(l.pattern))) {
       const pal = paletteOf(this.r.color.stops);
       gl.uniform3fv(loc(gl, p, 'uPal'), pal.rgb);
