@@ -221,14 +221,16 @@ export function create(cfg: ModelConfig): FieldModel {
       const sand = p.view !== 'campo', fieldOn = p.view !== 'arena';
       const { a, b, s } = fieldOn ? modeAt(steps / RATE) : { a: null, b: null, s: 0 };
       const lg = 1 / Math.log(1 + 6);
-      const wide = wideOf();
+      // (the canvas plate is a background: sand spread evenly stays dark, only where it gathers it lights up)
+      const wide = wideOf(), sk = wide ? 0.1 : 0.35;
       for (let py = 0; py < h; py++) {
         const y = wide ? (0.5 - (py + 0.5) / h) * 2 : (0.5 - (py + 0.5) / h) / HALF;
         for (let px = 0; px < w; px++) {
           const x = wide ? ((px + 0.5) / w) * 2 - 1 : (((px + 0.5) / w) * 2 - 1) / HALF, i = py * w + px;
           if (!inside(x, y)) { out[i] = 0; continue; }
           let v = 0;
-          if (sand) v = Math.log(1 + 6 * Math.min(4, dens[i] * norm * 0.35)) * lg * 0.82;
+          if (sand) v = Math.log(1 + 6 * Math.min(4, dens[i] * norm * sk)) * lg * 0.82;
+          if (sand && wide) v = Math.max(0, (v - 0.12) * 1.5);
           if (fieldOn && a && b) {
             const u = Math.abs(s > 0 ? (1 - s) * look(a, x, y) + s * look(b, x, y) : look(a, x, y));
             // nodal lines bright, the rest a faint relief of |u|

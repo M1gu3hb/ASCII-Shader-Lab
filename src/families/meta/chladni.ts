@@ -27,7 +27,7 @@ export const META: FamilyMeta = {
   presets: [
     {
       id: 'arena', name: 'Arena en todo el lienzo', aka: ['Placa rectangular', 'Figuras de Chladni'], uses: ['fondos/geometricas', 'tipo/texturas'],
-      params: { plate: 'lienzo', n: 3, m: 5, mix: -1, seq: 'lento', count: 32000, agit: 1.1, persist: 0.85, view: 'arena' },
+      params: { plate: 'lienzo', n: 3, m: 5, mix: -1, seq: 'lento', count: 24000, agit: 1.1, persist: 0.85, view: 'arena' },
       look: { stops: ['#0c0a07', '#f2e2c0'], bg: '#060504', charset: ' .:-=+*#%@' },
     },
     {
