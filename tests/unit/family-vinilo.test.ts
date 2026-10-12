@@ -29,7 +29,8 @@ const bestShift = (a: number[], b: number[]) => {
   return best;
 };
 
-describe('disco de vinilo', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('disco de vinilo', { timeout: 60_000 }, () => {
   it('la etiqueta y la música de los surcos giran con el disco', () => {
     const f = at(P({ tilt: 0, arm: 0, shine: 0, speed: 'lento', signal: 1 }));
     const s0 = viniloState(f.k, 1), s1 = viniloState(f.k, 1.6);

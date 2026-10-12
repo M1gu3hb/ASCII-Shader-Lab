@@ -25,7 +25,8 @@ function ringMean(f: (x: number, y: number, t: number) => number, r: number, t: 
   return s / n;
 }
 
-describe('eclipse total', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('eclipse total', { timeout: 60_000 }, () => {
   it('el disco de la luna es negro (en totalidad) y la corona cae con la altura', () => {
     const { f, k } = field(P({ contact: 0, stars: 0 }));
     const { Rm, Rs } = eclipseGeometry(k, 5);

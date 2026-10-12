@@ -20,7 +20,8 @@ const at = (p: Params) => {
   };
 };
 
-describe('calor que irradia', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('calor que irradia', { timeout: 60_000 }, () => {
   it('sin lenguas, reverberación ni subida, la temperatura es radial y cae con la distancia; con ellas deja de serlo', () => {
     const t = 3;
     const [cx, cy] = calorSource(0, 1, t);

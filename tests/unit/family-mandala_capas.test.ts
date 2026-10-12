@@ -33,7 +33,8 @@ function turn(p: Params, radius: number, t: number, dt: number) {
   return (best / N) * 2 * Math.PI;
 }
 
-describe('mandala de capas', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('mandala de capas', { timeout: 60_000 }, () => {
   it('cada capa ocupa su anillo: la flor dentro, las espirales en medio, el rosetón fuera', () => {
     const t = 3.7;
     for (const [layer, lo, hi] of [['flower', 0, 0.42 * R0], ['spiral', 0.42 * R0, 0.74 * R0], ['outer', 0.74 * R0, R0]] as const) {

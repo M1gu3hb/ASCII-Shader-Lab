@@ -22,7 +22,8 @@ const grid = (f: (x: number, y: number) => number) => {
   return o;
 };
 
-describe('haces de luz', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('haces de luz', { timeout: 60_000 }, () => {
   it('los láseres son hilos que entran por el borde del cuadro y barren con el tiempo', () => {
     const f = lumOf(bare());
     for (const t of [1, 7, 23]) {

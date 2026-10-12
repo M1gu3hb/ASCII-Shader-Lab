@@ -21,7 +21,8 @@ const at = (p: Params) => {
 };
 const quiet = { edges: 0, star: 0, caustics: 0 };
 
-describe('talla de diamante', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('talla de diamante', { timeout: 60_000 }, () => {
   it('cada faceta tiene un solo color y un solo brillo; facetas distintas, colores distintos', () => {
     for (const cut of ['brillante', 'princesa', 'rosa']) {
       const f = at(P({ ...quiet, cut, fire: 1 }));

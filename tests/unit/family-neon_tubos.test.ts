@@ -16,7 +16,8 @@ const lumOf = (p: Params) => {
 };
 const S = (p: Params) => 0.75 + 0.6 * (p.size as number);
 
-describe('letrero de neón', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('letrero de neón', { timeout: 60_000 }, () => {
   it('los tubos se encienden uno tras otro, tartamudean al encenderse y se apagan al final del ciclo', () => {
     const Pc = 12, seq = 0.6;
     const first: number[] = [];

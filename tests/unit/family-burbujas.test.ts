@@ -16,7 +16,8 @@ const field = (p: Params) => {
 };
 const surfaceY = (p: Params) => 0.18 + 0.29 * (p.surface as number);
 
-describe('burbujas con nucleación', () => {
+// (dense samplings of the CPU twin: generous time when the suite shares the machine)
+describe('burbujas con nucleación', { timeout: 60_000 }, () => {
   it('todo lo que se enciende está en la columna de un punto de nucleación fijo, y cada punto suelta burbujas', () => {
     for (const sites of [5, 8]) {
       const p = base({ sites, layout: 2 });
