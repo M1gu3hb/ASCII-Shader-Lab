@@ -10,6 +10,10 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * an occupied cell fails and the agent picks a new random heading instead; a successful move deposits trail
  * in the cell it reaches. The trail map is blended with its 3×3 mean («Difusión») and decays («Evaporación»).
  * Positions are continuous; the occupancy grid is derived from them (it is not part of the saved state).
+ *
+ * «Renovación» (PR #10 review, A-04): a share of the agents leaves the network each second and starts again
+ * at a random free cell with a random heading (its own seeded stream), so the network keeps exploring and
+ * tearing its old veins instead of settling into a few fixed ones. At 0 the run is the earlier one.
  */
 
 const ID = 'physarum', V = 1;
@@ -23,12 +27,13 @@ const TOP = 250;
 
 interface P {
   sensorAngle: number; sensorDist: number; turn: number; stepSize: number;
-  density: number; deposit: number; decay: number; diffuse: number; layout: string;
+  density: number; deposit: number; decay: number; diffuse: number; layout: string; renew: number;
 }
 const read = (p: Params): P => ({
   sensorAngle: Number(p.sensorAngle ?? 22.5), sensorDist: Number(p.sensorDist ?? 5), turn: Number(p.turn ?? 45),
   stepSize: Number(p.stepSize ?? 1), density: Number(p.density ?? 6), deposit: Number(p.deposit ?? 1),
   decay: Number(p.decay ?? 0.1), diffuse: Number(p.diffuse ?? 1), layout: String(p.layout ?? 'disco'),
+  renew: Number(p.renew ?? 0),
 });
 
 /** Agents for a population (percent of the cells), within the hard limit. */
@@ -100,7 +105,24 @@ export function create(cfg: ModelConfig): FieldModel {
     X[i] = x; Y[i] = y; H[i] = ((a % TAU) + TAU) % TAU;
   }
 
+  // renewal: its own stream, a running count of agents due to start again
+  const rngR = new SimRng(`${ID}|renovar|${cfg.seed}`);
+  let racc = 0;
+  const respawn = () => {
+    // «Renovación» 1: a tenth of the agents per second (at the family's 50 steps per second)
+    racc += N * p.renew * 0.002;
+    while (racc >= 1) {
+      racc -= 1;
+      const i = rngR.int(N), x = wrapX(rngR.next() * w), y = wrapY(rngR.next() * h), a = rngR.next() * TAU;
+      const from = cell(X[i], Y[i]), to = cell(x, y);
+      if (to !== from && occ[to]) continue;
+      occ[from]--; occ[to]++;
+      X[i] = x; Y[i] = y; H[i] = a;
+    }
+  };
+
   const step1 = () => {
+    if (p.renew > 0) respawn();
     const sa = p.sensorAngle * DEG, ra = p.turn * DEG, so = p.sensorDist, ss = p.stepSize, dep = p.deposit;
     const csa = Math.cos(sa), ssa = Math.sin(sa);
     for (let i = 0; i < N; i++) {
@@ -184,8 +206,9 @@ export function create(cfg: ModelConfig): FieldModel {
       }
     },
     snapshot(): ModelState {
-      const scalars: Record<string, number> = {};
+      const scalars: Record<string, number> = { racc };
       rng.save(scalars);
+      rngR.save(scalars, 'rr');
       return { id: ID, v: V, steps, res: h, scalars, arrays: { X: X.slice(), Y: Y.slice(), H: H.slice(), T: T.slice() } };
     },
     restore(s: ModelState) {
@@ -198,6 +221,9 @@ export function create(cfg: ModelConfig): FieldModel {
       for (let i = 0; i < N; i++) occ[cell(X[i], Y[i])]++;
       steps = s.steps;
       rng.load(s.scalars);
+      racc = s.scalars.racc ?? 0;
+      // (a state saved before renewal existed keeps its fresh stream)
+      if (s.scalars.rrA !== undefined) rngR.load(s.scalars, 'rr');
     },
   };
 }
