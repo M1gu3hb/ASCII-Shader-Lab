@@ -64,6 +64,12 @@ test.describe('lectura insegura: conservar los datos anteriores', () => {
     for (let i = 0; i < 3; i++) await page.keyboard.press('r');
     await page.keyboard.press('s');
     await expect(page.locator('.seedline')).toContainText('4/4');
+    // what this (normal) visit writes is done: every piece has its thumbnail stored (a slow engine renders the
+    // last one late, and the reload would flush it after the snapshot)
+    await expect.poll(async () => {
+      const [k] = await storageSnapshot(page) as [string[]];
+      return k.filter(x => x.startsWith('mt.v3.e:')).every(x => k.includes(x.replace('mt.v3.e:', 'mt.v3.t:')));
+    }, { timeout: 60_000 }).toBe(true);
     await page.waitForTimeout(2500);
     if (failure === 'versión futura') {
       await page.evaluate(() => new Promise<void>(resolve => {
