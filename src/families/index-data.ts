@@ -39,7 +39,7 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"niebla","name":"Cámara de niebla","group":"ciencia","kind":"simulation","v":1,"loop":false},
   {"id":"hipercubo","name":"Hipercubo","group":"ciencia","kind":"analytic","v":1,"loop":true},
   {"id":"corrientes","name":"Corrientes de color","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
-  {"id":"ecos","name":"Ecos y realimentación","group":"materia","kind":"simulation","v":1,"loop":false},
+  {"id":"ecos","name":"Ecos y realimentación","group":"materia","kind":"simulation","v":2,"loop":false,"color":true},
   {"id":"membrana","name":"Membrana iridiscente","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"paneles","name":"Paneles prismáticos","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"cromado","name":"Cromado en tramas","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},

@@ -47,6 +47,14 @@ const INERT: Record<string, Record<string, string>> = {
 };
 
 const raster = (m: FieldModel, t = 0) => { const o = new Uint8Array(m.w * m.h); m.render(o, t); return o; };
+/** A colour family's run: its luminance and, after it, each cell's colour (FieldModel.renderColor), as one array. */
+const rasterC = (m: FieldModel, t = 0) => {
+  if (!m.renderColor) return raster(m, t);
+  const o = new Uint8Array(m.w * m.h * 4);
+  m.render(o.subarray(0, m.w * m.h), t);
+  m.renderColor(o.subarray(m.w * m.h), t);
+  return o;
+};
 const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
 const mean = (a: Uint8Array) => { let s = 0; for (const v of a) s += v; return s / a.length; };
 const PROBE_T = 5;
@@ -227,12 +235,13 @@ for (const meta of FAMILIES) {
 
     it('cada control cambia el resultado y los extremos no rompen nada', () => {
       const base = defaultParams(meta);
-      const ref = raster(run(meta, base), PROBE_T);
+      // (a colour family's controls may change only the colour its run gives: luminance and colour count)
+      const ref = rasterC(run(meta, base), PROBE_T);
       for (const s of meta.params) {
         const outs = extremes(s).map(v => {
           const m = run(meta, { ...base, [s.key]: v });
-          const o = raster(m, PROBE_T);
-          expect(o.length).toBe(m.w * m.h);
+          const o = rasterC(m, PROBE_T);
+          expect(o.length).toBe(m.w * m.h * (m.renderColor ? 4 : 1));
           return o;
         });
         if (INERT[meta.id]?.[s.key]) continue;

@@ -5,12 +5,18 @@ export const META: FamilyMeta = {
   name: 'Ecos y realimentación',
   group: 'materia',
   kind: 'simulation',
-  version: 1,
+  // 2: colour inside the loop and the seed «Fuente» (the piece's picture or letters fed into the loop)
+  version: 2,
+  color: true,
+  colorSince: 2,
+  reads: ['source'],
+  readsSince: 2,
   aka: ['video feedback', 'realimentación de vídeo', 'feedback loop', 'bucle de realimentación', 'droste'],
   params: [
     { key: 'seed', label: 'Semilla', type: 'choice', def: 'onda', options: [
       { id: 'onda', label: 'Onda cerrada' }, { id: 'linea', label: 'Línea de señal' }, { id: 'poligono', label: 'Polígonos' },
       { id: 'copia', label: 'Polígono que copia' }, { id: 'puntos', label: 'Puntos' }, { id: 'trama', label: 'Trama inyectada' },
+      { id: 'fuente', label: 'Tu foto o tu texto' },
     ] },
     { key: 'amount', label: 'Intensidad', type: 'number', min: 0, max: 1, def: 0.7, step: 0.01 },
     { key: 'sides', label: 'Lados', type: 'int', min: 3, max: 8, def: 5 },
@@ -34,6 +40,11 @@ export const META: FamilyMeta = {
       { id: 'no', label: 'Sin eco' }, { id: 'h', label: 'Volteado a los lados' }, { id: 'v', label: 'Volteado arriba y abajo' }, { id: 'hv', label: 'Volteado en los dos' },
     ] },
     { key: 'contrast', label: 'Contraste', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01, advanced: true },
+    { key: 'color', label: 'Color de los ecos', type: 'choice', def: 'arcoiris', options: [
+      { id: 'arcoiris', label: 'Arcoíris con el tiempo' }, { id: 'deriva', label: 'Cambia en cada eco' },
+      { id: 'dos', label: 'Dos tonos al compás' }, { id: 'fuente', label: 'Los de tu foto' },
+    ] },
+    { key: 'hue', label: 'Tono', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
   ],
   presets: [
     { id: 'tinta', name: 'Tinta recursiva', uses: ['fondos/organicas', 'arte/optica'], aka: ['laberintos de Turing por realimentación'],
@@ -51,6 +62,23 @@ export const META: FamilyMeta = {
     { id: 'marea', name: 'Marea de ecos', uses: ['fondos/materia'], aka: ['realimentación con trama'],
       params: { seed: 'trama', amount: 1, sides: 5, strobe: 0, zoom: 0.05, curve: 0.2, rot: 0.02, swirl: 0, wander: 0.6, drift: 0.5, warp: 0.6, mirror: 'no', memory: 0.94, ink: 0.15, pulse: 0.2, tempo: 4, echo: 'no', contrast: 0.4 },
       look: { stops: ['#050a08', '#1d4a3a', '#8fe0b0', '#effff4'], bg: '#030604', charset: ' .,:;=+*#' } },
+    // colour in the loop (version 2): the glyphs take the colour each echo carries
+    { id: 'tunel_arcoiris', name: 'Túnel de colores', uses: ['fondos/color', 'arte/optica'], aka: ['túnel de realimentación en color'],
+      params: { seed: 'onda', amount: 1, sides: 6, strobe: 0.6, zoom: 0.65, curve: 0.5, rot: 0.12, swirl: 0, wander: 0.4, drift: 0, warp: 0.08, mirror: 'no', memory: 0.9, ink: 0.1, pulse: 0.45, tempo: 1.8, echo: 'no', contrast: 0.4, color: 'arcoiris', hue: 0.55 },
+      look: { stops: ['#000000', '#3a3a3a', '#bdbdbd', '#ffffff'], bg: '#020204', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.85 } },
+    { id: 'espejos_deriva', name: 'Espejos que cambian de color', uses: ['fondos/color', 'arte/optica'], aka: ['caleidoscopio recursivo en color'],
+      params: { seed: 'copia', amount: 1, sides: 5, strobe: 0.5, zoom: 0.3, curve: 0.3, rot: 0.07, swirl: 0, wander: 0.3, drift: 0, warp: 0.2, mirror: 'seis', memory: 0.8, ink: 0.15, pulse: 0.5, tempo: 2.4, echo: 'no', contrast: 0.45, color: 'deriva', hue: 0.8 },
+      look: { stops: ['#000000', '#404040', '#c8c8c8', '#ffffff'], bg: '#04020a', charset: ' .:;=+*#%@', colorMode: 'source', vivid: 0.8 } },
+    { id: 'pulso_dos', name: 'Pulso en dos tonos', uses: ['fondos/color', 'arte/optica'], aka: ['realimentación con dos tonos'],
+      params: { seed: 'linea', amount: 1, sides: 3, strobe: 0.4, zoom: 0.45, curve: 0.25, rot: 0.05, swirl: 0.2, wander: 0.4, drift: 0, warp: 0.1, mirror: 'lados', memory: 0.85, ink: 0.25, pulse: 0.7, tempo: 1.4, echo: 'no', contrast: 0.4, color: 'dos', hue: 0.02 },
+      look: { stops: ['#000000', '#3a3a3a', '#c4c4c4', '#ffffff'], bg: '#050204', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.8 } },
+    // fed by the piece (version 2): the person's picture or words go round the loop, with their own colours
+    { id: 'tu_foto', name: 'Ecos de tu foto', uses: ['media/efectos'], aka: ['realimentación de vídeo sobre la imagen', 'video feedback'],
+      params: { seed: 'fuente', amount: 0.9, sides: 4, strobe: 0, zoom: 0.25, curve: 0.35, rot: 0.06, swirl: 0, wander: 0.35, drift: 0, warp: 0.15, mirror: 'no', memory: 0.86, ink: 0.1, pulse: 0.45, tempo: 2.6, echo: 'no', contrast: 0.5, color: 'fuente', hue: 0.55 },
+      look: { stops: ['#000000', '#3a3a3a', '#c4c4c4', '#ffffff'], bg: '#030304', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.75 } },
+    { id: 'tus_palabras', name: 'Ecos de tus palabras', uses: ['tipo/texturas'], aka: ['túnel de letras', 'texto en realimentación'],
+      params: { seed: 'fuente', amount: 1, sides: 4, strobe: 0, zoom: 0.4, curve: 0.45, rot: 0.08, swirl: 0, wander: 0.25, drift: 0, warp: 0.05, mirror: 'no', memory: 0.88, ink: 0.05, pulse: 0.5, tempo: 2.2, echo: 'no', contrast: 0.45, color: 'arcoiris', hue: 0.5 },
+      look: { stops: ['#000000', '#3a3a3a', '#c4c4c4', '#ffffff'], bg: '#020204', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.85 } },
   ],
   caps: {
     loop: false, time: 'continuo', basic: 'full', checkpoint: true,

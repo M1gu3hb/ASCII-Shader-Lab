@@ -1,6 +1,6 @@
 import { Accum } from '../draw';
 import { SimRng } from '../rng';
-import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../types';
+import type { FieldModel, ModelConfig, ModelState, Params, SourceFeed, Stroke } from '../types';
 
 /**
  * Feedback loop (the mechanism of frame-feedback visualizers, written here from its description): a
@@ -19,9 +19,20 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * Everything that moves is driven by an autonomous clock: slow deterministic oscillators (sums of sines with
  * unrelated frequencies and seeded phases) and a periodic «pulse» with a fast attack and an exponential fall.
  * The raster is the buffer averaged 2 × 2, with an optional mirrored echo and a contrast curve.
+ *
+ * Version 2 (PR #10 close-out) adds colour inside the loop and a seed fed by the piece:
+ *  - three colour buffers at the raster's resolution (rgb weighted by intensity) go through the same mesh,
+ *    decay and folds as the luminance, so the echoes keep their colour as they travel; what the seeds add
+ *    brings the colour of «Color»: a hue that runs with time («Arcoíris»), one that turns a little on every
+ *    pass («Deriva»: older echoes have moved further round the wheel), two that alternate on the beat
+ *    («Dos tonos») or the colours of the picture under the seed («De la fuente»);
+ *  - the seed «Fuente» injects the piece's picture or letters into the loop (FieldModel.feed), a little on
+ *    every step and more on the beat; with patterns as the source it draws the closed wave.
+ * The luminance of version 2 is the luminance of version 1 for the same settings: pieces made with version 1
+ * keep their run exactly (their recipes have no colour, families-compat.test.ts).
  */
 
-const ID = 'ecos', V = 1, RATE = 30;
+const ID = 'ecos', V = 2, RATE = 30;
 /** Buffer pixels per raster pixel, each way. */
 const SS = 2;
 const MESH_X = 48, MESH_Y = 24;
@@ -43,6 +54,7 @@ const byte = (v: number) => (v <= 0 ? 0 : v >= 1 ? 252 : ((v * 63 + 0.5) | 0) * 
 interface P {
   zoom: number; curve: number; rot: number; swirl: number; wander: number; drift: number; warp: number; mirror: string;
   memory: number; ink: number; seed: string; amount: number; sides: number; strobe: number; pulse: number; tempo: number; echo: string; contrast: number;
+  color: string; hue: number;
 }
 const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const read = (p: Params): P => ({
@@ -50,12 +62,24 @@ const read = (p: Params): P => ({
   drift: num(p.drift, 0), warp: num(p.warp, 0.3), mirror: String(p.mirror ?? 'no'), memory: num(p.memory, 0.7), ink: num(p.ink, 0),
   seed: String(p.seed ?? 'onda'), amount: num(p.amount, 0.7), sides: Math.max(3, Math.min(8, Math.round(num(p.sides, 5)))), strobe: num(p.strobe, 0.4),
   pulse: num(p.pulse, 0.5), tempo: Math.max(0.5, num(p.tempo, 2.4)), echo: String(p.echo ?? 'no'), contrast: num(p.contrast, 0.5),
+  color: String(p.color ?? 'arcoiris'), hue: num(p.hue, 0.55),
 });
+
+/** A hue (turns) at full saturation and value, as rgb 0..1 into out. */
+function hueRGB(hh: number, out: Float64Array, sat = 1) {
+  const h6 = (hh - Math.floor(hh)) * 6;
+  const r = Math.abs(h6 - 3) - 1, g = 2 - Math.abs(h6 - 2), b = 2 - Math.abs(h6 - 4);
+  const c = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+  out[0] = 1 - sat + sat * c(r); out[1] = 1 - sat + sat * c(g); out[2] = 1 - sat + sat * c(b);
+}
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
   const bh = h * SS, bw = w * SS, nb = bw * bh;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  // the random stream is the one version 1 had (its name kept the version it was born with)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
+  /** Version 2 and later: colour in the loop and the seed fed by the piece. */
+  const ver = cfg.v ?? V, colourOn = ver >= 2;
   let p = read(cfg.params);
   let steps = 0;
 
@@ -93,14 +117,69 @@ export function create(cfg: ModelConfig): FieldModel {
   for (let x = 0; x < bw; x++) { const g = Math.max(0, Math.min(qw - 1.001, ((x + 0.5) * qw) / bw - 0.5)); qcolI[x] = g | 0; qcolT[x] = g - (g | 0); }
   for (let y = 0; y < bh; y++) { const g = Math.max(0, Math.min(qh - 1.001, ((y + 0.5) * qh) / bh - 0.5)); qrowJ[y] = g | 0; qrowT[y] = g - (g | 0); }
 
+  // ---- colour (version 2): rgb weighted by intensity, one value per raster pixel (the luminance's 2 × 2)
+  const nc = w * h;
+  const CR = colourOn ? new Float32Array(nc) : null, CG = colourOn ? new Float32Array(nc) : null, CB = colourOn ? new Float32Array(nc) : null;
+  const cTmp = colourOn ? new Float32Array(nc * 3) : null;
+  /** The luminance before the seeds of this step (what they add takes the seed's colour). */
+  const before = colourOn ? new Float32Array(nb) : null;
+  // per raster column / row: mesh cell and fraction (the colour reads the mesh at its own pixel centres)
+  const ccolI = new Int32Array(w), ccolT = new Float32Array(w), crowJ = new Int32Array(h), crowT = new Float32Array(h);
+  for (let x = 0; x < w; x++) { const g = ((x + 0.5) / w) * MESH_X; ccolI[x] = Math.min(MESH_X - 1, g | 0); ccolT[x] = g - ccolI[x]; }
+  for (let y = 0; y < h; y++) { const g = ((y + 0.5) / h) * MESH_Y; crowJ[y] = Math.min(MESH_Y - 1, g | 0); crowT[y] = g - crowJ[y]; }
+  const SEEDC = new Float64Array(3);
+
+  // ---- the piece's source (seed «Fuente», colour «De la fuente»): sampled on the trama's quarter grid and per raster pixel
+  let src: SourceFeed | null = null;
+  const srcL = new Float32Array(qw * qh);
+  const srcRGB = new Float32Array(nc * 3);
+  const SO = new Float64Array(4);
+  const takeFeed = (f: SourceFeed | null) => {
+    src = f;
+    if (!f) { srcL.fill(0); srcRGB.fill(0); return; }
+    for (let y = 0; y < qh; y++) for (let x = 0; x < qw; x++) {
+      f.at(((x + 0.5) / qw) * 2 - 1, 0.5 - (y + 0.5) / qh, SO);
+      srcL[y * qw + x] = SO[3];
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      f.at(((x + 0.5) / w) * 2 - 1, 0.5 - (y + 0.5) / h, SO);
+      const o = (y * w + x) * 3;
+      srcRGB[o] = SO[0]; srcRGB[o + 1] = SO[1]; srcRGB[o + 2] = SO[2];
+    }
+  };
+
   // ---- mirror folds (static per mode): for each buffer pixel outside the fundamental region, the
-  // buffer coordinates it copies (bilinear); −1: the pixel is its own source
+  // buffer coordinates it copies (bilinear); −1: the pixel is its own source. The colour has its own map.
   let mirrorMode = '';
   let mirX: Float32Array | null = null, mirY: Float32Array | null = null;
+  let cmirX: Float32Array | null = null, cmirY: Float32Array | null = null;
+  const foldMap = (fw: number, fh: number, mx: Float32Array, my: Float32Array) => {
+    const k = mirrorMode === 'seis' ? 3 : mirrorMode === 'ocho' ? 4 : 0;
+    const wedge = k ? Math.PI / k : 0;
+    for (let y = 0; y < fh; y++) {
+      const dy = 0.5 - (y + 0.5) / fh;
+      for (let x = 0; x < fw; x++) {
+        const dx = ((x + 0.5) / fw) * 2 - 1, i = y * fw + x;
+        let qx = dx, qy = dy;
+        if (mirrorMode === 'lados') qx = Math.abs(dx);
+        else if (mirrorMode === 'cuatro') { qx = Math.abs(dx); qy = Math.abs(dy); }
+        else {
+          let a = Math.atan2(dy, dx);
+          const r = Math.sqrt(dx * dx + dy * dy);
+          a -= 2 * wedge * Math.floor(a / (2 * wedge));
+          if (a > wedge) a = 2 * wedge - a;
+          qx = r * Math.cos(a); qy = r * Math.sin(a);
+        }
+        if (Math.abs(qx - dx) < 1e-9 && Math.abs(qy - dy) < 1e-9) { mx[i] = -1; continue; }
+        mx[i] = (qx * 0.5 + 0.5) * fw - 0.5; my[i] = (0.5 - qy) * fh - 0.5;
+      }
+    }
+  };
   const buildMirror = () => {
     mirrorMode = p.mirror;
-    if (mirrorMode === 'no') { mirX = mirY = null; return; }
+    if (mirrorMode === 'no') { mirX = mirY = cmirX = cmirY = null; return; }
     mirX = new Float32Array(nb); mirY = new Float32Array(nb);
+    if (colourOn) { cmirX = new Float32Array(nc); cmirY = new Float32Array(nc); foldMap(w, h, cmirX, cmirY); }
     const k = mirrorMode === 'seis' ? 3 : mirrorMode === 'ocho' ? 4 : 0;
     const wedge = k ? Math.PI / k : 0;
     for (let y = 0; y < bh; y++) {
@@ -186,8 +265,12 @@ export function create(cfg: ModelConfig): FieldModel {
       lo.set(loAcc.d);
     }
     const decay = Math.exp(-(1 - p.memory) * 4.5 / RATE);
-    // the injected lattice (seed «Trama») is added in the same pass
-    const op = p.seed === 'trama' ? tramaPattern(tau, beat) : 0;
+    // the injected lattice (seed «Trama») or the piece's picture or letters (seed «Fuente», version 2) is added in
+    // the same pass
+    const fed = colourOn && p.seed === 'fuente' && !!src;
+    const op = p.seed === 'trama' ? tramaPattern(tau, beat) : fed ? 0.05 * p.amount * (1 - p.pulse * 0.6 + 1.6 * beat) : 0;
+    const inj = fed ? srcL : pat;
+    const keep = colourOn && op > 0 ? before! : null;
     const MX1 = MESH_X + 1;
     for (let y = 0; y < bh; y++) {
       // the mesh row at this pixel row, then each pixel between two of its vertices
@@ -198,7 +281,7 @@ export function create(cfg: ModelConfig): FieldModel {
       }
       if (op > 0) {
         const q0 = qrowJ[y] * qw, q1 = q0 + qw, qt = qrowT[y];
-        for (let i = 0; i < qw; i++) patRow[i] = op * (pat[q0 + i] + (pat[q1 + i] - pat[q0 + i]) * qt);
+        for (let i = 0; i < qw; i++) patRow[i] = op * (inj[q0 + i] + (inj[q1 + i] - inj[q0 + i]) * qt);
       }
       const o = y * bw;
       for (let x = 0; x < bw; x++) {
@@ -207,17 +290,99 @@ export function create(cfg: ModelConfig): FieldModel {
         let c = sampleWrap(B, bw, bh, fx, fy);
         if (ink > 0) c += ink * (c - sampleWrap(lo, lw, lh, fx * 0.5 - 0.25, fy * 0.5 - 0.25));
         c = c * decay - FADE;
+        if (keep) keep[o + x] = c < 0 ? 0 : c > 1 ? 1 : c;
         if (op > 0) { const q = qcolI[x]; c += patRow[q] + (patRow[q + 1] - patRow[q]) * qcolT[x]; }
         tmp[o + x] = c < 0 ? 0 : c > 1 ? 1 : c;
       }
     }
     B.set(tmp);
+    if (colourOn) {
+      warpColour(decay, tau);
+      if (!keep) before!.set(B);
+    }
     seeds(tau, beat, cx, cy);
+    if (colourOn) addColour(tau);
     if (mirX && mirY) {
       tmp.set(B);
       for (let i = 0; i < nb; i++) { const sx = mirX[i]; if (sx >= 0) B[i] = sampleWrap(tmp, bw, bh, sx, mirY[i]); }
+      if (cmirX && cmirY) {
+        const T = cTmp!;
+        for (let i = 0; i < nc; i++) { T[i * 3] = CR![i]; T[i * 3 + 1] = CG![i]; T[i * 3 + 2] = CB![i]; }
+        for (let i = 0; i < nc; i++) {
+          const sx = cmirX[i];
+          if (sx < 0) continue;
+          CR![i] = sample3(T, sx, cmirY[i], 0); CG![i] = sample3(T, sx, cmirY[i], 1); CB![i] = sample3(T, sx, cmirY[i], 2);
+        }
+      }
     }
     steps++;
+  };
+
+  /** Bilinear sample of channel ch of an interleaved rgb field (w × h, wrapping), at pixel coordinates. */
+  const sample3 = (f: Float32Array, fx: number, fy: number, ch: number) => {
+    let ix = Math.floor(fx), iy = Math.floor(fy);
+    const tx = fx - ix, ty = fy - iy;
+    ix = ((ix % w) + w) % w; iy = ((iy % h) + h) % h;
+    const ix1 = ix + 1 === w ? 0 : ix + 1, iy1 = iy + 1 === h ? 0 : iy + 1;
+    const a = f[(iy * w + ix) * 3 + ch], b = f[(iy * w + ix1) * 3 + ch], c = f[(iy1 * w + ix) * 3 + ch], d = f[(iy1 * w + ix1) * 3 + ch];
+    const top = a + (b - a) * tx, bot = c + (d - c) * tx;
+    return top + (bot - top) * ty;
+  };
+
+  /**
+   * The colour goes through the same mesh as the luminance (read at its own pixel centres), decays with it and,
+   * with «Deriva», turns a little round the grey axis on every pass.
+   */
+  const warpColour = (decay: number, tau: number) => {
+    const T = cTmp!, R = CR!, G = CG!, Bc = CB!;
+    for (let i = 0; i < nc; i++) { T[i * 3] = R[i]; T[i * 3 + 1] = G[i]; T[i * 3 + 2] = Bc[i]; }
+    const MX1 = MESH_X + 1;
+    // «Deriva»: a rotation about (1, 1, 1) of 0.04 turns a second (Rodrigues), else none
+    let m00 = 1, m01 = 0, m02 = 0, m10 = 0, m11 = 1, m12 = 0, m20 = 0, m21 = 0, m22 = 1;
+    if (p.color === 'deriva') {
+      const a = (2 * Math.PI * 0.04) / RATE, c = Math.cos(a), sn = Math.sin(a), k = (1 - c) / 3, q = sn / Math.sqrt(3);
+      m00 = c + k; m01 = k - q; m02 = k + q; m10 = k + q; m11 = c + k; m12 = k - q; m20 = k - q; m21 = k + q; m22 = c + k;
+    }
+    void tau;
+    for (let y = 0; y < h; y++) {
+      const j = crowJ[y], ty = crowT[y], r0 = j * MX1, r1 = r0 + MX1;
+      for (let x = 0; x < w; x++) {
+        const i = ccolI[x], tx = ccolT[x];
+        const x0 = meshX[r0 + i] + (meshX[r1 + i] - meshX[r0 + i]) * ty, x1 = meshX[r0 + i + 1] + (meshX[r1 + i + 1] - meshX[r0 + i + 1]) * ty;
+        const y0 = meshY[r0 + i] + (meshY[r1 + i] - meshY[r0 + i]) * ty, y1 = meshY[r0 + i + 1] + (meshY[r1 + i + 1] - meshY[r0 + i + 1]) * ty;
+        // buffer pixel coordinates → colour pixel coordinates (2 × 2 buffer pixels per colour pixel)
+        const fx = (x0 + (x1 - x0) * tx) * 0.5 - 0.25, fy = (y0 + (y1 - y0) * tx) * 0.5 - 0.25;
+        const r = sample3(T, fx, fy, 0) * decay, g = sample3(T, fx, fy, 1) * decay, b = sample3(T, fx, fy, 2) * decay;
+        const o = y * w + x;
+        R[o] = m00 * r + m01 * g + m02 * b; G[o] = m10 * r + m11 * g + m12 * b; Bc[o] = m20 * r + m21 * g + m22 * b;
+      }
+    }
+  };
+
+  /** What the seeds (and the fed picture) added this step takes the colour of «Color». */
+  const addColour = (tau: number) => {
+    const R = CR!, G = CG!, Bc = CB!, pre = before!;
+    const fromSrc = p.color === 'fuente' && !!src;
+    if (!fromSrc) {
+      const beatN = Math.floor(tau / p.tempo);
+      const hh = p.color === 'arcoiris' ? p.hue + tau / (p.tempo * 8) : p.color === 'dos' ? p.hue + (beatN % 2) * 0.5 : p.hue;
+      hueRGB(hh, SEEDC, 0.85);
+    }
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const q = 2 * y * bw + 2 * x;
+        const d = 0.25 * (Math.max(0, B[q] - pre[q]) + Math.max(0, B[q + 1] - pre[q + 1]) + Math.max(0, B[q + bw] - pre[q + bw]) + Math.max(0, B[q + bw + 1] - pre[q + bw + 1]));
+        if (d <= 0) continue;
+        const o = y * w + x;
+        if (fromSrc) { const c = o * 3; R[o] += srcRGB[c] * d; G[o] += srcRGB[c + 1] * d; Bc[o] += srcRGB[c + 2] * d; }
+        else { R[o] += SEEDC[0] * d; G[o] += SEEDC[1] * d; Bc[o] += SEEDC[2] * d; }
+      }
+    }
+    // keep the weights in proportion: their size is the luminance's (only their direction is drawn)
+    for (let i = 0; i < nc; i++) {
+      const m = Math.max(R[i], G[i], Bc[i]);
+      if (m > 2) { const k = 2 / m; R[i] *= k; G[i] *= k; Bc[i] *= k; }
+    }
   };
 
   /** A point of the synthetic signal's curve: closed around (cx, cy) or a line across the frame. */
@@ -312,7 +477,9 @@ export function create(cfg: ModelConfig): FieldModel {
     if (steps % every !== 0 && p.seed !== 'puntos') return;
     const n = p.sides;
     const wd = 1.6 * SS;
-    switch (p.seed) {
+    // «Fuente» is fed in the warp pass; with no picture or letters (patterns as the source) it draws the wave
+    const seed = p.seed === 'fuente' ? (colourOn && src ? '' : 'onda') : p.seed;
+    switch (seed) {
       case 'onda': {
         const R0 = (0.16 + 0.05 * osc(11, tau)) * (1 + 0.35 * beat);
         const M = 120;
@@ -343,14 +510,14 @@ export function create(cfg: ModelConfig): FieldModel {
         // two polygons go round the centre on opposite sides, turning and breathing
         const orb = 0.2 * tau + 1.5 * osc(13, tau), rho = 0.3 + 0.1 * osc(14, tau);
         const texAng = 0.6 * osc(17, tau) + 0.2 * tau;
-        if (p.seed === 'copia') tmp.set(B);
+        if (seed === 'copia') tmp.set(B);
         for (let q = 0; q < 2; q++) {
           const a = orb + q * Math.PI, rr = q ? rho * 0.75 : rho;
           fold(rr * Math.cos(a), 0.6 * rr * Math.sin(a));
           const pcx = F2[0], pcy = F2[1];
           const R = (q ? 0.65 : 1) * (0.19 + 0.05 * osc(15, tau)) * (1 + 0.25 * beat);
           const ang = (q ? -1.3 : 1) * (0.35 * tau + 2 * osc(16, tau));
-          if (p.seed === 'copia') copyInto(pcx, pcy, R, ang, n, q ? -texAng : texAng);
+          if (seed === 'copia') copyInto(pcx, pcy, R, ang, n, q ? -texAng : texAng);
           polygon(pcx, pcy, R, ang, n, Math.min(1, amp * (q ? 0.8 : 1)), wd * (q ? 1 : 1.2));
         }
         break;
@@ -389,12 +556,30 @@ export function create(cfg: ModelConfig): FieldModel {
     }
   };
 
+  /** Version 2: each raster pixel's colour (the direction of its rgb weights, at full value), with the echo. */
+  const renderColour = (out: Uint8Array) => {
+    const R = CR!, G = CG!, Bc = CB!;
+    const echo = p.echo, ex = echo === 'h' || echo === 'hv', ey = echo === 'v' || echo === 'hv';
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        let r = R[i], g = G[i], b = Bc[i];
+        if (echo !== 'no') { const j = (ey ? h - 1 - y : y) * w + (ex ? w - 1 - x : x); r = 0.5 * (r + R[j]); g = 0.5 * (g + G[j]); b = 0.5 * (b + Bc[j]); }
+        const m = Math.max(r, g, b), o = i * 3;
+        if (m < 1e-4) { out[o] = out[o + 1] = out[o + 2] = 255; continue; }
+        out[o] = Math.round((255 * r) / m); out[o + 1] = Math.round((255 * g) / m); out[o + 2] = Math.round((255 * b) / m);
+      }
+    }
+  };
+
   return {
     w, h,
     get steps() { return steps; },
     setParams(np: Params) { p = read(np); if (p.mirror !== mirrorMode) buildMirror(); },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
     render(out: Uint8Array) { render(out); },
+    ...(colourOn ? { renderColor(out: Uint8Array) { renderColour(out); } } : {}),
+    feed(f: SourceFeed | null) { takeFeed(f); },
     stroke(s: Stroke) {
       // a stroke drawn into the loop: it comes back transformed, again and again
       const r = Math.max(1.2 * SS, s.r * bh * 0.6);
@@ -403,13 +588,20 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = {};
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { B: B.slice() } };
+      return { id: ID, v: ver, steps, res: h, scalars, arrays: colourOn ? { B: B.slice(), CR: CR!.slice(), CG: CG!.slice(), CB: CB!.slice() } : { B: B.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a estos ecos.');
       const a = s.arrays.B;
       if (!(a instanceof Float32Array) || a.length !== nb) throw new Error('El estado guardado está incompleto.');
       B.set(a);
+      if (colourOn) {
+        // a state saved without colour (version 1) starts its colour from nothing
+        for (const [k, C] of [['CR', CR!], ['CG', CG!], ['CB', CB!]] as const) {
+          const c = s.arrays[k];
+          if (c instanceof Float32Array && c.length === nc) C.set(c); else C.fill(0);
+        }
+      }
       steps = s.steps;
       rng.load(s.scalars);
     },

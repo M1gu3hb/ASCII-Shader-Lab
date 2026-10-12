@@ -21,6 +21,12 @@ import { normFam, packParams } from '../../src/families/params';
 
 interface Case { family: string; preset: string; v: number; seed: string; res: number | null; params: Record<string, unknown>; steps: number; hash: string[] }
 const FILE = join(import.meta.dirname, 'fixtures/families-v1.json');
+/**
+ * The 203 presets PR #10 published (the 86 above and the 117 it added), each in the family version it had at
+ * 73d49f2, drawn by that code (the fixture was written from a checkout of that commit): every later version
+ * keeps their path.
+ */
+const FILE_PR10 = join(import.meta.dirname, 'fixtures/families-pr10.json');
 const hash = (b: Uint8Array) => createHash('sha256').update(b).digest('hex').slice(0, 16);
 
 function draw(c: Omit<Case, 'hash'>): string[] {
@@ -28,7 +34,7 @@ function draw(c: Omit<Case, 'hash'>): string[] {
   const fam = normFam(meta, { v: c.v, seed: c.seed, res: c.res ?? undefined, p: c.params });
   if (meta.kind === 'analytic') {
     const impl = analyticOf(meta.id)!;
-    const k = packParams(meta, fam.p);
+    const k = packParams(meta, fam.p, undefined, fam.v);
     const w = 96, h = 48;
     return [0, 3].map(t => {
       const r = new Uint8Array(w * h);
@@ -89,4 +95,15 @@ describe('el Azar v6 usa los presets publicados, congelados', () => {
     }
     expect(n).toBe(86);
   });
+});
+
+describe('compatibilidad de los 203 presets de familia del PR #10 (tal como quedaron en 73d49f2)', () => {
+  const fixture = JSON.parse(readFileSync(FILE_PR10, 'utf8')) as { cases: Case[] };
+  it('la referencia tiene los 203 presets', () => { expect(fixture.cases.length).toBe(203); });
+  for (const c of fixture.cases) {
+    it(`${c.family}/${c.preset} (v${c.v}): sus parámetros de entonces dibujan lo mismo`, { timeout: 60_000 }, () => {
+      expect(familyById(c.family), 'la familia sigue existiendo').toBeTruthy();
+      expect(draw(c)).toEqual(c.hash);
+    });
+  }
 });
