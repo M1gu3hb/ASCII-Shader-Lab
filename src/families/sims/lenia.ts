@@ -21,6 +21,10 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * «Repoblar» (PR #10 review, A-04): every two seconds the run weighs its living matter; when it has fallen
  * under half of the most it ever had (creatures that collided and died), a new creature, or a patch of
  * noise without one, is sown at the emptiest site. Its own stream: without it the run is the earlier one.
+ * «Estela» (PR #10 close-out): the matter leaves a wake that fades over a few seconds (kept step by step, so
+ * it is part of the state and does not hang on how often the layer is drawn); the view «Materia» draws the
+ * wake under the bodies, so a school that swims reads as swimming and takes more of the picture. 0: none,
+ * and the earlier drawing.
  */
 
 const ID = 'lenia', V = 2;
@@ -235,12 +239,14 @@ export function nurseryCreature(mu: number, sigma: number, R: number, rings: str
   return found;
 }
 
-interface P { mu: number; sigma: number; R: number; dt: number; rings: string; seedShape: string; density: number; view: string; renew: boolean }
+interface P { mu: number; sigma: number; R: number; dt: number; rings: string; seedShape: string; density: number; view: string; renew: boolean; trail: number }
 const read = (p: Params): P => ({
   mu: Number(p.mu ?? 0.15), sigma: Number(p.sigma ?? 0.015), R: Number(p.R ?? 13), dt: Number(p.dt ?? 0.1),
   rings: String(p.rings ?? 'uno'), seedShape: String(p.seedShape ?? 'manchas'), density: Number(p.density ?? 0.5),
-  view: String(p.view ?? 'materia'), renew: p.renew === true,
+  view: String(p.view ?? 'materia'), renew: p.renew === true, trail: Number(p.trail ?? 0),
 });
+/** «Estela»: how bright the wake is under the bodies. */
+const WAKE = 0.6;
 
 /** Grid rows of a run: version 1, the rows asked for rounded to a power of two; version 2, 128 at least. */
 export const leniaGrid = (res: number, v = V) => (v >= 2 ? Math.max(LENIA_REF, leniaRows(res)) : leniaRows(res));
@@ -255,6 +261,8 @@ export function create(cfg: ModelConfig): FieldModel {
   let steps = 0;
   const A = new Float32Array(n);
   const U = new Float64Array(n);
+  // «Estela»: the wake (null until a run asks for one)
+  let Tr: Float32Array | null = null;
   let uFresh = false;
   const conv = new Convolver(w, h);
   /** R in cells of this grid (version 2: measured on the 128-row grid), within 0.4 of the rows. */
@@ -385,6 +393,12 @@ export function create(cfg: ModelConfig): FieldModel {
       const v = A[i] + dt * (e > 40 ? -1 : 2 * Math.exp(-e) - 1);
       A[i] = v < 0 ? 0 : v > 1 ? 1 : v;
     }
+    if (p.trail > 0) {
+      // the wake: the brightest matter that passed, fading in about «Estela» × 6 seconds
+      if (!Tr) Tr = new Float32Array(n);
+      const k = Math.exp(-1 / (p.trail * 6 * 24));
+      for (let i = 0; i < n; i++) { const a = A[i], t = Tr[i] * k; Tr[i] = a > t ? a : t; }
+    } else if (Tr) Tr = null;
     uFresh = false;
     steps++;
   };
@@ -414,6 +428,11 @@ export function create(cfg: ModelConfig): FieldModel {
             out[o + x] = v >= 1 ? TOP : (v * TOP + 0.5) | 0;
           }
         }
+      } else if (Tr && p.trail > 0) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.sqrt(A[i]), b = WAKE * Tr[i], v = a > b ? a : b;
+          out[i] = v >= 1 ? TOP : (v * TOP + 0.5) | 0;
+        }
       } else {
         for (let i = 0; i < n; i++) {
           const v = Math.sqrt(A[i]);
@@ -439,13 +458,15 @@ export function create(cfg: ModelConfig): FieldModel {
       const scalars: Record<string, number> = { peak };
       rng.save(scalars);
       rngR.save(scalars, 'rr');
-      return { id: ID, v, steps, res: h, scalars, arrays: { A: A.slice() } };
+      return { id: ID, v, steps, res: h, scalars, arrays: { A: A.slice(), ...(Tr ? { Tr: Tr.slice() } : {}) } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta simulación.');
       const a = s.arrays.A;
       if (!(a instanceof Float32Array) || a.length !== n) throw new Error('El estado guardado está incompleto.');
       A.set(a);
+      const t = s.arrays.Tr;
+      Tr = t instanceof Float32Array && t.length === n ? t.slice() : null;
       steps = s.steps;
       rng.load(s.scalars);
       peak = s.scalars.peak ?? 0;

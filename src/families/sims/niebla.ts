@@ -17,10 +17,17 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  *    the other way.
  * Particles come in from the edges, from the top (cosmic rays) or from a point source. The trails are drawn
  * into a buffer that fades exponentially and spreads a little (the vapour diffuses), plus a faint mist of
- * stray droplets.
+ * stray droplets. «Grosor de traza» (PR #10 close-out) scales the traces' width: a trace about one character
+ * wide reads as a chain of glyphs, two characters wide it splits into two dim rows (1: the earlier width).
+ * Version 2 (PR #10 close-out): a fresh trace is drawn brighter, so that it saturates and a character that only
+ * half meets it still gets a dense glyph, and the faint haze of old vapour is cut from the picture: at 10 px
+ * characters the traces read as clearly as version 1's did at 16 px; and the point source sits near the middle.
+ * Recipes made with version 1 keep its drawing.
  */
 
-const ID = 'niebla', V = 1, RATE = 30, SUB = 3, DT = 1 / (RATE * SUB);
+const ID = 'niebla', V = 2, RATE = 30, SUB = 3, DT = 1 / (RATE * SUB);
+/** Version 2: how much brighter a fresh trace is drawn (it saturates), and the haze cut off the picture. */
+const INK2 = 1.7, HAZE2 = 0.06;
 const MAXP = 192;
 /** Margin outside the visible 16:9 frame where particles are born and die. */
 const EDGE_X = 0.95, EDGE_Y = 0.54;
@@ -32,17 +39,19 @@ const KIND_E = 1, KIND_ALPHA = 2, KIND_MU = 3, KIND_PHOTON = 4;
  */
 const byte = (v: number) => (v <= 0 ? 0 : v >= 1 ? 252 : ((v * 63 + 0.5) | 0) * 4);
 
-interface P { field: number; drag: number; rate: number; trace: number; pairs: number; alphas: number; muons: number; energy: number; source: string; mist: number; grain: number }
+interface P { field: number; drag: number; rate: number; trace: number; pairs: number; alphas: number; muons: number; energy: number; source: string; mist: number; grain: number; width: number }
 const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const read = (p: Params): P => ({
   field: num(p.field, 0.6), drag: num(p.drag, 0.4), rate: num(p.rate, 4), trace: num(p.trace, 0.5), pairs: num(p.pairs, 0.25),
   alphas: num(p.alphas, 0.15), muons: num(p.muons, 0.2), energy: num(p.energy, 0.5), source: String(p.source ?? 'bordes'),
-  mist: num(p.mist, 0.3), grain: num(p.grain, 0.5),
+  mist: num(p.mist, 0.3), grain: num(p.grain, 0.5), width: num(p.width, 1),
 });
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h, n = w * h;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  const v2 = (cfg.v ?? V) >= 2;
+  // (the stream keeps the version-1 key: both versions see the same particles)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
   let p = read(cfg.params);
   let steps = 0;
 
@@ -50,8 +59,9 @@ export function create(cfg: ModelConfig): FieldModel {
   const kind = new Uint8Array(MAXP), q = new Float32Array(MAXP);
   const px = new Float32Array(MAXP), py = new Float32Array(MAXP), vx = new Float32Array(MAXP), vy = new Float32Array(MAXP);
   const arc = new Float32Array(MAXP), conv = new Float32Array(MAXP), age = new Float32Array(MAXP);
-  // the point source (a radioactive sample), from the seed
-  const srcX = rng.range(-0.55, -0.3), srcY = rng.range(-0.15, 0.15);
+  // the point source (a radioactive sample), from the seed (version 2: near the middle, where its star of
+  // tracks has room on every side; version 1 left it in the left third)
+  const srcX = rng.range(-0.55, -0.3) * (v2 ? 0.3 : 1), srcY = rng.range(-0.15, 0.15);
 
   const trail = new Accum(w, h), T = trail.d, tmp = new Float32Array(n), blurTmp = new Float32Array(n);
   const sx = (x: number) => (x * 0.5 + 0.5) * w;
@@ -120,7 +130,8 @@ export function create(cfg: ModelConfig): FieldModel {
     } else {
       // droplets: the trail is beaded along its length (a hash of the arc length)
       const bead = p.grain > 0 ? 1 - p.grain * 0.4 * (0.5 + 0.5 * Math.sin(arc[i] * 173 + i * 7.1) * Math.sin(arc[i] * 61 + i)) : 1;
-      trail.line(sx(x0), sy(y0), sx(x1), sy(y1), wd * 1.5 * (h / 80), ion * bead);
+      // («Grosor de traza» scales the width: thin traces for small characters, thick ones for big)
+      trail.line(sx(x0), sy(y0), sx(x1), sy(y1), wd * 1.5 * (h / 80) * p.width, ion * bead * (v2 ? INK2 : 1));
       // alphas and muons knock out delta rays now and then
       if ((k === KIND_ALPHA || k === KIND_MU) && rng.next() < (k === KIND_ALPHA ? 0.012 : 0.004)) {
         const a = Math.atan2(vy[i], vx[i]) + (rng.next() < 0.5 ? 1 : -1) * rng.range(0.6, 1.4);
@@ -151,6 +162,11 @@ export function create(cfg: ModelConfig): FieldModel {
   };
 
   const render = (out: Uint8Array) => {
+    if (v2) {
+      // version 2: the faint haze of old vapour is cut, so the traces stand out at any size of character
+      for (let i = 0; i < n; i++) { const v = (T[i] - HAZE2) / (1 - HAZE2); out[i] = byte(v >= 1 ? 1 : v <= 0 ? 0 : Math.pow(v, 0.6)); }
+      return;
+    }
     for (let i = 0; i < n; i++) { const v = T[i]; out[i] = byte(v >= 1 ? 1 : Math.pow(v, 0.6)); }
   };
 
@@ -169,7 +185,7 @@ export function create(cfg: ModelConfig): FieldModel {
       const scalars: Record<string, number> = {};
       rng.save(scalars);
       return {
-        id: ID, v: V, steps, res: h, scalars,
+        id: ID, v: v2 ? 2 : 1, steps, res: h, scalars,
         arrays: { kind: kind.slice(), q: q.slice(), px: px.slice(), py: py.slice(), vx: vx.slice(), vy: vy.slice(), arc: arc.slice(), conv: conv.slice(), age: age.slice(), T: T.slice() },
       };
     },

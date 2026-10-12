@@ -11,7 +11,9 @@
  * 'nebulosa' is another scene: glowing gas and dark dust lanes in front of stars, emission and absorption
  * only (NV_nebula).
  *
- * k0 = (coverage, scale, erosion, wind), k1 = (sun angle, absorption, steps, camera).
+ * k0 = (coverage, scale, erosion, wind), k1 = (sun angle, absorption, steps, camera), K2.x = contrast (PR #10
+ * close-out: a black point under the faint haze and sky, and a gain over the light, so that a scene that fills
+ * the frame with a dim glow keeps dark gaps and bright shafts; 0: the earlier output, exactly).
  * Bounds: at most NV_STEPS view steps, NV_LIGHT sun steps per lit sample, 3 per haze sample.
  */
 export const NUBES_VOL_GLSL = `
@@ -135,5 +137,6 @@ float F_nubes_vol(vec2 p, float t, vec4 k0, vec4 k1){
     }
   }
   float v = mix(hz, acc + T * bg, fog);
+  if (K2.x > 0.) v = max(v - .16 * K2.x, 0.) * (1. + 1.6 * K2.x);
   return sat(1. - exp(-1.5 * v));
 }`;

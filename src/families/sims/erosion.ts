@@ -37,18 +37,20 @@ const EX = 1.7;
 const MAX_N = 160, MAX_DROPS = 96, MAX_LIFE = 64, SEA_LIFE = 6;
 const INERTIA = 0.1, GRAV = 1, MIN_SLOPE = 0.01, BRUSH = 1.6, MAX_SPEED = 4;
 const RATE = 30;
-/** Seconds of the uplift's cycle through its three patterns. */
+/** Seconds of the uplift's cycle through its three patterns (by default: «Ciclo del levantamiento» changes it). */
 const UP_PERIOD = 150;
 
 interface P {
   rain: number; erode: number; deposit: number; capacity: number; evap: number; talus: number; strata: number;
   height: number; scale: number; shape: string; view: string; orbit: number; pitch: number; uplift: number; frame: string;
+  cycle: number;
 }
 const read = (p: Params): P => ({
   rain: Number(p.rain ?? 0.5), erode: Number(p.erode ?? 0.5), deposit: Number(p.deposit ?? 0.5), capacity: Number(p.capacity ?? 0.5),
   evap: Number(p.evap ?? 0.3), talus: Number(p.talus ?? 40), strata: Number(p.strata ?? 0), height: Number(p.height ?? 0.6),
   scale: Number(p.scale ?? 3), shape: String(p.shape ?? 'cordillera'), view: String(p.view ?? 'relieve'), orbit: Number(p.orbit ?? 0.5),
   pitch: Number(p.pitch ?? 0.4), uplift: Number(p.uplift ?? 0), frame: String(p.frame ?? 'maqueta'),
+  cycle: Math.max(10, Number(p.cycle ?? UP_PERIOD)),
 });
 
 /** Bilinear sample of an nx × ny field at index coordinates (fx, fy), clamped at its edges. */
@@ -164,6 +166,9 @@ export function create(cfg: ModelConfig): FieldModel {
 
   // ---- uplift: three seeded patterns (their own generator: the terrain and the rain draw what they drew)
   let upF: Float32Array[] | null = null;
+  // the cycle's phase: from (upStep0, upPhase0) at one turn per upCycle seconds (by default, from the start)
+  let upPhase0 = 0, upStep0 = 0, upCycle = UP_PERIOD;
+  const upPhaseAt = (st: number) => upPhase0 + (Math.PI * 2 * ((st - upStep0) / RATE)) / upCycle;
   const upFields = () => {
     const urng = new SimRng(`${ID}|levantamiento|${cfg.seed}`), un = noise(urng), fu = 2.4 / N;
     upF = [0, 1, 2].map(i => {
@@ -181,7 +186,9 @@ export function create(cfg: ModelConfig): FieldModel {
   /** One step of uplift (and subsidence), eased off towards a ceiling and a floor so the relief stays bounded. */
   const uplift = () => {
     if (!upF) upFields();
-    const [f0, f1, f2] = upF!, T = steps / RATE, a = (Math.PI * 2 * T) / UP_PERIOD;
+    // (a change of «Ciclo del levantamiento» goes on from the phase it had reached)
+    if (p.cycle !== upCycle) { upPhase0 = upPhaseAt(steps); upStep0 = steps; upCycle = p.cycle; }
+    const [f0, f1, f2] = upF!, a = upPhaseAt(steps);
     const w0 = (1 + Math.cos(a)) / 3, w1 = (1 + Math.cos(a + 2.0944)) / 3, w2 = (1 + Math.cos(a + 4.1888)) / 3;
     const rate = (p.uplift * amp) / 900, top = amp * 1.15, bottom = -amp * 0.3;
     for (let k = 0; k < nn; k++) {
@@ -347,7 +354,7 @@ export function create(cfg: ModelConfig): FieldModel {
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
     render,
     snapshot(): ModelState {
-      const scalars: Record<string, number> = { lost, dropAcc };
+      const scalars: Record<string, number> = { lost, dropAcc, upPhase0, upStep0, upCycle };
       rng.save(scalars);
       return { id: ID, v: V, steps, res: h, scalars, arrays: { b: B.slice(), flow: F.slice() } };
     },
@@ -357,6 +364,7 @@ export function create(cfg: ModelConfig): FieldModel {
       if (!ok(a.b) || !ok(a.flow)) throw new Error('El estado guardado está incompleto.');
       B.set(a.b); F.set(a.flow);
       steps = s.steps; lost = s.scalars.lost ?? 0; dropAcc = s.scalars.dropAcc ?? 0;
+      upPhase0 = s.scalars.upPhase0 ?? 0; upStep0 = s.scalars.upStep0 ?? 0; upCycle = s.scalars.upCycle ?? UP_PERIOD;
       rng.load(s.scalars);
     },
   };

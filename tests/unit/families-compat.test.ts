@@ -107,3 +107,26 @@ describe('compatibilidad de los 203 presets de familia del PR #10 (tal como qued
     });
   }
 });
+
+/**
+ * Close-out of PR #10, group «física y pendientes»: dla, chladni and niebla went up to version 2 (DLA that grows
+ * as fast at every size, plates without the grey disc, cloud-chamber traces that read at small characters).
+ * Their 203 presets above are drawn at their default rows; here version 1 at the rows and moments those cases do
+ * not reach (the fixture was written from da08e3a, the code before the change). Each case is drawn twice: with
+ * version 1 it must match; with the current version it must not (else the case would not guard the old path).
+ */
+describe('compatibilidad de la versión 1 de dla, chladni y niebla en otras resoluciones (cierre del PR #10)', () => {
+  const FILE_FIS = join(import.meta.dirname, 'fixtures/families-cierre-fisica.json');
+  const fixture = JSON.parse(readFileSync(FILE_FIS, 'utf8')) as { cases: Case[] };
+  it('la referencia cubre las tres familias', () => {
+    expect(new Set(fixture.cases.map(c => c.family))).toEqual(new Set(['dla', 'chladni', 'niebla']));
+  });
+  for (const c of fixture.cases) {
+    it(`${c.family}/${c.preset} a ${c.res} filas (v1): dibuja lo mismo; la versión actual, otra cosa`, { timeout: 60_000 }, () => {
+      expect(draw(c)).toEqual(c.hash);
+      const meta = familyById(c.family)!;
+      expect(meta.version).toBeGreaterThan(1);
+      expect(draw({ ...c, v: meta.version })).not.toEqual(c.hash);
+    });
+  }
+});

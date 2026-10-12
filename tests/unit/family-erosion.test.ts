@@ -129,3 +129,46 @@ describe('erosion: presets continuos', { timeout: 60_000 }, () => {
     });
   }
 });
+
+/* PR #10 close-out: «Montaña viva» with a visible rhythm («Ciclo del levantamiento») */
+describe('erosión: ciclo del levantamiento', () => {
+  const montana = () => ({ ...defaultParams(META), ...META.presets.find(x => x.id === 'montana')!.params });
+  const relief = (m: FieldModel) => m.snapshot().arrays.b as Float32Array;
+  it('un ciclo más corto cambia dónde se levanta la tierra: lo que sube en diez segundos ya no es lo que subía en los diez anteriores', () => {
+    const turn = (cycle: number) => {
+      const m = create({ seed: 'ritmo', params: { ...montana(), rain: 0, cycle }, res: 48 });
+      m.step(600);
+      const b0 = relief(m).slice(); m.step(300);
+      const b1 = relief(m).slice(); m.step(300);
+      const b2 = relief(m);
+      let c = 0, a = 0, b = 0;
+      for (let i = 0; i < b0.length; i++) { const d1 = b1[i] - b0[i], d2 = b2[i] - b1[i]; c += d1 * d2; a += d1 * d1; b += d2 * d2; }
+      return 1 - c / Math.sqrt(a * b);
+    };
+    expect(turn(30)).toBeGreaterThan(5 * turn(300));
+  });
+  it('«Montaña viva» cambia a la vista: en 10 s, con la cámara quieta, mucho más de la figura que con sus ajustes anteriores', { timeout: 60_000 }, () => {
+    const changed = (p: Params) => {
+      const m = create({ seed: 'viva', params: { ...p, orbit: 0 }, res: 112 });
+      m.step(30 + 60 * 30);
+      const a = new Uint8Array(m.w * m.h), b = new Uint8Array(m.w * m.h);
+      m.render(a, 0); m.step(10 * 30); m.render(b, 0);
+      let fig = 0, ch = 0;
+      for (let i = 0; i < a.length; i++) if (a[i] > 24) { fig++; if (Math.abs(a[i] - b[i]) > 16) ch++; }
+      return ch / fig;
+    };
+    const now = changed(montana()), before = changed({ ...montana(), uplift: 0.35, cycle: 150, rain: 0.7, evap: 0.3 });
+    expect(now).toBeGreaterThan(0.2);
+    expect(now).toBeGreaterThan(1.4 * before);
+  });
+  it('cambiar el ciclo a mitad de camino sigue desde la fase alcanzada, y se restaura exactamente', () => {
+    const p = { ...montana(), cycle: 45 };
+    const a = create({ seed: 'fase', params: { ...p, cycle: 150 }, res: 48 });
+    a.step(200); a.setParams(p); a.step(100);
+    const snap = a.snapshot();
+    a.step(60);
+    const b = create({ seed: 'fase', params: p, res: 48 });
+    b.restore(snap); b.step(60);
+    expect(relief(b)).toEqual(relief(a));
+  });
+});

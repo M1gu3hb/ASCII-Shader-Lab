@@ -13,6 +13,8 @@ const STEPS = 64;
 export const BUDGET = { steps: 32, light: 3, haze: 10 };
 
 let sc = 1.6, th = 0.5, ero = 0, gain = 12, ox = 0, oy = 0, oz = 0;
+/** «Contraste» (K2.x in the shader). */
+let ct = 0;
 /** detail false: the light's coarse density (three octaves, no erosion); true: the view's. */
 function dens(x: number, y: number, z: number, layer: boolean, detail: boolean): number {
   const sx = x * sc + ox, sy = y * sc + oy, sz = z * sc + oz;
@@ -77,7 +79,7 @@ let LS = 0.35;
 export const impl: AnalyticImpl = {
   glsl: NUBES_VOL_GLSL,
   prep(t, k) {
-    cam = k[7]; layer = cam > 0.5;
+    cam = k[7]; layer = cam > 0.5; ct = k[8];
     th = 0.66 * (1 - k[0]) + 0.36 * k[0]; sc = 1.6 / k[1]; ero = k[2]; sig = k[5]; gain = 12 * smoothstep(0, 0.12, k[0]);
     const w = k[3] * t;
     if (cam < 0.5) { ox = w * 0.06; oy = w * 0.012; oz = w * 0.32; } else { ox = w * 0.18; oy = w * 0.012; oz = w * 0.1; }
@@ -160,7 +162,8 @@ export const impl: AnalyticImpl = {
         }
       }
     }
-    const v = hz * (1 - fog) + (acc + T * bg) * fog;
+    let v = hz * (1 - fog) + (acc + T * bg) * fog;
+    if (ct > 0) v = Math.max(v - 0.16 * ct, 0) * (1 + 1.6 * ct);
     return sat(1 - Math.exp(-1.5 * v));
   },
 };

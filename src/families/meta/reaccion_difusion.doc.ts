@@ -27,7 +27,7 @@ export const DOC: FamilyDoc = {
     'mitosis': 'Manchas que se estiran y se dividen hasta llenar el campo en una red de puntos.',
     'laberinto': 'Franjas que se curvan como una huella dactilar, llenan el campo y se quedan grabadas.',
     'caos': 'Gusanos que nacen, chocan y se deshacen sin parar, y zonas que se calman en anillos mientras la marea pasa.',
-    'coral_vivo': 'Un coral que cubre el campo y se abre en claros: las ramas vuelven a crecer hacia dentro y se cierran de otra forma.',
+    'coral_vivo': 'Un coral que cubre el campo y se abre en claros cada segundo o dos: las ramas vuelven a crecer hacia dentro y se cierran de otra forma.',
     'laberinto_vivo': 'Un laberinto de franjas que la marea rompe en puntos y vuelve a trazar en otra dirección.',
     'celulas': 'Puntos que mueren bajo la marea y se dividen hacia los huecos; a ratos se alargan en gusanos.',
     'corrientes': 'Bandas diagonales de puntos y de franjas que avanzan: cada frente reordena lo que pisa.',

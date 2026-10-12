@@ -5,7 +5,7 @@ export const META: FamilyMeta = {
   name: 'Chladni y cimática',
   group: 'fisica',
   kind: 'simulation',
-  version: 1,
+  version: 2,
   aka: ['Figuras de Chladni', 'Cimática', 'Modos de vibración', 'Ondas estacionarias'],
   params: [
     { key: 'plate', label: 'Forma de placa', type: 'choice', def: 'cuadrada', options: [

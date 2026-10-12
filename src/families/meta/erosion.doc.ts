@@ -25,6 +25,7 @@ export const DOC: FamilyDoc = {
     'talus': 'Las laderas más empinadas se desmoronan hasta este ángulo.',
     'strata': 'Capas de roca dura cada pocos metros: las laderas se vuelven terrazas.',
     'uplift': 'La tierra sube despacio bajo un dibujo que cambia: la lluvia nunca termina su trabajo. 0: sólo erosión.',
+    'cycle': 'Segundos que tarda el levantamiento en recorrer sus tres dibujos: más corto, las sierras suben y bajan a la vista.',
     'frame': 'Una maqueta en el centro que la cámara rodea, o el mapa visto desde arriba llenando todo el lienzo.',
     'view': 'El relieve iluminado, el agua que corre (ríos y mar) o las alturas.',
     'orbit': 'La cámara rodea la maqueta (vista 3D).',
@@ -33,7 +34,7 @@ export const DOC: FamilyDoc = {
   presets: {
     'rios': 'Un mapa que llena el lienzo: ríos que se ramifican hasta la costa y cambian de cauce mientras las sierras suben.',
     'costa': 'Una ladera que baja al mar vista desde arriba: barrancos sombreados que la lluvia ahonda mientras la tierra se levanta.',
-    'montana': 'Una maqueta de cordillera que la tierra sigue levantando: la lluvia la talla sin terminar nunca.',
+    'montana': 'Una maqueta de cordillera que la tierra levanta en un ciclo de 45 s: las sierras suben y se hunden mientras la lluvia abre ríos que brillan, sin terminar nunca.',
     'barrancos': 'Lluvia fuerte y roca blanda sobre una cordillera: el agua talla surcos profundos en las laderas.',
     'delta': 'Una ladera que baja al mar: el agua se junta en ríos y deja su sedimento al llegar abajo.',
     'mesetas': 'Capas de roca dura y desmoronamiento: los bordes de una meseta se escalonan en terrazas.',

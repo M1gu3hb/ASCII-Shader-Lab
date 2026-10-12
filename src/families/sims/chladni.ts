@@ -17,9 +17,17 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * «Todo el lienzo»: a rectangular plate twice as wide as tall that fills the canvas, with square cells
  * (u = cos(nπX) cos(mπY) + c · cos(mπX) cos(nπY), X ∈ [0, 2] across the width, Y ∈ [0, 1] down): the same figures,
  * repeated side by side, as a background. Its grains walk with steps that are as long across as down.
+ *
+ * Version 2 (PR #10 close-out): the square and round plates are drawn as the canvas plate already was. In
+ * some modes of a sequence (high n on the round plate) the middle of the plate barely moves: its grains hardly
+ * walk and the sand stays spread as the previous mode left it, which version 1 drew as a grey disc (sand
+ * spread evenly reads as mid grey; and its nodal lines, drawn where |u| is small, filled the whole quiet
+ * middle). Now sand spread evenly stays dark and only sand that gathers lights up, and a nodal line is drawn
+ * by its distance |u| / |∇u| to the zero of the field, so a flat middle shows the lines that cross it, not a
+ * disc. The grains walk as before. Recipes made with version 1 keep its drawing.
  */
 
-const ID = 'chladni', V = 1;
+const ID = 'chladni', V = 2;
 const hyp = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const RATE = 30;
 const MAX_SAND = 40000;
@@ -113,7 +121,9 @@ export function modeField(plate: string, n: number, m: number, mix: number): Flo
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  const v2 = (cfg.v ?? V) >= 2;
+  // (the stream keeps the version-1 key: both versions walk the same grains)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
   let p = read(cfg.params);
   const N = p.count;
   // grains in plate coordinates (−1..1 on both axes), the accumulated density
@@ -221,8 +231,11 @@ export function create(cfg: ModelConfig): FieldModel {
       const sand = p.view !== 'campo', fieldOn = p.view !== 'arena';
       const { a, b, s } = fieldOn ? modeAt(steps / RATE) : { a: null, b: null, s: 0 };
       const lg = 1 / Math.log(1 + 6);
-      // (the canvas plate is a background: sand spread evenly stays dark, only where it gathers it lights up)
-      const wide = wideOf(), sk = wide ? 0.1 : 0.35;
+      // (the canvas plate is a background: sand spread evenly stays dark, only where it gathers it lights up;
+      // from version 2 on every plate is drawn so)
+      const wide = wideOf(), even = wide || v2, sk = wide ? 0.1 : v2 ? 0.16 : 0.35, floor = wide ? 0.12 : 0.23;
+      // version 2: the step of the gradient's differences (a grid cell of the mode's field)
+      const dd = 2 / G;
       for (let py = 0; py < h; py++) {
         const y = wide ? (0.5 - (py + 0.5) / h) * 2 : (0.5 - (py + 0.5) / h) / HALF;
         for (let px = 0; px < w; px++) {
@@ -230,11 +243,19 @@ export function create(cfg: ModelConfig): FieldModel {
           if (!inside(x, y)) { out[i] = 0; continue; }
           let v = 0;
           if (sand) v = Math.log(1 + 6 * Math.min(4, dens[i] * norm * sk)) * lg * 0.82;
-          if (sand && wide) v = Math.max(0, (v - 0.12) * 1.5);
+          if (sand && even) v = Math.max(0, (v - floor) * 1.5);
           if (fieldOn && a && b) {
-            const u = Math.abs(s > 0 ? (1 - s) * look(a, x, y) + s * look(b, x, y) : look(a, x, y));
-            // nodal lines bright, the rest a faint relief of |u|
-            const line = Math.exp(-(u * u) / 0.0016), relief = 0.12 * (1 - u);
+            const at = (qx: number, qy: number) => (s > 0 ? (1 - s) * look(a, qx, qy) + s * look(b, qx, qy) : look(a, qx, qy));
+            const u = Math.abs(at(x, y));
+            // nodal lines bright, the rest a faint relief of |u|; version 2 measures the distance to the line
+            // (|u| / |∇u|, in plate units), so a flat, quiet middle is not drawn as one wide line
+            let line: number;
+            if (v2 && !wide) {
+              const gx = (at(x + dd, y) - at(x - dd, y)) / (2 * dd), gy = (at(x, y + dd) - at(x, y - dd)) / (2 * dd);
+              const dist = u / (Math.sqrt(gx * gx + gy * gy) + 1e-3);
+              line = Math.exp(-(dist * dist) / 0.0009);
+            } else line = Math.exp(-(u * u) / 0.0016);
+            const relief = 0.12 * (1 - u);
             v = sand ? Math.max(v, 0.38 * line) : Math.max(line, relief);
           }
           // the plate itself reads as a faint ground
@@ -257,7 +278,7 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = {};
       rng.save(scalars);
-      return { id: ID, v: V, steps, res: h, scalars, arrays: { pos: pos.slice(), dens: dens.slice() } };
+      return { id: ID, v: v2 ? 2 : 1, steps, res: h, scalars, arrays: { pos: pos.slice(), dens: dens.slice() } };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta placa.');

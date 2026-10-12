@@ -147,3 +147,49 @@ describe('lenia', () => {
     }, 30_000);
   }
 });
+
+/* PR #10 close-out: «Nadadores» and «Anillos que nadan» take more of the picture (a wake, a closer view) */
+describe('lenia: estela de los nadadores', () => {
+  const preset = (id: string) => ({ ...defaultParams(META), ...META.presets.find(x => x.id === id)!.params });
+  const ink = (o: Uint8Array) => { let k = 0; for (const v of o) if (v > 24) k++; return k / o.length; };
+  const shot = (p: Params, steps = 48 + 6 * 24) => {
+    const m = create({ seed: 'estela', params: p, res: 128 });
+    m.step(steps);
+    const o = new Uint8Array(m.w * m.h); m.render(o, 0);
+    return { m, o };
+  };
+  it('la estela sigue a las criaturas: más lienzo con tinta que sin ella, y las criaturas son las mismas', { timeout: 60_000 }, () => {
+    const p = preset('orbium');
+    const a = shot({ ...p, trail: 0 }), b = shot(p);
+    expect(ink(b.o)).toBeGreaterThan(1.8 * ink(a.o));
+    // the wake is drawn under the bodies: the matter itself does not change
+    expect(b.m.snapshot().arrays.A).toEqual(a.m.snapshot().arrays.A);
+  });
+  it('sin estela dibuja exactamente lo de antes (el parámetro nuevo no cambia las piezas guardadas)', { timeout: 60_000 }, () => {
+    const p = preset('orbium');
+    const { trail: _t, ...old } = { ...p, trail: 0 };
+    void _t;
+    const a = shot({ ...p, trail: 0 }), b = shot(old as Params);
+    expect(b.o).toEqual(a.o);
+  });
+  it('guardar y restaurar con estela continúa exactamente igual', { timeout: 60_000 }, () => {
+    const p = preset('anulares');
+    const a = create({ seed: 'restaura', params: p, res: 128 });
+    a.step(80);
+    const snap = a.snapshot();
+    a.step(30);
+    const b = create({ seed: 'restaura', params: p, res: 128 });
+    b.restore(snap);
+    b.step(30);
+    const ra = new Uint8Array(a.w * a.h), rb = new Uint8Array(b.w * b.h);
+    a.render(ra, 0); b.render(rb, 0);
+    expect(rb).toEqual(ra);
+  });
+  it('siguen siendo figuras (arte), vistas de más cerca', () => {
+    for (const id of ['orbium', 'anulares']) {
+      const pr = META.presets.find(x => x.id === id)!;
+      expect(pr.uses).toEqual(['arte/organicas']);
+      expect(pr.layer?.scale ?? 1).toBeLessThan(1);
+    }
+  });
+});
