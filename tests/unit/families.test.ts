@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { FAMILIES, FAMILY_IDS, familyById } from '../../src/families/registry';
 import { LOADABLE, loadFamilyNow } from '../../src/families/load';
 import { analyticOf, modelOf } from '../../src/families/models';
-import { defaultParams, normFam, normParam, packParams } from '../../src/families/params';
+import { defaultParams, normFam, normParam, normParams, packParams, timeContract } from '../../src/families/params';
 import { FAMILY_GLSL_IDS, familyGlsl, loadFamilyGlsl } from '../../src/families/analytic/glsl';
 import { DOC_IDS, loadFamilyDoc } from '../../src/families/docs';
 import { decodeCheckpoint, encodeCheckpoint } from '../../src/families/checkpoints';
@@ -99,6 +99,11 @@ for (const meta of FAMILIES) {
       expect(new Set(meta.presets.map(p => p.id)).size).toBe(meta.presets.length);
       for (const pr of meta.presets) {
         expect((doc.presets[pr.id] ?? '').length, pr.id).toBeGreaterThan(10);
+        // (PR #10 review) where the library offers it, and what its time promises: an exact loop says its period
+        expect(pr.uses?.length ?? 0, `${pr.id}: usos en la biblioteca`).toBeGreaterThan(0);
+        const tc = timeContract(meta, normParams(meta, pr.params));
+        expect(['continuo', 'bucle', 'construccion'], pr.id).toContain(tc);
+        if (tc === 'bucle') expect(pr.period ?? 0, `${pr.id}: periodo del bucle`).toBeGreaterThan(0);
         for (const [k, v] of Object.entries(pr.params)) {
           const s = meta.params.find(p => p.key === k);
           expect(s, `${pr.id}.${k}`).toBeTruthy();

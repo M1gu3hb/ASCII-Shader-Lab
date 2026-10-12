@@ -3,8 +3,10 @@
  * seeds and resolutions), the model runs from its seed at its fixed rate and, at each sampled moment T, measures:
  *  - model: how much the raster changes over the next half second with the camera held at T (the state itself);
  *  - visible: how much it changes between T and T + 0.5 s as the layer shows it (state and camera);
- *  - lit: the share of the domain with ink (0 = empty, 1 = full), and the cost of the half second (ms).
- * Analytic families are sampled through their CPU twin on a 96 × 48 grid (visible only: they have no state).
+ *  - lit: the share of the domain with ink (0 = empty, 1 = full), the cost of the half second's steps (ms) and of
+ *    one render of the raster (msRender: drawing can cost more than stepping).
+ * Analytic families are sampled through their CPU twin on a 96 × 48 grid, through the preset's layer scale and
+ * with its cell size, as the engines sample them (visible only: they have no state).
  *
  *   npx esbuild scripts/families-time.ts --bundle --platform=node --format=esm --outfile=.cache/families-time.mjs
  *   node .cache/families-time.mjs --out=<file.json> [--ids=a,b] [--seeds=3] [--res=def|min,def,max]
@@ -31,7 +33,7 @@ const times = arg('times', '0,30,60,120')!.split(',').map(Number);
 const timesAt = { min: (arg('times-min') ?? '0,15,30,60').split(',').map(Number), max: (arg('times-max') ?? '0,15,30').split(',').map(Number), def: times };
 const long = Number(arg('long', '0'));
 
-interface Sample { t: number; model: number; visible: number; changed: number; lit: number; ms: number }
+interface Sample { t: number; model: number; visible: number; changed: number; lit: number; ms: number; msRender?: number }
 interface Row { family: string; kind: string; preset: string; name: string; seed: string; res: number | null; rate: number; samples: Sample[]; error?: string }
 
 const lit = (r: Uint8Array) => { let n = 0; for (let i = 0; i < r.length; i++) if (r[i] > 24) n++; return n / r.length; };
@@ -57,9 +59,11 @@ function runModel(meta: FamilyMeta, pr: FamilyPreset, seed: string, res: number,
       model.step(Math.max(1, Math.floor(0.5 * speed * rate)));
       const ms = performance.now() - t0;
       model.render(B, t);
+      const r0 = performance.now();
       model.render(C, t + 0.5);
+      const msRender = performance.now() - r0;
       const m = diff(A, B), v = diff(A, C);
-      row.samples.push({ t, model: m.mean, visible: v.mean, changed: v.changed, lit: lit(C), ms });
+      row.samples.push({ t, model: m.mean, visible: v.mean, changed: v.changed, lit: lit(C), ms, msRender });
     }
   } catch (e) { row.error = String(e); }
   return row;
@@ -69,12 +73,12 @@ function runAnalytic(meta: FamilyMeta, pr: FamilyPreset): Row {
   const impl = analyticOf(meta.id)!;
   const f = famFor(meta, 'glyphos', pr.id);
   const k = packParams(meta, f.p);
-  const speed = Math.abs(pr.layer?.speed ?? 1);
+  const speed = Math.abs(pr.layer?.speed ?? 1), scale = pr.layer?.scale ?? 1;
   const w = 96, h = 48;
   const at = (t: number) => {
     const r = new Uint8Array(w * h);
-    impl.prep?.(t * speed, k);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) r[y * w + x] = Math.max(0, Math.min(255, Math.round(255 * impl.cpu(((x + 0.5) / w - 0.5) * 2, 0.5 - (y + 0.5) / h, t * speed, k))));
+    impl.prep?.(t * speed, k, undefined, scale / h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) r[y * w + x] = Math.max(0, Math.min(255, Math.round(255 * impl.cpu(((x + 0.5) / w - 0.5) * 2 * scale, (0.5 - (y + 0.5) / h) * scale, t * speed, k))));
     return r;
   };
   const row: Row = { family: meta.id, kind: meta.kind, preset: pr.id, name: pr.name, seed: '-', res: null, rate: 0, samples: [] };
@@ -93,7 +97,8 @@ for (const meta of FAMILIES) {
   await loadFamilyNow(meta.id);
   for (const pr of meta.presets) {
     if (onlyPresets && !onlyPresets.has(pr.id)) continue;
-    if (meta.kind === 'analytic') { rows.push(runAnalytic(meta, pr)); continue; }
+    if (meta.kind === 'analytic') rows.push(runAnalytic(meta, pr));
+    else {
     const b = meta.budget.res ?? [64, 128, 96];
     const def = pr.res ?? b[2];
     for (const mode of resModes) {
@@ -104,6 +109,7 @@ for (const meta of FAMILIES) {
         rows.push(runModel(meta, pr, seed, res, timesAt[mode]));
         writeFileSync(out, JSON.stringify(rows));
       }
+    }
     }
     const last = rows[rows.length - 1];
     console.log(`${meta.id}/${pr.id}`, last.samples.map(x => `${x.t}s m${(x.model * 100).toFixed(2)} l${(x.lit * 100).toFixed(0)}`).join(' | '));

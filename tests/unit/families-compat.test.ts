@@ -65,7 +65,8 @@ describe('compatibilidad de las 86 recetas de familia publicadas en el PR #10', 
   const fixture = JSON.parse(readFileSync(FILE, 'utf8')) as { cases: Case[] };
   it('la referencia tiene los 86 presets originales', () => { expect(fixture.cases.length).toBe(86); });
   for (const c of fixture.cases) {
-    it(`${c.family}/${c.preset}: sus parámetros originales dibujan lo mismo`, () => {
+    // (simulations run thousands of steps: generous time when the whole suite shares the machine)
+    it(`${c.family}/${c.preset}: sus parámetros originales dibujan lo mismo`, { timeout: 60_000 }, () => {
       expect(familyById(c.family), 'la familia sigue existiendo').toBeTruthy();
       expect(draw(c)).toEqual(c.hash);
     });
