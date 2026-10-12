@@ -48,6 +48,8 @@ const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: Analyti
   osciloscopio: () => import('./analytic/osciloscopio.cpu.ts'),
   marco: () => import('./analytic/marco.cpu.ts'),
   burbujas: () => import('./analytic/burbujas.cpu.ts'),
+  haces_luz: () => import('./analytic/haces.cpu.ts'),
+  mandala_capas: () => import('./analytic/mandala.cpu.ts'),
 };
 
 /** Loads and registers a family's code now (tools and tests call it directly). */

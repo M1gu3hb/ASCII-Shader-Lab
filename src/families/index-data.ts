@@ -32,6 +32,7 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"laceria","name":"Lacería","group":"forma","kind":"analytic","v":1,"loop":true},
   {"id":"osciloscopio","name":"Osciloscopio que se degrada","group":"forma","kind":"analytic","v":1,"loop":true},
   {"id":"marco","name":"Marco vivo","group":"forma","kind":"analytic","v":1,"loop":true,"color":true},
+  {"id":"mandala_capas","name":"Mandala de capas","group":"forma","kind":"analytic","v":1,"loop":true},
   {"id":"fractal_3d","name":"Fractales 3D","group":"ciencia","kind":"analytic","v":1,"loop":true},
   {"id":"nubes_vol","name":"Nubes volumétricas","group":"ciencia","kind":"analytic","v":1,"loop":true},
   {"id":"orbitales","name":"Orbitales y superposiciones","group":"ciencia","kind":"analytic","v":1,"loop":true},
@@ -45,4 +46,5 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"paneles","name":"Paneles prismáticos","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"cromado","name":"Cromado en tramas","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"desgarro","name":"Superficie que se abre","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
+  {"id":"haces_luz","name":"Haces de luz","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
 ];
