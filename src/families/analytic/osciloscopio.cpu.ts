@@ -51,7 +51,7 @@ function trace(px: number, py: number, h: number, j: number): number {
   const ya = Y[j * 3], yb = Y[j * 3 + 1], yc = Y[j * 3 + 2];
   const d = Math.min(sdSeg(px, py, px - h, ya, px, yb), sdSeg(px, py, px, yb, px + h, yc));
   const sl = Math.abs(yc - ya) / (2 * h);
-  return (1 / (1 + (d * d) / 7.2e-5) + 0.25 * Math.exp(-d / 0.025)) * (0.55 + 0.45 / (1 + sl * 0.15));
+  return (1 / (1 + (d * d) / 7.2e-5) + 0.16 * Math.exp(-d / 0.02)) * (0.55 + 0.45 / (1 + sl * 0.15));
 }
 
 export const impl: AnalyticImpl = {
@@ -88,13 +88,13 @@ export const impl: AnalyticImpl = {
       const st = (e: number, v: number) => (v < e ? 0 : 1);
       let g = 0;
       if (gr < 1.5) {
-        g = 0.07 * st(Math.min(gx, gy), on);
-        g = Math.max(g, 0.2 * st(gx, on) * st(ty, on));
-        g = Math.max(g, 0.2 * st(gy, on) * st(tx, on));
+        g = 0.1 * st(Math.min(gx, gy), on);
+        g = Math.max(g, 0.3 * st(gx, on) * st(ty, on));
+        g = Math.max(g, 0.3 * st(gy, on) * st(tx, on));
       }
       const ax = st(Math.abs(x), on), ay = st(Math.abs(y), on);
-      g = Math.max(g, 0.12 * Math.max(ax, ay));
-      g = Math.max(g, 0.3 * Math.max(ay * st(tx, on), ax * st(ty, on)));
+      g = Math.max(g, 0.18 * Math.max(ax, ay));
+      g = Math.max(g, 0.42 * Math.max(ay * st(tx, on), ax * st(ty, on)));
       v += g;
     }
     return Math.min(1, Math.max(0, v));

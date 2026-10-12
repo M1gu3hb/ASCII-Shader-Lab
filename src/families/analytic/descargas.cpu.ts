@@ -153,12 +153,12 @@ export const impl: AnalyticImpl = {
       }
       return Math.min(1, Math.max(0, v * fl));
     }
-    const cl = smoothstep(0, 0.42, y) * fbm(x * 1.5 + M * 0.1, y * 3.2 - M * 0.05);
+    const cl = smoothstep(0.02, 0.42, y) * smoothstep(0.3, 0.85, fbm(x * 1.5 + M * 0.1, y * 3.2 - M * 0.05));
     let flash = 0;
     for (let i = 0; i < nArcs; i++) {
       v += arcAt(ARCS[i], x, y, T * 0.25, 0.45 + 0.55 * jag);
       flash += FLASH[i * 3] * Math.exp(-Math.hypot(x - FLASH[i * 3 + 1], y - FLASH[i * 3 + 2]) / 0.5);
     }
-    return Math.min(1, Math.max(0, (v + (0.3 + 0.35 * cl0 * flash) * cl) * fl));
+    return Math.min(1, Math.max(0, (v + (0.45 + 0.35 * cl0 * flash) * cl) * fl));
   },
 };

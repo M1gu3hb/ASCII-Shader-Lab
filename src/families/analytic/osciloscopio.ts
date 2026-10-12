@@ -53,7 +53,7 @@ float osc_trace(vec2 p, float t, vec4 k0, vec4 k1){
   vec2 A = vec2(p.x - h, ya), B = vec2(p.x, yb), C = vec2(p.x + h, yc);
   float d = min(sdSeg(p, A, B), sdSeg(p, B, C));
   float sl = abs(yc - ya) / (2. * h);
-  return (1. / (1. + d * d / 7.2e-5) + .25 * exp(-d / .025)) * (.55 + .45 / (1. + sl * .15));
+  return (1. / (1. + d * d / 7.2e-5) + .16 * exp(-d / .02)) * (.55 + .45 / (1. + sl * .15));
 }
 float F_osciloscopio(vec2 p, float t, vec4 k0, vec4 k1){
   float gr = floor(k1.x + .5), per = k1.y;
@@ -73,13 +73,13 @@ float F_osciloscopio(vec2 p, float t, vec4 k0, vec4 k1){
     float on = PX * .55;
     float g = 0.;
     if (gr < 1.5){
-      g = .07 * step(min(gx, gy), on);
-      g = max(g, .2 * step(gx, on) * step(ty, on));
-      g = max(g, .2 * step(gy, on) * step(tx, on));
+      g = .1 * step(min(gx, gy), on);
+      g = max(g, .3 * step(gx, on) * step(ty, on));
+      g = max(g, .3 * step(gy, on) * step(tx, on));
     }
     float ax = step(abs(p.x), on), ay = step(abs(p.y), on);
-    g = max(g, .12 * max(ax, ay));
-    g = max(g, .3 * max(ay * step(tx, on), ax * step(ty, on)));
+    g = max(g, .18 * max(ax, ay));
+    g = max(g, .42 * max(ay * step(tx, on), ax * step(ty, on)));
     v += g;
   }
   return clamp(v, 0., 1.);

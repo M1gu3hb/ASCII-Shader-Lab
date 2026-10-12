@@ -27,8 +27,8 @@ export function tearAt(t: number, i: number, n: number, cyc: number, calm: numbe
   const tau = t / cyc + i / n;
   const c = Math.floor(tau), u = tau - c;
   const a = Math.min(1, Math.max(0, (u - q) / (1 - q)));
-  const open = smoothstep(0, 0.28, a) * (1 - smoothstep(0.55, 0.97, a));
-  const seam = smoothstep(Math.max(q - 0.12, 0), q + 0.02, u) * (1 - smoothstep(0.55, 0.97, a));
+  const open = smoothstep(0, 0.33, a) * (1 - smoothstep(0.45, 0.97, a));
+  const seam = smoothstep(Math.max(q - 0.12, 0), q + 0.02, u) * (1 - smoothstep(0.45, 0.97, a));
   hash22(c * 7 + i * 131 + 3, i * 17 + 5);
   return { open, seam, cx: (V2[0] - 0.5) * 1.1, cy: (V2[1] - 0.5) * 0.5, c };
 }
@@ -49,9 +49,9 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
     const tau = t / cyc + i / n;
     const c = Math.floor(tau), u = tau - c;
     const a = Math.min(1, Math.max(0, (u - q) / (1 - q)));
-    const open = smoothstep(0, 0.28, a) * (1 - smoothstep(0.55, 0.97, a));
+    const open = smoothstep(0, 0.33, a) * (1 - smoothstep(0.45, 0.97, a));
     if (open <= 0 && u < q - 0.13) continue;
-    const seam = smoothstep(Math.max(q - 0.12, 0), q + 0.02, u) * (1 - smoothstep(0.55, 0.97, a));
+    const seam = smoothstep(Math.max(q - 0.12, 0), q + 0.02, u) * (1 - smoothstep(0.45, 0.97, a));
     hash22(c * 7 + i * 131 + 3, i * 17 + 5);
     const hx = V2[0], hy = V2[1];
     hash22(c * 13 + i * 57 + 1, c * 5 + i * 3 + 29);
@@ -81,7 +81,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
       const A = 0.25 + 0.25 * fib;
       const r = Math.hypot(x - cx, y - cy);
       let b = r * 1.6 + A + 0.02 - open * (0.4 + 1.1 * W);
-      if (b < 2 * A + 0.2) b += A * (2 * fbm(x * 2.3 + so, y * 2.3 + so) - 1) * (1 - smoothstep(2 * A, 2 * A + 0.2, b));
+      if (b < 2 * A + 0.2) b += A * (2 * fbm(x * 2.3 + so + t * 0.04, y * 2.3 + so - t * 0.03) - 1) * (1 - smoothstep(2 * A, 2 * A + 0.2, b));
       const ed = b * 0.4;
       hole = Math.max(hole, smoothstep(0, PX, -ed) * (open >= 1e-6 ? 1 : 0));
       rim = Math.max(rim, open * Math.exp(-Math.abs(ed) / 0.012));
@@ -92,7 +92,8 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   }
   const psx = x - shx, psy = y - shy;
   const tex = gnoise(psx * 5 + 3.1, psy * 9 + 3.1) * 0.55 + gnoise(psx * 42 + 7.7, psy * 7 + 7.7) * 0.45;
-  let surf = 0.03 + 0.24 * smoothstep(0.42, 0.8, tex) + 0.3 * Math.min(1, Math.max(-1, lip)) * glow;
+  const sl = 0.55 + 0.9 * gnoise(x * 1.4 + t * 0.12, y * 1.4 - t * 0.08);
+  let surf = (0.02 + 0.26 * smoothstep(0.55, 0.85, tex)) * sl + 0.3 * Math.min(1, Math.max(-1, lip)) * glow;
   surf *= 1 - 0.92 * chr;
   ramp(0.08 + 0.22 * tex, S);
   for (let j = 0; j < 3; j++) S[j] *= 1 - 0.8 * chr;
@@ -124,7 +125,8 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
         B[0] += w * RGB[0]; B[1] += w * RGB[1]; B[2] += w * RGB[2]; ws += w;
       }
       B[0] /= ws; B[1] /= ws; B[2] /= ws;
-      bl = 0.45 + 0.35 * (gnoise(x * 5 + t * 0.1, y * 5 + t * 0.1) - 0.5) + 0.4 * (B[0] * 0.299 + B[1] * 0.587 + B[2] * 0.114);
+      const g = gnoise(x * 4 + t * 0.1, y * 4 - t * 0.07);
+      bl = 0.1 + 0.55 * smoothstep(0.3, 0.75, g) + 0.45 * (B[0] * 0.299 + B[1] * 0.587 + B[2] * 0.114);
     }
   }
   const hot = Math.min(1, Math.max(0, rim * glow * 1.1 + crack * 0.45));

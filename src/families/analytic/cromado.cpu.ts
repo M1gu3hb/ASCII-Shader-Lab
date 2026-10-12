@@ -40,7 +40,7 @@ export function cromadoSD(px: number, py: number, m: number, R: number, T: numbe
   }
   let d = 1e3;
   for (let i = 0; i < 4; i++) {
-    const cx = 1.55 * R * Math.sin(T * (0.23 + 0.07 * i) + i * 2.1), cy = 0.72 * R * Math.sin(T * (0.31 - 0.05 * i) + i * 1.3 + 0.6);
+    const cx = 1.3 * R * Math.sin(T * (0.23 + 0.07 * i) + i * 2.1), cy = 0.62 * R * Math.sin(T * (0.31 - 0.05 * i) + i * 1.3 + 0.6);
     const r = R * (0.5 + 0.1 * Math.sin(i * 1.7 + T * 0.4));
     d = smin(d, Math.hypot(px - cx, py - cy) - r, 0.55 * R);
   }
@@ -92,13 +92,14 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   const g = cromadoProfile(fract(ph), fw);
   const r = cromadoProfile(fract(ph + dl), fw);
   const b = cromadoProfile(fract(ph - dl), fw);
-  const halo = m < 0.5 ? 0 : 0.24 * Math.exp(-Math.max(d, 0) / 0.03) * (0.55 + 0.45 * g) * (1 - cov);
+  const halo = m < 0.5 ? 0 : 0.2 * Math.exp(-Math.max(d, 0) / 0.016) * (0.55 + 0.45 * g) * (1 - cov);
+  const rim = m < 0.5 ? 0 : 0.32 * E * E * E;
   const hx = 0.25 + 1.8 * halo;
   C[0] = ramp(hx, 0) * (1 - cov) + ramp(r, 0) * cov;
   C[1] = ramp(hx, 1) * (1 - cov) + ramp(g, 1) * cov;
   C[2] = ramp(hx, 2) * (1 - cov) + ramp(b, 2) * cov;
   const lb = 0.3 * r + 0.59 * g + 0.11 * b;
-  C[3] = Math.min(1, Math.max(0, cov * (0.05 + 0.95 * lb) + halo));
+  C[3] = Math.min(1, Math.max(0, cov * (0.05 + 0.95 * lb + rim) + halo));
 }
 
 export const impl: AnalyticImpl = {

@@ -41,7 +41,7 @@ float crom_sd(vec2 p, float m, float R, float T){
   float d = 1e3;
   for (int i = 0; i < 4; i++){
     float fi = float(i);
-    vec2 c = vec2(1.55 * R * sin(T * (.23 + .07 * fi) + fi * 2.1), .72 * R * sin(T * (.31 - .05 * fi) + fi * 1.3 + .6));
+    vec2 c = vec2(1.3 * R * sin(T * (.23 + .07 * fi) + fi * 2.1), .62 * R * sin(T * (.31 - .05 * fi) + fi * 1.3 + .6));
     float r = R * (.5 + .1 * sin(fi * 1.7 + T * .4));
     d = crom_smin(d, length(p - c) - r, .55 * R);
   }
@@ -85,11 +85,13 @@ vec4 FC_cromado(vec2 p, float t, vec4 k0, vec4 k1){
   float r = crom_prof(fract(ph + dl), fw);
   float b = crom_prof(fract(ph - dl), fw);
   // outside: a thin halo that hugs the shape, lit by the band at the contour
-  float halo = m < .5 ? 0. : .24 * exp(-max(d, 0.) / .03) * (.55 + .45 * g) * (1. - cov);
+  float halo = m < .5 ? 0. : .2 * exp(-max(d, 0.) / .016) * (.55 + .45 * g) * (1. - cov);
+  // a rim of light along the contour, as on polished metal seen at a grazing angle
+  float rim = m < .5 ? 0. : .32 * E * E * E;
   vec3 col = vec3(crom_ramp(r).r, crom_ramp(g).g, crom_ramp(b).b);
   col = mix(crom_ramp(.25 + 1.8 * halo), col, cov);
   // the glyph follows the band's phase, through the same three channels (dispersion widens the bright lines)
   float lb = .3 * r + .59 * g + .11 * b;
-  return vec4(col, clamp(cov * (.05 + .95 * lb) + halo, 0., 1.));
+  return vec4(col, clamp(cov * (.05 + .95 * lb + rim) + halo, 0., 1.));
 }
 `;

@@ -31,9 +31,9 @@ vec4 FC_desgarro(vec2 p, float t, vec4 k0, vec4 k1){
     float c = floor(tau), u = tau - c;
     float a = clamp((u - q) / (1. - q), 0., 1.);
     // opens fast, holds, closes slowly: zero at both ends of the cycle
-    float open = smoothstep(0., .28, a) * (1. - smoothstep(.55, .97, a));
+    float open = smoothstep(0., .33, a) * (1. - smoothstep(.45, .97, a));
     if (open <= 0. && u < q - .13) continue;
-    float seam = smoothstep(max(q - .12, 0.), q + .02, u) * (1. - smoothstep(.55, .97, a));
+    float seam = smoothstep(max(q - .12, 0.), q + .02, u) * (1. - smoothstep(.45, .97, a));
     // (hash inputs are whole numbers: float32 and float64 agree on them exactly)
     vec2 h = hash22(vec2(c * 7. + fi * 131. + 3., fi * 17. + 5.));
     vec2 h2 = hash22(vec2(c * 13. + fi * 57. + 1., c * 5. + fi * 3. + 29.));
@@ -62,7 +62,7 @@ vec4 FC_desgarro(vec2 p, float t, vec4 k0, vec4 k1){
       float A = .25 + .25 * fib;
       float r = length(p - cc);
       float b = r * 1.6 + A + .02 - open * (.4 + 1.1 * W);
-      if (b < 2. * A + .2) b += A * (2. * fbm(p * 2.3 + so) - 1.) * (1. - smoothstep(2. * A, 2. * A + .2, b));
+      if (b < 2. * A + .2) b += A * (2. * fbm(p * 2.3 + vec2(so + t * .04, so - t * .03)) - 1.) * (1. - smoothstep(2. * A, 2. * A + .2, b));
       float ed = b * .4;
       hole = max(hole, smoothstep(0., PX, -ed) * step(1e-6, open));
       rim = max(rim, open * exp(-abs(ed) / .012));
@@ -74,7 +74,9 @@ vec4 FC_desgarro(vec2 p, float t, vec4 k0, vec4 k1){
   // the surface: its own grain, moved apart with the halves; lit lip and shadow by the edge, charred by fire
   vec2 ps = p - shift;
   float tex = gnoise(ps * vec2(5., 9.) + 3.1) * .55 + gnoise(ps * vec2(42., 7.) + 7.7) * .45;
-  float surf = .03 + .24 * smoothstep(.42, .8, tex) + .3 * clamp(lip, -1., 1.) * glow;
+  // a slow light drifts over the surface: even while every opening rests, the piece keeps moving
+  float sl = .55 + .9 * gnoise(p * 1.4 + vec2(t * .12, -t * .08));
+  float surf = (.02 + .26 * smoothstep(.55, .85, tex)) * sl + .3 * clamp(lip, -1., 1.) * glow;
   surf *= 1. - .92 * chr;
   vec3 scol = desg_ramp(.08 + .22 * tex) * (1. - .8 * chr);
   float bl = 0.;
@@ -109,7 +111,8 @@ vec4 FC_desgarro(vec2 p, float t, vec4 k0, vec4 k1){
         acc += w * desg_ramp(.5 + .25 * fj); ws += w;
       }
       bcol = acc / ws;
-      bl = .45 + .35 * (gnoise(p * 5. + t * .1) - .5) + .4 * dot(bcol, vec3(.299, .587, .114));
+      float g = gnoise(p * 4. + vec2(t * .1, -t * .07));
+      bl = .1 + .55 * smoothstep(.3, .75, g) + .45 * dot(bcol, vec3(.299, .587, .114));
     }
   }
   float hot = clamp(rim * glow * 1.1 + crack * .45, 0., 1.);

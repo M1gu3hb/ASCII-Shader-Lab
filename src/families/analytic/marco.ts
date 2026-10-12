@@ -44,7 +44,7 @@ vec4 FC_marco(vec2 p, float t, vec4 k0, vec4 k1){
   float w = (.006 + .012 * k0.z) * (1. + 1.2 * beat);
   float core = 1. / (1. + sd * sd / (w * w));
   float n = max(uPalN, 1.);
-  float base = .22;
+  float base = .38;
   vec3 cb = marc_ramp(.55);
   vec3 acc = cb * base;
   float cs = 0., ws = base;
@@ -59,7 +59,7 @@ vec4 FC_marco(vec2 p, float t, vec4 k0, vec4 k1){
     acc += ck * c * 1.1; ws += c * 1.1; cs += c;
   }
   vec3 col = acc / ws;
-  float lum = core * (base + 1.1 * cs) * (1. + .5 * beat) + .3 * cs * exp(-ad / .05) + .06 * beat * exp(-ad / .08);
+  float lum = core * (base + 1.1 * cs) * (1. + .9 * beat) + .3 * cs * exp(-ad / .05) + .2 * beat * exp(-ad / .06);
   if (k1.z > 0.){
     // smoke: turbulence that hugs the line and drifts off it, lit by the comets
     float f = fbm(p * 4.5 + vec2(ad * 3., -ad * 5.) + vec2(t * .06, -t * .25));

@@ -100,7 +100,7 @@ float F_descargas(vec2 p, float t, vec4 k0, vec4 k1){
     return clamp(v * fl, 0., 1.);
   }
   // storm: bolts from the cloud band to the ground, each striking on a cycle of its own
-  float cl = smoothstep(0., .42, p.y) * fbm(p * vec2(1.5, 3.2) + vec2(M * .1, -M * .05));
+  float cl = smoothstep(.02, .42, p.y) * smoothstep(.3, .85, fbm(p * vec2(1.5, 3.2) + vec2(M * .1, -M * .05)));
   float flash = 0.;
   for (int i = 0; i < 6; i++){
     float fi = float(i);
@@ -115,6 +115,6 @@ float F_descargas(vec2 p, float t, vec4 k0, vec4 k1){
     v += desc_arc(p, a, b, li * 8. + fi, env, -1., T * .25, .45 + .55 * jag, br, hal, smoothstep(0., .03, x) * 1.05);
     flash += env * exp(-length(p - a) / .5);
   }
-  return clamp((v + (.3 + .35 * k1.z * flash) * cl) * fl, 0., 1.);
+  return clamp((v + (.45 + .35 * k1.z * flash) * cl) * fl, 0., 1.);
 }
 `;

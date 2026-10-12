@@ -36,7 +36,7 @@ export const META: FamilyMeta = {
       params: { kind: 'desgarro', behind: 'trama', tears: 2, cycle: 9, calm: 0.05, width: 0.9, glow: 0.45, fibres: 0.5 },
       look: { stops: ['#06080a', '#18222a', '#2f5b6b', '#7cc6c9', '#e8fbf6'], bg: '#04060a', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
     { id: 'velo', name: 'Velo de color', aka: ['corrientes detrás'], uses: ['fondos/color', 'fondos/materia'],
-      params: { kind: 'quemado', behind: 'corrientes', tears: 3, cycle: 14, calm: 0, width: 0.75, glow: 0.5, fibres: 0.35 },
+      params: { kind: 'quemado', behind: 'corrientes', tears: 3, cycle: 14, calm: 0, width: 0.5, glow: 0.5, fibres: 0.35 },
       look: { stops: ['#07060b', '#1b1626', '#6d2e8f', '#e0457b', '#38bdf8', '#fde68a'], bg: '#050409', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
   ],
   caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },

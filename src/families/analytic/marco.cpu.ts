@@ -1,5 +1,5 @@
 import type { AnalyticImpl, Palette } from '../types';
-import { PI, fbm, fract, mod } from '../../engine/basic/core';
+import { PI, fbm, fract, mod, smoothstep } from '../../engine/basic/core';
 import { MARCO_GLSL } from './marco';
 
 /** CPU twin of FC_marco, line by line. The palette arrives with prep (the shader's uPal / uPalN). */
@@ -49,7 +49,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   const w = (0.006 + 0.012 * k[2]) * (1 + 1.2 * beat);
   const core = 1 / (1 + (sd * sd) / (w * w));
   const n = Math.max(pal.n, 1);
-  const base = 0.22;
+  const base = 0.38;
   ramp(0.55, CB);
   let ar = CB[0] * base, ag = CB[1] * base, ab = CB[2] * base, cs = 0, ws = base;
   const tau = (0.28 * P) / Math.max(K, 1);
@@ -62,11 +62,10 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
     ws += c * 1.1; cs += c;
   }
   C[0] = ar / ws; C[1] = ag / ws; C[2] = ab / ws;
-  let lum = core * (base + 1.1 * cs) * (1 + 0.5 * beat) + 0.3 * cs * Math.exp(-ad / 0.05) + 0.06 * beat * Math.exp(-ad / 0.08);
+  let lum = core * (base + 1.1 * cs) * (1 + 0.9 * beat) + 0.3 * cs * Math.exp(-ad / 0.05) + 0.2 * beat * Math.exp(-ad / 0.06);
   if (k[6] > 0) {
     const f = fbm(x * 4.5 + ad * 3 + t * 0.06, y * 4.5 - ad * 5 - t * 0.25);
-    const e = Math.min(1, Math.max(0, (f - 0.5) / (0.82 - 0.5)));
-    lum += k[6] * e * e * (3 - 2 * e) * Math.exp(-ad / 0.09) * (0.35 + 0.8 * cs + beat);
+    lum += k[6] * smoothstep(0.5, 0.82, f) * Math.exp(-ad / 0.09) * (0.35 + 0.8 * cs + beat);
   }
   C[3] = Math.min(1, Math.max(0, lum));
 }
