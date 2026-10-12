@@ -10,6 +10,8 @@ let pal: Palette = DEFAULT;
 const MAX = 20, F = 1.7, Z0 = 3.4;
 const ZS = new Float64Array(MAX), CR = new Float64Array(MAX), CG = new Float64Array(MAX), CB = new Float64Array(MAX);
 const AS = new Float64Array(MAX), GS = new Float64Array(MAX);
+/** The layers `hits` found (depth, colour, alpha, ink), as tests read them. */
+export const HITS = { ZS, CR, CG, CB, AS, GS };
 
 let lx = NaN, ly = NaN, lt = NaN;
 const C = new Float64Array(4);
@@ -43,14 +45,14 @@ export function hits(x: number, y: number, t: number, k: Float32Array): number {
       const lam = -(oy * ca - oz * sa) / den;
       const Px = ox + lam * dx, Py = oy + lam * dy, Pz = oz + lam * dz;
       const r = Py * sa + Pz * ca;
-      if (lam <= 0 || r < 0 || r > len) continue;
+      if (lam <= 0 || r < 0) continue;
       const z = lam * F, sx = Px;
       const cw = (PX * z) / F;
-      const wsx = 1 - smoothstep(wid - cw, wid, Math.abs(sx));
-      const wr = 1 - smoothstep(len - cw, len, r);
+      const wsx = 1 - smoothstep(wid, wid + cw, Math.abs(sx));
+      const wr = 1 - smoothstep(len, len + cw, r);
       if (wsx * wr <= 0) continue;
       const fade = smoothstep(0, 0.25, r) * smoothstep(0.55, 1.1, z);
-      const rim = k[6] * Math.max(1 - smoothstep(cw * 0.6, cw * 1.6, len - r), 1 - smoothstep(cw * 0.6, cw * 1.6, wid - Math.abs(sx)));
+      const rim = k[6] * Math.max(1 - smoothstep(cw * 0.5, cw * 1.3, Math.abs(len - r)), 1 - smoothstep(cw * 0.5, cw * 1.3, Math.abs(wid - Math.abs(sx))));
       const m1 = Math.max(nP - 1, 1), off = nP > 1.5 ? 1 : 0;
       const j = mod(i + s * 2, m1) + off, j1 = mod(j, m1) + off;
       const g = smoothstep(0.1, 1, r / len) * 0.4;

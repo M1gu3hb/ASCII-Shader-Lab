@@ -65,7 +65,7 @@ void hc_project(float t, vec4 k0, vec4 k1, int v0, int nv){
   float ph = TAU * t / k1.x;
   float a = floor(k0.y + .5) * ph, b = floor(k0.z + .5) * ph, c = floor(k0.w + .5) * ph;
   float ca = cos(a), sa = sin(a), cb = cos(b), sb = sin(b), cc = cos(c), sc = sin(c);
-  float D4 = k1.y, Rm = D4 / (D4 - 1.), D3 = 3.2 * Rm, Fk = .62 * D3 / Rm;
+  float D4 = k1.y, Rm = D4 / (D4 - 1.), D3 = 3.2 * Rm, Fk = .72 * D3 / Rm;
   float cy = cos(ph + .6), sy = sin(ph + .6), cp = cos(.42), sp = sin(.42);
   for (int i = 0; i < 24; i++){
     if (i >= nv) break;

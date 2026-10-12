@@ -21,7 +21,7 @@ export function project(t: number, k: ArrayLike<number>, j: number, out?: { x: F
   const ph = (TAU * t) / k[4];
   const a = Math.floor(k[1] + 0.5) * ph, b = Math.floor(k[2] + 0.5) * ph, c = Math.floor(k[3] + 0.5) * ph;
   const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cc = Math.cos(c), sc = Math.sin(c);
-  const D4 = k[5], Rm = D4 / (D4 - 1), D3 = 3.2 * Rm, Fk = (0.62 * D3) / Rm;
+  const D4 = k[5], Rm = D4 / (D4 - 1), D3 = 3.2 * Rm, Fk = (0.72 * D3) / Rm;
   const cy = Math.cos(ph + 0.6), sy = Math.sin(ph + 0.6), cp = Math.cos(0.42), sp = Math.sin(0.42);
   for (let i = 0; i < P.nv; i++) {
     let [x, y, z, w] = HC_V[P.v0 + i];

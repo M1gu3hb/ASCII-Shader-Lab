@@ -27,7 +27,7 @@ export const META: FamilyMeta = {
       params: { poly: 'teseracto', xw: 1, yw: 0, zw: 0, cycle: 20, dist4: 1.9, width: 1.6, trail: 0.6 },
       look: { stops: ['#0c0507', '#5c1630', '#ff5c8a', '#ffe3ec'], bg: '#070204', charset: ' .·:;+=*#@' } },
     { id: 'celdas24', name: 'Veinticuatro celdas', uses: ['arte/figuras'], period: 60, aka: ['icositetracoro'],
-      params: { poly: 'celdas24', xw: 1, yw: -1, zw: 1, cycle: 60, dist4: 3, width: 1, trail: 0.2 },
+      params: { poly: 'celdas24', xw: 1, yw: -1, zw: 1, cycle: 60, dist4: 3, width: 1.2, trail: 0.15 },
       look: { stops: ['#06080a', '#1c4a3c', '#5fe0b0', '#effff8'], bg: '#030504', charset: ' .`:-=+*#%' } },
     { id: 'celdas16', name: 'Dieciséis celdas', uses: ['arte/figuras', 'terminal/figuras'], period: 48, aka: ['hexadecacoro', 'ortoplex 4D'],
       params: { poly: 'celdas16', xw: 2, yw: 1, zw: -1, cycle: 48, dist4: 2.2, width: 1.6, trail: 0.5 },

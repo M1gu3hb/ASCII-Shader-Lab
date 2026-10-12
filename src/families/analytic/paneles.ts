@@ -48,16 +48,18 @@ vec4 FC_paneles(vec2 p, float t, vec4 k0, vec4 k1){
       float lam = -(o.y * ca - o.z * sa) / den;
       vec3 P = o + lam * d;
       float r = P.y * sa + P.z * ca;
-      if (lam <= 0. || r < 0. || r > len) continue;
+      if (lam <= 0. || r < 0.) continue;
       float z = lam * F, sx = P.x;
       // one cell, in world units at this depth
       float cw = PX * z / F;
-      float wsx = 1. - smoothstep(wid - cw, wid, abs(sx));
-      float wr = 1. - smoothstep(len - cw, len, r);
+      // the panel's rectangle, its border softened over one cell outside it
+      float wsx = 1. - smoothstep(wid, wid + cw, abs(sx));
+      float wr = 1. - smoothstep(len, len + cw, r);
       if (wsx * wr <= 0.) continue;
       // fades: near the axis (the blades meet there) and close to the eye
       float fade = smoothstep(0., .25, r) * smoothstep(.55, 1.1, z);
-      float rim = k1.z * max(1. - smoothstep(cw * .6, cw * 1.6, len - r), 1. - smoothstep(cw * .6, cw * 1.6, wid - abs(sx)));
+      // edges: a line about two cells wide centred on the border
+      float rim = k1.z * max(1. - smoothstep(cw * .5, cw * 1.3, abs(len - r)), 1. - smoothstep(cw * .5, cw * 1.3, abs(wid - abs(sx))));
       float j = mod(float(i) + float(s) * 2., max(nP - 1., 1.)) + (nP > 1.5 ? 1. : 0.);
       vec3 c0 = uPal[int(j)], c1 = uPal[int(mod(j, max(nP - 1., 1.)) + (nP > 1.5 ? 1. : 0.))];
       vec3 c = mix(c0, c1, smoothstep(.1, 1., r / len) * .4);

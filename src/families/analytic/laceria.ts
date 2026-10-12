@@ -73,27 +73,28 @@ float F_laceria(vec2 p, float t, vec4 k0, vec4 k1){
   // (hashes of whole numbers: both engines feed them the same value)
   float jump = loop > .5 ? cb : floor(hash11(cb + 101.) * 5.);
   float q = floor(k1.y * 3. + .5);
-  float w = k1.x * .55 * PX, o = .7 * PX, gp = .45 * PX;
-  // on a lattice the outer stars reach their neighbours tip to tip (radius half the spacing)
-  float S = grid < .5 ? .46 : .5;
+  float w = k1.x * .55 * PX, o = .8 * PX, gp = .6 * PX;
+  // on a lattice the stars almost touch their neighbours (radius .45 of the spacing), so they turn freely
+  float S = grid < .5 ? .8 : .86;
   float Rb = grid > 1.5 ? .47 : .45 * S;
   lac_b1 = vec4(1e3, 0., 1., 0.); lac_b2 = lac_b1; lac_b3 = lac_b1; lac_i1 = vec3(-1.); lac_i2 = vec3(-2.); lac_i3 = vec3(-3.); lac_k = vec3(1e3); lac_par = 0.;
   // the layers of this configuration
-  float kl[3]; float rl[3]; float Rl[3];
+  // (each inner star fits inside the central polygon of the one around it, and is the simplest, {N/2})
+  float kl[3]; float rs[3]; float ro[3]; float Rl[3];
+  float Rp = Rb;
   for (int l = 0; l < 3; l++){
     float fl = float(l);
-    kl[l] = 2. + mod(kb - 2. + fl + jump * (1. + fl), max(kmax - 1., 1.));
+    kl[l] = l == 0 ? 2. + mod(kb - 2. + jump, max(kmax - 1., 1.)) : 2.;
     float sg = mod(fl, 2.) < .5 ? 1. : -1.;
     float spin = loop > .5 ? sg * q * (TAU / N) * (fl + 1.) * t / P : sg * k1.y * .25 * t * (1. + .618 * fl);
-    // on a lattice the outer stars keep their place (their tips meet); the inner ones turn
-    if (grid < 1.5 && l == 0) spin = 0.;
     float off = loop > .5 ? mod(cb * (fl + 1.), 2.) * PI / N : hash11(cb * 4. + fl + 7.) * TAU / N;
-    rl[l] = spin + off;
-    Rl[l] = Rb * pow(.618, fl);
+    rs[l] = spin; ro[l] = off;
+    Rl[l] = Rp;
+    Rp *= cos(PI * kl[l] / N) * .92;
   }
   float reach = Rb + w + o + gp;
   if (grid > 1.5){
-    for (int l = 0; l < 3; l++){ if (float(l) >= L) break; lac_star(p, Rl[l], N, kl[l], rl[l], float(l)); }
+    for (int l = 0; l < 3; l++){ if (float(l) >= L) break; lac_star(p, Rl[l], N, kl[l], rs[l] + ro[l], float(l)); }
   } else if (grid < .5){
     // the four lattice points around p are the only ones whose stars can reach it
     vec2 i0 = floor(p / S);
@@ -102,7 +103,9 @@ float F_laceria(vec2 p, float t, vec4 k0, vec4 k1){
       vec2 z = p - id * S;
       if (length(z) > reach) continue;
       float pid = (id.x * 7. + id.y * 131.) * 4.;
-      for (int l = 0; l < 3; l++){ if (float(l) >= L) break; lac_star(z, Rl[l], N, kl[l], rl[l], pid + float(l)); }
+      // neighbours turn the other way, like gears
+      float cs = mod(id.x + id.y, 2.) < .5 ? 1. : -1.;
+      for (int l = 0; l < 3; l++){ if (float(l) >= L) break; lac_star(z, Rl[l], N, kl[l], cs * rs[l] + ro[l], pid + float(l)); }
     }
   } else {
     // hexagonal lattice: basis (S, 0) and (S/2, S·√3/2)
@@ -113,7 +116,9 @@ float F_laceria(vec2 p, float t, vec4 k0, vec4 k1){
       vec2 z = p - vec2((id.x + id.y * .5) * S, id.y * S * .8660254);
       if (length(z) > reach) continue;
       float pid = (id.x * 7. + id.y * 131.) * 4.;
-      for (int l = 0; l < 3; l++){ if (float(l) >= L) break; lac_star(z, Rl[l], N, kl[l], rl[l], pid + float(l)); }
+      // neighbours turn the other way, like gears
+      float cs = mod(id.x + id.y, 2.) < .5 ? 1. : -1.;
+      for (int l = 0; l < 3; l++){ if (float(l) >= L) break; lac_star(z, Rl[l], N, kl[l], cs * rs[l] + ro[l], pid + float(l)); }
     }
   }
   float bg = mix(.08, .24, mod(lac_par, 2.));
@@ -136,9 +141,9 @@ float F_laceria(vec2 p, float t, vec4 k0, vec4 k1){
   }
   float v = bg;
   float core = w + o;
-  if (dO < core) v = dO < w ? .95 - .3 * (dO / w) * (dO / w) : 0.;
+  if (dO < core) v = dO < w ? .92 - .12 * (dO / w) * (dO / w) : 0.;
   else if (cross && dO < core + gp) v = dU < core ? 0. : bg;
-  else if (dU < core) v = dU < w ? .95 - .3 * (dU / w) * (dU / w) : 0.;
+  else if (dU < core) v = dU < w ? .92 - .12 * (dU / w) * (dU / w) : 0.;
   // freshly inked strands, and the front itself while it sweeps
   if (v > .5) v = mix(v, 1., fresh);
   if (rv > .001 && u < rv) v = max(v, .55 * (1. - smoothstep(PX * .4, PX * 1.1, abs(sF - Rf))));

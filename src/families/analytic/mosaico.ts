@@ -23,8 +23,9 @@ float F_mosaico(vec2 p, float t, vec4 k0, vec4 k1){
   float n = clamp(floor(k0.x + .5), 2., 6.);
   float m = 2. * floor(.7 * n + .5) + 1.;
   vec2 ts = vec2(m * PX / 1.4, n * PX);
-  // (a quarter cell off: cell centres never sit on a tile's border, where the engines could round apart)
-  vec2 gq = (p + .25 * vec2(PX / 1.4, PX)) / ts;
+  // (a thousandth of a cell off: on canvases whose cell centres fall exactly on tile borders, the two
+  // engines would otherwise round them to different tiles)
+  vec2 gq = (p + .001 * vec2(PX / 1.4, PX)) / ts;
   vec2 id = floor(gq);
   vec2 uv = (gq - id) * 2. - 1.;
   vec2 c = (id + .5) * ts;

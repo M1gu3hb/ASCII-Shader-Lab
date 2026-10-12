@@ -23,10 +23,10 @@ export const META: FamilyMeta = {
   presets: [
     { id: 'vidrieras', name: 'Vidrieras que giran', uses: ['fondos/color', 'fondos/materia'], period: 60,
       params: { count: 7, turns: 2, opacity: 0.4, length: 1.6, sets: 'dos', tilt: 0.9, edges: 0.7, width: 1.1 },
-      look: { stops: ['#07060f', '#3b2b8f', '#d6407a', '#f2b33d', '#3fc7d9'], bg: '#04030a', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.45 } },
+      look: { stops: ['#07060f', '#3b2b8f', '#d6407a', '#f2b33d', '#3fc7d9'], bg: '#04030a', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.6 } },
     { id: 'abanico', name: 'Abanico de cristal', uses: ['arte/geometricas', 'arte/figuras'], period: 60,
-      params: { count: 10, turns: 1, opacity: 0.3, length: 1.4, sets: 'uno', tilt: 0.35, edges: 0.85, width: 0.5 },
-      look: { stops: ['#05080c', '#16505e', '#43c2b0', '#e8f7f2'], bg: '#030508', charset: ' .`:;+=*#%', colorMode: 'source', vivid: 0.4 } },
+      params: { count: 10, turns: 1, opacity: 0.4, length: 1.4, sets: 'uno', tilt: 0.35, edges: 0.9, width: 0.5 },
+      look: { stops: ['#05080c', '#16505e', '#43c2b0', '#e8f7f2'], bg: '#030508', charset: ' .`:;+=*#%', colorMode: 'source', vivid: 0.5 } },
     { id: 'noria', name: 'Noria de color', uses: ['fondos/color'], period: 60,
       params: { count: 8, turns: 3, opacity: 0.6, length: 0.7, sets: 'dos', tilt: -0.25, edges: 0.5, width: 1.4 },
       look: { stops: ['#0d0606', '#7a1f2b', '#ff6a3d', '#ffd166', '#fff6e0'], bg: '#080303', charset: ' .,:;=+*#@', colorMode: 'source', vivid: 0.35 } },

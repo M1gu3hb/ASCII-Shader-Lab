@@ -41,7 +41,7 @@ export const impl: AnalyticImpl = {
     const n = clamp(Math.floor(k[0] + 0.5), 2, 6);
     const m = tileCols(n);
     const tw = fr(fr(m * PX) / 1.4), th = fr(n * PX);
-    const gx = (x + fr(0.25 * fr(PX / 1.4))) / tw, gy = (y + fr(0.25 * PX)) / th;
+    const gx = (x + fr(0.001 * fr(PX / 1.4))) / tw, gy = (y + fr(0.001 * PX)) / th;
     const idx = Math.floor(gx), idy = Math.floor(gy);
     const u = (gx - idx) * 2 - 1, v = (gy - idy) * 2 - 1;
     const cx = (idx + 0.5) * tw, cy = (idy + 0.5) * th;
