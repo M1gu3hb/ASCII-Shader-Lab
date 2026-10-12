@@ -144,6 +144,7 @@ export function needsRebuild(meta: FamilyMeta, a: Params, b: Params): boolean {
 export function timeContract(meta: FamilyMeta, p: Params): TimeContract {
   const rule = meta.caps.time;
   if (typeof rule === 'string') return rule;
+  if (typeof rule === 'function') return rule(p);
   const v = p[rule.param];
   return (typeof v === 'string' || typeof v === 'boolean' || typeof v === 'number') && rule.values[String(v)] ? rule.values[String(v)] : rule.else;
 }
@@ -154,3 +155,8 @@ export const TIME_WORDS: Record<TimeContract, { label: string; mark: string; hin
   bucle: { label: 'Bucle', mark: '↻', hint: 'Vuelve exactamente a su inicio: estado, color y cámara empalman.' },
   construccion: { label: 'Construcción', mark: '▣', hint: 'Un proceso que termina: construye y se queda quieto. Para mirarlo crecer, no como fondo.' },
 };
+
+/** Whether a family layer with these settings is a figure drawn around the centre (FamilyMeta.figure). */
+export function figureOf(meta: FamilyMeta, p: Params): boolean {
+  return typeof meta.figure === 'function' ? meta.figure(p) : !!meta.figure;
+}

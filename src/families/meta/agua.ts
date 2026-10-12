@@ -46,7 +46,7 @@ export const META: FamilyMeta = {
     },
   ],
   caps: {
-    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
+    loop: false, time: p => (Number(p.rain) > 0 || Number(p.paddle) > 0 ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true,
     brushes: [{ id: 'gota', label: 'Gota', hint: 'Deja caer gotas donde tocas; al arrastrar, un rastro de gotas pequeñas.' }],
   },
   budget: {

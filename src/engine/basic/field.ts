@@ -93,7 +93,7 @@ export function fieldLayers(r: Recipe, W: number, H: number, fam?: FamilyHost | 
   return list.map((l, i) => ({
     // a visual family: its run's raster or its analytic CPU twin (families/basic.ts)
     pat: familyPattern(l, i, fam, pal) ?? basicPattern(l.pattern),
-    scale: l.scale * figureFit(l.pattern, W, H), rot: (l.rot * Math.PI) / 180, x: l.x, y: l.y, a: l.a, b: l.b,
+    scale: l.scale * figureFit(l.pattern, W, H, l.fam?.p), rot: (l.rot * Math.PI) / 180, x: l.x, y: l.y, a: l.a, b: l.b,
     mix: l.mix, speed: l.speed, phase: l.phase, invert: l.invert, blend: Math.max(0, BLENDS.indexOf(l.blend)),
   }));
 }

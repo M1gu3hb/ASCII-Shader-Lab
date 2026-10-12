@@ -157,13 +157,19 @@ export { FAMILIES };
  */
 export const FIGURES: ReadonlySet<string> = new Set([
   ...PATTERNS.filter(p => p.family === 'solidos' || p.family === 'formas').map(p => p.id),
-  ...FAMILIES.filter(f => f.figure).map(f => f.id),
+  ...FAMILIES.filter(f => f.figure === true).map(f => f.id),
   'lissajous', 'estrella_mar', 'respiracion', 'radar', 'galaxia',
   'rosa', 'espirografo', 'lemniscata', 'superformula', 'armonografo', 'apolonio', 'flor_armonica', 'filotaxis',
   'corazon_particulas', 'enjambre_vivo', 'mariposa_puntos', 'orbitas_gemelas', 'vortice_polvo', 'floracion_luz', 'ondas_estelares',
 ]);
-/** How much a layer's scale grows so its figure fits a W×H canvas (1 unless it is a figure on a canvas taller than wide). */
-export const figureFit = (id: string, W: number, H: number) => (H > W && W > 0 && FIGURES.has(id) ? H / W : 1);
+/** Families that are a figure with some settings and fill the canvas with others (FamilyMeta.figure as a function). */
+const FIGURE_RULES = new Map(FAMILIES.flatMap(f => (typeof f.figure === 'function' ? [[f.id, f.figure] as const] : [])));
+/**
+ * How much a layer's scale grows so its figure fits a W×H canvas (1 unless it is a figure on a canvas taller than
+ * wide). `p`: a family layer's settings, for the families whose figure depends on them.
+ */
+export const figureFit = (id: string, W: number, H: number, p?: Record<string, number | string | boolean>) =>
+  (H > W && W > 0 && (FIGURES.has(id) || (!!p && !!FIGURE_RULES.get(id)?.(p))) ? H / W : 1);
 
 /**
  * What the library ported from the pattern-library branch added (ids), for QA pages, tests and the next generator

@@ -95,8 +95,11 @@ export type ParamSpec = NumberParam | IntParam | ChoiceParam | BoolParam | TextP
  */
 export type TimeContract = 'continuo' | 'bucle' | 'construccion';
 
-/** What decides a family's contract: one for all its settings, or the value of one parameter. */
-export type TimeRule = TimeContract | { param: string; values: Record<string, TimeContract>; else: TimeContract };
+/**
+ * What decides a family's contract: one for all its settings, the value of one parameter, or (when it hangs on
+ * several at once: rain and swell, wind and sphere, drift and speed…) a function of all of them.
+ */
+export type TimeRule = TimeContract | { param: string; values: Record<string, TimeContract>; else: TimeContract } | ((p: Params) => TimeContract);
 
 /**
  * Where a preset is offered in the library (PR #10 review, A-06): by use and look, never by mechanism.
@@ -220,8 +223,11 @@ export interface FamilyMeta {
    * cells keep that colour; with the palette, only the luminance counts, like any pattern.
    */
   color?: boolean;
-  /** Drawn around the centre (sized to the width on canvases taller than wide). */
-  figure?: boolean;
+  /**
+   * Drawn around the centre (sized to the width on canvases taller than wide). A function when some settings
+   * draw a figure and others fill the canvas (a map seen from above, a plate that fills the frame).
+   */
+  figure?: boolean | ((p: Params) => boolean);
   /** Raster families: how the domain repeats outside itself. */
   wrap?: 'repeat' | 'clamp';
   /** The model draws nothing at random: another seed gives the same run (tests then skip that check). */

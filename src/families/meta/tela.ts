@@ -47,7 +47,7 @@ export const META: FamilyMeta = {
     },
   ],
   caps: {
-    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
+    loop: false, time: p => (Number(p.wind) > 0 || p.sphere === 'rebota' ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true,
     brushes: [{ id: 'empujar', label: 'Empujar', hint: 'Arrastra la tela con el dedo; sin moverlo, la hunde hacia el fondo.' }],
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 20 },

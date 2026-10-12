@@ -78,7 +78,7 @@ export const META: FamilyMeta = {
     },
   ],
   caps: {
-    loop: false, time: { param: 'jets', values: { '0': 'construccion' }, else: 'continuo' }, basic: 'full', checkpoint: true,
+    loop: false, time: p => (Number(p.jets) > 0 || (Number(p.bands) > 0 && Number(p.renew) > 0) ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true,
     brushes: [{ id: 'tinta', label: 'Tinta', hint: 'Echa tinta y empuja el fluido en la dirección del trazo.' }],
   },
   budget: {

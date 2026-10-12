@@ -57,5 +57,6 @@ export const META: FamilyMeta = {
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 60 },
   wrap: 'clamp',
-  figure: true,
+  // a square or round plate is a figure; «Todo el lienzo» fills it
+  figure: p => p.plate !== 'lienzo',
 };

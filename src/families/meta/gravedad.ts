@@ -58,5 +58,6 @@ export const META: FamilyMeta = {
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 30 },
   wrap: 'clamp',
-  figure: true,
+  // a galaxy seen from close up (zoom 2 and more) fills the canvas
+  figure: p => Number(p.zoom) < 2,
 };

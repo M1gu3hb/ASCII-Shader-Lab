@@ -68,5 +68,6 @@ export const META: FamilyMeta = {
     res: [48, 160, 112], rate: 30, warmup: 30,
   },
   wrap: 'clamp',
-  figure: true,
+  // the turning model is a figure; the map seen from above fills the canvas
+  figure: p => p.frame !== 'lienzo',
 };

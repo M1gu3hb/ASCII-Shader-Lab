@@ -1237,7 +1237,7 @@ export class AsciiEngine implements Renderer {
     const layers = r.layers.filter(l => l.on).slice(0, 4);
     const A = new Float32Array(16), B = new Float32Array(16), C = new Float32Array(16);
     layers.forEach((l, i) => {
-      A.set([l.scale * figureFit(l.pattern, this.W, this.H), (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
+      A.set([l.scale * figureFit(l.pattern, this.W, this.H, l.fam?.p), (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
       B.set([l.a, l.b, l.mix, l.speed], i * 4);
       C.set([l.invert ? 1 : 0, l.phase, Math.max(0, BLENDS.indexOf(l.blend)), 0], i * 4);
     });
@@ -1386,7 +1386,7 @@ export class AsciiEngine implements Renderer {
       if (!l || !brush || this.o.fixedSize || !P.down || P.on < 0.2) { this.famStroke[i] = null; continue; }
       // the pointer in the layer's coordinates (the field pass's p → q)
       const px = (P.x - 0.5 * this.W) / this.H, py = (0.5 * this.H - P.y) / this.H;
-      const sc = l.scale * figureFit(l.pattern, this.W, this.H), a = (l.rot * Math.PI) / 180;
+      const sc = l.scale * figureFit(l.pattern, this.W, this.H, l.fam?.p), a = (l.rot * Math.PI) / 180;
       const dx = px - l.x, dy = py - l.y, c = Math.cos(a), s = Math.sin(a);
       const qx = (c * dx - s * dy) * sc, qy = (s * dx + c * dy) * sc;
       const prev = this.famStroke[i] ?? [qx, qy];

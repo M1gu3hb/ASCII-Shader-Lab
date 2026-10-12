@@ -5,7 +5,7 @@ import { PRESETS, spaceAccepts } from '../../src/studio/presets';
 import { SCENES } from '../../src/studio/scenes';
 import { FAMILIES } from '../../src/families/registry';
 import { CATEGORIES, allItems, filtersOf, itemNamed, itemsOf, moodOf, sectionOf, sectionsOf, usesOf } from '../../src/studio/recipes/catalog';
-import { normParams, timeContract } from '../../src/families/params';
+import { figureOf, normParams, timeContract } from '../../src/families/params';
 import { fold, search, tokens } from '../../src/studio/recipes/search';
 import { itemOfEntry, isShown, recentItems } from '../../src/studio/recipes/used';
 import { keptKey } from '../../src/studio/recipes/kept';
@@ -195,9 +195,9 @@ describe('catálogo por uso y apariencia (revisión del PR #10, A-06)', () => {
   it('Fondos sólo ofrece presets que siguen cambiando (o empalman) y llenan el lienzo', () => {
     for (const f of FAMILIES) for (const p of f.presets) {
       if (!usesOf(f, p).some(u => u.startsWith('fondos/'))) continue;
-      const tc = timeContract(f, normParams(f, p.params));
-      expect(tc, `${f.id}:${p.id}`).not.toBe('construccion');
-      expect(f.figure ?? false, `${f.id}:${p.id} es una figura centrada`).toBe(false);
+      const params = normParams(f, p.params);
+      expect(timeContract(f, params), `${f.id}:${p.id}`).not.toBe('construccion');
+      expect(figureOf(f, params), `${f.id}:${p.id} es una figura centrada`).toBe(false);
     }
   });
 

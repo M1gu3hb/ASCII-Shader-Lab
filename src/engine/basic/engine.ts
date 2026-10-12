@@ -806,7 +806,7 @@ export class BasicEngine implements Renderer {
       const l = layers[i], brush = l?.fam?.brush;
       if (!l || !brush || this.o.fixedSize || !P.down || P.on < 0.2) { this.famStroke[i] = null; continue; }
       const px = (P.x - 0.5 * this.W) / this.H, py = (0.5 * this.H - P.y) / this.H;
-      const sc = l.scale * figureFit(l.pattern, this.W, this.H), a = (l.rot * Math.PI) / 180;
+      const sc = l.scale * figureFit(l.pattern, this.W, this.H, l.fam?.p), a = (l.rot * Math.PI) / 180;
       const dx = px - l.x, dy = py - l.y, c = Math.cos(a), s = Math.sin(a);
       const qx = (c * dx - s * dy) * sc, qy = (s * dx + c * dy) * sc;
       const prev = this.famStroke[i] ?? [qx, qy];
