@@ -22,6 +22,11 @@ const LOAD: Record<string, () => Promise<string>> = {
   mar: () => import('./mar').then(m => m.MAR_GLSL),
   osciloscopio: () => import('./osciloscopio').then(m => m.OSCILOSCOPIO_GLSL),
   marco: () => import('./marco').then(m => m.MARCO_GLSL),
+  metal_fundido: () => import('./metal_fundido').then(m => m.METAL_FUNDIDO_GLSL),
+  seda: () => import('./seda').then(m => m.SEDA_GLSL),
+  grietas_oro: () => import('./grietas_oro').then(m => m.GRIETAS_ORO_GLSL),
+  jade_ruido: () => import('./jade_ruido').then(m => m.JADE_RUIDO_GLSL),
+  cuerdas: () => import('./cuerdas').then(m => m.CUERDAS_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';
