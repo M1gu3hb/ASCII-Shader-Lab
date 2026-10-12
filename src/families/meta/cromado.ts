@@ -40,5 +40,6 @@ export const META: FamilyMeta = {
   ],
   caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
   budget: {},
-  figure: true,
+  // a drop, a ring or a rhombus is a figure; «Sin forma» covers the whole canvas
+  figure: p => p.mask !== 'campo',
 };
