@@ -1,0 +1,45 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'niebla',
+  name: 'Cámara de niebla',
+  group: 'ciencia',
+  kind: 'simulation',
+  version: 1,
+  aka: ['cloud chamber', 'cámara de Wilson', 'cámara de burbujas', 'fuerza de Lorentz', 'trazas de partículas'],
+  params: [
+    { key: 'field', label: 'Campo magnético', type: 'number', min: 0, max: 1, def: 0.6, step: 0.01 },
+    { key: 'drag', label: 'Frenado', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'rate', label: 'Partículas', type: 'number', min: 0.5, max: 20, def: 4, step: 0.1, unit: '/s' },
+    { key: 'trace', label: 'Largo de traza', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'source', label: 'Entrada', type: 'choice', def: 'bordes', options: [
+      { id: 'bordes', label: 'Por los bordes' }, { id: 'arriba', label: 'Desde arriba (rayos cósmicos)' }, { id: 'fuente', label: 'Una fuente radiactiva' },
+    ] },
+    { key: 'pairs', label: 'Pares', type: 'number', min: 0, max: 1, def: 0.25, step: 0.01 },
+    { key: 'alphas', label: 'Alfas', type: 'number', min: 0, max: 1, def: 0.15, step: 0.01 },
+    { key: 'muons', label: 'Muones', type: 'number', min: 0, max: 1, def: 0.2, step: 0.01 },
+    { key: 'energy', label: 'Energía', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'mist', label: 'Niebla de fondo', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
+    { key: 'grain', label: 'Gotas', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01, advanced: true },
+  ],
+  presets: [
+    { id: 'burbujas', name: 'Cámara de burbujas', uses: ['terminal/consola', 'arte/curvas'], aka: ['espirales de electrones'],
+      params: { field: 0.85, drag: 0.5, rate: 7, trace: 0.55, source: 'bordes', pairs: 0.25, alphas: 0.05, muons: 0.1, energy: 0.45, mist: 0.25, grain: 0.4 },
+      look: { stops: ['#03070a', '#1c4a5a', '#bfefff'], bg: '#020507', charset: ' .·:-=+*#' } },
+    { id: 'cosmicos', name: 'Rayos cósmicos', uses: ['terminal/consola', 'fondos/espacio'], aka: ['muones cósmicos'],
+      params: { field: 0.12, drag: 0.05, rate: 4, trace: 0.75, source: 'arriba', pairs: 0.1, alphas: 0.05, muons: 0.7, energy: 0.9, mist: 0.45, grain: 0.6 },
+      look: { stops: ['#020604', '#0e3a1c', '#5dff8a', '#e2ffe8'], bg: '#010402', charset: ' .:-=+*#' } },
+    { id: 'pares', name: 'Lluvia de pares', uses: ['terminal/consola', 'arte/curvas'], aka: ['creación de pares'],
+      params: { field: 0.5, drag: 0.3, rate: 7, trace: 0.6, source: 'bordes', pairs: 0.8, alphas: 0, muons: 0.05, energy: 0.6, mist: 0.2, grain: 0.4 },
+      look: { stops: ['#08040c', '#3a1a5a', '#ff7ad8', '#fff0fb'], bg: '#050208', charset: ' .`\'-~=+*#' } },
+    { id: 'fuente', name: 'Fuente alfa', uses: ['terminal/consola'], aka: ['desintegración alfa'],
+      params: { field: 0.35, drag: 0.45, rate: 7, trace: 0.5, source: 'fuente', pairs: 0.1, alphas: 0.2, muons: 0.1, energy: 0.5, mist: 0.3, grain: 0.5 },
+      look: { stops: ['#0a0703', '#4a3410', '#ffcf6a', '#fff6de'], bg: '#060402', charset: ' .,:;=+*#%' } },
+  ],
+  caps: {
+    loop: false, time: 'continuo', basic: 'full', checkpoint: true,
+    brushes: [{ id: 'rafaga', label: 'Ráfaga', hint: 'Suelta un puñado de electrones que salen en todas direcciones desde donde tocas.' }],
+  },
+  budget: { res: [48, 160, 80], rate: 30, warmup: 90 },
+  wrap: 'clamp',
+};
