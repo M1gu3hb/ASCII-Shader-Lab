@@ -3,8 +3,9 @@
  * rhombus, moving metaballs, or none) gives a signed distance d; from it an edge field E (1 on the contour,
  * falling to 0 inside with a parabolic profile, the shape of a Poisson solution with zero boundary value) bends
  * the band coordinate: φ = repetition · (diagonal + contour · E + distortion · noise) − time. Near the contour
- * the bands turn and crowd to follow it. One period of φ is a reflected ramp, a sharp horizon and a few fine
- * lines, filtered by the phase change across one cell so it never aliases into noise. Red and blue read the
+ * the bands turn and crowd to follow it. One period of φ is a reflected ramp up to a sharp horizon and a line
+ * in the dark ground, filtered by the phase change across one cell so it never aliases into noise; a rim of
+ * light runs along the contour. Red and blue read the
  * band a little ahead and behind (dispersion), each channel through the palette (the tint). The glyph comes
  * from the band phase. Written from the published description of the effect, not from any shader's code.
  * Parameters: k0 = (mask, repetition, distortion, contour), k1 = (angle°, dispersion, speed, size).

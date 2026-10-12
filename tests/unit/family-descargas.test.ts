@@ -42,19 +42,18 @@ describe('descargas eléctricas', () => {
   }, 120_000);
 
   it('los arcos se renuevan sin encenderse ni apagarse de golpe', () => {
-    // without crackle the arcs only change by their lives and the conductors' drift: a sweep at 120 per second
-    // shows no step in the canvas's ink
+    // without crackle the ink of the canvas is a continuous function of time: halving the step halves the
+    // largest change between samples (a switch would keep its full size at any sampling rate)
     for (const pr of META.presets) {
       const p = params(pr.id, { crackle: 0 });
-      let prev = mean(frame(p, 0)), worst = 0;
-      for (let i = 1; i <= 120 * 10; i++) {
-        const m = mean(frame(p, i / 120));
-        worst = Math.max(worst, Math.abs(m - prev));
-        prev = m;
-      }
-      expect(worst, pr.id).toBeLessThan(0.006);
+      const m: number[] = [];
+      for (let i = 0; i <= 240 * 8; i++) m.push(mean(frame(p, i / 240)));
+      let fine = 0, coarse = 0;
+      for (let i = 1; i < m.length; i++) fine = Math.max(fine, Math.abs(m[i] - m[i - 1]));
+      for (let i = 2; i < m.length; i += 2) coarse = Math.max(coarse, Math.abs(m[i] - m[i - 2]));
+      expect(fine, pr.id).toBeLessThan(0.65 * coarse + 1e-4);
     }
-  }, 120_000);
+  }, 180_000);
 
   it('los conductores se mueven y los arcos nacen en ellos', () => {
     const p = params('anillo');

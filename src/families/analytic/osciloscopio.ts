@@ -43,7 +43,7 @@ float osc_y(float x, float t, vec4 k0, vec4 k1){
   float Q = exp2(8. - 7. * dq) * .5;
   y = mix(y, floor(y * Q + .5) / Q, smoothstep(.05, .2, dq));
   float dn = D * wn + k0.w * .12;
-  y += dn * .5 * (.6 * (gnoise(vec2(xs * 55., t * 7.)) - .5) + .4 * (hash11(floor(xs * 140.) + mod(floor(t * 24.), 997.) * 7.) - .5));
+  y += dn * .5 * (.6 * (gnoise(vec2(xs * 55., t * 7.)) - .5) + .4 * (gnoise(vec2(xs * 140., mod(floor(t * 24.), 997.) * 7.)) - .5));
   return y * .3;
 }
 // brightness of the trace at p: distance to the polyline through three samples, dimmer where it is steep

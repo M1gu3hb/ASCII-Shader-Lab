@@ -27,7 +27,7 @@ export const META: FamilyMeta = {
       params: { layout: 'estrella', count: 6, jag: 0.75, branches: 0.6, crackle: 0.45, glow: 0.65, flicker: 0.1, motion: 0.45 },
       look: { stops: ['#06020c', '#3b0f6b', '#b14dff', '#f0c6ff', '#ffffff'], bg: '#040108', charset: ' .:-=+*#%@' } },
     { id: 'tormenta', name: 'Tormenta seca', aka: ['rayos cielo-tierra'], uses: ['fondos/vivas', 'arte/organicas'],
-      params: { layout: 'tormenta', count: 4, jag: 0.6, branches: 0.8, crackle: 0.2, glow: 0.45, flicker: 0.2, motion: 0.4 },
+      params: { layout: 'tormenta', count: 6, jag: 0.6, branches: 0.8, crackle: 0.2, glow: 0.45, flicker: 0.35, motion: 0.6 },
       look: { stops: ['#04050a', '#1a1f33', '#56608a', '#d6dcff', '#ffffff'], bg: '#030408', charset: ' .:-=+*#%@' } },
     { id: 'chispa', name: 'Chispa entre dos', aka: ['arco entre electrodos'], uses: ['terminal/figuras', 'arte/optica'],
       params: { layout: 'anillo', count: 2, jag: 0.8, branches: 0.3, crackle: 0.6, glow: 0.35, flicker: 0.05, motion: 0.15 },

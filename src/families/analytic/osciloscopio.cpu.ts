@@ -36,7 +36,7 @@ export function oscY(x: number, t: number, k: Float32Array): number {
   const Q = Math.pow(2, 8 - 7 * dq) * 0.5;
   y = mix(y, Math.floor(y * Q + 0.5) / Q, smoothstep(0.05, 0.2, dq));
   const dn = D * wn + k[3] * 0.12;
-  y += dn * 0.5 * (0.6 * (gnoise(xs * 55, t * 7) - 0.5) + 0.4 * (hash11(Math.floor(xs * 140) + mod(Math.floor(t * 24), 997) * 7) - 0.5));
+  y += dn * 0.5 * (0.6 * (gnoise(xs * 55, t * 7) - 0.5) + 0.4 * (gnoise(xs * 140, mod(Math.floor(t * 24), 997) * 7) - 0.5));
   return y * 0.3;
 }
 

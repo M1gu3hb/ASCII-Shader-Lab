@@ -45,7 +45,7 @@ vec4 FC_marco(vec2 p, float t, vec4 k0, vec4 k1){
   float core = 1. / (1. + sd * sd / (w * w));
   float n = max(uPalN, 1.);
   float base = .38;
-  vec3 cb = marc_ramp(.55);
+  vec3 cb = marc_ramp(.72);
   vec3 acc = cb * base;
   float cs = 0., ws = base;
   float tau = .28 * P / max(K, 1.);

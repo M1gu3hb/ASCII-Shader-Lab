@@ -50,7 +50,7 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
   const core = 1 / (1 + (sd * sd) / (w * w));
   const n = Math.max(pal.n, 1);
   const base = 0.38;
-  ramp(0.55, CB);
+  ramp(0.72, CB);
   let ar = CB[0] * base, ag = CB[1] * base, ab = CB[2] * base, cs = 0, ws = base;
   const tau = (0.28 * P) / Math.max(K, 1);
   for (let i = 0; i < K; i++) {

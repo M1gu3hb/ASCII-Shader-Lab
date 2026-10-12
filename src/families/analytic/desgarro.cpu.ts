@@ -1,5 +1,5 @@
 import type { AnalyticImpl, Palette } from '../types';
-import { V2, fbm, fract, gnoise, hash12, hash22, smoothstep } from '../../engine/basic/core';
+import { V2, fbm, fract, gnoise, hash22, smoothstep } from '../../engine/basic/core';
 import { currentPX } from '../../engine/basic/patterns';
 import { DESGARRO_GLSL } from './desgarro';
 
@@ -105,8 +105,8 @@ function eval4(x: number, y: number, t: number, k: Float32Array) {
       const n1 = fbm(wx + 1.4 * gnoise(wx * 1.1 + t * 0.05, wy * 1.1 + t * 0.05), wy + 1.4 * gnoise(wx * 1.1 + 4.3 - t * 0.04, wy * 1.1 + 4.3 - t * 0.04));
       let v = 1 - Math.abs(2 * gnoise(x * 4.5 + n1 * 1.5, y * 4.5 + n1 * 1.5) - 1);
       v = v * v; v = v * v;
-      const hs = hash12(Math.floor(x * 26) + 3, Math.floor(y * 26) + 3);
-      const sp = smoothstep(0.95, 1, hs) * (0.5 + 0.5 * Math.sin(t * (1.5 + 2 * hs) + hs * 50));
+      const hs = gnoise(x * 26 + 3, y * 26 + 3);
+      const sp = smoothstep(0.84, 0.92, hs) * (0.5 + 0.5 * Math.sin(t * (1.5 + 2 * hs) + hs * 50));
       bl = 0.06 + 0.62 * n1 * n1 + 0.45 * v + 0.6 * sp;
       ramp(0.42 + 0.45 * n1 + 0.25 * v + 0.3 * sp, B);
     } else if (beh < 1.5) {

@@ -1,5 +1,5 @@
 import type { AnalyticImpl } from '../types';
-import { TAU, V2, fbm, fract, hash12, hash22, smoothstep } from '../../engine/basic/core';
+import { TAU, fbm, fract, gnoise, smoothstep } from '../../engine/basic/core';
 import { currentPX } from '../../engine/basic/patterns';
 import { MAR_GLSL } from './mar';
 
@@ -16,8 +16,8 @@ function sky(sx: number, sy: number, rad: number, m: number, hg: number, st: num
   const disc = smoothstep(rad + 0.005, rad - 0.005, d);
   v += on * (m * disc + hg * (0.3 * Math.exp(-Math.max(d - rad, 0) / 0.06) + 0.05 * Math.exp(-d / 0.3)));
   if (st > 0) {
-    const h = hash12(Math.floor(sx * 64) + 11, Math.floor(sy * 64) + 11);
-    v += st * smoothstep(0.04, 0.12, sy) * (h < 0.985 ? 0 : 1) * (0.22 + 0.15 * Math.sin(t * (0.8 + h * 2) + h * 60));
+    const h = gnoise(sx * 70 + 11, sy * 70 + 11);
+    v += st * smoothstep(0.04, 0.12, sy) * smoothstep(0.8, 0.86, h) * (0.22 + 0.15 * Math.sin(t * (0.8 + h * 2) + h * 60));
   }
   return v;
 }
@@ -69,16 +69,13 @@ export const impl: AnalyticImpl = {
     const cs = Math.max(-dd, 0);
     const F = 0.02 + 0.98 * Math.pow(1 - cs, 5);
     const zz = Math.max(qz, 0.05);
-    const cx = Math.floor(x / Math.max(PX, 1e-4)), cy = Math.floor(y / Math.max(PX, 1e-4));
-    hash22(cx + 7, cy + 7);
-    const an = V2[0] * TAU + t * (0.6 + 1.4 * V2[1]), jm = 0.12 * Math.sqrt(V2[1]);
-    const jx = jm * Math.cos(an), jy = jm * Math.sin(an);
+    const jx = 0.26 * (gnoise(x * 61 + t * 0.9, y * 61) - 0.5), jy = 0.26 * (gnoise(x * 61 + 17.3, y * 61 - t * 0.8) - 0.5);
     let v = F * sky((qx / zz) * f + jx, (Math.max(qy, 0) / zz) * f + jy, mr * 1.25, 12, 2, 0, t);
     const hn = h / Math.sqrt(a2 * 0.5 + 1e-8);
     const fade = Math.exp(-l * 0.05);
     v += (1 - F) * (0.03 + (0.12 + 0.16 * wav) * smoothstep(0.4, 1.6, hn) * fade);
     const crest = smoothstep(0.2, 1.3, hn);
-    const hs = hash12(cx + 5, cy + 5);
+    const hs = gnoise(x * 53 + 5, y * 53 + 5);
     const tw = 0.5 + 0.5 * Math.sin(t * (0.9 + 1.6 * hs) + hs * 40);
     v += pl * fade * (crest * (0.35 + 0.65 * tw * (hs < 0.35 ? 0 : 1)) + 0.06);
     return Math.min(1, Math.max(0, v));

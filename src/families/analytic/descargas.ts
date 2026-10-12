@@ -36,7 +36,7 @@ float desc_arc(vec2 p, vec2 a, vec2 b, float id, float e, float bt, float T, flo
   vec2 dir = ab / L, nrm = vec2(-dir.y, dir.x);
   float amp = jag * .4 * L;
   float s = clamp(dot(p - a, dir) / L, 0., 1.);
-  float vis = 1. - smoothstep(prog - .03, prog, s);
+  float vis = 1. - smoothstep(prog - .12, prog, s);
   float d0 = sdSeg(p, a, b);
   float far = (.16 * hal * .015 / (d0 + .015) + .08 * hal * exp(-d0 / .07)) * vis;
   float w = smoothstep(amp + .1, amp + .16, d0);
@@ -63,7 +63,7 @@ float desc_arc(vec2 p, vec2 a, vec2 b, float id, float e, float bt, float T, flo
     vec2 cb = o + bd * lb * q + vec2(-bd.y, bd.x) * (gnoise(vec2(q * 6. * lb + sd + fj, T * 1.3)) - .5) * .5 * jag * lb * q;
     float d = length(p - cb);
     float f = 1. - q;
-    v += wb * eb * f * f * (desc_core(d, .008) + .12 * hal * .015 / (d + .015)) * (1. - smoothstep(prog - .03, prog, sb));
+    v += wb * eb * f * f * (desc_core(d, .008) + .12 * hal * .015 / (d + .015)) * (1. - smoothstep(prog - .12, prog, sb));
   }
   return e * v;
 }
@@ -100,7 +100,7 @@ float F_descargas(vec2 p, float t, vec4 k0, vec4 k1){
     return clamp(v * fl, 0., 1.);
   }
   // storm: bolts from the cloud band to the ground, each striking on a cycle of its own
-  float cl = smoothstep(.02, .42, p.y) * smoothstep(.3, .85, fbm(p * vec2(1.5, 3.2) + vec2(M * .1, -M * .05)));
+  float cl = smoothstep(-.02, .36, p.y) * smoothstep(.25, .8, fbm(p * vec2(1.5, 3.2) + vec2(M * .1, -M * .05)));
   float flash = 0.;
   for (int i = 0; i < 6; i++){
     float fi = float(i);
@@ -108,13 +108,14 @@ float F_descargas(vec2 p, float t, vec4 k0, vec4 k1){
     float g = t * (.14 + .04 * fi) * (.6 + .8 * k1.w) + hash11(fi * 37. + 3.) * 10.;
     float x = fract(g), li = floor(g);
     float re = step(.5, hash11(li * 3. + fi * 17. + 5.));
-    float env = smoothstep(0., .012, x) * exp(-max(x - .03, 0.) * 7.) + .4 * re * smoothstep(.1, .115, x) * exp(-max(x - .115, 0.) * 12.);
+    // the strike, then a channel that fades slowly (a background never goes empty), sometimes a second stroke
+    float env = (smoothstep(0., .012, x) * exp(-max(x - .03, 0.) * 4.) + .4 * re * smoothstep(.1, .115, x) * exp(-max(x - .115, 0.) * 12.)) * (1. - smoothstep(.8, 1., x));
     if (env < .002) continue;
     vec2 h = hash22(vec2(li * 7. + fi * 13. + 1., fi * 3. + 2.));
     vec2 a = vec2((h.x - .5) * 1.5, .43), b = vec2(a.x + (h.y - .5) * .7, -.52);
-    v += desc_arc(p, a, b, li * 8. + fi, env, -1., T * .25, .45 + .55 * jag, br, hal, smoothstep(0., .03, x) * 1.05);
+    v += desc_arc(p, a, b, li * 8. + fi, env, -1., T * .25, .45 + .55 * jag, br, hal, smoothstep(0., .03, x) * 1.13);
     flash += env * exp(-length(p - a) / .5);
   }
-  return clamp((v + (.45 + .35 * k1.z * flash) * cl) * fl, 0., 1.);
+  return clamp((v + (.6 + .35 * k1.z * flash) * cl) * fl, 0., 1.);
 }
 `;

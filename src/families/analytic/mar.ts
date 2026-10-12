@@ -5,8 +5,10 @@
  * so long swells run faster than short ripples and the sum never repeats. The normal comes from the analytic
  * gradient; waves shorter than a few cells' footprint fade out (no aliasing near the horizon). The ray
  * reflects off that normal and reads the sky in the reflected direction, weighted by Schlick's Fresnel term
- * F = F₀ + (1 − F₀)(1 − cos θ)⁵: the moon, far brighter than the sky, breaks into a column of glints.
- * «Plancton» lights the crests (normalised height over a threshold) with a slow twinkle per cell. Above the
+ * F = F₀ + (1 − F₀)(1 − cos θ)⁵: the moon, far brighter than the sky, breaks into a column of glints (each
+ * cell's reflection also wanders by a fine noise about one cell across: facets smaller than a cell sparkle).
+ * «Plancton» lights the crests (height over its local spread) with a slow twinkle. Per-cell randomness comes
+ * from continuous noise, never from floor(p / cell): cell centres can sit exactly on those boundaries. Above the
  * horizon: haze, the moon with its halo and a few stars. Written from the published description of the
  * effect, not from any shader's code.
  * Parameters: k0 = (wave height, wave length, wind, horizon), k1 = (moon size, moon height, moon x, plankton).
@@ -20,9 +22,9 @@ float mar_sky(vec2 s, vec2 mp, float mr, float on, float m, float h, float st, f
   float disc = smoothstep(mr + .005, mr - .005, d);
   v += on * (m * disc + h * (.3 * exp(-max(d - mr, 0.) / .06) + .05 * exp(-d / .3)));
   if (st > 0.){
-    vec2 c = floor(s * 64.);
-    float hs = hash12(c + 11.);
-    v += st * smoothstep(.04, .12, s.y) * step(.985, hs) * (.22 + .15 * sin(t * (.8 + hs * 2.) + hs * 60.));
+    // stars: the peaks of a fine noise (continuous, so both engines find the same ones)
+    float hs = gnoise(s * 70. + 11.);
+    v += st * smoothstep(.04, .12, s.y) * smoothstep(.8, .86, hs) * (.22 + .15 * sin(t * (.8 + hs * 2.) + hs * 60.));
   }
   return v;
 }
@@ -63,12 +65,9 @@ float F_mar(vec2 p, float t, vec4 k0, vec4 k1){
   float cs = max(-dot(rd, nrm), 0.);
   float F = .02 + .98 * pow(1. - cs, 5.);
   vec2 sr = vec2(r.x, max(r.y, 0.)) / max(r.z, .05) * f;
-  // facets smaller than a cell: each cell's reflection wanders a little on its own, so the moon's path
-  // sparkles cell by cell instead of shining in blocks
-  vec2 c = floor(p / max(PX, 1e-4));
-  vec2 hc = hash22(c + 7.);
-  float an = hc.x * TAU + t * (.6 + 1.4 * hc.y);
-  sr += .12 * sqrt(hc.y) * vec2(cos(an), sin(an));
+  // facets smaller than a cell: each cell's reflection wanders on its own (a fine noise, about one cell
+  // across, continuous so both engines agree), so the moon's path sparkles instead of shining in blocks
+  sr += .26 * (vec2(gnoise(p * 61. + vec2(t * .9, 0.)), gnoise(p * 61. + vec2(17.3, -t * .8))) - .5);
   // the moon is far brighter than the sky: its reflection breaks into glints; the haze shows the waves' faces
   float v = F * mar_sky(sr, mp, mr * 1.25, on, 12., 2., 0., t);
   // the water itself: dark, a little lighter on the crests (ripples on calm water, whitecaps on rough)
@@ -77,7 +76,7 @@ float F_mar(vec2 p, float t, vec4 k0, vec4 k1){
   v += (1. - F) * (.03 + (.12 + .16 * wav) * smoothstep(.4, 1.6, hn) * fade);
   // plankton lights the crests with a slow twinkle
   float crest = smoothstep(.2, 1.3, hn);
-  float hs = hash12(c + 5.);
+  float hs = gnoise(p * 53. + 5.);
   float tw = .5 + .5 * sin(t * (.9 + 1.6 * hs) + hs * 40.);
   v += pl * fade * (crest * (.35 + .65 * tw * step(.35, hs)) + .06);
   return clamp(v, 0., 1.);

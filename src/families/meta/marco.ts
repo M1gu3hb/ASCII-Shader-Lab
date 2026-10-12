@@ -27,7 +27,7 @@ export const META: FamilyMeta = {
       look: { stops: ['#05030a', '#2a1650', '#ff3d8b', '#38e8ff'], bg: '#040208', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.35 } },
     { id: 'latido', name: 'Latido', aka: ['pulso'], uses: ['arte/geometricas'],
       params: { comets: 0, speed: 0.2, thick: 0.6, margin: 0.12, radius: 1, pulse: 1, smoke: 0.45, ratio: 1.78 },
-      look: { stops: ['#070203', '#3d0a10', '#e5243b', '#ffc2c8'], bg: '#050102', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
+      look: { stops: ['#070203', '#5a0d16', '#ff3b4f', '#ffd0d5'], bg: '#050102', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
     { id: 'humo', name: 'Humo de colores', aka: ['marco con humo'], uses: ['arte/geometricas'],
       params: { comets: 4, speed: 0.6, thick: 0.45, margin: 0.1, radius: 0.25, pulse: 0.25, smoke: 0.9, ratio: 1.78 },
       look: { stops: ['#04040a', '#1d1d3a', '#ffb703', '#fb5607', '#ff006e', '#8338ec'], bg: '#030308', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.3 } },

@@ -72,7 +72,7 @@ function setArc(k: number, ax: number, ay: number, bx: number, by: number, id: n
 function arcAt(A: Arc, x: number, y: number, Tn: number, jg: number): number {
   const px = x - A.ax, py = y - A.ay;
   const s = Math.min(1, Math.max(0, (px * A.dx + py * A.dy) / A.L));
-  const vis = 1 - smoothstep(A.prog - 0.03, A.prog, s);
+  const vis = 1 - smoothstep(A.prog - 0.12, A.prog, s);
   const d0 = sdSeg(x, y, A.ax, A.ay, A.bx, A.by);
   const far = (0.16 * hal * 0.015 / (d0 + 0.015) + 0.08 * hal * Math.exp(-d0 / 0.07)) * vis;
   const w = smoothstep(A.amp + 0.1, A.amp + 0.16, d0);
@@ -95,7 +95,7 @@ function arcAt(A: Arc, x: number, y: number, Tn: number, jg: number): number {
     const cx = B.ox + B.bx * B.lb * q - B.by * o, cy = B.oy + B.by * B.lb * q + B.bx * o;
     const d = Math.hypot(x - cx, y - cy);
     const f = 1 - q;
-    v += wb * B.eb * f * f * (core(d, 0.008) + 0.12 * hal * 0.015 / (d + 0.015)) * (1 - smoothstep(A.prog - 0.03, A.prog, B.sb));
+    v += wb * B.eb * f * f * (core(d, 0.008) + 0.12 * hal * 0.015 / (d + 0.015)) * (1 - smoothstep(A.prog - 0.12, A.prog, B.sb));
   }
   return A.e * v;
 }
@@ -134,12 +134,12 @@ export const impl: AnalyticImpl = {
       const g = t * (0.14 + 0.04 * i) * (0.6 + 0.8 * k[7]) + hash11(i * 37 + 3) * 10;
       const x = fract(g), li = Math.floor(g);
       const re = hash11(li * 3 + i * 17 + 5) < 0.5 ? 0 : 1;
-      const env = smoothstep(0, 0.012, x) * Math.exp(-Math.max(x - 0.03, 0) * 7) + 0.4 * re * smoothstep(0.1, 0.115, x) * Math.exp(-Math.max(x - 0.115, 0) * 12);
+      const env = (smoothstep(0, 0.012, x) * Math.exp(-Math.max(x - 0.03, 0) * 4) + 0.4 * re * smoothstep(0.1, 0.115, x) * Math.exp(-Math.max(x - 0.115, 0) * 12)) * (1 - smoothstep(0.8, 1, x));
       if (env < 0.002) continue;
       hash22(li * 7 + i * 13 + 1, i * 3 + 2);
       const hx = V2[0], hy = V2[1];
       const ax = (hx - 0.5) * 1.5, ay = 0.43, bx = ax + (hy - 0.5) * 0.7, by = -0.52;
-      setArc(nArcs++, ax, ay, bx, by, li * 8 + i, env, -1, T * 0.25, 0.45 + 0.55 * jag, smoothstep(0, 0.03, x) * 1.05);
+      setArc(nArcs++, ax, ay, bx, by, li * 8 + i, env, -1, T * 0.25, 0.45 + 0.55 * jag, smoothstep(0, 0.03, x) * 1.13);
       FLASH[nFlash * 3] = env; FLASH[nFlash * 3 + 1] = ax; FLASH[nFlash * 3 + 2] = ay; nFlash++;
     }
   },
@@ -153,12 +153,12 @@ export const impl: AnalyticImpl = {
       }
       return Math.min(1, Math.max(0, v * fl));
     }
-    const cl = smoothstep(0.02, 0.42, y) * smoothstep(0.3, 0.85, fbm(x * 1.5 + M * 0.1, y * 3.2 - M * 0.05));
+    const cl = smoothstep(-0.02, 0.36, y) * smoothstep(0.25, 0.8, fbm(x * 1.5 + M * 0.1, y * 3.2 - M * 0.05));
     let flash = 0;
     for (let i = 0; i < nArcs; i++) {
       v += arcAt(ARCS[i], x, y, T * 0.25, 0.45 + 0.55 * jag);
       flash += FLASH[i * 3] * Math.exp(-Math.hypot(x - FLASH[i * 3 + 1], y - FLASH[i * 3 + 2]) / 0.5);
     }
-    return Math.min(1, Math.max(0, (v + (0.45 + 0.35 * cl0 * flash) * cl) * fl));
+    return Math.min(1, Math.max(0, (v + (0.6 + 0.35 * cl0 * flash) * cl) * fl));
   },
 };

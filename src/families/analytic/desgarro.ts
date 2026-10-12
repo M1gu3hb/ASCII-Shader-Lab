@@ -7,7 +7,7 @@
  * next without a jump. Several tears run out of phase so a background never stands still. Behind: a light of
  * its own (warped fBm nebula, ridged veins, slow sparkles), a line screen or colour currents of the palette.
  * The edge carries a hot rim, light spilling onto the surface, a lit lip on one side and a shadow on the
- * other; the surface's own grain moves apart with the halves. «Quemado» burns holes instead (an fBm front
+ * other; the surface's own grain moves apart with the halves, under a slow light that drifts across it. «Quemado» burns holes instead (an fBm front
  * that grows from the impact, with an ember line and charred paper) and heals them back. Written from the
  * published description of the effect, not from any shader's code.
  * Parameters: k0 = (kind, behind, tears, cycle s), k1 = (calm, width, glow, fibres).
@@ -88,9 +88,9 @@ vec4 FC_desgarro(vec2 p, float t, vec4 k0, vec4 k1){
       float n1 = fbm(wq + 1.4 * vec2(gnoise(wq * 1.1 + t * .05), gnoise(wq * 1.1 + 4.3 - t * .04)));
       float v = 1. - abs(2. * gnoise(p * 4.5 + n1 * 1.5) - 1.);
       v = v * v; v = v * v;
-      vec2 g = floor(p * 26.);
-      float hs = hash12(g + 3.);
-      float sp = smoothstep(.95, 1., hs) * (.5 + .5 * sin(t * (1.5 + 2. * hs) + hs * 50.));
+      // sparkles: the peaks of a fine noise (continuous, so both engines find the same ones)
+      float hs = gnoise(p * 26. + 3.);
+      float sp = smoothstep(.84, .92, hs) * (.5 + .5 * sin(t * (1.5 + 2. * hs) + hs * 50.));
       bl = .06 + .62 * n1 * n1 + .45 * v + .6 * sp;
       bcol = desg_ramp(.42 + .45 * n1 + .25 * v + .3 * sp);
     } else if (beh < 1.5){
