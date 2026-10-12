@@ -13,7 +13,8 @@ import { bakeGradient } from '../../src/engine/color';
 import { brushDry, brushGhost, brushWidth, isCalligraphy, simSettle } from '../../src/engine/pointer';
 import { SimGrid } from '../../src/engine/basic/sim';
 import { PRESETS } from '../../src/studio/presets';
-import { sectionOf } from '../../src/studio/recipes/catalog';
+import { allItems, sectionOf } from '../../src/studio/recipes/catalog';
+import { search } from '../../src/studio/recipes/search';
 
 /*
  * Closing of PR #10, «acabados» group: the glass solids (I-36…I-43), the anamorphic flare (I-22), the paper
@@ -489,5 +490,16 @@ describe('pincel caligráfico (I-20)', () => {
     const it0 = normInteract({ mode: 'paint', decay: 0.5 }), it1 = normInteract({ mode: 'paint', decay: 0.5, stroke: 'caligrafia' });
     expect(simSettle(it1)).toBeGreaterThan(simSettle(it0) * 2);
     expect(SIM_FS).toContain('uStroke == 1');
+  });
+});
+
+describe('búsqueda en Recetas', () => {
+  it('las recetas nuevas se encuentran por lo que hacen', () => {
+    const names = (q: string) => search(allItems(), q).map(i => i.name);
+    expect(names('anamorfico')).toContain('Destello de cine');
+    expect(names('caligrafia')).toContain('Caligrafía en papel');
+    expect(names('papel')).toContain('Impreso en papel');
+    expect(names('refraccion')).toEqual(expect.arrayContaining(['Esfera de vidrio', 'Bola de cristal', 'Bajo la lupa']));
+    expect(names('arcoiris')).toContain('Prisma de vidrio');
   });
 });

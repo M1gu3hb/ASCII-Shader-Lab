@@ -204,6 +204,12 @@ function wordsOf(space: SceneSpace, r: Recipe, cats: string[], extra: string[]):
   if (cs) parts.push(cs.name);
   if (r.text.anim) parts.push(r.text.anim.kind);
   if (r.msg.on) parts.push('mensaje');
+  // what a recipe does besides its layers, in the words people look for it with: glass in front (a solid of
+  // glass: lens, refraction, rainbow), the anamorphic halo, the paper, the ink brush
+  if (r.optics) parts.push('vidrio cristal', r.optics.kind, r.optics.kind === 'esfera' || r.optics.kind === 'poliedro' ? 'lente refraccion dispersion arcoiris solido' : '');
+  if (r.fxKind?.bloom) parts.push('destello anamorfico lente cine halo');
+  if (r.fxKind?.grain) parts.push('papel hoja impreso fibras pliegues');
+  if (r.interact.stroke) parts.push('caligrafia pincel tinta trazo');
   return fold(parts.join(' '));
 }
 
