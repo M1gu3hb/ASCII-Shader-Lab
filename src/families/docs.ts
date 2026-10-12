@@ -50,6 +50,7 @@ const DOCS: Record<string, () => Promise<{ DOC: FamilyDoc }>> = {
   eclipse_total: () => import('./meta/eclipse_total.doc.ts'),
   talla_diamante: () => import('./meta/talla_diamante.doc.ts'),
   calor_radiante: () => import('./meta/calor_radiante.doc.ts'),
+  neon_tubos: () => import('./meta/neon_tubos.doc.ts'),
 };
 
 const known = new Map<string, FamilyDoc>();

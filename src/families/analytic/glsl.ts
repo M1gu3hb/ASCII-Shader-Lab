@@ -28,6 +28,7 @@ const LOAD: Record<string, () => Promise<string>> = {
   eclipse_total: () => import('./eclipse').then(m => m.ECLIPSE_GLSL),
   talla_diamante: () => import('./diamante').then(m => m.DIAMANTE_GLSL),
   calor_radiante: () => import('./calor').then(m => m.CALOR_GLSL),
+  neon_tubos: () => import('./neon').then(m => m.NEON_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';

@@ -50,4 +50,5 @@ export const FAMILY_INDEX: readonly FamilyIndexEntry[] = [
   {"id":"desgarro","name":"Superficie que se abre","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"haces_luz","name":"Haces de luz","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
   {"id":"talla_diamante","name":"Talla de diamante","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
+  {"id":"neon_tubos","name":"Letrero de neón","group":"materia","kind":"analytic","v":1,"loop":true,"color":true},
 ];
