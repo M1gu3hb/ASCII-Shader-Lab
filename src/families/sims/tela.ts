@@ -12,7 +12,12 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  * particle along its area-weighted normal (relative to its own velocity), with gusts from seeded noise.
  * The picture: shaded triangles (Lambert, both faces) through a perspective camera that orbits slowly
  * (its angle is part of the state, so a touch maps to the cloth as you see it), with a depth buffer.
- * Soft bodies (a closed shape held by pressure) are not modelled yet: only sheets.
+ * «Cojín inflado» (PR #10 close-out): a soft body held by pressure. Two sheets sewn along their border (the
+ * front grid and a back one that shares its border particles) close a volume, and one more constraint keeps
+ * that volume at a target (XPBD, Müller et al.'s pressure for a closed mesh: C = V − V₀, ∇ᵢC = ⅙ Σ xⱼ × xₖ over
+ * the triangles round particle i, solved once per substep with the others). «Inflado» sets the target from
+ * the flat cushion's area, «Respiración» swings it slowly (one breath every four seconds), and the body falls,
+ * rests on the floor and is squashed and bounced by its weight, the hits, the wind or the sphere.
  *
  * «Todo el borde» (PR #10 close-out, I-04, a kinetic grid): a drumhead pinned along its whole edge, as wide as
  * the domain and seen face on, its springs a little shorter than the grid (so the sheet is taut and carries
@@ -43,14 +48,21 @@ const DRUM_A = 2, DRUM_B = 2.5;
 const KICK = 6, KICK_OUT = 0.35;
 /** «Tensión»: stretch (relative) that reads as full ink. */
 const TENSION_FULL = 0.05;
-interface P { stiff: number; gravity: number; wind: number; anchors: string; mesh: string; substeps: number; damping: number; turn: number; sphere: string; view: string; angle: number; kick: number; every: number }
+interface P { stiff: number; gravity: number; wind: number; anchors: string; mesh: string; substeps: number; damping: number; turn: number; sphere: string; view: string; angle: number; kick: number; every: number; inflate: number; breath: number }
 const read = (p: Params): P => ({
   stiff: Number(p.stiff ?? 0.6), gravity: Number(p.gravity ?? 1), wind: Number(p.wind ?? 0.5),
   anchors: String(p.anchors ?? 'borde'), mesh: String(p.mesh ?? 'baja'),
   substeps: Math.max(1, Math.min(24, Math.round(Number(p.substeps ?? 6)))), damping: Number(p.damping ?? 0.2),
   turn: Number(p.turn ?? 0.1), sphere: String(p.sphere ?? 'ninguna'), view: String(p.view ?? 'sombreado'), angle: Number(p.angle ?? 0),
   kick: Number(p.kick ?? 0), every: Math.max(0.5, Number(p.every ?? 2.5)),
+  inflate: Number(p.inflate ?? 1), breath: Number(p.breath ?? 0),
 });
+/**
+ * «Cojín inflado»: the volume «Inflado» 1 asks for (a share of the flat cushion's area times its shorter side:
+ * well inside what two sheets that barely stretch can close), the breath's period, and the most of the gap to
+ * the target one substep closes (the cushion inflates over a few steps, not in one jolt).
+ */
+const PUFF = 0.12, BREATH = 4, PUFF_STEP = 0.03;
 
 /** Whether a layout hangs from above (vertical cloth) or lies flat (horizontal). */
 const hangs = (a: string) => a === 'borde' || a === 'esquinas' || a === 'mastil';
@@ -59,9 +71,11 @@ export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
   const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
   let p = read(cfg.params);
-  const drum = p.anchors === 'perimetro';
+  const drum = p.anchors === 'perimetro', pillow = p.anchors === 'cojin';
   const [nx, ny] = (drum ? GRIDS[p.mesh] : MESHES[p.mesh]) ?? MESHES.media;
-  const np = nx * ny;
+  // (the cushion: the back sheet's own particles after the front grid's; its border is the front one's)
+  const nb = pillow ? (nx - 2) * (ny - 2) : 0;
+  const np = nx * ny + nb;
   const X = new Float32Array(np * 3), Vel = new Float32Array(np * 3), Prev = new Float32Array(np * 3), W = new Float32Array(np);
   let steps = 0, yaw = 0;
   // (the drumhead stands facing the camera, as a hanging cloth does)
@@ -75,6 +89,16 @@ export function create(cfg: ModelConfig): FieldModel {
     else { X[k * 3] = u * SIZE_W; X[k * 3 + 1] = p.anchors === 'cuatro' ? 0.12 : 0.32; X[k * 3 + 2] = (v - 0.5) * SIZE_H; }
   }
   const idx = (i: number, j: number) => j * nx + i;
+  /** The cushion's back sheet: its border is the front's, its inside particles come after the front grid. */
+  const back = (i: number, j: number) => (i === 0 || j === 0 || i === nx - 1 || j === ny - 1 ? idx(i, j) : nx * ny + (j - 1) * (nx - 2) + (i - 1));
+  if (pillow) {
+    // flat on top of each other at first, a little apart in the middle (the volume they close starts > 0)
+    for (let j = 1; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) {
+      const k = back(i, j), f = idx(i, j), bump = Math.sin((Math.PI * i) / (nx - 1)) * Math.sin((Math.PI * j) / (ny - 1));
+      X[k * 3] = X[f * 3]; X[k * 3 + 1] = X[f * 3 + 1] - 0.02 * bump; X[k * 3 + 2] = X[f * 3 + 2];
+      X[f * 3 + 1] += 0.02 * bump;
+    }
+  }
   // inverse masses: total mass 1, pinned particles 0
   W.fill(np);
   const pin = (k: number) => { W[k] = 0; };
@@ -94,15 +118,22 @@ export function create(cfg: ModelConfig): FieldModel {
   // ---- constraints: pairs, rest lengths and kind (0 stretch, 1 shear, 2 bending)
   const cons: number[] = [], kinds: number[] = [];
   const add = (a: number, b: number, kind: number) => { cons.push(a, b); kinds.push(kind); };
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    if (i + 1 < nx) add(idx(i, j), idx(i + 1, j), 0);
-    if (j + 1 < ny) add(idx(i, j), idx(i, j + 1), 0);
-    // shear: the diagonal of each quad that its two triangles share (alternating, so the grid has no
-    // preferred direction); both diagonals would over-constrain the sheet and make it jitter
-    if (i + 1 < nx && j + 1 < ny) { if ((i + j) & 1) add(idx(i + 1, j), idx(i, j + 1), 1); else add(idx(i, j), idx(i + 1, j + 1), 1); }
-    if (i + 2 < nx) add(idx(i, j), idx(i + 2, j), 2);
-    if (j + 2 < ny) add(idx(i, j), idx(i, j + 2), 2);
-  }
+  const sheet = (at: (i: number, j: number) => number, skipShared: boolean) => {
+    // (the back sheet skips what the front one already joins: two particles both on the shared border)
+    const on = (i: number, j: number) => i === 0 || j === 0 || i === nx - 1 || j === ny - 1;
+    const put = (i0: number, j0: number, i1: number, j1: number, kind: number) => { if (!(skipShared && on(i0, j0) && on(i1, j1))) add(at(i0, j0), at(i1, j1), kind); };
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      if (i + 1 < nx) put(i, j, i + 1, j, 0);
+      if (j + 1 < ny) put(i, j, i, j + 1, 0);
+      // shear: the diagonal of each quad that its two triangles share (alternating, so the grid has no
+      // preferred direction); both diagonals would over-constrain the sheet and make it jitter
+      if (i + 1 < nx && j + 1 < ny) { if ((i + j) & 1) put(i + 1, j, i, j + 1, 1); else put(i, j, i + 1, j + 1, 1); }
+      if (i + 2 < nx) put(i, j, i + 2, j, 2);
+      if (j + 2 < ny) put(i, j, i, j + 2, 2);
+    }
+  };
+  sheet(idx, false);
+  if (pillow) sheet(back, true);
   const nc = kinds.length;
   const C = new Int32Array(cons), K = new Uint8Array(kinds), L = new Float32Array(nc);
   for (let c = 0; c < nc; c++) {
@@ -118,13 +149,56 @@ export function create(cfg: ModelConfig): FieldModel {
       if (W[k] > 0) X[k * 3 + (vertical ? 2 : 1)] += 0.006 * Math.sin((i / (nx - 1)) * f1 * 6.283 + p1) * Math.sin((j / (ny - 1)) * f2 * 3.1416 + p2);
     }
   }
-  // triangles of the grid (two per quad)
-  const ntri = (nx - 1) * (ny - 1) * 2, T = new Int32Array(ntri * 3);
-  for (let j = 0, t = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    const a = idx(i, j), b = idx(i + 1, j), c = idx(i, j + 1), d = idx(i + 1, j + 1);
-    if ((i + j) & 1) { T[t++] = a; T[t++] = b; T[t++] = c; T[t++] = b; T[t++] = d; T[t++] = c; }
-    else { T[t++] = a; T[t++] = d; T[t++] = c; T[t++] = a; T[t++] = b; T[t++] = d; }
+  // triangles of the grid (two per quad); the cushion's back sheet, wound the other way (normals outward)
+  const ntri = (nx - 1) * (ny - 1) * 2 * (pillow ? 2 : 1), T = new Int32Array(ntri * 3);
+  {
+    let t = 0;
+    const tris = (at: (i: number, j: number) => number, flip: boolean) => {
+      for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+        const a = at(i, j), b = at(i + 1, j), c = at(i, j + 1), d = at(i + 1, j + 1);
+        const q = (i + j) & 1 ? [a, b, c, b, d, c] : [a, d, c, a, b, d];
+        for (let e = 0; e < 6; e += 3) { T[t++] = q[e]; T[t++] = flip ? q[e + 2] : q[e + 1]; T[t++] = flip ? q[e + 1] : q[e + 2]; }
+      }
+    };
+    tris(idx, false);
+    if (pillow) tris(back, true);
   }
+  /** The volume the cushion's two sheets close (signed: positive when its normals point outward). */
+  const volume = () => {
+    let v = 0;
+    for (let q = 0; q < ntri; q++) {
+      const a = T[q * 3] * 3, b = T[q * 3 + 1] * 3, c = T[q * 3 + 2] * 3;
+      v += X[a] * (X[b + 1] * X[c + 2] - X[b + 2] * X[c + 1]) + X[a + 1] * (X[b + 2] * X[c] - X[b] * X[c + 2]) + X[a + 2] * (X[b] * X[c + 1] - X[b + 1] * X[c]);
+    }
+    return v / 6;
+  };
+  // (the front sheet lies on top: if its winding points its normals down, the signed volume is negative)
+  const vsign = pillow && volume() < 0 ? -1 : 1;
+  /** «Inflado» 1: the flat cushion's area times its thickness. */
+  const vFull = SIZE_W * SIZE_H * Math.min(SIZE_W, SIZE_H) * PUFF;
+  const GV = pillow ? new Float32Array(np * 3) : new Float32Array(0);
+  /** The pressure: one XPBD step of C = V − V₀ over every particle (∇ᵢC = ⅙ Σ xⱼ × xₖ round i). */
+  const inflate = (t: number) => {
+    const target = vFull * p.inflate * (1 + 0.35 * p.breath * Math.sin((t * Math.PI * 2) / BREATH));
+    const Cv = Math.max(-PUFF_STEP * target, Math.min(PUFF_STEP * target, vsign * volume() - target));
+    GV.fill(0);
+    for (let q = 0; q < ntri; q++) {
+      const a = T[q * 3] * 3, b = T[q * 3 + 1] * 3, c = T[q * 3 + 2] * 3;
+      // ∂V/∂x_a = (x_b × x_c) / 6, and cyclically
+      GV[a] += X[b + 1] * X[c + 2] - X[b + 2] * X[c + 1]; GV[a + 1] += X[b + 2] * X[c] - X[b] * X[c + 2]; GV[a + 2] += X[b] * X[c + 1] - X[b + 1] * X[c];
+      GV[b] += X[c + 1] * X[a + 2] - X[c + 2] * X[a + 1]; GV[b + 1] += X[c + 2] * X[a] - X[c] * X[a + 2]; GV[b + 2] += X[c] * X[a + 1] - X[c + 1] * X[a];
+      GV[c] += X[a + 1] * X[b + 2] - X[a + 2] * X[b + 1]; GV[c + 1] += X[a + 2] * X[b] - X[a] * X[b + 2]; GV[c + 2] += X[a] * X[b + 1] - X[a + 1] * X[b];
+    }
+    let den = 0;
+    for (let k = 0; k < np; k++) { const o = k * 3, g2 = (GV[o] * GV[o] + GV[o + 1] * GV[o + 1] + GV[o + 2] * GV[o + 2]) / 36; den += W[k] * g2; }
+    if (den < 1e-12) return;
+    const dl = (-Cv / den) * vsign / 6;
+    for (let k = 0; k < np; k++) {
+      if (W[k] === 0) continue;
+      const o = k * 3, s = W[k] * dl;
+      X[o] += s * GV[o]; X[o + 1] += s * GV[o + 1]; X[o + 2] += s * GV[o + 2];
+    }
+  };
 
   // gusts: smooth value noise over time from a seeded table
   const NOISE = new Float32Array(256);
@@ -139,7 +213,8 @@ export function create(cfg: ModelConfig): FieldModel {
   let nextKick = -1;
   /** A hit from a border chosen at random: the nodes near that point get a velocity into the sheet and out of it. */
   const kickNow = () => {
-    const side = kickRng.int(4), s = kickRng.range(0.15, 0.85), out = kickRng.next() < 0.5 ? -1 : 1, jit = kickRng.next();
+    // (the cushion, lying on the floor, is always hit from below: it hops)
+    const side = kickRng.int(4), s = kickRng.range(0.15, 0.85), out = kickRng.next() < 0.5 && !pillow ? -1 : 1, jit = kickRng.next();
     // the point of the border and the way into the sheet from it, in the sheet's own coordinates (across, down
     // from its first row), measured on the grid at rest so a cloth that moved is hit where its border is
     const hw = sizeW / 2, hh = SIZE_H / 2;
@@ -250,6 +325,7 @@ export function create(cfg: ModelConfig): FieldModel {
         X[a] += wi * dl * dx; X[a + 1] += wi * dl * dy; X[a + 2] += wi * dl * dz;
         X[b] -= wj * dl * dx; X[b + 1] -= wj * dl * dy; X[b + 2] -= wj * dl * dz;
       }
+      if (pillow) inflate(t + sub * hs);
       // collisions: the sphere (with a thin skin) and the floor (with friction)
       const R = SP[3] + 0.015;
       for (let k = 0; k < np; k++) {
@@ -282,8 +358,8 @@ export function create(cfg: ModelConfig): FieldModel {
   const SX = new Float32Array(np), SY = new Float32Array(np), SZ = new Float32Array(np);
   const zbuf = new Float32Array(w * h), img = new Float32Array(w * h);
   const P3 = new Float64Array(3);
-  // flat layouts sit low in their box: the view lifts them a little
-  const lift = vertical ? 0 : 0.1;
+  // flat layouts sit low in their box: the view lifts them a little (the cushion, that rests on the floor, more)
+  const lift = vertical ? 0 : pillow ? 0.42 : 0.1;
   const projectAll = () => {
     setCam();
     for (let k = 0; k < np; k++) {

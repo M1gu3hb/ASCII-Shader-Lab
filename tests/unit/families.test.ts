@@ -44,7 +44,11 @@ const INERT: Record<string, Record<string, string>> = {
   fluido: { renew: 'sólo cuenta con «Franjas»; por defecto no hay franjas', shear: 'sólo cuenta con el «Chorro sumergido»; por defecto, chorros libres' },
   gravedad: { arms: 'sólo cuenta con la galaxia de brazos; por defecto, el disco de N cuerpos' },
   osciloscopio: { grid: 'la retícula son líneas de una celda: la sonda de 48 × 24 puntos cae entre ellas' },
-  tela: { every: 'sólo cuenta con «Golpes»; por defecto no hay golpes' },
+  tela: {
+    every: 'sólo cuenta con «Golpes»; por defecto no hay golpes',
+    inflate: 'sólo cuenta con el cojín inflado; por defecto, una tela colgada',
+    breath: 'sólo cuenta con el cojín inflado; por defecto, una tela colgada',
+  },
   erosion: { cycle: 'sólo cuenta con «Levantamiento»; por defecto no hay levantamiento' },
 };
 

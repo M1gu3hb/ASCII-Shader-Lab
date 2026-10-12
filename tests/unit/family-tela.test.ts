@@ -206,3 +206,50 @@ describe('telas: malla cinética (I-04)', () => {
     for (const p of META.presets.filter(x => x.id !== 'malla_cinetica')) expect(figureOf(META, { ...defaultParams(META), ...p.params }), p.id).toBe(true);
   });
 });
+
+/* PR #10 close-out: a soft body held by pressure (the cushion), the open item of «Telas y cuerpos blandos» */
+describe('telas: cojín inflado (cuerpo blando por presión)', () => {
+  const preset = () => ({ ...defaultParams(META), ...META.presets.find(p => p.id === 'cojin')!.params });
+  // low mesh: 24 × 16 front particles and the back sheet's 22 × 14 inside ones
+  const NXc = 24, NYc = 16, NF = NXc * NYc;
+  const thickness = (x: Float32Array) => {
+    // across the middle: the front particle's height minus the back one's
+    const i = NXc >> 1, j = NYc >> 1, f = j * NXc + i, b = NF + (j - 1) * (NXc - 2) + (i - 1);
+    return x[f * 3 + 1] - x[b * 3 + 1];
+  };
+  it('dos láminas cosidas por el borde: el cojín tiene las partículas de las dos y se infla', () => {
+    const m = create({ seed: 'cojin', params: { ...preset(), breath: 0, kick: 0 }, res: 48 });
+    const x0 = m.snapshot().arrays.x as Float32Array;
+    expect(x0.length).toBe((NF + (NXc - 2) * (NYc - 2)) * 3);
+    m.step(240);
+    const x = m.snapshot().arrays.x as Float32Array;
+    // the inside of the cushion stands well apart: the pressure holds it against its weight on the floor
+    expect(thickness(x)).toBeGreaterThan(0.15);
+    let bottom = Infinity;
+    for (let k = 0; k < x.length / 3; k++) bottom = Math.min(bottom, x[k * 3 + 1]);
+    expect(bottom).toBeGreaterThanOrEqual(-0.62 - 1e-6);
+    expect(bottom).toBeLessThan(-0.6);
+  });
+  it('más inflado, más grueso; sin presión se queda casi plano', () => {
+    const at = (inflate: number) => { const m = create({ seed: 'inflado', params: { ...preset(), breath: 0, kick: 0, inflate }, res: 48 }); m.step(240); return thickness(m.snapshot().arrays.x as Float32Array); };
+    expect(at(1.4)).toBeGreaterThan(at(0.4) + 0.05);
+  });
+  it('«Respiración» lo infla y lo desinfla cada cuatro segundos', () => {
+    const m = create({ seed: 'respira', params: { ...preset(), kick: 0 }, res: 48 });
+    m.step(240);
+    const ts: number[] = [];
+    for (let k = 0; k < 8; k++) { m.step(15); ts.push(thickness(m.snapshot().arrays.x as Float32Array)); }
+    expect(Math.max(...ts) - Math.min(...ts)).toBeGreaterThan(0.03);
+    expect(timeContract(META, preset())).toBe('continuo');
+    expect(timeContract(META, { ...preset(), breath: 0, kick: 0 })).toBe('construccion');
+  });
+  it('guardar y restaurar continúa exactamente igual', () => {
+    const a = create({ seed: 'cojin', params: preset(), res: 48 });
+    a.step(100);
+    const snap = a.snapshot();
+    a.step(50);
+    const b = create({ seed: 'cojin', params: preset(), res: 48 });
+    b.restore(snap); b.step(50);
+    expect(b.snapshot().arrays.x).toEqual(a.snapshot().arrays.x);
+  });
+});

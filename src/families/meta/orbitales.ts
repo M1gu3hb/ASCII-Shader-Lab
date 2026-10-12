@@ -37,16 +37,25 @@ export const META: FamilyMeta = {
     { id: 'anillos', name: 'Anillos de cristal', aka: ['Anillos 4f', 'orbital 4fz³', 'superposición 4f + 3p'], uses: ['arte/figuras'], period: 24,
       params: { a: '4fz3', b: '3pz', mix: 0.3, speed: 2.692804, mode: 'capas', level: 0.5, turn: 0, expo: 1.1 },
       look: { stops: ['#041008', '#3a7a4a', '#b6f5c8'], bg: '#020804', charset: ' .-=+*#' } },
-    { id: 'hibrido', name: 'Faro', aka: ['Híbrido sp (2s+2p)', 'orbital híbrido sp'], uses: ['arte/figuras', 'terminal/figuras'],
+    { id: 'hibrido', name: 'Faro', aka: ['Híbrido sp (2s+2p)', 'orbital híbrido sp'], uses: ['arte/figuras', 'terminal/figuras'], period: 240,
       params: { a: '2s', b: '2px', mix: 0.5, speed: 1, mode: 'iso', level: 0.4, turn: 0.25, expo: 1 },
       look: { stops: ['#100606', '#8a4a3a', '#ffc2b0'], bg: '#080303', charset: ' .:;oO@' } },
     { id: 'estrella', name: 'Estrella de cristal', aka: ['orbital 4fxyz', 'superposición 4f + 3d'], uses: ['arte/figuras'],
       params: { a: '4fxyz', b: '3dz2', mix: 0.2, speed: 0.7, mode: 'capas', level: 0.45, turn: 0.5, expo: 1.2 },
       look: { stops: ['#0c0414', '#7a3a6a', '#ffb8e8'], bg: '#05020a', charset: ' .:-=+*#%@' } },
   ],
-  // with the camera still it loops with the beat of its two states (or holds, when they share n); turning,
-  // the camera and the beat never meet again
-  caps: { loop: true, time: { param: 'turn', values: { '0': 'bucle' }, else: 'continuo' }, basic: 'full', checkpoint: false },
+  // with the camera still it loops with the beat of its two states (or holds, when they share n); turning, the
+  // camera and the beat never meet again, unless there is no beat (the same n, a phase that does not move, one
+  // state alone): then the turn alone repeats, every 60 / |turn| seconds (PR #10 close-out: «Faro», 240 s)
+  caps: {
+    loop: true,
+    time: p => {
+      if (Number(p.turn) === 0) return 'bucle';
+      const n = (id: unknown) => Number(String(id)[0]);
+      return n(p.a) === n(p.b) || Number(p.speed) === 0 || Number(p.mix) <= 0 || Number(p.mix) >= 1 ? 'bucle' : 'continuo';
+    },
+    basic: 'full', checkpoint: false,
+  },
   budget: { },
   figure: true,
 };

@@ -109,10 +109,12 @@ describe('orbitales del hidrógeno', { timeout: 60_000 }, () => {
   const lit = (a: number[]) => a.filter(v => v > 24 / 255).length / a.length;
   const mad = (a: number[], b: number[]) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
 
-  it('contrato: cámara quieta, bucle con su periodo exacto (el gemelo de CPU en t y t + periodo); girando, continuo', () => {
+  it('contrato: cámara quieta, bucle con su periodo exacto (el gemelo de CPU en t y t + periodo); girando, continuo salvo sin latido', () => {
     for (const pr of META.presets) {
       const tc = timeContract(META, { ...defaultParams(META), ...pr.params });
-      expect(tc, pr.id).toBe(pr.params.turn === 0 ? 'bucle' : 'continuo');
+      // (turning with no beat, two states of the same n, only the camera moves: its turn repeats, a loop; PR #10 close-out)
+      const sameN = String(pr.params.a)[0] === String(pr.params.b)[0];
+      expect(tc, pr.id).toBe(pr.params.turn === 0 || sameN ? 'bucle' : 'continuo');
       expect(pr.period !== undefined, pr.id).toBe(tc === 'bucle');
       if (tc !== 'bucle') continue;
       for (const t of [0.7, 13.1]) {
@@ -143,5 +145,34 @@ describe('orbitales del hidrógeno', { timeout: 60_000 }, () => {
     const peak = row.indexOf(Math.max(...row));
     expect(Math.abs(peak - 47.5)).toBeGreaterThan(4);
     expect(Math.max(...row)).toBeGreaterThan(Math.min(...row.filter(v => v > 0.02)) * 2);
+  });
+});
+
+/* PR #10 close-out: «Faro» was marked continuous although its turn repeats exactly (one key could not say so) */
+describe('orbitales: sin latido, el giro se repite y es un bucle', () => {
+  const faro = { ...defaultParams(META), ...META.presets.find(x => x.id === 'hibrido')!.params };
+  const at = (p: Params, t: number) => {
+    const k = packParams(META, p);
+    impl.prep?.(t, k);
+    const o: number[] = [];
+    for (let y = 0; y < 24; y++) for (let x = 0; x < 48; x++) o.push(impl.cpu(((x + 0.5) / 48 - 0.5) * 2, 0.5 - (y + 0.5) / 24, t, k));
+    return o;
+  };
+  const mad = (a: number[], b: number[]) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
+  it('«Faro» (2s + 2px, el mismo n) vuelve exactamente a su inicio cada 60 / giro segundos', () => {
+    expect(timeContract(META, faro)).toBe('bucle');
+    const pr = META.presets.find(x => x.id === 'hibrido')!;
+    expect(pr.period).toBe(60 / Number(faro.turn));
+    for (const t of [0, 37]) {
+      expect(mad(at(faro, t), at(faro, t + pr.period!))).toBeLessThan(1e-4);
+      // and half way it shows something else (it does move)
+      expect(mad(at(faro, t), at(faro, t + pr.period! / 2))).toBeGreaterThan(1e-3);
+    }
+  });
+  it('con latido y giro sigue siendo continuo; sin giro, bucle', () => {
+    const estrella = { ...defaultParams(META), ...META.presets.find(x => x.id === 'estrella')!.params };
+    expect(timeContract(META, estrella)).toBe('continuo');
+    expect(timeContract(META, { ...estrella, turn: 0 })).toBe('bucle');
+    expect(timeContract(META, { ...estrella, speed: 0 })).toBe('bucle');
   });
 });
