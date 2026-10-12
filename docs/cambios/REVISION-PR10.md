@@ -133,7 +133,34 @@ en una máquina de 4 núcleos: las cifras de coste son cotas altas.
 
 ### 8.1 Pruebas de navegador
 
-(se completa con la última ejecución)
+Todas sobre el build de producción (`vite preview`), proyecto `desktop` de Playwright, un solo trabajador.
+
+- **Subconjunto de la CI más las rutas tocadas** (`azar`, `perf`, `export`, `recetas`, `compartir`, `glifos`, además de
+  los de la CI): 130 pasan, 4 omitidas y 1 fallo.
+  - Las omitidas son pruebas del estudio de foto y del de glifos, en pausa.
+  - El fallo esperaba el texto anterior de la descripción de «Figuras 3D y espacio». La prueba lee ahora la descripción
+    del catálogo, y `recetas` con `recetas-mobile` dan 16 de 16.
+- **Pruebas largas** (`familias`, `recetas-todas`, `recursos`): 21 de 21 pasan en 42,5 minutos.
+  - **Familias:** las 39 abren desde Recetas, dibujan y muestran su panel, en WebGL 2 (6,2 min) y en el motor básico
+    (1,4 min).
+  - **Simulación y guardado:** se reinicia y avanza, su PNG sale de una copia, y guardada con ★ vuelve tras recargar.
+  - **A-03:** un fragmento con 404 deja la capa en error y «Reintentar» la recupera.
+  - **Código exportado:** el de corrientes, el plano hiperbólico y reacción–difusión dibuja en los dos motores.
+  - **Recetas:** las 130 recetas y escenas de los cinco espacios abren en su espacio y dibujan, en los dos motores (los
+    presets de familia los cubre `familias`, uno por familia).
+  - **Memoria:** la de la página se estabiliza con 1 y con 4 capas de simulación, en los dos motores (cifras abajo).
+- **Fallo de la propia prueba, corregido.** La primera ejecución larga agotó su tiempo (39 min) en la familia 17, «mar».
+  - Es la primera familia sin preset en Arte, así que la prueba pasaba a Fondos y pulsaba la pestaña «Capas», que allí
+    se llama «Forma». La espera no tenía límite propio.
+  - La prueba usa ahora el nombre de cada espacio y falla en 15 s si la pestaña no aparece. No era un fallo del estudio:
+    medida paso a paso, cada familia tarda entre 7 y 18 s en abrir y dibujar.
+- **Preview de Vercel de `48c6925`** (no es producción): 7 pasan, con el mismo build que el local (mismo hash del
+  fragmento del estudio).
+  - El presupuesto de la primera vista, tres pruebas del azar y las tres del código exportado.
+  - `0f426b0` sólo cambia una prueba.
+- **CI** (`check.yml`: auditoría de dependencias, tipos, unitarias, build y nueve pruebas de navegador): sin fallos en
+  `48c6925` y en `0f426b0`. El presupuesto de la primera vista no está en la CI: lo comprueba `perf`, corrida aquí y
+  contra el preview.
 
 ## 9. Lo que no quedó resuelto
 
