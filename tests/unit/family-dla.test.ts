@@ -83,3 +83,63 @@ describe('agregación limitada por difusión', () => {
     expect(ageOf(m).reduce((s, v) => s + (v ? 1 : 0), 0)).toBeGreaterThan(n);
   });
 });
+
+describe('agregación con renovación (presets continuos)', () => {
+  const preset = (id: string) => params(META.presets.find(p => p.id === id)!.params);
+  const raster = (m: ReturnType<typeof create>) => { const o = new Uint8Array(m.w * m.h); m.render(o, 0); return o; };
+  const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+  const lit = (a: Uint8Array) => a.reduce((s, v) => s + (v > 24 ? 1 : 0), 0) / a.length;
+
+  for (const id of ['escarcha', 'arrecife', 'corona_viva']) {
+    it(`${id}: sigue cambiando y no se vacía ni se llena (resolución mínima)`, () => {
+      const m = create({ seed: 'continuo', res: 48, params: preset(id) });
+      m.step(90 + 30 * 25);
+      for (let k = 0; k < 4; k++) {
+        const a = raster(m);
+        m.step(30 * 8);
+        const b = raster(m);
+        expect(mad(a, b), `${id} ventana ${k}`).toBeGreaterThan(0.5);
+        expect(lit(b)).toBeGreaterThan(0.02);
+        expect(lit(b)).toBeLessThan(0.97);
+      }
+    });
+  }
+
+  it('el estado de la renovación se guarda y se restaura exacto', () => {
+    for (const id of ['escarcha', 'arrecife', 'corona_viva']) {
+      const p = preset(id), a = create({ seed: 'guardar', res: 48, params: p });
+      a.step(90 + 30 * 20);
+      const snap = a.snapshot();
+      a.step(97);
+      const b = create({ seed: 'guardar', res: 48, params: p });
+      b.restore(snap);
+      b.step(97);
+      expect(mad(raster(a), raster(b)), id).toBe(0);
+    }
+  });
+
+  it('escarcha: los cristales se funden y nacen otros; la cobertura queda acotada', () => {
+    const m = create({ seed: 'relevo', res: 48, params: preset('escarcha') });
+    m.step(90 + 30 * 30);
+    const cells = (age: Int32Array) => new Set(Array.from(age).map((v, i) => (v ? i : -1)).filter(i => i >= 0));
+    const first = cells(ageOf(m));
+    m.step(30 * 60);
+    const later = cells(ageOf(m));
+    let kept = 0;
+    for (const i of first) if (later.has(i)) kept++;
+    // most of what stood a minute ago is gone, and something else stands
+    expect(kept / first.size).toBeLessThan(0.5);
+    expect(later.size).toBeGreaterThan(0);
+    expect(later.size / (m.w * m.h)).toBeLessThan(0.35);
+  });
+
+  it('arrecife: el campo avanza con el frente (la línea de partida sale por abajo)', () => {
+    const m = create({ seed: 'avance', res: 48, params: preset('arrecife') });
+    expect(ageOf(m).slice((m.h - 1) * m.w).every(v => v > 0)).toBe(true);
+    m.step(90 + 30 * 90);
+    const s = m.snapshot(), age = s.arrays.age as Int32Array;
+    // the seed row (the first w arrivals) has left the lattice, and the front keeps clear of the top
+    expect(Array.from(age).some(v => v > 0 && v <= m.w)).toBe(false);
+    expect(s.scalars.front).toBeGreaterThan(4);
+  });
+});
