@@ -107,3 +107,48 @@ describe('compatibilidad de los 203 presets de familia del PR #10 (tal como qued
     });
   }
 });
+
+/**
+ * Close-out of PR #10, group «física y pendientes»: dla, chladni and niebla went up to version 2 (DLA that grows
+ * as fast at every size, plates without the grey disc, cloud-chamber traces that read at small characters).
+ * Their 203 presets above are drawn at their default rows; here version 1 at the rows and moments those cases do
+ * not reach (the fixture was written from da08e3a, the code before the change). Each case is drawn twice: with
+ * version 1 it must match; with the current version it must not (else the case would not guard the old path).
+ */
+describe('compatibilidad de la versión 1 de dla, chladni y niebla en otras resoluciones (cierre del PR #10)', () => {
+  const FILE_FIS = join(import.meta.dirname, 'fixtures/families-cierre-fisica.json');
+  const fixture = JSON.parse(readFileSync(FILE_FIS, 'utf8')) as { cases: Case[] };
+  it('la referencia cubre las tres familias', () => {
+    expect(new Set(fixture.cases.map(c => c.family))).toEqual(new Set(['dla', 'chladni', 'niebla']));
+  });
+  for (const c of fixture.cases) {
+    it(`${c.family}/${c.preset} a ${c.res} filas (v1): dibuja lo mismo; la versión actual, otra cosa`, { timeout: 60_000 }, () => {
+      expect(draw(c)).toEqual(c.hash);
+      const meta = familyById(c.family)!;
+      expect(meta.version).toBeGreaterThan(1);
+      expect(draw({ ...c, v: meta.version })).not.toEqual(c.hash);
+    });
+  }
+});
+
+/**
+ * Close-out of PR #10, group «física y pendientes»: the controls it added to existing families came with a new
+ * version (ParamSpec.since), so a layer of the earlier one neither carries them nor changes when normalised (the
+ * frozen dice make such layers).
+ */
+describe('controles nuevos de tela, fluido, erosión, Lenia, nubes y cámara de niebla sólo en su versión', () => {
+  const NEW: Record<string, [number, string[]]> = {
+    tela: [2, ['kick', 'every', 'inflate', 'breath']], fluido: [2, ['shear']], erosion: [2, ['cycle']],
+    lenia: [3, ['trail']], nubes_vol: [2, ['contrast']], niebla: [2, ['width']],
+  };
+  for (const [id, [since, keys]] of Object.entries(NEW)) {
+    it(`${id}: ${keys.join(', ')} desde la versión ${since}`, () => {
+      const meta = familyById(id)!;
+      expect(meta.version).toBe(since);
+      const old = normFam(meta, { v: since - 1, seed: 's', p: {} }), now = normFam(meta, { v: since, seed: 's', p: {} });
+      for (const k of keys) { expect(old.p, k).not.toHaveProperty(k); expect(now.p, k).toHaveProperty(k); }
+      // normalising an earlier layer again changes nothing
+      expect(normFam(meta, old)).toEqual(old);
+    });
+  }
+});

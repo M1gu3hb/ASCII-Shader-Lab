@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { create } from '../../src/families/sims/fluido';
+import { create, orbitAt } from '../../src/families/sims/fluido';
 import { META } from '../../src/families/meta/fluido';
 import { defaultParams, timeContract } from '../../src/families/params';
 import type { FieldModel, Params } from '../../src/families/types';
@@ -143,4 +143,128 @@ describe('fluido: franjas, bordes nítidos y continuidad', () => {
       for (const r of [a, b]) { expect(lit(r), pr.id).toBeGreaterThan(0.02); expect(lit(r), pr.id).toBeLessThan(0.97); }
     });
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* PR #10 close-out: I-14 (emitters in orbit) and I-24 (submerged jet)  */
+/* ------------------------------------------------------------------ */
+
+describe('fluido: emisores en órbita (I-14)', () => {
+  it('cada emisor recorre una órbita con epiciclo que, en los extremos, vuelve sobre sí misma (un lazo)', () => {
+    const P = new Float64Array(4), sw = 128, sh = 64;
+    // the slowest epicycle and the fastest main turn the seeds allow: it still loops
+    for (const J of [{ fx: 1.4, fy: 0.6, px: 0, py: 0, swing: 0.5 }, { fx: 0.6, fy: 1.4, px: 1, py: 2, swing: 1.2 }]) {
+      for (let k = 0; k < 3; k++) {
+        let back = 0, xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+        let prevA = NaN, turn = 0;
+        const N = 4000, span = (2 * Math.PI) / J.fx;
+        for (let s = 0; s <= N; s++) {
+          const ph = (s / N) * span;
+          orbitAt(J, k, 3, ph, sw, sh, P);
+          xmin = Math.min(xmin, P[0]); xmax = Math.max(xmax, P[0]); ymin = Math.min(ymin, P[1]); ymax = Math.max(ymax, P[1]);
+          // the main ellipse's own direction at this phase: the emitter runs against it somewhere (a loop)
+          const sg = k & 1 ? -1 : 1, th = sg * J.fx * ph + J.px + (k * 2 * Math.PI) / 3;
+          const ex = -sg * Math.sin(th), ey = sg * Math.cos(th) * 0.3;
+          if (P[2] * ex + P[3] * ey < 0) back++;
+          const a = Math.atan2(P[3], P[2]);
+          if (!Number.isNaN(prevA)) { let d = a - prevA; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; turn += d; }
+          prevA = a;
+        }
+        expect(back, `emisor ${k}`).toBeGreaterThan(N * 0.05);
+        // the heading turns round several times in one orbit: the loops of the epicycle
+        expect(Math.abs(turn) / (2 * Math.PI), `emisor ${k}`).toBeGreaterThan(3);
+        // and the orbit stays inside the box, round its centre
+        expect(xmin).toBeGreaterThan(0); expect(xmax).toBeLessThan(sw); expect(ymin).toBeGreaterThan(0); expect(ymax).toBeLessThan(sh);
+        expect(xmax - xmin).toBeGreaterThan(sh * 0.9);
+      }
+    }
+  });
+
+  it('«Un tono por emisor»: los emisores echan tinta de fuerzas distintas (no sólo tinta llena)', () => {
+    const p = base(META.presets.find(x => x.id === 'lazos')!.params);
+    const tones = create({ seed: 'lazos', params: p, res: 64 }), full = create({ seed: 'lazos', params: { ...p, ink: 'tinta' }, res: 64 });
+    tones.step(60); full.step(60);
+    const sum = (d: Float32Array) => d.reduce((s, x) => s + x, 0);
+    // the same flow (the dye does not push it), less ink in all
+    expect(grid(tones).u).toEqual(grid(full).u);
+    expect(sum(grid(tones).dye)).toBeLessThan(0.85 * sum(grid(full).dye));
+    expect(sum(grid(tones).dye)).toBeGreaterThan(0.4 * sum(grid(full).dye));
+  });
+});
+
+describe('fluido: chorro sumergido (I-24)', () => {
+  const jetP = () => base(META.presets.find(x => x.id === 'chorro')!.params);
+
+  it('la boquilla del fondo sopla hacia arriba y lo que entra sale por arriba (tapa abierta)', () => {
+    const m = create({ seed: 'chorro', params: jetP(), res: 64 });
+    m.step(240);
+    const { v, sw, sh } = grid(m);
+    let inflow = 0, outflow = 0, sides = 0;
+    for (let i = 0; i < sw; i++) { inflow += -v[sh * sw + i]; outflow += -v[i]; }
+    expect(inflow).toBeGreaterThan(0);
+    // incompressible: what the nozzle blows in leaves through the open top
+    expect(Math.abs(outflow - inflow) / inflow).toBeLessThan(0.1);
+    // and only through the nozzle: the rest of the floor is closed
+    for (let i = 0; i < sw; i++) if (Math.abs(i + 0.5 - sw / 2) > sw * 0.06) sides += Math.abs(v[sh * sw + i]);
+    expect(sides).toBe(0);
+    expect(divergence(m)).toBeLessThan(0.25);
+  });
+
+  it('dos trazadores: el núcleo lleva uno y los bordes otro, transportados por la misma corriente', () => {
+    const m = create({ seed: 'chorro', params: jetP(), res: 64 });
+    m.step(150);
+    const s = m.snapshot(), A = s.arrays.dye as Float32Array, B = s.arrays.dyeB as Float32Array;
+    const dh = Math.round(Math.sqrt(A.length / 2)), dw = 2 * dh;
+    // at the nozzle: the core's tracer in the middle, the second one at its edges
+    const row = (dh - 1) * dw, mid = dw / 2;
+    expect(A[row + Math.floor(mid)]).toBeGreaterThan(0.9);
+    expect(B[row + Math.floor(mid)]).toBeLessThan(0.2);
+    let edgeB = 0;
+    for (let i = 0; i < dw; i++) if (Math.abs(i + 0.5 - mid) > dw * 0.03 && Math.abs(i + 0.5 - mid) < dw * 0.06) edgeB = Math.max(edgeB, B[row + i]);
+    expect(edgeB).toBeGreaterThan(0.9);
+    // both have risen well above the nozzle, carried by the jet
+    const above = (F: Float32Array) => { let t = 0; for (let j = 0; j < dh / 2; j++) for (let i = 0; i < dw; i++) t += F[j * dw + i]; return t; };
+    expect(above(A)).toBeGreaterThan(1);
+    expect(above(B)).toBeGreaterThan(1);
+    // drawn in two tones: the second tracer alone never reaches the core's ink
+    const r = raster(m);
+    expect(Math.max(...r)).toBeGreaterThan(200);
+  });
+
+  it('la tinta sale por arriba: no se acumula en la caja', () => {
+    const m = create({ seed: 'chorro', params: jetP(), res: 48 });
+    const total = () => { const s = m.snapshot(); return (s.arrays.dye as Float32Array).reduce((a, x) => a + x, 0) + (s.arrays.dyeB as Float32Array).reduce((a, x) => a + x, 0); };
+    m.step(30 * 30); const a = total();
+    m.step(30 * 30); const b = total();
+    expect(b).toBeLessThan(a * 1.3);
+  });
+
+  it('«Perturbación de cizalla» sacude los bordes del chorro y lo desordena antes', () => {
+    const quiet = create({ seed: 'cizalla', params: { ...jetP(), shear: 0 }, res: 64 });
+    const shaken = create({ seed: 'cizalla', params: jetP(), res: 64 });
+    quiet.step(90); shaken.step(90);
+    // the jet without a push stays nearly mirror-symmetric; shaken, its edges roll up out of step
+    const asym = (m: FieldModel) => {
+      const r = raster(m); let s = 0;
+      for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w / 2; x++) s += Math.abs(r[y * m.w + x] - r[y * m.w + m.w - 1 - x]);
+      return s / (m.w * m.h);
+    };
+    expect(asym(shaken)).toBeGreaterThan(2 * asym(quiet) + 1);
+  });
+
+  it('guardar y restaurar con el segundo trazador continúa exactamente igual', () => {
+    const a = create({ seed: 'chorro', params: jetP(), res: 48 });
+    a.step(70);
+    const snap = a.snapshot();
+    a.step(25);
+    const b = create({ seed: 'chorro', params: jetP(), res: 48 });
+    b.restore(snap);
+    b.step(25);
+    expect(mad(raster(a), raster(b))).toBe(0);
+  });
+
+  it('el chorro es continuo (con cualquier número de emisores) y los presets anteriores no cambian de régimen', () => {
+    expect(timeContract(META, { ...jetP(), jets: 0 })).toBe('continuo');
+    expect(timeContract(META, base({ jets: 0 }))).toBe('construccion');
+  });
 });

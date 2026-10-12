@@ -5,7 +5,8 @@ export const META: FamilyMeta = {
   name: 'Terreno que se erosiona',
   group: 'fisica',
   kind: 'simulation',
-  version: 1,
+  // 2 (PR #10 close-out): «Ciclo del levantamiento» (since: 2); version-1 layers draw as they did
+  version: 2,
   extends: 'topografia',
   aka: ['Erosión hidráulica', 'Erosión térmica', 'Levantamiento tectónico', 'Red de drenaje', 'Mapa de ríos'],
   params: [
@@ -22,6 +23,7 @@ export const META: FamilyMeta = {
     { key: 'talus', label: 'Pendiente de talud', type: 'number', min: 15, max: 75, def: 40, step: 1, unit: '°' },
     { key: 'strata', label: 'Estratos', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
     { key: 'uplift', label: 'Levantamiento', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'cycle', label: 'Ciclo del levantamiento', type: 'number', min: 20, max: 300, def: 150, step: 1, unit: 's', since: 2 },
     { key: 'frame', label: 'Encuadre', type: 'choice', def: 'maqueta', rebuild: true, options: [
       { id: 'maqueta', label: 'Maqueta que gira' }, { id: 'lienzo', label: 'Lienzo entero, desde arriba' },
     ] },
@@ -44,7 +46,7 @@ export const META: FamilyMeta = {
     },
     {
       id: 'montana', name: 'Montaña viva', aka: ['Levantamiento tectónico', 'Equilibrio dinámico'], uses: ['arte/figuras'],
-      params: { shape: 'cordillera', height: 0.75, scale: 3, rain: 0.7, erode: 0.9, deposit: 0.3, capacity: 0.8, evap: 0.3, talus: 45, strata: 0, uplift: 0.35, frame: 'maqueta', view: 'relieve', orbit: 0.4, pitch: 0.45 },
+      params: { shape: 'cordillera', height: 0.75, scale: 3, rain: 1, erode: 0.9, deposit: 0.3, capacity: 0.8, evap: 0.15, talus: 45, strata: 0, uplift: 1, cycle: 45, frame: 'maqueta', view: 'relieve', orbit: 0.4, pitch: 0.45 },
       look: { stops: ['#0b0906', '#f0d6b0'], bg: '#060503', charset: ' .:-=+*#%@' },
     },
     {

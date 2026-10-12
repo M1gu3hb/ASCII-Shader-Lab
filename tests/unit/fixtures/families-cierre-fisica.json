@@ -1,0 +1,642 @@
+{
+ "note": "Versión 1 de dla, chladni y niebla tal como dibujaban en da08e3a, a resoluciones y momentos que families-pr10.json no cubre (cierre del PR #10, grupo física y pendientes).",
+ "cases": [
+  {
+   "family": "dla",
+   "preset": "cristal",
+   "v": 1,
+   "seed": "dla-cristal",
+   "res": 160,
+   "params": {
+    "seed": "punto",
+    "stick": 1,
+    "bias": 0.06,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.9,
+    "age": "nuevas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "d0777d0c08ec65f1",
+    "d0777d0c08ec65f1"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "cristal",
+   "v": 1,
+   "seed": "dla-cristal",
+   "res": 48,
+   "params": {
+    "seed": "punto",
+    "stick": 1,
+    "bias": 0.06,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.9,
+    "age": "nuevas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "3eed36f6f655de1a",
+    "3eed36f6f655de1a"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "coral",
+   "v": 1,
+   "seed": "dla-coral",
+   "res": 160,
+   "params": {
+    "seed": "suelo",
+    "stick": 0.12,
+    "bias": 0,
+    "dir": "arriba",
+    "walkers": 10,
+    "width": 1.1,
+    "age": "antiguas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "2b311ee6e9a6a058",
+    "2b311ee6e9a6a058"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "coral",
+   "v": 1,
+   "seed": "dla-coral",
+   "res": 48,
+   "params": {
+    "seed": "suelo",
+    "stick": 0.12,
+    "bias": 0,
+    "dir": "arriba",
+    "walkers": 10,
+    "width": 1.1,
+    "age": "antiguas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "540628b6c995553e",
+    "540628b6c995553e"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "raices",
+   "v": 1,
+   "seed": "dla-raices",
+   "res": 160,
+   "params": {
+    "seed": "techo",
+    "stick": 1,
+    "bias": 0.12,
+    "dir": "abajo",
+    "walkers": 8,
+    "width": 0.7,
+    "age": "plano",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "4f2312b1a645ae1d",
+    "4f2312b1a645ae1d"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "raices",
+   "v": 1,
+   "seed": "dla-raices",
+   "res": 48,
+   "params": {
+    "seed": "techo",
+    "stick": 1,
+    "bias": 0.12,
+    "dir": "abajo",
+    "walkers": 8,
+    "width": 0.7,
+    "age": "plano",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "7d699e7796b83e1a",
+    "7d699e7796b83e1a"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "corona",
+   "v": 1,
+   "seed": "dla-corona",
+   "res": 160,
+   "params": {
+    "seed": "anillo",
+    "stick": 0.7,
+    "bias": 0.05,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.8,
+    "age": "nuevas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "326509f9fbeb92bd",
+    "326509f9fbeb92bd"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "corona",
+   "v": 1,
+   "seed": "dla-corona",
+   "res": 48,
+   "params": {
+    "seed": "anillo",
+    "stick": 0.7,
+    "bias": 0.05,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.8,
+    "age": "nuevas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "bdab2bbf7988f847",
+    "bdab2bbf7988f847"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "colonias",
+   "v": 1,
+   "seed": "dla-colonias",
+   "res": 160,
+   "params": {
+    "seed": "varios",
+    "stick": 0.5,
+    "bias": 0.15,
+    "dir": "fuera",
+    "walkers": 10,
+    "width": 1,
+    "age": "antiguas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "10e21fce4e5e445a",
+    "10e21fce4e5e445a"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "colonias",
+   "v": 1,
+   "seed": "dla-colonias",
+   "res": 48,
+   "params": {
+    "seed": "varios",
+    "stick": 0.5,
+    "bias": 0.15,
+    "dir": "fuera",
+    "walkers": 10,
+    "width": 1,
+    "age": "antiguas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 390,
+   "hash": [
+    "48f08cf212534be5",
+    "48f08cf212534be5"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "mandala",
+   "v": 1,
+   "seed": "chladni-mandala",
+   "res": 192,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "lento",
+    "count": 24000,
+    "agit": 1.2,
+    "persist": 0.85,
+    "view": "ambos"
+   },
+   "steps": 120,
+   "hash": [
+    "e2198dc991c291af",
+    "e2198dc991c291af"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "mandala",
+   "v": 1,
+   "seed": "chladni-mandala",
+   "res": 48,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "lento",
+    "count": 24000,
+    "agit": 1.2,
+    "persist": 0.85,
+    "view": "ambos"
+   },
+   "steps": 120,
+   "hash": [
+    "8bebc90ea8014c51",
+    "8bebc90ea8014c51"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "flor",
+   "v": 1,
+   "seed": "chladni-flor",
+   "res": 192,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1.1,
+    "persist": 0.88,
+    "view": "ambos"
+   },
+   "steps": 120,
+   "hash": [
+    "bdfa9337b90fc039",
+    "bdfa9337b90fc039"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "flor",
+   "v": 1,
+   "seed": "chladni-flor",
+   "res": 48,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1.1,
+    "persist": 0.88,
+    "view": "ambos"
+   },
+   "steps": 120,
+   "hash": [
+    "1faf566e9106a9a1",
+    "1faf566e9106a9a1"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "placa",
+   "v": 1,
+   "seed": "chladni-placa",
+   "res": 192,
+   "params": {
+    "plate": "cuadrada",
+    "n": 3,
+    "m": 5,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1,
+    "persist": 0.85,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "dfe85b50c2e49923",
+    "dfe85b50c2e49923"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "placa",
+   "v": 1,
+   "seed": "chladni-placa",
+   "res": 48,
+   "params": {
+    "plate": "cuadrada",
+    "n": 3,
+    "m": 5,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1,
+    "persist": 0.85,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "6d84f17235946fc9",
+    "6d84f17235946fc9"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "musical",
+   "v": 1,
+   "seed": "chladni-musical",
+   "res": 192,
+   "params": {
+    "plate": "cuadrada",
+    "n": 2,
+    "m": 7,
+    "mix": -1,
+    "seq": "rapido",
+    "count": 24000,
+    "agit": 1.6,
+    "persist": 0.75,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "8f98b936c267a571",
+    "8f98b936c267a571"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "musical",
+   "v": 1,
+   "seed": "chladni-musical",
+   "res": 48,
+   "params": {
+    "plate": "cuadrada",
+    "n": 2,
+    "m": 7,
+    "mix": -1,
+    "seq": "rapido",
+    "count": 24000,
+    "agit": 1.6,
+    "persist": 0.75,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "5a53714eab59b26d",
+    "5a53714eab59b26d"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "mandala",
+   "v": 1,
+   "seed": "chladni-mandala",
+   "res": 96,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "lento",
+    "count": 24000,
+    "agit": 1.2,
+    "persist": 0.85,
+    "view": "ambos"
+   },
+   "steps": 1050,
+   "hash": [
+    "fdec28a4b463eeaa",
+    "fdec28a4b463eeaa"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "burbujas",
+   "v": 1,
+   "seed": "niebla-burbujas",
+   "res": 160,
+   "params": {
+    "field": 0.7,
+    "drag": 0.35,
+    "rate": 9,
+    "trace": 0.6,
+    "source": "bordes",
+    "pairs": 0.25,
+    "alphas": 0.05,
+    "muons": 0.1,
+    "energy": 0.95,
+    "mist": 0.15,
+    "grain": 0.4
+   },
+   "steps": 150,
+   "hash": [
+    "34e6b8e00e3111fd",
+    "34e6b8e00e3111fd"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "burbujas",
+   "v": 1,
+   "seed": "niebla-burbujas",
+   "res": 48,
+   "params": {
+    "field": 0.7,
+    "drag": 0.35,
+    "rate": 9,
+    "trace": 0.6,
+    "source": "bordes",
+    "pairs": 0.25,
+    "alphas": 0.05,
+    "muons": 0.1,
+    "energy": 0.95,
+    "mist": 0.15,
+    "grain": 0.4
+   },
+   "steps": 150,
+   "hash": [
+    "7a4825296979c6ce",
+    "7a4825296979c6ce"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "fuente",
+   "v": 1,
+   "seed": "niebla-fuente",
+   "res": 160,
+   "params": {
+    "field": 0.35,
+    "drag": 0.45,
+    "rate": 7,
+    "trace": 0.5,
+    "source": "fuente",
+    "pairs": 0.1,
+    "alphas": 0.2,
+    "muons": 0.1,
+    "energy": 0.5,
+    "mist": 0.3,
+    "grain": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "0cd7c8cc0ed70780",
+    "0cd7c8cc0ed70780"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "fuente",
+   "v": 1,
+   "seed": "niebla-fuente",
+   "res": 48,
+   "params": {
+    "field": 0.35,
+    "drag": 0.45,
+    "rate": 7,
+    "trace": 0.5,
+    "source": "fuente",
+    "pairs": 0.1,
+    "alphas": 0.2,
+    "muons": 0.1,
+    "energy": 0.5,
+    "mist": 0.3,
+    "grain": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "f3f239d6899b159c",
+    "f3f239d6899b159c"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "cosmicos",
+   "v": 1,
+   "seed": "niebla-cosmicos",
+   "res": 160,
+   "params": {
+    "field": 0.12,
+    "drag": 0.05,
+    "rate": 4,
+    "trace": 0.75,
+    "source": "arriba",
+    "pairs": 0.1,
+    "alphas": 0.05,
+    "muons": 0.7,
+    "energy": 0.9,
+    "mist": 0.3,
+    "grain": 0.6
+   },
+   "steps": 150,
+   "hash": [
+    "94e765ffdc5654ff",
+    "94e765ffdc5654ff"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "cosmicos",
+   "v": 1,
+   "seed": "niebla-cosmicos",
+   "res": 48,
+   "params": {
+    "field": 0.12,
+    "drag": 0.05,
+    "rate": 4,
+    "trace": 0.75,
+    "source": "arriba",
+    "pairs": 0.1,
+    "alphas": 0.05,
+    "muons": 0.7,
+    "energy": 0.9,
+    "mist": 0.3,
+    "grain": 0.6
+   },
+   "steps": 150,
+   "hash": [
+    "96f9fea668e1797a",
+    "96f9fea668e1797a"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "pares",
+   "v": 1,
+   "seed": "niebla-pares",
+   "res": 160,
+   "params": {
+    "field": 0.5,
+    "drag": 0.3,
+    "rate": 7,
+    "trace": 0.6,
+    "source": "bordes",
+    "pairs": 0.8,
+    "alphas": 0,
+    "muons": 0.05,
+    "energy": 0.6,
+    "mist": 0.2,
+    "grain": 0.4
+   },
+   "steps": 150,
+   "hash": [
+    "d5a42776e69acee8",
+    "d5a42776e69acee8"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "pares",
+   "v": 1,
+   "seed": "niebla-pares",
+   "res": 48,
+   "params": {
+    "field": 0.5,
+    "drag": 0.3,
+    "rate": 7,
+    "trace": 0.6,
+    "source": "bordes",
+    "pairs": 0.8,
+    "alphas": 0,
+    "muons": 0.05,
+    "energy": 0.6,
+    "mist": 0.2,
+    "grain": 0.4
+   },
+   "steps": 150,
+   "hash": [
+    "1d390f33c5896587",
+    "1d390f33c5896587"
+   ]
+  }
+ ]
+}

@@ -3,9 +3,9 @@ import type { FamilyDoc } from '../types';
 /** What the studio says about this family (loaded with its panel, not with the first view). */
 export const DOC: FamilyDoc = {
   blurb: 'Trazas de partículas en una cámara de niebla: espirales que se cierran, rectas que cruzan y pares que se abren en V.',
-  mechanism: 'Fuerza de Lorentz con frenado: dv/dt = (qB/m)·(v_y, −v_x) − γ·v. El campo magnético sólo gira la velocidad (radio m·v/(qB)); el frenado quita energía, el radio se encoge y cada traza curva se cierra en espiral, más deprisa al final porque la pérdida crece cuando la partícula se frena. Especies: electrones y positrones (ligeros, se enroscan), alfas (pesadas y con carga doble, cortas, gruesas y más brillantes al final, sueltan rayos delta), muones (rápidos, cruzan casi rectos) y fotones invisibles que se convierten en un par electrón-positrón abierto en V, cada brazo curvado hacia un lado. Las trazas se dibujan como gotas en un búfer que se desvanece y se difunde un poco, con una niebla de gotas sueltas.',
+  mechanism: 'Fuerza de Lorentz con frenado: dv/dt = (qB/m)·(v_y, −v_x) − γ·v. El campo magnético sólo gira la velocidad (radio m·v/(qB)); el frenado quita energía, el radio se encoge y cada traza curva se cierra en espiral, más deprisa al final porque la pérdida crece cuando la partícula se frena. Especies: electrones y positrones (ligeros, se enroscan), alfas (pesadas y con carga doble, cortas, gruesas y más brillantes al final, sueltan rayos delta), muones (rápidos, cruzan casi rectos) y fotones invisibles que se convierten en un par electrón-positrón abierto en V, cada brazo curvado hacia un lado. Las trazas se dibujan como gotas en un búfer que se desvanece y se difunde un poco, con una niebla de gotas sueltas. La traza recién hecha se dibuja saturada y la neblina más tenue se recorta, así que se lee igual con caracteres de 10 que de 16 px (versión 2; las piezas de la versión 1 se dibujan como antes).',
   time: 'Continuo: entran partículas sin parar (al azar de la semilla, a un ritmo por segundo) y las trazas viejas se borran; nunca se repite ni se vacía. No tiene bucle perfecto. Arranca con 3 s de calentamiento para que ya haya trazas; se puede guardar su estado.',
-  limits: 'Hasta 192 partículas vivas a la vez, 3 subpasos de integración por paso (giro exacto de la velocidad), hasta 20 entradas por segundo y 12 s de vida por partícula. Sólo luminancia: la paleta de la pieza pone el color.',
+  limits: 'Hasta 192 partículas vivas a la vez, 3 subpasos de integración por paso (giro exacto de la velocidad), hasta 20 entradas por segundo y 12 s de vida por partícula. Sólo luminancia: la paleta de la pieza pone el color. Las trazas miden de una a dos celdas de la simulación; con caracteres pequeños se leen mejor algo más finas («Grosor de traza»).',
   sources: [
     { label: 'Radiant · Spark Chamber (MIT, © 2025 Paul Bakaus; referencia de la idea, no se copió código)', url: 'https://github.com/pbakaus/radiant' },
     { label: 'C. T. R. Wilson (1912): On an expansion apparatus for making visible the tracks of ionising particles in gases', url: 'https://doi.org/10.1098/rspa.1912.0093' },
@@ -15,6 +15,7 @@ export const DOC: FamilyDoc = {
     field: 'Intensidad del campo: más campo, espirales más cerradas.',
     drag: 'Cuánta energía pierden las partículas: más frenado, espirales que se cierran antes.',
     rate: 'Partículas que entran cada segundo.',
+    width: 'Grosor de las trazas: más finas para caracteres pequeños, más gruesas para grandes.',
     trace: 'Cuánto tardan las trazas en borrarse.',
     source: 'Por dónde entran: por cualquier borde, desde arriba como los rayos cósmicos, o desde una fuente radiactiva dentro de la cámara.',
     pairs: 'Proporción de fotones que se convierten en pares que se abren en V.',

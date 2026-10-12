@@ -5,12 +5,14 @@ export const META: FamilyMeta = {
   name: 'Telas y cuerpos blandos',
   group: 'fisica',
   kind: 'simulation',
-  version: 1,
+  // 2 (PR #10 close-out): hits and the cushion's controls (since: 2); version-1 layers draw as they did
+  version: 2,
   aka: ['XPBD', 'Dinámica basada en posiciones', 'Tela', 'Simulación de ropa'],
   params: [
     { key: 'anchors', label: 'Anclajes', type: 'choice', def: 'borde', rebuild: true, options: [
       { id: 'borde', label: 'Borde superior' }, { id: 'esquinas', label: 'Dos esquinas' }, { id: 'mastil', label: 'Mástil' },
       { id: 'cuatro', label: 'Cuatro esquinas' }, { id: 'centro', label: 'Centro fijado' }, { id: 'ninguno', label: 'Ninguno (cae al suelo)' },
+      { id: 'perimetro', label: 'Todo el borde (tensa)' }, { id: 'cojin', label: 'Ninguno: cojín inflado (cuerpo blando)' },
     ] },
     { key: 'mesh', label: 'Resolución de la malla', type: 'choice', def: 'baja', rebuild: true, options: [
       { id: 'baja', label: '24 × 16' }, { id: 'media', label: '36 × 24' }, { id: 'alta', label: '48 × 32' },
@@ -27,7 +29,12 @@ export const META: FamilyMeta = {
     { key: 'angle', label: 'Ángulo de vista', type: 'number', min: -80, max: 80, def: 0, step: 1, unit: '°' },
     { key: 'view', label: 'Vista', type: 'choice', def: 'sombreado', options: [
       { id: 'sombreado', label: 'Sombreado' }, { id: 'malla', label: 'Malla' }, { id: 'ambos', label: 'Sombreado y malla' },
+      { id: 'tension', label: 'Tensión de la malla' },
     ] },
+    { key: 'kick', label: 'Golpes', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 2 },
+    { key: 'every', label: 'Un golpe cada', type: 'number', min: 0.5, max: 8, def: 2.5, step: 0.1, unit: 's', since: 2 },
+    { key: 'inflate', label: 'Inflado', type: 'number', min: 0.2, max: 1.6, def: 1, step: 0.01, since: 2 },
+    { key: 'breath', label: 'Respiración', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 2 },
   ],
   presets: [
     {
@@ -45,12 +52,23 @@ export const META: FamilyMeta = {
       params: { anchors: 'cuatro', mesh: 'media', stiff: 0.3, gravity: 1, wind: 0, substeps: 12, damping: 0.05, sphere: 'rebota', turn: 0.2, angle: 0, view: 'malla' },
       look: { stops: ['#04100e', '#a8fff0'], bg: '#020807', charset: ' .·:+#' },
     },
+    {
+      id: 'malla_cinetica', name: 'Malla cinética', aka: ['Kinetic grid', 'Red de muelles', 'Membrana tensa golpeada'], uses: ['arte/geometricas', 'fondos/geometricas'],
+      params: { anchors: 'perimetro', mesh: 'baja', stiff: 0.8, gravity: 0, wind: 0, substeps: 10, damping: 0.25, sphere: 'ninguna', turn: 0, angle: 0, view: 'tension', kick: 0.8, every: 1.8 },
+      look: { stops: ['#04060c', '#2a5d8c', '#62d2ff', '#fff1c0'], bg: '#03040a', charset: ' .·:-+=*#' },
+    },
+    {
+      id: 'cojin', name: 'Cojín que respira', aka: ['Cuerpo blando por presión', 'Soft body', 'Restricción de volumen'], uses: ['arte/figuras'],
+      params: { anchors: 'cojin', mesh: 'baja', stiff: 0.5, gravity: 0.7, wind: 0, substeps: 10, damping: 0.2, sphere: 'ninguna', turn: 0.15, angle: 0, view: 'sombreado', kick: 0.9, every: 2.6, inflate: 1.3, breath: 0.5 },
+      look: { stops: ['#0d0806', '#b0704e', '#ffe8d2'], bg: '#070403', charset: ' .:-=+*#%@' },
+    },
   ],
   caps: {
-    loop: false, time: p => (Number(p.wind) > 0 || p.sphere === 'rebota' ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true,
+    loop: false, time: p => (Number(p.wind) > 0 || p.sphere === 'rebota' || Number(p.kick) > 0 || (p.anchors === 'cojin' && Number(p.breath) > 0) ? 'continuo' : 'construccion'), basic: 'full', checkpoint: true,
     brushes: [{ id: 'empujar', label: 'Empujar', hint: 'Arrastra la tela con el dedo; sin moverlo, la hunde hacia el fondo.' }],
   },
   budget: { res: [48, 192, 96], rate: 30, warmup: 20 },
   wrap: 'clamp',
-  figure: true,
+  // (a cloth is a figure in the middle; the drumhead pinned along its whole edge fills the frame)
+  figure: p => p.anchors !== 'perimetro',
 };

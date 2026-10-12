@@ -97,3 +97,23 @@ describe('reacción–difusión', () => {
     }, 30_000);
   }
 });
+
+/* PR #10 close-out: «Coral que respira» with a visible rhythm */
+describe('reacción–difusión: Coral que respira con ritmo visible', () => {
+  it('sus heridas llegan más a menudo: el coral cambia varias veces más por segundo que con el ritmo anterior', { timeout: 120_000 }, () => {
+    const pr = META.presets.find(x => x.id === 'coral_vivo')!;
+    const change = (drift: number) => {
+      const m = create({ seed: 'ritmo', params: { ...defaultParams(META), ...pr.params, drift }, res: 64 });
+      m.step(1200 + 10 * 600);
+      let s = 0;
+      const a = new Uint8Array(m.w * m.h), b = new Uint8Array(m.w * m.h);
+      for (let k = 0; k < 6; k++) {
+        m.render(a, 0); m.step(300); m.render(b, 0);
+        for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+      }
+      return s / (6 * a.length);
+    };
+    expect(Number(pr.params.drift)).toBeGreaterThan(0.6);
+    expect(change(Number(pr.params.drift))).toBeGreaterThan(1.5 * change(0.6));
+  });
+});

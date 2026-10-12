@@ -130,3 +130,50 @@ describe('autómatas celulares', () => {
     });
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* PR #10 close-out: «Continentes» no longer hangs on the seed          */
+/* ------------------------------------------------------------------ */
+
+describe('autómatas: Continentes con el «Mapa de continentes»', () => {
+  const preset = () => ({ ...defaultParams(META), ...META.presets.find(p => p.id === 'diaynoche')!.params });
+  const cells = (m: FieldModel) => m.snapshot().arrays.S as Uint8Array;
+  const land = (S: Uint8Array) => { let k = 0; for (const s of S) if (s === 1) k++; return k / S.length; };
+
+  it('el mapa es su propio negativo al otro lado del toro, y Día y noche lo conserva generación tras generación', () => {
+    for (const res of [32, 33, 64]) {
+      const m = create({ seed: `mapa-${res}`, params: preset(), res });
+      const h = m.h, w = m.w, dy = h % 2 ? 0 : h / 2;
+      for (let gen = 0; gen < 4; gen++) {
+        const S = cells(m);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          expect(S[y * w + x] + S[((y + dy) % h) * w + ((x + h) % w)], `${res} filas, ${x},${y}`).toBe(1);
+        }
+        m.step(3 * 30);
+      }
+    }
+  });
+
+  // (twelve runs of a minute each: generous time when the suite shares the machine)
+  it('con cualquier semilla y número de filas la tierra es la mitad: ni se apaga ni lo llena todo (antes, sí)', { timeout: 60_000 }, () => {
+    for (const res of [32, 64, 128]) for (const seed of ['a', 'b', 'automata-diaynoche']) {
+      const m = create({ seed, params: preset(), res });
+      m.step(90 + 60 * 30);
+      expect(land(cells(m)), `${seed} a ${res} filas`).toBe(0.5);
+    }
+    // the earlier seeding: at 32 rows one side takes the whole field
+    const old = create({ seed: 'automata-diaynoche', params: { ...preset(), seedShape: 'aleatoria' }, res: 32 });
+    old.step(90 + 60 * 30);
+    expect(Math.abs(land(cells(old)) - 0.5)).toBeGreaterThan(0.4);
+  });
+
+  it('sigue siendo una construcción: se va quedando quieta, sin vaciarse', { timeout: 60_000 }, () => {
+    expect(timeContract(META, preset())).toBe('construccion');
+    const m = create({ seed: 'quieta', params: preset(), res: 64 });
+    const r = (mm: FieldModel) => { const o = new Uint8Array(mm.w * mm.h); mm.render(o, 0); return o; };
+    m.step(90 + 5 * 30); const a0 = r(m); m.step(15); const a1 = r(m);
+    m.step(600 * 30); const b0 = r(m); m.step(15); const b1 = r(m);
+    const mad = (x: Uint8Array, y: Uint8Array) => { let s = 0; for (let i = 0; i < x.length; i++) s += Math.abs(x[i] - y[i]); return s / x.length; };
+    expect(mad(b0, b1)).toBeLessThan(mad(a0, a1));
+  });
+});

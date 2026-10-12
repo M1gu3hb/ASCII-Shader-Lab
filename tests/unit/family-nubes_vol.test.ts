@@ -84,3 +84,28 @@ describe('nubes volumétricas', { timeout: 60_000 }, () => {
     expect(peak(0.1)).toBeLessThan(peak(0.9));
   });
 });
+
+/* PR #10 close-out: clouds that filled the frame with a dim glow («Contraste») */
+describe('nubes volumétricas: contraste', { timeout: 60_000 }, () => {
+  const preset = (id: string) => ({ ...META.presets.find(x => x.id === id)!.params });
+  it('con 0 dibuja exactamente lo de antes', () => {
+    for (const id of ['haces', 'dentro', 'banco']) {
+      const p = preset(id);
+      expect(img({ ...p, contrast: 0 }, 30)).toEqual(img({ ...p, contrast: undefined as unknown as number }, 30));
+    }
+  });
+  it('recorta la bruma tenue: aparecen huecos negros sin apagar la luz', () => {
+    for (const id of ['haces', 'dentro']) {
+      const p = preset(id);
+      const flat = img({ ...p, contrast: 0 }, 45), sharp = img(p, 45);
+      const dark = (o: number[]) => o.filter(v => v < 24 / 255).length / o.length;
+      expect(Number(p.contrast), id).toBeGreaterThan(0);
+      expect(dark(sharp), id).toBeGreaterThan(dark(flat) + 0.04);
+      expect(Math.max(...sharp), id).toBeGreaterThanOrEqual(0.8 * Math.max(...flat));
+    }
+  });
+  it('el shader y su gemelo leen el contraste del mismo sitio (K2.x, k[8])', () => {
+    expect(META.params.findIndex(s => s.key === 'contrast')).toBe(8);
+    expect(impl.glsl).toContain('K2.x');
+  });
+});

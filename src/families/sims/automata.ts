@@ -74,6 +74,8 @@ const FADE: Record<string, number> = { ninguna: 0, corta: 0.62, larga: 0.88 };
  * half (the two engines round such ties to different glyphs).
  */
 const ALIVE = 0.96;
+/** «Mapa de continentes»: weights of its two octaves of noise (a quarter and a tenth of the height) and of the speckle. */
+const MAP_A = 0.3, MAP_B = 0.3, MAP_C = 1;
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h, n = w * h;
@@ -104,6 +106,37 @@ export function create(cfg: ModelConfig): FieldModel {
       for (let y = 0; y < sy; y++) for (let x = 0; x < sx; x++) {
         if (rng.next() >= p.density) continue;
         put(cx + x, cy + y); put(cx - 1 - x, cy + y); put(cx + x, cy - 1 - y); put(cx - 1 - x, cy - 1 - y);
+      }
+      break;
+    }
+    case 'continentes': {
+      // a map (PR #10 close-out): smooth noise of a few blobs across the torus (two octaves, a quarter and a
+      // tenth of the height, and a ragged coast), compared with itself half a torus away (half the width and,
+      // on an even number of rows, half the height): a cell is land where the noise is higher than at its
+      // opposite point, so the opposite point is sea. Land is exactly half the field and the map is its own
+      // negative across the torus; a rule that treats live and dead cells alike (Día y noche) keeps that for
+      // ever, so neither land nor sea can take over, whatever the seed and the rows
+      const oct = (cell: number, amp: number, into: Float32Array) => {
+        const gx = Math.max(2, Math.round(w / cell)), gy = Math.max(2, Math.round(h / cell)), g = new Float32Array(gx * gy);
+        for (let i = 0; i < g.length; i++) g[i] = rng.next();
+        for (let y = 0; y < h; y++) {
+          const fy = (y / h) * gy, y0 = Math.floor(fy), ty = fy - y0, sy = ty * ty * (3 - 2 * ty);
+          for (let x = 0; x < w; x++) {
+            const fx = (x / w) * gx, x0 = Math.floor(fx), tx = fx - x0, sx = tx * tx * (3 - 2 * tx);
+            const a = g[(y0 % gy) * gx + (x0 % gx)], b = g[(y0 % gy) * gx + ((x0 + 1) % gx)];
+            const c = g[((y0 + 1) % gy) * gx + (x0 % gx)], d = g[((y0 + 1) % gy) * gx + ((x0 + 1) % gx)];
+            into[y * w + x] += amp * ((a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy);
+          }
+        }
+      };
+      const f = new Float32Array(n);
+      oct(h / 4, MAP_A, f);
+      oct(h / 10, MAP_B, f);
+      for (let i = 0; i < n; i++) f[i] += MAP_C * rng.next();
+      const dy = h % 2 ? 0 : h / 2;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const i = y * w + x, j = ((y + dy) % h) * w + ((x + h) % w);
+        if (f[i] > f[j] || (f[i] === f[j] && i < j)) { S[i] = 1; age[i] = 0; }
       }
       break;
     }

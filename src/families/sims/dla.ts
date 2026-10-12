@@ -21,9 +21,16 @@ import type { FieldModel, ModelConfig, ModelState, Params, Stroke } from '../typ
  *    ring (which stays), every walker that lands on it starts a ray of its own: rays sprout, spread and go;
  *  - a floor or a ceiling: the domain advances with the front (the picture scrolls, smooth between rows),
  *    so the branches keep growing while the oldest ones leave by the far side.
+ *
+ * Version 2 (PR #10 close-out): a run that grows and stays («Renovación: no») takes about as long to grow at
+ * every resolution. «Caminantes» counts the walkers on the 64-row lattice and they scale with its area, as a
+ * bath's do: on a finer lattice the aggregate needs more particles to reach the same share of the picture, and
+ * as many walkers diffusing at once bring them in the same time (each still walks and sticks one move at a
+ * time; at 160 rows version 1 needed minutes to grow what 64 rows grow in 20 s). At 64 rows both versions
+ * draw the same; recipes made with version 1 keep its path at every size.
  */
 
-const ID = 'dla', V = 1;
+const ID = 'dla', V = 2;
 /**
  * 0..1 → a byte in steps of 4 (64 levels): a sample halfway between two or four texels is then a whole level
  * in both engines (the GPU's float32 and the CPU's float64 would otherwise round an exact .5 apart and pick
@@ -65,7 +72,9 @@ const grain = (i: number) => (Math.imul(i ^ 0x5bd1e995, 0x9e3779b1) >>> 8) / 167
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h, n = w * h;
-  const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
+  const v = cfg.v ?? V;
+  // (the stream keeps the version-1 key: both versions seed the same aggregate)
+  const rng = new SimRng(`${ID}|1|${cfg.seed}`);
   let p = read(cfg.params);
   const shape = p.seed;
   const cap = Math.floor(n * FILL);
@@ -221,9 +230,10 @@ export function create(cfg: ModelConfig): FieldModel {
 
   const stopped = () => !renew && (edge === 1 || count >= cap);
 
-  // walkers at once: as given; renewal keeps the look at every resolution (a bath fills the area)
+  // walkers at once: as given (version 2: on the 64-row lattice, scaled with its area); renewal keeps the look
+  // at every resolution (a bath fills the area)
   const walkersNow = () => {
-    if (!renew) return p.walkers;
+    if (!renew) return v >= 2 ? Math.max(1, Math.min(MAX_WALKERS, Math.round(p.walkers * (h / REF) ** 2))) : p.walkers;
     const k = bath ? BATH * (h / REF) ** 2 : (h / REF) ** 1.7;
     return Math.max(1, Math.min(MAX_WALKERS, Math.round(p.walkers * k)));
   };
@@ -247,7 +257,9 @@ export function create(cfg: ModelConfig): FieldModel {
     const pd = bath && toCentre && shape !== 'anillo' ? 0 : Math.min(0.6, p.bias * 0.6), stick = p.stick;
     const nw = walkersNow();
     // (a bath on a finer lattice: more moves per step, so that walkers cross the same share of the field)
-    const moves = bath ? Math.round(MOVES * Math.max(1, (h / REF) ** 2)) : MOVES;
+    // (version 2 grows and stays at any size in about the same time: its walkers cross the same share of
+    // the field per step too)
+    const moves = bath ? Math.round(MOVES * Math.max(1, (h / REF) ** 2)) : !renew && v >= 2 ? Math.round(MOVES * Math.max(1, h / REF)) : MOVES;
     for (let i = 0; i < nw; i++) {
       if (wl[i] === DEAD && !spawn(i)) continue;
       let x = wx[i], y = wy[i];
@@ -484,7 +496,7 @@ export function create(cfg: ModelConfig): FieldModel {
       const arrays: ModelState['arrays'] = { age: age.slice(), adj: adj.slice(), label: label.slice(), wx: wx.slice(), wy: wy.slice(), wl: wl.slice(), sx: sx.slice(), sy: sy.slice(), sr2: sr2.slice() };
       if (renew) Object.assign(scalars, { base, live, nextL, cool, sub });
       if (bath) Object.assign(arrays, { cb: cb.slice(), cd: cd.slice(), cf: cf.slice(), cl: cl.slice(), cc: cc.slice() });
-      return { id: ID, v: V, steps, res: h, scalars, arrays };
+      return { id: ID, v, steps, res: h, scalars, arrays };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta agregación.');

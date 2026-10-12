@@ -6,7 +6,8 @@ export const META: FamilyMeta = {
   aka: ['nubes', 'nube volumétrica', 'Beer–Lambert', 'Henyey–Greenstein', 'nebulosa', 'cielo'],
   group: 'ciencia',
   kind: 'analytic',
-  version: 1,
+  // 2 (PR #10 close-out): «Contraste» (since: 2; 0 is the earlier output); version-1 layers draw as they did
+  version: 2,
   extends: 'nube',
   params: [
     { key: 'cover', label: 'Cobertura', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
@@ -20,6 +21,7 @@ export const META: FamilyMeta = {
       { id: 'dentro', label: 'Dentro' }, { id: 'horizonte', label: 'Sobre el mar de nubes' }, { id: 'haces', label: 'Haces de luz' },
       { id: 'nebulosa', label: 'Nebulosa' },
     ] },
+    { key: 'contrast', label: 'Contraste', type: 'number', min: 0, max: 1, def: 0, step: 0.01, since: 2 },
   ],
   presets: [
     { id: 'banco', name: 'Mar de nubes', aka: ['Banco de nubes', 'nubes volumétricas'], uses: ['fondos/organicas'],
@@ -29,10 +31,10 @@ export const META: FamilyMeta = {
       params: { cover: 0.6, scale: 0.8, erosion: 0.8, wind: 0.6, sun: 0.4, absorb: 1.6, steps: 40, camera: 'nebulosa' },
       look: { stops: ['#05020a', '#a0489a', '#ffd8f2'], bg: '#030106', charset: ' .·:;+*#@' } },
     { id: 'haces', name: 'Haces de luz', aka: ['rayos crepusculares', 'dispersión de Mie'], uses: ['fondos/organicas'],
-      params: { cover: 0.84, scale: 1.6, erosion: 0.3, wind: 0.3, sun: 0.85, absorb: 2.6, steps: 40, camera: 'haces' },
+      params: { cover: 0.84, scale: 1.6, erosion: 0.3, wind: 0.3, sun: 0.95, absorb: 2, steps: 40, camera: 'haces', contrast: 0.3 },
       look: { stops: ['#100c06', '#a08050', '#fff0cc'], bg: '#080603', charset: ' .:;|!#' } },
     { id: 'dentro', name: 'Vuelo entre nubes', aka: ['Nebulosa (dentro de la nube)'], uses: ['fondos/organicas', 'tipo/texturas'],
-      params: { cover: 0.34, scale: 1.1, erosion: 1, wind: 0.6, sun: 0.85, absorb: 2.2, steps: 36, camera: 'dentro' },
+      params: { cover: 0.34, scale: 1.1, erosion: 1, wind: 0.6, sun: 0.6, absorb: 2.2, steps: 36, camera: 'dentro', contrast: 0.3 },
       look: { stops: ['#0c0414', '#a0609a', '#ffd0f0'], bg: '#05020a', charset: ' .·:;+*#@' } },
   ],
   // with no wind nothing moves (a loop of any length); with it the noise drifts on and never comes back

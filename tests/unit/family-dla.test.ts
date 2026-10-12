@@ -144,3 +144,45 @@ describe('agregación con renovación (presets continuos)', { timeout: 60_000 },
     expect(s.scalars.front).toBeGreaterThan(4);
   });
 });
+
+/* PR #10 close-out: a construction grows in about the same time at every size (version 2) */
+describe('dla v2: la construcción crece igual de deprisa a 64 y a 160 filas', () => {
+  const ink = (m: { w: number; h: number; render(o: Uint8Array, t: number): void }) => {
+    const o = new Uint8Array(m.w * m.h); m.render(o, 0);
+    let k = 0; for (const v of o) if (v > 24) k++;
+    return k / o.length;
+  };
+  const grown = (preset: string, res: number, v: number, seconds: number) => {
+    const p = { ...defaultParams(META), ...META.presets.find(x => x.id === preset)!.params };
+    const m = create({ seed: `crece-${preset}`, params: p, res, v });
+    m.step(90 + seconds * 30);
+    return ink(m);
+  };
+  it('a los 30 s, a 160 filas la versión 2 llega casi a lo que llega a 64 (la 1 se quedaba en una fracción)', { timeout: 60_000 }, () => {
+    for (const preset of ['cristal', 'raices', 'corona']) {
+      const at64 = grown(preset, 64, 2, 30), v2 = grown(preset, 160, 2, 30), v1 = grown(preset, 160, 1, 30);
+      expect(v2, preset).toBeGreaterThan(0.6 * at64);
+      expect(v1, preset).toBeLessThan(0.4 * at64);
+    }
+  });
+  it('a 64 filas las dos versiones dibujan lo mismo', () => {
+    const p = { ...defaultParams(META), ...META.presets.find(x => x.id === 'colonias')!.params };
+    const a = create({ seed: 'igual', params: p, res: 64, v: 1 }), b = create({ seed: 'igual', params: p, res: 64, v: 2 });
+    a.step(300); b.step(300);
+    const ra = new Uint8Array(a.w * a.h), rb = new Uint8Array(b.w * b.h);
+    a.render(ra, 0); b.render(rb, 0);
+    expect(rb).toEqual(ra);
+  });
+  it('sigue siendo una construcción que termina y se queda (no se falsea el avance)', { timeout: 60_000 }, () => {
+    const p = { ...defaultParams(META), ...META.presets.find(x => x.id === 'cristal')!.params };
+    const m = create({ seed: 'termina', params: p, res: 160, v: 2 });
+    m.step(90 + 120 * 30);
+    const a = new Uint8Array(m.w * m.h), b = new Uint8Array(m.w * m.h);
+    m.render(a, 0); m.step(60); m.render(b, 0);
+    expect(b).toEqual(a);
+    // and what it built is a cluster (an aggregate under the 35 % cap), not a filled field
+    const k = ink(m);
+    expect(k).toBeGreaterThan(0.2);
+    expect(k).toBeLessThan(0.6);
+  });
+});

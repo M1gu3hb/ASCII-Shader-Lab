@@ -116,3 +116,34 @@ describe('Chladni: presets continuos', { timeout: 60_000 }, () => {
     });
   }
 });
+
+/* PR #10 close-out: the grey disc of «Mandala de arena» (version 2) */
+describe('chladni v2: sin disco gris donde la placa apenas vibra', () => {
+  const mandala = { ...defaultParams(META), ...META.presets.find(x => x.id === 'mandala')!.params };
+  // at 33 s the sequence of «Mandala de arena» is in a mode whose middle barely moves: its sand stays spread
+  // as the previous mode left it (version 1: a grey disc)
+  const middle = (seed: string, v: number) => {
+    const m = create({ seed, params: mandala, res: 96, v });
+    m.step(60 + 33 * 30);
+    const o = new Uint8Array(m.w * m.h); m.render(o, 0);
+    let s = 0, k = 0, top = 0;
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+      const px = ((x + 0.5) / m.w * 2 - 1) / 0.47, py = (0.5 - (y + 0.5) / m.h) / 0.47;
+      if (Math.hypot(px, py) < 0.3) { s += o[y * m.w + x]; k++; }
+      top = Math.max(top, o[y * m.w + x]);
+    }
+    return { mean: s / k, top };
+  };
+  it('la versión 1 dejaba el centro gris; la 2 lo oscurece y sigue dibujando sus líneas', { timeout: 60_000 }, () => {
+    for (const seed of ['chladni-mandala', 'disco', 'otra']) {
+      const v1 = middle(seed, 1), v2 = middle(seed, 2);
+      expect(v2.mean, seed).toBeLessThan(0.7 * v1.mean);
+      expect(v2.top, seed).toBeGreaterThan(200);
+    }
+  });
+  it('los granos caminan igual en las dos versiones: sólo cambia el dibujo', () => {
+    const a = create({ seed: 'granos', params: mandala, res: 64, v: 1 }), b = create({ seed: 'granos', params: mandala, res: 64, v: 2 });
+    a.step(90); b.step(90);
+    expect(b.snapshot().arrays.pos).toEqual(a.snapshot().arrays.pos);
+  });
+});

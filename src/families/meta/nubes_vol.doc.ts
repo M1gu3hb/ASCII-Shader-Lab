@@ -20,6 +20,7 @@ export const DOC: FamilyDoc = {
     'absorb': 'Lo opacas que son: con más, el interior se oscurece y las bases se vuelven grises.',
     'steps': 'Pasos del rayo a través de la capa.',
     'camera': 'Dentro: vuelas a través de la capa. Haces: bajo la capa, en una bruma que el sol atraviesa por los huecos. Nebulosa: gas luminoso y polvo oscuro delante de las estrellas («Luz» mueve la estrella; «Absorción», el polvo).',
+    'contrast': 'Oscurece la bruma y el cielo más tenues y aviva la luz: huecos negros y haces más nítidos (no cambia la nebulosa, que ya lleva su punto negro). 0: como antes.',
   },
   presets: {
     'banco': 'Un mar de nubes desde arriba, con el sol bajo que ilumina las cimas y el horizonte en bruma.',

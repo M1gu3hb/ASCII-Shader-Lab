@@ -5,7 +5,7 @@ export const META: FamilyMeta = {
   name: 'Cámara de niebla',
   group: 'ciencia',
   kind: 'simulation',
-  version: 1,
+  version: 2,
   aka: ['cloud chamber', 'cámara de Wilson', 'cámara de burbujas', 'fuerza de Lorentz', 'trazas de partículas'],
   params: [
     { key: 'field', label: 'Campo magnético', type: 'number', min: 0, max: 1, def: 0.6, step: 0.01 },
@@ -21,10 +21,11 @@ export const META: FamilyMeta = {
     { key: 'energy', label: 'Energía', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
     { key: 'mist', label: 'Niebla de fondo', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
     { key: 'grain', label: 'Gotas', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01, advanced: true },
+    { key: 'width', label: 'Grosor de traza', type: 'number', min: 0.4, max: 2, def: 1, step: 0.05, since: 2 },
   ],
   presets: [
     { id: 'burbujas', name: 'Cámara de burbujas', uses: ['terminal/consola', 'arte/curvas'], aka: ['espirales de electrones'],
-      params: { field: 0.7, drag: 0.35, rate: 9, trace: 0.6, source: 'bordes', pairs: 0.25, alphas: 0.05, muons: 0.1, energy: 0.95, mist: 0.15, grain: 0.4 },
+      params: { field: 0.7, drag: 0.35, rate: 9, trace: 0.6, source: 'bordes', pairs: 0.25, alphas: 0.05, muons: 0.1, energy: 0.95, mist: 0.15, grain: 0.4, width: 1 },
       look: { stops: ['#020507', '#2a6a80', '#9fe8ff', '#ffffff'], bg: '#020406', charset: ' .·:-=+*#%' } },
     { id: 'cosmicos', name: 'Rayos cósmicos', uses: ['terminal/consola', 'fondos/espacio'], aka: ['muones cósmicos'],
       params: { field: 0.12, drag: 0.05, rate: 4, trace: 0.75, source: 'arriba', pairs: 0.1, alphas: 0.05, muons: 0.7, energy: 0.9, mist: 0.3, grain: 0.6 },

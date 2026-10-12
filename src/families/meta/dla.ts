@@ -6,7 +6,7 @@ export const META: FamilyMeta = {
   group: 'vida',
   kind: 'simulation',
   aka: ['DLA', 'agregación limitada por difusión', 'diffusion-limited aggregation', 'Witten–Sander', 'dendritas'],
-  version: 1,
+  version: 2,
   params: [
     { key: 'seed', label: 'Semilla', type: 'choice', def: 'punto', rebuild: true, options: [
       { id: 'punto', label: 'Punto' }, { id: 'suelo', label: 'Línea inferior' }, { id: 'techo', label: 'Línea superior' },
