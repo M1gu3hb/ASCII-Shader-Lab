@@ -15,13 +15,17 @@ import type { FieldModel, ModelConfig, ModelState, Params } from '../types';
  * that ride along them (faster where the field is stronger), the sources, and optionally the equipotentials
  * (|B| for loops) on the plane through the centre facing the camera. The run's steps are its construction
  * state: the lines grow from their sources during the first seconds.
+ *
+ * With «Movimiento» (move > 0) the sources move on periodic paths (sourcesAt) and every line is traced again
+ * from them, round-robin (mover): the lines bend, part and reconnect as the charges orbit, the loops slide and
+ * the second loop's current reverses, or the magnets circle each other. The steps are still the whole state.
  */
 
 const ID = 'campos_em', V = 1;
 const LOOP_SEG = 32;
 const MAX_LINES = 120;
 const MAX_STEPS = 420;
-const DS = 0.016;
+const DS0 = 0.016;
 const BOUND = 2.3;
 const GROW = 0.9; // world units of line drawn per second of growth
 
@@ -78,7 +82,7 @@ const F = new Float64Array(3);
  * The field at (x, y, z): E for charges, B for loops (axis y) and dipoles (moment along y). Returns a
  * shared buffer, overwritten by the next call.
  */
-export function field(src: Source[], x: number, y: number, z: number): Float64Array {
+export function field(src: Source[], x: number, y: number, z: number, segs = LOOP_SEG): Float64Array {
   let fx = 0, fy = 0, fz = 0;
   for (const s of src) {
     if (Math.abs(s.s) < 1e-6) continue;
@@ -93,8 +97,8 @@ export function field(src: Source[], x: number, y: number, z: number): Float64Ar
       fx += 3 * mr * rx / r5; fy += (3 * mr * ry - s.s * r2) / r5; fz += 3 * mr * rz / r5;
     } else {
       // Biot–Savart over the loop's segments (current s, counter-clockwise seen from +y)
-      for (let i = 0; i < LOOP_SEG; i++) {
-        const a0 = (i / LOOP_SEG) * Math.PI * 2, a1 = ((i + 1) / LOOP_SEG) * Math.PI * 2;
+      for (let i = 0; i < segs; i++) {
+        const a0 = (i / segs) * Math.PI * 2, a1 = ((i + 1) / segs) * Math.PI * 2;
         const ax = s.x + LOOP_R * Math.cos(a0), az = s.z - LOOP_R * Math.sin(a0);
         const bx = s.x + LOOP_R * Math.cos(a1), bz = s.z - LOOP_R * Math.sin(a1);
         const sx = bx - ax, sz = bz - az;
@@ -113,8 +117,8 @@ export function field(src: Source[], x: number, y: number, z: number): Float64Ar
 }
 
 /** Unit field direction (times dir) into F; returns |field|. */
-function dirAt(src: Source[], x: number, y: number, z: number, dir: number): number {
-  field(src, x, y, z);
+function dirAt(src: Source[], x: number, y: number, z: number, dir: number, segs = LOOP_SEG): number {
+  field(src, x, y, z, segs);
   const m = Math.hypot(F[0], F[1], F[2]);
   const k = m > 1e-12 ? dir / m : 0;
   F[0] *= k; F[1] *= k; F[2] *= k;
@@ -126,16 +130,16 @@ function dirAt(src: Source[], x: number, y: number, z: number, dir: number): num
  * opposite sign to the line's direction, a dipole or a loop's wire), on closing near `close` (magnetic
  * lines), out of BOUND or out of steps.
  */
-function traceLine(src: Source[], x: number, y: number, z: number, dir: number, close: boolean): { pts: number[]; mags: number[]; end: number } {
+function traceLine(src: Source[], x: number, y: number, z: number, dir: number, close: boolean, DS = DS0, segs = LOOP_SEG, maxSteps = MAX_STEPS): { pts: number[]; mags: number[]; end: number } {
   const pts = [x, y, z], mags: number[] = [];
   const x0 = x, y0 = y, z0 = z;
   let end = 2, travelled = 0;
-  mags.push(dirAt(src, x, y, z, dir));
-  for (let i = 0; i < MAX_STEPS; i++) {
-    dirAt(src, x, y, z, dir); const k1x = F[0], k1y = F[1], k1z = F[2];
-    dirAt(src, x + 0.5 * DS * k1x, y + 0.5 * DS * k1y, z + 0.5 * DS * k1z, dir); const k2x = F[0], k2y = F[1], k2z = F[2];
-    dirAt(src, x + 0.5 * DS * k2x, y + 0.5 * DS * k2y, z + 0.5 * DS * k2z, dir); const k3x = F[0], k3y = F[1], k3z = F[2];
-    const m = dirAt(src, x + DS * k3x, y + DS * k3y, z + DS * k3z, dir);
+  mags.push(dirAt(src, x, y, z, dir, segs));
+  for (let i = 0; i < maxSteps; i++) {
+    dirAt(src, x, y, z, dir, segs); const k1x = F[0], k1y = F[1], k1z = F[2];
+    dirAt(src, x + 0.5 * DS * k1x, y + 0.5 * DS * k1y, z + 0.5 * DS * k1z, dir, segs); const k2x = F[0], k2y = F[1], k2z = F[2];
+    dirAt(src, x + 0.5 * DS * k2x, y + 0.5 * DS * k2y, z + 0.5 * DS * k2z, dir, segs); const k3x = F[0], k3y = F[1], k3z = F[2];
+    const m = dirAt(src, x + DS * k3x, y + DS * k3y, z + DS * k3z, dir, segs);
     const k4x = F[0], k4y = F[1], k4z = F[2];
     if (m === 0) { end = 0; break; }
     x += (DS / 6) * (k1x + 2 * k2x + 2 * k3x + k4x);
@@ -247,7 +251,9 @@ function potential(src: Source[], x: number, y: number, z: number): number {
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
   let p = read(cfg.params);
-  const g = buildField(cfg.seed, cfg.params);
+  // «Movimiento»: moving sources, their lines traced again as they go (static sources and lines otherwise)
+  const mv = Number(cfg.params.move ?? 0) > 0 ? mover(cfg.seed, cfg.params) : null;
+  const g = mv ? mv.g : buildField(cfg.seed, cfg.params);
   const rng = new SimRng(`${ID}|${V}|${cfg.seed}|fase`);
   const phase = g.lines.map(() => rng.next());
   const acc = new Accum(w, h);
@@ -263,7 +269,10 @@ export function create(cfg: ModelConfig): FieldModel {
     w, h,
     get steps() { return steps; },
     setParams(np: Params) { p = read(np); },
-    step(k: number) { steps += k; },
+    step(k: number) {
+      if (!mv) { steps += k; return; }
+      for (let i = 0; i < k; i++) { steps++; mv.advance(steps); }
+    },
     render(out: Uint8Array, t: number) {
       acc.clear();
       const yaw = (t * p.turn * Math.PI * 2) / 60, pitch = (p.tilt * Math.PI) / 180;
@@ -359,6 +368,109 @@ export function create(cfg: ModelConfig): FieldModel {
     restore(s: ModelState) {
       if (s.id !== ID) throw new Error('El estado guardado no corresponde a estas líneas de campo.');
       steps = s.steps;
+      mv?.rebuild(steps);
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* «Movimiento»: sources that move, lines traced again all the time    */
+/* ------------------------------------------------------------------ */
+
+/** A line slot: which source it starts from and which of its seeds (`n` seeds round that source). */
+interface Slot { si: number; j: number; n: number }
+const EMPTY: FieldLine = { p: new Float32Array(3), tau: new Float32Array(1), arc: new Float32Array(1), n: 1, end: 2 };
+
+/**
+ * The sources of a configuration at time τ (seconds) with «Movimiento» m: charges orbit their centre in the
+ * horizontal plane (the quadrupole turns in its own) while their distance breathes; loops slide along their
+ * axis toward and away from each other while the second one's current swells, fades and reverses; magnets
+ * circle each other in the vertical plane. Every term is periodic, so nothing drifts away.
+ */
+export function sourcesAt(config: string, sep: number, ratio: number, m: number, tau: number): Source[] {
+  const src = sourcesOf(config, sep, ratio);
+  const ph = 2 * Math.PI * m * tau;
+  const f = 1 + 0.25 * Math.sin(ph / 11), a = ph / 16, ca = Math.cos(a), sa = Math.sin(a);
+  for (const s of src) {
+    if (config === 'cuadrupolo') { const x = s.x, y = s.y; s.x = (x * ca - y * sa) * f; s.y = (x * sa + y * ca) * f; }
+    else if (config === 'espira') { s.y *= 1 + 0.45 * Math.sin(ph / 9); }
+    else if (config === 'iman') { const x = s.x; s.x = x * ca * f; s.y = x * sa * f; }
+    else { const x = s.x; s.x = x * ca * f; s.z = x * sa * f; }
+  }
+  if (config === 'espira' && src.length > 1) src[1].s = ratio * Math.cos(ph / 14);
+  return src;
+}
+
+/** The line of one slot among the sources `src` (the same seeding as buildField; EMPTY where none starts). */
+function traceSlot(src: Source[], sl: Slot, rot: number, tiltS: number): FieldLine {
+  const s = src[sl.si], j = sl.j, n = sl.n, golden = Math.PI * (3 - Math.sqrt(5));
+  if (Math.abs(s.s) < 0.05) return EMPTY;
+  if (s.kind === 'e' || s.kind === 'dip') {
+    const r0 = s.kind === 'e' ? 0.06 : 0.08;
+    let zz: number;
+    if (s.kind === 'e') zz = 1 - (2 * (j + 0.5)) / n;
+    else { const s2 = r0 / BOUND + (r0 / 0.3 - r0 / BOUND) * (j + 0.5) / n; zz = Math.sqrt(1 - s2); }
+    const rr = Math.sqrt(Math.max(0, 1 - zz * zz)), a = j * golden + rot;
+    const ux = rr * Math.cos(a);
+    let uy = zz, uz = rr * Math.sin(a);
+    if (s.kind === 'e') { const c = Math.cos(tiltS), si = Math.sin(tiltS); const t1 = c * uy - si * uz; uz = si * uy + c * uz; uy = t1; }
+    const sx = s.x + ux * r0, sy = s.y + uy * r0 * Math.sign(s.s || 1), sz = s.z + uz * r0;
+    if (s.kind === 'dip') { const tr = traceLine(src, sx, sy, sz, Math.sign(s.s), false); return tr.pts.length > 3 ? pack(tr.pts, tr.mags, tr.end) : EMPTY; }
+    const dir = s.s > 0 ? 1 : -1, tr = traceLine(src, sx, sy, sz, dir, false);
+    if (dir > 0) return tr.pts.length > 3 ? pack(tr.pts, tr.mags, tr.end) : EMPTY;
+    if (tr.end === 0) return EMPTY;
+    const pts: number[] = [], mags: number[] = [];
+    for (let i = tr.pts.length / 3 - 1; i >= 0; i--) { pts.push(tr.pts[i * 3], tr.pts[i * 3 + 1], tr.pts[i * 3 + 2]); mags.push(tr.mags[i] ?? 0); }
+    return pack(pts, mags, 0);
+  }
+  const rr = LOOP_R * 0.9 * Math.sqrt((j + 0.5) / n), a = j * golden + rot;
+  const sx = s.x + rr * Math.cos(a), sy = s.y, sz = s.z + rr * Math.sin(a);
+  // (traced again and again: half the loop's segments and longer steps, the same picture at a third of the cost)
+  const fwd = traceLine(src, sx, sy, sz, Math.sign(s.s), true, DS0 * 1.5, LOOP_SEG / 2, MAX_STEPS * 2 / 3);
+  if (fwd.end === 0) return pack(fwd.pts, fwd.mags, 0);
+  const back = traceLine(src, sx, sy, sz, -Math.sign(s.s), true, DS0 * 1.5, LOOP_SEG / 2, MAX_STEPS * 2 / 3);
+  const pts: number[] = [], mags: number[] = [];
+  for (let i = back.pts.length / 3 - 1; i >= 1; i--) { pts.push(back.pts[i * 3], back.pts[i * 3 + 1], back.pts[i * 3 + 2]); mags.push(back.mags[i] ?? 0); }
+  for (let i = 0; i < fwd.pts.length / 3; i++) { pts.push(fwd.pts[i * 3], fwd.pts[i * 3 + 1], fwd.pts[i * 3 + 2]); mags.push(fwd.mags[i] ?? 0); }
+  return pack(pts, mags, fwd.end);
+}
+
+/**
+ * Moving sources: the line slots of a configuration (the same seeds as buildField, for the strengths it was
+ * built with) and the lines traced again round-robin, slot i every `every` steps when (step − i) is a multiple
+ * of it, from the sources at that step. The lines at any step are a function of the step alone.
+ */
+function mover(seed: string, params: Params) {
+  const q = read(params), m = Math.max(0, Number(params.move ?? 0));
+  const base = sourcesOf(q.config, q.sep, q.ratio);
+  const rng = new SimRng(`${ID}|${V}|${seed}`);
+  const rot = rng.range(0, Math.PI * 2), tiltS = rng.range(-0.4, 0.4);
+  const slots: Slot[] = [];
+  base.forEach((s, si) => {
+    if (Math.abs(s.s) < 0.02 && !(q.config === 'espira' && si === 1)) return;
+    const n = Math.min(48, Math.max(1, Math.round(q.lines * Math.max(Math.abs(s.s), q.config === 'espira' ? 0.25 : 0))));
+    for (let j = 0; j < n && slots.length < MAX_LINES; j++) slots.push({ si, j, n });
+  });
+  // loops cost a Biot–Savart sum per field sample: their lines are refreshed less often
+  const every = base[0].kind === 'loop' ? 10 : base[0].kind === 'dip' ? 3 : 2;
+  const at = (step: number) => sourcesAt(q.config, q.sep, q.ratio, m, step / 30);
+  const lines = slots.map(sl => traceSlot(at(0), sl, rot, tiltS));
+  const g: FieldConfig = { sources: at(0), kind: base[0].kind === 'e' ? 'e' : 'b', lines };
+  return {
+    g,
+    /** After the step counter reached `step`: the slots due now are traced again, the sources move. */
+    advance(step: number) {
+      let src: Source[] | null = null;
+      for (let i = 0; i < slots.length; i++) if ((((step - i) % every) + every) % every === 0) lines[i] = traceSlot(src ??= at(step), slots[i], rot, tiltS);
+      g.sources = src ?? at(step);
+    },
+    /** The lines as they stand at `step` (each slot from its last tracing): a restored run. */
+    rebuild(step: number) {
+      for (let i = 0; i < slots.length; i++) {
+        const last = step - ((((step - i) % every) + every) % every);
+        lines[i] = traceSlot(at(last >= 1 ? last : 0), slots[i], rot, tiltS);
+      }
+      g.sources = at(step);
     },
   };
 }

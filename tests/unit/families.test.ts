@@ -27,8 +27,15 @@ const INERT: Record<string, Record<string, string>> = {
   },
   reaccion_difusion: { edges: 'los bordes sólo cambian lo que cruza el límite; con pocas iteraciones puede no notarse' },
   automata: { custom: 'sólo cuenta con «Regla propia»' },
-  crecimiento: { bound: 'el límite sólo actúa cuando la curva llega a él; en la prueba corta todavía no llega' },
-  wfc: { hold: 'la espera sólo cuenta con el tablero terminado; en la prueba corta todavía se construye' },
+  crecimiento: {
+    bound: 'el límite sólo actúa cuando la curva llega a él; en la prueba corta todavía no llega',
+    life: 'sólo cuenta con «Renovación: sí»',
+  },
+  wfc: {
+    hold: 'la espera sólo cuenta con el tablero terminado; en la prueba corta todavía se construye',
+    drift: 'sólo cuenta con «Flujo: avanza sin fin»',
+  },
+  dla: { life: 'sólo cuenta con «Renovación: sí»' },
   fluido: { renew: 'sólo cuenta con «Franjas»; por defecto no hay franjas' },
   gravedad: { arms: 'sólo cuenta con la galaxia de brazos; por defecto, el disco de N cuerpos' },
 };

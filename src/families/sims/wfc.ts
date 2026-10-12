@@ -13,6 +13,17 @@ import type { FieldModel, ModelConfig, ModelState, Params } from '../types';
  * around it; after REPAIRS repairs the board starts again with the next variant, at most RESTARTS times. A
  * finished board holds for «Espera» seconds and is then rebuilt with the next variant.
  * Constraint-based generation: nothing quantum is simulated.
+ *
+ * Two continuous ways («Flujo») never hold nor start a board again (contradictions are repaired in place):
+ *  - «Avanza»: the board has one column more than the view and the view slides at «Avance» columns per
+ *    second; the column entering at the right is decided as it comes in, under the constraints of its
+ *    neighbour, and when the view has slid a whole column the board moves one column to the left (the left
+ *    column leaves, an open one enters). Its left and right are not frame: only its top and bottom are.
+ *  - «Zonas»: a disc of the board dissolves (its pieces keep showing a moment, fading) and is decided again
+ *    from its middle out, at «Ritmo», under the constraints of what surrounds it; the next one comes «Espera»
+ *    seconds (± 40 %) after the last, and not before the last is mostly decided: zones overlap a little and
+ *    never pile up. A zone that its surroundings force back to what it was is passed over for another.
+ * Both start from a complete board, so the view is never empty.
  */
 
 const ID = 'wfc', V = 1;
@@ -179,26 +190,35 @@ function compile(id: string): Compiled {
 /* Model                                                               */
 /* ------------------------------------------------------------------ */
 
-interface P { set: string; rows: number; density: number; pace: number; hold: number; edges: string; view: string }
+interface P { set: string; rows: number; density: number; pace: number; hold: number; edges: string; view: string; flow: string; drift: number }
 const read = (p: Params): P => ({
   set: String(p.set ?? 'circuitos'), rows: Math.max(4, Math.min(28, Math.round(Number(p.rows ?? 12)))), density: Number(p.density ?? 0.5),
   pace: Number(p.pace ?? 60), hold: Number(p.hold ?? 6), edges: String(p.edges ?? 'vacios'), view: String(p.view ?? 'piezas'),
+  flow: String(p.flow ?? 'tableros'), drift: Number(p.drift ?? 0.6),
 });
 
 const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+/** Continuous modes: steps a reopened cell keeps showing its old piece, fading; the largest repair (cells). */
+const GHOST = 24, MAX_REPAIR = 6;
 
 export function create(cfg: ModelConfig): FieldModel {
   const h = Math.max(16, Math.round(cfg.res)), w = 2 * h;
   const rng = new SimRng(`${ID}|${V}|${cfg.seed}`);
   let p = read(cfg.params);
-  const fixed = { set: p.set, rows: p.rows, edges: p.edges };
+  const fixed = { set: p.set, rows: p.rows, edges: p.edges, flow: p.flow };
   const C = compile(fixed.set), T = C.T, S = C.set.S;
-  const GH = fixed.rows, GW = 2 * GH, cells = GW * GH;
+  // «Avanza»: the board has one column more than the view, entering at the right while the view slides
+  const advancing = fixed.flow === 'avanza', zones = fixed.flow === 'zonas', endless = advancing || zones;
+  const GH = fixed.rows, GW = 2 * GH, BC = advancing ? GW + 1 : GW, cells = BC * GH;
   // the wave: which tiles each cell may still hold, how many, and the supports of each (cell, tile, side)
   const wave = new Uint8Array(cells * T), cnt = new Uint16Array(cells), compat = new Uint8Array(cells * T * 4);
   // step at which a cell was decided (−1: undecided), and the seeded tie-break noise of the board
   const born = new Int32Array(cells), noise = new Float32Array(cells);
+  // continuous modes: the piece a reopened cell held (−1 none) and when it was reopened
+  const ghost = new Int16Array(endless ? cells : 0).fill(-1), ghostT = new Int32Array(endless ? cells : 0);
   let steps = 0, phase = 0, holdLeft = 0, carry = 0, repairs = 0, restarts = 0, board = 0;
+  // «Avanza»: how far the view has slid into the next column (0..1); «Zonas»: steps to the next zone
+  let off = 0, zoneLeft = 0, zoneCells = 0;
   const stack: number[] = [];
   let contradiction = -1;
 
@@ -220,11 +240,11 @@ export function create(cfg: ModelConfig): FieldModel {
   const propagate = () => {
     while (stack.length && contradiction < 0) {
       const t = stack.pop()!, c = stack.pop()!;
-      const x = c % GW, y = (c - x) / GW;
+      const x = c % BC, y = (c - x) / BC;
       for (let d = 0; d < 4; d++) {
         const nx = x + DX[d], ny = y + DY[d];
-        if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
-        const n = ny * GW + nx, od = (d + 2) & 3, list = C.prop[d][t];
+        if (nx < 0 || ny < 0 || nx >= BC || ny >= GH) continue;
+        const n = ny * BC + nx, od = (d + 2) & 3, list = C.prop[d][t];
         for (let k = 0; k < list.length; k++) {
           const t2 = list[k], j = (n * T + t2) * 4 + od;
           if (compat[j] > 0 && --compat[j] === 0) ban(n, t2);
@@ -233,12 +253,12 @@ export function create(cfg: ModelConfig): FieldModel {
     }
     stack.length = 0;
   };
-  /** Supports of every (cell, tile, side) counted again from the wave (after a repair). */
-  const recount = () => {
-    for (let c = 0; c < cells; c++) {
-      const x = c % GW, y = (c - x) / GW;
+  /** Supports of every (cell, tile, side) of a block of cells counted again from the wave (after a repair). */
+  const recountIn = (x0: number, y0: number, x1: number, y1: number) => {
+    for (let y = Math.max(0, y0); y <= Math.min(GH - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(BC - 1, x1); x++) {
+      const c = y * BC + x;
       for (let d = 0; d < 4; d++) {
-        const nx = x + DX[d], ny = y + DY[d], inside = nx >= 0 && ny >= 0 && nx < GW && ny < GH, n = ny * GW + nx;
+        const nx = x + DX[d], ny = y + DY[d], inside = nx >= 0 && ny >= 0 && nx < BC && ny < GH, n = ny * BC + nx;
         for (let t = 0; t < T; t++) {
           const list = C.prop[d][t];
           let k = list.length;
@@ -248,12 +268,15 @@ export function create(cfg: ModelConfig): FieldModel {
       }
     }
   };
+  const recount = () => recountIn(0, 0, BC - 1, GH - 1);
   const borderBans = (c: number) => {
     if (fixed.edges !== 'vacios') return;
-    const x = c % GW, y = (c - x) / GW;
+    const x = c % BC, y = (c - x) / BC;
     for (let d = 0; d < 4; d++) {
+      // (an advancing board goes on at its left and right: only its top and bottom are frame)
+      if (advancing && (d & 1)) continue;
       const nx = x + DX[d], ny = y + DY[d];
-      if (nx >= 0 && ny >= 0 && nx < GW && ny < GH) continue;
+      if (nx >= 0 && ny >= 0 && nx < BC && ny < GH) continue;
       for (let t = 0; t < T; t++) if (!C.emptyAt[d][t]) ban(c, t);
     }
   };
@@ -261,8 +284,8 @@ export function create(cfg: ModelConfig): FieldModel {
     wave.fill(1); cnt.fill(T); born.fill(-1);
     for (let c = 0; c < cells; c++) for (let t = 0; t < T; t++) for (let d = 0; d < 4; d++) compat[(c * T + t) * 4 + d] = Math.min(255, C.prop[d][t].length);
     // ties go to the cell nearest a seeded starting point (with a little noise): the board grows as a front
-    const sx = rng.next() * GW, sy = rng.next() * GH, far = Math.hypot(GW, GH);
-    for (let c = 0; c < cells; c++) { const x = c % GW, y = (c - x) / GW; noise[c] = 1e-3 * (Math.hypot(x + 0.5 - sx, y + 0.5 - sy) / far) + 1e-4 * rng.next(); }
+    const sx = rng.next() * BC, sy = rng.next() * GH, far = Math.hypot(BC, GH);
+    for (let c = 0; c < cells; c++) { const x = c % BC, y = (c - x) / BC; noise[c] = 1e-3 * (Math.hypot(x + 0.5 - sx, y + 0.5 - sy) / far) + 1e-4 * rng.next(); }
     contradiction = -1;
     for (let c = 0; c < cells; c++) borderBans(c);
     propagate();
@@ -270,25 +293,35 @@ export function create(cfg: ModelConfig): FieldModel {
   };
   const newBoard = () => { board++; restarts = 0; fresh(); };
 
-  /** Reopens the cells around a contradiction and makes the wave consistent again. */
-  const repair = (c0: number) => {
-    const r = 1 + repairs;
-    repairs++;
-    const x0 = c0 % GW, y0 = (c0 - x0) / GW;
-    contradiction = -1;
-    stack.length = 0;
-    for (let y = Math.max(0, y0 - r); y <= Math.min(GH - 1, y0 + r); y++) for (let x = Math.max(0, x0 - r); x <= Math.min(GW - 1, x0 + r); x++) {
-      const c = y * GW + x;
-      wave.fill(1, c * T, (c + 1) * T); cnt[c] = T; born[c] = -1;
-    }
-    recount();
-    for (let y = Math.max(0, y0 - r); y <= Math.min(GH - 1, y0 + r); y++) for (let x = Math.max(0, x0 - r); x <= Math.min(GW - 1, x0 + r); x++) borderBans(y * GW + x);
-    // tiles left without support on some side go too
+  /** Tiles left without support on some side go too (after cells were reopened). */
+  const unsupported = () => {
     for (let c = 0; c < cells; c++) for (let t = 0; t < T; t++) {
       if (!wave[c * T + t]) continue;
       const j = (c * T + t) * 4;
       if (!compat[j] || !compat[j + 1] || !compat[j + 2] || !compat[j + 3]) ban(c, t);
     }
+  };
+  /** Reopens the cells of a block (they may hold any piece again; continuous modes keep showing the old one a moment). */
+  const reopen = (x0: number, y0: number, x1: number, y1: number, keep: (x: number, y: number) => boolean) => {
+    for (let y = Math.max(0, y0); y <= Math.min(GH - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(BC - 1, x1); x++) {
+      if (!keep(x, y)) continue;
+      const c = y * BC + x;
+      if (endless && cnt[c] === 1) { ghost[c] = wave.subarray(c * T, (c + 1) * T).indexOf(1); ghostT[c] = steps; }
+      wave.fill(1, c * T, (c + 1) * T); cnt[c] = T; born[c] = -1;
+    }
+  };
+
+  /** Reopens the cells around a contradiction and makes the wave consistent again. */
+  const repair = (c0: number) => {
+    const r = Math.min(MAX_REPAIR, 1 + repairs);
+    repairs++;
+    const x0 = c0 % BC, y0 = (c0 - x0) / BC;
+    contradiction = -1;
+    stack.length = 0;
+    reopen(x0 - r, y0 - r, x0 + r, y0 + r, () => true);
+    if (endless) recountIn(x0 - r - 1, y0 - r - 1, x0 + r + 1, y0 + r + 1); else recount();
+    for (let y = Math.max(0, y0 - r); y <= Math.min(GH - 1, y0 + r); y++) for (let x = Math.max(0, x0 - r); x <= Math.min(BC - 1, x0 + r); x++) borderBans(y * BC + x);
+    unsupported();
     propagate();
   };
 
@@ -316,8 +349,103 @@ export function create(cfg: ModelConfig): FieldModel {
     return true;
   };
 
+  /**
+   * Continuous modes: contradictions repaired in place, never a new board; should a dozen repairs in a row
+   * fail, the whole board is reopened (its pieces fade while it is decided again).
+   */
+  const mend = () => {
+    let tries = 0;
+    while (contradiction >= 0) {
+      if (++tries > 12) {
+        contradiction = -1; stack.length = 0;
+        reopen(0, 0, BC - 1, GH - 1, () => true);
+        recount();
+        for (let c = 0; c < cells; c++) borderBans(c);
+        unsupported();
+        propagate();
+        if (contradiction >= 0) fresh();
+        return;
+      }
+      repair(contradiction);
+    }
+  };
+  /** Continuous modes: one collapse, its contradictions mended. */
+  const collapseOn = (): boolean => {
+    const more = collapse();
+    mend();
+    return more;
+  };
+
+  /** «Avanza»: the board moves one column to the left; a column where anything may stand enters at the right. */
+  const shiftColumn = () => {
+    // the column entering the view is decided first, whatever the pace
+    let guard = 0;
+    while (guard++ < cells * 2 && collapseOn()) { /* finish it */ }
+    for (let y = 0; y < GH; y++) {
+      const o = y * BC;
+      wave.copyWithin(o * T, (o + 1) * T, (o + BC) * T);
+      compat.copyWithin(o * T * 4, (o + 1) * T * 4, (o + BC) * T * 4);
+      cnt.copyWithin(o, o + 1, o + BC); born.copyWithin(o, o + 1, o + BC); noise.copyWithin(o, o + 1, o + BC);
+      if (endless) { ghost.copyWithin(o, o + 1, o + BC); ghostT.copyWithin(o, o + 1, o + BC); }
+      const c = o + BC - 1;
+      wave.fill(1, c * T, (c + 1) * T); cnt[c] = T; born[c] = -1; ghost[c] = -1;
+      // ties: from the bottom up (a side view with gravity builds its pillars from the ground), with a little noise
+      noise[c] = 1e-3 * ((GH - 1 - y) / GH) + 1e-4 * rng.next();
+    }
+    recountIn(BC - 1, 0, BC - 1, GH - 1);
+    for (let y = 0; y < GH; y++) borderBans(y * BC + BC - 1);
+    unsupported();
+    propagate();
+    mend();
+    repairs = 0;
+  };
+
+  /** «Zonas»: a disc of the board dissolves (its pieces fade) and is decided again from its middle out; returns its cells left open. */
+  const newZone = (): number => {
+    const r = Math.max(2, Math.round(GH * rng.range(0.16, 0.3))), zx = rng.int(BC), zy = rng.int(GH);
+    const inZone = (x: number, y: number) => (x - zx) ** 2 + ((y - zy) * 1.15) ** 2 <= r * r;
+    contradiction = -1;
+    stack.length = 0;
+    reopen(zx - r, zy - r, zx + r, zy + r, inZone);
+    zoneCells = 0;
+    for (let y = Math.max(0, zy - r); y <= Math.min(GH - 1, zy + r); y++) for (let x = Math.max(0, zx - r); x <= Math.min(BC - 1, zx + r); x++) if (inZone(x, y)) zoneCells++;
+    for (let y = Math.max(0, zy - r); y <= Math.min(GH - 1, zy + r); y++) for (let x = Math.max(0, zx - r); x <= Math.min(BC - 1, zx + r); x++) {
+      if (inZone(x, y)) noise[y * BC + x] = 1e-3 * (Math.hypot(x - zx, y - zy) / r) + 1e-4 * rng.next();
+    }
+    recountIn(zx - r - 1, zy - r - 1, zx + r + 1, zy + r + 1);
+    for (let y = Math.max(0, zy - r); y <= Math.min(GH - 1, zy + r); y++) for (let x = Math.max(0, zx - r); x <= Math.min(BC - 1, zx + r); x++) if (inZone(x, y)) borderBans(y * BC + x);
+    unsupported();
+    propagate();
+    mend();
+    let open = 0;
+    for (let y = Math.max(0, zy - r); y <= Math.min(GH - 1, zy + r); y++) for (let x = Math.max(0, zx - r); x <= Math.min(BC - 1, zx + r); x++) if (inZone(x, y) && cnt[y * BC + x] > 1) open++;
+    return open;
+  };
+
   const step1 = () => {
     steps++;
+    if (advancing) {
+      // the view slides at «Avance» columns per second; the entering column is decided as it comes in
+      off += Math.max(0.02, p.drift) / RATE;
+      carry += (GH * Math.max(0.02, p.drift) * 1.4) / RATE;
+      while (carry >= 1) { carry -= 1; if (!collapseOn()) { carry = 0; break; } }
+      while (off >= 1) { off -= 1; shiftColumn(); }
+      return;
+    }
+    if (zones) {
+      // the next zone dissolves «Espera» seconds (± 40 %) after the last, once that one is mostly rebuilt
+      let open = 0;
+      for (let c = 0; c < cells; c++) if (cnt[c] > 1) open++;
+      if (zoneLeft > 0) zoneLeft--;
+      if (zoneLeft <= 0 && open <= zoneCells * 0.3) {
+        // (a zone its surroundings force back to what it was changes nothing: another one, then)
+        for (let k = 0; k < 4 && newZone() === 0; k++) { /* again */ }
+        zoneLeft = Math.max(1, Math.round(p.hold * RATE * rng.range(0.6, 1.4)));
+      }
+      carry += p.pace / RATE;
+      while (carry >= 1) { carry -= 1; if (!collapseOn()) { carry = 0; repairs = 0; break; } }
+      return;
+    }
     if (phase !== 0) {
       if (--holdLeft <= 0) newBoard();
       return;
@@ -338,9 +466,17 @@ export function create(cfg: ModelConfig): FieldModel {
   };
 
   fresh();
+  if (endless) {
+    // a continuous board starts complete (built during the warm-up's first step), so the view is never empty
+    let guard = 0;
+    while (guard++ < cells * 2 && collapseOn()) { /* build it */ }
+    repairs = 0;
+    for (let c = 0; c < cells; c++) born[c] = -FLASH;
+    zoneLeft = Math.round(p.hold * RATE * 0.5);
+  }
 
   // ---- render: the board at bitmap resolution, then box-sampled into the raster
-  const BW = GW * S, BH = GH * S;
+  const BW = BC * S, BH = GH * S;
   const map = new Float32Array(BW * BH);
   let cacheKey = '';
   const cache = new Uint8Array(w * h);
@@ -359,13 +495,17 @@ export function create(cfg: ModelConfig): FieldModel {
       }
     }
     for (let c = 0; c < cells; c++) {
-      const gx = c % GW, gy = (c - gx) / GW, o0 = gy * S * BW + gx * S;
+      const gx = c % BC, gy = (c - gx) / BC, o0 = gy * S * BW + gx * S;
       let t = -1;
       if (cnt[c] === 1) for (let k = 0; k < T; k++) if (wave[c * T + k]) { t = k; break; }
       if (t < 0) {
         // undecided: dark, or its entropy (low entropy, about to be decided, glows)
         const v = ent && cnt[c] > 1 ? 0.05 + 0.6 * Math.pow(1 - Hc[c] / hMax, 1.5) : 0;
-        for (let y = 0; y < S; y++) map.fill(v, o0 + y * BW, o0 + y * BW + S);
+        // (continuous modes) a reopened cell still shows its old piece, fading
+        const g = endless ? ghost[c] : -1, ga = g >= 0 ? 1 - (steps - ghostT[c]) / GHOST : 0;
+        if (ga > 0) {
+          for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) map[o0 + y * BW + x] = Math.max(v, src[g * S * S + y * S + x] * ga * 0.8);
+        } else for (let y = 0; y < S; y++) map.fill(v, o0 + y * BW, o0 + y * BW + S);
         continue;
       }
       // a cell just decided flashes for a few steps
@@ -375,13 +515,13 @@ export function create(cfg: ModelConfig): FieldModel {
         map[o0 + y * BW + x] = f > 0 ? v + (1 - v) * 0.4 * f : v;
       }
     }
-    // box sampling: 3 × 3 samples per raster pixel
-    const kx = BW / w, ky = BH / h;
+    // box sampling: 3 × 3 samples per raster pixel (an advancing board: its view, slid by `off` columns)
+    const kx = (GW * S) / w, ky = BH / h, ox = off * S;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       let s = 0;
       for (let j = 0; j < 3; j++) {
         const by = Math.min(BH - 1, Math.floor((y + (j + 0.5) / 3) * ky)) * BW;
-        for (let i = 0; i < 3; i++) s += map[by + Math.min(BW - 1, Math.floor((x + (i + 0.5) / 3) * kx))];
+        for (let i = 0; i < 3; i++) s += map[by + Math.min(BW - 1, Math.floor((x + (i + 0.5) / 3) * kx + ox))];
       }
       const v = s / 9;
       cache[y * w + x] = byte(v);
@@ -394,7 +534,7 @@ export function create(cfg: ModelConfig): FieldModel {
     setParams(np: Params) {
       const q = read(np);
       const dens = q.density !== p.density;
-      p = { ...q, set: fixed.set, rows: fixed.rows, edges: fixed.edges };
+      p = { ...q, set: fixed.set, rows: fixed.rows, edges: fixed.edges, flow: fixed.flow };
       if (dens) setWeights();
     },
     step(k: number) { for (let i = 0; i < k; i++) step1(); },
@@ -406,21 +546,22 @@ export function create(cfg: ModelConfig): FieldModel {
     snapshot(): ModelState {
       const scalars: Record<string, number> = { phase, holdLeft, carry, repairs, restarts, board };
       rng.save(scalars);
-      return {
-        id: ID, v: V, steps, res: h, scalars,
-        arrays: { wave: wave.slice(), cnt: cnt.slice(), compat: compat.slice(), born: born.slice(), noise: noise.slice() },
-      };
+      const arrays: ModelState['arrays'] = { wave: wave.slice(), cnt: cnt.slice(), compat: compat.slice(), born: born.slice(), noise: noise.slice() };
+      if (endless) { Object.assign(scalars, { off, zoneLeft, zoneCells }); arrays.ghost = new Uint16Array(ghost.map(g => g + 1)); arrays.ghostT = ghostT.slice(); }
+      return { id: ID, v: V, steps, res: h, scalars, arrays };
     },
     restore(s: ModelState) {
       if (s.id !== ID || s.res !== h) throw new Error('El estado guardado no corresponde a esta construcción.');
       const A = s.arrays;
       const ok = A.wave instanceof Uint8Array && A.wave.length === wave.length && A.cnt instanceof Uint16Array && A.cnt.length === cells
         && A.compat instanceof Uint8Array && A.compat.length === compat.length && A.born instanceof Int32Array && A.born.length === cells
-        && A.noise instanceof Float32Array && A.noise.length === cells;
+        && A.noise instanceof Float32Array && A.noise.length === cells
+        && (!endless || (A.ghost instanceof Uint16Array && A.ghost.length === cells && A.ghostT instanceof Int32Array && A.ghostT.length === cells));
       if (!ok) throw new Error('El estado guardado está incompleto.');
       wave.set(A.wave); cnt.set(A.cnt); compat.set(A.compat); born.set(A.born); noise.set(A.noise);
       const c = s.scalars;
       phase = c.phase ?? 0; holdLeft = c.holdLeft ?? 0; carry = c.carry ?? 0; repairs = c.repairs ?? 0; restarts = c.restarts ?? 0; board = c.board ?? 0;
+      if (endless) { for (let i = 0; i < cells; i++) ghost[i] = (A.ghost as Uint16Array)[i] - 1; ghostT.set(A.ghostT); off = c.off ?? 0; zoneLeft = c.zoneLeft ?? 0; zoneCells = c.zoneCells ?? 0; }
       steps = s.steps;
       rng.load(c);
       cacheKey = '';

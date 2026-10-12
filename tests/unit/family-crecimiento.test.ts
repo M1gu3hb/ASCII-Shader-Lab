@@ -12,7 +12,8 @@ function nodes(m: ReturnType<typeof create>) {
   return { N, x: (s.arrays.px as Float32Array).subarray(0, N), y: (s.arrays.py as Float32Array).subarray(0, N), s };
 }
 
-describe('crecimiento diferencial', () => {
+// (runs of several simulated minutes: generous time when the whole suite shares the machine)
+describe('crecimiento diferencial', { timeout: 60_000 }, () => {
   it('los nodos aumentan y ningún tramo supera la arista máxima', () => {
     const p = params();
     const m = create({ seed: 'crece', res: 64, params: p });
@@ -60,6 +61,46 @@ describe('crecimiento diferencial', () => {
       m.step(50);
       expect(nodes(m).x).toEqual(before.x);
     }
+  });
+
+  it('con renovación (presets continuos) sigue cambiando, no se vacía ni se congela y se restaura exacto', () => {
+    const raster = (m: ReturnType<typeof create>) => { const o = new Uint8Array(m.w * m.h); m.render(o, 0); return o; };
+    const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+    const lit = (a: Uint8Array) => a.reduce((s, v) => s + (v > 24 ? 1 : 0), 0) / a.length;
+    for (const id of ['coral_vivo', 'meandros', 'colonia_viva']) {
+      const p = params(META.presets.find(q => q.id === id)!.params);
+      const m = create({ seed: 'continuo', res: 48, params: p });
+      m.step(150 + 30 * 40);
+      for (let k = 0; k < 3; k++) {
+        const a = raster(m);
+        m.step(30 * 10);
+        const b = raster(m);
+        expect(mad(a, b), `${id} ventana ${k}`).toBeGreaterThan(0.3);
+        expect(lit(b), id).toBeGreaterThan(0.02);
+        expect(lit(b), id).toBeLessThan(0.97);
+        expect(m.snapshot().scalars.frozen, id).toBe(0);
+      }
+      const snap = m.snapshot();
+      m.step(61);
+      const r = create({ seed: 'continuo', res: 48, params: p });
+      r.restore(snap);
+      r.step(61);
+      expect(mad(raster(m), raster(r)), id).toBe(0);
+    }
+  });
+
+  it('con renovación las curvas viejas se deshacen y nacen otras', () => {
+    const p = params(META.presets.find(q => q.id === 'colonia_viva')!.params);
+    const m = create({ seed: 'relevo', res: 48, params: p });
+    const births = () => { const s = m.snapshot(); return Array.from((s.arrays.born as Int32Array).subarray(0, s.scalars.nc)); };
+    m.step(150);
+    const start = births();
+    m.step(30 * 120);
+    const later = births();
+    // rings born during the run stand where the first curves were
+    expect(later.some(b => b > 150)).toBe(true);
+    expect(later.length).toBeGreaterThan(0);
+    expect(start.every(b => b === 0)).toBe(true);
   });
 
   it('una línea abierta conserva sus extremos anclados', () => {

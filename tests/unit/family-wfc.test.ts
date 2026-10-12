@@ -19,7 +19,8 @@ function finish(set: string, seed: string, extra: Record<string, unknown> = {}) 
   return { m, s, tiles, GW: 2 * rows, GH: rows };
 }
 
-describe('colapso de función de onda (modelo de piezas)', () => {
+// (generous time when the whole suite shares the machine)
+describe('colapso de función de onda (modelo de piezas)', { timeout: 60_000 }, () => {
   it('cada tablero terminado cumple todas las adyacencias, también tras reparar una contradicción', () => {
     const boards: Array<[string, string, string]> = [];
     for (const set of SETS) for (const edges of ['vacios', 'libres']) for (let k = 0; k < 4; k++) boards.push([set, `adyacencia${k}`, edges]);
@@ -73,6 +74,39 @@ describe('colapso de función de onda (modelo de piezas)', () => {
       }
       // gravity: some aqueduct tile is not closed under rotation (a pillar stands, it does not lie)
       if (set === 'acueducto') expect(tiles.some(b => !has.has(rot(b)))).toBe(true);
+    }
+  });
+
+  it('sin fin (avanza, por zonas): las piezas decididas siempre encajan, sigue cambiando y se restaura exacto', () => {
+    const raster = (m: ReturnType<typeof create>) => { const o = new Uint8Array(m.w * m.h); m.render(o, 0); return o; };
+    const mad = (a: Uint8Array, b: Uint8Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
+    for (const id of ['placa_sin_fin', 'viaducto', 'ciudad_viva']) {
+      const pr = META.presets.find(q => q.id === id)!, p = params(pr.params), set = p.set as string, rows = p.rows as number;
+      const m = create({ seed: 'sin fin', res: 48, params: p });
+      const ts = tilesetOf(set), T = ts.tiles.length, GH = rows, BC = p.flow === 'avanza' ? 2 * rows + 1 : 2 * rows;
+      m.step(30);
+      for (let k = 0; k < 4; k++) {
+        const a = raster(m);
+        m.step(30 * 5);
+        expect(mad(a, raster(m)), `${id} ventana ${k}`).toBeGreaterThan(0.2);
+        expect(m.snapshot().scalars.phase, id).toBe(0);
+        // every pair of decided neighbours fits
+        const s = m.snapshot(), wave = s.arrays.wave as Uint8Array, cnt = s.arrays.cnt as Uint16Array;
+        const tile = (c: number) => (cnt[c] === 1 ? wave.subarray(c * T, (c + 1) * T).indexOf(1) : -1);
+        for (let y = 0; y < GH; y++) for (let x = 0; x < BC; x++) {
+          const t = tile(y * BC + x);
+          if (t < 0) continue;
+          const r = x + 1 < BC ? tile(y * BC + x + 1) : -1, d = y + 1 < GH ? tile((y + 1) * BC + x) : -1;
+          if (r >= 0) expect(ts.fits(t, r, 1), `${id} (${x}, ${y}) →`).toBe(true);
+          if (d >= 0) expect(ts.fits(t, d, 2), `${id} (${x}, ${y}) ↓`).toBe(true);
+        }
+      }
+      const snap = m.snapshot();
+      m.step(53);
+      const r = create({ seed: 'sin fin', res: 48, params: p });
+      r.restore(snap);
+      r.step(53);
+      expect(mad(raster(m), raster(r)), id).toBe(0);
     }
   });
 
