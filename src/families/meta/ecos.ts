@@ -40,7 +40,7 @@ export const META: FamilyMeta = {
       params: { seed: 'puntos', amount: 0.5, sides: 4, strobe: 0, zoom: 0.12, curve: 0.2, rot: 0.04, swirl: 0, wander: 0.7, drift: 0, warp: 0.1, mirror: 'no', memory: 0.9, ink: 0.6, pulse: 0.3, tempo: 3, echo: 'no', contrast: 0.5 },
       look: { stops: ['#07080a', '#1f3242', '#7fa6bf', '#eef4f6'], bg: '#040506', charset: ' .:-=+*#%' } },
     { id: 'espejos', name: 'Espejos', uses: ['fondos/materia', 'arte/optica'], aka: ['caleidoscopio recursivo', 'droste'],
-      params: { seed: 'copia', amount: 0.9, sides: 4, strobe: 0.35, zoom: 0.25, curve: 0.3, rot: 0.08, swirl: 0, wander: 0.3, drift: 0, warp: 0.25, mirror: 'ocho', memory: 0.9, ink: 0.12, pulse: 0.5, tempo: 2.4, echo: 'no', contrast: 0.45 },
+      params: { seed: 'copia', amount: 1, sides: 4, strobe: 0.5, zoom: 0.35, curve: 0.3, rot: 0.08, swirl: 0, wander: 0.3, drift: 0, warp: 0.25, mirror: 'ocho', memory: 0.75, ink: 0.2, pulse: 0.5, tempo: 2.4, echo: 'no', contrast: 0.45 },
       look: { stops: ['#0a0612', '#4a2a7a', '#e0a0ff', '#fff4ff'], bg: '#06030c', charset: ' .·:;+*#%' } },
     { id: 'tunel', name: 'Túnel de ecos', uses: ['fondos/espacio', 'arte/optica'], aka: ['túnel de realimentación'],
       params: { seed: 'onda', amount: 1, sides: 5, strobe: 0.7, zoom: 0.7, curve: 0.55, rot: 0.15, swirl: 0, wander: 0.4, drift: 0, warp: 0.05, mirror: 'no', memory: 0.9, ink: 0.12, pulse: 0.4, tempo: 1.6, echo: 'no', contrast: 0.35 },

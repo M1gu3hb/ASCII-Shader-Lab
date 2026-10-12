@@ -24,10 +24,10 @@ export const META: FamilyMeta = {
   ],
   presets: [
     { id: 'burbujas', name: 'Cámara de burbujas', uses: ['terminal/consola', 'arte/curvas'], aka: ['espirales de electrones'],
-      params: { field: 0.85, drag: 0.5, rate: 7, trace: 0.55, source: 'bordes', pairs: 0.25, alphas: 0.05, muons: 0.1, energy: 0.45, mist: 0.25, grain: 0.4 },
-      look: { stops: ['#03070a', '#1c4a5a', '#bfefff'], bg: '#020507', charset: ' .·:-=+*#' } },
+      params: { field: 0.7, drag: 0.35, rate: 9, trace: 0.6, source: 'bordes', pairs: 0.25, alphas: 0.05, muons: 0.1, energy: 0.95, mist: 0.15, grain: 0.4 },
+      look: { stops: ['#020507', '#2a6a80', '#9fe8ff', '#ffffff'], bg: '#020406', charset: ' .·:-=+*#%' } },
     { id: 'cosmicos', name: 'Rayos cósmicos', uses: ['terminal/consola', 'fondos/espacio'], aka: ['muones cósmicos'],
-      params: { field: 0.12, drag: 0.05, rate: 4, trace: 0.75, source: 'arriba', pairs: 0.1, alphas: 0.05, muons: 0.7, energy: 0.9, mist: 0.45, grain: 0.6 },
+      params: { field: 0.12, drag: 0.05, rate: 4, trace: 0.75, source: 'arriba', pairs: 0.1, alphas: 0.05, muons: 0.7, energy: 0.9, mist: 0.3, grain: 0.6 },
       look: { stops: ['#020604', '#0e3a1c', '#5dff8a', '#e2ffe8'], bg: '#010402', charset: ' .:-=+*#' } },
     { id: 'pares', name: 'Lluvia de pares', uses: ['terminal/consola', 'arte/curvas'], aka: ['creación de pares'],
       params: { field: 0.5, drag: 0.3, rate: 7, trace: 0.6, source: 'bordes', pairs: 0.8, alphas: 0, muons: 0.05, energy: 0.6, mist: 0.2, grain: 0.4 },
