@@ -1,0 +1,37 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'marco',
+  name: 'Marco vivo',
+  group: 'forma',
+  kind: 'analytic',
+  version: 1,
+  color: true,
+  aka: ['borde luminoso', 'marco animado', 'cometas en el perímetro', 'rectángulo redondeado'],
+  params: [
+    { key: 'comets', label: 'Cometas', type: 'int', min: 0, max: 4, def: 2 },
+    { key: 'speed', label: 'Velocidad', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'thick', label: 'Grosor', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'margin', label: 'Margen', type: 'number', min: 0, max: 0.2, def: 0.05, step: 0.005 },
+    { key: 'radius', label: 'Esquinas', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
+    { key: 'pulse', label: 'Latido', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'smoke', label: 'Humo', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'ratio', label: 'Proporción', type: 'number', min: 0.5, max: 3, def: 1.78, step: 0.01 },
+  ],
+  presets: [
+    { id: 'terminal', name: 'Marco de terminal', aka: ['borde de consola'], uses: ['terminal/consola', 'arte/geometricas'],
+      params: { comets: 1, speed: 0.45, thick: 0.3, margin: 0.035, radius: 0.08, pulse: 0, smoke: 0, ratio: 1.78 },
+      look: { stops: ['#020503', '#0d3b1f', '#33d17a', '#d7ffe6'], bg: '#010302', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.2 } },
+    { id: 'neon', name: 'Neón doble', aka: ['cometas opuestos'], uses: ['arte/geometricas'],
+      params: { comets: 2, speed: 0.35, thick: 0.75, margin: 0.07, radius: 0.55, pulse: 0, smoke: 0.3, ratio: 1.78 },
+      look: { stops: ['#05030a', '#2a1650', '#ff3d8b', '#38e8ff'], bg: '#040208', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.35 } },
+    { id: 'latido', name: 'Latido', aka: ['pulso'], uses: ['arte/geometricas'],
+      params: { comets: 0, speed: 0.2, thick: 0.6, margin: 0.12, radius: 1, pulse: 1, smoke: 0.45, ratio: 1.78 },
+      look: { stops: ['#070203', '#5a0d16', '#ff3b4f', '#ffd0d5'], bg: '#050102', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.25 } },
+    { id: 'humo', name: 'Humo de colores', aka: ['marco con humo'], uses: ['arte/geometricas'],
+      params: { comets: 4, speed: 0.6, thick: 0.45, margin: 0.1, radius: 0.25, pulse: 0.25, smoke: 0.9, ratio: 1.78 },
+      look: { stops: ['#04040a', '#1d1d3a', '#ffb703', '#fb5607', '#ff006e', '#8338ec'], bg: '#030308', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.3 } },
+  ],
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
+  budget: {},
+};

@@ -1,0 +1,36 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'mar',
+  name: 'Mar nocturno',
+  group: 'fisica',
+  kind: 'analytic',
+  version: 1,
+  aka: ['mar de noche', 'reflejo de luna', 'estela de luna', 'olas de aguas profundas', 'Fresnel'],
+  params: [
+    { key: 'waves', label: 'Oleaje', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'scale', label: 'Largo de ola', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'wind', label: 'Viento', type: 'number', min: -1, max: 1, def: 0.2, step: 0.01 },
+    { key: 'horizon', label: 'Horizonte', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
+    { key: 'moon', label: 'Luna', type: 'number', min: 0, max: 1, def: 0.55, step: 0.01 },
+    { key: 'moonH', label: 'Altura de la luna', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'moonX', label: 'Luna a un lado', type: 'number', min: -1, max: 1, def: 0, step: 0.01 },
+    { key: 'plankton', label: 'Plancton', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+  ],
+  presets: [
+    { id: 'lago', name: 'Luna sobre el lago', aka: ['estela de luna'], uses: ['fondos/ondas'],
+      params: { waves: 0.3, scale: 0.25, wind: 0.1, horizon: 0.6, moon: 0.55, moonH: 0.45, moonX: 0, plankton: 0 },
+      look: { stops: ['#03050a', '#122036', '#4f6d92', '#c9d8ec', '#ffffff'], bg: '#02040a', charset: ' .:-=+*#%@' } },
+    { id: 'mar_fondo', name: 'Mar de fondo', aka: ['marejada'], uses: ['fondos/ondas'],
+      params: { waves: 0.85, scale: 0.85, wind: -0.35, horizon: 0.45, moon: 0.45, moonH: 0.1, moonX: 0.35, plankton: 0 },
+      look: { stops: ['#040406', '#1d1b26', '#6b5a6e', '#e8c9a4', '#fff7e8'], bg: '#030305', charset: ' .:-=+*#%@' } },
+    { id: 'plancton', name: 'Plancton', aka: ['bioluminiscencia'], uses: ['fondos/ondas', 'fondos/organicas'],
+      params: { waves: 0.6, scale: 0.55, wind: 0.3, horizon: 0.8, moon: 0, moonH: 0.4, moonX: 0, plankton: 0.9 },
+      look: { stops: ['#010407', '#062030', '#0d6e7a', '#3ff0d2', '#e6fffa'], bg: '#010306', charset: ' .:-=+*#%@' } },
+    { id: 'plata', name: 'Marea de plata', aka: ['camino de luna'], uses: ['fondos/ondas'],
+      params: { waves: 0.55, scale: 0.45, wind: 0.05, horizon: 0.35, moon: 0.9, moonH: 0.3, moonX: -0.2, plankton: 0 },
+      look: { stops: ['#020305', '#151a22', '#5b6675', '#dfe6ee', '#ffffff'], bg: '#020304', charset: ' .:-=+*#%@' } },
+  ],
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
+  budget: {},
+};

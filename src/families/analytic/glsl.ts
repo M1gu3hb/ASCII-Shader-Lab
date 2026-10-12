@@ -16,6 +16,12 @@ const LOAD: Record<string, () => Promise<string>> = {
   mosaico: () => import('./mosaico').then(m => m.MOSAICO_GLSL),
   laceria: () => import('./laceria').then(m => m.LACERIA_GLSL),
   hipercubo: () => import('./hipercubo').then(m => m.HIPERCUBO_GLSL),
+  cromado: () => import('./cromado').then(m => m.CROMADO_GLSL),
+  desgarro: () => import('./desgarro').then(m => m.DESGARRO_GLSL),
+  descargas: () => import('./descargas').then(m => m.DESCARGAS_GLSL),
+  mar: () => import('./mar').then(m => m.MAR_GLSL),
+  osciloscopio: () => import('./osciloscopio').then(m => m.OSCILOSCOPIO_GLSL),
+  marco: () => import('./marco').then(m => m.MARCO_GLSL),
 };
 
 import { importChunk } from '../../shared/chunks';
