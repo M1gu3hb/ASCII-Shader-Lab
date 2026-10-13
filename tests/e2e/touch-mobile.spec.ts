@@ -42,7 +42,7 @@ function smallTargets(page: Page, selector: string, min = 44) {
       if (shut && !el.closest('summary')) continue;
       const modal = document.querySelector('dialog[open]');
       if (modal && !modal.contains(el)) continue;
-      if (r.width < m || r.height < m) out.push(`${Math.round(r.width)}×${Math.round(r.height)} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 24)}`);
+      if (r.width < m || r.height < m) out.push(`${Math.round(r.width)}×${Math.round(r.height)} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 24)} <${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${el.className ? '.' + String(el.className).split(' ').join('.') : ''} en .${String(el.parentElement?.className ?? '').split(' ').join('.')}>`);
     }
     return out;
   }, [selector, min] as const);
@@ -58,6 +58,8 @@ for (const name of Object.keys(PHONES) as Array<keyof typeof PHONES>) {
       test.setTimeout(300_000);
       const { ctx, page, errors } = await phone(browser, name);
       await expect(page.locator('dialog.welcome[open]')).toBeVisible();
+      // measured once its entrance (a short scale-in) is over: mid-animation a 44 px button is a little smaller
+      await page.locator('dialog.welcome[open]').evaluate(d => Promise.all(d.getAnimations({ subtree: true }).map(a => a.finished)));
       await noOverflow(page, 'bienvenida');
       expect(await smallTargets(page, 'dialog.welcome button')).toEqual([]);
       await dismissWelcome(page);
