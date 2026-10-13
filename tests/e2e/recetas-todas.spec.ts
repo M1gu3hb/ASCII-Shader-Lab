@@ -1,12 +1,14 @@
+// the catalogue lists the families' presets once their specs are here (the browser loads them when it opens)
+import '../../src/families/all';
 import { expect, test, type Page } from '@playwright/test';
 import { allItems, type RecipeItem } from '../../src/studio/recipes/catalog';
 import { spaceById } from '../../src/random/spaces';
-import { contextOf } from './canvas';
+import { contextOf, drawn } from './canvas';
 import { openStudio } from './helpers';
 import { dropPhoto, hideStageOverlays, openRecipes, recipeCard, stageColours } from './recipes';
 
 /**
- * Every recipe and composed scene of the lab, applied from the recipe browser in both engines (WebGL and
+ * Every recipe and composed scene of the lab (the visual families: familias.spec.ts), applied from the recipe browser in both engines (WebGL and
  * the basic one): no page error and no engine failure, the piece is in the recipe's own space, the stage
  * draws something, and the recipe line names it. Imagen with the person's photo on stage (its recipes keep
  * it). Reduced motion: the pieces appear at once (the transitions have their own spec), so each check is
@@ -46,10 +48,14 @@ for (const engine of ['webgl', 'basico'] as const) {
   test.describe(engine === 'webgl' ? 'motor WebGL' : 'motor básico', () => {
     test.use({ reducedMotion: 'reduce', viewport: { width: 1280, height: 800 } });
     for (const space of SPACES) {
-      const items = allItems().filter(i => i.space === space);
+      // the visual families have their own spec (familias.spec.ts): one preset of each, in both engines
+      const items = allItems().filter(i => i.space === space && i.kind !== 'familia');
       test(`${spaceById(space).name}: sus ${items.length} recetas y escenas abren en su espacio y dibujan`, async ({ page }) => {
         test.setTimeout(900_000);
         const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=${space}`);
+        // the basic stage draws first: asking for a context before its engine took one would create the wrong one
+        // (a WebGL stage is not readable outside its frame, and asking for webgl2 first gives it the type it takes)
+        if (engine === 'basico') await drawn(page, '.stage canvas');
         expect(await contextOf(page, '.stage canvas')).toBe(engine === 'basico' ? '2d' : 'webgl2');
         if (space === 'media') {
           await dropPhoto(page);

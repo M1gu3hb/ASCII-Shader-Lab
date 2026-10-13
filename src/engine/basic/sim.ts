@@ -3,6 +3,13 @@
  * ../glsl/programs.ts. Values stay in floats (like the half-float path of the GPU engine). Pure: no DOM.
  */
 import { eraseRate, paintRate } from '../touch';
+import { INK_DRY } from '../pointer';
+import { hash12 } from './core';
+
+const fr = Math.fround;
+
+/** «Pincel caligráfico» (../pointer.ts): the brush's radius where the segment starts, how dry it runs, how far the ink bleeds. */
+export interface CalligraphyStep { r0: number; dry: number; bleed: number }
 
 export class SimGrid {
   cols = 0; rows = 0;
@@ -27,7 +34,7 @@ export class SimGrid {
    * (previous → current); brushR in device px; decay: the trails' «Duración» (0.5: as they always were).
    */
   step(mode: number, cw: number, ch: number, seg: [number, number, number, number], brushR: number,
-    str: number, active: number, impulse: number, dt: number, decay = 0.5) {
+    str: number, active: number, impulse: number, dt: number, decay = 0.5, cal: CalligraphyStep | null = null) {
     const er = eraseRate(decay), pr = paintRate(decay);
     const { cols, rows, h, hp, tr, nh, ntr } = this;
     const ky = (cw * cw) / (ch * ch);
@@ -54,6 +61,20 @@ export class SimGrid {
           n += brush * str * (active * 0.35 + impulse * 1.6);
           t = 0;
         } else if (mode === 6) t = Math.max(t - dt * er, brush * active);
+        else if (mode === 7 && cal) {
+          // the calligraphic brush (SIM_FS): width from r0 to brushR along the segment, dry hairs when fast
+          const rad = Math.max(cal.r0 + (brushR - cal.r0) * k, 1);
+          const d = Math.sqrt(dx * dx + dy * dy) / rad;
+          const across = (dx * bay - dy * bax) / Math.sqrt(bb) / rad;
+          const hair = 0.5 + 0.5 * Math.sin(across * 11 + 1.7) * Math.sin(across * 4.3 + 0.4);
+          let hs = (hair - 0.25) / 0.5; hs = hs < 0 ? 0 : hs > 1 ? 1 : hs;
+          const ink = Math.exp(-d * d * 3.2) * (1 + (hs * hs * (3 - 2 * hs) - 1) * cal.dry);
+          t = Math.max(t * Math.exp(-dt * pr * INK_DRY), ink * active * (0.4 + str * 0.8));
+          // the ink bleeds into the paper: a cell soaks up part of its wettest neighbour's
+          const nb = Math.max(Math.max(at(tr, cols, rows, c + 1, r), at(tr, cols, rows, c - 1, r)), Math.max(at(tr, cols, rows, c, r + 1), at(tr, cols, rows, c, r - 1)));
+          const soak = nb * cal.bleed * (0.35 + 0.4 * hash12(fr(fr(c * fr(0.73)) + fr(3.1)), fr(fr(r * fr(0.73)) + fr(3.1))));
+          if (soak > t) t += (soak - t) * Math.min(1, dt * 4);
+        }
         else if (mode === 7) t = Math.max(t * Math.exp(-dt * pr), brush * active * (0.4 + str * 0.8));
         else t = 0;
         nh[i] = n < -1.9 ? -1.9 : n > 1.9 ? 1.9 : n;

@@ -1,4 +1,5 @@
-import type { EngineStats, GestureInput, GridSnapshot, MediaKind } from './engine';
+import type { EngineStats, FamilyCommand, GestureInput, GridSnapshot, MediaKind } from './engine';
+import type { FamilyBundle, SlotInfo } from '../families/host';
 import type { Recipe } from './recipe';
 import type { TransitionSpec } from './transitions';
 
@@ -79,5 +80,17 @@ export interface Renderer {
    * the frames renderAt draws one after another.
    */
   gesture(e: GestureInput): void;
+  /**
+   * Visual families with memory (families/host.ts): a copy of the live runs, which an export engine then
+   * starts from (setFamilyStart) at piece time t0 — so a still, a clip or a grid shows the state on stage
+   * without moving it; a live engine can take runs over from another (adoptFamilies).
+   */
+  familyState(): FamilyBundle;
+  setFamilyStart(bundle: FamilyBundle | null, t0?: number): void;
+  adoptFamilies(bundle: FamilyBundle): void;
+  /** Starts a layer's run over from its base, or runs n steps now (while paused). */
+  familyCommand(c: FamilyCommand): void;
+  /** Where each family run is: steps, lag, modified state, missing checkpoint, loading or failed. */
+  familyInfo(): SlotInfo[];
   destroy(): void;
 }

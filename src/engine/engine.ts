@@ -1,5 +1,6 @@
 import { buildAtlas, uniqueChars, type Atlas } from './atlas';
-import { BLENDS, INTERACT, cloneRecipe, type Recipe } from './recipe';
+import { getGlyphSet, watchGlyphSets, whenGlyphSet } from '../glyphset/registry';
+import { BLENDS, INTERACT, cloneRecipe, foldIndex, type Recipe } from './recipe';
 import { figureFit, fontById } from './catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from './color';
 import { createFontLoader, type FontLoader } from './fonts';
@@ -7,9 +8,9 @@ import {
   compileProgram, createTex, dropProgram, fboFor, finishProgram, halfFloatRenderable, loc, programDone, resizeTex, startProgram,
   type PendingProgram, type Program, type Tex,
 } from './gl';
-import { BLUR_FS, COMPOSE_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
+import { ANAMORPHIC_FS, BLUR_FS, COMPOSE_FS, PAPER_FS, SELECT_FS, SIM_FS, VERT, buildFieldShader, fieldKey, type FieldSource } from './glsl/programs';
 import type { PatternLibrary } from './glsl/patterns';
-import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from './text';
+import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, textMask, type MsgLayout } from './text';
 import { XFORM_FS } from './glsl/xform';
 import { XF_COPY, XF_MEDIA, XF_TEXT, XF_TRAIL, activeXforms, needsPattern, trailDecay, trailStage, xformStages, type XformStage } from './xform';
 import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } from './letters';
@@ -17,7 +18,14 @@ import { fold, morphPeriod, loopTime, ondularTimes, pieceTime, wordsRate } from 
 import type { PreviewQuality, Renderer } from './renderer';
 import { DEFAULT_TRANSITION, TRANSITION_INDEX, transitionOf, type TransitionSpec } from './transitions';
 import { GRID_MODES, TOUCH_TILE, VIEW_MODES, TouchField, eraseRate, isMarkMode, isTouchMode, paintRate, touchSettings } from './touch';
-import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
+import { PointerHub, SIM_MODES, brushDry, brushGhost, brushWidth, isCalligraphy, legacyGhost, pressureGain, pressureRadius, simSettle } from './pointer';
+import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../families/host';
+import { SIDE, TEXT_SIDE, mediaSource, textSource, type SmallMedia } from '../families/source';
+import { retryFamily } from '../families/models';
+import { hasColourFamily, paletteOf } from '../families/palette';
+import { fieldOptics, glassColourMode, opticsUniforms } from './opticsU';
+import { familyById, isColorFamily } from '../families/registry';
+import { PARAM_SLOTS, checkedFam, famReads, packParams } from '../families/params';
 
 export type MediaKind = 'image' | 'video' | 'camera';
 type MediaEl = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
@@ -51,6 +59,10 @@ export interface EngineOptions {
   onError?: (msg: string) => void;
   onStats?: (s: EngineStats) => void;
 }
+
+/** Commands for the runs of a piece's visual families (see families/host.ts). */
+export type FamilyCommand = { kind: 'reset'; layer?: number } | { kind: 'step'; layer?: number; n?: number } | { kind: 'retry'; id: string };
+
 
 export interface EngineStats { cols: number; rows: number; fps: number; pixelRatio: number; width: number; height: number; ms: number }
 
@@ -100,6 +112,8 @@ interface Pending {
   /** Fence after a first draw with the new program (drivers that compile at the first draw do it then). */
   warm: WebGLSync | null;
   fonts: boolean;
+  /** The code of the piece's visual families is here. */
+  fam: boolean;
 }
 
 /** Whether the GPU got past a fence (never blocks; WebGL updates the status between tasks). */
@@ -135,6 +149,11 @@ export class AsciiEngine implements Renderer {
    * two grids they write in turn, the pattern's values (Desplazar) and Estela's trail and last input.
    */
   private pXf: Program | null = null;
+  /** «Destello anamórfico» (recipe.fxKind.bloom): its program, compiled the first time a piece asks for it. */
+  private pAna: Program | null = null;
+  /** «Papel» (recipe.fxKind.grain): its program and the still sheet it drew, for this size, cell and fold. */
+  private pPaper: Program | null = null;
+  private paper: { key: string; t: Tex; fb: WebGLFramebuffer } | null = null;
   private xf: { size: string; grid: Tex[]; fbGrid: WebGLFramebuffer[]; pat: Tex; fbPat: WebGLFramebuffer; trail: Tex[]; fbTrail: WebGLFramebuffer[]; prev: Tex[]; fbPrev: WebGLFramebuffer[] } | null = null;
   /** Estela's state: which trail and input buffers are current, whether they hold a frame yet, and when. */
   private trail = { i: 0, have: false, t: 0, key: '' };
@@ -197,7 +216,9 @@ export class AsciiEngine implements Renderer {
   private frames = 0; private fps = 0; private fpsT = 0; private ema = 16; private slow = 0; private fast = 0;
   private fontGen = 0;
 
-  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1 };
+  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1,
+    // «Pincel caligráfico» (pointer.ts): the ghost lifts its brush between strokes; the brush's width now and a frame ago
+    lift: false, wf: 1, wf0: 1 };
   /** The gesture modes' field (engine/touch.ts), shared code with the basic engine. */
   private touch = new TouchField();
   private tTouch!: Tex;
@@ -206,6 +227,23 @@ export class AsciiEngine implements Renderer {
   private hub: PointerHub | null = null;
   /** realT of the last frame the pointer simulation (Ondas, Borrador, Pincel) had something to do. */
   private simLast = -1e9;
+  /** Runs of the piece's raster families, their textures (units 8–11) and what was uploaded last. */
+  private fam: FamilyHost;
+  private tFam: Tex[] = [];
+  private famVer = [-1, -1, -1, -1];
+  /** Staging for colour rasters (rgb + luminance per cell). */
+  private famRGBA: Array<Uint8Array | null> = [null, null, null, null];
+  /** The source as the families that read it last got it, and the canvas its small copies are made on. */
+  private famSrcKey = '';
+  private famSrcVer = 0;
+  private famTextCanvas: HTMLCanvasElement | null = null;
+  /** Where the picture is scaled down on the GPU for the families that read it (mediaCopy). */
+  private famBlit: { read: WebGLFramebuffer; draw: WebGLFramebuffer; t: Tex } | null = null;
+  /** The moment the letters were last drawn at (letters that move), for the families' copy of them. */
+  private textAnim: { time: number; cols: number; loop?: number } | undefined;
+  private famBusy = false;
+  /** Where the last brush stroke on each family layer ended (domain coordinates), while the pointer is down. */
+  private famStroke: Array<[number, number] | null> = [null, null, null, null];
   /** Fixed-size engines: realT of the last renderAt (the ghost plays when frames follow each other). */
   private demoT = NaN;
   private ro: ResizeObserver | null = null;
@@ -217,6 +255,7 @@ export class AsciiEngine implements Renderer {
     this.o = opts;
     this.lib = opts.library;
     this.r = cloneRecipe(recipe);
+    this.fam = new FamilyHost({ live: !opts.fixedSize, onError: opts.onError });
     this.fonts = opts.fonts ?? createFontLoader({ google: opts.googleFonts ?? true });
     this.playing = (opts.autoplay ?? true) && !opts.reducedMotion;
     const gl = canvas.getContext('webgl2', {
@@ -253,6 +292,9 @@ export class AsciiEngine implements Renderer {
       this.io.observe(canvas);
     }
     if (opts.interactive ?? true) this.bindPointer();
+    // the families of the first recipe (their specs, code and GLSL): set() asks for a new recipe's; this one
+    // was given to the constructor (exported code mounts its piece this way and never calls set())
+    void this.fam.ready(this.r).then(() => { this.needsRender = true; }, () => undefined);
     if (!opts.fixedSize) this.raf = requestAnimationFrame(this.loop);
   }
 
@@ -290,22 +332,34 @@ export class AsciiEngine implements Renderer {
     const key = this.fieldKeyOf(r);
     const needProg = !this.progs.has(key) && !this.failedPrograms.has(key);
     let p = this.pending;
-    if (!p && !trans && !needProg) { this.applyRecipe(r); return; }
-    if (!p) p = this.pending = { r, trans, since: performance.now(), frames: 0, key, prog: null, compiled: null, warm: null, fonts: false };
+    if (!p && !trans && !needProg && this.fam.loaded(r)) { this.applyRecipe(r); return; }
+    if (!p) p = this.pending = { r, trans, since: performance.now(), frames: 0, key, prog: null, compiled: null, warm: null, fonts: false, fam: false };
     else {
       if (p.key !== key) { this.dropPendingGL(p); p.key = key; p.frames = 0; }
       p.r = r;
       p.trans = trans ?? p.trans;
       p.fonts = false;
+      p.fam = false;
     }
-    if (needProg && !p.prog) {
+    // (a family's GLSL may still be on its way: then the program starts once it is here)
+    const start = (q: Pending) => {
+      if (q.prog || this.progs.has(q.key) || this.failedPrograms.has(q.key)) return;
       try {
-        p.prog = startProgram(this.gl, VERT, this.fieldSource(r, key));
-        p.compiled = this.fence();
-      } catch (error) { this.failProgram(key, error); }
-    }
+        q.prog = startProgram(this.gl, VERT, this.fieldSource(q.r, q.key));
+        q.compiled = this.fence();
+      } catch (error) { this.failProgram(q.key, error); }
+    };
+    if (needProg && this.fam.loaded(r)) start(p);
     const want = p;
     void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
+    void this.fam.ready(r).then(() => {
+      if (this.pending !== want || want.r !== r) return;
+      // the key may name the program with the GLSL now (it named the one without it before)
+      const k = this.fieldKeyOf(r);
+      if (k !== want.key) { this.dropPendingGL(want); want.key = k; }
+      start(want);
+      want.fam = true;
+    });
     this.needsRender = true;
   }
 
@@ -316,7 +370,7 @@ export class AsciiEngine implements Renderer {
     if (this.o.fixedSize) { this.trail.have = false; this.touch.reset(); this.demoT = NaN; }
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
-      || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
+      || prev.glyph.set !== next.glyph.set || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
       || prev.text.font !== next.text.font || prev.text.weight !== next.text.weight || prev.text.italic !== next.text.italic
       || prev.text.content !== next.text.content) this.requestFonts();
     if (prev.source !== next.source) { this.mediaUploaded = null; this.mediaOK = false; }
@@ -357,6 +411,7 @@ export class AsciiEngine implements Renderer {
     }
     if (p.warm && !over && !passed(gl, p.warm)) return;
     if (p.trans && !p.fonts && !over) return;
+    if (!p.fam && !over) return;
     this.applyPending();
   }
 
@@ -489,8 +544,9 @@ export class AsciiEngine implements Renderer {
 
   private fontsFor(r: Recipe): Promise<unknown> {
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).catch(() => undefined);
   }
 
@@ -525,7 +581,7 @@ export class AsciiEngine implements Renderer {
 
   /** Resolves once fonts are loaded and the atlas has been rebuilt with them. */
   async ready(): Promise<void> {
-    await this.requestFonts();
+    await Promise.all([this.requestFonts(), this.fam.ready(this.r)]);
     this.atlasKey = '';
     this.textKey = '';
     if (this.o.fixedSize) await this.compileAhead();
@@ -553,7 +609,7 @@ export class AsciiEngine implements Renderer {
     if (!(dt > 0 && dt <= 0.5)) {
       if (it.auto) {
         this.touch.reset(); this.resetSim();
-        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false });
+        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false, lift: false, wf: 1, wf0: 1 });
         this.stepPointer(0, true);
         this.ptr.on = 1;
       }
@@ -631,6 +687,7 @@ export class AsciiEngine implements Renderer {
 
   destroy() {
     this.alive = false;
+    this.fam.dispose();
     cancelAnimationFrame(this.raf);
     this.dropPending();
     this.ro?.disconnect();
@@ -684,6 +741,8 @@ export class AsciiEngine implements Renderer {
     this.tAtlas = createTex(gl, 1, 1);
     this.tGrad = createTex(gl, 256, 1, { filter: gl.LINEAR });
     this.tMedia = createTex(gl, 1, 1, { filter: gl.LINEAR });
+    // (a restored context starts without the families' scaling buffers: they belonged to the lost one)
+    this.famBlit = null;
     this.tText = createTex(gl, 1, 1, { filter: gl.LINEAR });
     this.tMsg = createTex(gl, 1, 1);
     this.tWords = createTex(gl, 1, 1);
@@ -691,10 +750,14 @@ export class AsciiEngine implements Renderer {
     this.fbWarm = fboFor(gl, this.tWarm);
     this.tTouch = createTex(gl, 1, 1, { data: new Uint8Array([0, 0, 128, 128]) });
     this.touchVer = -1;
+    // family rasters: one channel, read with texelFetch (the shader interpolates itself, as the CPU does)
+    this.tFam = [0, 1, 2, 3].map(() => createTex(gl, 1, 1, { internal: gl.R8, format: gl.RED, data: new Uint8Array(1) }));
+    this.famVer = [-1, -1, -1, -1];
     this.prevT = [null, null]; this.prevFb = [null, null]; this.prevIdx = 0;
     this.trans = -1;
     // (a restored context lost them all: made again when a piece needs them)
     this.pXf = null; this.xf = null; this.xfBroken = false; this.trail.have = false;
+    this.pAna = null; this.pPaper = null; this.paper = null;
   }
 
   private invalidate() {
@@ -703,6 +766,7 @@ export class AsciiEngine implements Renderer {
     this.mediaUploaded = null;
     this.simMode = '';
     this.touchVer = -1;
+    this.famVer = [-1, -1, -1, -1];
     this.needsRender = true;
   }
 
@@ -710,8 +774,9 @@ export class AsciiEngine implements Renderer {
     const r = this.r;
     const gen = ++this.fontGen;
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).then(() => {
       if (gen !== this.fontGen && this.alive) return;
       this.atlasKey = '';
@@ -726,6 +791,9 @@ export class AsciiEngine implements Renderer {
    * loading. Without this a piece on a slow page kept the fallback face for good (still more so when paused).
    */
   private watchLateFonts() {
+    // a glyph set the studio loads from this browser's storage (or one declared missing) redraws the atlas
+    const off = watchGlyphSets(() => { if (this.r.glyph.set) { this.atlasKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; } });
+    this.cleanup.push(off);
     const set = typeof document !== 'undefined' ? document.fonts : undefined;
     if (!set || typeof set.addEventListener !== 'function') return;
     const landed = () => { this.atlasKey = this.textKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; };
@@ -773,7 +841,7 @@ export class AsciiEngine implements Renderer {
     const video = (this.r.source === 'video' || this.r.source === 'camera') && !!this.media[this.r.source];
     // Ondas, Borrador and Pincel draw until what the pointer left has settled (then an idle piece costs nothing)
     const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
-    if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {
+    if (this.playing || this.needsRender || interactive || touching || video || sim || this.famBusy || this.trans >= 0) {
       this.needsRender = false;
       this.lastDraw = now;
       const t0 = performance.now();
@@ -805,10 +873,13 @@ export class AsciiEngine implements Renderer {
     const P = this.ptr, it = this.r.interact;
     if (it.mode === 'none' || isTouchMode(it.mode)) return false;
     if (it.auto && (demo || this.realT - P.lastReal > 2.5)) {
-      const [gx, gy] = legacyGhost(this.realT);
+      // the calligraphic brush's ghost writes strokes and lifts the brush between them
+      const g = isCalligraphy(it) ? brushGhost(this.realT) : null;
+      const [gx, gy] = g ? [g.x, g.y] : legacyGhost(this.realT);
       P.tx = this.W * gx; P.ty = this.H * gy;
       P.targetOn = 1;
-    }
+      P.lift = !!g && !g.down;
+    } else P.lift = false;
     const sim = SIM_MODES.includes(it.mode);
     P.px = P.x; P.py = P.y;
     if (sim || P.on < 0.01) { P.x = P.tx; P.y = P.ty; }
@@ -882,12 +953,14 @@ export class AsciiEngine implements Renderer {
   private updateAtlas() {
     const r = this.r, g = r.glyph;
     const extras = (r.msg.on ? r.msg.text : '') + (g.mode === 'words' ? g.words : '');
-    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join('')].join('\u0001');
+    const set = g.set ? getGlyphSet(g.set) : undefined;
+    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join(''), set ? g.set : ''].join('\u0001');
     if (key === this.atlasKey && this.atlas) return;
     this.atlasKey = key;
     this.atlas = buildAtlas({
-      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (fontById(g.font).fit ?? 1),
-      cw: this.cw, ch: this.ch, extras, maxTex: this.maxTex,
+      // a glyph set fills its own em box: the font's optical fit does not apply to it
+      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (set ? 1 : fontById(g.font).fit ?? 1),
+      cw: this.cw, ch: this.ch, extras, maxTex: this.maxTex, glyphs: set ? { id: g.set!, set } : undefined,
     }, this.atlasCanvas ?? undefined);
     this.atlasCanvas = this.atlas.canvas;
     const gl = this.gl;
@@ -915,6 +988,7 @@ export class AsciiEngine implements Renderer {
     const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}|${anim.loop}` : '');
     if (key === this.textKey) return;
     this.textKey = key;
+    this.textAnim = anim;
     this.textCanvas ??= document.createElement('canvas');
     drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font), anim);
     const gl = this.gl;
@@ -1005,12 +1079,12 @@ export class AsciiEngine implements Renderer {
    */
   private fieldKeyOf(r: Recipe, src?: FieldSource): string {
     const s = src ?? SRC_OF(r, r.source === this.r.source && this.mediaOK ? true : !!this.currentMediaOf(r));
-    return fieldKey(AsciiEngine.patternsOf(r), s, r.motion.loop > 0);
+    return fieldKey(AsciiEngine.patternsOf(r), s, fieldLoops(r), fieldOptics(r.optics));
   }
 
   private fieldSource(r: Recipe, key: string): string {
     const src = key.split('|')[0] as FieldSource;
-    return buildFieldShader(AsciiEngine.patternsOf(r), src, r.motion.loop > 0, this.lib);
+    return buildFieldShader(AsciiEngine.patternsOf(r), src, fieldLoops(r), this.lib, fieldOptics(r.optics));
   }
 
   private cacheProgram(key: string, p: Program) {
@@ -1105,6 +1179,7 @@ export class AsciiEngine implements Renderer {
         } else resizeTex(gl, T, this.cols, this.rows, this.touch.data);
       }
     }
+    this.updateFamilies();
     const src = SRC_OF(this.r, this.mediaOK);
     const fp = this.fieldProgram(src);
     if (!fp) return; // keep the last frame instead of selecting stale field textures
@@ -1122,6 +1197,11 @@ export class AsciiEngine implements Renderer {
     if (fp) this.runField(fp, src, grid);
     this.runSelect(src);
     if (this.r.fx.bloom > 0) this.runBloom();
+    if (this.r.fx.grain > 0 && this.r.fxKind?.grain === 'papel') this.ensurePaper();
+    else if (this.paper) {
+      // no paper any more: its sheet (a texture the size of the canvas) goes
+      this.gl.deleteTexture(this.paper.t.tex); this.gl.deleteFramebuffer(this.paper.fb); this.paper = null;
+    }
     this.compose(null, this.trans);
     this.ptr.impulse = 0;
   }
@@ -1140,8 +1220,18 @@ export class AsciiEngine implements Renderer {
     const P = this.ptr, it = this.r.interact, p = this.pSim;
     const auto = it.auto && this.realT - P.lastReal > 2.5;
     // a pen presses harder or softer (engine/pointer.ts); mouse and fingers as always
-    const active = P.on > 0.2 ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0;
+    const cal = isCalligraphy(it);
+    // (the calligraphic ghost's brush is lifted between strokes: it does not ink as it moves to the next)
+    const active = P.on > 0.2 && !(cal && auto && P.lift) ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0;
     const impulse = P.impulse * (P.on > 0.2 ? 1 : 0);
+    // the calligraphic brush: its width (now and a frame ago) and how dry it runs follow the stroke's speed
+    let dry = 0;
+    if (cal) {
+      const v = dt > 0 ? P.moved / dt / this.H : 0;
+      P.wf0 = P.wf;
+      if (dt > 0) P.wf += (brushWidth(v) - P.wf) * Math.min(1, dt * 14);
+      dry = brushDry(v);
+    }
     if (active > 0 || impulse > 0) this.simLast = this.realT;
     // one step per 1/60 s, as the basic engine does (the same waves at 30 fps, in exports and on 120 Hz screens)
     const steps = dt > 0 ? Math.max(1, Math.min(4, Math.round(dt * 60))) : 1;
@@ -1152,7 +1242,12 @@ export class AsciiEngine implements Renderer {
     gl.uniform2f(loc(gl, p, 'uGrid'), this.cols, this.rows);
     gl.uniform2f(loc(gl, p, 'uCell'), this.cw, this.ch);
     gl.uniform4f(loc(gl, p, 'uSeg'), P.px, P.py, P.x, P.y);
-    gl.uniform1f(loc(gl, p, 'uBrushR'), Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure));
+    const brushR = Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure);
+    gl.uniform1f(loc(gl, p, 'uBrushR'), brushR * (cal ? P.wf : 1));
+    gl.uniform1f(loc(gl, p, 'uBrushR0'), brushR * (cal ? P.wf0 : 1));
+    gl.uniform1i(loc(gl, p, 'uStroke'), cal ? 1 : 0);
+    gl.uniform1f(loc(gl, p, 'uDry'), dry);
+    gl.uniform1f(loc(gl, p, 'uBleed'), it.bleed ?? 0.5);
     gl.uniform1f(loc(gl, p, 'uStr'), it.strength);
     gl.uniform1f(loc(gl, p, 'uEnc'), this.halfFloat ? 0 : 1);
     gl.uniform1f(loc(gl, p, 'uDt'), sdt);
@@ -1190,7 +1285,7 @@ export class AsciiEngine implements Renderer {
     const layers = r.layers.filter(l => l.on).slice(0, 4);
     const A = new Float32Array(16), B = new Float32Array(16), C = new Float32Array(16);
     layers.forEach((l, i) => {
-      A.set([l.scale * figureFit(l.pattern, this.W, this.H), (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
+      A.set([l.scale * figureFit(l.pattern, this.W, this.H, l.fam?.p, l.scale), (l.rot * Math.PI) / 180, l.x, l.y], i * 4);
       B.set([l.a, l.b, l.mix, l.speed], i * 4);
       C.set([l.invert ? 1 : 0, l.phase, Math.max(0, BLENDS.indexOf(l.blend)), 0], i * 4);
     });
@@ -1199,6 +1294,19 @@ export class AsciiEngine implements Renderer {
     gl.uniform4fv(loc(gl, p, 'uLC'), C);
     gl.uniform1f(loc(gl, p, 'uWarp'), r.motion.warp);
     gl.uniform1f(loc(gl, p, 'uWarpScale'), r.motion.warpScale);
+    if (r.optics) {
+      const u = opticsUniforms(r.optics, tq, r.motion.loop);
+      gl.uniform4fv(loc(gl, p, 'uOpA'), u.a);
+      gl.uniform4fv(loc(gl, p, 'uOpB'), u.b);
+      if (u.s) {
+        // a glass solid: where it is and how it is turned at this moment (opticsU.ts)
+        gl.uniform4fv(loc(gl, p, 'uOpC'), u.s.c);
+        gl.uniform4fv(loc(gl, p, 'uOpD'), u.s.d);
+        gl.uniform4fv(loc(gl, p, 'uOpT'), u.s.t);
+        gl.uniform4fv(loc(gl, p, 'uOpN'), u.s.n);
+        gl.uniform1f(loc(gl, p, 'uOpCol'), glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)));
+      }
+    }
     gl.uniform1f(loc(gl, p, 'uPulse'), this.pulse(tq));
     gl.uniform1f(loc(gl, p, 'uMediaMix'), r.media.mix);
     gl.uniform1i(loc(gl, p, 'uMediaBlend'), Math.max(0, BLENDS.indexOf(r.media.blend)));
@@ -1214,6 +1322,7 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uXGrid'), 5);
     gl.uniform1i(loc(gl, p, 'uXOn'), grid ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uPatOnly'), patternInto ? 1 : 0);
+    this.bindFamilyUniforms(p, layers);
     this.bindPointerUniforms(p);
     void src;
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -1303,6 +1412,177 @@ export class AsciiEngine implements Renderer {
     return X.grid[cur];
   }
 
+  /**
+   * Brings the piece's family runs to the current moment (families/host.ts), applies brush strokes and
+   * uploads the rasters that changed.
+   */
+  private updateFamilies() {
+    const r = this.r;
+    if (!r.layers.some(l => l.on && l.fam)) { this.famBusy = false; return; }
+    this.famStrokes();
+    this.familySource();
+    this.famBusy = this.fam.update(r, familyTime(this.t, r.motion.hold));
+    const gl = this.gl;
+    for (let i = 0; i < 4; i++) {
+      const R = this.fam.raster(i);
+      if (!R || R.version === this.famVer[i]) continue;
+      this.famVer[i] = R.version;
+      const T = this.tFam[i];
+      // a colour family's raster goes up as rgb and, in alpha, the luminance (grey where its run gives no colour)
+      const rgba = R.colour === true;
+      const internal = rgba ? gl.RGBA8 : gl.R8, format = rgba ? gl.RGBA : gl.RED;
+      let data: Uint8Array = R.data;
+      if (rgba) {
+        const n = R.w * R.h;
+        const buf = this.famRGBA[i] && this.famRGBA[i]!.length === n * 4 ? this.famRGBA[i]! : (this.famRGBA[i] = new Uint8Array(n * 4));
+        const c = R.rgb, l = R.data;
+        for (let j = 0; j < n; j++) {
+          const o = j * 4;
+          if (c) { buf[o] = c[j * 3]; buf[o + 1] = c[j * 3 + 1]; buf[o + 2] = c[j * 3 + 2]; } else buf[o] = buf[o + 1] = buf[o + 2] = l[j];
+          buf[o + 3] = l[j];
+        }
+        data = buf;
+      }
+      gl.bindTexture(gl.TEXTURE_2D, T.tex);
+      if (T.w === R.w && T.h === R.h && T.internal === internal) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, R.w, R.h, format, gl.UNSIGNED_BYTE, data);
+      else { T.internal = internal; T.format = format; resizeTex(gl, T, R.w, R.h, data); }
+    }
+  }
+
+  /**
+   * The piece's source for the families that read it (FamilyMeta.reads 'source'): a small CPU copy of the
+   * picture or the video frame (ten times a second) or the letters, made only when it changes.
+   */
+  private familySource() {
+    const r = this.r;
+    if (!FamilyHost.readsSource(r)) { if (this.famSrcKey) { this.famSrcKey = ''; this.fam.setSource(null); } return; }
+    let key = '-', make: (() => HostSource) | null = null;
+    if (r.source === 'text' && this.textCanvas) {
+      key = 't|' + this.textKey;
+      // the letters drawn again for them, small (never read back from the canvas given to WebGL)
+      const anim = this.textAnim;
+      make = () => {
+        const m = textMask((this.famTextCanvas ??= document.createElement('canvas')), this.W, this.H, r.text, this.fonts.stack(r.text.font), anim, TEXT_SIDE);
+        return textSource(m.data, m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+      };
+    } else {
+      const el = this.currentMedia();
+      if (el && this.mediaOK && this.mediaUploaded === el) {
+        const t = typeof HTMLVideoElement !== 'undefined' && el instanceof HTMLVideoElement ? Math.floor(this.mediaTime * 10) : 0;
+        const m = r.media;
+        key = `m|${this.mediaGen}|${t}|${m.fit}|${m.zoom}|${m.panX}|${m.panY}|${m.mirror}|${this.W}x${this.H}`;
+        make = () => {
+          const c = this.mediaCopy();
+          if (!c) throw new Error('copia');
+          return mediaSource(c, this.W, this.H, m, ++this.famSrcVer);
+        };
+      }
+    }
+    if (key === this.famSrcKey) return;
+    this.famSrcKey = key;
+    try { this.fam.setSource(make ? make() : null); } catch { this.fam.setSource(null); }
+  }
+
+  /**
+   * A small CPU copy (at most SIDE px on its long side) of the picture just uploaded to tMedia, for the families
+   * that read it: scaled down on the GPU and read back. Never a 2D-canvas copy of the picture: WebKit draws a
+   * picture (an ImageBitmap) that WebGL has read as another one, or black.
+   */
+  private mediaCopy(): SmallMedia | null {
+    const gl = this.gl, mw = this.mediaW, mh = this.mediaH;
+    const k = Math.min(1, SIDE / Math.max(mw, mh, 1));
+    const w = Math.max(1, Math.round(mw * k)), h = Math.max(1, Math.round(mh * k));
+    const B = (this.famBlit ??= { read: gl.createFramebuffer()!, draw: gl.createFramebuffer()!, t: createTex(gl, w, h) });
+    if (B.t.w !== w || B.t.h !== h) resizeTex(gl, B.t, w, h);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, B.read);
+    gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tMedia.tex, 0);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, B.draw);
+    gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, B.t.tex, 0);
+    let data: Uint8Array | null = null;
+    if (gl.checkFramebufferStatus(gl.READ_FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE && gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+      gl.blitFramebuffer(0, 0, mw, mh, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, B.draw);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      data = new Uint8Array(w * h * 4);
+      // (rows come out as the picture was uploaded, top first: the same order as a 2D canvas's getImageData)
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return data && { data, w, h, natW: mw, natH: mh };
+  }
+
+  /** Strokes of a family brush (layer.fam.brush) while the pointer is pressed on a live canvas. */
+  private famStrokes() {
+    const P = this.ptr, r = this.r;
+    const layers = r.layers.filter(l => l.on).slice(0, 4);
+    for (let i = 0; i < 4; i++) {
+      const l = layers[i], brush = l?.fam?.brush;
+      if (!l || !brush || this.o.fixedSize || !P.down || P.on < 0.2) { this.famStroke[i] = null; continue; }
+      // the pointer in the layer's coordinates (the field pass's p → q)
+      const px = (P.x - 0.5 * this.W) / this.H, py = (0.5 * this.H - P.y) / this.H;
+      const sc = l.scale * figureFit(l.pattern, this.W, this.H, l.fam?.p, l.scale), a = (l.rot * Math.PI) / 180;
+      const dx = px - l.x, dy = py - l.y, c = Math.cos(a), s = Math.sin(a);
+      const qx = (c * dx - s * dy) * sc, qy = (s * dx + c * dy) * sc;
+      const prev = this.famStroke[i] ?? [qx, qy];
+      this.fam.stroke(i, { brush, x0: prev[0], y0: prev[1], x1: qx, y1: qy, r: Math.max(0.01, r.interact.radius * 0.5 * sc), strength: Math.max(0.2, r.interact.strength) });
+      this.famStroke[i] = [qx, qy];
+    }
+  }
+
+  /** Family layers: their textures (units 8–11), domains and typed parameters. */
+  private bindFamilyUniforms(p: Program, layers: Recipe['layers']) {
+    if (!layers.some(l => l.fam)) return;
+    const gl = this.gl;
+    const R = new Float32Array(16), K0 = new Float32Array(16), K1 = new Float32Array(16), K2 = new Float32Array(16), K3 = new Float32Array(16);
+    const LV = new Float32Array(16), k = new Float32Array(PARAM_SLOTS + 1);
+    layers.forEach((l, i) => {
+      const meta = familyById(l.pattern);
+      if (!meta || !l.fam) return;
+      const fam = checkedFam(meta, l.fam);
+      if (meta.kind === 'analytic') {
+        packParams(meta, fam.p, k, fam.v);
+        K0.set(k.subarray(0, 4), i * 4); K1.set(k.subarray(4, 8), i * 4); K2.set(k.subarray(8, 12), i * 4); K3.set(k.subarray(12, 16), i * 4);
+      } else {
+        const ras = this.fam.raster(i);
+        if (ras) R.set([ras.w, ras.h, ras.wrap ? 1 : 0, 1], i * 4);
+        LV[i * 4 + 1] = ras?.rgb ? 1 : 0;
+      }
+      LV[i * 4] = fam.v;
+      LV[i * 4 + 2] = famReads(meta, fam.v, 'source') ? 1 : 0;
+    });
+    gl.uniform4fv(loc(gl, p, 'uLR'), R);
+    gl.uniform4fv(loc(gl, p, 'uLF0'), K0);
+    gl.uniform4fv(loc(gl, p, 'uLF1'), K1);
+    gl.uniform4fv(loc(gl, p, 'uLF2'), K2);
+    gl.uniform4fv(loc(gl, p, 'uLF3'), K3);
+    gl.uniform4fv(loc(gl, p, 'uLV'), LV);
+    if (layers.some(l => isColorFamily(l.pattern))) {
+      const pal = paletteOf(this.r.color.stops);
+      gl.uniform3fv(loc(gl, p, 'uPal'), pal.rgb);
+      gl.uniform1f(loc(gl, p, 'uPalN'), pal.n);
+    }
+    for (let i = 0; i < 4; i++) {
+      gl.activeTexture(gl.TEXTURE8 + i); gl.bindTexture(gl.TEXTURE_2D, this.tFam[i].tex);
+      gl.uniform1i(loc(gl, p, 'uFT' + i), 8 + i);
+    }
+  }
+
+  /** A copy of the live runs of the piece's families (exports start from it; the live runs go on untouched). */
+  familyState(): FamilyBundle { return this.fam.bundle(); }
+  /** Fixed-size engines: the next renders start from these runs, at piece time t0 (null: from their seeds). */
+  setFamilyStart(bundle: FamilyBundle | null, t0 = 0) { this.fam.setStart(bundle, t0); this.famVer = [-1, -1, -1, -1]; this.needsRender = true; }
+  /** Live engines: carry on runs from another engine (the stage switching to the basic engine). */
+  adoptFamilies(bundle: FamilyBundle) { this.fam.adopt(bundle); this.needsRender = true; }
+  familyCommand(c: FamilyCommand) {
+    // «Reintentar»: the family's code (and GLSL) is asked for again; the next frames pick it up
+    if (c.kind === 'retry') { void retryFamily(c.id).then(() => { this.famVer = [-1, -1, -1, -1]; this.needsRender = true; }); return; }
+    if (c.kind === 'reset') this.fam.reset(c.layer);
+    else this.fam.stepNow(c.n ?? 1, c.layer);
+    this.famVer = this.famVer.map((v, i) => (c.layer === undefined || c.layer === i ? -1 : v));
+    this.needsRender = true;
+  }
+  familyInfo(): SlotInfo[] { return this.fam.info(this.r); }
+
   private pulse(tq: number): number {
     const m = this.r.motion;
     if (this.externalPulse > 0) return Math.min(1, this.externalPulse);
@@ -1373,7 +1653,8 @@ export class AsciiEngine implements Renderer {
     gl.uniform1f(loc(gl, p, 'uWordsN'), this.wordsN);
     gl.uniform1i(loc(gl, p, 'uCMode'), r.color.mode === 'source' ? 1 : 0);
     gl.uniform1i(loc(gl, p, 'uMap'), ['luma', 'x', 'y', 'radial', 'angle', 'noise'].indexOf(r.color.map));
-    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' ? 1 : 0);
+    // the cells carry a colour of their own: the picture's, or a colour family's (families/palette.ts)
+    gl.uniform1i(loc(gl, p, 'uIsMedia'), src === 'media' || ((src === 'pattern' || src === 'text') && hasColourFamily(r)) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uEmptyField'), r.source === 'pattern' && !r.layers.some(l => l.on) ? 1 : 0);
     gl.uniform1f(loc(gl, p, 'uShift'), r.color.shift);
     gl.uniform1f(loc(gl, p, 'uCycle'), r.color.cycle);
@@ -1422,10 +1703,54 @@ export class AsciiEngine implements Renderer {
     gl.uniform1i(loc(gl, p, 'uTouch'), 4);
     gl.uniform1i(loc(gl, p, 'uTouchMark'), isMarkMode(it.mode) ? (ts.glyphs === 'piece' ? 2 : 1) : 0);
     gl.uniform1f(loc(gl, p, 'uTouchInk'), ts.ink);
+    // a glass solid colours the palette's colours through a factor the field pass leaves in each cell
+    gl.uniform1i(loc(gl, p, 'uGlassCol'), glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)) === 2 ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  /** «Destello anamórfico»: the lights spread sideways, then a long streak with red and blue apart and a bokeh ring (ANAMORPHIC_FS). */
+  private runAnamorphic() {
+    const gl = this.gl;
+    const p = (this.pAna ??= compileProgram(gl, VERT, ANAMORPHIC_FS));
+    gl.useProgram(p.prog);
+    gl.viewport(0, 0, this.cols, this.rows);
+    gl.uniform1f(loc(gl, p, 'uStep'), 1 + Math.round(this.r.fx.bloom));
+    gl.uniform1f(loc(gl, p, 'uAspect'), this.ch / this.cw);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.tSelC.tex);
+    gl.uniform1i(loc(gl, p, 'uSel'), 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbBloomA);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tSelC.tex);
+    gl.uniform1i(loc(gl, p, 'uSrc'), 0);
+    gl.uniform1i(loc(gl, p, 'uPass'), 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbBloomB);
+    gl.bindTexture(gl.TEXTURE_2D, this.tBloomA.tex);
+    gl.uniform1i(loc(gl, p, 'uPass'), 1);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  /** «Papel»: the still sheet (PAPER_FS), drawn again only when the size, the cell or the fold change. */
+  private ensurePaper() {
+    const gl = this.gl, fold = this.r.fxKind?.fold;
+    const key = `${this.W}x${this.H}:${this.cw}:${fold ?? ''}`;
+    if (this.paper?.key === key) return;
+    let P = this.paper;
+    if (!P) { const t = createTex(gl, this.W, this.H); P = { key: '', t, fb: fboFor(gl, t) }; }
+    else if (P.t.w !== this.W || P.t.h !== this.H) resizeTex(gl, P.t, this.W, this.H);
+    const p = (this.pPaper ??= compileProgram(gl, VERT, PAPER_FS));
+    gl.useProgram(p.prog);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, P.fb);
+    gl.viewport(0, 0, this.W, this.H);
+    gl.uniform2f(loc(gl, p, 'uRes'), this.W, this.H);
+    gl.uniform1f(loc(gl, p, 'uCellW'), this.cw);
+    gl.uniform1i(loc(gl, p, 'uFold'), foldIndex(fold));
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    P.key = key;
+    this.paper = P;
+  }
+
   private runBloom() {
+    if (this.r.fxKind?.bloom === 'anamorfico') { this.runAnamorphic(); return; }
     const gl = this.gl, p = this.pBlur;
     const step = 1 + Math.round(this.r.fx.bloom);
     gl.useProgram(p.prog);
@@ -1489,6 +1814,11 @@ export class AsciiEngine implements Renderer {
     // grain and flicker follow the piece's clock (with a loop, its time in the loop): a paused moment, a
     // link to it and an export of it are the very same picture
     gl.uniform1f(loc(gl, p, 'uFxTime'), r.motion.loop > 0 ? fold(this.t, r.motion.loop) : this.t);
+    // «Papel»: the still sheet instead of the film grain (ensurePaper drew it)
+    const paper = fx.grain > 0 && r.fxKind?.grain === 'papel' && this.paper ? this.paper : null;
+    gl.uniform1f(loc(gl, p, 'uPaper'), paper ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, paper ? paper.t.tex : this.tGrad.tex);
+    gl.uniform1i(loc(gl, p, 'uPaperT'), 8);
     gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, this.tTouch.tex);
     gl.uniform1i(loc(gl, p, 'uTouch'), 7);
     gl.uniform1f(loc(gl, p, 'uTouchReveal'), r.interact.mode === 'reveal' ? 1 : 0);

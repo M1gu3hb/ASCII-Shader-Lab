@@ -1799,12 +1799,13 @@ async function projectFlows() {
       await (await chooser).setFiles(file);
       const loaded = await Promise.race([
         A.p.getByRole('region', { name: 'Cargar fuente' }).waitFor({ state: 'detached', timeout: 60_000 }).then(() => 'ok'),
-        A.p.locator('.warn').filter({ hasText: /no puede reproducir|No se pudo abrir/ }).first().waitFor({ timeout: 60_000 }).then(async () => 'error: ' + await A.p.locator('.warn').first().innerText()),
+        A.p.locator('.warn').filter({ hasText: /no puede reproducir|No se pudo abrir|No se pudo decodificar/ }).first().waitFor({ timeout: 60_000 }).then(async () => 'error: ' + await A.p.locator('.warn').first().innerText()),
       ]).catch(e => 'tiempo agotado: ' + e.message);
       if (loaded !== 'ok') {
         // a browser that cannot decode this format must say so (never a silent blank)
         await check('proyectos', `${id}: ${name} en el estudio`, () => {
-          if (/no puede reproducir/.test(loaded) && type === 'video/mp4' && BROWSER === 'chromium') skip(`el Chromium de Playwright no decodifica H.264; el estudio lo dice: «${loaded.slice(7)}»`);
+          // (the studio's words for it: «no puede reproducir» before, «No se pudo decodificar el video» since 0ceb25a)
+          if (/no puede reproducir|No se pudo decodificar/.test(loaded) && type === 'video/mp4' && BROWSER === 'chromium') skip(`el Chromium de Playwright no decodifica H.264; el estudio lo dice: «${loaded.slice(7)}»`);
           throw new Error(loaded);
         });
         continue;

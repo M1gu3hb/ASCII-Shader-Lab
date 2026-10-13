@@ -6,6 +6,8 @@
 import type { GridSnapshot } from '../engine/engine';
 import { fontById, nearestWeight } from '../engine/catalog';
 import type { Recipe } from '../engine/recipe';
+import { getGlyphSet } from '../glyphset/registry';
+import { placeGlyph } from '../glyphset/paint';
 
 import jb300 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-300-normal.woff?url';
 import jb400 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff?url';
@@ -116,6 +118,13 @@ export async function gridToSvg(g: GridSnapshot & { width?: number; height?: num
   const pixelFx = (['glow', 'bloom', 'scan', 'curve', 'chroma', 'grain', 'flicker', 'vig'] as const).filter(k => r.fx[k] > 0.02);
   if (pixelFx.length) notes.push('Sin efectos de píxel (' + pixelFx.map(k => ({ glow: 'resplandor', bloom: 'bloom', scan: 'barrido', curve: 'curvatura', chroma: 'aberración', grain: 'grano', flicker: 'parpadeo', vig: 'viñeta' })[k]).join(', ') + '): no existen como vector.');
 
+  // a glyph set made in «Crea tus GLYPHOS»: its characters are its own outlines (it fills its em box: no optical fit)
+  const set = r.glyph.set ? getGlyphSet(r.glyph.set) : undefined;
+  if (r.glyph.set && !set) notes.push('El juego de glifos de la pieza no está en este navegador: el SVG usa la tipografía.');
+  if (set && opts.mode === 'text') notes.push('El SVG de texto lleva caracteres, no los dibujos de tu juego de glifos: se verán con la tipografía de quien lo abra. Para conservar tus glifos usa el SVG de contornos.');
+  const fsSet = Math.max(1, Math.min(ch * 0.82, cw * 1.55) * r.glyph.scale);
+  const setDefs = new Map<string, { id: string; x: number; y: number }>();
+  let setBitmaps = 0;
   let font: OFont | null = null;
   if (opts.mode === 'outline') {
     const f = await loadFont(r.glyph.font, nearestWeight(info, r.glyph.weight));
@@ -157,6 +166,19 @@ export async function gridToSvg(g: GridSnapshot & { width?: number; height?: num
         for (const [dx, dy] of dots) push(key, `<circle cx="${n(x0 + (0.3 + dx * 0.4) * cw)}" cy="${n(y0 + (0.2 + dy * 0.2) * ch)}" r="${rad}"/>`);
         continue;
       }
+      const shape = set && opts.mode === 'outline' ? set.glyphs[chr] : undefined;
+      if (shape && set && shape.d) {
+        let d = setDefs.get(chr);
+        if (!d) {
+          const p = placeGlyph(set, shape, fsSet);
+          const id = 's' + setDefs.size.toString(36);
+          setDefs.set(chr, d = { id, x: p.x, y: p.y });
+          paths.push(`<path id="${id}" transform="scale(${+p.k.toFixed(6)},${-p.k.toFixed(6)})" d="${shape.d}"/>`);
+        }
+        push(key, `<use xlink:href="#${d.id}" x="${n(x0 + cw / 2 + d.x)}" y="${n(y0 + ch / 2 + d.y)}"/>`);
+        continue;
+      }
+      if (shape && !shape.d) setBitmaps++;
       if (font && font.charToGlyphIndex(chr) > 0) {
         let d = defs.get(chr);
         if (!d) {
@@ -173,6 +195,7 @@ export async function gridToSvg(g: GridSnapshot & { width?: number; height?: num
       }
     }
   }
+  if (setBitmaps) notes.push(`${setBitmaps} celdas usan glifos de tu juego hechos de píxeles: el SVG no los lleva como vector y los dibuja con la tipografía. Vectorízalos en «Crea tus GLYPHOS» para tenerlos como contorno.`);
   if (geometric) notes.push('Bloques (█ ▓ ▒ ░ ▀ ▄…) y braille van como formas exactas de celda; en la vista dependen de la fuente de tu sistema y pueden verse algo distintos.');
   if (textFallback && opts.mode === 'outline') notes.push(`${textFallback} caracteres no están en la fuente incrustable y quedan como texto (dependen de las fuentes instaladas).`);
   const textAttrs = `font-family="${escXml(info.stack)}" font-size="${n(fs)}" font-weight="${r.glyph.weight}" text-anchor="middle" dominant-baseline="central"`;

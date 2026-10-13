@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { INTERACT_NAMES } from '../../engine/catalog';
 import { loadBasicEngine } from '../../engine/create';
-import { cloneRecipe, normInteract, type InteractMode, type Recipe, type TouchGlyphs } from '../../engine/recipe';
+import { cloneRecipe, normInteract, syncVersion, type InteractMode, type Recipe, type TouchGlyphs } from '../../engine/recipe';
 import type { Renderer } from '../../engine/renderer';
 import { touchSettings, type TouchSettings } from '../../engine/touch';
+import { INK_DRY } from '../../engine/pointer';
 import { F, Note, Select, Seg, Slider, Sub, Toggle, useField, type Field } from '../controls';
 import { studioFonts } from '../engineBridge';
 import { mediaElement } from '../media';
@@ -74,14 +75,14 @@ const pct = (v: number) => Math.round(v * 100) + ' %';
 const seconds = (s: number) => (s < 10 ? s.toFixed(1).replace('.', ',') : Math.round(s)) + ' s';
 
 /** «Duración» shown as what it means for each mode (touch.ts). */
-function decayText(mode: InteractMode, d: number): string {
+function decayText(mode: InteractMode, d: number, ink = false): string {
   if (mode === 'zoom') return d >= 0.98 ? 'se queda' : seconds(0.35 * Math.pow(10, d) * 3);
   if (mode === 'follow') return seconds(0.25 + 2.5 * d);
   if (mode === 'rings') return seconds(0.6 + 2.4 * d);
   if (mode === 'sparks') return seconds(0.4 + 1.8 * d);
   if (mode === 'stretch') return d < 0.34 ? 'rápido' : d < 0.67 ? 'con rebote' : 'lento';
   if (mode === 'erase') return seconds(1 / (0.22 * Math.pow(4, 1 - 2 * d)));
-  if (mode === 'paint') return seconds(3 / (0.9 * Math.pow(4, 1 - 2 * d)));
+  if (mode === 'paint') return seconds(3 / (0.9 * Math.pow(4, 1 - 2 * d) * (ink ? INK_DRY : 1)));
   return seconds(0.25 * Math.pow(16, d) * 3);
 }
 
@@ -94,6 +95,17 @@ function knob<K extends 'decay' | 'ink' | 'glyphs'>(k: K): Field<TouchSettings[K
   };
 }
 const DECAY_F = knob('decay'), INK_F = knob('ink'), GLYPHS_F = knob('glyphs');
+/** Pincel's stroke (pointer.ts): the round brush, or the calligraphic one with its bleeding ink. */
+const STROKE_F: Field<'redondo' | 'caligrafia'> = {
+  key: 'interact.stroke',
+  get: r => r.interact.stroke ?? 'redondo',
+  set: (r, v) => { r.interact = normInteract({ ...r.interact, stroke: v === 'caligrafia' ? v : undefined }); syncVersion(r); },
+};
+const BLEED_F: Field<number> = {
+  key: 'interact.bleed',
+  get: r => r.interact.bleed ?? 0.5,
+  set: (r, v) => { r.interact = normInteract({ ...r.interact, bleed: v }); },
+};
 
 export function touchOptions(): PickOpt<InteractMode>[] {
   return GROUPS.flatMap(([group, modes]) => modes.map(m => ({ value: m, label: INTERACT_NAMES[m], desc: INTERACT_DESC[m], icon: INTERACT_ICON[m], group })));
@@ -103,6 +115,7 @@ const OPTS = touchOptions();
 export function TouchControls() {
   const mode = useField(F<InteractMode>('interact.mode')) ?? 'none';
   const uses = USES[mode] ?? [];
+  const ink = useField(STROKE_F) === 'caligrafia';
   return (
     <>
       <Sub>Cursor y tacto</Sub>
@@ -113,15 +126,28 @@ export function TouchControls() {
           <Slider f={F('interact.strength')} label={STRENGTH[mode] ?? 'Fuerza'} min={0} max={1}
             fmt={mode === 'zoom' ? v => '×' + (1.5 + 6 * v).toFixed(1).replace('.', ',') : undefined} />
           {uses.includes('radius') && <Slider f={F('interact.radius')} label={RADIUS[mode] ?? 'Radio'} min={0.03} max={0.6} />}
-          {uses.includes('decay') && <Slider f={DECAY_F} label={DECAY[mode] ?? 'Duración'} min={0} max={1} fmt={v => decayText(mode, v)} />}
+          {uses.includes('decay') && <Slider f={DECAY_F} label={DECAY[mode] ?? 'Duración'} min={0} max={1} fmt={v => decayText(mode, v, ink)} />}
           {uses.includes('ink') && <Slider f={INK_F} label="Color del toque" min={0} max={1} fmt={pct} />}
           {uses.includes('glyphs') && <Seg f={GLYPHS_F} label="Caracteres del toque" opts={GLYPH_OPTS} desc={GLYPH_DESC} />}
+          {mode === 'paint' && <PaintStroke />}
           <Toggle f={F('interact.auto')} label="Cursor automático si nadie la toca" />
         </>
       )}
       {mode === 'erase' && <Note>Con una imagen, el borrador revela la foto original bajo los caracteres.</Note>}
       {mode === 'reveal' && <Note>Con una imagen se ve la foto; en las demás, el color de cada celda como una tesela.</Note>}
       {mode === 'zoom' && <Note>En una web donde pegues la pieza, la rueda sola sigue desplazando la página: allí el zoom es con dos dedos o Ctrl + rueda.</Note>}
+    </>
+  );
+}
+
+/** Pincel's stroke: round, or calligraphic with its ink's bleeding (I-20). */
+function PaintStroke() {
+  const stroke = useField(STROKE_F);
+  return (
+    <>
+      <Seg f={STROKE_F} label="Pincel" opts={[['redondo', 'Redondo'], ['caligrafia', 'Caligráfico']]}
+        desc={{ redondo: 'Un trazo redondo, igual de ancho a cualquier velocidad.', caligrafia: 'Tinta: ancho despacio, fino y seco deprisa; se corre por el papel y tarda en irse. El cursor automático escribe trazos.' }} />
+      {stroke === 'caligrafia' && <Slider f={BLEED_F} label="Tinta que se corre" min={0} max={1} fmt={pct} />}
     </>
   );
 }

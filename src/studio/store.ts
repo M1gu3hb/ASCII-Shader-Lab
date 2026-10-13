@@ -1,6 +1,10 @@
 import { create } from 'zustand';
-import { cloneRecipe, sameRecipe, type Recipe } from '../engine/recipe';
-import { fingerprint, mutate, roll, archById, spaceById, type LockGroup, type SpaceId } from '../random';
+import { cloneRecipe, sameRecipe, syncVersion, type Recipe } from '../engine/recipe';
+import { fingerprint } from '../random/fingerprint';
+import { styleById as archById } from '../random/styles';
+import { spaceById, type LockGroup, type SpaceId } from '../random/spaces';
+import { retry } from './retry';
+import { toast } from './toast';
 import { presetsFor, spaceAccepts, starterFor } from './presets';
 import { ownText } from './ownWords';
 import {
@@ -9,6 +13,8 @@ import {
 } from './history';
 import { idbKeys, idbRead, idbValues, idbWrite, isQuotaError } from './idb';
 import { gcMedia } from './mediaStore';
+import { gcStates, rawStateIds, stateIdsOf } from './stateStore';
+import { glyphSetIdsOf, rawGlyphSetIds, recordLabUses } from './glyphSets';
 import { within } from './deadline';
 import { DEFAULT_VIEW_OPTS, normalizeViewOpts, normalizeViews, type ViewId, type ViewOpts } from './views/views';
 
@@ -191,6 +197,23 @@ export function referencedMediaIds(): Set<string> {
   return ids;
 }
 
+/** Saved family states (layer.fam.ck) still needed: history, collection and undo steps. */
+function referencedStateIds(): Set<string> {
+  const s = S();
+  const ids = stateIdsOf(allRecipes(s.entries, s.favorites));
+  for (const st of stacks.values()) for (const id of stateIdsOf([...st.past, ...st.future])) ids.add(id);
+  return ids;
+}
+
+/** Saved family states named by the stored history and collection. Rejects (nothing collected) when unreadable. */
+async function storedStateIds(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const [bodies, [fav]] = await Promise.all([idbValues(P_ENTRY), idbRead([K_FAV])]);
+  rawStateIds(bodies, ids);
+  if (Array.isArray(fav)) rawStateIds(fav, ids);
+  return ids;
+}
+
 /** Media ids in raw stored data (entries, favourites, a v2 history): what IndexedDB says is in use. */
 function storedRefs(list: unknown[], ids: Set<string>) {
   const add = (r: unknown) => {
@@ -238,6 +261,20 @@ async function collectMedia() {
     if (S().away || savingBlocked) return;
     for (const id of referencedMediaIds()) ids.add(id);
     await gcMedia(ids, now ? 0 : undefined);
+    // saved states of family layers: the same rule (stored and in-memory references keep them)
+    const states = await storedStateIds();
+    if (S().away || savingBlocked) return;
+    for (const id of referencedStateIds()) states.add(id);
+    await gcStates(states, now ? 0 : undefined);
+    // glyph sets belong to «Crea tus GLYPHOS»: the lab never deletes one, it tells that studio which ones its pieces use
+    const sets = new Set<string>();
+    const [bodies, [fav]] = await Promise.all([idbValues(P_ENTRY), idbRead([K_FAV])]);
+    rawGlyphSetIds(bodies, sets);
+    if (Array.isArray(fav)) rawGlyphSetIds(fav, sets);
+    const st = S();
+    for (const id of glyphSetIdsOf(allRecipes(st.entries, st.favorites))) sets.add(id);
+    for (const k of stacks.values()) for (const id of glyphSetIdsOf([...k.past, ...k.future])) sets.add(id);
+    await recordLabUses(sets);
     await sweepOrphans();
   } catch { /* storage unavailable: nothing is collected */ }
 }
@@ -309,8 +346,37 @@ function recentIn(s: State, n = 10): Recipe[] {
   return out.reverse();
 }
 
+const loadDice = retry(() => import('../random'));
+type Generator = Awaited<ReturnType<typeof loadDice>>;
+let generator: Generator | null = null;
+/**
+ * The dice (src/random: every generator version, its styles and tables) are not needed to show the first piece:
+ * they load on first use, or in idle time once the studio has settled (lazy.ts).
+ */
+export function loadGenerator(): Promise<Generator> {
+  return generator ? Promise.resolve(generator) : loadDice().then(g => (generator = g));
+}
+const diceFailed = () => toast('No se pudo cargar el azar. Revisa la conexión y vuelve a intentarlo.');
+
+/*
+ * While the dice load, what the person asks for next waits its turn, in order: «Azar» three times and then «Guardar»
+ * saves the third new piece, and the arrows move from it, as when the dice were already here.
+ */
+let waiting = 0;
+let turn: Promise<void> = Promise.resolve();
+function inTurn(fn: () => unknown) {
+  waiting++;
+  turn = turn.then(async () => { await fn(); }).catch(diceFailed).finally(() => { waiting--; });
+}
+/** Resolves once every action waiting for the dice is done (at once when none is). */
+export const afterDice = (): Promise<void> => (waiting ? turn : Promise.resolve());
+
 /** A new result from the dice; `seed` (and its generator version `gen`) reproduces a given one. */
-export function rollDice(seed?: string, gen?: number) {
+export function rollDice(seed?: string, gen?: number): Entry | undefined {
+  if (generator && !waiting) return rollNow(generator, seed, gen);
+  inTurn(() => loadGenerator().then(g => { rollNow(g, seed, gen); }));
+}
+function rollNow({ roll }: Generator, seed?: string, gen?: number): Entry | undefined {
   const s = S();
   const base = currentRecipe(s);
   // Texto: the person's words stay, a word nobody typed changes (ownWords.ts)
@@ -321,7 +387,11 @@ export function rollDice(seed?: string, gen?: number) {
 }
 
 let mutCounter = 0;
-export function vary(amount = S().amount) {
+export function vary(amount = S().amount): Entry | undefined {
+  if (generator && !waiting) return varyNow(generator, amount);
+  inTurn(() => loadGenerator().then(g => { varyNow(g, amount); }));
+}
+function varyNow({ mutate }: Generator, amount: number): Entry | undefined {
   const s = S();
   const e = currentEntry(s);
   if (!e) return;
@@ -330,10 +400,11 @@ export function vary(amount = S().amount) {
   return pushEntry({ recipe, kind: 'variación', seed: e.seed, arch: e.arch, space: s.space, label: 'Variación' });
 }
 
-/** Candidate variations for the explorer grid (not added to history until chosen). */
+/** Candidate variations for the explorer grid (not added to history until chosen); none before the dice load. */
 export function variations(n: number, amount: number): Recipe[] {
   const s = S(), e = currentEntry(s);
-  if (!e) return [];
+  if (!e || !generator) return [];
+  const { mutate } = generator;
   const t = Date.now().toString(36);
   return Array.from({ length: n }, (_, i) => mutate(e.recipe, amount, `${e.seed ?? e.id}~x${i}-${t}`, s.locks));
 }
@@ -344,16 +415,20 @@ export function applyRecipe(recipe: Recipe, kind: EntryKind, label?: string, ext
 }
 
 export function go(i: number) {
+  if (waiting) inTurn(() => goNow(i)); else goNow(i);
+}
+function goNow(i: number) {
   const s = S();
   if (i < 0 || i >= s.entries.length || i === s.cursor) return;
   const e = s.entries[i];
   set({ cursor: i, space: e.space, change: bump('nav') });
   persistSoon();
 }
-export function back() { go(S().cursor - 1); }
+export function back() { if (waiting) inTurn(() => goNow(S().cursor - 1)); else goNow(S().cursor - 1); }
 export function forward() {
+  if (waiting) { inTurn(() => (S().cursor < S().entries.length - 1 ? goNow(S().cursor + 1) : loadGenerator().then(g => { rollNow(g); }))); return; }
   const s = S();
-  if (s.cursor < s.entries.length - 1) go(s.cursor + 1);
+  if (s.cursor < s.entries.length - 1) goNow(s.cursor + 1);
   else rollDice();
 }
 
@@ -364,6 +439,8 @@ export function edit(fn: (r: Recipe) => void, key = '') {
   if (!e) return;
   const next = cloneRecipe(e.recipe);
   fn(next);
+  // a visual family added or removed changes the recipe's format (v3 only while one is there)
+  syncVersion(next);
   if (next.source !== e.recipe.source) nameLoadedMedia(next);
   // the camera's mirror is the camera's (setCameraMirror): a photo or video that takes its place starts as
   // it is, not flipped (the front camera is mirrored by default, and that used to stay with the new picture)

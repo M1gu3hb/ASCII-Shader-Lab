@@ -1,4 +1,4 @@
-import { isV1Settings, migrateV1, normMediaRef, normalizeRecipe, type Recipe } from '../engine/recipe';
+import { RECIPE_VERSION, isV1Settings, migrateV1, normMediaRef, normalizeRecipe, type Recipe } from '../engine/recipe';
 import { PATTERN_IDS } from '../engine/catalog';
 import { inflateRaw } from './inflate';
 import { encodeFrame, parseFrame, type Frame } from './frame';
@@ -72,18 +72,24 @@ export function parseRecipe(text: string): Recipe | null {
   try { o = JSON.parse(text); } catch { return null; }
   if (!o || typeof o !== 'object') return null;
   const obj = o as Record<string, unknown>;
-  if (typeof obj.version === 'number' && obj.version > 2) return null;
+  if (typeof obj.version === 'number' && obj.version > RECIPE_VERSION) return null;
   const body = (obj.recipe && typeof obj.recipe === 'object' ? obj.recipe : obj) as Record<string, unknown>;
-  if (typeof body.v === 'number' && body.v > 2) return null;
-  // files saved as GLYPHOS, and as Monotrama (its earlier name)
-  if ((obj.glyphos === 'recipe' || obj.monotrama === 'recipe') && obj.recipe) return normalizeRecipe(obj.recipe, PATTERN_IDS);
-  if (isV1Settings(o)) return migrateV1(o);
-  if ('layers' in obj || 'glyph' in obj || obj.v === 2) return normalizeRecipe(o, PATTERN_IDS);
+  if (typeof body.v === 'number' && body.v > RECIPE_VERSION) return null;
+  try {
+    // files saved as GLYPHOS, and as Monotrama (its earlier name)
+    if ((obj.glyphos === 'recipe' || obj.monotrama === 'recipe') && obj.recipe) return normalizeRecipe(obj.recipe, PATTERN_IDS);
+    if (isV1Settings(o)) return migrateV1(o);
+    if ('layers' in obj || 'glyph' in obj || obj.v === 2 || obj.v === 3) return normalizeRecipe(o, PATTERN_IDS);
+  } catch {
+    // a newer family or format than this studio knows: refused like any newer recipe
+    return null;
+  }
   return null;
 }
 
 export function recipeFile(r: Recipe): string {
-  return JSON.stringify({ glyphos: 'recipe', version: 2, created: new Date().toISOString(), recipe: r }, null, 2);
+  // (a recipe with a visual family is v3: older studios refuse its file instead of drawing another piece)
+  return JSON.stringify({ glyphos: 'recipe', version: r.v === 3 ? 3 : 2, created: new Date().toISOString(), recipe: r }, null, 2);
 }
 
 /* ------------------------------------------------------------------ */

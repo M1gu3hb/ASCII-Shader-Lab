@@ -9,7 +9,7 @@
  * every browser platform uses). Pure: no DOM.
  */
 import type { Recipe } from '../recipe';
-import { hash12 } from './core';
+import { PI, V2, hash12, hash22, vnoise } from './core';
 import type { SelectBuffers } from './select';
 
 export interface GlyphAtlas {
@@ -47,6 +47,8 @@ export interface ComposeFrame {
   touchTile?: { data: Uint8Array; k: number } | null;
   /** Blurred grid for bloom (cols × rows × 3, 0..1). */
   bloom: Float32Array | null;
+  /** «Papel» (recipe.fxKind.grain): the still sheet's relief × 256 per pixel (paperField), null: film grain. */
+  paper?: Int16Array | null;
   realT: number;
 }
 
@@ -330,7 +332,8 @@ function passBOpaque(f: ComposeFrame, F: Int32Array, dst: Uint32Array) {
   const off = fx.chroma > 0 ? Math.floor(0.5 + fx.chroma * cw * 0.45) : 0;
   const bgR = Math.round(f.bg[0] * 1020), bgG = Math.round(f.bg[1] * 1020), bgB = Math.round(f.bg[2] * 1020);
   const bg10 = bgR | (bgG << 10) | (bgB << 20);
-  const grain4 = Math.round(fx.grain * 0.16 * 1020);
+  const paper = f.paper ?? null, gk = Math.round(fx.grain * 256);
+  const grain4 = paper ? 0 : Math.round(fx.grain * 0.16 * 1020);
   let sd = (Math.imul(Math.floor(T * 240) + 7, 0x9e3779b1) | 1) >>> 0;
   for (let y = 0; y < H; y++) {
     const fcy = H - y - 0.5; // gl_FragCoord.y counts from the bottom
@@ -358,6 +361,10 @@ function passBOpaque(f: ComposeFrame, F: Int32Array, dst: Uint32Array) {
         sd ^= sd << 13; sd ^= sd >>> 17; sd ^= sd << 5;
         const n = (((((sd & 0xffff) - 32768) * grain4) >> 16) * (edge ? edge[o] : 256)) >> 8;
         r += n; g += n; b += n;
+      } else if (paper && gk > 0) {
+        // «Papel»: the still sheet (10-bit units: 0.04 · 1020 ≈ 41), before the edge fade
+        const k = (((paper[o] * gk) >> 8) * (edge ? edge[o] : 256)) >> 8;
+        r += (k * (41 + ((r * 77) >> 8))) >> 8; g += (k * (41 + ((g * 77) >> 8))) >> 8; b += (k * (41 + ((b * 77) >> 8))) >> 8;
       }
       r = (r + 2) >> 2; g = (g + 2) >> 2; b = (b + 2) >> 2;
       r &= ~(r >> 31); g &= ~(g >> 31); b &= ~(b >> 31);
@@ -368,10 +375,177 @@ function passBOpaque(f: ComposeFrame, F: Int32Array, dst: Uint32Array) {
 }
 
 /**
+ * «Destello anamórfico» (ANAMORPHIC_FS): the lights spread sideways, then a long horizontal streak with red
+ * and blue pulled apart and a bokeh ring around each light. Same targets and quantisation as blurGrid.
+ * `aspect`: cell height / width.
+ */
+export function blurGridAnamorphic(sel: SelectBuffers, cols: number, rows: number, bloom: number, aspect: number, out: Float32Array, tmp: Float32Array) {
+  const s = 1 + Math.round(bloom), s3 = 3 * s, off = s + 1;
+  const n = cols * rows;
+  if (lightBuf.length !== n * 3) lightBuf = new Float32Array(n * 3);
+  const L = lightBuf;
+  // a light: what the select pass drew, only where it is bright
+  for (let i = 0; i < n; i++) {
+    const l = sel.lum[i] / 255;
+    const r = (sel.rgb[i * 3] / 255) * l, g = (sel.rgb[i * 3 + 1] / 255) * l, b = (sel.rgb[i * 3 + 2] / 255) * l;
+    const k = Math.max(r * 0.299 + g * 0.587 + b * 0.114 - 0.3, 0) / 0.7;
+    L[i * 3] = r * k; L[i * 3 + 1] = g * k; L[i * 3 + 2] = b * k;
+  }
+  const q = (v: number) => Math.round((v > 1 ? 1 : v) * 255) / 255;
+  const at = (c: number, r: number) => (r * cols + (c < 0 ? 0 : c >= cols ? cols - 1 : c)) * 3;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let a0 = 0, a1 = 0, a2 = 0;
+      for (let k = -4; k <= 4; k++) {
+        const w = W5[k < 0 ? -k : k], j = at(c + k * s, r);
+        a0 += L[j] * w; a1 += L[j + 1] * w; a2 += L[j + 2] * w;
+      }
+      const o = (r * cols + c) * 3;
+      tmp[o] = q(a0); tmp[o + 1] = q(a1); tmp[o + 2] = q(a2);
+    }
+  }
+  // the ring's 24 taps, in cells (round in pixels)
+  const R = 2 + 2 * s, rx = new Int32Array(24), ry = new Int32Array(24);
+  for (let k = 0; k < 24; k++) {
+    const a = Math.fround(k * 0.2617994);
+    rx[k] = Math.floor(Math.cos(a) * R + 0.5); ry[k] = Math.floor((Math.sin(a) * R) / aspect + 0.5);
+  }
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let a0 = 0, a1 = 0, a2 = 0;
+      for (let k = -4; k <= 4; k++) {
+        const w = W5[k < 0 ? -k : k];
+        a0 += tmp[at(c + k * s3 - off, r)] * w;
+        a1 += tmp[at(c + k * s3, r) + 1] * w;
+        a2 += tmp[at(c + k * s3 + off, r) + 2] * w;
+      }
+      let g0 = 0, g1 = 0, g2 = 0;
+      for (let k = 0; k < 24; k++) {
+        // (the grid's rows count from the top in both engines)
+        let cc = c + rx[k], rr = r + ry[k];
+        cc = cc < 0 ? 0 : cc >= cols ? cols - 1 : cc; rr = rr < 0 ? 0 : rr >= rows ? rows - 1 : rr;
+        const j = (rr * cols + cc) * 3;
+        g0 += L[j]; g1 += L[j + 1]; g2 += L[j + 2];
+      }
+      const o = (r * cols + c) * 3;
+      out[o] = q(a0 * 0.85 * 1.6 + g0 * 0.05); out[o + 1] = q(a1 * 0.95 * 1.6 + g1 * 0.05); out[o + 2] = q(a2 * 1.2 * 1.6 + g2 * 0.05);
+    }
+  }
+}
+let lightBuf = new Float32Array(0);
+
+/* ---------------------------------------------------------------- */
+/* «Papel»: the still sheet (PAPER_FS)                                */
+/* ---------------------------------------------------------------- */
+
+/**
+ * One engine's still sheet (paperField), kept while the size, the cell and the fold stay; let go when its piece
+ * has no paper. Each engine has its own: a stage with paper and a preview without it never redraw each other's.
+ */
+export class PaperSheet {
+  key = '';
+  buf: Int16Array = new Int16Array(0);
+  get(W: number, H: number, cw: number, fold: number): Int16Array {
+    const key = `${W}x${H}:${cw}:${fold}`;
+    if (key !== this.key) { this.key = key; this.buf = drawPaper(W, H, cw, fold); }
+    return this.buf;
+  }
+  drop() { if (this.key) { this.key = ''; this.buf = new Int16Array(0); } }
+}
+const SHEET = new PaperSheet();
+
+/** One crease of the paper (PAPER_FS crease): a thin dark line, the side facing the light lighter, the other darker. */
+function crease(px: number, py: number, ax: number, ay: number, nx: number, ny: number, k: number, facet: number) {
+  const d = (px - ax) * nx + (py - ay) * ny;
+  const side = (d < 0 ? -1 : 1) * (nx * -0.6 + ny * 0.8);
+  return k * (side * (0.45 * Math.exp(-Math.abs(d) / 0.06) + facet) - 0.9 * Math.exp((-d * d) / 4.84e-6));
+}
+
+/**
+ * The paper's relief per pixel (PAPER_FS), × 256, rows from the top, kept while the size, the cell and the
+ * fold stay. P is quantised as the shader's 8-bit texture keeps it (P · 0.4 + 0.5).
+ */
+export function paperField(W: number, H: number, cw: number, fold: number): Int16Array {
+  return SHEET.get(W, H, cw, fold);
+}
+
+function drawPaper(W: number, H: number, cw: number, fold: number): Int16Array {
+  const paperBuf = new Int16Array(W * H);
+  // the fibres of each square of three cells (two each), worked out once
+  const gw = Math.ceil(W / cw / 3) + 3, gh = Math.ceil(H / cw / 3) + 3;
+  const F = new Float64Array(gw * gh * 2 * 6);
+  for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) for (let f = 0; f < 2; f++) {
+    const idx = gx - 1, idy = gy - 1, o = ((gy * gw + gx) * 2 + f) * 6;
+    hash22(idx * 1.7 + f * 13.1, idy * 1.7 + f * 13.1);
+    const a = hash12(idx + f * 7.3, idy + f * 7.3) * PI;
+    F[o] = (idx + V2[0]) * 3; F[o + 1] = (idy + V2[1]) * 3;
+    F[o + 2] = Math.cos(a); F[o + 3] = Math.sin(a);
+    F[o + 4] = 0.3 + 0.8 * hash12(idx * 2.3 + f, idy * 2.3 + f);
+    F[o + 5] = hash12(idx * 3.1 + f * 5, idy * 3.1 + f * 5) < 0.5 ? -1 : 1;
+  }
+  const lines: number[][] = [];
+  if (fold === 1) lines.push([0, 0, 1, 0, 1, 0], [0, 0, 0, 1, 1, 0]);
+  else if (fold === 2) lines.push([0, 1 / 6, 0, 1, 1, 0], [0, -1 / 6, 0, 1, 1, 0]);
+  else if (fold === 3) lines.push([0, 0, 0.7071068, 0.7071068, 1, 0], [0, 0, 0.7071068, -0.7071068, 1, 0]);
+  else if (fold === 4) {
+    for (let k = 0; k < 9; k++) {
+      const an = hash12(k, 8.9) * PI;
+      lines.push([(hash12(k, 1.7) - 0.5) * 1.4, (hash12(k, 4.3) - 0.5) * 0.9, Math.cos(an), Math.sin(an), 0.45 + 0.35 * hash12(k, 2.1), 0.14]);
+    }
+  }
+  for (let y = 0; y < H; y++) {
+    const fy = H - y - 0.5; // gl_FragCoord.y counts from the bottom
+    const qy = fy / cw, gy = Math.floor(qy / 3);
+    for (let x = 0; x < W; x++) {
+      const fx = x + 0.5, qx = fx / cw, gx = Math.floor(qx / 3);
+      let P = (hash12(Math.floor(fx), Math.floor(fy)) - 0.5) * 0.5 + (vnoise(qx * 0.22, qy * 0.22) + 0.6 * vnoise(qx * 0.55 + 7.3, qy * 0.55 + 7.3) - 0.8) * 0.55;
+      let fib = 0;
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+        const cx = gx + i + 1, cy = gy + j + 1;
+        if (cx < 0 || cy < 0 || cx >= gw || cy >= gh) continue;
+        for (let f = 0; f < 2; f++) {
+          const o = ((cy * gw + cx) * 2 + f) * 6;
+          const pax = qx - F[o], pay = qy - F[o + 1], len = F[o + 4];
+          let t = pax * F[o + 2] + pay * F[o + 3];
+          t = t < -len ? -len : t > len ? len : t;
+          const ex = pax - F[o + 2] * t, ey = pay - F[o + 3] * t;
+          fib += F[o + 5] * Math.exp(-(ex * ex + ey * ey) / 0.004);
+        }
+      }
+      P += (fib < -1 ? -1 : fib > 1 ? 1 : fib) * 0.45;
+      if (lines.length) {
+        const px = (fx - 0.5 * W) / H, py = (fy - 0.5 * H) / H;
+        for (const [ax, ay, nx, ny, k, fc] of lines) P += crease(px, py, ax, ay, nx, ny, k, fc);
+      }
+      // the shader's 8-bit texture: P · 0.4 + 0.5, back to P × 256
+      const b = Math.round(Math.min(1, Math.max(0, P * 0.4 + 0.5)) * 255);
+      paperBuf[y * W + x] = Math.round(((b / 255 - 0.5) / 0.4) * 256);
+    }
+  }
+  return paperBuf;
+}
+
+/**
  * Film grain in place, for frames whose other effects are canvas overlays. The shader adds grain after
  * scanlines and vignette; here it comes before them, so it fades with them (a subtle difference).
+ * With «Papel» (`paper`: paperField), the still sheet instead: col += P · grain · (0.04 + 0.3 · col).
  */
-export function grainPass(f: ComposeFrame, px: Uint32Array) {
+export function grainPass(f: ComposeFrame, px: Uint32Array, paper: Int16Array | null = null) {
+  if (paper) {
+    if (f.transparent || f.fx.grain <= 0) return;
+    const gk = Math.round(f.fx.grain * 256);
+    for (let o = 0, n = f.W * f.H; o < n; o++) {
+      const k = (paper[o] * gk) >> 8;
+      if (k === 0) continue;
+      const v = px[o];
+      let r = v & 255, gg = (v >>> 8) & 255, b = (v >>> 16) & 255;
+      r += (k * (10 + ((r * 77) >> 8))) >> 8; gg += (k * (10 + ((gg * 77) >> 8))) >> 8; b += (k * (10 + ((b * 77) >> 8))) >> 8;
+      r &= ~(r >> 31); gg &= ~(gg >> 31); b &= ~(b >> 31);
+      r -= (r - 255) & ((255 - r) >> 31); gg -= (gg - 255) & ((255 - gg) >> 31); b -= (b - 255) & ((255 - b) >> 31);
+      px[o] = (v & -16777216) | (b << 16) | (gg << 8) | r;
+    }
+    return;
+  }
   const g = Math.round(f.fx.grain * 0.16 * 255 * 256);
   if (f.transparent || g <= 0) return;
   let sd = (Math.imul(Math.floor(f.realT * 240) + 7, 0x9e3779b1) | 1) >>> 0;
@@ -459,7 +633,8 @@ function passB(f: ComposeFrame, F: Int32Array | null, src: Uint32Array, dst: Uin
   const off = fx.chroma > 0 ? Math.floor(0.5 + fx.chroma * cw * 0.45) : 0;
   const transparent = !F;
   const bg4R = Math.round(f.bg[0] * 1020), bg4G = Math.round(f.bg[1] * 1020), bg4B = Math.round(f.bg[2] * 1020);
-  const grain4 = transparent ? 0 : Math.round(fx.grain * 0.16 * 1020);
+  const paper = transparent ? null : f.paper ?? null, gk = Math.round(fx.grain * 256);
+  const grain4 = transparent || paper ? 0 : Math.round(fx.grain * 0.16 * 1020);
   let sd = (Math.imul(Math.floor(T * 240) + 7, 0x9e3779b1) | 1) >>> 0;
 
   for (let y = 0; y < H; y++) {
@@ -500,6 +675,10 @@ function passB(f: ComposeFrame, F: Int32Array | null, src: Uint32Array, dst: Uin
         sd ^= sd << 13; sd ^= sd >>> 17; sd ^= sd << 5;
         const n = ((((sd & 0xffff) - 32768) * grain4) >> 16) * e >> 8;
         r += n; g += n; b += n;
+      } else if (paper && gk > 0) {
+        // «Papel»: the still sheet (10-bit units), before the edge fade
+        const k = (((paper[o] * gk) >> 8) * e) >> 8;
+        r += (k * (41 + ((r * 77) >> 8))) >> 8; g += (k * (41 + ((g * 77) >> 8))) >> 8; b += (k * (41 + ((b * 77) >> 8))) >> 8;
       }
       r = (r + 2) >> 2; g = (g + 2) >> 2; b = (b + 2) >> 2;
       dst[o] = pack(r < 0 ? 0 : r > 255 ? 255 : r, g < 0 ? 0 : g > 255 ? 255 : g, b < 0 ? 0 : b > 255 ? 255 : b, a);

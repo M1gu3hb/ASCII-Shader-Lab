@@ -29,14 +29,19 @@ Generado con `node scripts/third-party.mjs` a partir de `node_modules` (dependen
 | [onnxruntime-web](https://github.com/Microsoft/onnxruntime) | 1.30.0 | MIT | Motor de los modelos de recorte en el navegador (estudio de foto). Se usa sin modificar y nunca va dentro del código exportado |
 | [opentype.js](https://github.com/opentypejs/opentype.js) | 1.3.4 | MIT | Contornos de letras en la exportación SVG |
 | [platform](bestiejs/platform.js) | 1.3.6 | MIT | Dependencia |
+| [polygon-clipping](https://github.com/mfogel/polygon-clipping) | 0.15.7 | MIT | Operaciones de trazo en el estudio de glifos |
 | [protobufjs](protobufjs/protobuf.js) | 7.6.6 | BSD-3-Clause | Dependencia |
 | [react](https://github.com/react/react) | 19.3.0 | MIT | Interfaz del estudio |
 | [react-dom](https://github.com/react/react) | 19.3.0 | MIT | Interfaz del estudio |
+| [robust-predicates](https://github.com/mourner/robust-predicates) | 3.0.3 | Unlicense | Operaciones de trazo en el estudio de glifos (dependencia de polygon-clipping) |
 | [scheduler](https://github.com/react/react) | 0.28.0 | MIT | Dependencia de react-dom |
+| [splaytree](https://github.com/w8r/splay-tree) | 3.2.3 | MIT | Operaciones de trazo en el estudio de glifos (dependencia de polygon-clipping) |
 | [string.prototype.codepointat](https://github.com/mathiasbynens/String.prototype.codePointAt) | 0.2.1 | MIT | Dependencia de opentype.js |
 | [tiny-inflate](https://github.com/devongovett/tiny-inflate) | 1.0.3 | MIT | Dependencia de opentype.js |
 | [zustand](https://github.com/pmndrs/zustand) | 5.0.15 | MIT | Estado del estudio |
+| [@fontsource-variable/fira-code](https://github.com/fontsource/font-files) | 5.3.0 | OFL-1.1 | Tipografía |
 | [@fontsource-variable/inter-tight](https://github.com/fontsource/font-files) | 5.3.0 | OFL-1.1 | Tipografía |
+| [@fontsource-variable/jetbrains-mono](https://github.com/fontsource/font-files) | 5.3.0 | OFL-1.1 | Tipografía |
 | [@fontsource-variable/martian-mono](https://github.com/fontsource/font-files) | 5.3.0 | OFL-1.1 | Tipografía |
 | [@fontsource/fira-code](https://github.com/fontsource/font-files) | 5.3.0 | OFL-1.1 | Tipografía |
 | [@fontsource/ibm-plex-mono](https://github.com/fontsource/font-files) | 5.3.0 | OFL-1.1 | Tipografía |
@@ -1265,6 +1270,24 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
+### polygon-clipping 0.15.7 — MIT
+
+Fuente: https://github.com/mfogel/polygon-clipping
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2018 Mike Fogel <mike@fogel.ca> - covers everything not specially attributed to others below.
+
+Copyright (c) 2016 Alexander Milevski <info@w8r.name> - covers all portions originally part of github:w8r/martinez, from which this project was forked on Febuary 2, 2018.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
 ### protobufjs 7.6.6 — BSD-3-Clause
 
 Fuente: protobufjs/protobuf.js
@@ -1367,6 +1390,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+### robust-predicates 3.0.3 — Unlicense
+
+Fuente: https://github.com/mourner/robust-predicates
+
+```text
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <http://unlicense.org>
+```
+
 ### scheduler 0.28.0 — MIT
 
 Fuente: https://github.com/react/react
@@ -1393,6 +1447,33 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### splaytree 3.2.3 — MIT
+
+Fuente: https://github.com/w8r/splay-tree
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2019 Alexander Milevski <info@w8r.name>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### string.prototype.codepointat 0.2.1 — MIT
@@ -1542,7 +1623,9 @@ END OF TERMS AND CONDITIONS
 
 ## Tipografías (SIL Open Font License 1.1)
 
+- **@fontsource-variable/fira-code** 5.3.0: Copyright 2014-2020 The Fira Code Project Authors (https://github.com/tonsky/FiraCode)
 - **@fontsource-variable/inter-tight** 5.3.0: Copyright 2022 The Inter Project Authors (https://github.com/rsms/inter-tight)
+- **@fontsource-variable/jetbrains-mono** 5.3.0: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
 - **@fontsource-variable/martian-mono** 5.3.0: Copyright 2020 The Martian Mono Project Authors (https://github.com/evilmartians/mono)
 - **@fontsource/fira-code** 5.3.0: Copyright 2014-2020 The Fira Code Project Authors (https://github.com/tonsky/FiraCode)
 - **@fontsource/ibm-plex-mono** 5.3.0: Copyright 2017 IBM Corp. All rights reserved.

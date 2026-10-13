@@ -1,3 +1,5 @@
+import { familyById } from '../../src/families/registry';
+import { figureOf } from '../../src/families/params';
 import { describe, expect, it } from 'vitest';
 import { defaultRecipe, patternById, type Recipe } from '../../src/engine';
 import {
@@ -74,7 +76,13 @@ describe('roll with recent results', () => {
   });
 
   it('3D objects: a real share of Arte and Terminal, none under photos or inside letters, few behind web content', () => {
-    const share = (space: SpaceId) => session(space, 300, 'solid-' + space).filter(x => patternById(lead(x.recipe)).family === 'solidos').length / 300;
+    // a 3D object: a solid, or (generator 6) a visual family of figures and space drawn as a figure for its settings
+    // (generator 7 also offers clouds of that group as a texture inside letters: a texture, not an object)
+    const is3d = (r: Recipe) => {
+      const l = r.layers[0], meta = familyById(l.pattern);
+      return meta ? meta.group === 'ciencia' && figureOf(meta, l.fam?.p ?? {}, l.scale) : patternById(l.pattern).family === 'solidos';
+    };
+    const share = (space: SpaceId) => session(space, 300, 'solid-' + space).filter(x => is3d(x.recipe)).length / 300;
     expect(share('arte')).toBeGreaterThan(0.15);
     expect(share('arte')).toBeLessThan(0.35);
     expect(share('terminal')).toBeGreaterThan(0.15);

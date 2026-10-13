@@ -1,0 +1,4865 @@
+{
+ "note": "Parámetros y salida de los 203 presets de familia del PR #10 tal como quedaron en 73d49f2 (cada familia en su versión de entonces).",
+ "cases": [
+  {
+   "family": "reaccion_difusion",
+   "preset": "coral",
+   "v": 2,
+   "seed": "reaccion_difusion-coral",
+   "res": 96,
+   "params": {
+    "feed": 0.0545,
+    "kill": 0.062,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "centro",
+    "edges": "toro",
+    "map": "uniforme",
+    "amp": 0.5,
+    "drift": 1,
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "25b5c84082742b01",
+    "25b5c84082742b01"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "mitosis",
+   "v": 2,
+   "seed": "reaccion_difusion-mitosis",
+   "res": 96,
+   "params": {
+    "feed": 0.0367,
+    "kill": 0.0649,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "manchas",
+    "edges": "toro",
+    "map": "uniforme",
+    "amp": 0.5,
+    "drift": 1,
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "8591877065b7f97d",
+    "8591877065b7f97d"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "laberinto",
+   "v": 2,
+   "seed": "reaccion_difusion-laberinto",
+   "res": 96,
+   "params": {
+    "feed": 0.029,
+    "kill": 0.057,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "ruido",
+    "edges": "toro",
+    "map": "uniforme",
+    "amp": 0.5,
+    "drift": 1,
+    "view": "relieve"
+   },
+   "steps": 2400,
+   "hash": [
+    "71f74a00c0e291c4",
+    "71f74a00c0e291c4"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "caos",
+   "v": 2,
+   "seed": "reaccion_difusion-caos",
+   "res": 96,
+   "params": {
+    "feed": 0.018,
+    "kill": 0.051,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "manchas",
+    "edges": "toro",
+    "map": "mareas",
+    "amp": 0.5,
+    "drift": 3,
+    "view": "contorno"
+   },
+   "steps": 2400,
+   "hash": [
+    "3f1ad2c904f7280a",
+    "3f1ad2c904f7280a"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "coral_vivo",
+   "v": 2,
+   "seed": "reaccion_difusion-coral_vivo",
+   "res": 96,
+   "params": {
+    "feed": 0.0545,
+    "kill": 0.062,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "manchas",
+    "edges": "toro",
+    "map": "heridas",
+    "amp": 1,
+    "drift": 0.6,
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "42eb0869d6efa280",
+    "42eb0869d6efa280"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "laberinto_vivo",
+   "v": 2,
+   "seed": "reaccion_difusion-laberinto_vivo",
+   "res": 96,
+   "params": {
+    "feed": 0.029,
+    "kill": 0.057,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "ruido",
+    "edges": "toro",
+    "map": "mareas",
+    "amp": 0.6,
+    "drift": 1,
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "949b703833e4afe7",
+    "949b703833e4afe7"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "celulas",
+   "v": 2,
+   "seed": "reaccion_difusion-celulas",
+   "res": 96,
+   "params": {
+    "feed": 0.0367,
+    "kill": 0.0649,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "manchas",
+    "edges": "toro",
+    "map": "mareas",
+    "amp": 1,
+    "drift": 1.5,
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "58860794b3094b99",
+    "58860794b3094b99"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "corrientes",
+   "v": 2,
+   "seed": "reaccion_difusion-corrientes",
+   "res": 96,
+   "params": {
+    "feed": 0.029,
+    "kill": 0.057,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "ruido",
+    "edges": "toro",
+    "map": "franjas",
+    "amp": 0.8,
+    "drift": 1,
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "ebfa29cf42619e7e",
+    "ebfa29cf42619e7e"
+   ]
+  },
+  {
+   "family": "reaccion_difusion",
+   "preset": "isla",
+   "v": 2,
+   "seed": "reaccion_difusion-isla",
+   "res": 96,
+   "params": {
+    "feed": 0.0545,
+    "kill": 0.062,
+    "diff": 0.5,
+    "scale": 1,
+    "seedShape": "centro",
+    "edges": "toro",
+    "map": "isla",
+    "amp": 0.8,
+    "drift": 1,
+    "view": "concentracion"
+   },
+   "steps": 2400,
+   "hash": [
+    "d1074b1a471f1939",
+    "d1074b1a471f1939"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "venacion",
+   "v": 1,
+   "seed": "physarum-venacion",
+   "res": 96,
+   "params": {
+    "sensorAngle": 22.5,
+    "sensorDist": 5,
+    "turn": 45,
+    "stepSize": 1,
+    "density": 6,
+    "deposit": 1,
+    "decay": 0.1,
+    "diffuse": 1,
+    "layout": "disco",
+    "renew": 0
+   },
+   "steps": 350,
+   "hash": [
+    "944b5c57c6e83320",
+    "944b5c57c6e83320"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "membrana",
+   "v": 1,
+   "seed": "physarum-membrana",
+   "res": 96,
+   "params": {
+    "sensorAngle": 10,
+    "sensorDist": 4,
+    "turn": 60,
+    "stepSize": 1,
+    "density": 20,
+    "deposit": 1,
+    "decay": 0.1,
+    "diffuse": 1,
+    "layout": "aleatorio",
+    "renew": 0
+   },
+   "steps": 350,
+   "hash": [
+    "86361807f7a54b74",
+    "86361807f7a54b74"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "red",
+   "v": 1,
+   "seed": "physarum-red",
+   "res": 96,
+   "params": {
+    "sensorAngle": 20,
+    "sensorDist": 12,
+    "turn": 40,
+    "stepSize": 2,
+    "density": 4,
+    "deposit": 1.5,
+    "decay": 0.04,
+    "diffuse": 0.4,
+    "layout": "aleatorio",
+    "renew": 0
+   },
+   "steps": 350,
+   "hash": [
+    "2bcf505f6aba5a6e",
+    "2bcf505f6aba5a6e"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "meandros",
+   "v": 1,
+   "seed": "physarum-meandros",
+   "res": 96,
+   "params": {
+    "sensorAngle": 45,
+    "sensorDist": 3,
+    "turn": 45,
+    "stepSize": 0.7,
+    "density": 5,
+    "deposit": 1,
+    "decay": 0.1,
+    "diffuse": 1,
+    "layout": "aleatorio",
+    "renew": 0.4
+   },
+   "steps": 350,
+   "hash": [
+    "7dbdf3181a102db2",
+    "7dbdf3181a102db2"
+   ]
+  },
+  {
+   "family": "physarum",
+   "preset": "rehecha",
+   "v": 1,
+   "seed": "physarum-rehecha",
+   "res": 96,
+   "params": {
+    "sensorAngle": 22.5,
+    "sensorDist": 5,
+    "turn": 45,
+    "stepSize": 1,
+    "density": 8,
+    "deposit": 1,
+    "decay": 0.1,
+    "diffuse": 1,
+    "layout": "aleatorio",
+    "renew": 0.3
+   },
+   "steps": 350,
+   "hash": [
+    "86294aa02eeee677",
+    "86294aa02eeee677"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "orbium",
+   "v": 2,
+   "seed": "lenia-orbium",
+   "res": 128,
+   "params": {
+    "mu": 0.15,
+    "sigma": 0.0145,
+    "R": 13,
+    "dt": 0.1,
+    "rings": "uno",
+    "seedShape": "criaturas",
+    "density": 1,
+    "view": "materia",
+    "renew": true
+   },
+   "steps": 96,
+   "hash": [
+    "1f96c3d918b00344",
+    "1f96c3d918b00344"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "colonia",
+   "v": 2,
+   "seed": "lenia-colonia",
+   "res": 128,
+   "params": {
+    "mu": 0.12,
+    "sigma": 0.0145,
+    "R": 16,
+    "dt": 0.1,
+    "rings": "uno",
+    "seedShape": "manchas",
+    "density": 0.35,
+    "view": "materia",
+    "renew": false
+   },
+   "steps": 96,
+   "hash": [
+    "a7081e611cf9a4eb",
+    "a7081e611cf9a4eb"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "anulares",
+   "v": 2,
+   "seed": "lenia-anulares",
+   "res": 128,
+   "params": {
+    "mu": 0.19,
+    "sigma": 0.02,
+    "R": 12,
+    "dt": 0.1,
+    "rings": "tres",
+    "seedShape": "criaturas",
+    "density": 1,
+    "view": "materia",
+    "renew": true
+   },
+   "steps": 96,
+   "hash": [
+    "79209e3a10a5735d",
+    "79209e3a10a5735d"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "sopa",
+   "v": 2,
+   "seed": "lenia-sopa",
+   "res": 128,
+   "params": {
+    "mu": 0.15,
+    "sigma": 0.015,
+    "R": 13,
+    "dt": 0.1,
+    "rings": "uno",
+    "seedShape": "sopa",
+    "density": 0.5,
+    "view": "contorno",
+    "renew": true
+   },
+   "steps": 96,
+   "hash": [
+    "714c80bf862c3245",
+    "714c80bf862c3245"
+   ]
+  },
+  {
+   "family": "lenia",
+   "preset": "enjambre",
+   "v": 2,
+   "seed": "lenia-enjambre",
+   "res": 128,
+   "params": {
+    "mu": 0.12,
+    "sigma": 0.012,
+    "R": 13,
+    "dt": 0.1,
+    "rings": "uno",
+    "seedShape": "manchas",
+    "density": 0.6,
+    "view": "materia",
+    "renew": true
+   },
+   "steps": 96,
+   "hash": [
+    "059c498b79e6d0a2",
+    "059c498b79e6d0a2"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "vida",
+   "v": 1,
+   "seed": "automata-vida",
+   "res": 64,
+   "params": {
+    "rule": "conway",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.3,
+    "seedShape": "aleatoria",
+    "edges": "toro",
+    "speed": 10,
+    "trail": "corta",
+    "renew": "ninguna",
+    "renewRate": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "0ebb16d285c205aa",
+    "0ebb16d285c205aa"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "cerebro",
+   "v": 1,
+   "seed": "automata-cerebro",
+   "res": 64,
+   "params": {
+    "rule": "cerebro",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.2,
+    "seedShape": "aleatoria",
+    "edges": "toro",
+    "speed": 12,
+    "trail": "corta",
+    "renew": "lluvia",
+    "renewRate": 0.6
+   },
+   "steps": 150,
+   "hash": [
+    "4c598472575a0e56",
+    "4c598472575a0e56"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "diaynoche",
+   "v": 1,
+   "seed": "automata-diaynoche",
+   "res": 64,
+   "params": {
+    "rule": "diaynoche",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.5,
+    "seedShape": "aleatoria",
+    "edges": "toro",
+    "speed": 10,
+    "trail": "corta",
+    "renew": "ninguna",
+    "renewRate": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "e0da1c16ceb00517",
+    "e0da1c16ceb00517"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "pasadizos",
+   "v": 1,
+   "seed": "automata-pasadizos",
+   "res": 64,
+   "params": {
+    "rule": "laberinto",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.4,
+    "seedShape": "centro",
+    "edges": "cerrado",
+    "speed": 12,
+    "trail": "ninguna",
+    "renew": "ninguna",
+    "renewRate": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "1688e1b7f63311c4",
+    "1688e1b7f63311c4"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "pasillos",
+   "v": 1,
+   "seed": "automata-pasillos",
+   "res": 64,
+   "params": {
+    "rule": "laberinto",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.4,
+    "seedShape": "aleatoria",
+    "edges": "toro",
+    "speed": 12,
+    "trail": "corta",
+    "renew": "banda",
+    "renewRate": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "10e12e3b3509905c",
+    "10e12e3b3509905c"
+   ]
+  },
+  {
+   "family": "automata",
+   "preset": "vida_lluvia",
+   "v": 1,
+   "seed": "automata-vida_lluvia",
+   "res": 64,
+   "params": {
+    "rule": "conway",
+    "custom": "B3/S23",
+    "neigh": "moore",
+    "density": 0.3,
+    "seedShape": "aleatoria",
+    "edges": "toro",
+    "speed": 10,
+    "trail": "larga",
+    "renew": "lluvia",
+    "renewRate": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "0ccc7dc6a06d5b37",
+    "0ccc7dc6a06d5b37"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "remolinos",
+   "v": 2,
+   "seed": "kuramoto-remolinos",
+   "res": 96,
+   "params": {
+    "K": 3,
+    "spread": 0.02,
+    "freq": 0.45,
+    "neigh": "r2",
+    "lag": 0.8,
+    "noise": 0,
+    "init": "espirales",
+    "view": "fase"
+   },
+   "steps": 240,
+   "hash": [
+    "0a34202afa171564",
+    "0a34202afa171564"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "sincronizado",
+   "v": 2,
+   "seed": "kuramoto-sincronizado",
+   "res": 96,
+   "params": {
+    "K": 3,
+    "spread": 0.02,
+    "freq": 0.4,
+    "neigh": "r2",
+    "lag": 0.3,
+    "noise": 0,
+    "init": "ondas",
+    "view": "fase"
+   },
+   "steps": 240,
+   "hash": [
+    "66734497598b9f37",
+    "66734497598b9f37"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "destellos",
+   "v": 2,
+   "seed": "kuramoto-destellos",
+   "res": 96,
+   "params": {
+    "K": 4,
+    "spread": 0.06,
+    "freq": 0.6,
+    "neigh": "r3",
+    "lag": 0.5,
+    "noise": 0,
+    "init": "aleatoria",
+    "view": "destellos"
+   },
+   "steps": 240,
+   "hash": [
+    "dd8f1ff4f731a646",
+    "dd8f1ff4f731a646"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "turbulencia",
+   "v": 2,
+   "seed": "kuramoto-turbulencia",
+   "res": 96,
+   "params": {
+    "K": 4,
+    "spread": 0.05,
+    "freq": 0.5,
+    "neigh": "r3",
+    "lag": 1,
+    "noise": 0,
+    "init": "aleatoria",
+    "view": "vortices"
+   },
+   "steps": 240,
+   "hash": [
+    "2cfdd7d08328e695",
+    "2cfdd7d08328e695"
+   ]
+  },
+  {
+   "family": "kuramoto",
+   "preset": "espirales",
+   "v": 2,
+   "seed": "kuramoto-espirales",
+   "res": 96,
+   "params": {
+    "K": 3,
+    "spread": 0.02,
+    "freq": 0.45,
+    "neigh": "r2",
+    "lag": 0.8,
+    "noise": 0,
+    "init": "espirales",
+    "view": "frentes"
+   },
+   "steps": 240,
+   "hash": [
+    "32a9644fb45dd442",
+    "32a9644fb45dd442"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "cristal",
+   "v": 1,
+   "seed": "dla-cristal",
+   "res": 64,
+   "params": {
+    "seed": "punto",
+    "stick": 1,
+    "bias": 0.06,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.9,
+    "age": "nuevas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 150,
+   "hash": [
+    "0415b7e4d589925a",
+    "0415b7e4d589925a"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "coral",
+   "v": 1,
+   "seed": "dla-coral",
+   "res": 64,
+   "params": {
+    "seed": "suelo",
+    "stick": 0.12,
+    "bias": 0,
+    "dir": "arriba",
+    "walkers": 10,
+    "width": 1.1,
+    "age": "antiguas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 150,
+   "hash": [
+    "3346406abd27de15",
+    "3346406abd27de15"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "raices",
+   "v": 1,
+   "seed": "dla-raices",
+   "res": 64,
+   "params": {
+    "seed": "techo",
+    "stick": 1,
+    "bias": 0.12,
+    "dir": "abajo",
+    "walkers": 8,
+    "width": 0.7,
+    "age": "plano",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 150,
+   "hash": [
+    "7bcaba8ab5bf3f7d",
+    "7bcaba8ab5bf3f7d"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "corona",
+   "v": 1,
+   "seed": "dla-corona",
+   "res": 64,
+   "params": {
+    "seed": "anillo",
+    "stick": 0.7,
+    "bias": 0.05,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.8,
+    "age": "nuevas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 150,
+   "hash": [
+    "278086c8b606b2cc",
+    "278086c8b606b2cc"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "colonias",
+   "v": 1,
+   "seed": "dla-colonias",
+   "res": 64,
+   "params": {
+    "seed": "varios",
+    "stick": 0.5,
+    "bias": 0.15,
+    "dir": "fuera",
+    "walkers": 10,
+    "width": 1,
+    "age": "antiguas",
+    "renew": "no",
+    "life": 18
+   },
+   "steps": 150,
+   "hash": [
+    "88a023485943f278",
+    "88a023485943f278"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "escarcha",
+   "v": 1,
+   "seed": "dla-escarcha",
+   "res": 64,
+   "params": {
+    "seed": "punto",
+    "stick": 1,
+    "bias": 0.06,
+    "dir": "fuera",
+    "walkers": 12,
+    "width": 0.9,
+    "age": "nuevas",
+    "renew": "si",
+    "life": 18
+   },
+   "steps": 150,
+   "hash": [
+    "92328f5c9f5d825d",
+    "92328f5c9f5d825d"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "arrecife",
+   "v": 1,
+   "seed": "dla-arrecife",
+   "res": 64,
+   "params": {
+    "seed": "suelo",
+    "stick": 0.3,
+    "bias": 0.04,
+    "dir": "arriba",
+    "walkers": 30,
+    "width": 1.1,
+    "age": "antiguas",
+    "renew": "si",
+    "life": 18
+   },
+   "steps": 150,
+   "hash": [
+    "649f8708f56101b9",
+    "649f8708f56101b9"
+   ]
+  },
+  {
+   "family": "dla",
+   "preset": "corona_viva",
+   "v": 1,
+   "seed": "dla-corona_viva",
+   "res": 64,
+   "params": {
+    "seed": "anillo",
+    "stick": 0.7,
+    "bias": 0.12,
+    "dir": "fuera",
+    "walkers": 6,
+    "width": 0.8,
+    "age": "nuevas",
+    "renew": "si",
+    "life": 12
+   },
+   "steps": 150,
+   "hash": [
+    "2472a207ee2dc441",
+    "2472a207ee2dc441"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "coral",
+   "v": 1,
+   "seed": "crecimiento-coral",
+   "res": 96,
+   "params": {
+    "sep": 0.07,
+    "att": 0.5,
+    "ali": 0.5,
+    "edge": 0.55,
+    "sprout": 0.5,
+    "shape": "circulo",
+    "bound": "circulo",
+    "view": "relleno",
+    "renew": "no",
+    "life": 30
+   },
+   "steps": 210,
+   "hash": [
+    "074f2ccadecea480",
+    "074f2ccadecea480"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "corteza",
+   "v": 1,
+   "seed": "crecimiento-corteza",
+   "res": 96,
+   "params": {
+    "sep": 0.07,
+    "att": 0.8,
+    "ali": 0.6,
+    "edge": 0.55,
+    "sprout": 0.3,
+    "shape": "linea",
+    "bound": "rect",
+    "view": "historia",
+    "renew": "no",
+    "life": 30
+   },
+   "steps": 210,
+   "hash": [
+    "1f8bcb99de0844a9",
+    "1f8bcb99de0844a9"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "colonia",
+   "v": 1,
+   "seed": "crecimiento-colonia",
+   "res": 96,
+   "params": {
+    "sep": 0.075,
+    "att": 0.6,
+    "ali": 0.7,
+    "edge": 0.5,
+    "sprout": 0.4,
+    "shape": "varias",
+    "bound": "rect",
+    "view": "trazo",
+    "renew": "no",
+    "life": 30
+   },
+   "steps": 210,
+   "hash": [
+    "f7b411ffb3a9e8b4",
+    "f7b411ffb3a9e8b4"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "medusa",
+   "v": 1,
+   "seed": "crecimiento-medusa",
+   "res": 96,
+   "params": {
+    "sep": 0.085,
+    "att": 0.6,
+    "ali": 0.4,
+    "edge": 0.4,
+    "sprout": 0.3,
+    "shape": "estrella",
+    "bound": "circulo",
+    "view": "trazo",
+    "renew": "no",
+    "life": 30
+   },
+   "steps": 210,
+   "hash": [
+    "0149df313f22d676",
+    "0149df313f22d676"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "coral_vivo",
+   "v": 1,
+   "seed": "crecimiento-coral_vivo",
+   "res": 96,
+   "params": {
+    "sep": 0.085,
+    "att": 0.5,
+    "ali": 0.5,
+    "edge": 0.55,
+    "sprout": 0.5,
+    "shape": "circulo",
+    "bound": "rect",
+    "view": "relleno",
+    "renew": "si",
+    "life": 30
+   },
+   "steps": 210,
+   "hash": [
+    "3b3008f7544a2845",
+    "3b3008f7544a2845"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "meandros",
+   "v": 1,
+   "seed": "crecimiento-meandros",
+   "res": 96,
+   "params": {
+    "sep": 0.07,
+    "att": 0.8,
+    "ali": 0.6,
+    "edge": 0.55,
+    "sprout": 0.3,
+    "shape": "linea",
+    "bound": "rect",
+    "view": "historia",
+    "renew": "si",
+    "life": 30
+   },
+   "steps": 210,
+   "hash": [
+    "8d09af5677fa8f85",
+    "8d09af5677fa8f85"
+   ]
+  },
+  {
+   "family": "crecimiento",
+   "preset": "colonia_viva",
+   "v": 1,
+   "seed": "crecimiento-colonia_viva",
+   "res": 96,
+   "params": {
+    "sep": 0.06,
+    "att": 0.6,
+    "ali": 0.7,
+    "edge": 0.5,
+    "sprout": 0.6,
+    "shape": "varias",
+    "bound": "rect",
+    "view": "trazo",
+    "renew": "si",
+    "life": 25
+   },
+   "steps": 210,
+   "hash": [
+    "dcf0dec2d3905abb",
+    "dcf0dec2d3905abb"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "tinta_agua",
+   "v": 1,
+   "seed": "fluido-tinta_agua",
+   "res": 128,
+   "params": {
+    "jets": 6,
+    "layout": "arriba",
+    "force": 1.2,
+    "motion": 0.2,
+    "pulse": 0.6,
+    "vort": 0,
+    "visc": 0.05,
+    "buoy": -0.7,
+    "obst": 0,
+    "iters": 14,
+    "dyeDiss": 0.22,
+    "ink": "tinta",
+    "bands": 0,
+    "renew": 0.3,
+    "sharp": 0.35,
+    "contrast": 0.4,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "f9542646008b5b9f",
+    "f9542646008b5b9f"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "marmol",
+   "v": 1,
+   "seed": "fluido-marmol",
+   "res": 128,
+   "params": {
+    "jets": 3,
+    "layout": "libres",
+    "force": 1,
+    "motion": 0.25,
+    "pulse": 0,
+    "vort": 0.15,
+    "visc": 0.15,
+    "buoy": 0,
+    "obst": 0,
+    "iters": 14,
+    "dyeDiss": 0.02,
+    "ink": "nada",
+    "bands": 6,
+    "renew": 0.8,
+    "sharp": 0.15,
+    "contrast": 0.8,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "a104d7db54bb9b51",
+    "a104d7db54bb9b51"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "manchas",
+   "v": 1,
+   "seed": "fluido-manchas",
+   "res": 128,
+   "params": {
+    "jets": 5,
+    "layout": "libres",
+    "force": 1.6,
+    "motion": 0.3,
+    "pulse": 0,
+    "vort": 0.5,
+    "visc": 0,
+    "buoy": 0,
+    "obst": 0,
+    "iters": 14,
+    "dyeDiss": 0.02,
+    "ink": "alterna",
+    "bands": 7,
+    "renew": 0.15,
+    "sharp": 0.5,
+    "contrast": 0.6,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "583e506efd4c511d",
+    "583e506efd4c511d"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "corriente",
+   "v": 1,
+   "seed": "fluido-corriente",
+   "res": 128,
+   "params": {
+    "jets": 2,
+    "layout": "izquierda",
+    "force": 2.2,
+    "motion": 0.15,
+    "pulse": 0,
+    "vort": 0.3,
+    "visc": 0,
+    "buoy": 0,
+    "obst": 3,
+    "iters": 22,
+    "dyeDiss": 0.05,
+    "ink": "tinta",
+    "bands": 5,
+    "renew": 0.5,
+    "sharp": 0.2,
+    "contrast": 0.6,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "1b2b5790f7903f7d",
+    "1b2b5790f7903f7d"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "humo_neon",
+   "v": 1,
+   "seed": "fluido-humo_neon",
+   "res": 128,
+   "params": {
+    "jets": 4,
+    "layout": "suelo",
+    "force": 1.4,
+    "motion": 0.35,
+    "pulse": 0,
+    "vort": 0.4,
+    "visc": 0,
+    "buoy": 0.8,
+    "obst": 0,
+    "iters": 14,
+    "dyeDiss": 0.45,
+    "ink": "tinta",
+    "bands": 0,
+    "renew": 0.3,
+    "sharp": 0,
+    "contrast": 0.25,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "b6f13a3818d2079c",
+    "b6f13a3818d2079c"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "humo_curvas",
+   "v": 1,
+   "seed": "fluido-humo_curvas",
+   "res": 128,
+   "params": {
+    "jets": 3,
+    "layout": "suelo",
+    "force": 1.2,
+    "motion": 0.3,
+    "pulse": 0,
+    "vort": 0.25,
+    "visc": 0,
+    "buoy": 0.6,
+    "obst": 0,
+    "iters": 14,
+    "dyeDiss": 0.35,
+    "ink": "tinta",
+    "bands": 0,
+    "renew": 0.3,
+    "sharp": 0,
+    "contrast": 0,
+    "view": "contornos"
+   },
+   "steps": 90,
+   "hash": [
+    "aba78047ad951ecc",
+    "aba78047ad951ecc"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "tormenta",
+   "v": 1,
+   "seed": "fluido-tormenta",
+   "res": 128,
+   "params": {
+    "jets": 8,
+    "layout": "libres",
+    "force": 3.2,
+    "motion": 1.1,
+    "pulse": 0,
+    "vort": 0.95,
+    "visc": 0,
+    "buoy": 0,
+    "obst": 0,
+    "iters": 18,
+    "dyeDiss": 0.9,
+    "ink": "tinta",
+    "bands": 0,
+    "renew": 0.3,
+    "sharp": 0,
+    "contrast": 0.35,
+    "view": "tinta"
+   },
+   "steps": 90,
+   "hash": [
+    "d930d7f62ab43e7b",
+    "d930d7f62ab43e7b"
+   ]
+  },
+  {
+   "family": "fluido",
+   "preset": "pilares",
+   "v": 1,
+   "seed": "fluido-pilares",
+   "res": 128,
+   "params": {
+    "jets": 5,
+    "layout": "izquierda",
+    "force": 2.2,
+    "motion": 0.15,
+    "pulse": 0,
+    "vort": 0.3,
+    "visc": 0,
+    "buoy": 0,
+    "obst": 4,
+    "iters": 22,
+    "dyeDiss": 0.3,
+    "ink": "tinta",
+    "bands": 0,
+    "renew": 0.3,
+    "sharp": 0,
+    "contrast": 0,
+    "view": "vorticidad"
+   },
+   "steps": 90,
+   "hash": [
+    "52863e7603a29dd4",
+    "52863e7603a29dd4"
+   ]
+  },
+  {
+   "family": "agua",
+   "preset": "piscina",
+   "v": 2,
+   "seed": "agua-piscina",
+   "res": 96,
+   "params": {
+    "rain": 12,
+    "drop": 1.6,
+    "damp": 0.3,
+    "speed": 0.5,
+    "paddle": 0,
+    "obst": "ninguno",
+    "depth": 1,
+    "light": 135,
+    "view": "suelo"
+   },
+   "steps": 480,
+   "hash": [
+    "5892667982025623",
+    "5892667982025623"
+   ]
+  },
+  {
+   "family": "agua",
+   "preset": "destellos",
+   "v": 2,
+   "seed": "agua-destellos",
+   "res": 96,
+   "params": {
+    "rain": 8,
+    "drop": 2.2,
+    "damp": 0.15,
+    "speed": 0.4,
+    "paddle": 0,
+    "obst": "ninguno",
+    "depth": 1,
+    "light": 150,
+    "view": "causticas"
+   },
+   "steps": 480,
+   "hash": [
+    "a0330b2cb712a076",
+    "a0330b2cb712a076"
+   ]
+  },
+  {
+   "family": "agua",
+   "preset": "lluvia",
+   "v": 2,
+   "seed": "agua-lluvia",
+   "res": 96,
+   "params": {
+    "rain": 14,
+    "drop": 1.6,
+    "damp": 0.5,
+    "speed": 0.4,
+    "paddle": 0,
+    "obst": "rocas",
+    "depth": 0.4,
+    "light": 120,
+    "view": "superficie"
+   },
+   "steps": 480,
+   "hash": [
+    "7a8ea2eaa215e0b4",
+    "7a8ea2eaa215e0b4"
+   ]
+  },
+  {
+   "family": "agua",
+   "preset": "canal",
+   "v": 2,
+   "seed": "agua-canal",
+   "res": 96,
+   "params": {
+    "rain": 0,
+    "drop": 1.2,
+    "damp": 0.05,
+    "speed": 0.6,
+    "paddle": 0.55,
+    "obst": "rendijas",
+    "depth": 0.6,
+    "light": 180,
+    "view": "causticas"
+   },
+   "steps": 480,
+   "hash": [
+    "77a6b74f055490e1",
+    "77a6b74f055490e1"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "rios",
+   "v": 1,
+   "seed": "erosion-rios",
+   "res": 112,
+   "params": {
+    "shape": "cordillera",
+    "height": 0.6,
+    "scale": 3,
+    "rain": 0.8,
+    "erode": 0.5,
+    "deposit": 0.5,
+    "capacity": 0.5,
+    "evap": 0.1,
+    "talus": 40,
+    "strata": 0,
+    "uplift": 0.5,
+    "frame": "lienzo",
+    "view": "agua",
+    "orbit": 0,
+    "pitch": 0.4
+   },
+   "steps": 90,
+   "hash": [
+    "7682df632e3c6d2f",
+    "7682df632e3c6d2f"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "costa",
+   "v": 1,
+   "seed": "erosion-costa",
+   "res": 112,
+   "params": {
+    "shape": "ladera",
+    "height": 0.6,
+    "scale": 2.5,
+    "rain": 0.8,
+    "erode": 0.7,
+    "deposit": 0.5,
+    "capacity": 0.7,
+    "evap": 0.1,
+    "talus": 40,
+    "strata": 0,
+    "uplift": 0.2,
+    "frame": "lienzo",
+    "view": "relieve",
+    "orbit": 0,
+    "pitch": 0.4
+   },
+   "steps": 90,
+   "hash": [
+    "a25740e92835951c",
+    "a25740e92835951c"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "montana",
+   "v": 1,
+   "seed": "erosion-montana",
+   "res": 112,
+   "params": {
+    "shape": "cordillera",
+    "height": 0.75,
+    "scale": 3,
+    "rain": 0.7,
+    "erode": 0.9,
+    "deposit": 0.3,
+    "capacity": 0.8,
+    "evap": 0.3,
+    "talus": 45,
+    "strata": 0,
+    "uplift": 0.35,
+    "frame": "maqueta",
+    "view": "relieve",
+    "orbit": 0.4,
+    "pitch": 0.45
+   },
+   "steps": 90,
+   "hash": [
+    "8327349e5ab0188d",
+    "03132b526baf67fa"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "barrancos",
+   "v": 1,
+   "seed": "erosion-barrancos",
+   "res": 112,
+   "params": {
+    "shape": "cordillera",
+    "height": 0.75,
+    "scale": 3,
+    "rain": 0.7,
+    "erode": 0.9,
+    "deposit": 0.3,
+    "capacity": 0.8,
+    "evap": 0.3,
+    "talus": 45,
+    "strata": 0,
+    "uplift": 0,
+    "frame": "maqueta",
+    "view": "relieve",
+    "orbit": 0.6,
+    "pitch": 0.45
+   },
+   "steps": 90,
+   "hash": [
+    "1d1493ce21370e48",
+    "389264960ae9714e"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "delta",
+   "v": 1,
+   "seed": "erosion-delta",
+   "res": 112,
+   "params": {
+    "shape": "ladera",
+    "height": 0.6,
+    "scale": 2.5,
+    "rain": 0.6,
+    "erode": 0.6,
+    "deposit": 0.7,
+    "capacity": 0.6,
+    "evap": 0.08,
+    "talus": 40,
+    "strata": 0,
+    "uplift": 0,
+    "frame": "maqueta",
+    "view": "relieve",
+    "orbit": 0.4,
+    "pitch": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "e71b9c45012b4794",
+    "ea2d3cfee47474f3"
+   ]
+  },
+  {
+   "family": "erosion",
+   "preset": "mesetas",
+   "v": 1,
+   "seed": "erosion-mesetas",
+   "res": 112,
+   "params": {
+    "shape": "meseta",
+    "height": 0.8,
+    "scale": 4,
+    "rain": 0.2,
+    "erode": 0.5,
+    "deposit": 0.4,
+    "capacity": 0.5,
+    "evap": 0.4,
+    "talus": 22,
+    "strata": 1,
+    "uplift": 0,
+    "frame": "maqueta",
+    "view": "relieve",
+    "orbit": 0.5,
+    "pitch": 0.2
+   },
+   "steps": 90,
+   "hash": [
+    "308f4b09f8d9bd03",
+    "3d21f5c999f23624"
+   ]
+  },
+  {
+   "family": "boids",
+   "preset": "murmuracion",
+   "v": 1,
+   "seed": "boids-murmuracion",
+   "res": 96,
+   "params": {
+    "count": 1500,
+    "vision": 0.1,
+    "sep": 0.03,
+    "wSep": 1.5,
+    "wAli": 2.2,
+    "wCoh": 1,
+    "speed": 0.32,
+    "force": 1,
+    "predators": 1,
+    "obstacles": 0,
+    "trail": 0.35
+   },
+   "steps": 105,
+   "hash": [
+    "98bfcadc12387b15",
+    "98bfcadc12387b15"
+   ]
+  },
+  {
+   "family": "boids",
+   "preset": "estelas",
+   "v": 1,
+   "seed": "boids-estelas",
+   "res": 96,
+   "params": {
+    "count": 350,
+    "vision": 0.12,
+    "sep": 0.04,
+    "wSep": 1.5,
+    "wAli": 2,
+    "wCoh": 0.6,
+    "speed": 0.3,
+    "force": 0.7,
+    "predators": 1,
+    "obstacles": 0,
+    "trail": 0.95
+   },
+   "steps": 105,
+   "hash": [
+    "cea250ed1e2a6b9d",
+    "cea250ed1e2a6b9d"
+   ]
+  },
+  {
+   "family": "boids",
+   "preset": "cardumen",
+   "v": 1,
+   "seed": "boids-cardumen",
+   "res": 96,
+   "params": {
+    "count": 1000,
+    "vision": 0.07,
+    "sep": 0.028,
+    "wSep": 1.8,
+    "wAli": 1.8,
+    "wCoh": 1.2,
+    "speed": 0.26,
+    "force": 1.6,
+    "predators": 3,
+    "obstacles": 2,
+    "trail": 0.2
+   },
+   "steps": 105,
+   "hash": [
+    "c12409bf062bdac5",
+    "c12409bf062bdac5"
+   ]
+  },
+  {
+   "family": "boids",
+   "preset": "dispersion",
+   "v": 1,
+   "seed": "boids-dispersion",
+   "res": 96,
+   "params": {
+    "count": 800,
+    "vision": 0.045,
+    "sep": 0.025,
+    "wSep": 1,
+    "wAli": 1,
+    "wCoh": 0.35,
+    "speed": 0.2,
+    "force": 0.8,
+    "predators": 0,
+    "obstacles": 4,
+    "trail": 0.5
+   },
+   "steps": 105,
+   "hash": [
+    "bce204d503721fdb",
+    "bce204d503721fdb"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "galaxia",
+   "v": 1,
+   "seed": "gravedad-galaxia",
+   "res": 96,
+   "params": {
+    "bodies": 800,
+    "init": "espiral",
+    "arms": 2,
+    "masses": "iguales",
+    "G": 1,
+    "soft": 0.03,
+    "dt": 0.012,
+    "trail": 0.15,
+    "zoom": 1.15,
+    "tilt": 35,
+    "spin": 0.05,
+    "view": "masa"
+   },
+   "steps": 90,
+   "hash": [
+    "d51f464f92e154d7",
+    "d51f464f92e154d7"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "remolino",
+   "v": 1,
+   "seed": "gravedad-remolino",
+   "res": 96,
+   "params": {
+    "bodies": 1000,
+    "init": "espiral",
+    "arms": 3,
+    "masses": "iguales",
+    "G": 1,
+    "soft": 0.03,
+    "dt": 0.01,
+    "trail": 0.2,
+    "zoom": 2.2,
+    "tilt": 12,
+    "spin": -0.04,
+    "view": "masa"
+   },
+   "steps": 90,
+   "hash": [
+    "8b0b634fb0a3fdf1",
+    "8b0b634fb0a3fdf1"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "choque",
+   "v": 1,
+   "seed": "gravedad-choque",
+   "res": 96,
+   "params": {
+    "bodies": 700,
+    "init": "choque",
+    "arms": 2,
+    "masses": "variadas",
+    "G": 1,
+    "soft": 0.04,
+    "dt": 0.012,
+    "trail": 0.6,
+    "zoom": 1.5,
+    "tilt": 30,
+    "spin": 0.08,
+    "view": "masa"
+   },
+   "steps": 90,
+   "hash": [
+    "f5b3e7817546c8db",
+    "f5b3e7817546c8db"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "colapso",
+   "v": 1,
+   "seed": "gravedad-colapso",
+   "res": 96,
+   "params": {
+    "bodies": 700,
+    "init": "colapso",
+    "arms": 2,
+    "masses": "iguales",
+    "G": 1,
+    "soft": 0.05,
+    "dt": 0.01,
+    "trail": 0.8,
+    "zoom": 1.9,
+    "tilt": 60,
+    "spin": 0.2,
+    "view": "velocidad"
+   },
+   "steps": 90,
+   "hash": [
+    "8f132fb248df16cb",
+    "8f132fb248df16cb"
+   ]
+  },
+  {
+   "family": "gravedad",
+   "preset": "binaria",
+   "v": 1,
+   "seed": "gravedad-binaria",
+   "res": 96,
+   "params": {
+    "bodies": 600,
+    "init": "binario",
+    "arms": 2,
+    "masses": "iguales",
+    "G": 1,
+    "soft": 0.03,
+    "dt": 0.01,
+    "trail": 0.85,
+    "zoom": 1,
+    "tilt": 25,
+    "spin": 0.05,
+    "view": "masa"
+   },
+   "steps": 90,
+   "hash": [
+    "5162b5ad015504db",
+    "5162b5ad015504db"
+   ]
+  },
+  {
+   "family": "tela",
+   "preset": "velo",
+   "v": 1,
+   "seed": "tela-velo",
+   "res": 96,
+   "params": {
+    "anchors": "esquinas",
+    "mesh": "alta",
+    "stiff": 0.55,
+    "gravity": 1,
+    "wind": 0.9,
+    "substeps": 10,
+    "damping": 0.15,
+    "sphere": "ninguna",
+    "turn": 0,
+    "angle": -25,
+    "view": "sombreado"
+   },
+   "steps": 80,
+   "hash": [
+    "65a6b7b9014515f0",
+    "65a6b7b9014515f0"
+   ]
+  },
+  {
+   "family": "tela",
+   "preset": "bandera",
+   "v": 1,
+   "seed": "tela-bandera",
+   "res": 96,
+   "params": {
+    "anchors": "mastil",
+    "mesh": "media",
+    "stiff": 0.7,
+    "gravity": 0.25,
+    "wind": 2.4,
+    "substeps": 12,
+    "damping": 0.05,
+    "sphere": "ninguna",
+    "turn": 0,
+    "angle": 35,
+    "view": "ambos"
+   },
+   "steps": 80,
+   "hash": [
+    "c598e37a2b344727",
+    "c598e37a2b344727"
+   ]
+  },
+  {
+   "family": "tela",
+   "preset": "membrana",
+   "v": 1,
+   "seed": "tela-membrana",
+   "res": 96,
+   "params": {
+    "anchors": "cuatro",
+    "mesh": "media",
+    "stiff": 0.3,
+    "gravity": 1,
+    "wind": 0,
+    "substeps": 12,
+    "damping": 0.05,
+    "sphere": "rebota",
+    "turn": 0.2,
+    "angle": 0,
+    "view": "malla"
+   },
+   "steps": 80,
+   "hash": [
+    "0114b4761c6ee253",
+    "0114b4761c6ee253"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "arena",
+   "v": 1,
+   "seed": "chladni-arena",
+   "res": 96,
+   "params": {
+    "plate": "lienzo",
+    "n": 3,
+    "m": 5,
+    "mix": -1,
+    "seq": "lento",
+    "count": 24000,
+    "agit": 1.1,
+    "persist": 0.85,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "1de8917c78cc2e85",
+    "1de8917c78cc2e85"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "placa",
+   "v": 1,
+   "seed": "chladni-placa",
+   "res": 96,
+   "params": {
+    "plate": "cuadrada",
+    "n": 3,
+    "m": 5,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1,
+    "persist": 0.85,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "6b5673cd9b4c3d89",
+    "6b5673cd9b4c3d89"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "flor",
+   "v": 1,
+   "seed": "chladni-flor",
+   "res": 96,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "fijo",
+    "count": 20000,
+    "agit": 1.1,
+    "persist": 0.88,
+    "view": "ambos"
+   },
+   "steps": 120,
+   "hash": [
+    "ecc509b0b46cdfe5",
+    "ecc509b0b46cdfe5"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "mandala",
+   "v": 1,
+   "seed": "chladni-mandala",
+   "res": 96,
+   "params": {
+    "plate": "circular",
+    "n": 4,
+    "m": 3,
+    "mix": -1,
+    "seq": "lento",
+    "count": 24000,
+    "agit": 1.2,
+    "persist": 0.85,
+    "view": "ambos"
+   },
+   "steps": 120,
+   "hash": [
+    "f581f2ee094534ca",
+    "f581f2ee094534ca"
+   ]
+  },
+  {
+   "family": "chladni",
+   "preset": "musical",
+   "v": 1,
+   "seed": "chladni-musical",
+   "res": 96,
+   "params": {
+    "plate": "cuadrada",
+    "n": 2,
+    "m": 7,
+    "mix": -1,
+    "seq": "rapido",
+    "count": 24000,
+    "agit": 1.6,
+    "persist": 0.75,
+    "view": "arena"
+   },
+   "steps": 120,
+   "hash": [
+    "be2148dad25a91ca",
+    "be2148dad25a91ca"
+   ]
+  },
+  {
+   "family": "humo",
+   "preset": "espiritu",
+   "v": 1,
+   "seed": "humo-espiritu",
+   "res": 96,
+   "params": {
+    "count": 7000,
+    "target": "orbita",
+    "scale": 0.45,
+    "speed": 0.6,
+    "life": 4.5,
+    "attract": 0,
+    "radius": 0.15,
+    "rise": 0.05,
+    "orbit": 0.12,
+    "tilt": 18,
+    "zoom": 1.15,
+    "trail": 1,
+    "shadow": 0.6,
+    "gain": 1
+   },
+   "steps": 120,
+   "hash": [
+    "d95418f21dc63c75",
+    "44c9c918f94173a6"
+   ]
+  },
+  {
+   "family": "humo",
+   "preset": "fumarola",
+   "v": 1,
+   "seed": "humo-fumarola",
+   "res": 96,
+   "params": {
+    "count": 9000,
+    "target": "fijo",
+    "scale": 0.6,
+    "speed": 0.45,
+    "life": 6,
+    "attract": 0,
+    "radius": 0.14,
+    "rise": 0.8,
+    "orbit": 0.06,
+    "tilt": 8,
+    "zoom": 1,
+    "trail": 0.7,
+    "shadow": 0.75,
+    "gain": 1.1
+   },
+   "steps": 120,
+   "hash": [
+    "4044661ce225d942",
+    "7737bc18f4e4d1ca"
+   ]
+  },
+  {
+   "family": "humo",
+   "preset": "nebulosa",
+   "v": 1,
+   "seed": "humo-nebulosa",
+   "res": 96,
+   "params": {
+    "count": 12000,
+    "target": "libre",
+    "scale": 1.4,
+    "speed": 0.2,
+    "life": 10,
+    "attract": 0.35,
+    "radius": 0.6,
+    "rise": 0,
+    "orbit": 0.05,
+    "tilt": 12,
+    "zoom": 1.45,
+    "trail": 0.35,
+    "shadow": 0.85,
+    "gain": 0.9
+   },
+   "steps": 120,
+   "hash": [
+    "f8e1e5c802c14cc8",
+    "0ea4133455bee296"
+   ]
+  },
+  {
+   "family": "humo",
+   "preset": "seda",
+   "v": 1,
+   "seed": "humo-seda",
+   "res": 96,
+   "params": {
+    "count": 9000,
+    "target": "libre",
+    "scale": 0.6,
+    "speed": 0.6,
+    "life": 5,
+    "attract": 0.3,
+    "radius": 0.3,
+    "rise": 0,
+    "orbit": -0.08,
+    "tilt": 30,
+    "zoom": 1.3,
+    "trail": 1,
+    "shadow": 0.3,
+    "gain": 0.8
+   },
+   "steps": 120,
+   "hash": [
+    "85cca5b186cd9711",
+    "88afec02fe8aa603"
+   ]
+  },
+  {
+   "family": "descargas",
+   "preset": "anillo",
+   "v": 1,
+   "seed": "descargas-anillo",
+   "res": null,
+   "params": {
+    "layout": "anillo",
+    "count": 4,
+    "jag": 0.55,
+    "branches": 0.45,
+    "crackle": 0.3,
+    "glow": 0.5,
+    "flicker": 0.15,
+    "motion": 0.3
+   },
+   "steps": 60,
+   "hash": [
+    "6e07c3945bec4079",
+    "347ac20244279573"
+   ]
+  },
+  {
+   "family": "descargas",
+   "preset": "plasma",
+   "v": 1,
+   "seed": "descargas-plasma",
+   "res": null,
+   "params": {
+    "layout": "estrella",
+    "count": 6,
+    "jag": 0.75,
+    "branches": 0.6,
+    "crackle": 0.45,
+    "glow": 0.65,
+    "flicker": 0.1,
+    "motion": 0.45
+   },
+   "steps": 60,
+   "hash": [
+    "86a5b0d36aa5f4e9",
+    "40f8b5ed41ee8d5e"
+   ]
+  },
+  {
+   "family": "descargas",
+   "preset": "tormenta",
+   "v": 1,
+   "seed": "descargas-tormenta",
+   "res": null,
+   "params": {
+    "layout": "tormenta",
+    "count": 6,
+    "jag": 0.6,
+    "branches": 0.8,
+    "crackle": 0.2,
+    "glow": 0.45,
+    "flicker": 0.35,
+    "motion": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "781677cd9a62ace0",
+    "2bd846b0d386a13b"
+   ]
+  },
+  {
+   "family": "descargas",
+   "preset": "chispa",
+   "v": 1,
+   "seed": "descargas-chispa",
+   "res": null,
+   "params": {
+    "layout": "anillo",
+    "count": 2,
+    "jag": 0.8,
+    "branches": 0.3,
+    "crackle": 0.6,
+    "glow": 0.35,
+    "flicker": 0.05,
+    "motion": 0.15
+   },
+   "steps": 60,
+   "hash": [
+    "c591ddf75692217f",
+    "46efba9dd27d1d52"
+   ]
+  },
+  {
+   "family": "mar",
+   "preset": "lago",
+   "v": 1,
+   "seed": "mar-lago",
+   "res": null,
+   "params": {
+    "waves": 0.3,
+    "scale": 0.25,
+    "wind": 0.1,
+    "horizon": 0.6,
+    "moon": 0.55,
+    "moonH": 0.45,
+    "moonX": 0,
+    "plankton": 0
+   },
+   "steps": 60,
+   "hash": [
+    "bf66c760342713eb",
+    "319d0a67a7863769"
+   ]
+  },
+  {
+   "family": "mar",
+   "preset": "mar_fondo",
+   "v": 1,
+   "seed": "mar-mar_fondo",
+   "res": null,
+   "params": {
+    "waves": 0.85,
+    "scale": 0.85,
+    "wind": -0.35,
+    "horizon": 0.45,
+    "moon": 0.45,
+    "moonH": 0.1,
+    "moonX": 0.35,
+    "plankton": 0
+   },
+   "steps": 60,
+   "hash": [
+    "be28cd51ff60be5d",
+    "aab333b5cd3f31a5"
+   ]
+  },
+  {
+   "family": "mar",
+   "preset": "plancton",
+   "v": 1,
+   "seed": "mar-plancton",
+   "res": null,
+   "params": {
+    "waves": 0.6,
+    "scale": 0.55,
+    "wind": 0.3,
+    "horizon": 0.8,
+    "moon": 0,
+    "moonH": 0.4,
+    "moonX": 0,
+    "plankton": 0.9
+   },
+   "steps": 60,
+   "hash": [
+    "99ee5cae2d39c383",
+    "9d7c52428eb3448d"
+   ]
+  },
+  {
+   "family": "mar",
+   "preset": "plata",
+   "v": 1,
+   "seed": "mar-plata",
+   "res": null,
+   "params": {
+    "waves": 0.55,
+    "scale": 0.45,
+    "wind": 0.05,
+    "horizon": 0.35,
+    "moon": 0.9,
+    "moonH": 0.3,
+    "moonX": -0.2,
+    "plankton": 0
+   },
+   "steps": 60,
+   "hash": [
+    "9e1992ef78b9567a",
+    "9f895597b78d65be"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "helecho",
+   "v": 1,
+   "seed": "sistema_l-helecho",
+   "res": 96,
+   "params": {
+    "model": "helecho",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 5,
+    "angle": 25,
+    "decay": 1,
+    "jitter": 0.12,
+    "grow": 8,
+    "wind": 0.25,
+    "turn": 0.15,
+    "width": 2.2,
+    "mode": "crece"
+   },
+   "steps": 60,
+   "hash": [
+    "d2fa3aded4873ea8",
+    "961748709e8f5fc0"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "arbol3d",
+   "v": 1,
+   "seed": "sistema_l-arbol3d",
+   "res": 96,
+   "params": {
+    "model": "arbol3d",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 6,
+    "angle": 28,
+    "decay": 0.78,
+    "jitter": 0.2,
+    "grow": 10,
+    "wind": 0.2,
+    "turn": 0.25,
+    "width": 2.6,
+    "mode": "crece"
+   },
+   "steps": 60,
+   "hash": [
+    "e3efddb5ddf4e406",
+    "d2a76958a84cf4ca"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "raices",
+   "v": 1,
+   "seed": "sistema_l-raices",
+   "res": 96,
+   "params": {
+    "model": "raices",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 6,
+    "angle": 18,
+    "decay": 0.92,
+    "jitter": 0.45,
+    "grow": 12,
+    "wind": 0.05,
+    "turn": 0.15,
+    "width": 2,
+    "mode": "crece"
+   },
+   "steps": 60,
+   "hash": [
+    "dd71c7e2d02580ab",
+    "200d4c56f5500bda"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "dragon",
+   "v": 1,
+   "seed": "sistema_l-dragon",
+   "res": 96,
+   "params": {
+    "model": "dragon",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 9,
+    "angle": 90,
+    "decay": 1,
+    "jitter": 0,
+    "grow": 14,
+    "wind": 0,
+    "turn": 0.15,
+    "width": 2.2,
+    "mode": "crece"
+   },
+   "steps": 60,
+   "hash": [
+    "f6c61b1d33ab2bbf",
+    "f6c61b1d33ab2bbf"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "jardin",
+   "v": 1,
+   "seed": "sistema_l-jardin",
+   "res": 96,
+   "params": {
+    "model": "helecho",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 5,
+    "angle": 25,
+    "decay": 1,
+    "jitter": 0.25,
+    "grow": 9,
+    "wind": 0.35,
+    "turn": 0.15,
+    "width": 2.6,
+    "mode": "jardin"
+   },
+   "steps": 60,
+   "hash": [
+    "038c6f4302ea4acf",
+    "0f695cf1dbe612bc"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "raices_vivas",
+   "v": 1,
+   "seed": "sistema_l-raices_vivas",
+   "res": 96,
+   "params": {
+    "model": "raices",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 6,
+    "angle": 18,
+    "decay": 0.92,
+    "jitter": 0.45,
+    "grow": 10,
+    "wind": 0.05,
+    "turn": 0.15,
+    "width": 2.2,
+    "mode": "jardin"
+   },
+   "steps": 60,
+   "hash": [
+    "fafaffbbda041489",
+    "b876415f221c4443"
+   ]
+  },
+  {
+   "family": "sistema_l",
+   "preset": "dragon_pliegue",
+   "v": 1,
+   "seed": "sistema_l-dragon_pliegue",
+   "res": 96,
+   "params": {
+    "model": "dragon",
+    "axiom": "X",
+    "rules": "X=F+[[X]-X]-F[-FX]+X;F=FF",
+    "gens": 8,
+    "angle": 90,
+    "decay": 1,
+    "jitter": 0,
+    "grow": 24,
+    "wind": 0,
+    "turn": 0.15,
+    "width": 3.4,
+    "mode": "pliegue"
+   },
+   "steps": 60,
+   "hash": [
+    "31c5013ee81849f0",
+    "31c5013ee81849f0"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "cintas",
+   "v": 2,
+   "seed": "atractor-cintas",
+   "res": 96,
+   "params": {
+    "type": "clifford",
+    "a": 1.53,
+    "b": 2.91,
+    "c": 1.63,
+    "d": 0.33,
+    "drift": 0.15,
+    "trail": 0.6,
+    "points": 10000,
+    "zoom": 1,
+    "gain": 1,
+    "relief": 0.75,
+    "layers": 0.4
+   },
+   "steps": 90,
+   "hash": [
+    "381fab10cbd97145",
+    "381fab10cbd97145"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "nube",
+   "v": 2,
+   "seed": "atractor-nube",
+   "res": 96,
+   "params": {
+    "type": "dejong",
+    "a": 2.27,
+    "b": -2.54,
+    "c": 1.11,
+    "d": -1.58,
+    "drift": 0.1,
+    "trail": 0.5,
+    "points": 14000,
+    "zoom": 1,
+    "gain": 1.3,
+    "relief": 0.3,
+    "layers": 0.7
+   },
+   "steps": 90,
+   "hash": [
+    "65a14e6a6d1b9143",
+    "65a14e6a6d1b9143"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "lorenz",
+   "v": 2,
+   "seed": "atractor-lorenz",
+   "res": 96,
+   "params": {
+    "type": "lorenz",
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0,
+    "drift": 0.1,
+    "trail": 0.7,
+    "points": 20000,
+    "zoom": 1,
+    "gain": 1,
+    "relief": 0.7,
+    "layers": 0.45
+   },
+   "steps": 90,
+   "hash": [
+    "5d14fedccdea44a2",
+    "ddcbbfacc7db3a60"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "madeja",
+   "v": 2,
+   "seed": "atractor-madeja",
+   "res": 96,
+   "params": {
+    "type": "thomas",
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0,
+    "drift": 0.1,
+    "trail": 0.85,
+    "points": 24000,
+    "zoom": 1,
+    "gain": 1.1,
+    "relief": 0.8,
+    "layers": 0.35
+   },
+   "steps": 90,
+   "hash": [
+    "fd7dcd4579731944",
+    "3720b3678b6f711e"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "ovillo",
+   "v": 2,
+   "seed": "atractor-ovillo",
+   "res": 96,
+   "params": {
+    "type": "aizawa",
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0,
+    "drift": 0.1,
+    "trail": 0.6,
+    "points": 16000,
+    "zoom": 1,
+    "gain": 1,
+    "relief": 0.85,
+    "layers": 0.3
+   },
+   "steps": 90,
+   "hash": [
+    "9202f48c5633dc5a",
+    "0d765e688eea33bc"
+   ]
+  },
+  {
+   "family": "atractor",
+   "preset": "helice",
+   "v": 2,
+   "seed": "atractor-helice",
+   "res": 96,
+   "params": {
+    "type": "halvorsen",
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0,
+    "drift": 0.1,
+    "trail": 0.75,
+    "points": 20000,
+    "zoom": 1,
+    "gain": 1,
+    "relief": 0.7,
+    "layers": 0.5
+   },
+   "steps": 90,
+   "hash": [
+    "5eecd38c70a87d03",
+    "f30ce3f045d068aa"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "placa",
+   "v": 1,
+   "seed": "wfc-placa",
+   "res": 96,
+   "params": {
+    "set": "circuitos",
+    "rows": 12,
+    "density": 0.55,
+    "pace": 60,
+    "hold": 6,
+    "edges": "vacios",
+    "view": "piezas",
+    "flow": "tableros",
+    "drift": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "f2ebad1fd68fb9d3",
+    "f2ebad1fd68fb9d3"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "plano",
+   "v": 1,
+   "seed": "wfc-plano",
+   "res": 96,
+   "params": {
+    "set": "muros",
+    "rows": 12,
+    "density": 0.45,
+    "pace": 45,
+    "hold": 8,
+    "edges": "vacios",
+    "view": "piezas",
+    "flow": "tableros",
+    "drift": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "60369a50ba163410",
+    "60369a50ba163410"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "acueducto",
+   "v": 1,
+   "seed": "wfc-acueducto",
+   "res": 96,
+   "params": {
+    "set": "acueducto",
+    "rows": 12,
+    "density": 0.75,
+    "pace": 45,
+    "hold": 8,
+    "edges": "vacios",
+    "view": "piezas",
+    "flow": "tableros",
+    "drift": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "da177fd8c72460dd",
+    "da177fd8c72460dd"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "laberinto",
+   "v": 1,
+   "seed": "wfc-laberinto",
+   "res": 96,
+   "params": {
+    "set": "muros",
+    "rows": 22,
+    "density": 0.95,
+    "pace": 180,
+    "hold": 5,
+    "edges": "libres",
+    "view": "lineas",
+    "flow": "tableros",
+    "drift": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "4604409f4c248d65",
+    "4604409f4c248d65"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "placa_sin_fin",
+   "v": 1,
+   "seed": "wfc-placa_sin_fin",
+   "res": 96,
+   "params": {
+    "set": "circuitos",
+    "rows": 12,
+    "density": 0.55,
+    "pace": 60,
+    "hold": 6,
+    "edges": "vacios",
+    "view": "piezas",
+    "flow": "avanza",
+    "drift": 0.5
+   },
+   "steps": 90,
+   "hash": [
+    "77cce02ff327635b",
+    "77cce02ff327635b"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "viaducto",
+   "v": 1,
+   "seed": "wfc-viaducto",
+   "res": 96,
+   "params": {
+    "set": "acueducto",
+    "rows": 10,
+    "density": 0.95,
+    "pace": 45,
+    "hold": 8,
+    "edges": "vacios",
+    "view": "piezas",
+    "flow": "avanza",
+    "drift": 0.4
+   },
+   "steps": 90,
+   "hash": [
+    "0ab4aebe1e3c893f",
+    "0ab4aebe1e3c893f"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "ciudad_viva",
+   "v": 1,
+   "seed": "wfc-ciudad_viva",
+   "res": 96,
+   "params": {
+    "set": "muros",
+    "rows": 16,
+    "density": 0.6,
+    "pace": 20,
+    "hold": 1,
+    "edges": "vacios",
+    "view": "piezas",
+    "flow": "zonas",
+    "drift": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "3a2ae468237e31e7",
+    "3a2ae468237e31e7"
+   ]
+  },
+  {
+   "family": "wfc",
+   "preset": "onda",
+   "v": 1,
+   "seed": "wfc-onda",
+   "res": 96,
+   "params": {
+    "set": "circuitos",
+    "rows": 14,
+    "density": 0.7,
+    "pace": 30,
+    "hold": 4,
+    "edges": "libres",
+    "view": "entropia",
+    "flow": "tableros",
+    "drift": 0.6
+   },
+   "steps": 90,
+   "hash": [
+    "2a8779fbe5bba4c9",
+    "2a8779fbe5bba4c9"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "triangulos",
+   "v": 1,
+   "seed": "hiperbolico-triangulos",
+   "res": null,
+   "params": {
+    "p": 7,
+    "q": 3,
+    "motif": "alternas",
+    "width": 0.8,
+    "drift": 0.3,
+    "turn": 0.1,
+    "rim": 0.4,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "ff724bc1a31ced36",
+    "63b3bea8f4a73a04"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "cuadrados",
+   "v": 1,
+   "seed": "hiperbolico-cuadrados",
+   "res": null,
+   "params": {
+    "p": 4,
+    "q": 5,
+    "motif": "aristas",
+    "width": 1.2,
+    "drift": -0.25,
+    "turn": 0,
+    "rim": 0.3,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "3439599c3ee7e57a",
+    "7c2b0b4fde59bb8e"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "estrellas",
+   "v": 1,
+   "seed": "hiperbolico-estrellas",
+   "res": null,
+   "params": {
+    "p": 6,
+    "q": 4,
+    "motif": "estrella",
+    "width": 0.7,
+    "drift": 0.2,
+    "turn": -0.12,
+    "rim": 0.35,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "0a918fdf02b79a5c",
+    "22443cc5cc32e413"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "espejo",
+   "v": 1,
+   "seed": "hiperbolico-espejo",
+   "res": null,
+   "params": {
+    "p": 5,
+    "q": 4,
+    "motif": "aristas",
+    "width": 1,
+    "drift": 0.4,
+    "turn": 0,
+    "rim": 0.2,
+    "outside": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "236ad00bea582ac2",
+    "602036ada94ed5ba"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "relieve",
+   "v": 1,
+   "seed": "hiperbolico-relieve",
+   "res": null,
+   "params": {
+    "p": 6,
+    "q": 4,
+    "motif": "relieve",
+    "width": 1,
+    "drift": 0.2,
+    "turn": 0.08,
+    "rim": 0.3,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "36f72c29b8e86f96",
+    "98c65fbcdf65293a"
+   ]
+  },
+  {
+   "family": "hiperbolico",
+   "preset": "mosaico",
+   "v": 1,
+   "seed": "hiperbolico-mosaico",
+   "res": null,
+   "params": {
+    "p": 5,
+    "q": 4,
+    "motif": "relieve",
+    "width": 1.1,
+    "drift": 0.25,
+    "turn": 0,
+    "rim": 0,
+    "outside": 0
+   },
+   "steps": 60,
+   "hash": [
+    "47b5a9d0613cede1",
+    "bd32d2cbf1d472af"
+   ]
+  },
+  {
+   "family": "orden_caos",
+   "preset": "fusion",
+   "v": 1,
+   "seed": "orden_caos-fusion",
+   "res": 80,
+   "params": {
+    "lattice": "cuadrada",
+    "spacing": 0.05,
+    "front": "barrido",
+    "period": 16,
+    "angle": 0,
+    "width": 0.25,
+    "turb": 0.6,
+    "stiff": 0.6,
+    "jitter": 0.2,
+    "bonds": 0.7,
+    "glow": 0.7
+   },
+   "steps": 90,
+   "hash": [
+    "8a0e1c00449458e3",
+    "8a0e1c00449458e3"
+   ]
+  },
+  {
+   "family": "orden_caos",
+   "preset": "radial",
+   "v": 1,
+   "seed": "orden_caos-radial",
+   "res": 80,
+   "params": {
+    "lattice": "hex",
+    "spacing": 0.048,
+    "front": "radial",
+    "period": 20,
+    "angle": 0,
+    "width": 0.18,
+    "turb": 0.5,
+    "stiff": 0.5,
+    "jitter": 0.25,
+    "bonds": 0.6,
+    "glow": 0.7
+   },
+   "steps": 90,
+   "hash": [
+    "8c5f735086ebccaf",
+    "8c5f735086ebccaf"
+   ]
+  },
+  {
+   "family": "orden_caos",
+   "preset": "onda",
+   "v": 1,
+   "seed": "orden_caos-onda",
+   "res": 80,
+   "params": {
+    "lattice": "cuadrada",
+    "spacing": 0.045,
+    "front": "onda",
+    "period": 9,
+    "angle": 30,
+    "width": 0.35,
+    "turb": 0.85,
+    "stiff": 0.75,
+    "jitter": 0.15,
+    "bonds": 0.55,
+    "glow": 0.8
+   },
+   "steps": 90,
+   "hash": [
+    "366ce9cc9bad4d2e",
+    "366ce9cc9bad4d2e"
+   ]
+  },
+  {
+   "family": "mosaico",
+   "preset": "ola",
+   "v": 1,
+   "seed": "mosaico-ola",
+   "res": null,
+   "params": {
+    "size": 3,
+    "dir": "derecha",
+    "speed": 0.25,
+    "spacing": 0.35,
+    "flip": 0.4,
+    "scatter": 0.25,
+    "picture": 0.75,
+    "glints": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "50d61b9040eb6067",
+    "32bcfb5f3c4c3616"
+   ]
+  },
+  {
+   "family": "mosaico",
+   "preset": "anillos",
+   "v": 1,
+   "seed": "mosaico-anillos",
+   "res": null,
+   "params": {
+    "size": 2,
+    "dir": "anillos",
+    "speed": 0.18,
+    "spacing": 0.2,
+    "flip": 0.5,
+    "scatter": 0.1,
+    "picture": 0.5,
+    "glints": 0.3
+   },
+   "steps": 60,
+   "hash": [
+    "ab974ba589034c01",
+    "0e5eaa84278a8a8e"
+   ]
+  },
+  {
+   "family": "mosaico",
+   "preset": "cartel",
+   "v": 1,
+   "seed": "mosaico-cartel",
+   "res": null,
+   "params": {
+    "size": 4,
+    "dir": "abajo",
+    "speed": 0.35,
+    "spacing": 0.6,
+    "flip": 0.3,
+    "scatter": 0.6,
+    "picture": 1,
+    "glints": 0.2
+   },
+   "steps": 60,
+   "hash": [
+    "e6e90e319d0863ae",
+    "dbc34f4fc0e6cc86"
+   ]
+  },
+  {
+   "family": "mosaico",
+   "preset": "dorado",
+   "v": 1,
+   "seed": "mosaico-dorado",
+   "res": null,
+   "params": {
+    "size": 2,
+    "dir": "diagonal",
+    "speed": 0.14,
+    "spacing": 0.75,
+    "flip": 0.25,
+    "scatter": 0.85,
+    "picture": 0.3,
+    "glints": 1
+   },
+   "steps": 60,
+   "hash": [
+    "da80472f9f16c939",
+    "0925724a3b876efa"
+   ]
+  },
+  {
+   "family": "mosaico",
+   "preset": "barrido",
+   "v": 1,
+   "seed": "mosaico-barrido",
+   "res": null,
+   "params": {
+    "size": 3,
+    "dir": "barrido",
+    "speed": 0.3,
+    "spacing": 0.5,
+    "flip": 0.35,
+    "scatter": 0.1,
+    "picture": 0.85,
+    "glints": 0.4
+   },
+   "steps": 60,
+   "hash": [
+    "8a89bb33747d8e00",
+    "2392679ed9499072"
+   ]
+  },
+  {
+   "family": "laceria",
+   "preset": "nazari",
+   "v": 1,
+   "seed": "laceria-nazari",
+   "res": null,
+   "params": {
+    "sym": "8",
+    "grid": "cuadrada",
+    "depth": 2,
+    "layers": 2,
+    "width": 1.6,
+    "spin": 0.35,
+    "reveal": 0.5,
+    "cycle": "bucle"
+   },
+   "steps": 60,
+   "hash": [
+    "b050158429316aea",
+    "3b16ec45e7105b83"
+   ]
+  },
+  {
+   "family": "laceria",
+   "preset": "roseton",
+   "v": 1,
+   "seed": "laceria-roseton",
+   "res": null,
+   "params": {
+    "sym": "12",
+    "grid": "roseton",
+    "depth": 4,
+    "layers": 2,
+    "width": 1.7,
+    "spin": 0.6,
+    "reveal": 0.6,
+    "cycle": "bucle"
+   },
+   "steps": 60,
+   "hash": [
+    "eba41232c2a2eec4",
+    "b2f35fa821a99fb3"
+   ]
+  },
+  {
+   "family": "laceria",
+   "preset": "traceria",
+   "v": 1,
+   "seed": "laceria-traceria",
+   "res": null,
+   "params": {
+    "sym": "6",
+    "grid": "hex",
+    "depth": 2,
+    "layers": 2,
+    "width": 2,
+    "spin": 0.3,
+    "reveal": 0.7,
+    "cycle": "continuo"
+   },
+   "steps": 60,
+   "hash": [
+    "ec1e182e2ebe4a51",
+    "7cc2846b933fea65"
+   ]
+  },
+  {
+   "family": "laceria",
+   "preset": "diez",
+   "v": 1,
+   "seed": "laceria-diez",
+   "res": null,
+   "params": {
+    "sym": "10",
+    "grid": "roseton",
+    "depth": 3,
+    "layers": 2,
+    "width": 1.8,
+    "spin": 0.45,
+    "reveal": 0.4,
+    "cycle": "continuo"
+   },
+   "steps": 60,
+   "hash": [
+    "0772310b863c85c1",
+    "7c9b8c980a7bfaec"
+   ]
+  },
+  {
+   "family": "osciloscopio",
+   "preset": "limpia",
+   "v": 1,
+   "seed": "osciloscopio-limpia",
+   "res": null,
+   "params": {
+    "harmonics": 1,
+    "degrade": 0.1,
+    "cycle": 12,
+    "noise": 0.05,
+    "grid": "reticula",
+    "persist": 0.6,
+    "gain": 0.7,
+    "freq": 1.2
+   },
+   "steps": 60,
+   "hash": [
+    "b5de2c4f865ef62e",
+    "8357605ed89c4dd5"
+   ]
+  },
+  {
+   "family": "osciloscopio",
+   "preset": "interferencia",
+   "v": 1,
+   "seed": "osciloscopio-interferencia",
+   "res": null,
+   "params": {
+    "harmonics": 4,
+    "degrade": 0.8,
+    "cycle": 6,
+    "noise": 0.55,
+    "grid": "ejes",
+    "persist": 0.35,
+    "gain": 0.8,
+    "freq": 2.2
+   },
+   "steps": 60,
+   "hash": [
+    "b548bba8b6fbb740",
+    "441fe3d5fbd3f2e2"
+   ]
+  },
+  {
+   "family": "osciloscopio",
+   "preset": "grito",
+   "v": 1,
+   "seed": "osciloscopio-grito",
+   "res": null,
+   "params": {
+    "harmonics": 3,
+    "degrade": 1,
+    "cycle": 7,
+    "noise": 0.3,
+    "grid": "no",
+    "persist": 0.85,
+    "gain": 1.15,
+    "freq": 2.8
+   },
+   "steps": 60,
+   "hash": [
+    "728b9fe0744e5a3e",
+    "0b687d91828737e5"
+   ]
+  },
+  {
+   "family": "osciloscopio",
+   "preset": "fosforo",
+   "v": 1,
+   "seed": "osciloscopio-fosforo",
+   "res": null,
+   "params": {
+    "harmonics": 2,
+    "degrade": 0.45,
+    "cycle": 16,
+    "noise": 0.15,
+    "grid": "reticula",
+    "persist": 1,
+    "gain": 0.6,
+    "freq": 0.8
+   },
+   "steps": 60,
+   "hash": [
+    "a41e6b757c471f41",
+    "3e9fbfb2104b32a5"
+   ]
+  },
+  {
+   "family": "marco",
+   "preset": "terminal",
+   "v": 1,
+   "seed": "marco-terminal",
+   "res": null,
+   "params": {
+    "comets": 1,
+    "speed": 0.45,
+    "thick": 0.3,
+    "margin": 0.035,
+    "radius": 0.08,
+    "pulse": 0,
+    "smoke": 0,
+    "ratio": 1.78
+   },
+   "steps": 60,
+   "hash": [
+    "86623515001c36bb",
+    "91dd333f3a247e69"
+   ]
+  },
+  {
+   "family": "marco",
+   "preset": "neon",
+   "v": 1,
+   "seed": "marco-neon",
+   "res": null,
+   "params": {
+    "comets": 2,
+    "speed": 0.35,
+    "thick": 0.75,
+    "margin": 0.07,
+    "radius": 0.55,
+    "pulse": 0,
+    "smoke": 0.3,
+    "ratio": 1.78
+   },
+   "steps": 60,
+   "hash": [
+    "bbbedc2e8a054c81",
+    "887feef6d7bc7ee4"
+   ]
+  },
+  {
+   "family": "marco",
+   "preset": "latido",
+   "v": 1,
+   "seed": "marco-latido",
+   "res": null,
+   "params": {
+    "comets": 0,
+    "speed": 0.2,
+    "thick": 0.6,
+    "margin": 0.12,
+    "radius": 1,
+    "pulse": 1,
+    "smoke": 0.45,
+    "ratio": 1.78
+   },
+   "steps": 60,
+   "hash": [
+    "55e8c6322aee5585",
+    "58e00f2373ce3b2b"
+   ]
+  },
+  {
+   "family": "marco",
+   "preset": "humo",
+   "v": 1,
+   "seed": "marco-humo",
+   "res": null,
+   "params": {
+    "comets": 4,
+    "speed": 0.6,
+    "thick": 0.45,
+    "margin": 0.1,
+    "radius": 0.25,
+    "pulse": 0.25,
+    "smoke": 0.9,
+    "ratio": 1.78
+   },
+   "steps": 60,
+   "hash": [
+    "a00c89439b2d3b52",
+    "c70c1d6ed2982957"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "bulbo",
+   "v": 1,
+   "seed": "fractal_3d-bulbo",
+   "res": null,
+   "params": {
+    "form": "liso",
+    "power": 8,
+    "iters": 6,
+    "cut": 0,
+    "orbit": 0.2,
+    "dist": 3,
+    "breathe": 0.1,
+    "light": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "3fe3f7949503e1f1",
+    "0118aeb26df878eb"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "corte",
+   "v": 1,
+   "seed": "fractal_3d-corte",
+   "res": null,
+   "params": {
+    "form": "liso",
+    "power": 6,
+    "iters": 6,
+    "cut": 0.55,
+    "orbit": 0.12,
+    "dist": 2.7,
+    "breathe": 0,
+    "light": 0.8
+   },
+   "steps": 60,
+   "hash": [
+    "1ae399a3b2194df8",
+    "c753c04894946b8d"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "caja",
+   "v": 1,
+   "seed": "fractal_3d-caja",
+   "res": null,
+   "params": {
+    "form": "cajalisa",
+    "power": 6,
+    "iters": 9,
+    "cut": 0,
+    "orbit": 0.15,
+    "dist": 3,
+    "breathe": 0,
+    "light": 0.55
+   },
+   "steps": 60,
+   "hash": [
+    "b640ff4b823cd305",
+    "19fc843aa4d1b0c5"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "concha",
+   "v": 1,
+   "seed": "fractal_3d-concha",
+   "res": null,
+   "params": {
+    "form": "julia",
+    "power": 7,
+    "iters": 9,
+    "cut": 0,
+    "orbit": 0.15,
+    "dist": 2.6,
+    "breathe": 0.6,
+    "light": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "01ade43da3b8bc95",
+    "15307679dad73a84"
+   ]
+  },
+  {
+   "family": "fractal_3d",
+   "preset": "partida",
+   "v": 1,
+   "seed": "fractal_3d-partida",
+   "res": null,
+   "params": {
+    "form": "julia",
+    "power": 3,
+    "iters": 10,
+    "cut": 0.42,
+    "orbit": -0.1,
+    "dist": 2.3,
+    "breathe": 0.4,
+    "light": 0.7
+   },
+   "steps": 60,
+   "hash": [
+    "a2f2c7ace0d410cf",
+    "7482541836673b37"
+   ]
+  },
+  {
+   "family": "nubes_vol",
+   "preset": "banco",
+   "v": 1,
+   "seed": "nubes_vol-banco",
+   "res": null,
+   "params": {
+    "cover": 0.78,
+    "scale": 1.1,
+    "erosion": 0.45,
+    "wind": 0.35,
+    "sun": 0.55,
+    "absorb": 1,
+    "steps": 40,
+    "camera": "horizonte"
+   },
+   "steps": 60,
+   "hash": [
+    "5ee620c075f1fe96",
+    "6c724fb30a901531"
+   ]
+  },
+  {
+   "family": "nubes_vol",
+   "preset": "nebulosa",
+   "v": 1,
+   "seed": "nubes_vol-nebulosa",
+   "res": null,
+   "params": {
+    "cover": 0.6,
+    "scale": 0.8,
+    "erosion": 0.8,
+    "wind": 0.6,
+    "sun": 0.4,
+    "absorb": 1.6,
+    "steps": 40,
+    "camera": "nebulosa"
+   },
+   "steps": 60,
+   "hash": [
+    "0f35afce5db9dd62",
+    "44703f3436ef5fbb"
+   ]
+  },
+  {
+   "family": "nubes_vol",
+   "preset": "haces",
+   "v": 1,
+   "seed": "nubes_vol-haces",
+   "res": null,
+   "params": {
+    "cover": 0.84,
+    "scale": 1.6,
+    "erosion": 0.3,
+    "wind": 0.3,
+    "sun": 0.85,
+    "absorb": 2.6,
+    "steps": 40,
+    "camera": "haces"
+   },
+   "steps": 60,
+   "hash": [
+    "025e700ecd845ce4",
+    "87dac61cada98d5a"
+   ]
+  },
+  {
+   "family": "nubes_vol",
+   "preset": "dentro",
+   "v": 1,
+   "seed": "nubes_vol-dentro",
+   "res": null,
+   "params": {
+    "cover": 0.34,
+    "scale": 1.1,
+    "erosion": 1,
+    "wind": 0.6,
+    "sun": 0.85,
+    "absorb": 2.2,
+    "steps": 36,
+    "camera": "dentro"
+   },
+   "steps": 60,
+   "hash": [
+    "710983cc1af95fa7",
+    "8f7c1474d78cd1b3"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "lobulos",
+   "v": 1,
+   "seed": "orbitales-lobulos",
+   "res": null,
+   "params": {
+    "a": "3dz2",
+    "b": "4fz3",
+    "mix": 0.25,
+    "speed": 3.231365,
+    "mode": "fase",
+    "level": 0.45,
+    "turn": 0,
+    "expo": 1.2
+   },
+   "steps": 60,
+   "hash": [
+    "f8c678b314f86633",
+    "94f2361b90f737f4"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "dipolo",
+   "v": 1,
+   "seed": "orbitales-dipolo",
+   "res": null,
+   "params": {
+    "a": "1s",
+    "b": "2pz",
+    "mix": 0.55,
+    "speed": 1.047198,
+    "mode": "densidad",
+    "level": 0.12,
+    "turn": 0,
+    "expo": 2
+   },
+   "steps": 60,
+   "hash": [
+    "c6a0794b26ae763f",
+    "a2d6fdaaaef5c8b5"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "anillos",
+   "v": 1,
+   "seed": "orbitales-anillos",
+   "res": null,
+   "params": {
+    "a": "4fz3",
+    "b": "3pz",
+    "mix": 0.3,
+    "speed": 2.692804,
+    "mode": "capas",
+    "level": 0.5,
+    "turn": 0,
+    "expo": 1.1
+   },
+   "steps": 60,
+   "hash": [
+    "174d5f07c215cdf3",
+    "f32fbfcba5f3895c"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "hibrido",
+   "v": 1,
+   "seed": "orbitales-hibrido",
+   "res": null,
+   "params": {
+    "a": "2s",
+    "b": "2px",
+    "mix": 0.5,
+    "speed": 1,
+    "mode": "iso",
+    "level": 0.4,
+    "turn": 0.25,
+    "expo": 1
+   },
+   "steps": 60,
+   "hash": [
+    "cfa0238dd87aed37",
+    "b131dd6643fa2b6f"
+   ]
+  },
+  {
+   "family": "orbitales",
+   "preset": "estrella",
+   "v": 1,
+   "seed": "orbitales-estrella",
+   "res": null,
+   "params": {
+    "a": "4fxyz",
+    "b": "3dz2",
+    "mix": 0.2,
+    "speed": 0.7,
+    "mode": "capas",
+    "level": 0.45,
+    "turn": 0.5,
+    "expo": 1.2
+   },
+   "steps": 60,
+   "hash": [
+    "e622fac5cc5038e3",
+    "6e01d876c9a73570"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "disco",
+   "v": 1,
+   "seed": "lente_gravitacional-disco",
+   "res": null,
+   "params": {
+    "dist": 15,
+    "incl": 7,
+    "orbit": 0.2,
+    "rout": 10,
+    "disk": 1.1,
+    "bg": "estrellas",
+    "expo": 1.8,
+    "spin": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "e5f43702bce7fab4",
+    "806b36d23bd1928b"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "rejilla",
+   "v": 1,
+   "seed": "lente_gravitacional-rejilla",
+   "res": null,
+   "params": {
+    "dist": 16,
+    "incl": 24,
+    "orbit": 0.25,
+    "rout": 12,
+    "disk": 0,
+    "bg": "rejilla",
+    "expo": 2,
+    "spin": 0
+   },
+   "steps": 60,
+   "hash": [
+    "17cbea7d357162e6",
+    "8254f236600ed6cc"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "canto",
+   "v": 1,
+   "seed": "lente_gravitacional-canto",
+   "res": null,
+   "params": {
+    "dist": 22,
+    "incl": 2,
+    "orbit": 0.15,
+    "rout": 13,
+    "disk": 1.3,
+    "bg": "ambos",
+    "expo": 1.7,
+    "spin": -0.8
+   },
+   "steps": 60,
+   "hash": [
+    "9fa88e0b4204dbee",
+    "97a68b42ac64a7e2"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "remolino",
+   "v": 1,
+   "seed": "lente_gravitacional-remolino",
+   "res": null,
+   "params": {
+    "dist": 24,
+    "incl": 42,
+    "orbit": 0.12,
+    "rout": 12,
+    "disk": 1,
+    "bg": "estrellas",
+    "expo": 1.8,
+    "spin": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "173caf52b11ae5a4",
+    "7a8067a716cf4966"
+   ]
+  },
+  {
+   "family": "lente_gravitacional",
+   "preset": "cerca",
+   "v": 1,
+   "seed": "lente_gravitacional-cerca",
+   "res": null,
+   "params": {
+    "dist": 8,
+    "incl": 18,
+    "orbit": 0.15,
+    "rout": 7,
+    "disk": 0.8,
+    "bg": "estrellas",
+    "expo": 1.7,
+    "spin": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "4198d4dd2c7d1f7a",
+    "abd3f09e3b383986"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "dipolo",
+   "v": 1,
+   "seed": "campos_em-dipolo",
+   "res": 96,
+   "params": {
+    "config": "dipolo",
+    "sep": 0.9,
+    "ratio": 1,
+    "lines": 16,
+    "particles": 3,
+    "turn": 0.2,
+    "tilt": 18,
+    "view": "lineas",
+    "move": 0
+   },
+   "steps": 60,
+   "hash": [
+    "69a0cc2bd84ca902",
+    "8c3cbaf04915f533"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "repulsion",
+   "v": 1,
+   "seed": "campos_em-repulsion",
+   "res": 96,
+   "params": {
+    "config": "iguales",
+    "sep": 1.1,
+    "ratio": 2,
+    "lines": 10,
+    "particles": 4,
+    "turn": -0.15,
+    "tilt": 25,
+    "view": "potencial",
+    "move": 0
+   },
+   "steps": 60,
+   "hash": [
+    "16c54aa7ea071764",
+    "47544ccb5c605307"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "helmholtz",
+   "v": 1,
+   "seed": "campos_em-helmholtz",
+   "res": 96,
+   "params": {
+    "config": "espira",
+    "sep": 0.45,
+    "ratio": 1,
+    "lines": 9,
+    "particles": 5,
+    "turn": 0.25,
+    "tilt": 12,
+    "view": "flujo",
+    "move": 0
+   },
+   "steps": 60,
+   "hash": [
+    "786eca5104b294f7",
+    "00bff5c195c5ea7e"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "cuadrupolo",
+   "v": 1,
+   "seed": "campos_em-cuadrupolo",
+   "res": 96,
+   "params": {
+    "config": "cuadrupolo",
+    "sep": 0.8,
+    "ratio": 1,
+    "lines": 10,
+    "particles": 2,
+    "turn": 0.1,
+    "tilt": 60,
+    "view": "lineas",
+    "move": 0
+   },
+   "steps": 60,
+   "hash": [
+    "d64bd39c65036312",
+    "bb522deefc3594a1"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "iman",
+   "v": 1,
+   "seed": "campos_em-iman",
+   "res": 96,
+   "params": {
+    "config": "iman",
+    "sep": 0.9,
+    "ratio": 0,
+    "lines": 16,
+    "particles": 3,
+    "turn": 0.2,
+    "tilt": 8,
+    "view": "lineas",
+    "move": 0
+   },
+   "steps": 60,
+   "hash": [
+    "ab58af9820fa3e46",
+    "d79cdca9980b003d"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "dipolo_vivo",
+   "v": 1,
+   "seed": "campos_em-dipolo_vivo",
+   "res": 96,
+   "params": {
+    "config": "dipolo",
+    "sep": 0.9,
+    "ratio": 1,
+    "lines": 14,
+    "particles": 3,
+    "turn": 0.05,
+    "tilt": 30,
+    "view": "lineas",
+    "move": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "7427f832861d45b3",
+    "60383047e874bf58"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "espiras_vivas",
+   "v": 1,
+   "seed": "campos_em-espiras_vivas",
+   "res": 96,
+   "params": {
+    "config": "espira",
+    "sep": 0.5,
+    "ratio": 1,
+    "lines": 8,
+    "particles": 4,
+    "turn": 0.1,
+    "tilt": 14,
+    "view": "flujo",
+    "move": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "8c91b270c4fa2847",
+    "0a6aad28c280aa6e"
+   ]
+  },
+  {
+   "family": "campos_em",
+   "preset": "imanes",
+   "v": 1,
+   "seed": "campos_em-imanes",
+   "res": 96,
+   "params": {
+    "config": "iman",
+    "sep": 0.9,
+    "ratio": 0.8,
+    "lines": 12,
+    "particles": 3,
+    "turn": 0,
+    "tilt": 10,
+    "view": "lineas",
+    "move": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "328961d3c1a43710",
+    "9d1e596c187261e2"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "burbujas",
+   "v": 1,
+   "seed": "niebla-burbujas",
+   "res": 80,
+   "params": {
+    "field": 0.7,
+    "drag": 0.35,
+    "rate": 9,
+    "trace": 0.6,
+    "source": "bordes",
+    "pairs": 0.25,
+    "alphas": 0.05,
+    "muons": 0.1,
+    "energy": 0.95,
+    "mist": 0.15,
+    "grain": 0.4
+   },
+   "steps": 150,
+   "hash": [
+    "768ffcf25a8c9953",
+    "768ffcf25a8c9953"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "cosmicos",
+   "v": 1,
+   "seed": "niebla-cosmicos",
+   "res": 80,
+   "params": {
+    "field": 0.12,
+    "drag": 0.05,
+    "rate": 4,
+    "trace": 0.75,
+    "source": "arriba",
+    "pairs": 0.1,
+    "alphas": 0.05,
+    "muons": 0.7,
+    "energy": 0.9,
+    "mist": 0.3,
+    "grain": 0.6
+   },
+   "steps": 150,
+   "hash": [
+    "e3afcba0ea3429f4",
+    "e3afcba0ea3429f4"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "pares",
+   "v": 1,
+   "seed": "niebla-pares",
+   "res": 80,
+   "params": {
+    "field": 0.5,
+    "drag": 0.3,
+    "rate": 7,
+    "trace": 0.6,
+    "source": "bordes",
+    "pairs": 0.8,
+    "alphas": 0,
+    "muons": 0.05,
+    "energy": 0.6,
+    "mist": 0.2,
+    "grain": 0.4
+   },
+   "steps": 150,
+   "hash": [
+    "98edbc8ac42399bb",
+    "98edbc8ac42399bb"
+   ]
+  },
+  {
+   "family": "niebla",
+   "preset": "fuente",
+   "v": 1,
+   "seed": "niebla-fuente",
+   "res": 80,
+   "params": {
+    "field": 0.35,
+    "drag": 0.45,
+    "rate": 7,
+    "trace": 0.5,
+    "source": "fuente",
+    "pairs": 0.1,
+    "alphas": 0.2,
+    "muons": 0.1,
+    "energy": 0.5,
+    "mist": 0.3,
+    "grain": 0.5
+   },
+   "steps": 150,
+   "hash": [
+    "e30e56ad2eaf978f",
+    "e30e56ad2eaf978f"
+   ]
+  },
+  {
+   "family": "hipercubo",
+   "preset": "teseracto",
+   "v": 1,
+   "seed": "hipercubo-teseracto",
+   "res": null,
+   "params": {
+    "poly": "teseracto",
+    "xw": 1,
+    "yw": 1,
+    "zw": 0,
+    "cycle": 40,
+    "dist4": 2.4,
+    "width": 1.4,
+    "trail": 0.35
+   },
+   "steps": 60,
+   "hash": [
+    "f61f9f2414a7febf",
+    "e1b1ac05eb84192f"
+   ]
+  },
+  {
+   "family": "hipercubo",
+   "preset": "reves",
+   "v": 1,
+   "seed": "hipercubo-reves",
+   "res": null,
+   "params": {
+    "poly": "teseracto",
+    "xw": 1,
+    "yw": 0,
+    "zw": 0,
+    "cycle": 20,
+    "dist4": 1.9,
+    "width": 1.6,
+    "trail": 0.6
+   },
+   "steps": 60,
+   "hash": [
+    "7c015d7fee5bc8d7",
+    "18f06f244a524374"
+   ]
+  },
+  {
+   "family": "hipercubo",
+   "preset": "celdas24",
+   "v": 1,
+   "seed": "hipercubo-celdas24",
+   "res": null,
+   "params": {
+    "poly": "celdas24",
+    "xw": 1,
+    "yw": -1,
+    "zw": 1,
+    "cycle": 60,
+    "dist4": 3,
+    "width": 1.2,
+    "trail": 0.15
+   },
+   "steps": 60,
+   "hash": [
+    "4249f5702d7d4607",
+    "4b39e8ba5750a853"
+   ]
+  },
+  {
+   "family": "hipercubo",
+   "preset": "celdas16",
+   "v": 1,
+   "seed": "hipercubo-celdas16",
+   "res": null,
+   "params": {
+    "poly": "celdas16",
+    "xw": 2,
+    "yw": 1,
+    "zw": -1,
+    "cycle": 48,
+    "dist4": 2.2,
+    "width": 1.6,
+    "trail": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "c0357e67ba97b649",
+    "ce115e0c84faad31"
+   ]
+  },
+  {
+   "family": "corrientes",
+   "preset": "neon",
+   "v": 1,
+   "seed": "corrientes-neon",
+   "res": null,
+   "params": {
+    "spots": 5,
+    "swirl": 0.45,
+    "warp": 0.55,
+    "speed": 0.32,
+    "scale": 1,
+    "contrast": 0.55,
+    "grain": 0.12,
+    "glyph": "brillo"
+   },
+   "steps": 60,
+   "hash": [
+    "6b9c0ffa90220a44",
+    "df2f6dcf1679350a"
+   ]
+  },
+  {
+   "family": "corrientes",
+   "preset": "atardecer",
+   "v": 1,
+   "seed": "corrientes-atardecer",
+   "res": null,
+   "params": {
+    "spots": 6,
+    "swirl": 0.22,
+    "warp": 0.85,
+    "speed": 0.2,
+    "scale": 1.2,
+    "contrast": 0.28,
+    "grain": 0.3,
+    "glyph": "brillo"
+   },
+   "steps": 60,
+   "hash": [
+    "945cd4003af33ead",
+    "e9fea2a4577bd928"
+   ]
+  },
+  {
+   "family": "corrientes",
+   "preset": "marmolada",
+   "v": 1,
+   "seed": "corrientes-marmolada",
+   "res": null,
+   "params": {
+    "spots": 7,
+    "swirl": 0.7,
+    "warp": 0.95,
+    "speed": 0.24,
+    "scale": 0.9,
+    "contrast": 0.95,
+    "grain": 0.04,
+    "glyph": "bordes"
+   },
+   "steps": 60,
+   "hash": [
+    "ea0266aa3d467cff",
+    "4dda1ad5e24a0c62"
+   ]
+  },
+  {
+   "family": "corrientes",
+   "preset": "boreal",
+   "v": 1,
+   "seed": "corrientes-boreal",
+   "res": null,
+   "params": {
+    "spots": 3,
+    "swirl": 0.15,
+    "warp": 0.6,
+    "speed": 0.14,
+    "scale": 1.7,
+    "contrast": 0.4,
+    "grain": 0.18,
+    "glyph": "ambos"
+   },
+   "steps": 60,
+   "hash": [
+    "4ce4231c096a6fde",
+    "85d56c8cd728a917"
+   ]
+  },
+  {
+   "family": "corrientes",
+   "preset": "remolino",
+   "v": 1,
+   "seed": "corrientes-remolino",
+   "res": null,
+   "params": {
+    "spots": 6,
+    "swirl": 1,
+    "warp": 0.3,
+    "speed": 0.36,
+    "scale": 1,
+    "contrast": 0.72,
+    "grain": 0.08,
+    "glyph": "brillo"
+   },
+   "steps": 60,
+   "hash": [
+    "1f8bb1b6f5d88ad0",
+    "4c609d368def9871"
+   ]
+  },
+  {
+   "family": "ecos",
+   "preset": "tinta",
+   "v": 1,
+   "seed": "ecos-tinta",
+   "res": 72,
+   "params": {
+    "seed": "puntos",
+    "amount": 0.5,
+    "sides": 4,
+    "strobe": 0,
+    "zoom": 0.12,
+    "curve": 0.2,
+    "rot": 0.04,
+    "swirl": 0,
+    "wander": 0.7,
+    "drift": 0,
+    "warp": 0.1,
+    "mirror": "no",
+    "memory": 0.9,
+    "ink": 0.6,
+    "pulse": 0.3,
+    "tempo": 3,
+    "echo": "no",
+    "contrast": 0.5
+   },
+   "steps": 120,
+   "hash": [
+    "94513e6e2f18a050",
+    "94513e6e2f18a050"
+   ]
+  },
+  {
+   "family": "ecos",
+   "preset": "espejos",
+   "v": 1,
+   "seed": "ecos-espejos",
+   "res": 72,
+   "params": {
+    "seed": "copia",
+    "amount": 1,
+    "sides": 4,
+    "strobe": 0.5,
+    "zoom": 0.35,
+    "curve": 0.3,
+    "rot": 0.08,
+    "swirl": 0,
+    "wander": 0.3,
+    "drift": 0,
+    "warp": 0.25,
+    "mirror": "ocho",
+    "memory": 0.75,
+    "ink": 0.2,
+    "pulse": 0.5,
+    "tempo": 2.4,
+    "echo": "no",
+    "contrast": 0.45
+   },
+   "steps": 120,
+   "hash": [
+    "f2bef0c51a8926c5",
+    "f2bef0c51a8926c5"
+   ]
+  },
+  {
+   "family": "ecos",
+   "preset": "tunel",
+   "v": 1,
+   "seed": "ecos-tunel",
+   "res": 72,
+   "params": {
+    "seed": "onda",
+    "amount": 1,
+    "sides": 5,
+    "strobe": 0.7,
+    "zoom": 0.7,
+    "curve": 0.55,
+    "rot": 0.15,
+    "swirl": 0,
+    "wander": 0.4,
+    "drift": 0,
+    "warp": 0.05,
+    "mirror": "no",
+    "memory": 0.9,
+    "ink": 0.12,
+    "pulse": 0.4,
+    "tempo": 1.6,
+    "echo": "no",
+    "contrast": 0.35
+   },
+   "steps": 120,
+   "hash": [
+    "4795f03b0d19f00d",
+    "4795f03b0d19f00d"
+   ]
+  },
+  {
+   "family": "ecos",
+   "preset": "huracan",
+   "v": 1,
+   "seed": "ecos-huracan",
+   "res": 72,
+   "params": {
+    "seed": "linea",
+    "amount": 1,
+    "sides": 3,
+    "strobe": 0.6,
+    "zoom": 0.6,
+    "curve": 0.3,
+    "rot": 0,
+    "swirl": 0.3,
+    "wander": 0.3,
+    "drift": 0,
+    "warp": 0.05,
+    "mirror": "no",
+    "memory": 0.8,
+    "ink": 0.3,
+    "pulse": 0.4,
+    "tempo": 2,
+    "echo": "no",
+    "contrast": 0.35
+   },
+   "steps": 120,
+   "hash": [
+    "6e288b42544fba7f",
+    "6e288b42544fba7f"
+   ]
+  },
+  {
+   "family": "ecos",
+   "preset": "marea",
+   "v": 1,
+   "seed": "ecos-marea",
+   "res": 72,
+   "params": {
+    "seed": "trama",
+    "amount": 1,
+    "sides": 5,
+    "strobe": 0,
+    "zoom": 0.05,
+    "curve": 0.2,
+    "rot": 0.02,
+    "swirl": 0,
+    "wander": 0.6,
+    "drift": 0.5,
+    "warp": 0.6,
+    "mirror": "no",
+    "memory": 0.94,
+    "ink": 0.15,
+    "pulse": 0.2,
+    "tempo": 4,
+    "echo": "no",
+    "contrast": 0.4
+   },
+   "steps": 120,
+   "hash": [
+    "45985ed0ff592fc6",
+    "45985ed0ff592fc6"
+   ]
+  },
+  {
+   "family": "membrana",
+   "preset": "jabon",
+   "v": 1,
+   "seed": "membrana-jabon",
+   "res": null,
+   "params": {
+    "form": "lamina",
+    "thick": 0.55,
+    "flow": 0.75,
+    "waves": 0.3,
+    "speed": 0.28,
+    "shine": 0.45,
+    "scale": 1,
+    "tint": "pelicula"
+   },
+   "steps": 60,
+   "hash": [
+    "9c5fa901cc0ec403",
+    "6cf1ea36dd4c736f"
+   ]
+  },
+  {
+   "family": "membrana",
+   "preset": "pompa",
+   "v": 1,
+   "seed": "membrana-pompa",
+   "res": null,
+   "params": {
+    "form": "burbuja",
+    "thick": 0.62,
+    "flow": 0.85,
+    "waves": 0.25,
+    "speed": 0.3,
+    "shine": 0.8,
+    "scale": 1,
+    "tint": "pelicula"
+   },
+   "steps": 60,
+   "hash": [
+    "0bf9b6a896db6bbf",
+    "45278b3eb809431e"
+   ]
+  },
+  {
+   "family": "membrana",
+   "preset": "aceite",
+   "v": 1,
+   "seed": "membrana-aceite",
+   "res": null,
+   "params": {
+    "form": "mancha",
+    "thick": 0.32,
+    "flow": 0.7,
+    "waves": 0.55,
+    "speed": 0.22,
+    "shine": 0.35,
+    "scale": 1.1,
+    "tint": "pelicula"
+   },
+   "steps": 60,
+   "hash": [
+    "b38791712568e501",
+    "cc4f27e2c3a436ac"
+   ]
+  },
+  {
+   "family": "membrana",
+   "preset": "pliegues",
+   "v": 1,
+   "seed": "membrana-pliegues",
+   "res": null,
+   "params": {
+    "form": "lamina",
+    "thick": 0.3,
+    "flow": 0.35,
+    "waves": 1,
+    "speed": 0.2,
+    "shine": 0.75,
+    "scale": 0.75,
+    "tint": "pelicula"
+   },
+   "steps": 60,
+   "hash": [
+    "851b354232a68239",
+    "7ddbbc488971d94a"
+   ]
+  },
+  {
+   "family": "membrana",
+   "preset": "nacar",
+   "v": 1,
+   "seed": "membrana-nacar",
+   "res": null,
+   "params": {
+    "form": "lamina",
+    "thick": 0.95,
+    "flow": 0.9,
+    "waves": 0.45,
+    "speed": 0.24,
+    "shine": 0.4,
+    "scale": 1.5,
+    "tint": "paleta"
+   },
+   "steps": 60,
+   "hash": [
+    "51c8a03535c7c22a",
+    "766e3f1f21c9b98e"
+   ]
+  },
+  {
+   "family": "paneles",
+   "preset": "vidrieras",
+   "v": 1,
+   "seed": "paneles-vidrieras",
+   "res": null,
+   "params": {
+    "count": 7,
+    "turns": 2,
+    "opacity": 0.4,
+    "length": 1.6,
+    "sets": "dos",
+    "tilt": 0.9,
+    "edges": 0.7,
+    "width": 1.1
+   },
+   "steps": 60,
+   "hash": [
+    "72dc9bcd666ebf86",
+    "063399ea93d6ca0c"
+   ]
+  },
+  {
+   "family": "paneles",
+   "preset": "abanico",
+   "v": 1,
+   "seed": "paneles-abanico",
+   "res": null,
+   "params": {
+    "count": 10,
+    "turns": 1,
+    "opacity": 0.4,
+    "length": 1.4,
+    "sets": "uno",
+    "tilt": 0.35,
+    "edges": 0.9,
+    "width": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "637103214f121753",
+    "849c05881ccc5408"
+   ]
+  },
+  {
+   "family": "paneles",
+   "preset": "noria",
+   "v": 1,
+   "seed": "paneles-noria",
+   "res": null,
+   "params": {
+    "count": 8,
+    "turns": 3,
+    "opacity": 0.6,
+    "length": 0.7,
+    "sets": "dos",
+    "tilt": -0.25,
+    "edges": 0.5,
+    "width": 1.4
+   },
+   "steps": 60,
+   "hash": [
+    "77dc8a36ecb8600e",
+    "75f1261060305118"
+   ]
+  },
+  {
+   "family": "paneles",
+   "preset": "puerta",
+   "v": 1,
+   "seed": "paneles-puerta",
+   "res": null,
+   "params": {
+    "count": 3,
+    "turns": 3,
+    "opacity": 0.55,
+    "length": 1.25,
+    "sets": "dos",
+    "tilt": 1,
+    "edges": 0.75,
+    "width": 0.75
+   },
+   "steps": 60,
+   "hash": [
+    "be457e7600606ed9",
+    "30fdd13ec5c9b332"
+   ]
+  },
+  {
+   "family": "cromado",
+   "preset": "gota",
+   "v": 1,
+   "seed": "cromado-gota",
+   "res": null,
+   "params": {
+    "mask": "gota",
+    "rep": 5.5,
+    "distortion": 0.3,
+    "contour": 0.8,
+    "angle": 62,
+    "dispersion": 0.35,
+    "speed": 0.3,
+    "size": 0.36
+   },
+   "steps": 60,
+   "hash": [
+    "d15da0ed0f9a885a",
+    "f0a929472295f1bd"
+   ]
+  },
+  {
+   "family": "cromado",
+   "preset": "lamina",
+   "v": 1,
+   "seed": "cromado-lamina",
+   "res": null,
+   "params": {
+    "mask": "campo",
+    "rep": 3,
+    "distortion": 0.55,
+    "contour": 0.85,
+    "angle": 28,
+    "dispersion": 0.25,
+    "speed": 0.25,
+    "size": 0.42
+   },
+   "steps": 60,
+   "hash": [
+    "48b95c917db62d1a",
+    "2f72a0f1ea170a35"
+   ]
+  },
+  {
+   "family": "cromado",
+   "preset": "mercurio",
+   "v": 1,
+   "seed": "cromado-mercurio",
+   "res": null,
+   "params": {
+    "mask": "metabolas",
+    "rep": 4.5,
+    "distortion": 0.25,
+    "contour": 0.75,
+    "angle": 100,
+    "dispersion": 0.5,
+    "speed": 0.35,
+    "size": 0.34
+   },
+   "steps": 60,
+   "hash": [
+    "d15ef7012e837ebd",
+    "2f748b4ff0be79e5"
+   ]
+  },
+  {
+   "family": "cromado",
+   "preset": "anillo",
+   "v": 1,
+   "seed": "cromado-anillo",
+   "res": null,
+   "params": {
+    "mask": "anillo",
+    "rep": 4.5,
+    "distortion": 0.2,
+    "contour": 0.9,
+    "angle": 140,
+    "dispersion": 0.12,
+    "speed": 0.22,
+    "size": 0.4
+   },
+   "steps": 60,
+   "hash": [
+    "cecc6dab904e57ea",
+    "96d91d66dfbdc755"
+   ]
+  },
+  {
+   "family": "cromado",
+   "preset": "prisma",
+   "v": 1,
+   "seed": "cromado-prisma",
+   "res": null,
+   "params": {
+    "mask": "rombo",
+    "rep": 3,
+    "distortion": 0.4,
+    "contour": 0.55,
+    "angle": 90,
+    "dispersion": 1,
+    "speed": 0.28,
+    "size": 0.42
+   },
+   "steps": 60,
+   "hash": [
+    "310b98870a2c3558",
+    "24d48d64dc136328"
+   ]
+  },
+  {
+   "family": "desgarro",
+   "preset": "grietas",
+   "v": 1,
+   "seed": "desgarro-grietas",
+   "res": null,
+   "params": {
+    "kind": "desgarro",
+    "behind": "luz",
+    "tears": 3,
+    "cycle": 10,
+    "calm": 0,
+    "width": 0.55,
+    "glow": 0.75,
+    "fibres": 0.65
+   },
+   "steps": 60,
+   "hash": [
+    "9f9d3fc97f9d788f",
+    "fb4a915d6d587e14"
+   ]
+  },
+  {
+   "family": "desgarro",
+   "preset": "rasgado",
+   "v": 1,
+   "seed": "desgarro-rasgado",
+   "res": null,
+   "params": {
+    "kind": "desgarro",
+    "behind": "luz",
+    "tears": 1,
+    "cycle": 8,
+    "calm": 0.6,
+    "width": 0.8,
+    "glow": 0.8,
+    "fibres": 0.85
+   },
+   "steps": 60,
+   "hash": [
+    "8463ddaee5b82610",
+    "0fb4ddcd584260c0"
+   ]
+  },
+  {
+   "family": "desgarro",
+   "preset": "quemado",
+   "v": 1,
+   "seed": "desgarro-quemado",
+   "res": null,
+   "params": {
+    "kind": "quemado",
+    "behind": "luz",
+    "tears": 2,
+    "cycle": 11,
+    "calm": 0.15,
+    "width": 0.5,
+    "glow": 0.85,
+    "fibres": 0.7
+   },
+   "steps": 60,
+   "hash": [
+    "6bf238db96e3206e",
+    "b9daa4e24f2a8876"
+   ]
+  },
+  {
+   "family": "desgarro",
+   "preset": "trama",
+   "v": 1,
+   "seed": "desgarro-trama",
+   "res": null,
+   "params": {
+    "kind": "desgarro",
+    "behind": "trama",
+    "tears": 2,
+    "cycle": 9,
+    "calm": 0.05,
+    "width": 0.9,
+    "glow": 0.45,
+    "fibres": 0.5
+   },
+   "steps": 60,
+   "hash": [
+    "77a3060c9981297b",
+    "c2ca4ac2b1bf93ba"
+   ]
+  },
+  {
+   "family": "desgarro",
+   "preset": "velo",
+   "v": 1,
+   "seed": "desgarro-velo",
+   "res": null,
+   "params": {
+    "kind": "quemado",
+    "behind": "corrientes",
+    "tears": 3,
+    "cycle": 14,
+    "calm": 0,
+    "width": 0.5,
+    "glow": 0.5,
+    "fibres": 0.35
+   },
+   "steps": 60,
+   "hash": [
+    "4964fb46b31c73e0",
+    "15f1711ae1842aff"
+   ]
+  }
+ ]
+}

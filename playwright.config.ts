@@ -26,6 +26,13 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 860 } }, testIgnore: /mobile\.spec/ },
     { name: 'mobile', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec/ },
+    // Other engines (Playwright's builds: WebKit is not Safari). Not in CI: run them where they are installed, e.g.
+    //   npx playwright install firefox webkit && npx playwright test --project=firefox --project=webkit <specs>
+    // (the Chromium flags above do not apply to them). Firefox headless has no GL on some Linux hosts: with
+    // PW_FIREFOX_HEADED=1 it runs headed (under Xvfb), where Mesa gives it WebGL 2.
+    { name: 'firefox', use: { ...devices['Desktop Firefox'], viewport: { width: 1366, height: 860 }, launchOptions: { args: [], headless: process.env.PW_FIREFOX_HEADED ? false : undefined } }, testIgnore: /mobile\.spec/ },
+    { name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1366, height: 860 }, launchOptions: { args: [] } }, testIgnore: /mobile\.spec/ },
+    { name: 'mobile-webkit', use: { ...devices['iPhone 13'], launchOptions: { args: [] } }, testMatch: /mobile\.spec/ },
   ],
   webServer: remote ? undefined : {
     command: `npm run build && npx vite preview --host 127.0.0.1 --port ${port} --strictPort`,

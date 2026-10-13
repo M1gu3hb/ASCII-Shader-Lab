@@ -1,4 +1,5 @@
 import type { Recipe } from '../../engine/recipe';
+import { isCalligraphy } from '../../engine/pointer';
 import { useCaps } from '../caps';
 import { getEngine } from '../engineBridge';
 import { canvasUrl, snapshotCanvas, withOffscreen } from '../offscreen';
@@ -157,6 +158,9 @@ async function render(r: Recipe, zoom: number): Promise<string | null> {
   const c = await withOffscreen({ cssW: CW, cssH: CH, pixelRatio: pr }, r, async eng => {
     eng.set(r);
     await eng.ready();
+    // a piece whose ghost writes (the calligraphic brush with «Cursor automático»): its last two seconds play,
+    // so the card shows the strokes written by then instead of a blank sheet
+    if (r.interact.auto && isCalligraphy(r.interact)) for (let k = 60; k > 0; k--) eng.renderAt(T - k / 30, T - k / 30);
     eng.renderAt(T, T);
     const W = eng.canvas.width, H = eng.canvas.height, sw = W * zoom, sh = H * zoom;
     return snapshotCanvas(eng, (W - sw) / 2, (H - sh) / 2, sw, sh, PREVIEW_W, PREVIEW_H);

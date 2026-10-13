@@ -19,9 +19,13 @@ it('rejects an oversized but otherwise valid link (a regression for removing MAX
 });
 
 it('refuses future recipes, envelopes and sessions instead of silently dropping unknown fields', async () => {
-  expect(() => normalizeRecipe({ v: 3, layers: [], future: true })).toThrow(/versión más nueva/);
-  expect(parseRecipe(JSON.stringify({ v: 3, glyph: {} }))).toBeNull();
-  expect(parseRecipe(JSON.stringify({ glyphos: 'recipe', version: 3, recipe: { v: 2 } }))).toBeNull();
+  // (v3 is current since the visual families: the first future format is v4)
+  expect(() => normalizeRecipe({ v: 4, layers: [], future: true })).toThrow(/versión más nueva/);
+  expect(parseRecipe(JSON.stringify({ v: 4, glyph: {} }))).toBeNull();
+  expect(parseRecipe(JSON.stringify({ glyphos: 'recipe', version: 4, recipe: { v: 2 } }))).toBeNull();
+  // a v3 recipe naming a pattern this studio lacks comes from a newer GLYPHOS: refused, never drawn as Nubes
+  expect(() => normalizeRecipe({ v: 3, layers: [{ pattern: 'familia_futura' }] })).toThrow(/versión más nueva/);
+  expect(parseRecipe(JSON.stringify({ v: 3, layers: [{ pattern: 'familia_futura' }] }))).toBeNull();
   const files = await unzip(await zip([{ name: 'sesion.json', data: JSON.stringify({ glyphos: 'session', version: 2, entries: [] }) }]));
   await expect(readSession(files)).rejects.toThrow(/versión más nueva/);
 });

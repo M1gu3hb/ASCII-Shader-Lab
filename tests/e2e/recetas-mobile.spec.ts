@@ -1,3 +1,5 @@
+// the catalogue lists the families' presets once their specs are here (the browser loads them when it opens)
+import '../../src/families/all';
 import { expect, test, type Page } from '@playwright/test';
 import { itemsOf } from '../../src/studio/recipes/catalog';
 import { clipped } from './clip';

@@ -1,13 +1,12 @@
 import { useCallback, useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { XFORMS, xformById } from '../../engine/catalog';
 import { XFORM_MAX, type Xform, type XformKind } from '../../engine/recipe';
-import { randomXforms } from '../../random/generator';
 import type { SpaceId } from '../../random/spaces';
 import { F, Note, Slider, Sub, useField } from '../controls';
 import { CompareStrip } from '../guide/CompareStrip';
 import { IDice, IDown, IEye, IEyeOff, ITrash, IUp } from '../icons';
 import { useMedia } from '../media';
-import { edit, useRecipe } from '../store';
+import { edit, loadGenerator, useRecipe } from '../store';
 import { HelpMore, HelpToggle, HintText, useHelp } from './Help';
 import { Picker } from './Picker';
 import { PiecePreview, XformThumb, closeThumbSession, openThumbSession, withXforms, xformOptions } from './options';
@@ -46,10 +45,11 @@ export function XformTab({ space }: { space: SpaceId }) {
   const addOpts = useMemo(() => xformOptions(used), [used.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const full = list.length >= XFORM_MAX;
   const add = (kind: XformKind) => edit(r => setList(r, [...(r.media.xform ?? []), fresh(kind)]), 'xf-add' + Date.now());
-  const surprise = () => edit(r => {
+  // the dice load on first use (store.ts loadGenerator)
+  const surprise = () => void loadGenerator().then(({ randomXforms }) => edit(r => {
     const pool = isText ? (['semitono', 'contorno', 'caleido', 'desplazar', 'arrastre', 'ondular', 'bandas', 'canales', 'estela'] as XformKind[]) : undefined;
     setList(r, randomXforms(`${Date.now()}`, r.meta.arch, moving, pool));
-  }, 'xf-dice' + Date.now());
+  }, 'xf-dice' + Date.now()), () => undefined);
   // a card that changes kind is made again, and one removed goes away, with the control that had the
   // keyboard: once the list is drawn, it goes to the card now at that place (or the last one), else to «Añadir»
   const addBox = useRef<HTMLDivElement>(null);

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QA · grabado láser</title>
+<style>
+body{margin:0;background:#0c0b0a;color:#ede6da;font:12px/1.4 system-ui}
+header{padding:10px 12px;border-bottom:1px solid #2a2724;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+header b{font-size:14px}
+.note{margin:6px 12px;color:#a39c90;max-width:900px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile,520px),1fr));gap:10px;padding:6px 12px}
+figure{margin:0;background:#161412;padding:6px;border-radius:6px}
+.row{display:grid;grid-template-columns:repeat(var(--n,2),1fr);gap:4px}
+.row canvas{width:100%;display:block;background:#000}
+figcaption{padding:4px 0 0;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+figcaption code{color:#ffb08a}
+.bad{color:#ff8a65}
+</style></head>
+<body>
+<header><b>Grabado láser</b><span id="status">cargando…</span></header>
+<p class="note">Las recetas del grabado como las da la biblioteca: sus presets solos, en Texto con distintas palabras (la receta de la biblioteca hecha sobre una pieza con ese texto, como al elegirla en el estudio) y en Terminal; WebGL 2 y el básico al mismo tamaño y momento. <code>?t=8</code>, <code>?motor=basico|webgl</code>, <code>?keys=a,b</code>, <code>?big=1</code>.</p>
+<main id="main"></main>
+<script type="module" src="./grabado.ts"></script>
+</body></html>

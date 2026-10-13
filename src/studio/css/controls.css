@@ -42,7 +42,8 @@
 }
 .srow-btn:hover::before { border-color: var(--bone); }
 @media (pointer: coarse) {
-  .srow-list { scroll-snap-type: x proximity; scroll-padding-inline: var(--cx-fade); }
+  /* an item scrolled to an edge stops clear of the 44 px buttons (and of the right fade, where «más» sits) */
+  .srow-list { scroll-snap-type: x proximity; scroll-padding-inline: 48px calc(var(--cx-fade) + 24px); }
   .srow-list > * { scroll-snap-align: start; }
   /* a whole 44 px target, centred on the row, whatever the row's height */
   .srow-btn { min-width: 44px; top: 50%; bottom: auto; height: 44px; transform: translateY(-50%); }

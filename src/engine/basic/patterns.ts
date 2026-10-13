@@ -24,16 +24,23 @@ import {
   cardumen_luz, constelacion_dinamica, corazon_particulas, enjambre_vivo, estela_cometas, floracion_luz, lluvia_ascendente,
   mariposa_puntos, nieve_orbital, ondas_estelares, orbitas_gemelas, setParticlePX, vortice_polvo,
 } from './particles';
+import { setCurrentPX } from './px';
 
 export type PatternFn = (x: number, y: number, t: number, a: number, b: number) => number;
 export interface BasicPattern {
   f: PatternFn;
   prep?: (t: number, a: number, b: number) => void;
+  /** Colour families: the cell's own colour (0..1 rgb) into out[0..2], at the same point and time as f. */
+  col?: (x: number, y: number, t: number, out: Float64Array) => void;
+  /** Families that read the layers below or the piece's source (families/context.ts): the field pass sets FAM for them. */
+  reads?: boolean;
+  /** A colour family that reads the source: it gives a picture's or text's cells their colour (SRCC in the shader). */
+  srcColour?: boolean;
 }
 
 let PX = 0.02;
 /** Size of one cell in pattern units for the layer being evaluated (GLSL: PX = uCellP * scale). */
-export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); setNextPX(v); setParticlePX(v); }
+export function setPX(v: number) { PX = Math.fround(v); setExtraPX(v); setNextPX(v); setParticlePX(v); setCurrentPX(PX); }
 
 const len = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const f32 = Math.fround;

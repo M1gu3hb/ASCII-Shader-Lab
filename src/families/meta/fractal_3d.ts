@@ -1,0 +1,50 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'fractal_3d',
+  name: 'Fractales 3D',
+  aka: ['Mandelbulb', 'Mandelbox', 'Julia cuaterniónica', 'fractal 3D', 'ray marching'],
+  group: 'ciencia',
+  kind: 'analytic',
+  version: 1,
+  extends: 'mandelbrot',
+  params: [
+    { key: 'form', label: 'Forma', type: 'choice', def: 'bulb', options: [
+      { id: 'bulb', label: 'Mandelbulb' }, { id: 'box', label: 'Mandelbox' }, { id: 'julia', label: 'Julia cuaterniónica' }, { id: 'liso', label: 'Mandelbulb liso' },
+      { id: 'cajalisa', label: 'Mandelbox liso' },
+    ] },
+    { key: 'power', label: 'Potencia', type: 'number', min: 2, max: 12, def: 8, step: 0.1 },
+    { key: 'iters', label: 'Iteraciones', type: 'int', min: 3, max: 12, def: 7 },
+    { key: 'cut', label: 'Corte', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+    { key: 'orbit', label: 'Giro', type: 'number', min: -1, max: 1, def: 0.2, step: 0.01 },
+    { key: 'dist', label: 'Distancia', type: 'number', min: 1.6, max: 4.5, def: 3, step: 0.01 },
+    { key: 'breathe', label: 'Respiración', type: 'number', min: 0, max: 1, def: 0.15, step: 0.01 },
+    { key: 'light', label: 'Luz', type: 'number', min: 0, max: 1, def: 0.6, step: 0.01 },
+  ],
+  presets: [
+    { id: 'bulbo', name: 'Bulbo', aka: ['Bulbo clásico', 'Mandelbulb'], uses: ['arte/figuras', 'arte/curvas'],
+      params: { form: 'liso', power: 8, iters: 6, cut: 0, orbit: 0.2, dist: 3, breathe: 0.1, light: 0.6 },
+      look: { stops: ['#0b0712', '#7a5a6a', '#f4d0a8'], bg: '#050309', charset: ' .:-=+*#%@' } },
+    { id: 'corte', name: 'Bulbo abierto', aka: ['Corte interior', 'Mandelbulb cortado'], uses: ['arte/figuras', 'arte/curvas'], period: 50,
+      params: { form: 'liso', power: 6, iters: 6, cut: 0.55, orbit: 0.12, dist: 2.7, breathe: 0, light: 0.8 },
+      look: { stops: ['#04100f', '#3a7a6a', '#9ff2de'], bg: '#020807', charset: ' .·:;oO@' } },
+    { id: 'caja', name: 'Caja plegada', aka: ['Mandelbox'], uses: ['arte/figuras', 'arte/curvas', 'terminal/figuras'], period: 10,
+      params: { form: 'cajalisa', power: 6, iters: 9, cut: 0, orbit: 0.15, dist: 3, breathe: 0, light: 0.55 },
+      look: { stops: ['#0e0a06', '#8a6a2a', '#ffd27a'], bg: '#070503', charset: ' .-=+#' } },
+    { id: 'concha', name: 'Concha', aka: ['Julia cuaterniónica', 'conjunto de Julia 3D'], uses: ['arte/figuras', 'arte/curvas', 'terminal/figuras'],
+      params: { form: 'julia', power: 7, iters: 9, cut: 0, orbit: 0.15, dist: 2.6, breathe: 0.6, light: 0.5 },
+      look: { stops: ['#080610', '#5a4a7a', '#efe0ff'], bg: '#040308', charset: ' .:-=+*#%@' } },
+    { id: 'partida', name: 'Concha partida', aka: ['Julia cuaterniónica cortada'], uses: ['arte/figuras', 'arte/curvas'],
+      params: { form: 'julia', power: 3, iters: 10, cut: 0.42, orbit: -0.1, dist: 2.3, breathe: 0.4, light: 0.7 },
+      look: { stops: ['#0c0604', '#8a4a2a', '#ffd8b8'], bg: '#060302', charset: ' .:;+*#@' } },
+  ],
+  // without «Respiración» only the camera moves and comes back (the Mandelbox, every quarter turn); breathing,
+  // the shape and the camera never meet again
+  caps: {
+    loop: true, time: { param: 'breathe', values: { '0': 'bucle' }, else: 'continuo' }, basic: 'reduced',
+    basicNote: 'En el motor básico: 56 pasos de rayo (96 en WebGL); el Mandelbulb y el Mandelbox sin «liso», además, sin sombra suave.',
+    checkpoint: false,
+  },
+  budget: { },
+  figure: true,
+};

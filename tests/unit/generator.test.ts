@@ -1,3 +1,4 @@
+import { familyById } from '../../src/families/registry';
 import { describe, expect, it } from 'vitest';
 import { defaultRecipe, normalizeRecipe, PATTERN_IDS, PATTERN_GLSL, PATTERNS, CHARSETS } from '../../src/engine';
 import { generate, fingerprint, mutate, roll, SPACES, ARCHETYPES, LOCK_GROUPS } from '../../src/random';
@@ -25,7 +26,8 @@ describe('generator', () => {
       const n = normalizeRecipe(r, PATTERN_IDS);
       expect(n.layers).toEqual(r.layers);
       expect(n.color).toEqual(r.color);
-      for (const l of r.layers) expect(PATTERN_GLSL[l.pattern]).toBeTruthy();
+      // every layer is drawable: a pattern of the library, or (version 6) a visual family
+      for (const l of r.layers) expect(PATTERN_GLSL[l.pattern] || familyById(l.pattern)).toBeTruthy();
       expect(r.layers.length).toBeGreaterThanOrEqual(1);
       expect(r.layers.length).toBeLessThanOrEqual(4);
     }

@@ -1,0 +1,56 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'cromado',
+  name: 'Cromado en tramas',
+  group: 'materia',
+  kind: 'analytic',
+  // 2: the mask can be the piece's picture or letters
+  version: 2,
+  color: true,
+  reads: ['source'],
+  readsSince: 2,
+  aka: ['bandas cromadas', 'reflejo metálico', 'campo de borde', 'dispersión cromática'],
+  params: [
+    { key: 'mask', label: 'Forma', type: 'choice', def: 'gota', options: [
+      { id: 'campo', label: 'Sin forma (todo el lienzo)' }, { id: 'circulo', label: 'Círculo' }, { id: 'anillo', label: 'Anillo' },
+      { id: 'gota', label: 'Gota' }, { id: 'rombo', label: 'Rombo' }, { id: 'metabolas', label: 'Metabolas' },
+      { id: 'fuente', label: 'Tu foto o tu texto' },
+    ] },
+    { key: 'rep', label: 'Bandas', type: 'number', min: 1, max: 10, def: 4, step: 0.1 },
+    { key: 'distortion', label: 'Deformación', type: 'number', min: 0, max: 1, def: 0.35, step: 0.01 },
+    { key: 'contour', label: 'Contorno', type: 'number', min: 0, max: 1, def: 0.6, step: 0.01 },
+    { key: 'angle', label: 'Ángulo', type: 'number', min: 0, max: 180, def: 60, step: 1, unit: '°' },
+    { key: 'dispersion', label: 'Dispersión', type: 'number', min: 0, max: 1, def: 0.35, step: 0.01 },
+    { key: 'speed', label: 'Velocidad', type: 'number', min: 0.05, max: 1, def: 0.3, step: 0.01 },
+    { key: 'size', label: 'Tamaño', type: 'number', min: 0.15, max: 0.48, def: 0.36, step: 0.01 },
+  ],
+  presets: [
+    { id: 'gota', name: 'Gota de cromo', aka: ['gota cromada'], uses: ['arte/optica', 'arte/figuras'],
+      params: { mask: 'gota', rep: 5.5, distortion: 0.3, contour: 0.8, angle: 62, dispersion: 0.35, speed: 0.3, size: 0.36 },
+      look: { stops: ['#04050a', '#1d2433', '#6c7a93', '#cfd8e6', '#ffffff'], bg: '#030407', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.1 } },
+    { id: 'lamina', name: 'Lámina de cromo', aka: ['cromo líquido', 'campo de bandas'], uses: ['fondos/materia'],
+      params: { mask: 'campo', rep: 3, distortion: 0.55, contour: 0.85, angle: 28, dispersion: 0.25, speed: 0.25, size: 0.42 },
+      look: { stops: ['#05070b', '#1b2a3a', '#58708c', '#b9c9dc', '#f4f8ff'], bg: '#04060a', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.1 } },
+    { id: 'mercurio', name: 'Mercurio vivo', aka: ['metabolas cromadas'], uses: ['arte/organicas', 'arte/optica'],
+      params: { mask: 'metabolas', rep: 4.5, distortion: 0.25, contour: 0.75, angle: 100, dispersion: 0.5, speed: 0.35, size: 0.34 },
+      look: { stops: ['#040406', '#23252e', '#7d8494', '#dfe3ec', '#ffffff'], bg: '#030304', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.12 } },
+    { id: 'anillo', name: 'Anillo de oro', aka: ['oro pulido'], uses: ['arte/geometricas', 'arte/optica'],
+      params: { mask: 'anillo', rep: 4.5, distortion: 0.2, contour: 0.9, angle: 140, dispersion: 0.12, speed: 0.22, size: 0.4 },
+      look: { stops: ['#090502', '#3d2207', '#a8701c', '#f0cd72', '#fff7dc'], bg: '#060301', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+    { id: 'prisma', name: 'Rombo prismático', aka: ['aberración cromática'], uses: ['arte/geometricas', 'arte/optica'],
+      params: { mask: 'rombo', rep: 3, distortion: 0.4, contour: 0.55, angle: 90, dispersion: 1, speed: 0.28, size: 0.42 },
+      look: { stops: ['#050507', '#2b2b33', '#8a8a99', '#ededf5', '#ffffff'], bg: '#040405', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.35 } },
+    // the piece itself as the shape (version 2)
+    { id: 'letras', name: 'Tus letras de cromo', aka: ['texto cromado', 'letras metálicas'], uses: ['tipo/texturas'],
+      params: { mask: 'fuente', rep: 9, distortion: 0.2, contour: 1, angle: 70, dispersion: 0.45, speed: 0.3, size: 0.15 },
+      look: { stops: ['#04050a', '#1d2433', '#6c7a93', '#cfd8e6', '#ffffff'], bg: '#030407', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+    { id: 'foto', name: 'Tu foto en cromo', aka: ['foto cromada', 'relieve metálico de la imagen'], uses: ['media/efectos'],
+      params: { mask: 'fuente', rep: 4, distortion: 0.15, contour: 1, angle: 40, dispersion: 0.06, speed: 0.25, size: 0.2 },
+      look: { stops: ['#090502', '#3d2207', '#a8701c', '#f0cd72', '#fff7dc'], bg: '#060301', charset: ' .:-=+*#%@', colorMode: 'source', vivid: 0.15 } },
+  ],
+  caps: { loop: true, time: 'continuo', basic: 'full', checkpoint: false },
+  budget: {},
+  // a drop, a ring or a rhombus is a figure; «Sin forma» covers the whole canvas, and so does the piece itself
+  figure: p => p.mask !== 'campo' && p.mask !== 'fuente',
+};

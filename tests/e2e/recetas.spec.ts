@@ -1,6 +1,8 @@
+// the catalogue lists the families' presets once their specs are here (the browser loads them when it opens)
+import '../../src/families/all';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { itemsOf } from '../../src/studio/recipes/catalog';
+import { CATEGORIES, itemsOf } from '../../src/studio/recipes/catalog';
 import { openStudio } from './helpers';
 import { chooseRecipe, closeRecipes, openRecipes, recipeBrowser, recipeCard, recipeLine, searchRecipes } from './recipes';
 
@@ -68,7 +70,7 @@ test('secciones, filtros y búsqueda sin acentos; lo de otro espacio se abre en 
   await filters.getByRole('radio', { name: /^Figuras 3D/ }).click();
   const d3 = itemsOf('arte').filter(i => i.cats.includes('figuras')).length;
   await expect(box.locator('.rx-card')).toHaveCount(d3);
-  await expect(box.getByText('Objetos que giran, dibujados con caracteres.')).toBeVisible();
+  await expect(box.getByText(CATEGORIES.figuras.hint)).toBeVisible();
   await filters.getByRole('radio', { name: /^Expresivas/ }).click();
   await expect(box.locator('.rx-card')).toHaveCount(itemsOf('arte').filter(i => i.cats.includes('expresivas')).length);
   await filters.getByRole('radio', { name: /^Todas/ }).click();

@@ -86,6 +86,15 @@ export const HELP: Record<string, HelpText> = {
   'fx.flicker': { hint: 'Pequeñas variaciones de brillo, como una pantalla vieja.' },
   'fx.grain': { hint: 'Grano de película por encima de todo.' },
   'fx.grid': { hint: 'Dibuja las líneas de la rejilla de celdas.' },
+  'fxKind.bloom': { hint: 'La forma del halo: redondo, o anamórfico como el de una lente de cine.', more: 'Anamórfico: cada luz deja una estela horizontal larga, un anillo de desenfoque alrededor y el rojo y el azul separados a los lados. Necesita «Halo de luz» por encima de 0.' },
+  'fxKind.grain': { hint: 'El grano: de película (se mueve) o una hoja de papel quieta.', more: 'Papel: grano fino, fibras y, si eliges, pliegues que la luz marca con una línea y un lado más claro que el otro. No se mueve: es la hoja. Su intensidad es la de «Grano».' },
+  'fxKind.fold': { hint: 'Cómo se dobló el papel.' },
+  'optics.ior': { hint: 'Cuánto dobla el vidrio la luz: 1,33 el agua, 1,5 el vidrio, 2,4 el diamante.', more: 'Con más índice lo de detrás se ve más pequeño e invertido; con poco, casi como a través de una lupa.' },
+  'optics.thick': { hint: 'Del todo (una bola o una gema entera) a una lente fina.', more: 'Una lente fina dobla menos la luz: lo de detrás se ve derecho y algo más grande. El tinte también es más claro.' },
+  'optics.disp': { hint: 'Cada color se dobla distinto: un arcoíris en los bordes.', more: 'Con una foto o un color propio, el rojo y el azul vienen de sitios distintos. Con un patrón o un texto de un solo tono, los bordes que cruzan el vidrio se tiñen de rojo a un lado y de azul al otro.' },
+  'optics.tint': { hint: 'El color del vidrio: más intenso donde es más grueso.' },
+  'interact.stroke': { hint: 'Un pincel redondo, o uno de tinta caligráfica.', more: 'Caligráfico: el trazo es ancho si va despacio y fino (y seco) si va rápido, la tinta se corre por las fibras del papel y tarda más en irse. Con el cursor automático escribe trazos y levanta el pincel entre ellos.' },
+  'interact.bleed': { hint: 'Cuánto se corre la tinta por el papel alrededor del trazo.' },
 
   /* source */
   'source': { hint: 'Qué se convierte en caracteres.' },

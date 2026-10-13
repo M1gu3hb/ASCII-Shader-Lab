@@ -165,6 +165,36 @@ firma HTTPS con su propia CA); el WebKit de aquí no tiene codificadores de vide
 
 Estas cuatro ejecuciones se hicieron sobre la versión final, con todo lo de esta pasada ya fusionado. Con la misma versión pasan las 342 pruebas unitarias y las 188 e2e (escritorio y teléfono emulado): en la ejecución completa pasaron 187; la que falló medía la tira de miniaturas desde el elemento equivocado tras un cambio de marcado, se corrigió la prueba y se repitió (10 de 10).
 
+## Familias visuales y juegos de glifos (9 de octubre de 2026)
+
+Sólo en **Chromium 141 de Playwright con WebGL 2 por software (SwiftShader)**: no se probó en Firefox, WebKit, Chrome
+estable, teléfonos reales ni con una GPU real. Detalle en [cambios/FAMILIAS-Y-GLIFOS.md](cambios/FAMILIAS-Y-GLIFOS.md).
+
+| Qué | Prueba automática | Abrí el resultado |
+|---|---|---|
+| 23 familias × sus 86 presets, WebGL 2 frente al motor básico | sí (`scripts/families-qa.mjs --compare`) | sí: hoja de capturas mirada a ojo; raster r = 1,0000 y 100 % de glifos; analíticas r ≥ 0,95 |
+| Una receta de cada familia desde la biblioteca, en los dos motores | sí (`tests/e2e/familias.spec.ts`) | — |
+| Simulación: pausar, avanzar, reiniciar, PNG, guardar y recargar | sí (`tests/e2e/familias.spec.ts`) | sí: PNG |
+| Juego de glifos: crear, OTF, usar en una familia, guardar, recargar, SVG | sí (`tests/e2e/glifos.spec.ts`) | sí: la OTF se cargó con `FontFace` y dibujó; el SVG lleva los contornos del juego |
+| Enlace con un juego que el otro navegador no tiene | sí (visor y laboratorio avisan y usan la tipografía) | — |
+
+Los teléfonos, Safari y las GPU reales siguen en la lista de abajo: nada de esta tabla dice que una simulación vaya fluida
+en un móvil.
+
+## Revisión del PR #10 (12 de octubre de 2026)
+
+Sólo en **Chromium 141 de Playwright con WebGL 2 por software (SwiftShader)**. En esta máquina no hay Firefox ni
+WebKit de Playwright instalados, ni GPU real ni teléfono: nada de esta revisión se probó en ellos. Detalle en
+[cambios/REVISION-PR10.md](cambios/REVISION-PR10.md).
+
+| Qué | Prueba automática | Abrí el resultado |
+|---|---|---|
+| 39 familias × 203 presets, WebGL 2 frente al motor básico | sí (`scripts/families-qa.mjs --compare`, por grupo) | sí: capturas grandes a 2, 20 y 120 s; raster r = 1; analíticas nuevas r ≥ 0,997 en brillo y en color |
+| Un preset de cada familia desde la biblioteca, en el espacio que lo ofrece, en los dos motores | sí (`tests/e2e/familias.spec.ts`) | — |
+| HTML exportado de las 39 familias, con WebGL 2 y sin WebGL | sí (comprobación de la sesión y `familias.spec.ts`) | — |
+| Memoria con una y cuatro capas de simulación durante minutos, dos motores | sí (`tests/e2e/recursos.spec.ts`, prueba dirigida fuera de CI) | — |
+| Primera vista del estudio con ahorro de datos | sí (`tests/e2e/perf.spec.ts`) | — |
+
 ## Lo que falta y por qué
 
 - **Safari de verdad (macOS, iOS).** Aquí sólo hay WebKit 26 de Playwright para Linux (GTK, con GStreamer para el video). Comparte el motor de páginas con Safari, pero no su reproductor de video, sus códecs, su WebGL (Metal) ni su gestión de permisos. Nada de esta tabla dice «funciona en Safari».

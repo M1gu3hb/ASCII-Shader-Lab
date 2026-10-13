@@ -254,6 +254,40 @@ Pruebas de «antes y después» con el código original (commit `0505932`) frent
 - Imagen o video de fondo en el código: mismo dominio o CORS.
 - Los scripts de terminal no redimensionan la pieza: si la terminal es más pequeña, recortan.
 
+## Familias visuales y juegos de glifos
+
+- **Familias con memoria** (simulaciones y geometrías): la imagen exporta el estado acordado (una copia del escenario); el
+  video y el GIF empiezan desde el estado actual o desde la semilla con su calentamiento definido y **no forman un bucle
+  perfecto** (el fundido de bucle no se aplica a ellas). El código exportado empieza desde la semilla: un estado guardado
+  no viaja en él, y la hoja lo dice. Proyectos y sesiones sí llevan los estados guardados.
+- **Juegos de glifos**: el PNG, el video, el SVG de contornos y el código web dibujan los glifos del juego (el código lo
+  lleva dentro). El **texto, el ANSI, el HTML de texto y los scripts de consola llevan caracteres**, no dibujos: se ven
+  con la tipografía de quien los abre, y la hoja lo explica. Los glifos hechos de píxeles no van como vector en el SVG ni
+  en la OTF (se avisa).
+- **Desde «Crea tus GLYPHOS»**: OTF (CFF, con `.notdef`, espacio, `cmap` 4 y 12 y kerning en tabla `kern`), releída y
+  probada en el navegador antes de ofrecerla; SVG por carácter y hoja; atlas PNG con manifiesto; proyecto
+  `.glyphos-glifos`. La OTF no lleva GPOS/GSUB ni hinting: algunas aplicaciones sólo aplican kerning GPOS.
+
+## Revisión del PR #10 (12 de octubre de 2026)
+
+- **Ninguna exportación sale de un estado a medias** (A-11): imagen, video, GIF, rejilla y fotogramas repiten el cuadro
+  hasta que ninguna simulación queda por detrás de su momento (`renderComplete`, con progreso, cancelación y un límite
+  que dice qué familia no llegó).
+- **Código exportado con familias analíticas**: hasta esta revisión, con WebGL 2 la página exportada las dibujaba
+  vacías (el motor sólo pedía su GLSL al cambiar de receta, y el código exportado monta su pieza al crear el motor).
+  Ahora los dos motores piden las fichas, el código y el GLSL de la pieza con la que se crean. Comprobado con el HTML
+  exportado de las 39 familias (un preset de cada una) en Chromium con WebGL 2 y en Chromium sin WebGL (motor básico):
+  las 78 páginas dibujan y no dan errores; `tests/e2e/familias.spec.ts` lo cubre con una familia de color, una
+  analítica y una raster.
+- **Motor básico del código exportado**: los gemelos de CPU que trabajan por celda (Corrientes de color y las familias
+  nuevas que lo hacen) leían el tamaño de celda de una copia propia de un módulo del motor y dibujaban con otra celda;
+  ahora lo reciben del motor (`prep`).
+- **Familias de color**: el color de cada celda viaja en todos los formatos de imagen, video y código; los formatos de
+  texto llevan caracteres (como siempre).
+- **Vidrio delante** (lluvia, acanalado): es una función del punto y del tiempo, así que la imagen, el video, el GIF y el
+  código lo dibujan igual que el escenario, en los dos motores.
+- Lo que no se pudo verificar sigue arriba: sólo Chromium con WebGL 2 por software.
+
 ## Cómo repetirla
 
 ```bash

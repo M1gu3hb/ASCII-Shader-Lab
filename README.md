@@ -8,7 +8,7 @@ El sitio público es el **laboratorio** (`/studio/`), donde el dado teje piezas 
 
 - Sitio: https://glyphos-ascii.vercel.app (`monotrama.vercel.app` y `ascii-shader-lab.vercel.app` redirigen aquí, con la misma ruta y el mismo enlace).
 - Antes se llamó **Monotrama**: sus recetas (`.monotrama.json`), proyectos (`.monotrama.zip`), sesiones, colecciones, enlaces y el código exportado (`<monotrama-field>`, `Monotrama.mount`) siguen abriéndose y funcionando. Lo nuevo sale como GLYPHOS (`.glyphos.json`, `.glyphos.zip`, `<glyphos-field>`, `Glyphos.mount`). Marca: `public/brand/glyphos/`.
-- Laboratorio: `/studio/` · Foto y video (en revisión): `/studio/foto/` · Guías: `/imagen-a-ascii/`, `/video-a-ascii/`, `/fondos-ascii/`, `/texto-animado-ascii/`, `/arte-ascii-terminal/` · Licencia: `/licencia/`.
+- Laboratorio: `/studio/` · Crea tus GLYPHOS (letras y símbolos propios): `/studio/glifos/` · Foto y video (en revisión): `/studio/foto/` · Guías: `/imagen-a-ascii/`, `/video-a-ascii/`, `/fondos-ascii/`, `/texto-animado-ascii/`, `/arte-ascii-terminal/` · Licencia: `/licencia/`.
 - El prototipo original de un solo archivo se conserva en [`legacy/ASCII Shader Lab.html`](legacy/ASCII%20Shader%20Lab.html); sus ajustes JSON se abren en el estudio.
 
 Desarrollado por [Morphiq](https://morphiq.com.mx).
@@ -76,9 +76,15 @@ Una **receta** (`Recipe`) es JSON plano que describe la pieza entera. `createRen
 - `probeWebGL()` / `explainWebGL()` (`src/engine/support.ts`) dan la causa exacta y los pasos en español. El estudio muestra un aviso «Modo básico» con «¿Por qué?»; la portada y las guías también dibujan sin WebGL 2.
 - El código exportado incluye por defecto el motor básico, sólo con los patrones que usa la pieza (unos 19 KB gzip más): sin WebGL 2, la pieza se sigue moviendo, más despacio. La pestaña Código muestra la elección y el peso; «Póster o color» da la versión ligera, que sin WebGL 2 deja el póster que indiques o el color de fondo.
 
+### Familias visuales y glifos propios
+
+- **23 familias visuales** (`src/families/`): simulaciones con memoria (reacción–difusión, Physarum, Lenia, autómatas, Kuramoto, DLA, crecimiento diferencial, fluido 2D, agua con cáusticas, erosión, bandadas, N-cuerpos, telas XPBD, Chladni, atractores), geometrías (sistemas L, WFC con piezas originales, líneas de campo) y ciencia en 3D trazada rayo a rayo (fractales, teselación hiperbólica, nubes, orbitales, lente gravitacional). Cada una con mecanismo explicado, controles tipados, presets distintos y el mismo modelo en los dos motores. Contrato para escribir una: [`docs/familias/CONTRATO.md`](docs/familias/CONTRATO.md). QA: `/dev/familias.html` y `node scripts/families-qa.mjs --compare`; imágenes en Node: ver la cabecera de `scripts/families-viz.ts`.
+- **Crea tus GLYPHOS** (`/studio/glifos/`, `src/glifos/`): diseña un alfabeto o símbolos ASCII dibujando, importando PNG, SVG o tu fuente, o desde una letra con un asistente geométrico local; úsalos en el laboratorio o exporta OTF, SVG, atlas y proyecto. Los juegos compilados (`src/glyphset/`) los dibujan los dos motores, el SVG y el código exportado.
+- Registro de lo hecho, pruebas y pendientes: [`docs/cambios/FAMILIAS-Y-GLIFOS.md`](docs/cambios/FAMILIAS-Y-GLIFOS.md).
+
 ### Azar con memoria
 
-- **Semillas legibles** (`faro-lunar-417`): misma semilla + mismo espacio + mismo estilo + misma versión del generador → misma pieza. La versión actual es la 5 (`GEN_VERSION`); las versiones 1 a 4 siguen disponibles (`#seed=…&gen=1`), así que los enlaces antiguos dan la misma pieza que antes.
+- **Semillas legibles** (`faro-lunar-417`): misma semilla + mismo espacio + mismo estilo + misma versión del generador → misma pieza. La versión actual es la 6 (`GEN_VERSION`: la 5 más, a veces, una familia visual); las versiones 1 a 5 siguen disponibles (`#seed=…&gen=1`), así que los enlaces antiguos dan la misma pieza que antes.
 - 19 **estilos** (arquetipos), **bloqueos** por grupo, **huellas** y una penalización por lo reciente para no repetirte lo que acabas de ver (sin prometer que una combinación no vuelva nunca). En el espacio de imagen, el dado propone también transformaciones.
 - **Miniaturas**: cada entrada del historial se dibuja desde su propia receta (a t = 4 s) en segundo plano, con una huella de la receta para no mostrar nunca la de otra; mientras tanto se ve «preparando». Aguantan ráfagas de tiradas, recargas, pérdida de WebGL y historiales antiguos sin miniatura.
 - **Transiciones** entre piezas en seis estilos (Tejido, Disolución, Lluvia, Iris, Barrido, Mosaico) y **Calidad de la vista previa** (Auto, Alta, Equilibrada, Ligera; `localStorage['mt.v3.preview']`): el cambio se prepara (shader, fuentes) antes de que empiece la transición; «Ligera» baja resolución, cuadros y movimiento de la interfaz.

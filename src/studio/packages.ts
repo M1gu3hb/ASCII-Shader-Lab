@@ -11,6 +11,55 @@ import { guessType, kindOfType, put } from './mediaStore';
 import { spaceForOpened } from './presets';
 import { applyRecipe, importSession, onHistoryEvent, planSession, setUI, useStudio, type Entry, type Favorite } from './store';
 import { toast } from './toast';
+import { importState, stateBytes, stateIdsOf } from './stateStore';
+import { CHECKPOINT_MAX } from '../families/checkpoints';
+import type { PackedState } from '../shared/project';
+import { glyphSetFile, glyphSetIdsOf, importGlyphSet, recordLabUses } from './glyphSets';
+import { GLYPHSET_LIMITS } from '../glyphset/set';
+
+/** The glyph sets recipes draw with, as files (the ones this browser has), and how many are missing. */
+async function packSets(recipes: Iterable<Recipe | undefined>): Promise<{ sets: PackedState[]; missing: number }> {
+  const sets: PackedState[] = [];
+  let missing = 0;
+  for (const id of glyphSetIdsOf(recipes)) {
+    const data = await glyphSetFile(id);
+    if (data) sets.push({ id, data }); else missing++;
+  }
+  return { sets, missing };
+}
+
+/** Stores the glyph sets an archive carries (each checked against its id). Returns how many could not be read. */
+async function unpackSets(list: Array<{ id: string; size: number; read: () => Promise<Uint8Array> }>): Promise<number> {
+  let bad = 0;
+  const ok = new Set<string>();
+  for (const g of list) {
+    if (g.size > GLYPHSET_LIMITS.bytes) { bad++; continue; }
+    try { const id = await importGlyphSet(await g.read(), g.id); if (id) ok.add(id); else bad++; } catch { bad++; }
+  }
+  if (ok.size) await recordLabUses(ok, true);
+  return bad;
+}
+
+/** The saved family states recipes use, as files (the ones this browser has), and how many are missing. */
+async function packStates(recipes: Iterable<Recipe | undefined>): Promise<{ states: PackedState[]; missing: number }> {
+  const states: PackedState[] = [];
+  let missing = 0;
+  for (const id of stateIdsOf(recipes)) {
+    const data = await stateBytes(id);
+    if (data) states.push({ id, data }); else missing++;
+  }
+  return { states, missing };
+}
+
+/** Reads the saved states an archive carries into this browser. Returns how many could not be read. */
+async function unpackStates(list: Array<{ id: string; size: number; read: () => Promise<Uint8Array> }>): Promise<number> {
+  let bad = 0;
+  for (const st of list) {
+    if (st.size > CHECKPOINT_MAX) { bad++; continue; }
+    try { if (!(await importState(await st.read()))) bad++; } catch { bad++; }
+  }
+  return bad;
+}
 
 /**
  * Project and session files: the studio side of shared/project.ts and shared/session.ts.
@@ -49,9 +98,13 @@ export async function exportProject(r: Recipe, fileBase: string) {
   const ref = usesMedia(r);
   const m = ref?.id ? await mediaBlob(ref.id) : null;
   try {
-    const blob = await buildProject(r, m && ref ? { name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, data: m.blob } : null);
+    const { states, missing } = await packStates([r]);
+    const { sets, missing: noSet } = await packSets([r]);
+    const blob = await buildProject(r, m && ref ? { name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, data: m.blob } : null, states, sets);
     downloadBlob(`${fileBase}.glyphos.zip`, blob);
     if (ref && !m) toast(`El proyecto sale sin ${ref.kind === 'video' ? 'el video: no está guardado' : 'la imagen: no está guardada'} en este navegador.`, undefined, 6000);
+    if (missing) toast('El estado guardado de una simulación ya no está en este navegador: el proyecto la reconstruye desde su semilla.', undefined, 7000);
+    if (noSet) toast('El juego de glifos de la pieza ya no está en este navegador: el proyecto sale sin él y se verá con su tipografía.', undefined, 7000);
   } catch (err) {
     toast('No se pudo crear el proyecto: ' + (err as Error).message);
   }
@@ -62,6 +115,9 @@ async function openProject(files: Awaited<ReturnType<typeof unzip>>, label: stri
   if (!p) { toast('Ese proyecto no trae una receta válida.'); return; }
   let recipe = p.recipe;
   let note = '';
+  // saved family states first: the piece continues from them as soon as it shows
+  if (await unpackStates(p.states)) note += ' · un estado guardado no se pudo leer: esa simulación empieza desde su semilla';
+  if (await unpackSets(p.sets)) note += ' · su juego de glifos no se pudo leer: se ve con su tipografía';
   if (p.media) {
     const ref = recipe.media.ref;
     const type = p.media.type || ref?.type || guessType(p.media.name);
@@ -121,7 +177,9 @@ export async function saveSession(withMedia = true) {
         if (m) media.push({ id, kind: ref.kind, name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, size: m.blob.size, w: ref.w, h: ref.h, data: m.blob });
       }
     }
-    const blob = await buildSession({ entries: s.entries, favorites: s.favorites, cursor: s.cursor }, media);
+    const { states } = await packStates(allRecipes(s.entries, s.favorites));
+    const { sets } = await packSets(allRecipes(s.entries, s.favorites));
+    const blob = await buildSession({ entries: s.entries, favorites: s.favorites, cursor: s.cursor }, media, 'all', states, sets);
     downloadBlob(sessionFileName(), blob);
   } catch (err) {
     toast('No se pudo guardar la sesión: ' + (err as Error).message);
@@ -157,7 +215,9 @@ export async function saveCollection() {
       if (m) media.push({ id, kind: ref.kind, name: ref.name ?? m.name ?? '', type: ref.type ?? m.type, size: m.blob.size, w: ref.w, h: ref.h, data: m.blob });
       else missing++;
     }
-    const blob = await buildSession({ entries: [], favorites: favs, cursor: -1 }, media, 'collection');
+    const { states } = await packStates(favs.map(f => f.recipe));
+    const { sets } = await packSets(favs.map(f => f.recipe));
+    const blob = await buildSession({ entries: [], favorites: favs, cursor: -1 }, media, 'collection', states, sets);
     downloadBlob(collectionFileName(), blob);
     if (missing) toast(`${missing === 1 ? 'Una imagen o video de tu colección ya no estaba' : `${missing} imágenes o videos de tu colección ya no estaban`} en este navegador: esas piezas van sin su archivo.`, undefined, 7000);
   } catch (err) {
@@ -193,8 +253,10 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
       + `Al abrirla se ${total === 1 ? 'descarta el resultado más antiguo' : `descartan los ${total} resultados más antiguos`} por fecha (${from}); lo guardado con ★ se conserva.`
       + `${plan.dropOwn ? ' Si quieres una copia de tu historial, cancela y usa antes «Guardar sesión».' : ''} ¿Abrirla igualmente?`)) return;
   }
-  // media first, so the pieces find their files as soon as they appear
+  // media and saved states first, so the pieces find them as soon as they appear
   const remap = new Map<string, string>();
+  const badStates = await unpackStates(sess.states);
+  const badSets = await unpackSets(sess.sets);
   let lost = 0;
   for (const m of sess.media) {
     try {
@@ -216,6 +278,8 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
     if (res.invalid) bits.push(`${res.invalid} no válidas omitidas`);
     if (res.favUpdated) bits.push(`${res.favUpdated} ${res.favUpdated === 1 ? 'actualizada' : 'actualizadas'} con la versión más reciente`);
     if (lost) bits.push(lost === 1 ? '1 archivo no cabe en el navegador: se verá hasta que cierres la pestaña' : `${lost} archivos no caben en el navegador: se verán hasta que cierres la pestaña`);
+    if (badStates) bits.push(`${badStates} ${badStates === 1 ? 'estado guardado no se pudo leer: esa simulación empieza' : 'estados guardados no se pudieron leer: esas simulaciones empiezan'} desde su semilla`);
+    if (badSets) bits.push(`${badSets} ${badSets === 1 ? 'juego de glifos no se pudo leer: sus piezas se ven' : 'juegos de glifos no se pudieron leer: sus piezas se ven'} con su tipografía`);
     toast(bits.join(' · '), { label: 'Ver', run: () => setUI({ sheet: 'collection' }) }, 8000);
     return;
   }
@@ -228,6 +292,8 @@ async function openSession(files: Awaited<ReturnType<typeof unzip>>) {
   if (res.favUpdated) parts.push(`${res.favUpdated} ${res.favUpdated === 1 ? 'pieza de tu colección actualizada' : 'piezas de tu colección actualizadas'} con la versión más reciente`);
   if (res.dropped) parts.push(res.dropped === 1 ? 'se descartó el resultado más antiguo' : `se descartaron los ${res.dropped} resultados más antiguos`);
   if (lost) parts.push(lost === 1 ? '1 archivo no cabe en el navegador: se verá hasta que cierres la pestaña' : `${lost} archivos no caben en el navegador: se verán hasta que cierres la pestaña`);
+  if (badStates) parts.push(`${badStates} ${badStates === 1 ? 'estado guardado no se pudo leer: esa simulación empieza' : 'estados guardados no se pudieron leer: esas simulaciones empiezan'} desde su semilla`);
+  if (badSets) parts.push(`${badSets} ${badSets === 1 ? 'juego de glifos no se pudo leer: sus piezas se ven' : 'juegos de glifos no se pudieron leer: sus piezas se ven'} con su tipografía`);
   toast(parts.join(' · '), undefined, 8000);
 }
 

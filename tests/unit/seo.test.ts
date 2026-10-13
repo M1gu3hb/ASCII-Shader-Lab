@@ -2,8 +2,8 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ARCHETYPES } from '../../src/random/archetypes';
-import { FOTO_STUDIO, GUIDES, MORPHIQ, PAGES, SITE_URL, fotoPage, sitePages } from '../../src/shared/site';
-import { cleanVerification, contactSheet, fmtBytes, fotoBlocks, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, salida, shortUsage, sitemapXml } from '../../scripts/seo';
+import { FOTO_STUDIO, GLIFOS_STUDIO, GUIDES, MORPHIQ, PAGES, SITE_URL, fotoPage, glifosPage, sitePages } from '../../src/shared/site';
+import { cleanVerification, contactSheet, fmtBytes, fotoBlocks, glifosBlocks, headTags, jsonForScript, jsonLd, renderPage, robotsTxt, salida, shortUsage, sitemapXml } from '../../scripts/seo';
 import { PATTERNS } from '../../src/engine/catalog';
 import { CONTACTS, contactSrc } from '../../src/landing/contacts';
 import { GUIDE_MEDIA, GUIDE_MEDIA_PX, guideLoop, guidePoster } from '../../src/landing/guias-data';
@@ -36,7 +36,7 @@ describe('site pages', () => {
     const solids = PATTERNS.filter(p => p.family === 'solidos').length;
     expect(html).toContain(`${PATTERNS.length} patrones`);
     expect(html).toContain(`${solids} objetos en 3D`);
-    const word: Record<number, string> = { 5: 'Cinco', 6: 'Seis', 7: 'Siete', 8: 'Ocho', 9: 'Nueve', 10: 'Diez', 11: 'Once', 12: 'Doce', 13: 'Trece', 23: 'Veintitrés' };
+    const word: Record<number, string> = { 5: 'Cinco', 6: 'Seis', 7: 'Siete', 8: 'Ocho', 9: 'Nueve', 10: 'Diez', 11: 'Once', 12: 'Doce', 13: 'Trece', 14: 'Catorce', 15: 'Quince', 16: 'Dieciséis', 23: 'Veintitrés', 25: 'Veinticinco' };
     expect(readFileSync(join(root, 'fondos-ascii/index.html'), 'utf8')).toContain(`${word[PRESETS.fondos.length]} puntos de partida`);
     expect(readFileSync(join(root, 'arte-ascii-terminal/index.html'), 'utf8')).toContain(`${word[PRESETS.terminal.length]} puntos de partida`);
     expect(readFileSync(join(root, 'imagen-a-ascii/index.html'), 'utf8')).toContain(`${word[PRESETS.media.length]} estilos de partida`);
@@ -51,24 +51,24 @@ describe('site pages', () => {
 });
 
 describe('sitemap and robots', () => {
-  const PUBLIC = ['/', '/studio/', '/studio/foto/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
+  const PUBLIC = ['/', '/studio/', '/studio/foto/', '/studio/glifos/', '/imagen-a-ascii/', '/video-a-ascii/', '/fondos-ascii/', '/texto-animado-ascii/', '/arte-ascii-terminal/', '/licencia/'];
   const locsOf = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
 
   it('lists absolute canonical URLs with a trailing slash, landing first', () => {
-    const xml = sitemapXml('2026-09-27', sitePages(true));
+    const xml = sitemapXml('2026-09-27', sitePages(true, true));
     expect(locsOf(xml)).toEqual(PUBLIC.map(p => SITE_URL + p));
-    expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(9);
+    expect(xml.match(/<lastmod>2026-09-27<\/lastmod>/g)).toHaveLength(PUBLIC.length);
     expect(xml).not.toContain('404');
   });
 
   it('omits modification dates when no trustworthy date is supplied', () => {
-    const xml = sitemapXml(null, sitePages(false));
+    const xml = sitemapXml(null, sitePages(false, true));
     expect(locsOf(xml)).toEqual(PUBLIC.filter(p => p !== '/studio/foto/').map(p => SITE_URL + p));
     expect(xml).not.toContain('<lastmod>');
   });
 
   it('leaves the photo studio out while it is paused (VITE_FOTO_STUDIO unset), and the build uses the flag', () => {
-    const xml = sitemapXml('2026-09-27', sitePages(false));
+    const xml = sitemapXml('2026-09-27', sitePages(false, true));
     expect(locsOf(xml)).toEqual(PUBLIC.filter(p => p !== '/studio/foto/').map(p => SITE_URL + p));
     expect(xml).not.toContain('/studio/foto/');
     // the page itself still exists (old links do not 404): same file and path, out of the index
@@ -78,8 +78,22 @@ describe('sitemap and robots', () => {
     expect(sitePages(false).map(p => p.id)).toEqual(sitePages(true).map(p => p.id));
     // one source of truth: the default build (no variable) pauses it, and PAGES and the sitemap follow the flag
     expect(FOTO_STUDIO).toBe(process.env.VITE_FOTO_STUDIO === '1');
-    expect(PAGES).toEqual(sitePages(FOTO_STUDIO));
+    expect(PAGES).toEqual(sitePages(FOTO_STUDIO, GLIFOS_STUDIO));
     expect(sitemapXml('2026-09-27').includes('/studio/foto/')).toBe(FOTO_STUDIO);
+  });
+
+  it('leaves «Crea tus GLYPHOS» out while it is paused (VITE_GLIFOS_STUDIO unset): its page stays, out of the index', () => {
+    const xml = sitemapXml('2026-09-27', sitePages(true, false));
+    expect(locsOf(xml)).toEqual(PUBLIC.filter(p => p !== '/studio/glifos/').map(p => SITE_URL + p));
+    expect(glifosPage(false)).toMatchObject({ file: 'studio/glifos/index.html', path: '/studio/glifos/', kind: 'paused', sitemap: false });
+    expect(glifosPage(true)).toMatchObject({ kind: 'app', sitemap: true });
+    expect(sitePages(false, false).map(p => p.id)).toEqual(sitePages(true, true).map(p => p.id));
+    expect(GLIFOS_STUDIO).toBe(process.env.VITE_GLIFOS_STUDIO === '1');
+    expect(sitemapXml('2026-09-27').includes('/studio/glifos/')).toBe(GLIFOS_STUDIO);
+    const html = 'a<!-- @glifos-on -->ON<!-- @glifos-end -->b<!-- @glifos-off -->OFF<!-- @glifos-end -->c';
+    expect(glifosBlocks(html, true)).toBe('aONbc');
+    expect(glifosBlocks(html, false)).toBe('abOFFc');
+    expect(() => glifosBlocks('<!-- @glifos-on --><!-- @glifos-off --><!-- @glifos-end -->', true)).toThrow();
   });
 
   it('robots allows everything and points to the absolute sitemap', () => {

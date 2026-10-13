@@ -1,0 +1,41 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'anillos_tronco',
+  name: 'Anillos de tronco',
+  group: 'vida',
+  kind: 'analytic',
+  version: 1,
+  extends: 'anillos',
+  aka: ['anillos de crecimiento', 'corte de tronco', 'dendrocronología', 'madera', 'trunk'],
+  params: [
+    { key: 'mode', label: 'Crecimiento', type: 'choice', def: 'fluye', options: [
+      { id: 'fluye', label: 'Fluye: nacen en el centro y se alejan' }, { id: 'crece', label: 'Crece: el tronco engorda hasta llenar el lienzo' },
+    ] },
+    { key: 'year', label: 'Año', type: 'number', min: 0.5, max: 4, def: 1.6, step: 0.1, unit: 's' },
+    { key: 'width', label: 'Anchura de anillo', type: 'number', min: 0.02, max: 0.16, def: 0.08, step: 0.005, digits: 3 },
+    { key: 'wobble', label: 'Irregularidad', type: 'number', min: 0, max: 1, def: 0.5, step: 0.01 },
+    { key: 'detail', label: 'Detalle', type: 'number', min: 0.5, max: 3, def: 1.3, step: 0.05 },
+    { key: 'late', label: 'Madera tardía', type: 'number', min: 0, max: 1, def: 0.7, step: 0.01 },
+    { key: 'rays', label: 'Radios', type: 'number', min: 0, max: 1, def: 0.4, step: 0.01 },
+    { key: 'cracks', label: 'Grietas', type: 'int', min: 0, max: 5, def: 2 },
+    { key: 'ecc', label: 'Excentricidad', type: 'number', min: 0, max: 1, def: 0.3, step: 0.01 },
+  ],
+  presets: [
+    { id: 'tronco', name: 'Tronco que respira', aka: ['anillos de crecimiento'], uses: ['fondos/organicas', 'arte/organicas'],
+      params: { mode: 'fluye', year: 1.6, width: 0.08, wobble: 0.5, detail: 1.3, late: 0.7, rays: 0.4, cracks: 2, ecc: 0.3 },
+      look: { stops: ['#140b05', '#4a2a12', '#a8703a', '#e8c48e', '#fff0d6'], bg: '#0c0603', charset: ' .:-=+*#%@' } },
+    { id: 'rodaja', name: 'Rodaja que crece', aka: ['corte de tronco', 'el árbol engorda'], uses: ['arte/organicas', 'arte/figuras'],
+      params: { mode: 'crece', year: 1.2, width: 0.07, wobble: 0.6, detail: 1.6, late: 0.85, rays: 0.5, cracks: 3, ecc: 0.45 },
+      look: { stops: ['#100804', '#5a3315', '#c08446', '#f0d3a2', '#fff7e8'], bg: '#080402', charset: ' .·:-=+*#%' } },
+    { id: 'nudo', name: 'Vetas apretadas', aka: ['madera de crecimiento lento'], uses: ['fondos/organicas', 'terminal/consola'],
+      params: { mode: 'fluye', year: 0.8, width: 0.045, wobble: 0.85, detail: 2.4, late: 0.9, rays: 0.15, cracks: 0, ecc: 0.7 },
+      look: { stops: ['#060403', '#2d1c10', '#7f5634', '#d4a877'], bg: '#040302', charset: ' .:;+=*#' } },
+    { id: 'ondas', name: 'Ondas de savia', aka: ['anillos anchos y regulares'], uses: ['fondos/organicas', 'arte/organicas'],
+      params: { mode: 'fluye', year: 3, width: 0.15, wobble: 0.25, detail: 0.8, late: 0.55, rays: 0.7, cracks: 1, ecc: 0 },
+      look: { stops: ['#04080a', '#103a3a', '#3f9c86', '#bdf0d8', '#f6fffb'], bg: '#020506', charset: ' .·:-=+*#' } },
+  ],
+  caps: { loop: true, time: { param: 'mode', values: { fluye: 'continuo', crece: 'construccion' }, else: 'continuo' }, basic: 'full', checkpoint: false },
+  budget: {},
+  figure: p => p.mode === 'crece',
+};

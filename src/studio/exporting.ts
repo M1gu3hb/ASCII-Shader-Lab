@@ -14,6 +14,23 @@ import { xformK } from '../engine/catalog';
 import type { Renderer } from '../engine/renderer';
 import { activeXforms } from '../engine/xform';
 import { currentRecipe, useStudio } from './store';
+import { FamilyHost } from '../families/host';
+
+/**
+ * Where an export starts a visual family with memory (families/host.ts): from a copy of the state on stage
+ * at the moment of the click ('estado'), or from its seed and its defined warm-up ('semilla'). Either way the
+ * export works on its own copy: the run on stage is not moved. Stills (PNG, SVG, text) always show the state
+ * on stage.
+ */
+export type FamilyStart = 'estado' | 'semilla';
+export const useFamilyStart = create<{ start: FamilyStart }>(() => ({ start: 'estado' }));
+
+export function startFamilies(r: Recipe, eng: Renderer, t0: number, how: FamilyStart = 'estado') {
+  if (!FamilyHost.uses(r)) return;
+  const live = getEngine();
+  if (how === 'estado' && live) eng.setFamilyStart(live.familyState(), t0);
+  else eng.setFamilyStart(null, t0);
+}
 
 export type SizeSpec = { kind: 'view'; scale: number } | { kind: 'fixed'; w: number; h: number };
 
@@ -54,17 +71,44 @@ export const clipTime = (r: Recipe, start: number, seconds: number) => start + s
 export const loopSeconds = (r: Recipe) => (r.motion.loop > 0 && r.motion.speed > 0 ? r.motion.loop / r.motion.speed : 0);
 const canvasBlob = (c: HTMLCanvasElement, type: string, q?: number) => new Promise<Blob>((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('toBlob'))), type, q));
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r(null)));
+const yieldToPage = () => new Promise(r => setTimeout(r, 0));
+
+/**
+ * Renders the moment t and, while a visual family with memory stopped short of it (a fixed engine catches up
+ * only within its budget per render: SlotInfo.partial), renders it again until its state is the one asked
+ * for, saying how far it is. A partial state never reaches a file: cancelling stops it, and past `limitMs`
+ * the export fails saying which family needed more work than fits (PR #10 review, A-11).
+ */
+export async function renderComplete(eng: Renderer, t: number, realTime?: number, o: { progress?: Progress; cancel?: Cancel; limitMs?: number } = {}): Promise<void> {
+  eng.renderAt(t, realTime);
+  let first = 0;
+  const t0 = performance.now();
+  for (;;) {
+    const short = eng.familyInfo().filter(i => i.partial);
+    if (!short.length) return;
+    if (o.cancel?.cancelled) throw new Error('cancelado');
+    const left = short.reduce((n, i) => n + (i.debt ?? 0), 0);
+    first ||= Math.max(left, 1);
+    if (performance.now() - t0 > (o.limitMs ?? 180_000)) {
+      throw new Error(`«${short[0].name}» necesita más cálculo del que cabe en esta exportación (faltan ${left.toLocaleString('es-ES')} pasos). Empieza desde el estado del escenario o baja la resolución de la simulación.`);
+    }
+    o.progress?.(Math.min(0.99, 1 - left / first), `Calculando «${short[0].name}» hasta este momento… (${left.toLocaleString('es-ES')} pasos)`);
+    await yieldToPage();
+    eng.renderAt(t, realTime);
+  }
+}
 
 export async function exportImage(r: Recipe, spec: SizeSpec, o: { transparent: boolean; format: 'png' | 'webp' | 'jpeg' }): Promise<Blob> {
   const size = resolveSize(spec);
   const eng = await offscreenEngine(r, size, { transparent: o.transparent && o.format !== 'jpeg' });
   const time = liveTime();
+  startFamilies(r, eng, time);
   const realTime = stillSourceTime(r, time);
   const clip = videoFrames(r);
   try {
     await warmTrail(r, eng, clip, time, 30, () => {}, { cancelled: false }, realTime);
     await clip.seek(realTime);
-    eng.renderAt(time, realTime);
+    await renderComplete(eng, time, realTime);
     const blob = await canvasBlob(eng.canvas, 'image/' + o.format, o.format === 'png' ? undefined : 0.92);
     // a browser without that encoder silently returns a PNG: never save it under the wrong name
     if (blob.type && blob.type !== 'image/' + o.format) throw new Error(`este navegador no codifica ${o.format.toUpperCase()}; usa PNG`);
@@ -182,13 +226,14 @@ async function warmTrail(r: Recipe, eng: Renderer, clip: ReturnType<typeof video
 }
 
 /** Deterministic, frame-by-frame render: no dropped frames even on slow machines. */
-export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
+export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; seconds: number; format: 'mp4' | 'webm'; start: number; familyStart?: FamilyStart }, progress: Progress, cancel: Cancel): Promise<Blob> {
   const mb = await import('mediabunny');
   const size = resolveSize(spec, true);
   const can = await codecsAt(size.W, size.H);
   if (o.format === 'mp4' ? !can.avc : !can.vp9 && !can.vp8) throw new Error(`este navegador no codifica ${o.format === 'mp4' ? 'H.264' : 'VP9 ni VP8'} a ${size.W}×${size.H}`);
   const codec = o.format === 'mp4' ? 'avc' : can.vp9 ? 'vp9' : 'vp8';
   const eng = await offscreenEngine(r, size);
+  startFamilies(r, eng, o.start, o.familyStart ?? useFamilyStart.getState().start);
   const clip = videoFrames(r);
   const target = new mb.BufferTarget();
   const output = new mb.Output({ format: o.format === 'mp4' ? new mb.Mp4OutputFormat({ fastStart: 'in-memory' }) : new mb.WebMOutputFormat(), target });
@@ -204,7 +249,7 @@ export async function exportVideo(r: Recipe, spec: SizeSpec, o: { fps: number; s
       const t = clipTime(r, o.start, i / o.fps);
       await clip.seek(o.start + i / o.fps);
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(t, o.start + i / o.fps);
+      await renderComplete(eng, t, o.start + i / o.fps, { progress, cancel });
       await src.add(i / o.fps, 1 / o.fps);
       progress((i + 1) / n, `Fotograma ${i + 1} de ${n}`);
       if (i % 4 === 0) await nextFrame();
@@ -312,11 +357,12 @@ async function tidyRecording(blob: Blob, ext: 'mp4' | 'webm'): Promise<Blob> {
 /* GIF                                                                 */
 /* ------------------------------------------------------------------ */
 
-export async function exportGif(r: Recipe, width: number, o: { fps: number; seconds: number; start: number; colors: number }, progress: Progress, cancel: Cancel): Promise<Blob> {
+export async function exportGif(r: Recipe, width: number, o: { fps: number; seconds: number; start: number; colors: number; familyStart?: FamilyStart }, progress: Progress, cancel: Cancel): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
   const { cssW, cssH } = stageSize();
   const pr = width / cssW;
   const eng = await offscreenEngine(r, { cssW, cssH, pixelRatio: pr });
+  startFamilies(r, eng, o.start, o.familyStart ?? useFamilyStart.getState().start);
   const clip = videoFrames(r);
   const W = eng.canvas.width, H = eng.canvas.height;
   const c2 = document.createElement('canvas');
@@ -333,7 +379,7 @@ export async function exportGif(r: Recipe, width: number, o: { fps: number; seco
       const delay = (cs(i + 1) - cs(i)) * 10;
       await clip.seek(o.start + i / o.fps);
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
+      await renderComplete(eng, clipTime(r, o.start, i / o.fps), o.start + i / o.fps, { progress, cancel });
       ctx.drawImage(eng.canvas, 0, 0);
       const { data } = ctx.getImageData(0, 0, W, H);
       const palette = quantize(data, o.colors);
@@ -363,21 +409,23 @@ function gridSize(r: Recipe, cols?: number, rows?: number): OffscreenSize {
 /** Grid of the frame at `time`, plus the size of the canvas it was read from (the SVG uses it). */
 export async function captureGrid(r: Recipe, cols?: number, rows?: number, time = liveTime()): Promise<GridSnapshot & { width: number; height: number }> {
   const eng = await offscreenEngine(r, gridSize(r, cols, rows));
+  startFamilies(r, eng, time);
   const realTime = stillSourceTime(r, time);
   const clip = videoFrames(r);
   try {
     await warmTrail(r, eng, clip, time, 30, () => {}, { cancelled: false }, realTime);
     await clip.seek(realTime);
-    eng.renderAt(time, realTime);
+    await renderComplete(eng, time, realTime);
     return { ...eng.readGrid(), width: eng.canvas.width, height: eng.canvas.height };
   } finally { eng.destroy(); await clip.done(); }
 }
 
 export async function captureFrames(
-  r: Recipe, cols: number, rows: number, o: { fps: number; seconds: number; start: number; depth: ColorDepth; withBg: boolean },
+  r: Recipe, cols: number, rows: number, o: { fps: number; seconds: number; start: number; depth: ColorDepth; withBg: boolean; familyStart?: FamilyStart },
   progress: Progress, cancel: Cancel,
 ): Promise<Frames> {
   const eng = await offscreenEngine(r, gridSize(r, cols, rows));
+  startFamilies(r, eng, o.start, o.familyStart ?? useFamilyStart.getState().start);
   const clip = videoFrames(r);
   const frames: string[] = [];
   const n = Math.max(1, Math.round(o.seconds * o.fps));
@@ -387,7 +435,7 @@ export async function captureFrames(
       if (cancel.cancelled) throw new Error('cancelado');
       await clip.seek(o.start + i / o.fps);
       if (cancel.cancelled) throw new Error('cancelado');
-      eng.renderAt(clipTime(r, o.start, i / o.fps), o.start + i / o.fps);
+      await renderComplete(eng, clipTime(r, o.start, i / o.fps), o.start + i / o.fps, { progress, cancel });
       const g = eng.readGrid();
       const s = o.depth === 'none' ? gridToText(g) : gridToAnsi(g, o.depth, o.withBg);
       frames.push(s.replace(/\n$/, ''));

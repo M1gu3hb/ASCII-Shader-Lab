@@ -11,6 +11,7 @@ import { RecipePic } from './Pic';
 import { search } from './search';
 import { applyItem, applySaved, itemOfEntry, recentItems, savedIn, setBrowserOpen, setFilter, setQuery, useRecipesUI } from './state';
 import './recipes.css';
+import { useFamilySpecs } from '../families';
 
 /**
  * The recipe browser: every recipe and composed scene of the space as pictures, found by section, mood,
@@ -53,8 +54,10 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
   const input = useRef<HTMLInputElement>(null);
   const uid = useId();
   const spaceName = spaceById(space).name;
-  const items = useMemo(() => itemsOf(space), [space]);
-  const filters = useMemo(() => filtersOf(space), [space]);
+  // the families' presets join the list when their specs arrive (asked for when the browser opens)
+  const specs = useFamilySpecs(true);
+  const items = useMemo(() => itemsOf(space), [space, specs]); // eslint-disable-line react-hooks/exhaustive-deps
+  const filters = useMemo(() => filtersOf(space), [space, specs]); // eslint-disable-line react-hooks/exhaustive-deps
   const recents = useMemo(() => recentItems(entries, space), [entries, space]);
   const saved = useMemo(() => savedIn(favorites, space), [favorites, space]);
   const shownItem = itemOfEntry(entry);
@@ -154,7 +157,8 @@ export function RecipeBrowser({ away, where }: { away?: boolean; where: 'column'
       <p className="sr-only" id={uid + 'n'} aria-live="polite">
         {query.trim() ? (view.count ? `${view.count} ${view.count === 1 ? 'resultado' : 'resultados'}` : 'Ningún resultado') : ''}
       </p>
-      <div className="rx-scroll" ref={scroller}>
+      {/* (out of the Tab order: Firefox stops on a scrolling box; the pictures have their own stop) */}
+      <div className="rx-scroll" ref={scroller} tabIndex={-1}>
         {view.kind === 'saved' ? (
           <SavedGrid list={saved} activeKey={activeKey} root={scroller} onFocusKey={setActive} entryFav={entry?.edited ? undefined : entry?.favId} />
         ) : view.groups.length ? view.groups.map(g => (

@@ -1,0 +1,91 @@
+import { importChunk } from '../shared/chunks';
+import { registerAnalytic, registerModel, setFamilyLoader } from './models';
+import type { AnalyticImpl, ModelFactory } from './types';
+
+/**
+ * The site's loader: each family's code is its own chunk, fetched the first time a piece uses it, so the
+ * first view of a page never carries a model it does not show. Raster families export `create`, analytic
+ * families their CPU twin `impl` (the GLSL is part of the pattern library).
+ */
+const CODE: Record<string, () => Promise<{ create?: ModelFactory; impl?: AnalyticImpl }>> = {
+  reaccion_difusion: () => import('./sims/reaccion.ts'),
+  physarum: () => import('./sims/physarum.ts'),
+  lenia: () => import('./sims/lenia.ts'),
+  automata: () => import('./sims/automata.ts'),
+  kuramoto: () => import('./sims/kuramoto.ts'),
+  sistema_l: () => import('./sims/lsystem.ts'),
+  fractal_3d: () => import('./analytic/fractal3d.cpu.ts'),
+  hiperbolico: () => import('./analytic/hiperbolico.cpu.ts'),
+  nubes_vol: () => import('./analytic/nubes_vol.cpu.ts'),
+  orbitales: () => import('./analytic/orbitales.cpu.ts'),
+  lente_gravitacional: () => import('./analytic/lente.cpu.ts'),
+  campos_em: () => import('./sims/campos.ts'),
+  dla: () => import('./sims/dla.ts'),
+  crecimiento: () => import('./sims/crecimiento.ts'),
+  atractor: () => import('./sims/atractor.ts'),
+  wfc: () => import('./sims/wfc.ts'),
+  boids: () => import('./sims/boids.ts'),
+  gravedad: () => import('./sims/gravedad.ts'),
+  tela: () => import('./sims/tela.ts'),
+  chladni: () => import('./sims/chladni.ts'),
+  fluido: () => import('./sims/fluido.ts'),
+  agua: () => import('./sims/agua.ts'),
+  erosion: () => import('./sims/erosion.ts'),
+  corrientes: () => import('./analytic/corrientes.cpu.ts'),
+  ecos: () => import('./sims/ecos.ts'),
+  humo: () => import('./sims/humo.ts'),
+  niebla: () => import('./sims/niebla.ts'),
+  orden_caos: () => import('./sims/orden_caos.ts'),
+  membrana: () => import('./analytic/membrana.cpu.ts'),
+  paneles: () => import('./analytic/paneles.cpu.ts'),
+  mosaico: () => import('./analytic/mosaico.cpu.ts'),
+  laceria: () => import('./analytic/laceria.cpu.ts'),
+  hipercubo: () => import('./analytic/hipercubo.cpu.ts'),
+  cromado: () => import('./analytic/cromado.cpu.ts'),
+  desgarro: () => import('./analytic/desgarro.cpu.ts'),
+  descargas: () => import('./analytic/descargas.cpu.ts'),
+  mar: () => import('./analytic/mar.cpu.ts'),
+  osciloscopio: () => import('./analytic/osciloscopio.cpu.ts'),
+  marco: () => import('./analytic/marco.cpu.ts'),
+  metal_fundido: () => import('./analytic/metal_fundido.cpu.ts'),
+  seda: () => import('./analytic/seda.cpu.ts'),
+  grietas_oro: () => import('./analytic/grietas_oro.cpu.ts'),
+  jade_ruido: () => import('./analytic/jade_ruido.cpu.ts'),
+  cuerdas: () => import('./analytic/cuerdas.cpu.ts'),
+  flujo_ruido: () => import('./sims/flujo_ruido.ts'),
+  lluvia_agua: () => import('./analytic/lluvia_agua.cpu.ts'),
+  tejido_bandas: () => import('./analytic/tejido_bandas.cpu.ts'),
+  estatica_vhs: () => import('./analytic/estatica_vhs.cpu.ts'),
+  estratos: () => import('./analytic/estratos.cpu.ts'),
+  puntos_orbita: () => import('./analytic/puntos_orbita.cpu.ts'),
+  anillo_humo: () => import('./analytic/anillo_humo.cpu.ts'),
+  rejilla_puntos: () => import('./analytic/rejilla_puntos.cpu.ts'),
+  globo_puntos: () => import('./analytic/globo_puntos.cpu.ts'),
+  arcos_parciales: () => import('./analytic/arcos_parciales.cpu.ts'),
+  anillos_tronco: () => import('./analytic/anillos_tronco.cpu.ts'),
+  grabado: () => import('./sims/grabado.ts'),
+  burbujas: () => import('./analytic/burbujas.cpu.ts'),
+  haces_luz: () => import('./analytic/haces.cpu.ts'),
+  mandala_capas: () => import('./analytic/mandala.cpu.ts'),
+  eclipse_total: () => import('./analytic/eclipse.cpu.ts'),
+  talla_diamante: () => import('./analytic/diamante.cpu.ts'),
+  calor_radiante: () => import('./analytic/calor.cpu.ts'),
+  neon_tubos: () => import('./analytic/neon.cpu.ts'),
+  vinilo: () => import('./analytic/vinilo.cpu.ts'),
+};
+
+/** Loads and registers a family's code now (tools and tests call it directly). */
+export async function loadFamilyNow(id: string): Promise<void> {
+  const load = CODE[id];
+  if (!load) return;
+  // (a chunk that failed is asked for again under another address: see shared/chunks.ts)
+  const m = await importChunk('familia:' + id, load);
+  if (m.create) registerModel(id, m.create);
+  if (m.impl) registerAnalytic(id, m.impl);
+}
+
+/** Every family with code (tests check none is missing). */
+export const LOADABLE = Object.keys(CODE);
+
+/** Installs the loader for this page (studio, viewer, landing, guides). */
+export function installFamilyLoader() { setFamilyLoader(loadFamilyNow); }

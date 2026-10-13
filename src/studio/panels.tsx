@@ -10,6 +10,7 @@ import { chooseCamera, chooseCameraMirror, chooseFacing, toggleMute, toggleVideo
 import type { Facing } from './cameraMirror';
 import { edit, setUI, useRecipe, useStudio } from './store';
 import { startMic, stopMic, useLive } from './live';
+import { GlyphSetPicker } from './ui/GlyphSetPicker';
 import { BasicFxHint } from './BasicMode';
 import { pickFile } from './files';
 import { CompareStrip } from './guide/CompareStrip';
@@ -28,7 +29,14 @@ import {
 } from './ui/options';
 import { XformTab } from './ui/Xforms';
 import { TouchControls } from './ui/Touch';
+import { BloomShapeControl, GrainKindControls } from './ui/FxShape';
 import { RampEditor } from './ui/RampEditor';
+import { FamilyControls } from './ui/FamilyControls';
+import { GlassControls } from './ui/Glass';
+import { FAMILIES, familyEntry, isColourRaster } from '../families/registry';
+import { withPreset } from '../families/recipes';
+import { hasStateful, pickLayerPattern, setLayerPattern, useFamilySpec } from './families';
+import { hasColourFamily } from '../families/palette';
 import { PaletteEditor } from './ui/color/PaletteEditor';
 import { useRamps } from './ui/ramps';
 import { LETTER_ANIMS } from '../engine/catalog';
@@ -115,6 +123,9 @@ function LayerCard({ i, n }: { i: number; n: number }) {
   const on = useField(P('on')) as boolean;
   const pat = useField(P('pattern')) as string;
   const info = patternById(pat);
+  const fam = useFamilySpec(pat);
+  // a family layer (its spec may still be on its way: its panel says so)
+  const isFam = !!familyEntry(pat);
   const move = (d: number) => edit(r => { const l = r.layers.splice(i, 1)[0]; r.layers.splice(i + d, 0, l); if (r.layers[0]) r.layers[0].blend = 'normal'; }, 'move' + Date.now());
   const recipe = useRecipe();
   const h = useHelp('layers.*.pattern');
@@ -122,6 +133,16 @@ function LayerCard({ i, n }: { i: number; n: number }) {
   const onOpen = useCallback((o: boolean) => { if (o) openThumbSession(); else closeThumbSession(); }, []);
   const reroll = () => edit(r => {
     const rng = new Rng(`reroll${i}${Date.now()}`);
+    if (familyEntry(pat)) {
+      if (!fam) return; // its spec is on its way: the dice wait for it
+      // a family: another one (half the time of the same group) with one of its presets
+      const same = FAMILIES.filter(f => f.group === fam.group && f.id !== pat);
+      const next = rng.chance(0.5) && same.length ? rng.pick(same) : rng.pick(FAMILIES);
+      setLayerPattern(r, i, next.id);
+      const l = r.layers[i];
+      if (l.fam) r.layers[i] = withPreset(l, rng.pick(next.presets).id);
+      return;
+    }
     const same = PATTERNS.filter(p => p.family === info.family && p.id !== pat);
     r.layers[i].pattern = (rng.chance(0.5) && same.length ? rng.pick(same) : rng.pick(PATTERNS)).id;
     r.layers[i].a = Math.round(rng.range(0.1, 0.9) * 100) / 100;
@@ -140,19 +161,23 @@ function LayerCard({ i, n }: { i: number; n: number }) {
               <span className="pk-main"><span className="pk-name">{o.label}</span>{o.desc && <span className="pk-desc">{o.desc}</span>}</span>
             </>
           )}
-          onChange={v => edit(r => { r.layers[i].pattern = v; }, `layers.${i}.pattern`)} />
-        <button type="button" className="icon-btn" title="Otro patrón al azar" aria-label="Otro patrón al azar" onClick={reroll}><IDice /></button>
+          onChange={v => pickLayerPattern(i, v)} />
+        <button type="button" className="icon-btn" title={isFam ? 'Otra familia al azar' : 'Otro patrón al azar'} aria-label={isFam ? 'Otra familia al azar' : 'Otro patrón al azar'} onClick={reroll}><IDice /></button>
         <button type="button" className="icon-btn" aria-pressed={!on} title={on ? 'Ocultar capa' : 'Oculta: pulsa para mostrarla'} aria-label={`Ocultar la capa ${i + 1}`}
           onClick={() => edit(r => { r.layers[i].on = !r.layers[i].on; }, 'toggle' + Date.now())}>{on ? <IEye /> : <IEyeOff />}</button>
         {h && <HelpToggle h={h} name={`Patrón de la capa ${i + 1}`} />}
       </div>
       <HintText h={h} />
       <HelpMore h={h} />
-      <p className="layer-desc">{PATTERN_OPTS.find(o => o.value === pat)?.desc}</p>
+      {!isFam && <p className="layer-desc">{PATTERN_OPTS.find(o => o.value === pat)?.desc}</p>}
       {i > 0 && <Select f={P('blend')} label="Mezcla con la capa de abajo" opts={BLEND_OPTS} minWidth={300} />}
       <Slider f={P('mix')} label={i === 0 ? 'Intensidad' : 'Fuerza de la mezcla'} min={0} max={1} />
-      <Slider f={P('a')} label={info.a} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.a.toLowerCase()}.` }} />
-      <Slider f={P('b')} label={info.b} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.b.toLowerCase()}.` }} />
+      {isFam ? <FamilyControls i={i} /> : (
+        <>
+          <Slider f={P('a')} label={info.a} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.a.toLowerCase()}.` }} />
+          <Slider f={P('b')} label={info.b} min={0} max={1} help={{ hint: `Ajuste propio de «${info.name}»: ${info.b.toLowerCase()}.` }} />
+        </>
+      )}
       <Slider f={P('scale')} label="Escala" min={0.2} max={4} />
       <Slider f={P('speed')} label="Velocidad" min={-2} max={3} />
       <Slider f={P('rot')} label="Rotación" min={-360} max={360} step={1} fmt={v => Math.round(v) + '°'} />
@@ -182,17 +207,25 @@ function ColorTab() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const maps = useMemo(() => colorMapOptions(recipe), [stopsKey]);
   const isMedia = source === 'image' || source === 'video' || source === 'camera';
+  // a colour family paints each cell with the palette's colours where they flow, not by brightness
+  const famColour = !!recipe && hasColourFamily(recipe);
+  const ownColour = (isMedia || famColour) && mode === 'source';
   return (
     <>
       <Sub>Paleta</Sub>
 {isMedia && mode === 'source' && <p className="note">Los colores vienen de la imagen. Para cambiar su paleta y reparto, <button type="button" className="mini" onClick={() => edit(r => { r.color.mode = 'ramp'; }, 'color.mode')}>Usar tu paleta</button>.</p>}
-      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><PaletteEditor isMedia={isMedia} /></fieldset>
+{famColour && mode === 'source' && <p className="note">{recipe && recipe.layers.some(l => l.on && isColourRaster(l.pattern))
+  ? 'La familia da a cada celda su propio color; el carácter sale de su brillo.'
+  : 'La familia reparte los colores de tu paleta por el lienzo: cada celda lleva su color y el carácter sale de su brillo.'}</p>}
+      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><PaletteEditor isMedia={isMedia || famColour} /></fieldset>
       {isMedia && <Seg f={F('color.mode')} label="Colores de" opts={[['ramp', 'Tu paleta'], ['source', 'La imagen']]} />}
-      {mode === 'source' && isMedia && <Slider f={F('color.vivid')} label="Viveza" min={0} max={1} />}
-      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} /></fieldset>
+      {famColour && <Seg f={F('color.mode')} label="Colores de" opts={[['source', 'La familia'], ['ramp', 'Por brillo']]}
+        desc={{ source: 'Cada celda con el color que la familia le da.', ramp: 'Tu paleta repartida por el brillo, como cualquier patrón.' }} />}
+      {ownColour && <Slider f={F('color.vivid')} label="Viveza" min={0} max={1} />}
+      <fieldset disabled={ownColour} className="inactive-controls"><Select f={F<ColorMap>('color.map')} label="Cómo se reparte el color" opts={maps} minWidth={290} /></fieldset>
       <Slider f={F('color.shade')} label="Atenuar las zonas oscuras" min={0} max={1} />
       <Sub>Ajustes</Sub>
-      <fieldset disabled={isMedia && mode === 'source'} className="inactive-controls"><Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
+      <fieldset disabled={ownColour} className="inactive-controls"><Slider f={F('color.shift')} label="Desplazar la paleta" min={-1} max={1} />
       <Slider f={F('color.cycle')} label="Colores en movimiento" min={-0.3} max={0.3} step={0.005} fmt={v => (v === 0 ? 'quietos' : v.toFixed(3))} /></fieldset>
       <Slider f={F('color.hue')} label="Rotar tono" min={0} max={1} step={0.005} fmt={v => Math.round(v * 360) + '°'} scale={360} />
       <Slider f={F('color.sat')} label="Saturación" min={0} max={2} />
@@ -244,6 +277,7 @@ function GlifosTab({ space }: { space: SpaceId }) {
         <HelpMore h={csHelp}><CharsetExplorer asciiOnly={ascii} /></HelpMore>
       </div>
       <RampEditor ascii={ascii} />
+      <GlyphSetPicker />
       <Select f={F('glyph.font')} label="Tipografía de los caracteres" opts={fonts} minWidth={290}
         onPick={id => edit(r => { r.glyph.weight = nearestWeight(fontById(id), r.glyph.weight); }, 'glyph.font')} />
       {font.weights.length > 1 && <Select f={F('glyph.weight')} label="Grosor" opts={font.weights.map(w => ({ value: w, label: String(w) }))} />}
@@ -281,6 +315,7 @@ function MovTab({ space }: { space: SpaceId }) {
           <Slider f={F('motion.speed')} label="Velocidad" min={0} max={3} />
           <Slider f={F('motion.hold')} label="Stop motion" min={0} max={24} step={1} fmt={v => (v === 0 ? 'fluido' : v + ' fps')} />
           <Slider f={F('motion.loop')} label="Bucle perfecto" min={0} max={20} step={0.5} fmt={v => (v === 0 ? 'no' : v + ' s')} />
+          <LoopNote />
           <Sub>Ritmo</Sub>
           <Slider f={F('motion.pulse')} label="Latido" min={0} max={1} />
           <Slider f={F('motion.bpm')} label="Tempo" min={40} max={180} step={1} fmt={v => v + ' bpm'} />
@@ -290,6 +325,13 @@ function MovTab({ space }: { space: SpaceId }) {
       <TouchControls />
     </>
   );
+}
+
+/** With a family that has memory, the loop cannot close on it: said where the loop is set. */
+function LoopNote() {
+  const r = useRecipe();
+  if (!hasStateful(r)) return null;
+  return <Note>Esta pieza tiene una simulación con memoria: no vuelve a su inicio, así que «Bucle perfecto» no la cierra. Sus clips y videos son evolución continua desde el momento que elijas.</Note>;
 }
 
 function SoundControl() {
@@ -318,10 +360,13 @@ function SoundControl() {
 function FxTab() {
   return (
     <>
+      <Sub>Vidrio</Sub>
+      <GlassControls />
       <Sub>Luz</Sub>
       <Slider f={F('fx.glow')} label="Resplandor en la celda" min={0} max={1.5} />
       <Slider f={F('fx.bloom')} label="Halo de luz (bloom)" min={0} max={1.5}
         compare={<CompareStrip path="fx.bloom" choices={BLOOM} fmt={v => v.toFixed(1)} zoom={0.7} label="Halos de luz" />} />
+      <BloomShapeControl />
       <Slider f={F('fx.cellBg')} label="Relleno de celda" min={0} max={1} />
       <Sub>Pantalla</Sub>
       <Slider f={F('fx.scan')} label="Líneas de monitor" min={0} max={1} />
@@ -330,6 +375,7 @@ function FxTab() {
       <Slider f={F('fx.chroma')} label="Separación de color" min={0} max={1} />
       <Slider f={F('fx.flicker')} label="Parpadeo" min={0} max={1} />
       <Slider f={F('fx.grain')} label="Grano" min={0} max={1} />
+      <GrainKindControls />
       <Slider f={F('fx.grid')} label="Rejilla de celdas" min={0} max={1} />
       <BasicFxHint />
     </>

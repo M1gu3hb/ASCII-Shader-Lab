@@ -1,3 +1,4 @@
+import { previewTime } from '../families/host';
 import { createRenderer } from '../engine/create';
 import { PATTERN_GLSL } from '../engine/glsl/patterns';
 import type { Recipe } from '../engine/recipe';
@@ -158,7 +159,7 @@ export async function renderThumbs(recipes: Recipe[], w: number, onEach: (i: num
       if (signal?.cancelled) return null;
       eng.set(recipes[i]);
       await eng.ready();
-      eng.renderAt(t);
+      eng.renderAt(previewTime(recipes[i], t));
       const W = eng.canvas.width, H = eng.canvas.height;
       return snapshotCanvas(eng, 0, 0, W, H, W, H);
     });

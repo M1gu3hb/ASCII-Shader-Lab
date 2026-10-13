@@ -20,6 +20,8 @@ export interface MediaMeta {
   added: number;
 }
 export interface StoredMedia extends MediaMeta { blob: Blob }
+/** A record as kept: with its Blob, or with its bytes where the browser keeps no Blob in IndexedDB (put). */
+type Kept = MediaMeta & { blob?: Blob; bytes?: ArrayBuffer };
 
 /** Largest files kept in the browser. Bigger ones work while the tab is open but must be chosen again. */
 export const MEDIA_LIMITS: Record<MediaKind, number> = { image: 40 * 1024 * 1024, video: 200 * 1024 * 1024 };
@@ -53,6 +55,8 @@ const isQuota = (e: unknown) => e instanceof DOMException && e.name === 'QuotaEx
 /** Files up to this size are identified by a hash of all their bytes; bigger ones (videos) by samples. */
 const FULL_HASH_MAX = 16 * 1024 * 1024;
 const SAMPLE = 2 * 1024 * 1024;
+/** Largest file kept as plain bytes where the browser keeps no Blob (read into memory once, to store it). */
+const BYTES_MAX = FULL_HASH_MAX;
 
 /**
  * Content id of a file. A big video is not read whole (with its copy for the hash that took several
@@ -84,26 +88,37 @@ export async function put(file: Blob, meta: { kind: MediaKind; name: string; w: 
   let id: string;
   // the file may have changed or gone since it was picked: it still works in this tab if it decoded
   try { id = await contentId(file); } catch { return { id: await byName(), stored: false, reason: 'unavailable' }; }
+  const rec: StoredMedia = {
+    id, kind: meta.kind, name: meta.name.slice(0, 200), type, size: file.size, w: meta.w, h: meta.h, added: Date.now(),
+    // the file itself (IndexedDB copies a Blob without reading it into memory), typed as the record says
+    blob: file.type === type ? file : file.slice(0, file.size, type),
+  };
   try {
     const had = await get<StoredMedia>(id, store());
     // already kept: refresh its date so a collection running right now leaves it alone
     if (had) { await set(id, { ...had, added: Date.now() }, store()); return { id, stored: true }; }
-    const rec: StoredMedia = {
-      id, kind: meta.kind, name: meta.name.slice(0, 200), type, size: file.size, w: meta.w, h: meta.h, added: Date.now(),
-      // the file itself (IndexedDB copies a Blob without reading it into memory), typed as the record says
-      blob: file.type === type ? file : file.slice(0, file.size, type),
-    };
     await set(id, rec, store());
     return { id, stored: true };
   } catch (e) {
-    return { id, stored: false, reason: isQuota(e) ? 'no-space' : 'unavailable' };
+    if (isQuota(e) || file.size > BYTES_MAX) return { id, stored: false, reason: isQuota(e) ? 'no-space' : 'unavailable' };
+    // a browser that keeps no Blob in IndexedDB (WebKit's private windows) still keeps its bytes
+    try {
+      const { blob: _blob, ...plain } = rec;
+      await set(id, { ...plain, bytes: await file.arrayBuffer() }, store());
+      return { id, stored: true };
+    } catch (e2) {
+      return { id, stored: false, reason: isQuota(e2) ? 'no-space' : 'unavailable' };
+    }
   }
 }
 
 export async function getMedia(id: string): Promise<StoredMedia | undefined> {
   try {
-    const r = await get<StoredMedia>(id, store());
-    return r && r.blob instanceof Blob ? r : undefined;
+    const r = await get<Kept>(id, store());
+    if (r && r.blob instanceof Blob) return r as StoredMedia;
+    // kept as bytes (put): the same file again
+    if (r && r.bytes instanceof ArrayBuffer) { const { bytes, ...meta } = r; return { ...meta, blob: new Blob([bytes], { type: r.type }) }; }
+    return undefined;
   } catch { return undefined; }
 }
 
@@ -114,8 +129,8 @@ export async function hasMedia(id: string): Promise<boolean> {
 /** Everything stored, without the bytes. */
 export async function listMedia(): Promise<MediaMeta[]> {
   try {
-    const all = await entries<string, StoredMedia>(store());
-    return all.filter(([, r]) => r && typeof r === 'object').map(([, { blob: _blob, ...meta }]) => meta);
+    const all = await entries<string, Kept>(store());
+    return all.filter(([, r]) => r && typeof r === 'object').map(([, { blob: _blob, bytes: _bytes, ...meta }]) => meta);
   } catch { return []; }
 }
 

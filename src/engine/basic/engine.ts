@@ -1,20 +1,26 @@
 import { buildAtlas, uniqueChars, type Atlas } from '../atlas';
-import { BLENDS, INTERACT, cloneRecipe, type Recipe } from '../recipe';
-import { fontById } from '../catalog';
+import { getGlyphSet, watchGlyphSets, whenGlyphSet } from '../../glyphset/registry';
+import { BLENDS, INTERACT, cloneRecipe, foldIndex, type Recipe } from '../recipe';
+import { figureFit, fontById } from '../catalog';
 import { bakeGradient, hexToRgb, sampleGradient } from '../color';
 import { createFontLoader, type FontLoader } from '../fonts';
-import type { EngineOptions, EngineStats, GestureInput, GridSnapshot, MediaKind } from '../engine';
+import type { EngineOptions, EngineStats, FamilyCommand, GestureInput, GridSnapshot, MediaKind } from '../engine';
+import { FamilyHost, familyTime, fieldLoops, type FamilyBundle, type HostSource, type SlotInfo } from '../../families/host';
+import { mediaSource, TEXT_SIDE, textSource } from '../../families/source';
+import { retryFamily } from '../../families/models';
+import { hasColourFamily } from '../../families/palette';
+import { glassColourMode, opticsUniforms } from '../opticsU';
 import { TOUCH_TILE, VIEW_MODES, TouchField, isMarkMode, isTouchMode, touchSettings } from '../touch';
-import { PointerHub, SIM_MODES, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
+import { PointerHub, SIM_MODES, brushDry, brushGhost, brushWidth, isCalligraphy, legacyGhost, pressureGain, pressureRadius, simSettle } from '../pointer';
 import type { PatternLibrary } from '../glsl/patterns';
 import type { MediaEl, PreviewQuality, Renderer } from '../renderer';
 import { DEFAULT_TRANSITION, transitionOf, type TransitionSpec } from '../transitions';
-import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, type MsgLayout } from '../text';
+import { drawTextSource, layoutMessage, messageCycle, messageState, textAnimated, textMask, type MsgLayout } from '../text';
 import { animateMessage, movedCell, msgColorAnim, msgColorTime, scramblePool } from '../letters';
 import { fold, loopTime, morphPeriod, ondularTimes, pieceTime } from '../loop';
 import { activeXforms, trailDecay, trailStage, xformStages } from '../xform';
 import { XformState } from './xform';
-import { blurGrid, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
+import { PaperSheet, blurGrid, blurGridAnamorphic, grainPass, needsPixelPost, postPass, shadePass, type ComposeFrame, type GlyphAtlas } from './compose';
 import { drawOverlays, hasOverlays, type OverlayCache } from './overlays';
 import {
   FieldBuffers, MediaMap, fieldLayers, pulseAt, runField,
@@ -90,6 +96,8 @@ export class BasicEngine implements Renderer {
   private out32 = new Uint32Array(1);
   private flat: Uint32Array | null = null;
   private bloomBuf = new Float32Array(3);
+  /** «Papel» (recipe.fxKind.grain): this engine's still sheet. */
+  private paperSheet = new PaperSheet();
   private bloomTmp = new Float32Array(3);
   private sim = new SimGrid();
   private simMode = '';
@@ -102,6 +110,7 @@ export class BasicEngine implements Renderer {
   private textCanvas: HTMLCanvasElement | null = null;
   private textKey = '';
   private textBuf: TextBuffer | null = null;
+  private textAnim: { time: number; cols: number; loop?: number } | undefined;
   private msg: MsgLayout | null = null;
   private msgKey = '';
   /** The message's grid as the select pass reads it (its letters moved, when they move). */
@@ -124,6 +133,10 @@ export class BasicEngine implements Renderer {
   private mediaKey = '';
   private mediaOK = false;
   private mediaBuf: MediaBuffer | null = null;
+  /** The source as the families that read it last got it. */
+  private famSrcKey = '';
+  private famSrcVer = 0;
+  private famSrcCanvas: HTMLCanvasElement | null = null;
   private mediaCanvas: HTMLCanvasElement | null = null;
   private revealKey = '';
   private revealCanvas: HTMLCanvasElement | null = null;
@@ -158,7 +171,9 @@ export class BasicEngine implements Renderer {
   /** Cost of the last frame in ms, per pass (dev tools). */
   timings: BasicTimings = { field: 0, select: 0, compose: 0, total: 0 };
 
-  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1 };
+  private ptr = { x: -1e4, y: -1e4, tx: -1e4, ty: -1e4, px: -1e4, py: -1e4, on: 0, targetOn: 0, down: false, lastReal: -1e9, impulse: 0, moved: 0, pressure: -1,
+    // «Pincel caligráfico» (pointer.ts): the ghost lifts its brush between strokes; the brush's width now and a frame ago
+    lift: false, wf: 1, wf0: 1 };
   /** The gesture modes' field (../touch.ts): the same code, and the same bytes, as the WebGL engine. */
   private touch = new TouchField();
   private hub: PointerHub | null = null;
@@ -166,6 +181,10 @@ export class BasicEngine implements Renderer {
   private simLast = -1e9;
   /** Fixed-size engines: realT of the last renderAt (see AsciiEngine.demo). */
   private demoT = NaN;
+  /** Runs of the piece's visual families (the same host as the WebGL engine's: the same states). */
+  private fam: FamilyHost;
+  private famBusy = false;
+  private famStroke: Array<[number, number] | null> = [null, null, null, null];
   private ro: ResizeObserver | null = null;
   private io: IntersectionObserver | null = null;
   private cleanup: Array<() => void> = [];
@@ -179,6 +198,8 @@ export class BasicEngine implements Renderer {
     this.canvas = canvas;
     this.o = opts;
     this.r = cloneRecipe(recipe);
+    // (budget per frame below the WebGL engine's: here the CPU also draws every pixel)
+    this.fam = new FamilyHost({ live: !opts.fixedSize, cpu: true, frameBudget: 6, onError: opts.onError });
     this.fonts = opts.fonts ?? createFontLoader({ google: opts.googleFonts ?? true });
     this.playing = (opts.autoplay ?? true) && !opts.reducedMotion;
     // an offscreen engine read back often (thumbnails) keeps its canvas in memory: reading it then never waits for a GPU
@@ -198,6 +219,9 @@ export class BasicEngine implements Renderer {
       this.io.observe(canvas);
     }
     if (opts.interactive ?? true) this.bindPointer();
+    // the families of the first recipe (their specs, code and GLSL): set() asks for a new recipe's; this one
+    // was given to the constructor (exported code mounts its piece this way and never calls set())
+    void this.fam.ready(this.r).then(() => { this.needsRender = true; }, () => undefined);
     if (!opts.fixedSize) this.raf = requestAnimationFrame(this.loop);
   }
 
@@ -230,7 +254,7 @@ export class BasicEngine implements Renderer {
     if (!this.o.fixedSize && this.rendered && (trans || p)) {
       if (p) { p.r = r; p.trans = trans ?? p.trans; p.fonts = false; }
       const want = p ?? (this.pending = { r, trans: trans!, since: performance.now(), fonts: false });
-      void this.fontsFor(r).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
+      void Promise.all([this.fontsFor(r), this.fam.ready(r)]).then(() => { if (this.pending === want && want.r === r) want.fonts = true; });
       this.needsRender = true;
       return;
     }
@@ -245,7 +269,7 @@ export class BasicEngine implements Renderer {
     if (this.o.fixedSize) { this.xf.have = false; this.touch.reset(); this.demoT = NaN; }
     if (prev.glyph.cell !== next.glyph.cell || prev.glyph.aspect !== next.glyph.aspect) this.sizeDirty = true;
     if (prev.glyph.font !== next.glyph.font || prev.glyph.weight !== next.glyph.weight || prev.glyph.charset !== next.glyph.charset
-      || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
+      || prev.glyph.set !== next.glyph.set || prev.glyph.words !== next.glyph.words || prev.msg.text !== next.msg.text || prev.source !== next.source
       || prev.text.font !== next.text.font || prev.text.weight !== next.text.weight || prev.text.italic !== next.text.italic
       || prev.text.content !== next.text.content) void this.requestFonts();
     if (prev.source !== next.source) { this.mediaEl = null; this.mediaOK = false; }
@@ -262,8 +286,9 @@ export class BasicEngine implements Renderer {
 
   private fontsFor(r: Recipe): Promise<unknown> {
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).catch(() => undefined);
   }
 
@@ -301,7 +326,7 @@ export class BasicEngine implements Renderer {
   hasMedia(kind: MediaKind) { return !!this.media[kind]; }
 
   async ready(): Promise<void> {
-    await this.requestFonts();
+    await Promise.all([this.requestFonts(), this.fam.ready(this.r)]);
     this.atlasKey = '';
     this.textKey = '';
   }
@@ -323,7 +348,7 @@ export class BasicEngine implements Renderer {
     if (!(dt > 0 && dt <= 0.5)) {
       if (it.auto) {
         this.touch.reset(); this.sim.reset();
-        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false });
+        Object.assign(this.ptr, { on: 0, targetOn: 0, lastReal: -1e9, impulse: 0, down: false, lift: false, wf: 1, wf0: 1 });
         this.stepPointer(0, true);
         this.ptr.on = 1;
       }
@@ -388,6 +413,7 @@ export class BasicEngine implements Renderer {
 
   destroy() {
     this.alive = false;
+    this.fam.dispose();
     this.pending = null;
     this.transLayer.release();
     cancelAnimationFrame(this.raf);
@@ -405,8 +431,9 @@ export class BasicEngine implements Renderer {
     const r = this.r;
     const gen = ++this.fontGen;
     const sample = uniqueChars(r.glyph.charset + (r.msg.on ? r.msg.text : '') + (r.glyph.mode === 'words' ? r.glyph.words : '')).join('').slice(0, 200) || 'Aa';
-    const jobs = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
+    const jobs: Array<Promise<unknown>> = [this.fonts.ensure(r.glyph.font, r.glyph.weight, false, sample)];
     if (r.source === 'text') jobs.push(this.fonts.ensure(r.text.font, r.text.weight, r.text.italic, r.text.content.slice(0, 120) || 'Aa'));
+    if (r.glyph.set) jobs.push(whenGlyphSet(r.glyph.set));
     return Promise.all(jobs).then(() => {
       if (gen !== this.fontGen && this.alive) return;
       this.atlasKey = '';
@@ -417,6 +444,9 @@ export class BasicEngine implements Renderer {
 
   /** A web font that lands after requestFonts() stopped waiting is drawn when it arrives (see engine.ts). */
   private watchLateFonts() {
+    // a glyph set the studio loads from this browser's storage (or one declared missing) redraws the atlas
+    const off = watchGlyphSets(() => { if (this.r.glyph.set) { this.atlasKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; } });
+    this.cleanup.push(off);
     const set = typeof document !== 'undefined' ? document.fonts : undefined;
     if (!set || typeof set.addEventListener !== 'function') return;
     const landed = () => { this.atlasKey = this.textKey = this.msgKey = this.wordsKey = ''; this.needsRender = true; };
@@ -462,7 +492,7 @@ export class BasicEngine implements Renderer {
     // (a shared link, a file still loading) is a still picture while paused
     const video = (this.r.source === 'video' || this.r.source === 'camera') && !!this.media[this.r.source];
     const sim = SIM_MODES.includes(this.r.interact.mode) && this.realT - this.simLast < simSettle(this.r.interact);
-    if (this.playing || this.needsRender || interactive || touching || video || sim || this.trans >= 0) {
+    if (this.playing || this.needsRender || interactive || touching || video || sim || this.famBusy || this.trans >= 0) {
       this.needsRender = false;
       const t0 = performance.now();
       const inTrans = this.trans >= 0;
@@ -499,10 +529,13 @@ export class BasicEngine implements Renderer {
     const P = this.ptr, it = this.r.interact;
     if (it.mode === 'none' || isTouchMode(it.mode)) return false;
     if (it.auto && (demo || this.realT - P.lastReal > 2.5)) {
-      const [gx, gy] = legacyGhost(this.realT);
+      // the calligraphic brush's ghost writes strokes and lifts the brush between them
+      const g = isCalligraphy(it) ? brushGhost(this.realT) : null;
+      const [gx, gy] = g ? [g.x, g.y] : legacyGhost(this.realT);
       P.tx = this.W * gx; P.ty = this.H * gy;
       P.targetOn = 1;
-    }
+      P.lift = !!g && !g.down;
+    } else P.lift = false;
     const sim = SIM_MODES.includes(it.mode);
     P.px = P.x; P.py = P.y;
     if (sim || P.on < 0.01) { P.x = P.tx; P.y = P.ty; }
@@ -575,12 +608,14 @@ export class BasicEngine implements Renderer {
   private updateAtlas() {
     const r = this.r, g = r.glyph;
     const extras = (r.msg.on ? r.msg.text : '') + (g.mode === 'words' ? g.words : '');
-    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join('')].join('\u0001');
+    const set = g.set ? getGlyphSet(g.set) : undefined;
+    const key = [g.charset, g.sort, g.font, g.weight, g.scale, this.cw, this.ch, uniqueChars(extras).sort().join(''), set ? g.set : ''].join('\u0001');
     if (key === this.atlasKey && this.atlas) return;
     this.atlasKey = key;
     this.atlas = buildAtlas({
-      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (fontById(g.font).fit ?? 1),
-      cw: this.cw, ch: this.ch, extras, maxTex: MAX_DIM,
+      // a glyph set fills its own em box: the font's optical fit does not apply to it
+      charset: g.charset, sort: g.sort, stack: this.fonts.stack(g.font), weight: g.weight, scale: g.scale * (set ? 1 : fontById(g.font).fit ?? 1),
+      cw: this.cw, ch: this.ch, extras, maxTex: MAX_DIM, glyphs: set ? { id: g.set!, set } : undefined,
     }, this.atlasCanvas ?? undefined);
     this.atlasCanvas = this.atlas.canvas;
     const cv = this.atlas.canvas, w = cv.width, h = cv.height;
@@ -607,6 +642,7 @@ export class BasicEngine implements Renderer {
     const key = JSON.stringify(t) + this.W + 'x' + this.H + (anim ? `|${anim.cols}|${anim.time}|${anim.loop}` : '');
     if (key === this.textKey && this.textBuf) return;
     this.textKey = key;
+    this.textAnim = anim;
     this.textCanvas ??= document.createElement('canvas');
     drawTextSource(this.textCanvas, this.W, this.H, t, this.fonts.stack(t.font), anim);
     const { width: w, height: h } = this.textCanvas;
@@ -764,18 +800,86 @@ export class BasicEngine implements Renderer {
     const P = this.ptr, it = this.r.interact;
     const m = INTERACT.indexOf(mode);
     const auto = it.auto && this.realT - P.lastReal > 2.5;
-    const active = Math.min(1.2, P.on > 0.2 ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0);
+    const cal = isCalligraphy(it);
+    // (the calligraphic ghost's brush is lifted between strokes: it does not ink as it moves to the next)
+    const active = Math.min(1.2, P.on > 0.2 && !(cal && auto && P.lift) ? (Math.min(1, P.moved / Math.max(2, this.cw * 0.5)) + (P.down ? 0.6 : 0) + (auto ? 0.5 : 0)) * pressureGain(P.pressure) : 0);
     const impulse = P.impulse * (P.on > 0.2 ? 1 : 0);
     if (active > 0 || impulse > 0) this.simLast = this.realT;
     const brushR = Math.max(4, it.radius * this.H * 0.5) * pressureRadius(P.pressure);
+    // the calligraphic brush: its width (now and a frame ago) and how dry it runs follow the stroke's speed
+    let dry = 0;
+    if (cal) {
+      const v = dt > 0 ? P.moved / dt / this.H : 0;
+      P.wf0 = P.wf;
+      if (dt > 0) P.wf += (brushWidth(v) - P.wf) * Math.min(1, dt * 14);
+      dry = brushDry(v);
+    }
+    const stroke = cal ? { r0: brushR * P.wf0, dry, bleed: it.bleed ?? 0.5 } : null;
     // the GPU steps once per 1/60 s too (see AsciiEngine.runSim)
     const steps = dt > 0 ? Math.max(1, Math.min(4, Math.round(dt * 60))) : 1;
     const sdt = (dt || 1 / 60) / steps;
     const d = it.decay ?? 0.5;
     for (let s = 0; s < steps; s++) {
-      this.sim.step(m, this.cw, this.ch, [P.px, P.py, P.x, P.y], brushR, it.strength, s === 0 ? active : 0, s === 0 ? impulse : 0, sdt, d);
+      this.sim.step(m, this.cw, this.ch, [P.px, P.py, P.x, P.y], brushR * (cal ? P.wf : 1), it.strength, s === 0 ? active : 0, s === 0 ? impulse : 0, sdt, d, stroke);
     }
   }
+
+  /** The piece's source for the families that read it (see AsciiEngine.familySource): the copies this engine keeps. */
+  private familySource() {
+    const r = this.r;
+    if (!FamilyHost.readsSource(r)) { if (this.famSrcKey) { this.famSrcKey = ''; this.fam.setSource(null); } return; }
+    let key = '-', make: (() => HostSource) | null = null;
+    const tb = this.textBuf, mb = this.mediaBuf;
+    if (r.source === 'text' && tb) {
+      key = 't|' + this.textKey;
+      // the same mask of the letters the WebGL engine hands over (engine/text.ts textMask, TEXT_SIDE): both
+      // engines' models read the same letters, so a family that follows their outlines plans the same route
+      const anim = this.textAnim;
+      make = () => {
+        const m = textMask((this.famSrcCanvas ??= document.createElement('canvas')), this.W, this.H, r.text, this.fonts.stack(r.text.font), anim, TEXT_SIDE);
+        return textSource(m.data, m.w, m.h, this.W, this.H, r.text.content, ++this.famSrcVer);
+      };
+    } else if (mb && this.mediaOK) {
+      const m = r.media;
+      key = `m|${this.mediaGen}|${Math.floor(this.mediaTime * 10)}|${m.fit}|${m.zoom}|${m.panX}|${m.panY}|${m.mirror}|${this.W}x${this.H}`;
+      make = () => mediaSource(mb, this.W, this.H, m, ++this.famSrcVer);
+    }
+    if (key === this.famSrcKey) return;
+    this.famSrcKey = key;
+    this.fam.setSource(make ? make() : null);
+  }
+
+  /** Brings the piece's family runs to the current moment and applies brush strokes (see AsciiEngine). */
+  private updateFamilies() {
+    const r = this.r;
+    if (!r.layers.some(l => l.on && l.fam)) { this.famBusy = false; return; }
+    const P = this.ptr;
+    const layers = r.layers.filter(l => l.on).slice(0, 4);
+    for (let i = 0; i < 4; i++) {
+      const l = layers[i], brush = l?.fam?.brush;
+      if (!l || !brush || this.o.fixedSize || !P.down || P.on < 0.2) { this.famStroke[i] = null; continue; }
+      const px = (P.x - 0.5 * this.W) / this.H, py = (0.5 * this.H - P.y) / this.H;
+      const sc = l.scale * figureFit(l.pattern, this.W, this.H, l.fam?.p, l.scale), a = (l.rot * Math.PI) / 180;
+      const dx = px - l.x, dy = py - l.y, c = Math.cos(a), s = Math.sin(a);
+      const qx = (c * dx - s * dy) * sc, qy = (s * dx + c * dy) * sc;
+      const prev = this.famStroke[i] ?? [qx, qy];
+      this.fam.stroke(i, { brush, x0: prev[0], y0: prev[1], x1: qx, y1: qy, r: Math.max(0.01, r.interact.radius * 0.5 * sc), strength: Math.max(0.2, r.interact.strength) });
+      this.famStroke[i] = [qx, qy];
+    }
+    this.familySource();
+    this.famBusy = this.fam.update(r, familyTime(this.t, r.motion.hold));
+  }
+
+  familyState(): FamilyBundle { return this.fam.bundle(); }
+  setFamilyStart(bundle: FamilyBundle | null, t0 = 0) { this.fam.setStart(bundle, t0); this.needsRender = true; }
+  adoptFamilies(bundle: FamilyBundle) { this.fam.adopt(bundle); this.needsRender = true; }
+  familyCommand(c: FamilyCommand) {
+    if (c.kind === 'retry') { void retryFamily(c.id).then(() => { this.needsRender = true; }); return; }
+    if (c.kind === 'reset') this.fam.reset(c.layer);
+    else this.fam.stepNow(c.n ?? 1, c.layer);
+    this.needsRender = true;
+  }
+  familyInfo(): SlotInfo[] { return this.fam.info(this.r); }
 
   private render(dt: number) {
     const T0 = performance.now();
@@ -815,10 +919,14 @@ export class BasicEngine implements Renderer {
       this.xf.t = this.realT;
       decay = trailDecay(dt, trail.k);
     } else this.xf.have = false;
+    this.updateFamilies();
     runField({
       W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows,
-      time: tq, loop: r.motion.loop, layers: fieldLayers(r, this.W, this.H),
+      // (a family with memory never claims a perfect loop: its layers are drawn as they are, see fieldLoops)
+      time: tq, loop: fieldLoops(r) ? r.motion.loop : 0, layers: fieldLayers(r, this.W, this.H, this.fam),
       warp: r.motion.warp, warpScale: r.motion.warpScale, pulse,
+      optics: r.optics ? opticsUniforms(r.optics, tq, r.motion.loop) : null,
+      opCol: glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)),
       src, mediaMix: r.media.mix, mediaBlend: Math.max(0, BLENDS.indexOf(r.media.blend)), morph: morphPeriod(r.text.morph, loop),
       media: this.mediaBuf, fit: r.media.fit === 'cover' ? 0 : r.media.fit === 'contain' ? 1 : 2,
       zoom: r.media.zoom, panX: r.media.panX, panY: r.media.panY, mirror: r.media.mirror,
@@ -846,7 +954,8 @@ export class BasicEngine implements Renderer {
     const ca = msgColorAnim(m);
     runSelect({
       cols: this.cols, rows: this.rows, time: tq, loop, r,
-      fa: this.field.a, fr: this.field.r, fg: this.field.g, fb: this.field.b, isMedia: src === 'media',
+      // the cells carry a colour of their own: the picture's, or a colour family's (families/palette.ts)
+      fa: this.field.a, fr: this.field.r, fg: this.field.g, fb: this.field.b, isMedia: src === 'media' || ((src === 'pattern' || src === 'text') && hasColourFamily(r)),
       grad: this.grad, n: a.n, edgeBase: a.edgeBase, blockIdx: a.blockIdx, words: this.words,
       msg: {
         on: !!(m.on && lay), mode: ['static', 'type', 'decode', 'marquee', 'words'].indexOf(m.mode), prog, win: 6, shift,
@@ -857,13 +966,16 @@ export class BasicEngine implements Renderer {
       imode, ptrCellX: P.x / this.cw, ptrCellY: P.y / this.ch, ptrOn: P.on, istr: it.strength, iradCells: (it.radius * this.H) / this.cw,
       touch: isMarkMode(it.mode) && td ? { data: td, mark: ts.glyphs === 'piece' ? 2 : 1, ink: ts.ink } : null,
       aspect: this.ch / this.cw,
+      glassCol: glassColourMode(r.optics, r.color.mode, src, hasColourFamily(r)) === 2,
     }, this.sel);
     const T2 = performance.now();
 
     // simplified preview (quality «Ligera»): none of the effects that cost a pass over every pixel
     const fx = this.q.simplify && !this.o.fixedSize ? { ...r.fx, curve: 0, chroma: 0, bloom: 0, grain: 0 } : r.fx;
     const bloom = fx.bloom > 0 && !this.transparent;
-    if (bloom) blurGrid(this.sel, this.cols, this.rows, fx.bloom, this.bloomBuf, this.bloomTmp);
+    // «Destello anamórfico» (recipe.fxKind.bloom): the streak, its colours apart and the bokeh ring
+    if (bloom && r.fxKind?.bloom === 'anamorfico') blurGridAnamorphic(this.sel, this.cols, this.rows, fx.bloom, this.ch / this.cw, this.bloomBuf, this.bloomTmp);
+    else if (bloom) blurGrid(this.sel, this.cols, this.rows, fx.bloom, this.bloomBuf, this.bloomTmp);
     const mediaPx = this.updateReveal();
     const hasMedia = this.mediaOK && ['image', 'video', 'camera'].includes(r.source);
     const ac = sampleGradient(this.grad, 1);
@@ -875,6 +987,8 @@ export class BasicEngine implements Renderer {
       touchReveal: it.mode === 'reveal' && td ? td : null, hasMedia,
       touchTile: isMarkMode(it.mode) && td ? { data: td, k: TOUCH_TILE } : null,
       mediaPx: hasMedia ? mediaPx : null, bloom: bloom ? this.bloomBuf : null,
+      // «Papel» (recipe.fxKind.grain): the still sheet instead of the film grain
+      paper: fx.grain > 0 && r.fxKind?.grain === 'papel' && !this.transparent ? this.paperSheet.get(this.W, this.H, this.cw, foldIndex(r.fxKind.fold)) : (this.paperSheet.drop(), null),
       // (flicker and grain: the piece's time, or with a loop the loop's time, as COMPOSE_FS's uFxTime)
       realT: loop > 0 ? fold(this.t, loop) : this.t,
     };
@@ -886,7 +1000,7 @@ export class BasicEngine implements Renderer {
       postPass(frame, this.flat, this.out32);
     } else {
       shadePass(frame, this.out32);
-      if (fx.grain > 0) grainPass(frame, this.out32);
+      if (fx.grain > 0) grainPass(frame, this.out32, frame.paper ?? null);
     }
     const tf = this.trans >= 0 && this.transLayer.ready ? {
       W: this.W, H: this.H, cw: this.cw, ch: this.ch, cols: this.cols, rows: this.rows, n: a.n,

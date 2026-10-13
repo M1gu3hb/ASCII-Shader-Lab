@@ -1,4 +1,5 @@
 import { charsetIdOf, patternById } from '../engine/catalog';
+import { familyById } from '../families/registry';
 import { hexToOklch } from '../engine/color';
 import type { Recipe } from '../engine/recipe';
 
@@ -37,7 +38,8 @@ export function lookOf(r: Recipe): Look {
   }
   return {
     lead,
-    family: lead ? patternById(lead).family : '',
+    // a visual family counts as its own kind of piece (its group), not as the catalogue's first family
+    family: lead ? (familyById(lead) ? 'familia:' + familyById(lead)!.group : patternById(lead).family) : '',
     patterns: [...new Set(on.map(l => l.pattern))],
     arch: r.meta.arch ?? '',
     charset: charsetIdOf(r.glyph.charset),

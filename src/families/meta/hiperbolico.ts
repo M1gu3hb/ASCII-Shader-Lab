@@ -1,0 +1,49 @@
+import type { FamilyMeta } from '../types';
+
+export const META: FamilyMeta = {
+  id: 'hiperbolico',
+  name: 'Teselación hiperbólica',
+  aka: ['plano hiperbólico', 'disco de Poincaré', 'teselación {p,q}', 'Escher', 'límite circular'],
+  group: 'forma',
+  kind: 'analytic',
+  version: 1,
+  params: [
+    { key: 'p', label: 'Lados (p)', type: 'int', min: 3, max: 12, def: 7 },
+    { key: 'q', label: 'Por vértice (q)', type: 'int', min: 3, max: 12, def: 3 },
+    { key: 'motif', label: 'Motivo', type: 'choice', def: 'aristas', options: [
+      { id: 'aristas', label: 'Aristas' }, { id: 'alternas', label: 'Teselas alternas' }, { id: 'estrella', label: 'Estrella' },
+      { id: 'relieve', label: 'Relieve' },
+    ] },
+    { key: 'width', label: 'Grosor', type: 'number', min: 0.3, max: 3, def: 1, step: 0.05 },
+    { key: 'drift', label: 'Deriva', type: 'number', min: -1, max: 1, def: 0.3, step: 0.01 },
+    { key: 'turn', label: 'Giro', type: 'number', min: -1, max: 1, def: 0.1, step: 0.01 },
+    { key: 'rim', label: 'Borde', type: 'number', min: 0, max: 1, def: 0.45, step: 0.01 },
+    { key: 'outside', label: 'Exterior', type: 'number', min: 0, max: 1, def: 0, step: 0.01 },
+  ],
+  presets: [
+    { id: 'triangulos', name: 'Rosetones', aka: ['Triángulos {7,3}', 'teselación {7,3}', 'grupo de triángulos (2,3,7)'], uses: ['arte/geometricas'],
+      params: { p: 7, q: 3, motif: 'alternas', width: 0.8, drift: 0.3, turn: 0.1, rim: 0.4, outside: 0 },
+      look: { stops: ['#0a0710', '#7a6a50', '#f3e4c4'], bg: '#05040a', charset: ' .:-=+*#%@' } },
+    { id: 'cuadrados', name: 'Red curva', aka: ['Cuadrados {4,5}', 'teselación {4,5}'], uses: ['arte/geometricas', 'terminal/figuras'], period: 32,
+      params: { p: 4, q: 5, motif: 'aristas', width: 1.2, drift: -0.25, turn: 0, rim: 0.3, outside: 0 },
+      look: { stops: ['#04100f', '#a6f0e0'], bg: '#020807', charset: ' .·:;+=#' } },
+    { id: 'estrellas', name: 'Estrellas que menguan', aka: ['Estrellas {6,4}', 'teselación {6,4}'], uses: ['arte/geometricas'],
+      params: { p: 6, q: 4, motif: 'estrella', width: 0.7, drift: 0.2, turn: -0.12, rim: 0.35, outside: 0 },
+      look: { stops: ['#100a04', '#8a6a2a', '#ffd38a'], bg: '#080502', charset: ' .-=+*#@' } },
+    { id: 'espejo', name: 'Disco y su reflejo', aka: ['Pentágonos y su reflejo {5,4}', 'teselación {5,4}'], uses: ['arte/geometricas', 'arte/optica'], period: 20,
+      params: { p: 5, q: 4, motif: 'aristas', width: 1, drift: 0.4, turn: 0, rim: 0.2, outside: 0.6 },
+      look: { stops: ['#0b0814', '#c9b8ff'], bg: '#05040c', charset: ' .:;+*#' } },
+    { id: 'relieve', name: 'Azulejos en relieve', aka: ['teselación {6,4} en relieve', 'disco de Poincaré'], uses: ['arte/geometricas', 'arte/figuras'],
+      params: { p: 6, q: 4, motif: 'relieve', width: 1, drift: 0.2, turn: 0.08, rim: 0.3, outside: 0 },
+      look: { stops: ['#07060a', '#5a5048', '#f0e2c8'], bg: '#040305', charset: ' .:-=+*#%@' } },
+    { id: 'mosaico', name: 'Mosaico que fluye', aka: ['teselación {5,4} en relieve', 'plano hiperbólico'], uses: ['fondos/geometricas', 'tipo/texturas'], period: 32,
+      params: { p: 5, q: 4, motif: 'relieve', width: 1.1, drift: 0.25, turn: 0, rim: 0, outside: 0 }, layer: { scale: 0.5 },
+      look: { stops: ['#05080a', '#3a5a5a', '#d8f0e8'], bg: '#030506', charset: ' .:-=+*#%@' } },
+  ],
+  // with no turn it loops with the drift (8 / drift seconds: one polygon onto the next, a symmetry); turning,
+  // the two motions never meet again
+  caps: { loop: true, time: { param: 'turn', values: { '0': 'bucle' }, else: 'continuo' }, basic: 'full', checkpoint: false },
+  budget: { },
+  // the disc is a figure; seen from close (layer scale 0.7 and less) it overflows the frame and fills it
+  figure: (_p, scale) => scale > 0.7,
+};
