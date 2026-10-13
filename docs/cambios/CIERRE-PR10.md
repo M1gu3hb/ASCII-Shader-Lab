@@ -61,6 +61,7 @@ mecanismo, dicho cuál), *excluido* (con su causa) y *bloqueado* (con la acción
 | P-34 | WebKit móvil emulado: `touch-mobile` «estudio» (la hoja arrastrada con eventos de ratón no queda «asomada»; con el perfil de Android, la página se cierra recorriendo la hoja de Exportar) | encontrado en este cierre | bloqueado | En emulación no se distingue si es del producto o de la emulación (ratón sobre un táctil emulado; un proceso de WebKit que cae); en Chromium móvil pasa 12/12. Necesita un iPhone real (§8) | `touch-mobile.spec.ts` (mobile-webkit) | §7 | — |
 | P-36 | Táctil: la fila «Con su paleta y sus caracteres» del panel de familia medía 28 px | encontrado en este cierre (Chromium y WebKit, según la pieza del dado) | verificado | 44 px de alto en táctil, también «Cómo funciona» | `touch-mobile.spec.ts` (Chromium móvil 12/12) | §7 | `8095f84` |
 | P-35 | La fila del historial vuelve al elemento actual mientras llegan miniaturas (`controls.spec`, 1 de 4) | encontrado en este cierre (previo: falla igual sin estos cambios) | pendiente | Fuera de este alcance; propuesto como tarea aparte con la causa probable (`ScrollRow` revela por identidad del nodo) | `controls.spec.ts` | §7 | — |
+| P-37 | Integrar en `main` y publicar en producción, comprobado en el sitio | encargo | verificado (Chromium y WebKit contra producción; Firefox, sobre el mismo build en local) | PR #10 integrado con merge en `06d56e7`; despliegue de Vercel `dpl_Cx4wLco5Jb2QBWX7jShCzmsTi2A6` | `produccion.spec` y las de §12 contra https://glyphos-ascii.vercel.app | §12 | `06d56e7` |
 
 ## 2. Contratos del motor (P-01, P-02)
 
@@ -409,7 +410,7 @@ https://glyphos-ascii.vercel.app:
   exportadores siguen cargándose al usarse, con su error, tiempo límite y reintento (`familias.spec` A-03 pasa).
 - **CI** (GitHub Actions, en cada push de la PR): `check` (tipos, unitarias completas, build, `npm audit`) y
   `public-e2e` (subconjunto de regresiones públicas y `perf.spec` con el presupuesto). En verde en cada push de
-  este cierre (`63c7941`, `f0ab00a`) y en el HEAD integrado (§12).
+  este cierre (`63c7941`, `f0ab00a`, `89c90bd`, `33b1f07`, `b9a9b45`) y en el commit integrado en `main` (§12).
 - **Calidad visual**: no se dedujo de la CI. Cada familia nueva se revisó en capturas ASCII en los dos motores y con la
   sonda temporal (informes de §4); este cierre revisó además las capturas de los presets que la sonda marca por encima
   del 97 % de tinta (§10) y las de los ecos y el grabado en WebKit.
@@ -417,5 +418,64 @@ https://glyphos-ascii.vercel.app:
 
 ## 12. Publicación
 
-Se completa tras integrar en `main` y comprobar el despliegue de producción: SHA de `main`, CI de ese commit,
-despliegue de Vercel (entorno, estado y commit de origen) y pruebas contra https://glyphos-ascii.vercel.app.
+- **Integración**: el PR #10 entró en `main` con un commit de merge, sin forzar ni tocar protecciones: **`06d56e7`**
+  (padres `deb3d87`, el `main` anterior, y `b9a9b45`, la cabeza del PR). El árbol de `06d56e7` es idéntico al de
+  `b9a9b45`, que tenía la CI en verde.
+- **CI de `main` en `06d56e7`**: «Comprobaciones» (tipos, unitarias, build, `npm audit` y `public-e2e` con el
+  presupuesto de primera vista) y «Verificación de producción» (espera a que producción sirva el HTML de este build,
+  y comprueba rutas, cabeceras de seguridad, 404, redirecciones y caché de los assets): las dos en verde.
+- **Despliegue**: Vercel `dpl_Cx4wLco5Jb2QBWX7jShCzmsTi2A6`, entorno de producción, estado `READY`, origen git
+  `main` en `06d56e7`, con el alias https://glyphos-ascii.vercel.app (los dominios antiguos redirigen a él).
+- **Lo servido es este build**: las 12 páginas HTML de `dist` piden en producción los mismos assets que el build local
+  de `06d56e7`, y los **356 archivos de `/assets/` son idénticos byte a byte** (sha-256). En la primera pasada cuatro
+  descargas llegaron cortadas; repetidas, coinciden. El build es determinista (ni el commit ni la fecha entran en él):
+  el preview de `33b1f07` servía los mismos nombres.
+
+### Pruebas contra https://glyphos-ascii.vercel.app
+
+Chromium 141 de Playwright (SwiftShader) desde esta máquina, un trabajador. Nada se escribe en el sitio: piezas,
+colección y fotos quedan en el navegador de cada prueba.
+
+| Qué pide el encargo | Prueba | Resultado en producción |
+|---|---|---|
+| Rutas y 404; mapa del sitio sin los estudios en pausa | `produccion.spec` | pasa |
+| Estudios de glifos y de foto en pausa | `produccion.spec` | pasa |
+| Versión del Azar | `produccion.spec` (v8 actual; una semilla v7 sigue en v7), `azar.spec` 3/3 | pasa |
+| Crear → editar → guardar con ★ → recargar → exportar | `produccion.spec` («Esfera de vidrio»: celda 14, ★, recarga, el vidrio sigue, PNG); `familias.spec` (una simulación guardada con ★ vuelve tras recargar; su PNG) | pasa |
+| Color por celda de ecos y humo | `produccion.spec`, los dos motores: «Túnel de colores» y «Aurora de humo», cuyas paletas son grises, se ven en color (WebGL 2: 92 % y 94 % de lo encendido con color; básico: 94 % y 27 %) | pasa |
+| Foto y texto propios | `familias-fuente.spec` 8/8 (ecos de tu foto y de tus palabras, letras de cromo, foto tras el papel; los dos motores) | pasa |
+| Grabado láser | `grabado.spec` 4/4 (PNG, GIF, página exportada; otro texto cambia el grabado, en los dos motores) | pasa |
+| Recuperación tras un fallo de carga | `familias.spec` A-03 (un chunk con 404 deja la capa en error, lo dice, y «Reintentar» la recupera sin recargar) | pasa |
+| Carga diferida y primera vista | `perf.spec` 6/6 | pasa |
+| Exportaciones y runtime | páginas de código exportadas que dibujan con WebGL 2 y con el motor básico (`acabados.spec`, `familias.spec`), `site.spec` 3/3 | pasa |
+| Datos locales | `data.spec` 10/10 (1 omitida: el estudio de foto, en pausa) | pasa |
+| Visor | `compartir.spec` (17) | ver abajo |
+
+- **Primera pasada completa** (24 min): **67 pasan, 3 fallan, 1 omitida**. Las 3 fallan en `compartir.spec`: el visor
+  no llegó a «listo» en 60 s. Repetidas, las tres pasan, con diferencia 0,00 (de 255) entre lo enviado y lo visto en
+  las 15 pantallas.
+- **Segunda pasada de `compartir.spec`**: 14 de 17. Fallan otras tres, todas aprobadas en la primera pasada: dos por
+  el visor que no llega a «listo», y una porque el estudio de origen no dejó pulsar «Ajustes de la pieza». **Cada una
+  de las 17 pasa en producción en al menos una pasada.**
+- **Causa medida**: 120 aperturas instrumentadas del visor en producción dan 115 listas y 5 que no. En las
+  cinco, un chunk de JS (`paint`, `color` o el propio `ver`) llegó con **502 Bad Gateway**, tras unos 10 s.
+  - Esa respuesta no lleva ninguna cabecera de Vercel (`server: Vercel`, `x-vercel-id`) ni las del sitio (CSP, COEP,
+    CORP). Sólo trae `connection: close`, `content-length: 23`, `text/plain` y `nosniff`.
+  - Toda respuesta real del sitio lleva esas cabeceras. El 502 lo genera un intermediario de la red de esta
+    máquina, no el sitio. Las 150 descargas directas del mismo asset dieron 200.
+  - El visor actúa como está diseñado: muestra el error y lo dice («No se pudo descargar el motor… Recarga la página»),
+    sin colgarse. Contra el build local, idéntico al servido, `compartir.spec` pasa 17/17.
+- **Otros navegadores**:
+  - **WebKit 26** de Playwright contra producción: `produccion.spec` y `familias-fuente.spec`, 14/14.
+  - **Firefox 142** no pudo abrir el sitio desde esta máquina (`SEC_ERROR_UNKNOWN_ISSUER`): el entorno intercepta
+    TLS con su propia CA y el perfil temporal de Firefox no la acepta (una política `Certificates.Install` no se
+    aplicó). No se desactivó la verificación.
+  - Las mismas 14 pruebas en Firefox contra el build local, idéntico byte a byte al servido: 14/14.
+- **Previews** (antes de integrar):
+  - Preview de `89c90bd`: 46 pasan, 5 fallan, 1 omitida. Repetidas, quedó un fallo real de la prueba: `contextOf`
+    podía crear un contexto WebGL en el lienzo del motor básico antes que su motor (corregido en `33b1f07`).
+  - Preview de `33b1f07`: `grabado.spec` y `acabados.spec` 12/12; `produccion.spec` 6/6.
+  - En el preview, `compartir.spec` falla por otra causa: Vercel inyecta su barra de comentarios (`vercel.live`) y
+    la CSP del sitio la bloquea. En producción no se inyecta.
+- **Lo que no se probó en producción**: GPU de hardware, Safari real e iPhone y Android reales (§8). WebKit de
+  Playwright no es Safari.
