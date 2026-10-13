@@ -168,6 +168,10 @@ Todas sobre el build de producción (`vite preview`), proyecto `desktop` de Play
 
 ## 9. Lo que no quedó resuelto
 
+> **Cierre posterior.** Todo lo de esta lista se retomó en [CIERRE-PR10.md](CIERRE-PR10.md): allí está la matriz con el
+> estado final de cada punto (implementado y verificado, equivalente, excluido con su causa o bloqueado por falta de
+> hardware), con sus pruebas y commits. Esta sección se conserva como estaba.
+
 - **Navegadores**: sólo Chromium 141 de Playwright con WebGL 2 por software (SwiftShader). No hay GPU real, ni teléfono real, ni Firefox, ni Safari en esta máquina: no se probó en ellos.
 - **C-07 «Grabado láser»** aplazado (necesita un recorrido ordenado del texto).
 - **Familias raster con color propio**: `ecos` y `humo` usan luminancia y la paleta de la pieza; dar color por celda a un raster pide un raster RGB en los dos motores.

@@ -666,3 +666,52 @@ Las rutas se dan en la revisión registrada. Ninguno de estos archivos tiene cab
     - p5ycho: MIT, «Copyright (c) 2017 Kjetil Midtgarden Golid».
     - Paper: Apache-2.0 + NOTICE.
     - RainEffect: no adaptar.
+
+## 9. Estado tras el cierre del PR #10
+
+Las decisiones y estados de arriba son históricos (revisión de `73d49f2`) y no se reescriben. Tras el cierre
+([CIERRE-PR10.md](../CIERRE-PR10.md), §4 con la tabla completa, archivos, pruebas y commits):
+
+- **Las 43 filas «Preset nuevo de …» y «Mejora de …»** quedaron implementadas, cada una con su mecanismo y la diferencia
+  visual que pedía; como familias nuevas que extienden el patrón citado (el patrón clásico no cambia), presets de una
+  familia con versión nueva o capacidades del motor:
+
+| Fuente | Fila | Implementación |
+|---|---|---|
+| radiant flow-field · vanta topology | I-01, I-31 | `flujo_ruido` «Líneas de flujo» |
+| radiant champagne-fizz | I-02 | `burbujas` «Burbujas con nucleación» |
+| radiant resonant-strings | I-03 | `cuerdas` «Cuerdas vibrantes» |
+| radiant kinetic-grid | I-04 | `tela` v2 · «Malla cinética» |
+| radiant laser-labyrinth · velvet-spotlight | I-05, I-21 | `haces_luz` «Haces de luz» |
+| radiant gilded-fracture | I-06 | `grietas_oro` «Grietas de oro» |
+| radiant golden-throne | I-07 | `mandala_capas` «Mandala de capas» |
+| radiant eclipse-glow | I-08 | `eclipse_total` «Eclipse total» |
+| radiant diamond-caustics | I-09 | `talla_diamante` «Talla de diamante» |
+| radiant silk-groove · silk-cascade · vanta waves | I-10, I-11, I-33 | `seda` «Seda especular» |
+| radiant smolder | I-12 | `calor_radiante` «Calor que irradia» |
+| radiant neon-revival | I-13 | `neon_tubos` «Letrero de neón» |
+| radiant lipstick-smear | I-14 | `fluido` v2 · «Lazos de tinta» |
+| radiant digital-rain | I-15 | `lluvia_agua` «Lluvia digital sobre agua» |
+| radiant liquid-gold | I-16 | `metal_fundido` «Metal fundido» |
+| radiant woven-radiance | I-17 | `tejido_bandas` «Tejido de bandas» |
+| radiant vinyl-grooves | I-18 | `vinilo` «Disco de vinilo» |
+| radiant vintage-static | I-19 | `estatica_vhs` «Estática de barras» |
+| radiant ink-calligraphy | I-20 | pincel caligráfico (`interact.stroke`, `interact.bleed`) |
+| radiant lens-whisper | I-22 | destello anamórfico (`fxKind.bloom`) |
+| radiant painted-strata | I-23 | `estratos` «Estratos» |
+| radiant navier-stokes | I-24 | `fluido` v2 · «Chorro sumergido» |
+| paper dot-orbit | I-25 | `puntos_orbita` «Puntos en órbita» |
+| paper smoke-ring | I-26 | `anillo_humo` «Anillo de humo» |
+| paper paper-texture | I-27 | papel (`fxKind.grain`, `fxKind.fold`) |
+| vanta dots | I-28 | `rejilla_puntos` «Rejilla de puntos» |
+| vanta globe | I-29 | `globo_puntos` «Globo de constelaciones» |
+| vanta rings | I-30 | `arcos_parciales` «Arcos parciales» |
+| vanta trunk | I-32 | `anillos_tronco` «Anillos de tronco» |
+| webglblobs · shadergradient sphere | I-34, I-35 | `jade_ruido` «Jade de ruido» |
+| shadergradient glass · three.js transmisión y dispersión (WebGL) | I-36…I-40 | vidrio en sólidos (`optics.kind` esfera y poliedro: Fresnel, refracción, dispersión, grosor, tinte) |
+| three.js WebGPU (dispersión y transmisión) | I-41…I-43 | equivalentes con trazabilidad: el mismo vidrio en WebGL 2 |
+
+- **C-07 «Grabado láser»**: hecho (familia `grabado`, presets «Tu palabra grabada», «Geometría», «Firma», «Placa
+  terminada», «Escritura de luz»; [grabado.md](../cierre-pr10/grabado.md)).
+- **Licencias**: todo es código propio desde la descripción del mecanismo; no se copió código ni assets de ninguna de
+  las fuentes, y la vía propia de Rain on Glass se conserva. `THIRD_PARTY_NOTICES` no cambia.
