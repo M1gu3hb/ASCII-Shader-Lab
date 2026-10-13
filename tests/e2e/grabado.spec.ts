@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { contextOf } from './canvas';
+import { contextOf, drawn } from './canvas';
 import { download, openStudio } from './helpers';
 import { chooseRecipe, hideStageOverlays } from './recipes';
 
@@ -110,6 +110,9 @@ for (const engine of ['webgl', 'basico'] as const) {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 1280, height: 800 });
     const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=tipo`);
+    // the basic stage draws first: asking for a context before its engine took one would create the wrong one
+    // (a WebGL stage is not readable outside its frame, and asking for webgl2 first gives it the type it takes)
+    if (engine === 'basico') await drawn(page, '.stage canvas');
     expect(await contextOf(page, '.stage canvas')).toBe(engine === 'basico' ? '2d' : 'webgl2');
     await hideStageOverlays(page);
     await chooseRecipe(page, 'Grabado láser');

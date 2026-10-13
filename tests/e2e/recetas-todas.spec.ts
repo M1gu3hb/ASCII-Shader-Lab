@@ -3,7 +3,7 @@ import '../../src/families/all';
 import { expect, test, type Page } from '@playwright/test';
 import { allItems, type RecipeItem } from '../../src/studio/recipes/catalog';
 import { spaceById } from '../../src/random/spaces';
-import { contextOf } from './canvas';
+import { contextOf, drawn } from './canvas';
 import { openStudio } from './helpers';
 import { dropPhoto, hideStageOverlays, openRecipes, recipeCard, stageColours } from './recipes';
 
@@ -53,6 +53,9 @@ for (const engine of ['webgl', 'basico'] as const) {
       test(`${spaceById(space).name}: sus ${items.length} recetas y escenas abren en su espacio y dibujan`, async ({ page }) => {
         test.setTimeout(900_000);
         const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=${space}`);
+        // the basic stage draws first: asking for a context before its engine took one would create the wrong one
+        // (a WebGL stage is not readable outside its frame, and asking for webgl2 first gives it the type it takes)
+        if (engine === 'basico') await drawn(page, '.stage canvas');
         expect(await contextOf(page, '.stage canvas')).toBe(engine === 'basico' ? '2d' : 'webgl2');
         if (space === 'media') {
           await dropPhoto(page);

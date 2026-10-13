@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { defaultRecipe, normalizeRecipe, normOptics, type Recipe } from '../../src/engine/recipe';
 import { openStudio } from './helpers';
 import { dropPhoto, hideStageOverlays, openRecipes, recipeCard, stageColours } from './recipes';
-import { contextOf } from './canvas';
+import { contextOf, drawn } from './canvas';
 
 /**
  * Closing of PR #10, «acabados»: the glass solids (I-36…I-43), the anamorphic flare (I-22), the paper grain
@@ -99,6 +99,9 @@ for (const engine of ['webgl', 'basico'] as const) {
       test(`${SPACE_NAME[space]}: abren desde Recetas en su espacio y dibujan`, async ({ page }) => {
         test.setTimeout(300_000);
         const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=${space}`);
+        // the basic stage draws first: asking for a context before its engine took one would create the wrong one
+        // (a WebGL stage is not readable outside its frame, and asking for webgl2 first gives it the type it takes)
+        if (engine === 'basico') await drawn(page, '.stage canvas');
         expect(await contextOf(page, '.stage canvas')).toBe(engine === 'basico' ? '2d' : 'webgl2');
         if (space === 'media') { await dropPhoto(page); await settle(page); }
         await hideStageOverlays(page);

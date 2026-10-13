@@ -4,7 +4,7 @@ import { FAMILIES } from '../../src/families/all';
 import type { FamilyMeta } from '../../src/families/types';
 import { usesOf } from '../../src/studio/recipes/catalog';
 import { familyRecipe } from '../../src/families/recipes';
-import { contextOf } from './canvas';
+import { contextOf, drawn } from './canvas';
 import { download, openStudio } from './helpers';
 import { closeRecipes, hideStageOverlays, openRecipes, recipeCard, stageColours } from './recipes';
 
@@ -63,6 +63,9 @@ for (const engine of ['webgl', 'basico'] as const) {
       // (a minute per family at most: SwiftShader on a shared machine compiles every family's shader)
       test.setTimeout(60_000 * FAMILIES.length);
       const errors = await openStudio(page, `${engine === 'basico' ? '?motor=basico' : ''}#space=arte`);
+      // the basic stage draws first: asking for a context before its engine took one would create the wrong one
+      // (a WebGL stage is not readable outside its frame, and asking for webgl2 first gives it the type it takes)
+      if (engine === 'basico') await drawn(page, '.stage canvas');
       expect(await contextOf(page, '.stage canvas')).toBe(engine === 'basico' ? '2d' : 'webgl2');
       await hideStageOverlays(page);
       const bad: string[] = [];

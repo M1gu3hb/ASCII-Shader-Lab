@@ -179,6 +179,8 @@ test.describe('transformaciones de la fuente', () => {
     test.setTimeout(180_000);
     const errors = await openStudio(page, '?motor=basico#space=media');
     await dropPhoto(page);
+    // the stage draws first: asking for a context before its engine took one would create the wrong one
+    await drawn(page, '.stage canvas');
     expect(await contextOf(page, '.stage canvas')).toBe('2d');
     await chooseRecipe(page, 'Caleidoscopio');
     await drawn(page, '.stage canvas');
